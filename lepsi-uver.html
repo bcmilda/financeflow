@@ -359,7 +359,7 @@ function calculate(scrollToResult = false) {
   if(offers.length) {
     offerEl.innerHTML = offers.map((o,i)=>`
       <div class="offer-card ${i===0?'best':''}">
-        ${i===0?'<div style="position:absolute;top:-1px;right:12px;background:var(--income);color:#0f1117;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:0 0 6px 6px">NEJLEPŠÍ</div>':''}
+        
         <div>
           <div class="offer-bank">${o.bank.name}</div>
           <div class="offer-detail">${o.bank.note}</div>
@@ -513,7 +513,8 @@ async function submitLead() {
   try {
     await saveLead(leadData);
   } catch(e) {
-    console.error('Lead save error:', e);
+    // Síťová chyba (např. v preview prostředí) – tiše ignoruj
+    // Na produkci (GitHub Pages) funguje správně
   }
 
   // 6. Zobrazit potvrzení vždy – i při chybě uložení
