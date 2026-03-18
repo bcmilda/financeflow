@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Najdeme vám lepší úvěr | FinanceFlow</title>
+<meta name="description" content="Porovnejte svůj stávající úvěr s nabídkami bank. Zjistěte kolik přeplatíte a zda existuje výhodnější refinancování. Zdarma, bez registrace.">
+
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d2e; --surface2: #1e2235; --surface3: #252840;
+    --border: rgba(255,255,255,.08); --text: #e8eaf2; --text2: #a8adc4; --text3: #6b7194;
+    --income: #4ade80; --expense: #f87171; --debt: #fbbf24; --bank: #60a5fa;
+    --radius: 14px; --shadow: 0 4px 24px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+  .hero { background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 100%); border-bottom: 1px solid var(--border); padding: 40px 20px 32px; text-align: center; }
+  .logo { font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+  .logo span { color: var(--income); }
+  .hero h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; margin-bottom: 10px; }
+  .hero h1 span { color: var(--income); }
+  .hero p { color: var(--text2); font-size: 1rem; max-width: 520px; margin: 0 auto 20px; }
+  .badge { display: inline-block; background: rgba(74,222,128,.12); border: 1px solid rgba(74,222,128,.25); color: var(--income); padding: 4px 14px; border-radius: 20px; font-size: .78rem; margin-bottom: 16px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width: 600px) { .grid2 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: .78rem; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em; }
+  input, select { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-size: .9rem; margin-bottom: 14px; outline: none; transition: border .15s; }
+  input:focus, select:focus { border-color: var(--bank); }
+  .btn { padding: 12px 28px; border-radius: 10px; border: none; font-size: .92rem; font-weight: 700; cursor: pointer; transition: all .15s; }
+  .btn-accent { background: var(--income); color: #0f1117; width: 100%; font-size: 1rem; padding: 14px; border-radius: 12px; }
+  .btn-accent:hover { opacity: .9; transform: translateY(-1px); }
+  .result-box { display: none; }
+  .result-box.show { display: block; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media(max-width:500px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+  .stat { background: var(--surface2); border-radius: 10px; padding: 12px; border: 1px solid var(--border); text-align: center; }
+  .stat-val { font-size: 1.3rem; font-weight: 800; font-family: system-ui; }
+  .stat-lbl { font-size: .68rem; color: var(--text3); margin-top: 3px; text-transform: uppercase; letter-spacing: .05em; }
+  .bar-wrap { height: 12px; background: var(--surface3); border-radius: 6px; overflow: hidden; margin: 6px 0; }
+  .bar-fill { height: 100%; border-radius: 6px; transition: width .6s ease; }
+  .signal { padding: 7px 12px; border-radius: 8px; font-size: .8rem; margin-bottom: 6px; }
+  .signal-red { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.2); }
+  .signal-yellow { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.2); }
+  .signal-green { background: rgba(74,222,128,.08); border: 1px solid rgba(74,222,128,.15); }
+  .offer-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; gap:14px; flex-wrap: wrap; }
+  .offer-card.best { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.05); }
+  .offer-bank { font-weight: 700; font-size: .9rem; min-width: 100px; }
+  .offer-rate { font-size: 1.2rem; font-weight: 800; color: var(--income); }
+  .offer-detail { font-size: .74rem; color: var(--text3); }
+  .offer-saving { font-size: .78rem; color: var(--income); font-weight: 600; }
+  .cta-btn { background: var(--bank); color: white; padding: 7px 18px; border-radius: 8px; border: none; font-size: .78rem; font-weight: 700; cursor: pointer; margin-left: auto; white-space: nowrap; }
+  .lead-form { background: linear-gradient(135deg, rgba(96,165,250,.08), rgba(74,222,128,.05)); border: 1px solid rgba(96,165,250,.2); border-radius: var(--radius); padding: 20px; text-align: center; margin-top: 20px; }
+  .lead-form h3 { font-size: 1.2rem; margin-bottom: 6px; }
+  .lead-form p { font-size: .84rem; color: var(--text2); margin-bottom: 16px; }
+  .lead-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .lead-row input { margin-bottom: 0; flex: 1; min-width: 180px; }
+  .app-cta { background: linear-gradient(135deg, rgba(74,222,128,.1), rgba(96,165,250,.08)); border: 1px solid rgba(74,222,128,.2); border-radius: var(--radius); padding: 20px; text-align: center; margin-top: 20px; }
+  .tag { background: rgba(248,113,113,.15); color: var(--expense); border-radius: 4px; padding: 1px 7px; font-size: .72rem; font-weight: 700; }
+  .tag-green { background: rgba(74,222,128,.15); color: var(--income); }
+  .dsti-meter { position: relative; height: 20px; border-radius: 10px; background: linear-gradient(90deg, var(--income) 0%, var(--income) 35%, var(--debt) 35%, var(--debt) 50%, var(--expense) 50%); margin: 8px 0; overflow: visible; }
+  .dsti-needle { position: absolute; top: -4px; width: 4px; height: 28px; background: white; border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 6px rgba(0,0,0,.5); transition: left .6s ease; }
+  footer { text-align: center; padding: 24px; font-size: .74rem; color: var(--text3); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="logo">Finance<span>Flow</span></div>
+  <h1>Najdeme vám <span>lepší úvěr</span></h1>
+  <p>Zadejte parametry stávající půjčky. Spočítáme kolik přeplatíte a ukážeme výhodnější alternativy.</p>
+  <div class="badge">✅ Zdarma · Bez registrace · Bez závazků</div>
+</div>
+
+<div class="container">
+
+  <!-- Kalkulačka -->
+  <div class="card">
+    <h2>📊 Váš stávající úvěr</h2>
+    <div class="grid2">
+      <div>
+        <label>Typ úvěru</label>
+        <select id="loanType" onchange="updateDefaults()">
+          <option value="personal">🏦 Spotřebitelský úvěr</option>
+          <option value="mortgage">🏠 Hypotéka</option>
+          <option value="nonbank">⚠️ Nebankovní půjčka</option>
+          <option value="credit">💳 Kreditní karta</option>
+          <option value="ico">💼 Úvěr na IČO</option>
+        </select>
+        <label>Zbývající dluh (Kč)</label>
+        <input type="number" id="loanAmount" placeholder="200 000" min="0" oninput="calculateDebounced()">
+        <label>Úroková sazba (% p.a.)</label>
+        <input type="number" id="loanRate" placeholder="11" step="0.1" min="0" oninput="calculateDebounced()">
+      </div>
+      <div>
+        <label>Měsíční splátka (Kč)</label>
+        <input type="number" id="loanPayment" placeholder="4 500" min="0" oninput="calculateDebounced()">
+        <label>Váš čistý měsíční příjem (Kč)</label>
+        <input type="number" id="userIncome" placeholder="45 000" min="0" oninput="calculateDebounced()">
+        <label>Počet dalších půjček</label>
+        <select id="otherLoans" onchange="calculateDebounced()">
+          <option value="0">Žádná jiná</option>
+          <option value="1">1 další</option>
+          <option value="2">2 další</option>
+          <option value="3">3 a více</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-accent" onclick="calculateNow()">🔍 Spočítat a najít lepší nabídky</button>
+  </div>
+
+  <!-- Výsledky -->
+  <div class="result-box" id="resultBox">
+
+    <!-- Přehled stávající půjčky -->
+    <div class="card">
+      <h2>💸 Váš stávající úvěr – co vás stojí</h2>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-val" id="resTotalPay" style="color:var(--expense)"></div>
+          <div class="stat-lbl">Celkem zaplatíte</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="resOverpay" style="color:var(--debt)"></div>
+          <div class="stat-lbl">Přeplatíte</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="resMonths"></div>
+          <div class="stat-lbl">Měsíců splácení</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="resRPSN" style="color:var(--debt)"></div>
+          <div class="stat-lbl">RPSN (odhad)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="resDSTI"></div>
+          <div class="stat-lbl">DSTI – zatížení</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="resDTIScore"></div>
+          <div class="stat-lbl">Hodnocení banky</div>
+        </div>
+      </div>
+
+      <!-- DSTI meter -->
+      <div style="margin-bottom:16px">
+        <div style="font-size:.76rem;color:var(--text2);margin-bottom:6px;font-weight:600">🏦 Bankovní hodnocení (DSTI)</div>
+        <div class="dsti-meter"><div class="dsti-needle" id="dstiNeedle"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--text3);margin-top:3px">
+          <span style="color:var(--income)">✅ Bezpečné (0-35%)</span>
+          <span style="color:var(--debt)">⚠️ Riziko (35-50%)</span>
+          <span style="color:var(--expense)">🚨 Zamítnutí (50%+)</span>
+        </div>
+      </div>
+
+      <!-- Varovné signály -->
+      <div id="warningSignals"></div>
+    </div>
+
+    <!-- Lepší nabídky -->
+    <div class="card">
+      <h2>🏆 Výhodnější alternativy</h2>
+      <div id="offerList"></div>
+    </div>
+
+    <!-- Lead form -->
+    <div class="lead-form" id="leadFormSection">
+      <h3 id="leadFormTitle">📞 Chcete pomoci s výběrem?</h3>
+      <p>Náš finanční poradce vám zdarma pomůže vybrat nejlepší refinancování a vyřídí vše za vás.</p>
+      <div id="leadFormContent">
+        <div class="lead-row">
+          <div style="flex:1;min-width:180px">
+            <input type="text" id="leadName" placeholder="Vaše jméno *" oninput="validateLeadField('name')">
+            <div id="leadNameErr" style="font-size:.7rem;color:var(--expense);margin-top:3px;display:none">⚠️ Vyplňte jméno</div>
+          </div>
+          <div style="flex:1;min-width:180px">
+            <input type="tel" id="leadPhone" placeholder="Telefon * (+420...)" oninput="validateLeadField('phone')">
+            <div id="leadPhoneErr" style="font-size:.7rem;color:var(--expense);margin-top:3px;display:none"></div>
+          </div>
+          <div style="flex:1;min-width:180px">
+            <input type="email" id="leadEmail" placeholder="E-mail (volitelné)" oninput="validateLeadField('email')">
+            <div id="leadEmailErr" style="font-size:.7rem;color:var(--expense);margin-top:3px;display:none"></div>
+          </div>
+        </div>
+        <button class="btn btn-accent" id="leadSubmitBtn" style="margin-top:10px;width:100%" onclick="submitLead()">
+          📲 Chci nezávaznou konzultaci zdarma
+        </button>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:8px">
+          Vaše data jsou v bezpečí a nebudou sdílena s třetími stranami. Kontaktujeme vás do 24 hodin.
+        </div>
+      </div>
+      <!-- Potvrzení po odeslání -->
+      <div id="leadSuccess" style="display:none;text-align:center;padding:20px">
+        <div style="font-size:3rem;margin-bottom:12px">✅</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800;color:var(--income);margin-bottom:8px">Děkujeme za důvěru!</div>
+        <div style="font-size:.88rem;color:var(--text2);margin-bottom:16px">Budeme vás kontaktovat do 24 hodin na uvedený kontakt.</div>
+        <div style="background:var(--surface2);border-radius:10px;padding:12px;font-size:.8rem;color:var(--text3)">
+          Mezitím si nainstalujte <strong style="color:var(--text2)">FinanceFlow</strong> a sledujte splácení v reálném čase.
+          <br><br>
+          <a href="https://bcmilda.github.io/financeflow" target="_blank" style="color:var(--bank)">→ Otevřít FinanceFlow zdarma</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- App CTA -->
+    <div class="app-cta">
+      <div style="font-size:1.4rem;margin-bottom:8px">📱</div>
+      <h3 style="margin-bottom:6px">Sledujte splácení v reálném čase</h3>
+      <p style="font-size:.84rem;color:var(--text2);margin-bottom:14px">
+        V aplikaci FinanceFlow vidíte nejen kalkulačku, ale i skutečný průběh splácení, propojení s příjmy, upozornění na splátky a debt-free day.
+      </p>
+      <a href="https://bcmilda.github.io/financeflow" target="_blank">
+        <button class="btn btn-accent">🚀 Otevřít FinanceFlow zdarma</button>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  © 2026 FinanceFlow · Kalkulačka má informativní charakter · 
+  <a href="https://bcmilda.github.io/financeflow" style="color:var(--bank)">Zpět do aplikace</a>
+</footer>
+
+<script>
+const BANKS = [
+  {name:'Česká spořitelna', types:['personal','mortgage'], rates:{personal:6.9,mortgage:4.8}, note:'Rychlé vyřízení online'},
+  {name:'ČSOB', types:['personal','mortgage','ico'], rates:{personal:7.4,mortgage:5.1,ico:8.9}, note:'Pro stávající klienty výhody'},
+  {name:'Komerční banka', types:['personal','mortgage'], rates:{personal:7.9,mortgage:5.3}, note:'Možnost odložení splátky'},
+  {name:'Raiffeisenbank', types:['personal','mortgage','ico'], rates:{personal:6.4,mortgage:4.9,ico:8.4}, note:'Nejlepší RPSN online'},
+  {name:'mBank', types:['personal','credit'], rates:{personal:5.9,credit:14.9}, note:'100% online proces'},
+  {name:'Moneta', types:['personal','mortgage'], rates:{personal:8.2,mortgage:5.6}, note:'Flexibilní splácení'},
+  {name:'Air Bank', types:['personal','credit'], rates:{personal:7.2,credit:15.9}, note:'Férové podmínky'},
+  {name:'Zonky', types:['personal'], rates:{personal:5.4}, note:'P2P půjčka – nízké sazby'},
+];
+
+function calcAnnuity(principal, rate, months) {
+  if(rate <= 0) return principal/months;
+  const r = rate/100/12;
+  return principal * r * Math.pow(1+r,months) / (Math.pow(1+r,months)-1);
+}
+
+let _calcTimer;
+let _resultsShown = false;
+
+function fmt(n) { return new Intl.NumberFormat('cs-CZ').format(Math.round(n)); }
+
+function updateDefaults() {
+  const type = document.getElementById('loanType').value;
+  const defaults = {personal:11,mortgage:5.5,nonbank:89,credit:25,ico:14};
+  document.getElementById('loanRate').value = defaults[type] || 10;
+  calculateDebounced();
+}
+
+function calculateDebounced() {
+  clearTimeout(_calcTimer);
+  if(_resultsShown){_calcTimer = setTimeout(()=>calculate(false), 400);}
+}
+
+function calculateNow() {
+  clearTimeout(_calcTimer);
+  _resultsShown = true;
+  calculate(true);
+}
+
+function calculate(scrollToResult = false) {
+  const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+  const rate = parseFloat(document.getElementById('loanRate').value) || 0;
+  const payment = parseFloat(document.getElementById('loanPayment').value) || 0;
+  const income = parseFloat(document.getElementById('userIncome').value) || 0;
+  const type = document.getElementById('loanType').value;
+  const otherLoans = parseInt(document.getElementById('otherLoans').value) || 0;
+
+  if(!amount || !rate) return;
+
+  // Calculate schedule
+  const r = rate/100/12;
+  const monthPayment = payment || calcAnnuity(amount, rate, 60);
+  let remaining = amount, months = 0, totalPaid = 0;
+  while(remaining > 1 && months < 600) {
+    const interest = remaining * r;
+    const principal = Math.min(monthPayment - interest, remaining);
+    if(principal <= 0) break;
+    remaining = Math.max(0, remaining - principal);
+    totalPaid += Math.min(monthPayment, remaining + monthPayment);
+    months++;
+  }
+  // Recalculate properly
+  totalPaid = 0; remaining = amount; months = 0;
+  while(remaining > 0.5 && months < 600) {
+    const interest = remaining * r;
+    const principalPart = Math.min(monthPayment - interest, remaining);
+    if(principalPart <= 0) break;
+    totalPaid += Math.min(monthPayment, remaining + interest);
+    remaining = Math.max(0, remaining - principalPart);
+    months++;
+  }
+  const overpay = totalPaid - amount;
+  const overpayPct = Math.round(overpay/amount*100);
+  // RPSN approximation
+  const rpsn = rate > 0 ? Math.round(rate * 1.15 * 10)/10 : 0;
+  // DSTI
+  const dsti = income > 0 ? Math.round(monthPayment/income*100) : 0;
+  // DTI
+  const dti = income > 0 ? Math.round(amount/(income*12)*100) : 0;
+
+  // Update stats
+  document.getElementById('resTotalPay').textContent = fmt(totalPaid) + ' Kč';
+  document.getElementById('resOverpay').textContent = '+' + fmt(overpay) + ' Kč';
+  document.getElementById('resMonths').textContent = months + ' měs';
+  document.getElementById('resRPSN').textContent = rpsn + '%';
+  document.getElementById('resDSTI').textContent = dsti + '%';
+
+  const bankScore = dsti < 35 && dti < 700 ? '🟢 Schválí' : dsti < 50 && dti < 900 ? '🟡 Riziko' : '🔴 Zamítne';
+  document.getElementById('resDTIScore').textContent = bankScore;
+
+  // DSTI needle
+  const needle = document.getElementById('dstiNeedle');
+  if(needle) needle.style.left = Math.min(95, dsti * 2) + '%';
+
+  // Warning signals
+  const warnings = [];
+  if(dsti > 50) warnings.push({type:'red', text:'🔴 Splátka tvoří '+dsti+'% příjmu – banky standardně zamítají (limit 50%)'});
+  else if(dsti > 35) warnings.push({type:'yellow', text:'🟡 Splátka tvoří '+dsti+'% příjmu – zvýšené riziko zamítnutí'});
+  else warnings.push({type:'green', text:'✅ Splátka '+dsti+'% příjmu – v bezpečném pásmu pro banky'});
+
+  if(type === 'nonbank') warnings.push({type:'red', text:'🔴 Nebankovní půjčka – typicky RPSN 50-150%, refinancování bankou ušetří tisíce'});
+  if(type === 'credit') warnings.push({type:'yellow', text:'🟡 Kreditní karta – po bezúročné lhůtě úrok ~25% p.a.'});
+  if(otherLoans >= 3) warnings.push({type:'red', text:'🔴 '+( otherLoans+1)+' půjček celkem – typický znak dluhové spirály'});
+  else if(otherLoans >= 1) warnings.push({type:'yellow', text:'🟡 '+( otherLoans+1)+' půjčky – zvažte konsolidaci'});
+  if(overpayPct > 80) warnings.push({type:'red', text:'🔴 Přeplatíte '+overpayPct+'% jistiny – extrémně drahý úvěr!'});
+  else if(overpayPct > 30) warnings.push({type:'yellow', text:'🟡 Přeplatíte '+overpayPct+'% jistiny – existují výhodnější alternativy'});
+
+  const wEl = document.getElementById('warningSignals');
+  wEl.innerHTML = warnings.map(w=>`<div class="signal signal-${w.type==='red'?'red':w.type==='yellow'?'yellow':'green'}" >${w.text}</div>`).join('');
+
+  // Better offers
+  const availableBanks = BANKS.filter(b => b.types.includes(type) || b.types.includes('personal'));
+  const offers = availableBanks.map(b => {
+    const bankRate = b.rates[type] || b.rates.personal || rate;
+    if(bankRate >= rate) return null;
+    const bankPayment = calcAnnuity(amount, bankRate, months);
+    let bt = 0, br = amount;
+    for(let i=0;i<months&&br>0.5;i++){
+      const bi=br*bankRate/100/12;
+      const bp=Math.min(bankPayment-bi,br);
+      if(bp<=0)break;
+      bt+=Math.min(bankPayment,br+bi);
+      br=Math.max(0,br-bp);
+    }
+    const saving = totalPaid - bt;
+    return {bank:b, rate:bankRate, totalPaid:bt, saving, monthlyDiff:monthPayment-bankPayment, note:b.note};
+  }).filter(Boolean).sort((a,b)=>b.saving-a.saving);
+
+  const offerEl = document.getElementById('offerList');
+  if(offers.length) {
+    offerEl.innerHTML = offers.map((o,i)=>`
+      <div class="offer-card ${i===0?'best':''}">
+        ${i===0?'<div style="position:absolute;top:-1px;right:12px;background:var(--income);color:#0f1117;font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:0 0 6px 6px">NEJLEPŠÍ</div>':''}
+        <div>
+          <div class="offer-bank">${o.bank.name}</div>
+          <div class="offer-detail">${o.bank.note}</div>
+        </div>
+        <div>
+          <div class="offer-rate">${o.rate}% p.a.</div>
+          <div class="offer-detail">splátka ${fmt(calcAnnuity(amount,o.rate,months))} Kč/měs</div>
+        </div>
+        <div class="offer-saving">Ušetříte<br>${fmt(o.saving)} Kč</div>
+        <button class="cta-btn" onclick="selectOffer('${o.bank.name}', ${o.rate})">Chci nabídku →</button>
+      </div>
+    `).join('');
+  } else {
+    offerEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text3)">
+      ✅ Váš úvěr je již konkurenceschopný. Výrazně výhodnější nabídky nejsou k dispozici.
+    </div>`;
+  }
+
+  document.getElementById('resultBox').classList.add('show');
+  if(scrollToResult) {
+    setTimeout(()=>document.getElementById('resultBox').scrollIntoView({behavior:'smooth', block:'start'}), 100);
+  }
+}
+
+function selectOffer(bank, rate) {
+  document.getElementById('leadName').focus();
+  document.querySelector('.lead-form').scrollIntoView({behavior:'smooth'});
+  document.querySelector('.lead-form h3').textContent = '📞 Mám zájem o nabídku: ' + bank + ' (' + rate + '% p.a.)';
+}
+
+// Firebase REST API – bez SDK, funguje všude
+const FB_URL = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/leads.json';
+
+async function saveLead(data) {
+  const res = await fetch(FB_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+function validatePhone(phone) {
+  if(!phone) return {ok:true, msg:''}; // volitelné
+  // Odstraň mezery, pomlčky, závorky
+  const clean = phone.replace(/[\s\-\(\)]/g,'');
+  // CZ formáty: +420XXXXXXXXX nebo 0XXXXXXXXX nebo XXXXXXXXX (9 číslic)
+  const czFull = /^(\+420|00420)?[6789]\d{8}$/.test(clean);
+  const intl = /^\+\d{7,15}$/.test(clean);
+  if(!czFull && !intl) {
+    if(clean.length < 9) return {ok:false, msg:'⚠️ Telefonní číslo je příliš krátké'};
+    if(clean.length > 15) return {ok:false, msg:'⚠️ Telefonní číslo je příliš dlouhé'};
+    return {ok:false, msg:'⚠️ Neplatný formát (použijte např. +420 777 888 999)'};
+  }
+  return {ok:true, msg:''};
+}
+
+function validateEmail(email) {
+  if(!email) return {ok:true, msg:''};
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  if(!valid) return {ok:false, msg:'⚠️ Neplatná e-mailová adresa'};
+  return {ok:true, msg:''};
+}
+
+function validateLeadField(field) {
+  if(field === 'name') {
+    const val = document.getElementById('leadName').value.trim();
+    const err = document.getElementById('leadNameErr');
+    err.style.display = val ? 'none' : 'block';
+    document.getElementById('leadName').style.borderColor = val ? 'var(--border)' : 'var(--expense)';
+  }
+  if(field === 'phone') {
+    const val = document.getElementById('leadPhone').value.trim();
+    const res = validatePhone(val);
+    const err = document.getElementById('leadPhoneErr');
+    err.textContent = res.msg;
+    err.style.display = (!res.ok) ? 'block' : 'none';
+    document.getElementById('leadPhone').style.borderColor = res.ok ? 'var(--border)' : 'var(--expense)';
+  }
+  if(field === 'email') {
+    const val = document.getElementById('leadEmail').value.trim();
+    const res = validateEmail(val);
+    const err = document.getElementById('leadEmailErr');
+    err.textContent = res.msg;
+    err.style.display = (!res.ok) ? 'block' : 'none';
+    document.getElementById('leadEmail').style.borderColor = res.ok ? 'var(--border)' : 'var(--expense)';
+  }
+}
+
+async function submitLead() {
+  const name  = document.getElementById('leadName').value.trim();
+  const phone = document.getElementById('leadPhone').value.trim();
+  const email = document.getElementById('leadEmail').value.trim();
+  const btn   = document.getElementById('leadSubmitBtn');
+
+  // 1. Validace jména
+  if(!name) {
+    document.getElementById('leadNameErr').style.display = 'block';
+    document.getElementById('leadName').style.borderColor = 'var(--expense)';
+    document.getElementById('leadName').focus();
+    return;
+  }
+
+  // 2. Telefon povinný
+  if(!phone) {
+    document.getElementById('leadPhoneErr').textContent = '⚠️ Telefonní číslo je povinné';
+    document.getElementById('leadPhoneErr').style.display = 'block';
+    document.getElementById('leadPhone').style.borderColor = 'var(--expense)';
+    document.getElementById('leadPhone').focus();
+    return;
+  }
+
+  // 3. Validace telefonu
+  const phoneRes = validatePhone(phone);
+  if(!phoneRes.ok) {
+    document.getElementById('leadPhoneErr').textContent = phoneRes.msg;
+    document.getElementById('leadPhoneErr').style.display = 'block';
+    document.getElementById('leadPhone').style.borderColor = 'var(--expense)';
+    document.getElementById('leadPhone').focus();
+    return;
+  }
+
+  // 4. Validace emailu (volitelný)
+  if(email) {
+    const emailRes = validateEmail(email);
+    if(!emailRes.ok) {
+      document.getElementById('leadEmailErr').textContent = emailRes.msg;
+      document.getElementById('leadEmailErr').style.display = 'block';
+      document.getElementById('leadEmail').style.borderColor = 'var(--expense)';
+      document.getElementById('leadEmail').focus();
+      return;
+    }
+  }
+
+  // 5. Uložit do Firebase REST API
+  btn.disabled = true;
+  btn.textContent = '⏳ Odesílám...';
+
+  const leadData = {
+    name, phone, email: email||null,
+    timestamp: Date.now(),
+    date: new Date().toISOString().slice(0,10),
+    source: 'lepsi-uver',
+    loanAmount: parseFloat(document.getElementById('loanAmount')?.value)||null,
+    loanRate: parseFloat(document.getElementById('loanRate')?.value)||null,
+    loanType: document.getElementById('loanType')?.value||null,
+    userIncome: parseFloat(document.getElementById('userIncome')?.value)||null,
+  };
+
+  try {
+    await saveLead(leadData);
+  } catch(e) {
+    console.error('Lead save error:', e);
+  }
+
+  // 6. Zobrazit potvrzení vždy – i při chybě uložení
+  document.getElementById('leadFormContent').style.display = 'none';
+  document.getElementById('leadSuccess').style.display = 'block';
+  document.getElementById('leadFormTitle').textContent = '';
+}
+</script>
+</body>
+</html>
