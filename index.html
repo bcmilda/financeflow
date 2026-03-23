@@ -386,7 +386,10 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 .tx-filter-row{display:flex;gap:6px;flex-wrap:wrap}
 .split-badge{display:inline-block;padding:2px 7px;border-radius:6px;font-size:.68rem;font-weight:700;background:rgba(96,165,250,.15);color:#60a5fa;border:1.5px solid #60a5fa;margin-left:5px;vertical-align:middle;letter-spacing:.02em}
 .split-parent-row{background:rgba(96,165,250,.04);border-left:3px solid #60a5fa}
-.split-child-row{background:var(--surface2);border-left:3px solid rgba(96,165,250,.3);padding-left:8px}border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.split-child-row{background:var(--surface2);border-left:3px solid rgba(96,165,250,.3);padding-left:8px}
+#splitItemsList input[type=number]::-webkit-inner-spin-button,
+#splitItemsList input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+#splitItemsList input[type=number]{-moz-appearance:textfield}border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
 .tx-filt-btn:hover{background:var(--surface3);color:var(--text)}
 .tx-filt-btn.active{background:var(--income-bg);border-color:rgba(74,222,128,.4);color:var(--income);font-weight:600}
 .tx-filt-select{flex:1;min-width:120px;padding:5px 8px!important;font-size:.78rem!important}
@@ -1230,7 +1233,7 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
       <div class="card-body" style="text-align:center;padding:24px">
         <div style="font-size:3rem;margin-bottom:12px">💚</div>
         <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px">Finance<span style="color:#4ade80">Flow</span></div>
-        <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Verze 6.24</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Verze 6.25</div>
         <div style="font-size:.78rem;color:var(--text3)">Vytvořeno s ❤️ a Claude AI</div>
       </div>
     </div>
@@ -2821,7 +2824,6 @@ function buildTxRow(t, D, ro) {
       <div style="display:flex;align-items:center;gap:5px">
         <span style="font-size:.9rem">${cat.icon}</span>
         <span style="font-weight:600;font-size:.82rem">${cat.name}</span>
-        ${isSplitParent?`<span class="split-badge">✂️ SPLIT · ${splitChildren.length}×</span>`:''}
       </div>
     </div>
     <div class="tx-table-cell tx-col-subcat" style="color:var(--text3);font-size:.78rem">${t.subcat||'–'}</div>
@@ -2834,7 +2836,10 @@ function buildTxRow(t, D, ro) {
     <div class="tx-table-cell tx-col-project">
       ${project?`<span style="font-size:.74rem;background:var(--project-bg);color:var(--project);padding:2px 7px;border-radius:6px;border:1px solid var(--project-border)">📁 ${project.name}</span>`:`<span style="color:var(--text3);font-size:.76rem">–</span>`}
     </div>
-    <div class="tx-table-cell" style="text-align:right;font-weight:700;color:${amtColor}">${amtSign}${fmtP(amt)} Kč</div>
+    <div class="tx-table-cell" style="text-align:right">
+      <div style="font-weight:700;color:${amtColor}">${amtSign}${fmtP(amt)} Kč</div>
+      ${isSplitParent?`<span class="split-badge" style="margin-left:0;margin-top:3px;display:inline-block">✂️ SPLIT · ${splitChildren.length}×</span>`:''}
+    </div>
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end">
       ${!ro&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}
       ${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}
@@ -10224,7 +10229,7 @@ function exportData(){
 //  MISC
 // ══════════════════════════════════════════════════════
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='modalSplit')o.classList.remove('open');}));
 window.addEventListener('resize',()=>renderPage());
 updateMLabel();
 
