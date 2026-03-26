@@ -1233,7 +1233,7 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
       <div class="card-body" style="text-align:center;padding:24px">
         <div style="font-size:3rem;margin-bottom:12px">💚</div>
         <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px">Finance<span style="color:#4ade80">Flow</span></div>
-        <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Verze 6.25</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Verze 6.26</div>
         <div style="font-size:.78rem;color:var(--text3)">Vytvořeno s ❤️ a Claude AI</div>
       </div>
     </div>
@@ -9270,31 +9270,131 @@ async function renderAdmin() {
     return;
   }
   el.innerHTML = `
-    <!-- Uživatelé -->
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">👥 Uživatelé</span><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
-      <div id="adminUserStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+    <!-- Záložky admin panelu -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="tx-filt-btn active" id="atab-users"   onclick="switchAdminTab('users',this)">👥 Uživatelé</button>
+      <button class="tx-filt-btn"        id="atab-keywords" onclick="switchAdminTab('keywords',this)">🔑 Keyword engine</button>
+      <button class="tx-filt-btn"        id="atab-corrections" onclick="switchAdminTab('corrections',this)">✏️ User corrections</button>
+      <button class="tx-filt-btn"        id="atab-lowconf"  onclick="switchAdminTab('lowconf',this)">⚠️ Low confidence</button>
+      <button class="tx-filt-btn"        id="atab-stats"    onclick="switchAdminTab('stats',this)">📊 Statistiky</button>
+      <button class="tx-filt-btn"        id="atab-leads"    onclick="switchAdminTab('leads',this)">📋 Leady</button>
     </div>
-    <!-- Affiliate -->
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">🔗 Affiliate</span></div>
-      <div id="adminAffiliateStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
-    </div>
-    <!-- Leady -->
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">📋 Leady z webu</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px" id="adminStats"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-        <input class="fi" id="leadSearch" placeholder="🔍 Hledat..." oninput="filterLeads(this.value)" style="flex:1;min-width:160px;font-size:.82rem;margin:0">
-        <button class="btn btn-accent btn-sm" onclick="exportLeadsExcel()">📊 Excel</button>
-        <button class="btn btn-ghost btn-sm" onclick="copyAllLeads()">📋 Kopírovat vše</button>
-        <button class="btn btn-ghost btn-sm" onclick="renderAdmin()">🔄</button>
+
+    <!-- USERS -->
+    <div id="atab-users-content">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">👥 Uživatelé</span><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
+        <div id="adminUserStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
-      <div id="adminLeadsTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">🔗 Affiliate</span></div>
+        <div id="adminAffiliateStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      </div>
+    </div>
+
+    <!-- KEYWORD ENGINE -->
+    <div id="atab-keywords-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title">🔑 Keyword engine – obchodníci → COICOP</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadKeywords()">🔄</button>
+        </div>
+        <div class="card-body">
+          <div style="font-size:.76rem;color:var(--text2);margin-bottom:12px">
+            Globální pravidla platí pro všechny uživatele. Přepsání výchozích pravidel z kódu.
+          </div>
+          <!-- Přidat nové pravidlo -->
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;background:var(--surface2);padding:10px;border-radius:10px;border:1px solid var(--border)">
+            <input class="fi" id="kw-new-keyword" placeholder="Klíčové slovo (např. lidl)" style="flex:1;min-width:120px;font-size:.82rem">
+            <select class="fi" id="kw-new-coicop" style="flex:1;min-width:140px;font-size:.82rem">
+              ${COICOP_GROUPS_DEF.map(g=>`<option value="${g.id}">${g.id}. ${g.name}</option>`).join('')}
+            </select>
+            <button class="btn btn-accent btn-sm" onclick="addKeywordRule()">➕ Přidat</button>
+          </div>
+          <!-- Tabulka pravidel -->
+          <div id="adminKeywordsTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USER CORRECTIONS -->
+    <div id="atab-corrections-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title">✏️ User corrections – co uživatelé opravují</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadCorrections()">🔄</button>
+        </div>
+        <div class="card-body">
+          <div style="font-size:.76rem;color:var(--text2);margin-bottom:12px">
+            Když uživatel ručně změní COICOP skupinu transakce, zaznamenáme to zde. Můžete povýšit na globální pravidlo.
+          </div>
+          <div id="adminCorrectionsTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOW CONFIDENCE -->
+    <div id="atab-lowconf-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title">⚠️ Low confidence transakce</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadLowConf()">🔄</button>
+        </div>
+        <div class="card-body">
+          <div style="font-size:.76rem;color:var(--text2);margin-bottom:12px">
+            Transakce kde si engine nebyl jistý (confidence &lt; 50). Opravte → zlepšíte model.
+          </div>
+          <div id="adminLowConfTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATISTIKY MAPOVÁNÍ -->
+    <div id="atab-stats-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title">📊 Statistiky mapování</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadMappingStats()">🔄</button>
+        </div>
+        <div id="adminMappingStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      </div>
+    </div>
+
+    <!-- LEADY -->
+    <div id="atab-leads-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">📋 Leady z webu</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px" id="adminStats"></div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <input class="fi" id="leadSearch" placeholder="🔍 Hledat..." oninput="filterLeads(this.value)" style="flex:1;min-width:160px;font-size:.82rem;margin:0">
+          <button class="btn btn-accent btn-sm" onclick="exportLeadsExcel()">📊 Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyAllLeads()">📋 Kopírovat vše</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadLeads()">🔄</button>
+        </div>
+        <div id="adminLeadsTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      </div>
     </div>`;
+
   loadUserStats();
   loadAffiliateStats();
-  loadLeads();
+  loadKeywords();
+}
+
+function switchAdminTab(tab, btn) {
+  ['users','keywords','corrections','lowconf','stats','leads'].forEach(t => {
+    const c = document.getElementById('atab-'+t+'-content');
+    const b = document.getElementById('atab-'+t);
+    if(c) c.style.display = 'none';
+    if(b) b.classList.remove('active');
+  });
+  const content = document.getElementById('atab-'+tab+'-content');
+  if(content) content.style.display = 'block';
+  if(btn) btn.classList.add('active');
+  // Načti data pro záložku
+  if(tab==='leads') loadLeads();
+  if(tab==='corrections') loadCorrections();
+  if(tab==='lowconf') loadLowConf();
+  if(tab==='stats') loadMappingStats();
 }
 
 async function loadUserStats() {
@@ -9382,6 +9482,290 @@ async function loadAffiliateStats() {
 }
 
 let _cachedLeads = [];
+
+// ══════════════════════════════════════════════════════
+//  ADMIN – KEYWORD ENGINE
+// ══════════════════════════════════════════════════════
+let _adminKeywords = {}; // {keyword: coicopId} – z Firebase
+
+async function loadKeywords() {
+  const el = document.getElementById('adminKeywordsTable'); if(!el) return;
+  el.innerHTML = '<div class="empty"><div class="et">⏳ Načítám...</div></div>';
+  try {
+    const snap = await _get(_ref(_db, 'keyword_overrides'));
+    _adminKeywords = snap.exists() ? snap.val() : {};
+
+    // Slouč s výchozími z kódu
+    const combined = {};
+    // Nejdřív výchozí z kódu
+    Object.entries(COICOP_KEYWORDS).forEach(([kw, id]) => {
+      combined[kw] = {coicopId: id, source: 'kód', overridden: false};
+    });
+    // Pak přepsání z Firebase
+    Object.entries(_adminKeywords).forEach(([kw, val]) => {
+      combined[kw] = {coicopId: val.coicopId||val, source: 'admin', overridden: true, updatedAt: val.updatedAt||''};
+    });
+
+    const sorted = Object.entries(combined).sort((a,b) => {
+      if(a[1].source==='admin' && b[1].source!=='admin') return -1;
+      if(b[1].source==='admin' && a[1].source!=='admin') return 1;
+      return a[0].localeCompare(b[0]);
+    });
+
+    el.innerHTML = `
+      <div style="font-size:.72rem;color:var(--text2);margin-bottom:8px">${sorted.length} pravidel celkem · <span style="color:var(--income)">${Object.keys(_adminKeywords).length} admin override</span> · ${Object.keys(COICOP_KEYWORDS).length} výchozích</div>
+      <div style="max-height:400px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+          <thead><tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:6px 8px;color:var(--text2)">Klíčové slovo</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text2)">COICOP skupina</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text2)">Zdroj</th>
+            <th style="padding:6px 8px"></th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(([kw, v]) => {
+              const grp = COICOP_GROUPS_DEF.find(g=>g.id==v.coicopId);
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 8px;font-weight:600">${kw}</td>
+                <td style="padding:6px 8px">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${grp?.color||'#999'};margin-right:5px;vertical-align:middle"></span>
+                  ${grp?.id||'?'}. ${grp?.name||'Neznámá'}
+                </td>
+                <td style="padding:6px 8px">
+                  <span style="font-size:.7rem;padding:2px 6px;border-radius:4px;background:${v.source==='admin'?'rgba(74,222,128,.15)':'var(--surface3)'};color:${v.source==='admin'?'var(--income)':'var(--text2)'}">
+                    ${v.source==='admin'?'✅ admin override':'🔧 kód'}
+                  </span>
+                </td>
+                <td style="padding:6px 8px;text-align:right;white-space:nowrap">
+                  <button class="btn btn-ghost btn-sm" onclick="editKeywordRule('${kw}',${v.coicopId})" style="font-size:.7rem;padding:2px 6px">✎</button>
+                  ${v.source==='admin'?`<button class="btn btn-danger btn-sm" onclick="deleteKeywordRule('${kw}')" style="font-size:.7rem;padding:2px 6px">✕</button>`:''}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--expense);padding:12px;font-size:.8rem">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function addKeywordRule() {
+  const kw  = document.getElementById('kw-new-keyword')?.value.trim().toLowerCase();
+  const cid = parseInt(document.getElementById('kw-new-coicop')?.value);
+  if(!kw) { alert('Zadejte klíčové slovo'); return; }
+  await _update(_ref(_db), {
+    [`keyword_overrides/${kw}`]: {coicopId: cid, updatedAt: Date.now(), updatedBy: 'admin'}
+  });
+  document.getElementById('kw-new-keyword').value = '';
+  loadKeywords();
+}
+
+function editKeywordRule(kw, currentId) {
+  const newId = prompt(`Změnit COICOP skupinu pro "${kw}"\n\n${COICOP_GROUPS_DEF.map(g=>`${g.id}. ${g.name}`).join('\n')}\n\nZadejte číslo (1-13):`, currentId);
+  if(!newId || isNaN(parseInt(newId))) return;
+  const id = parseInt(newId);
+  if(id < 1 || id > 13) { alert('Číslo musí být 1-13'); return; }
+  _update(_ref(_db), {
+    [`keyword_overrides/${kw}`]: {coicopId: id, updatedAt: Date.now(), updatedBy: 'admin'}
+  }).then(() => loadKeywords());
+}
+
+async function deleteKeywordRule(kw) {
+  if(!confirm(`Smazat override pro "${kw}"? Bude se používat výchozí pravidlo z kódu.`)) return;
+  await _set(_ref(_db, `keyword_overrides/${kw}`), null);
+  loadKeywords();
+}
+
+// ══════════════════════════════════════════════════════
+//  ADMIN – USER CORRECTIONS
+// ══════════════════════════════════════════════════════
+async function loadCorrections() {
+  const el = document.getElementById('adminCorrectionsTable'); if(!el) return;
+  el.innerHTML = '<div class="empty"><div class="et">⏳ Načítám...</div></div>';
+  try {
+    const snap = await _get(_ref(_db, 'coicop_corrections'));
+    if(!snap.exists()) {
+      el.innerHTML = '<div class="empty"><div class="et">Zatím žádné opravy od uživatelů</div></div>';
+      return;
+    }
+    const data = snap.val();
+    // Agreguj – kolik uživatelů opravilo stejný keyword
+    const agg = {};
+    Object.values(data).forEach(uid_corrections => {
+      Object.entries(uid_corrections).forEach(([kw, corr]) => {
+        if(!agg[kw]) agg[kw] = {kw, from: corr.from, to: corr.to, count: 0, toId: corr.toId};
+        agg[kw].count++;
+      });
+    });
+    const sorted = Object.values(agg).sort((a,b) => b.count - a.count);
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+        <thead><tr style="border-bottom:2px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px;color:var(--text2)">Klíčové slovo</th>
+          <th style="text-align:left;padding:6px 8px;color:var(--text2)">Původně</th>
+          <th style="text-align:left;padding:6px 8px;color:var(--text2)">Opraveno na</th>
+          <th style="text-align:center;padding:6px 8px;color:var(--text2)">Počet</th>
+          <th style="padding:6px 8px"></th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(c => {
+            const grpFrom = COICOP_GROUPS_DEF.find(g=>g.id==c.from);
+            const grpTo   = COICOP_GROUPS_DEF.find(g=>g.id==c.toId);
+            return `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 8px;font-weight:600">${c.kw}</td>
+              <td style="padding:6px 8px;font-size:.74rem;color:var(--text2)">${grpFrom?.name||c.from}</td>
+              <td style="padding:6px 8px;font-size:.74rem;color:var(--income)">${grpTo?.name||c.to}</td>
+              <td style="padding:6px 8px;text-align:center">
+                <span style="background:${c.count>=3?'rgba(74,222,128,.15)':'var(--surface3)'};color:${c.count>=3?'var(--income)':'var(--text2)'};padding:2px 7px;border-radius:10px;font-weight:700">${c.count}×</span>
+              </td>
+              <td style="padding:6px 8px;text-align:right">
+                <button class="btn btn-accent btn-sm" onclick="promoteCorrection('${c.kw}',${c.toId})" style="font-size:.7rem;padding:2px 8px" title="Povýšit na globální pravidlo">⬆️ Povýšit</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--expense);padding:12px;font-size:.8rem">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function promoteCorrection(kw, coicopId) {
+  if(!confirm(`Přidat "${kw}" → skupina ${coicopId} jako globální pravidlo?`)) return;
+  await _update(_ref(_db), {
+    [`keyword_overrides/${kw}`]: {coicopId, updatedAt: Date.now(), updatedBy: 'admin-promoted'}
+  });
+  alert('✅ Pravidlo přidáno do keyword engine!');
+  loadKeywords();
+}
+
+// ══════════════════════════════════════════════════════
+//  ADMIN – LOW CONFIDENCE
+// ══════════════════════════════════════════════════════
+async function loadLowConf() {
+  const el = document.getElementById('adminLowConfTable'); if(!el) return;
+  el.innerHTML = '<div class="empty"><div class="et">⏳ Načítám...</div></div>';
+  try {
+    // Načti transakce ze všech uživatelů kde confidence < 50
+    const snap = await _get(_ref(_db, 'users'));
+    if(!snap.exists()) { el.innerHTML = '<div class="empty"><div class="et">Žádná data</div></div>'; return; }
+    const lowConf = [];
+    Object.entries(snap.val()).forEach(([uid, udata]) => {
+      const txs = udata?.data?.transactions || [];
+      txs.forEach(tx => {
+        if(tx.type !== 'expense') return;
+        const {coicopId, confidence} = mapToCOICOP(tx);
+        if(confidence < 50) {
+          lowConf.push({uid: uid.slice(0,8)+'...', tx, coicopId, confidence});
+        }
+      });
+    });
+    lowConf.sort((a,b) => a.confidence - b.confidence);
+    const top50 = lowConf.slice(0, 50);
+    el.innerHTML = `
+      <div style="font-size:.72rem;color:var(--text2);margin-bottom:8px">${lowConf.length} transakcí s nízkou jistotou · zobrazeno ${top50.length}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+        <thead><tr style="border-bottom:2px solid var(--border)">
+          <th style="text-align:left;padding:6px 8px;color:var(--text2)">Transakce</th>
+          <th style="text-align:left;padding:6px 8px;color:var(--text2)">Namapováno</th>
+          <th style="text-align:center;padding:6px 8px;color:var(--text2)">Jistota</th>
+          <th style="padding:6px 8px"></th>
+        </tr></thead>
+        <tbody>
+          ${top50.map(({uid, tx, coicopId, confidence}) => {
+            const grp = COICOP_GROUPS_DEF.find(g=>g.id==coicopId);
+            const confColor = confidence < 20 ? 'var(--expense)' : confidence < 35 ? '#f59e0b' : 'var(--text2)';
+            return `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 8px">
+                <div style="font-weight:600">${tx.name||'–'}</div>
+                <div style="font-size:.68rem;color:var(--text2)">${uid} · ${tx.date||''}</div>
+              </td>
+              <td style="padding:6px 8px;font-size:.74rem">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${grp?.color||'#999'};margin-right:4px;vertical-align:middle"></span>
+                ${grp?.name||'Ostatní'}
+              </td>
+              <td style="padding:6px 8px;text-align:center;font-weight:700;color:${confColor}">${confidence}%</td>
+              <td style="padding:6px 8px">
+                <button class="btn btn-ghost btn-sm" onclick="addKeywordFromLowConf('${(tx.name||'').toLowerCase().replace(/'/g,'')}',${coicopId})" style="font-size:.7rem;padding:2px 6px">➕ Přidat pravidlo</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--expense);padding:12px;font-size:.8rem">Chyba: ${e.message}</div>`;
+  }
+}
+
+function addKeywordFromLowConf(name, suggestedId) {
+  const kw = prompt(`Klíčové slovo pro pravidlo:\n(např. část názvu "${name}")`, name.split(' ')[0]);
+  if(!kw) return;
+  const newId = prompt(`COICOP skupina:\n${COICOP_GROUPS_DEF.map(g=>`${g.id}. ${g.name}`).join('\n')}\n\nZadejte číslo:`, suggestedId);
+  if(!newId) return;
+  _update(_ref(_db), {
+    [`keyword_overrides/${kw.toLowerCase()}`]: {coicopId: parseInt(newId), updatedAt: Date.now(), updatedBy: 'admin-lowconf'}
+  }).then(() => { alert('✅ Pravidlo přidáno!'); loadKeywords(); });
+}
+
+// ══════════════════════════════════════════════════════
+//  ADMIN – STATISTIKY MAPOVÁNÍ
+// ══════════════════════════════════════════════════════
+async function loadMappingStats() {
+  const el = document.getElementById('adminMappingStats'); if(!el) return;
+  el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>';
+  try {
+    const snap = await _get(_ref(_db, 'users'));
+    if(!snap.exists()) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
+    let total = 0, highConf = 0, midConf = 0, lowConf = 0, fallback = 0;
+    const groupCounts = {};
+    COICOP_GROUPS_DEF.forEach(g => groupCounts[g.id] = 0);
+
+    Object.values(snap.val()).forEach(udata => {
+      const txs = udata?.data?.transactions || [];
+      txs.forEach(tx => {
+        if(tx.type !== 'expense') return;
+        total++;
+        const {coicopId, confidence} = mapToCOICOP(tx);
+        groupCounts[coicopId] = (groupCounts[coicopId]||0) + 1;
+        if(coicopId === 12 && confidence < 30) fallback++;
+        if(confidence >= 70) highConf++;
+        else if(confidence >= 50) midConf++;
+        else lowConf++;
+      });
+    });
+
+    const pctHigh = total ? Math.round(highConf/total*100) : 0;
+    const pctMid  = total ? Math.round(midConf/total*100) : 0;
+    const pctLow  = total ? Math.round(lowConf/total*100) : 0;
+    const pctFall = total ? Math.round(fallback/total*100) : 0;
+
+    el.innerHTML = `<div class="card-body">
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+        <div class="stat-card income"><div class="stat-label">Celkem transakcí</div><div class="stat-value up">${total.toLocaleString('cs')}</div></div>
+        <div class="stat-card income"><div class="stat-label">Vysoká jistota (≥70%)</div><div class="stat-value up">${pctHigh}%</div></div>
+        <div class="stat-card balance"><div class="stat-label">Střední jistota (50-69%)</div><div class="stat-value">${pctMid}%</div></div>
+        <div class="stat-card expense"><div class="stat-label">Nízká jistota (&lt;50%)</div><div class="stat-value down">${pctLow}%</div></div>
+      </div>
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:8px">Distribuce dle COICOP skupin:</div>
+      ${COICOP_GROUPS_DEF.map(g => {
+        const cnt = groupCounts[g.id]||0;
+        const pct = total ? Math.round(cnt/total*100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${g.color};flex-shrink:0"></span>
+          <span style="font-size:.76rem;flex:1">${g.id}. ${g.name}</span>
+          <div style="width:80px;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${g.color};border-radius:3px"></div>
+          </div>
+          <span style="font-size:.72rem;color:var(--text2);min-width:36px;text-align:right">${cnt} (${pct}%)</span>
+        </div>`;
+      }).join('')}
+      ${pctFall > 0 ? `<div style="margin-top:12px;padding:8px 12px;background:rgba(248,113,113,.1);border-radius:8px;font-size:.76rem;color:var(--expense)">⚠️ ${pctFall}% transakcí spadlo do fallback "Ostatní" – přidejte více keyword pravidel</div>` : ''}
+    </div>`;
+  } catch(e) {
+    el.innerHTML = `<div class="card-body" style="color:var(--expense);font-size:.8rem">Chyba: ${e.message}</div>`;
+  }
+}
 
 async function loadLeads() {
   try {
