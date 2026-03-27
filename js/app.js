@@ -9376,4 +9376,3 @@ updateMLabel();
 })();
 
 // Firebase initialized via module script below
-</script>
