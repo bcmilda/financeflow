@@ -10783,17 +10783,30 @@ async function handleImportFile(file) {
 // ── CSV parser ──
 function parseCSV(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target.result;
-      // Detekuj oddělovač
+    // Nejdřív zkus UTF-8, pak windows-1250 (KB, ČSOB)
+    const tryParse = (text) => {
       const sep = text.includes(';') ? ';' : ',';
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      const rows = lines.map(l => l.split(sep).map(c => c.replace(/^"|"$/g,'').trim()));
-      resolve(rows);
+      return lines.map(l => l.split(sep).map(c => c.replace(/^"|"$/g,'').trim()));
+    };
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        // Zkus UTF-8 první
+        const textUtf8 = new TextDecoder('utf-8', {fatal:true}).decode(e.target.result);
+        resolve(tryParse(textUtf8));
+      } catch(e1) {
+        // Fallback na windows-1250 (KB, ČSOB výpisy)
+        try {
+          const text1250 = new TextDecoder('windows-1250').decode(e.target.result);
+          resolve(tryParse(text1250));
+        } catch(e2) {
+          reject(new Error('Nelze přečíst soubor'));
+        }
+      }
     };
     reader.onerror = () => reject(new Error('Nelze přečíst soubor'));
-    reader.readAsText(file, 'UTF-8');
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -10873,7 +10886,8 @@ function mapImportRows(rows, bank) {
   if(!format) {
     if(header.some(h=>h.includes('protiúčet') || h.includes('protiucet'))) format = 'fio';
     else if(header.some(h=>h.includes('popis transakce'))) format = 'airbank';
-    else if(header.some(h=>h.includes('datum zaúčtování'))) format = 'csob';
+    else if(header.some(h=>h.includes('datum zaúčtování') || h.includes('datum zauctovani'))) format = 'csob';
+    else if(header.some(h=>h.includes('nazev protiuctu') || h.includes('název protiúčtu'))) format = 'kb';
     else if(header.some(h=>h.includes('datum'))) format = 'template';
   }
 
@@ -10882,7 +10896,7 @@ function mapImportRows(rows, bank) {
     fio: {date:'datum', amount:'objem', name:'název', note:'zpráva pro příjemce', type:'typ'},
     airbank: {date:'datum provedení', amount:'částka', name:'popis transakce', note:'poznámka'},
     csob: {date:'datum zaúčtování', amount:'částka v měně účtu', name:'popis', note:''},
-    kb: {date:'datum splatnosti', amount:'částka', name:'popis příkazu', note:''},
+    kb: {date:'datum zauctovani', amount:'castka', name:'nazev protiuctu', note:'zprava pro prijemce'},
     rb: {date:'datum', amount:'částka', name:'název protistrany', note:''},
     template: {date:'datum', amount:'částka', name:'název', note:'poznámka', cat:'kategorie', subcat:'podkategorie', tags:'tagy'},
   };
@@ -11156,6 +11170,10 @@ async function handlePdfFile(file) {
     if(!result.transactions?.length) throw new Error('Nepodařilo se extrahovat transakce z PDF');
 
     status.style.display = 'none';
+    // Přepni na CSV záložku kde je tlačítko pro import
+    switchImportTab('csv', document.getElementById('itab-csv'));
+    // Krátká prodleva aby se záložka stihla přepnout
+    await new Promise(r => setTimeout(r, 100));
     showImportPreview(result.transactions.map(t => ({
       date: parseImportDate(t.date||'') || new Date().toISOString().slice(0,10),
       amount: Math.abs(parseFloat(t.amount)||0),
@@ -11164,6 +11182,12 @@ async function handlePdfFile(file) {
       note: t.note||'',
       catId: '', _catName: t.category||'', subcat:'', tags:[],
     })).filter(t=>t.amount>0), file.name);
+    // Zobraz hlášku na PDF záložce také
+    const pdfStatus2 = document.getElementById('pdfStatus');
+    if(pdfStatus2) {
+      pdfStatus2.style.display = 'block';
+      pdfStatus2.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">PDF úspěšně analyzován. Zkontrolujte transakce níže a potvrďte import.</div></div>';
+    }
 
   } catch(e) {
     status.innerHTML = `<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text"><strong>Chyba:</strong> ${e.message}</div></div>`;
