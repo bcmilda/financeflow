@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.3</title>
+<title>FinanceFlow 6.31</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11059,8 +11059,7 @@ function setCatMapping(catName, catId) {
 }
 
 function confirmImportAndEdit(filename) {
-  // Importuj transakce a přesměruj do editoru transakcí
-  confirmImport(filename, true);
+  openImportEditor(filename);
 }
 
 function confirmImport(filename, openEditor) {
@@ -11256,6 +11255,190 @@ updateMLabel();
 // Firebase initialized via module script below
 </script>
 
+
+
+// ══════════════════════════════════════════════════════
+//  IMPORT EDITOR – detekce duplikátů
+// ══════════════════════════════════════════════════════
+let _importEditorRows = [];   // {row, score, color, match, included}
+let _importEditorFilter = 'all';
+let _importEditorPage = 0;
+const IMPORT_PAGE_SIZE = 50;
+const IMPORT_MAX = 500;
+
+function calcDupScore(r, existing) {
+  // Vrátí {score: 0-100, match: nejlepší shoda}
+  let best = 0, bestTx = null;
+  for(const t of existing) {
+    let score = 0;
+    // Datum ±1 den (30 bodů)
+    const d1 = new Date(r.date), d2 = new Date(t.date||t.created);
+    const diffDays = Math.abs((d1-d2)/(1000*60*60*24));
+    if(diffDays <= 1) score += 30;
+    else if(diffDays <= 3) score += 10;
+    // Částka ±5 Kč (30 bodů)
+    const amt1 = r.amount, amt2 = t.amount||t.amt||0;
+    const diffAmt = Math.abs(amt1 - amt2);
+    if(diffAmt <= 0.01) score += 30;
+    else if(diffAmt <= 5) score += 20;
+    else if(diffAmt <= 50) score += 5;
+    // Typ (10 bodů)
+    if(r.type === t.type) score += 10;
+    // Název – fuzzy match (30 bodů)
+    const n1 = (r.name||'').toLowerCase().trim();
+    const n2 = (t.name||'').toLowerCase().trim();
+    if(n1 && n2) {
+      if(n1 === n2) score += 30;
+      else if(n1.includes(n2) || n2.includes(n1)) score += 20;
+      else {
+        // Sdílená slova
+        const w1 = n1.split(/\s+/), w2 = n2.split(/\s+/);
+        const shared = w1.filter(w => w.length > 2 && w2.some(w2w => w2w.includes(w) || w.includes(w2w)));
+        if(shared.length > 0) score += Math.min(15, shared.length * 5);
+      }
+    }
+    if(score > best) { best = score; bestTx = t; }
+  }
+  return {score: best, match: bestTx};
+}
+
+function openImportEditor(filename) {
+  const D = getData();
+  const existing = D.transactions || [];
+  
+  if(_importRows.length > IMPORT_MAX) {
+    alert('Maximum importu je ' + IMPORT_MAX + ' transakcí najednou. Soubor obsahuje ' + _importRows.length + ' transakcí – rozdělte ho prosím na menší části.');
+    return;
+  }
+
+  _importEditorRows = _importRows.map(r => {
+    const {score, match} = calcDupScore(r, existing);
+    const color = score >= 75 ? 'red' : score >= 25 ? 'yellow' : 'green';
+    return {row: r, score, match, color, included: color !== 'red'};
+  });
+
+  // Seřaď: červené nahoře, pak žluté, pak zelené
+  _importEditorRows.sort((a,b) => b.score - a.score);
+
+  _importEditorFilter = 'all';
+  _importEditorPage = 0;
+  window._importEditorFilename = filename;
+  renderImportEditor();
+  document.getElementById('modalImportEditor').classList.add('open');
+}
+
+function getFilteredRows() {
+  if(_importEditorFilter === 'all') return _importEditorRows;
+  return _importEditorRows.filter(r => r.color === _importEditorFilter);
+}
+
+function filterImportEditor(f, btn) {
+  _importEditorFilter = f;
+  _importEditorPage = 0;
+  document.querySelectorAll('[id^="ief-"]').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderImportEditor();
+}
+
+function renderImportEditor() {
+  const filtered = getFilteredRows();
+  const total = _importEditorRows.length;
+  const included = _importEditorRows.filter(r => r.included).length;
+  const red = _importEditorRows.filter(r => r.color === 'red').length;
+  const yellow = _importEditorRows.filter(r => r.color === 'yellow').length;
+  const green = _importEditorRows.filter(r => r.color === 'green').length;
+
+  document.getElementById('importEditorStats').textContent =
+    `Celkem: ${total} · 🔴 ${red} · 🟡 ${yellow} · 🟢 ${green}`;
+  document.getElementById('importEditorCount').textContent =
+    `K importu: ${included} transakcí`;
+
+  const start = _importEditorPage * IMPORT_PAGE_SIZE;
+  const page = filtered.slice(start, start + IMPORT_PAGE_SIZE);
+
+  const D = getData();
+  const list = document.getElementById('importEditorList');
+  if(!page.length) { list.innerHTML = '<div class="empty"><div class="ei">🎉</div><div class="et">Žádné transakce v tomto filtru</div></div>'; return; }
+
+  list.innerHTML = page.map((item, i) => {
+    const globalIdx = _importEditorRows.indexOf(item);
+    const r = item.row;
+    const borderColor = item.color === 'red' ? 'var(--expense)' :
+                        item.color === 'yellow' ? 'var(--debt)' : 'var(--income)';
+    const bgColor = item.color === 'red' ? 'rgba(248,113,113,.08)' :
+                    item.color === 'yellow' ? 'rgba(251,191,36,.06)' : 'rgba(74,222,128,.05)';
+    const cat = (D.categories||[]).find(c => c.id === r.catId);
+
+    const matchHtml = item.match ? `
+      <div style="font-size:.7rem;color:var(--text3);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">
+        Podobná: <strong>${item.match.name||'?'}</strong> · ${item.match.date||''} · ${fmtP(item.match.amount||item.match.amt||0)} Kč
+        <span style="background:${item.color==='red'?'var(--expense-bg)':'var(--debt-bg)'};padding:1px 6px;border-radius:4px;font-size:.68rem;margin-left:4px">${item.score}% shoda</span>
+      </div>` : '';
+
+    return `
+    <div style="border:2px solid ${borderColor};background:${bgColor};border-radius:10px;padding:10px 12px;margin-bottom:8px;opacity:${item.included?'1':'.45'}" id="ier-${globalIdx}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" ${item.included?'checked':''} onchange="toggleImportRow(${globalIdx},this.checked)"
+          style="width:16px;height:16px;accent-color:var(--income);flex-shrink:0;cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <div style="font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name||'–'}</div>
+            <div style="font-size:.9rem;font-weight:700;color:${r.type==='income'?'var(--income)':'var(--expense)'};flex-shrink:0">
+              ${r.type==='income'?'+':'−'}${fmtP(r.amount)} Kč
+            </div>
+          </div>
+          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">
+            ${r.date} · ${cat?cat.icon+' '+cat.name:'Bez kategorie'} · ${r.type==='income'?'Příjem':'Výdaj'}
+          </div>
+          ${matchHtml}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="markImportRowGreen(${globalIdx})" title="Označit jako novou (ignorovat shodu)" style="flex-shrink:0;font-size:.7rem">🟢</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Stránkování
+  const totalPages = Math.ceil(filtered.length / IMPORT_PAGE_SIZE);
+  const paging = document.getElementById('importEditorPaging');
+  if(totalPages <= 1) { paging.innerHTML = ''; return; }
+  paging.innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="importEditorChangePage(-1)" ${_importEditorPage===0?'disabled':''}>‹ Předchozí</button>
+    <span style="font-size:.8rem;color:var(--text2);padding:0 8px">Strana ${_importEditorPage+1} / ${totalPages}</span>
+    <button class="btn btn-ghost btn-sm" onclick="importEditorChangePage(1)" ${_importEditorPage>=totalPages-1?'disabled':''}>Další ›</button>`;
+}
+
+function toggleImportRow(idx, checked) {
+  if(_importEditorRows[idx]) {
+    _importEditorRows[idx].included = checked;
+    _importEditorRows[idx].color = checked ? _importEditorRows[idx].color : 'red';
+    renderImportEditor();
+  }
+}
+
+function markImportRowGreen(idx) {
+  if(_importEditorRows[idx]) {
+    _importEditorRows[idx].color = 'green';
+    _importEditorRows[idx].score = 0;
+    _importEditorRows[idx].included = true;
+    _importEditorRows[idx].match = null;
+    renderImportEditor();
+  }
+}
+
+function importEditorChangePage(dir) {
+  const filtered = getFilteredRows();
+  const totalPages = Math.ceil(filtered.length / IMPORT_PAGE_SIZE);
+  _importEditorPage = Math.max(0, Math.min(totalPages-1, _importEditorPage + dir));
+  renderImportEditor();
+}
+
+function executeImport() {
+  const toImport = _importEditorRows.filter(r => r.included).map(r => r.row);
+  _importRows = toImport;
+  closeModal('modalImportEditor');
+  confirmImport(window._importEditorFilename || 'import');
+}
+
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -11311,5 +11494,41 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 </script>
+
+<!-- ══ IMPORT EDITOR MODAL ══ -->
+<div class="overlay" id="modalImportEditor" style="z-index:600;padding:0">
+  <div class="modal modal-lg" style="max-width:900px;max-height:96vh;display:flex;flex-direction:column">
+    <div class="modal-head" style="flex-shrink:0">
+      <h3>📥 Editor importu</h3>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="importEditorStats" style="font-size:.78rem;color:var(--text2)"></span>
+        <button class="btn btn-ghost btn-icon" onclick="closeModal('modalImportEditor')">✕</button>
+      </div>
+    </div>
+    <!-- Legenda -->
+    <div style="padding:10px 19px;border-bottom:1px solid var(--border);display:flex;gap:14px;flex-shrink:0;flex-wrap:wrap">
+      <span style="font-size:.76rem;display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:rgba(248,113,113,.3);border:2px solid var(--expense);display:inline-block"></span> Pravděpodobný duplikát (&gt;75%)</span>
+      <span style="font-size:.76rem;display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:rgba(251,191,36,.2);border:2px solid var(--debt);display:inline-block"></span> Možný duplikát (25–75%)</span>
+      <span style="font-size:.76rem;display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;border-radius:3px;background:rgba(74,222,128,.1);border:2px solid var(--income);display:inline-block"></span> Nová transakce</span>
+    </div>
+    <!-- Filtr -->
+    <div style="padding:8px 19px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0">
+      <button class="tx-filt-btn active" id="ief-all" onclick="filterImportEditor('all',this)">Vše</button>
+      <button class="tx-filt-btn" id="ief-red" onclick="filterImportEditor('red',this)">🔴 Duplikáty</button>
+      <button class="tx-filt-btn" id="ief-yellow" onclick="filterImportEditor('yellow',this)">🟡 Možné</button>
+      <button class="tx-filt-btn" id="ief-green" onclick="filterImportEditor('green',this)">🟢 Nové</button>
+    </div>
+    <!-- Seznam transakcí -->
+    <div id="importEditorList" style="flex:1;overflow-y:auto;padding:12px 19px"></div>
+    <!-- Stránkování -->
+    <div id="importEditorPaging" style="padding:8px 19px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:8px;flex-shrink:0"></div>
+    <!-- Footer -->
+    <div class="modal-foot" style="flex-shrink:0">
+      <span style="font-size:.78rem;color:var(--text2)" id="importEditorCount"></span>
+      <button class="btn btn-ghost" onclick="closeModal('modalImportEditor')">Zrušit</button>
+      <button class="btn btn-accent" onclick="executeImport()">✅ Provést import</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
