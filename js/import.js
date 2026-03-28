@@ -864,9 +864,3 @@ function executeImport() {
   closeModal('modalImportEditor');
   confirmImport(window._importEditorFilename || 'import');
 }
-
-</script>
-
-
-
-
