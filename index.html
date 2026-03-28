@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.34</title>
+<title>FinanceFlow 6.35</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -53,7 +53,7 @@
     <div class="login-logo">Finance<span>Flow</span></div>
     <div class="login-sub">Rodinné finance pod kontrolou</div>
 
-    <button class="btn-google" id="btnGoogleLogin" onclick="if(window._signInGoogle)window._signInGoogle();else if(typeof signInGoogle==='function')signInGoogle();else alert('Firebase se načítá, zkuste za chvíli...')">
+    <button class="btn-google" onclick="if(window._signInGoogle)window._signInGoogle();else setTimeout(function(){window._signInGoogle&&window._signInGoogle()},2000)">
       <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.615 24 12.255 24z"/><path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.64 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
       Přihlásit se přes Google
     </button>
@@ -64,7 +64,7 @@
 
     <div class="login-divider">nebo</div>
 
-    <button class="btn-local" id="btnLocalLogin" onclick="typeof showLocalWarning==='function'&&showLocalWarning()">
+    <button class="btn-local" onclick="showLocalWarning()">
       <span style="font-size:1.1rem">📱</span>
       Pokračovat bez účtu
     </button>
@@ -770,11 +770,11 @@
   <!-- O APLIKACI -->
   <div class="page" id="page-oAplikaci">
 
-    <!-- Logo karta -->
+    <!-- Logo -->
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.34</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.35</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -783,46 +783,31 @@
       <div class="card-body" style="padding:8px 12px">
         <div onclick="openContactForm()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">📧</span>
-          <div>
-            <div style="font-size:.88rem;font-weight:600">Kontakt &amp; podpora</div>
-            <div style="font-size:.72rem;color:var(--text3)">Napište nám dotaz nebo hlášení chyby</div>
-          </div>
+          <div><div style="font-size:.88rem;font-weight:600">Kontakt &amp; podpora</div><div style="font-size:.72rem;color:var(--text3)">Napište nám dotaz nebo hlášení chyby</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
         <div onclick="openPaywall()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">💎</span>
-          <div>
-            <div style="font-size:.88rem;font-weight:600">Premium – upgradovat</div>
-            <div style="font-size:.72rem;color:var(--text3)">Odemkněte všechny funkce</div>
-          </div>
+          <div><div style="font-size:.88rem;font-weight:600">Premium – upgradovat</div><div style="font-size:.72rem;color:var(--text3)">Odemkněte všechny funkce</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
         <div onclick="openPrivacyPolicy()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">🔒</span>
-          <div>
-            <div style="font-size:.88rem;font-weight:600">Ochrana osobních údajů</div>
-            <div style="font-size:.72rem;color:var(--text3)">Privacy Policy (CZ / EN)</div>
-          </div>
+          <div><div style="font-size:.88rem;font-weight:600">Ochrana osobních údajů</div><div style="font-size:.72rem;color:var(--text3)">Privacy Policy (CZ / EN)</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
         <div onclick="openTerms()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">📄</span>
-          <div>
-            <div style="font-size:.88rem;font-weight:600">Podmínky používání</div>
-            <div style="font-size:.72rem;color:var(--text3)">Terms of Service (CZ / EN)</div>
-          </div>
+          <div><div style="font-size:.88rem;font-weight:600">Podmínky používání</div><div style="font-size:.72rem;color:var(--text3)">Terms of Service (CZ / EN)</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
         <div onclick="rateApp()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">⭐</span>
-          <div>
-            <div style="font-size:.88rem;font-weight:600">Ohodnotit aplikaci</div>
-            <div style="font-size:.72rem;color:var(--text3)">Ohodnoťte nás na Google Play</div>
-          </div>
+          <div><div style="font-size:.88rem;font-weight:600">Ohodnotit aplikaci</div><div style="font-size:.72rem;color:var(--text3)">Ohodnoťte nás na Google Play</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
       </div>
@@ -832,194 +817,13 @@
     <div class="card">
       <div class="card-header"><span class="card-title">📋 Poznámky k vydání</span></div>
       <div class="card-body">
-        <div style="margin-bottom:14px">
-          <div style="color:var(--income);font-size:.78rem;font-weight:700">v6.34 <span style="color:var(--text3);font-weight:400">Aktuální</span></div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Modulární struktura JS, editor importu s detekcí duplikátů, dvousloupcové porovnání, CSV doporučeno</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v6.3</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Import CSV/PDF, oprava KB formátu, Firebase Hosting, tlačítka bank</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v6.27</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Import dat z CSV/Excel/PDF, Worker v2, AI rádce vylepšení</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.2</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Peněženky, Typy plateb, Opakované šablony, Nastavení, Převody mezi účty, Export CSV</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.1</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Premium systém, 30denní trial, Paywall</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.0</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">Firebase, Google přihlášení, Sdílení s partnerem, Rodinný souhrn</div>
-        </div>
-        <div>
-          <div style="color:var(--text2);font-size:.78rem;font-weight:700">v3.5</div>
-          <div style="font-size:.78rem;color:var(--text2);margin-top:3px">AI Rádce, Predikce, Grafy, Půjčky simulace</div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- MODAL: Kontaktní formulář -->
-  <div class="overlay" id="modalContact">
-    <div class="modal">
-      <div class="modal-head">
-        <h3>📧 Kontakt &amp; podpora</h3>
-        <button class="btn btn-ghost btn-icon" onclick="closeModal('modalContact')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="fg">
-          <label>Jméno</label>
-          <input class="fi" id="contactName" placeholder="Vaše jméno">
-        </div>
-        <div class="fg">
-          <label>Email pro odpověď</label>
-          <input class="fi" id="contactEmail" type="email" placeholder="vas@email.cz">
-        </div>
-        <div class="fg">
-          <label>Typ dotazu</label>
-          <select class="fs" id="contactType">
-            <option value="bug">🐛 Nahlásit chybu</option>
-            <option value="feature">💡 Návrh funkce</option>
-            <option value="support">❓ Technická podpora</option>
-            <option value="premium">💎 Dotaz k Premium</option>
-            <option value="other">📝 Jiné</option>
-          </select>
-        </div>
-        <div class="fg">
-          <label>Zpráva</label>
-          <textarea class="fta" id="contactMessage" rows="4" placeholder="Popište váš dotaz nebo problém..."></textarea>
-        </div>
-        <div id="contactStatus"></div>
-      </div>
-      <div class="modal-foot">
-        <button class="btn btn-ghost" onclick="closeModal('modalContact')">Zrušit</button>
-        <button class="btn btn-accent" onclick="sendContactForm()">📧 Odeslat</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Privacy Policy -->
-  <div class="overlay" id="modalPrivacy">
-    <div class="modal modal-lg" style="max-width:700px">
-      <div class="modal-head">
-        <h3>🔒 Ochrana osobních údajů</h3>
-        <button class="btn btn-ghost btn-icon" onclick="closeModal('modalPrivacy')">✕</button>
-      </div>
-      <div class="modal-body" style="max-height:70vh;overflow-y:auto">
-        <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button class="tx-filt-btn active" onclick="switchPrivacyLang('cz',this)">🇨🇿 Česky</button>
-          <button class="tx-filt-btn" onclick="switchPrivacyLang('en',this)">🇬🇧 English</button>
-        </div>
-        <div id="privacyCZ">
-          <h4 style="font-family:'Syne',sans-serif;margin-bottom:12px">Zásady ochrany osobních údajů</h4>
-          <p style="font-size:.78rem;color:var(--text3);margin-bottom:16px">Platné od: 1. dubna 2026</p>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <strong style="color:var(--text)">1. Správce údajů</strong><br>
-            Správcem osobních údajů je provozovatel aplikace FinanceFlow (Milan Migdal, <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="274544094a4e4b434667404a464e4b0944484a">[email&#160;protected]</a>).<br><br>
-            <strong style="color:var(--text)">2. Jaká data shromažďujeme</strong><br>
-            • <strong>Data účtu:</strong> jméno, email a profilová fotka z vašeho Google účtu (přes Google Sign-In)<br>
-            • <strong>Finanční data:</strong> transakce, kategorie, půjčky, projekty a další data která sami zadáváte<br>
-            • <strong>Technická data:</strong> verze aplikace, typ zařízení (pro diagnostiku chyb)<br><br>
-            <strong style="color:var(--text)">3. Kde data ukládáme</strong><br>
-            Vaše data jsou uložena v <strong>Google Firebase Realtime Database</strong> – databázi provozované společností Google LLC na serverech v Evropě (region europe-west1). Data jsou přenášena šifrovaně (HTTPS/TLS).<br><br>
-            <strong style="color:var(--text)">4. Jak data používáme</strong><br>
-            • Zobrazení vašich financí v aplikaci<br>
-            • Sdílení dat s partnerem (pouze pokud tuto funkci sami aktivujete)<br>
-            • Anonymní komunitní statistiky (pouze pokud s tím souhlasíte v Nastavení)<br><br>
-            <strong style="color:var(--text)">5. Sdílení s třetími stranami</strong><br>
-            Vaše osobní data <strong>neprodáváme</strong> ani nesdílíme s třetími stranami za účelem reklamy. Data jsou sdílena pouze:<br>
-            • Se společností Google (Firebase, Google Auth) jako technickým poskytovatelem<br>
-            • S Anthropic (Claude AI) – pouze obsah účtenek a bankovních výpisů při použití AI analýzy<br><br>
-            <strong style="color:var(--text)">6. Vaše práva</strong><br>
-            Máte právo na přístup, opravu nebo vymazání svých dat. Pro smazání účtu kontaktujte <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4022236e2d292c242100272d21292c6e232f2d">[email&#160;protected]</a>.<br><br>
-            <strong style="color:var(--text)">7. Kontakt</strong><br>
-            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="7012135e1d191c141130171d11191c5e131f1d">[email&#160;protected]</a>
-          </div>
-        </div>
-        <div id="privacyEN" style="display:none">
-          <h4 style="font-family:'Syne',sans-serif;margin-bottom:12px">Privacy Policy</h4>
-          <p style="font-size:.78rem;color:var(--text3);margin-bottom:16px">Effective date: April 1, 2026</p>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <strong style="color:var(--text)">1. Data Controller</strong><br>
-            The data controller is the operator of the FinanceFlow application (Milan Migdal, <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="583a3b763531343c39183f35393134763b3735">[email&#160;protected]</a>).<br><br>
-            <strong style="color:var(--text)">2. Data We Collect</strong><br>
-            • <strong>Account data:</strong> name, email and profile photo from your Google account (via Google Sign-In)<br>
-            • <strong>Financial data:</strong> transactions, categories, loans, projects and other data you enter yourself<br>
-            • <strong>Technical data:</strong> app version, device type (for error diagnostics)<br><br>
-            <strong style="color:var(--text)">3. Where We Store Data</strong><br>
-            Your data is stored in <strong>Google Firebase Realtime Database</strong> – a database operated by Google LLC on servers in Europe (region europe-west1). Data is transmitted encrypted (HTTPS/TLS).<br><br>
-            <strong style="color:var(--text)">4. How We Use Data</strong><br>
-            • Displaying your finances in the app<br>
-            • Sharing data with your partner (only if you activate this feature yourself)<br>
-            • Anonymous community statistics (only if you consent in Settings)<br><br>
-            <strong style="color:var(--text)">5. Third Party Sharing</strong><br>
-            We do <strong>not sell</strong> or share your personal data with third parties for advertising. Data is shared only with:<br>
-            • Google (Firebase, Google Auth) as a technical provider<br>
-            • Anthropic (Claude AI) – only receipt and bank statement content when using AI analysis<br><br>
-            <strong style="color:var(--text)">6. Your Rights</strong><br>
-            You have the right to access, correct or delete your data. To delete your account, contact <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3153521f5c585d555071565c50585d1f525e5c">[email&#160;protected]</a>.<br><br>
-            <strong style="color:var(--text)">7. Contact</strong><br>
-            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2b4948054642474f4a6b4c464a424705484446">[email&#160;protected]</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Terms -->
-  <div class="overlay" id="modalTerms">
-    <div class="modal modal-lg" style="max-width:700px">
-      <div class="modal-head">
-        <h3>📄 Podmínky používání</h3>
-        <button class="btn btn-ghost btn-icon" onclick="closeModal('modalTerms')">✕</button>
-      </div>
-      <div class="modal-body" style="max-height:70vh;overflow-y:auto">
-        <div style="display:flex;gap:8px;margin-bottom:16px">
-          <button class="tx-filt-btn active" onclick="switchTermsLang('cz',this)">🇨🇿 Česky</button>
-          <button class="tx-filt-btn" onclick="switchTermsLang('en',this)">🇬🇧 English</button>
-        </div>
-        <div id="termsCZ">
-          <h4 style="font-family:'Syne',sans-serif;margin-bottom:12px">Podmínky používání aplikace FinanceFlow</h4>
-          <p style="font-size:.78rem;color:var(--text3);margin-bottom:16px">Platné od: 1. dubna 2026</p>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <strong style="color:var(--text)">1. Přijetí podmínek</strong><br>
-            Používáním aplikace FinanceFlow souhlasíte s těmito podmínkami. Pokud nesouhlasíte, aplikaci nepoužívejte.<br><br>
-            <strong style="color:var(--text)">2. Bezplatná a Premium verze</strong><br>
-            Základní funkce (Dashboard, Transakce, Souhrn) jsou zdarma. Prémiové funkce (AI Rádce, Sdílení, Pokročilé grafy) vyžadují předplatné.<br><br>
-            <strong style="color:var(--text)">3. Odpovědnost za data</strong><br>
-            FinanceFlow je nástroj pro osobní přehled financí. <strong>Neposkytuje finanční poradenství.</strong> Za správnost zadaných dat odpovídá uživatel.<br><br>
-            <strong style="color:var(--text)">4. Dostupnost služby</strong><br>
-            Aplikace je poskytována "jak stojí a leží". Nezaručujeme nepřetržitou dostupnost ani bezchybný provoz.<br><br>
-            <strong style="color:var(--text)">5. Změny podmínek</strong><br>
-            Vyhrazujeme si právo podmínky změnit. O změnách budete informováni v aplikaci.<br><br>
-            <strong style="color:var(--text)">6. Kontakt</strong><br>
-            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a0c2c38ecdc9ccc4c1e0c7cdc1c9cc8ec3cfcd">[email&#160;protected]</a>
-          </div>
-        </div>
-        <div id="termsEN" style="display:none">
-          <h4 style="font-family:'Syne',sans-serif;margin-bottom:12px">Terms of Service – FinanceFlow</h4>
-          <p style="font-size:.78rem;color:var(--text3);margin-bottom:16px">Effective date: April 1, 2026</p>
-          <div style="font-size:.82rem;color:var(--text2);line-height:1.8">
-            <strong style="color:var(--text)">1. Acceptance</strong><br>
-            By using FinanceFlow, you agree to these terms. If you disagree, do not use the app.<br><br>
-            <strong style="color:var(--text)">2. Free and Premium</strong><br>
-            Basic features (Dashboard, Transactions, Summary) are free. Premium features (AI Advisor, Sharing, Advanced Charts) require a subscription.<br><br>
-            <strong style="color:var(--text)">3. Data Responsibility</strong><br>
-            FinanceFlow is a personal finance tool. <strong>It does not provide financial advice.</strong> The user is responsible for the accuracy of entered data.<br><br>
-            <strong style="color:var(--text)">4. Service Availability</strong><br>
-            The app is provided "as is". We do not guarantee continuous availability or error-free operation.<br><br>
-            <strong style="color:var(--text)">5. Changes</strong><br>
-            We reserve the right to change these terms. You will be notified of changes in the app.<br><br>
-            <strong style="color:var(--text)">6. Contact</strong><br>
-            <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="89ebeaa7e4e0e5ede8c9eee4e8e0e5a7eae6e4">[email&#160;protected]</a>
-          </div>
-        </div>
+        <div style="margin-bottom:12px"><div style="color:var(--income);font-size:.78rem;font-weight:700">v6.35 <span style="color:var(--text3);font-weight:400">Aktuální</span></div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Privacy Policy, Podmínky používání, Kontaktní formulář, Hodnocení aplikace</div></div>
+        <div style="margin-bottom:12px"><div style="color:var(--text2);font-size:.78rem;font-weight:700">v6.34</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Modulární JS, editor importu s detekcí duplikátů, dvousloupcové porovnání</div></div>
+        <div style="margin-bottom:12px"><div style="color:var(--text2);font-size:.78rem;font-weight:700">v6.3</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Import CSV/PDF, oprava KB formátu, Firebase Hosting</div></div>
+        <div style="margin-bottom:12px"><div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.2</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Peněženky, Typy plateb, Šablony, Nastavení, Export CSV</div></div>
+        <div style="margin-bottom:12px"><div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.1</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Premium systém, 30denní trial, Paywall</div></div>
+        <div style="margin-bottom:12px"><div style="color:var(--text2);font-size:.78rem;font-weight:700">v4.0</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">Firebase, Google přihlášení, Sdílení s partnerem, Rodinný souhrn</div></div>
+        <div><div style="color:var(--text2);font-size:.78rem;font-weight:700">v3.5</div><div style="font-size:.78rem;color:var(--text2);margin-top:3px">AI Rádce, Predikce, Grafy, Půjčky simulace</div></div>
       </div>
     </div>
   </div>
@@ -1577,4 +1381,115 @@
   <div class="modal">
     <div class="modal-head"><h3>Upravit profil</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalProfile')">✕</button></div>
     <div class="modal-body">
-      <div class="fg"><label>Zobrazované jméno</label><input class="fi
+      <div class="fg"><label>Zobrazované jméno</label><input class="fi" id="profileName" placeholder="Jan Novák"></div>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:-6px;margin-bottom:12px">Toto jméno uvidí váš partner v rodinném přehledu.</div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalProfile')">Zrušit</button><button class="btn btn-accent" onclick="saveProfile()">Uložit</button></div>
+  </div>
+</div>
+
+<!-- Firebase loaded via ES modules at bottom of script -->
+<script>
+
+<script src="js/app.js"></script>
+<script src="js/helpers.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/debts.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/premium.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/receipts.js"></script>
+<script src="js/admin.js"></script>
+<script src="js/import.js"></script>
+<script type="module" src="js/firebase.js"></script>
+
+<!-- MODAL: Kontaktní formulář -->
+<div class="overlay" id="modalContact">
+  <div class="modal">
+    <div class="modal-head"><h3>📧 Kontakt &amp; podpora</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalContact')">✕</button></div>
+    <div class="modal-body">
+      <div class="fg"><label>Vaše jméno</label><input class="fi" id="contactName" placeholder="Jan Novák"></div>
+      <div class="fg"><label>Váš email pro odpověď</label><input class="fi" id="contactEmail" type="email" placeholder="vas@email.cz"></div>
+      <div class="fg"><label>Typ dotazu</label>
+        <select class="fs" id="contactType">
+          <option value="bug">🐛 Nahlásit chybu</option>
+          <option value="feature">💡 Návrh funkce</option>
+          <option value="support">❓ Technická podpora</option>
+          <option value="premium">💎 Dotaz k Premium</option>
+          <option value="other">📝 Jiné</option>
+        </select>
+      </div>
+      <div class="fg"><label>Zpráva</label><textarea class="fta" id="contactMessage" rows="4" placeholder="Popište váš dotaz nebo problém..."></textarea></div>
+      <div id="contactStatus"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalContact')">Zrušit</button>
+      <button class="btn btn-accent" onclick="sendContactForm()">📧 Odeslat</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Privacy Policy -->
+<div class="overlay" id="modalPrivacy">
+  <div class="modal modal-lg" style="max-width:700px">
+    <div class="modal-head"><h3>🔒 Ochrana osobních údajů</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalPrivacy')">✕</button></div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="tx-filt-btn active" onclick="switchPrivacyLang('cz',this)">🇨🇿 Česky</button>
+        <button class="tx-filt-btn" onclick="switchPrivacyLang('en',this)">🇬🇧 English</button>
+      </div>
+      <div id="privacyCZ" style="font-size:.82rem;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--text)">1. Správce údajů</strong><br>Milan Migdal, bc.milda@gmail.com<br><br>
+        <strong style="color:var(--text)">2. Jaká data shromažďujeme</strong><br>
+        • Jméno, email a foto z Google účtu<br>• Finanční data která zadáváte<br>• Technická data pro diagnostiku<br><br>
+        <strong style="color:var(--text)">3. Kde data ukládáme</strong><br>Google Firebase Realtime Database (EU – europe-west1), šifrovaný přenos HTTPS/TLS.<br><br>
+        <strong style="color:var(--text)">4. Sdílení s třetími stranami</strong><br>Data neprodáváme. Sdílíme pouze s Google (Firebase) a Anthropic (Claude AI – pouze obsah účtenek/výpisů).<br><br>
+        <strong style="color:var(--text)">5. Vaše práva</strong><br>Přístup, oprava, smazání dat: bc.milda@gmail.com<br><br>
+        <em style="color:var(--text3)">Platné od: 1. dubna 2026</em>
+      </div>
+      <div id="privacyEN" style="display:none;font-size:.82rem;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--text)">1. Data Controller</strong><br>Milan Migdal, bc.milda@gmail.com<br><br>
+        <strong style="color:var(--text)">2. Data We Collect</strong><br>
+        • Name, email and photo from Google account<br>• Financial data you enter<br>• Technical data for diagnostics<br><br>
+        <strong style="color:var(--text)">3. Where We Store Data</strong><br>Google Firebase Realtime Database (EU – europe-west1), encrypted via HTTPS/TLS.<br><br>
+        <strong style="color:var(--text)">4. Third Party Sharing</strong><br>We do not sell data. Shared only with Google (Firebase) and Anthropic (Claude AI – receipts/statements only).<br><br>
+        <strong style="color:var(--text)">5. Your Rights</strong><br>Access, correction, deletion: bc.milda@gmail.com<br><br>
+        <em style="color:var(--text3)">Effective: April 1, 2026</em>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Terms -->
+<div class="overlay" id="modalTerms">
+  <div class="modal modal-lg" style="max-width:700px">
+    <div class="modal-head"><h3>📄 Podmínky používání</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalTerms')">✕</button></div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="tx-filt-btn active" onclick="switchTermsLang('cz',this)">🇨🇿 Česky</button>
+        <button class="tx-filt-btn" onclick="switchTermsLang('en',this)">🇬🇧 English</button>
+      </div>
+      <div id="termsCZ" style="font-size:.82rem;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--text)">1. Přijetí podmínek</strong><br>Používáním FinanceFlow souhlasíte s těmito podmínkami.<br><br>
+        <strong style="color:var(--text)">2. Bezplatná a Premium verze</strong><br>Základní funkce jsou zdarma. Prémiové funkce vyžadují předplatné.<br><br>
+        <strong style="color:var(--text)">3. Odpovědnost</strong><br>FinanceFlow neposkytuje finanční poradenství. Za správnost dat odpovídá uživatel.<br><br>
+        <strong style="color:var(--text)">4. Dostupnost</strong><br>Aplikace je poskytována "jak stojí a leží" bez záruky nepřetržité dostupnosti.<br><br>
+        <strong style="color:var(--text)">5. Kontakt</strong><br>bc.milda@gmail.com<br><br>
+        <em style="color:var(--text3)">Platné od: 1. dubna 2026</em>
+      </div>
+      <div id="termsEN" style="display:none;font-size:.82rem;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--text)">1. Acceptance</strong><br>By using FinanceFlow, you agree to these terms.<br><br>
+        <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic features are free. Premium features require a subscription.<br><br>
+        <strong style="color:var(--text)">3. Responsibility</strong><br>FinanceFlow does not provide financial advice. Users are responsible for data accuracy.<br><br>
+        <strong style="color:var(--text)">4. Availability</strong><br>The app is provided "as is" without guarantee of continuous availability.<br><br>
+        <strong style="color:var(--text)">5. Contact</strong><br>bc.milda@gmail.com<br><br>
+        <em style="color:var(--text3)">Effective: April 1, 2026</em>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
