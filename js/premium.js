@@ -668,11 +668,76 @@ function exportCSV() {
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-function showPrivacyPolicy() {
-  alert('🔒 Ochrana osobních údajů\n\nFinanceFlow ukládá vaše finanční data šifrovaně ve Firebase (Google). Data nejsou sdílena s třetími stranami bez vašeho souhlasu.\n\nPodrobnosti na: financeflow.app/privacy');
+function showPrivacyPolicy() { openPrivacyPolicy(); }
+function showTerms() { openTerms(); }
+
+function openPrivacyPolicy() {
+  document.getElementById('modalPrivacy').classList.add('open');
 }
-function showTerms() {
-  alert('📄 Podmínky používání\n\nPoužíváním aplikace FinanceFlow souhlasíte s podmínkami použití.\n\nPodrobnosti na: financeflow.app/terms');
+function openTerms() {
+  document.getElementById('modalTerms').classList.add('open');
+}
+function openContactForm() {
+  document.getElementById('modalContact').classList.add('open');
+  document.getElementById('contactStatus').innerHTML = '';
+  // Předvyplň jméno a email z profilu
+  const user = window._currentUser;
+  if(user) {
+    if(document.getElementById('contactName') && user.displayName)
+      document.getElementById('contactName').value = user.displayName;
+    if(document.getElementById('contactEmail') && user.email)
+      document.getElementById('contactEmail').value = user.email;
+  }
+}
+function switchPrivacyLang(lang, btn) {
+  document.getElementById('privacyCZ').style.display = lang==='cz' ? 'block' : 'none';
+  document.getElementById('privacyEN').style.display = lang==='en' ? 'block' : 'none';
+  document.querySelectorAll('#modalPrivacy .tx-filt-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+function switchTermsLang(lang, btn) {
+  document.getElementById('termsCZ').style.display = lang==='cz' ? 'block' : 'none';
+  document.getElementById('termsEN').style.display = lang==='en' ? 'block' : 'none';
+  document.querySelectorAll('#modalTerms .tx-filt-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+async function sendContactForm() {
+  const name    = (document.getElementById('contactName')?.value||'').trim();
+  const email   = (document.getElementById('contactEmail')?.value||'').trim();
+  const type    = document.getElementById('contactType')?.value||'other';
+  const message = (document.getElementById('contactMessage')?.value||'').trim();
+  const status  = document.getElementById('contactStatus');
+
+  if(!message) {
+    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte zprávu.</div></div>';
+    return;
+  }
+
+  status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
+
+  // Odešli přes mailto (otevře emailového klienta)
+  const subject = encodeURIComponent(`[FinanceFlow] ${type==='bug'?'Chyba':type==='feature'?'Návrh':type==='support'?'Podpora':type==='premium'?'Premium':'Dotaz'}: ${message.slice(0,50)}`);
+  const body = encodeURIComponent(`Jméno: ${name}\nEmail: ${email}\nTyp: ${type}\n\nZpráva:\n${message}\n\n---\nVerze: 6.34\nUživatel: ${window._currentUser?.email||'nepřihlášen'}`);
+  
+  window.open('mailto:bc.milda@gmail.com?subject='+subject+'&body='+body);
+
+  // Ulož také do Firebase admin sekce pokud je přihlášen
+  try {
+    const user = window._currentUser;
+    if(user && window._db) {
+      const ref = _ref(_db, 'support/' + Date.now());
+      await _set(ref, {
+        name, email, type, message,
+        uid: user.uid,
+        userEmail: user.email,
+        date: new Date().toISOString(),
+        version: '6.34'
+      });
+    }
+  } catch(e) { console.log('Support log error:', e); }
+
+  status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Děkujeme! Otevřeli jsme váš emailový klient. Pokud se neotevřel, napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
+  document.getElementById('contactMessage').value = '';
 }
 
 // ══════════════════════════════════════════════════════
