@@ -492,3 +492,21 @@ function seedData(){
 }
 
 // ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════
+//  LOGIN BUTTON EVENT LISTENERS
+//  (Bezpečnější než onclick v HTML – funkce jsou zaručeně načteny)
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+  const btnGoogle = document.getElementById('btnGoogleLogin');
+  if(btnGoogle) btnGoogle.addEventListener('click', function() {
+    if(window._signInGoogle) window._signInGoogle();
+    else if(typeof signInGoogle === 'function') signInGoogle();
+    else alert('Firebase se načítá, zkuste za chvíli...');
+  });
+
+  const btnLocal = document.getElementById('btnLocalLogin');
+  if(btnLocal) btnLocal.addEventListener('click', function() {
+    if(typeof showLocalWarning === 'function') showLocalWarning();
+  });
+});

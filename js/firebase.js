@@ -29,7 +29,7 @@ window._onValue = (r, cb) => {
 window._off = (r, ev, cb) => off(r, 'value', cb);
 window._db = db;
 // Make _db, _ref etc available as direct globals for main script
-_db = db;
+window._db = db;
 
 window.signInGoogle = () => signInWithPopup(auth, provider).catch(e => alert('Přihlášení selhalo: ' + e.message));
 window.signOut = () => { if(!confirm('Odhlásit se?')) return; fbSignOut(auth); };
