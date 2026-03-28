@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.31</title>
+<title>FinanceFlow 6.33</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11358,40 +11358,74 @@ function renderImportEditor() {
   const list = document.getElementById('importEditorList');
   if(!page.length) { list.innerHTML = '<div class="empty"><div class="ei">🎉</div><div class="et">Žádné transakce v tomto filtru</div></div>'; return; }
 
-  list.innerHTML = page.map((item, i) => {
+  list.innerHTML = page.map((item) => {
     const globalIdx = _importEditorRows.indexOf(item);
     const r = item.row;
+    const m = item.match;
     const borderColor = item.color === 'red' ? 'var(--expense)' :
                         item.color === 'yellow' ? 'var(--debt)' : 'var(--income)';
     const bgColor = item.color === 'red' ? 'rgba(248,113,113,.08)' :
                     item.color === 'yellow' ? 'rgba(251,191,36,.06)' : 'rgba(74,222,128,.05)';
-    const cat = (D.categories||[]).find(c => c.id === r.catId);
+    const catImp = (D.categories||[]).find(c => c.id === r.catId);
+    const catEx  = m ? (D.categories||[]).find(c => c.id === (m.catId||m.category)) : null;
 
-    const matchHtml = item.match ? `
-      <div style="font-size:.7rem;color:var(--text3);margin-top:4px;padding-top:4px;border-top:1px dashed var(--border)">
-        Podobná: <strong>${item.match.name||'?'}</strong> · ${item.match.date||''} · ${fmtP(item.match.amount||item.match.amt||0)} Kč
-        <span style="background:${item.color==='red'?'var(--expense-bg)':'var(--debt-bg)'};padding:1px 6px;border-radius:4px;font-size:.68rem;margin-left:4px">${item.score}% shoda</span>
-      </div>` : '';
+    // Porovnej pole – zvýrazni rozdíly
+    const diffDate  = m && r.date !== (m.date||'');
+    const diffAmt   = m && Math.abs(r.amount - (m.amount||m.amt||0)) > 0.01;
+    const diffName  = m && (r.name||'').toLowerCase() !== (m.name||'').toLowerCase();
+    const diffCat   = m && r.catId !== (m.catId||m.category||'');
+    const diffStyle = 'color:var(--debt);font-weight:700';
+
+    const scoreLabel = item.score >= 75
+      ? `<span style="background:var(--expense-bg);color:var(--expense);padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700">🔴 ${item.score}% duplikát</span>`
+      : item.score >= 25
+      ? `<span style="background:var(--debt-bg);color:var(--debt);padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700">🟡 ${item.score}% možný</span>`
+      : `<span style="background:var(--income-bg);color:var(--income);padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700">🟢 nová</span>`;
+
+    const colStyle = 'flex:1;background:var(--surface2);border-radius:8px;padding:10px 12px;min-width:0';
+
+    const impCol = `
+      <div style="${colStyle}">
+        <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📥 Importovaná</div>
+        <div style="font-size:.88rem;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${diffName?diffStyle:''}">${r.name||'–'}</div>
+        <div style="font-size:.82rem;font-weight:700;color:${r.type==='income'?'var(--income)':'var(--expense)'};margin-bottom:4px;${diffAmt?diffStyle:''}">${r.type==='income'?'+':'−'}${fmtP(r.amount)} Kč</div>
+        <div style="font-size:.73rem;color:var(--text2);${diffDate?diffStyle:''}">${r.date}</div>
+        <div style="font-size:.73rem;color:var(--text2);margin-top:2px;${diffCat?diffStyle:''}">${catImp?catImp.icon+' '+catImp.name:'Bez kategorie'}</div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${r.type==='income'?'Příjem':'Výdaj'}</div>
+      </div>`;
+
+    const exCol = m ? `
+      <div style="${colStyle};border:1px solid var(--border)">
+        <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📂 Existující</div>
+        <div style="font-size:.88rem;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${diffName?diffStyle:''}">${m.name||'–'}</div>
+        <div style="font-size:.82rem;font-weight:700;color:${(m.type||m.typ)==='income'?'var(--income)':'var(--expense)'};margin-bottom:4px;${diffAmt?diffStyle:''}">${(m.type||m.typ)==='income'?'+':'−'}${fmtP(m.amount||m.amt||0)} Kč</div>
+        <div style="font-size:.73rem;color:var(--text2);${diffDate?diffStyle:''}">${m.date||''}</div>
+        <div style="font-size:.73rem;color:var(--text2);margin-top:2px;${diffCat?diffStyle:''}">${catEx?catEx.icon+' '+catEx.name:'Bez kategorie'}</div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${(m.type||m.typ)==='income'?'Příjem':'Výdaj'}</div>
+      </div>` : `
+      <div style="${colStyle};border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:.78rem">
+        Žádná podobná transakce
+      </div>`;
 
     return `
-    <div style="border:2px solid ${borderColor};background:${bgColor};border-radius:10px;padding:10px 12px;margin-bottom:8px;opacity:${item.included?'1':'.45'}" id="ier-${globalIdx}">
-      <div style="display:flex;align-items:center;gap:10px">
+    <div style="border:2px solid ${borderColor};background:${bgColor};border-radius:10px;padding:10px 12px;margin-bottom:10px;opacity:${item.included?'1':'.5'}" id="ier-${globalIdx}">
+      <!-- Hlavička řádku -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <input type="checkbox" ${item.included?'checked':''} onchange="toggleImportRow(${globalIdx},this.checked)"
           style="width:16px;height:16px;accent-color:var(--income);flex-shrink:0;cursor:pointer">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <div style="font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name||'–'}</div>
-            <div style="font-size:.9rem;font-weight:700;color:${r.type==='income'?'var(--income)':'var(--expense)'};flex-shrink:0">
-              ${r.type==='income'?'+':'−'}${fmtP(r.amount)} Kč
-            </div>
-          </div>
-          <div style="font-size:.73rem;color:var(--text2);margin-top:2px">
-            ${r.date} · ${cat?cat.icon+' '+cat.name:'Bez kategorie'} · ${r.type==='income'?'Příjem':'Výdaj'}
-          </div>
-          ${matchHtml}
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="markImportRowGreen(${globalIdx})" title="Označit jako novou (ignorovat shodu)" style="flex-shrink:0;font-size:.7rem">🟢</button>
+        ${scoreLabel}
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="markImportRowGreen(${globalIdx})" title="Označit jako novou transakci – ignorovat shodu" style="font-size:.72rem">🟢 Není duplikát</button>
       </div>
+      <!-- Dvousloupcový layout -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${impCol}
+        ${exCol}
+      </div>
+      ${diffDate||diffAmt||diffName||diffCat ? `
+      <div style="font-size:.7rem;color:var(--text3);margin-top:6px">
+        ⚠️ Rozdíly: ${[diffName?'název':'',diffAmt?'částka':'',diffDate?'datum':'',diffCat?'kategorie':''].filter(Boolean).join(' · ')}
+      </div>` : ''}
     </div>`;
   }).join('');
 
