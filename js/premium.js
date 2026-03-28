@@ -671,6 +671,14 @@ function exportCSV() {
 function showPrivacyPolicy() { openPrivacyPolicy(); }
 function showTerms() { openTerms(); }
 
+function rateApp() {
+  // Až bude na Google Play, sem přijde odkaz
+  const playUrl = 'https://play.google.com/store/apps/details?id=com.financeflow.app';
+  // Prozatím zobrazíme info
+  alert('⭐ Děkujeme za zájem!\n\nAž bude FinanceFlow na Google Play, budete moci aplikaci ohodnotit přímo tam. Sledujte novinky v sekci O aplikaci!');
+  // Až bude URL: window.open(playUrl, '_blank');
+}
+
 function openPrivacyPolicy() {
   document.getElementById('modalPrivacy').classList.add('open');
 }
@@ -680,14 +688,10 @@ function openTerms() {
 function openContactForm() {
   document.getElementById('modalContact').classList.add('open');
   document.getElementById('contactStatus').innerHTML = '';
-  // Předvyplň jméno a email z profilu
-  const user = window._currentUser;
-  if(user) {
-    if(document.getElementById('contactName') && user.displayName)
-      document.getElementById('contactName').value = user.displayName;
-    if(document.getElementById('contactEmail') && user.email)
-      document.getElementById('contactEmail').value = user.email;
-  }
+  // Vyčisti formulář
+  document.getElementById('contactName').value = '';
+  document.getElementById('contactEmail').value = '';
+  document.getElementById('contactMessage').value = '';
 }
 function switchPrivacyLang(lang, btn) {
   document.getElementById('privacyCZ').style.display = lang==='cz' ? 'block' : 'none';
@@ -721,17 +725,14 @@ async function sendContactForm() {
   
   window.open('mailto:bc.milda@gmail.com?subject='+subject+'&body='+body);
 
-  // Ulož také do Firebase admin sekce pokud je přihlášen
+  // Ulož do Firebase admin sekce
   try {
-    const user = window._currentUser;
-    if(user && window._db) {
+    if(window._db) {
       const ref = _ref(_db, 'support/' + Date.now());
       await _set(ref, {
         name, email, type, message,
-        uid: user.uid,
-        userEmail: user.email,
         date: new Date().toISOString(),
-        version: '6.34'
+        version: '6.35'
       });
     }
   } catch(e) { console.log('Support log error:', e); }
