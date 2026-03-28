@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.33</title>
+<title>FinanceFlow 6.34</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1218,7 +1218,7 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
             <option value="income">Jen příjmy</option>
           </select>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative">
           <button class="btn btn-accent" onclick="exportCSV()">📊 CSV</button>
           <button class="btn btn-ghost" onclick="exportData()">📦 JSON</button>
         </div>
@@ -1235,33 +1235,11 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 
   <!-- O APLIKACI -->
   <div class="page" id="page-oAplikaci">
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-body" style="text-align:center;padding:24px">
-        <div style="font-size:3rem;margin-bottom:12px">💚</div>
-        <div style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;margin-bottom:4px">Finance<span style="color:#4ade80">Flow</span></div>
-        <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Verze 6.27</div>
-        <div style="font-size:.78rem;color:var(--text3)">Vytvořeno s ❤️ a Claude AI</div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-body">
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="window.open('mailto:support@financeflow.app')"><span style="font-size:1.1rem">✉️</span><div style="font-weight:600">Kontakt & podpora</div></button>
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="showPageByName('premium')"><span style="font-size:1.1rem">💎</span><div style="font-weight:600">Premium – upgradovat</div></button>
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="showPrivacyPolicy()"><span style="font-size:1.1rem">🔒</span><div style="font-weight:600">Ochrana osobních údajů</div></button>
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="showTerms()"><span style="font-size:1.1rem">📄</span><div style="font-weight:600">Podmínky používání</div></button>
-        </div>
-      </div>
-    </div>
     <div class="card">
-      <div class="card-header"><span class="card-title">📋 Poznámky k vydání</span></div>
+      <div class="card-header"><span class="card-title">ℹ️ O aplikaci</span></div>
       <div class="card-body">
-        <div style="font-size:.82rem;color:var(--text2)">
-          <div style="margin-bottom:10px"><strong style="color:var(--income)">v4.2</strong> <span style="color:var(--text3);font-size:.74rem">Aktuální</span><br>Peněženky, Typy plateb, Opakované šablony, Nastavení, Převody mezi účty, Export CSV</div>
-          <div style="margin-bottom:10px"><strong>v4.1</strong><br>Premium systém, 30denní trial, Paywall</div>
-          <div style="margin-bottom:10px"><strong>v4.0</strong><br>Firebase, Google přihlášení, Sdílení s partnerem, Rodinný souhrn</div>
-          <div><strong>v3.5</strong><br>AI Rádce, Predikce, Grafy, Půjčky simulace</div>
-        </div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;margin-bottom:4px">Finance<span style="color:var(--income)">Flow</span> <span style="font-size:.9rem;color:var(--text3)">v6.34</span></div>
+        <div style="font-size:.82rem;color:var(--text2);line-height:1.7;margin-top:8px">Aplikace pro správu rodinných financí – příjmy, výdaje, půjčky, projekty, AI analýzy.</div>
       </div>
     </div>
   </div>
@@ -10618,7 +10596,7 @@ function renderImport() {
   el.innerHTML = `
     <!-- Záložky -->
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="tx-filt-btn active" id="itab-csv" onclick="switchImportTab('csv',this)">📊 CSV / Excel</button>
+      <button class="tx-filt-btn active" id="itab-csv" onclick="switchImportTab('csv',this)">📊 CSV / Excel <span style="background:var(--income);color:#071a0c;font-size:.62rem;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:4px">DOPORUČENO</span></button>
       <button class="tx-filt-btn" id="itab-pdf" onclick="switchImportTab('pdf',this)">📄 PDF výpis</button>
       <button class="tx-filt-btn" id="itab-history" onclick="switchImportTab('history',this)">📋 Historie importů</button>
     </div>
@@ -10626,7 +10604,7 @@ function renderImport() {
     <!-- CSV/Excel tab -->
     <div id="itab-csv-content">
       <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">📊 Import z CSV / Excel</span></div>
+        <div class="card-header"><span class="card-title">📊 Import z CSV / Excel</span><span style="font-size:.72rem;color:var(--income)">✓ Rychlejší · přesnější · bez AI limitu</span></div>
         <div class="card-body">
           <div style="font-size:.8rem;color:var(--text2);margin-bottom:14px">
             Podporované formáty: <strong>CSV</strong> (Fio, Air Bank, ČSOB, KB), <strong>XLSX/XLS</strong>, nebo naše šablona.
@@ -10676,7 +10654,7 @@ function renderImport() {
     <!-- PDF tab -->
     <div id="itab-pdf-content" style="display:none">
       <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">📄 Import z PDF výpisu</span></div>
+        <div class="card-header"><span class="card-title">📄 Import z PDF výpisu</span><span style="font-size:.72rem;color:var(--text3)">⚠️ Max ~200 transakcí · vyžaduje přihlášení</span></div>
         <div class="card-body">
           <div style="font-size:.8rem;color:var(--text2);margin-bottom:14px">
             Claude přečte PDF výpis z banky a extrahuje transakce. Funguje s výpisy z Fio, Air Bank, ČSOB a dalších.
@@ -11386,7 +11364,7 @@ function renderImportEditor() {
 
     const impCol = `
       <div style="${colStyle}">
-        <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📥 Importovaná</div>
+        <div style="font-size:.68rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:700;border-bottom:1px solid var(--border);padding-bottom:5px">📥 Importovaná</div>
         <div style="font-size:.88rem;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${diffName?diffStyle:''}">${r.name||'–'}</div>
         <div style="font-size:.82rem;font-weight:700;color:${r.type==='income'?'var(--income)':'var(--expense)'};margin-bottom:4px;${diffAmt?diffStyle:''}">${r.type==='income'?'+':'−'}${fmtP(r.amount)} Kč</div>
         <div style="font-size:.73rem;color:var(--text2);${diffDate?diffStyle:''}">${r.date}</div>
@@ -11396,7 +11374,7 @@ function renderImportEditor() {
 
     const exCol = m ? `
       <div style="${colStyle};border:1px solid var(--border)">
-        <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">📂 Existující</div>
+        <div style="font-size:.68rem;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-weight:700;border-bottom:1px solid var(--border);padding-bottom:5px">📂 Existující</div>
         <div style="font-size:.88rem;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${diffName?diffStyle:''}">${m.name||'–'}</div>
         <div style="font-size:.82rem;font-weight:700;color:${(m.type||m.typ)==='income'?'var(--income)':'var(--expense)'};margin-bottom:4px;${diffAmt?diffStyle:''}">${(m.type||m.typ)==='income'?'+':'−'}${fmtP(m.amount||m.amt||0)} Kč</div>
         <div style="font-size:.73rem;color:var(--text2);${diffDate?diffStyle:''}">${m.date||''}</div>
@@ -11418,7 +11396,7 @@ function renderImportEditor() {
         <button class="btn btn-ghost btn-sm" onclick="markImportRowGreen(${globalIdx})" title="Označit jako novou transakci – ignorovat shodu" style="font-size:.72rem">🟢 Není duplikát</button>
       </div>
       <!-- Dvousloupcový layout -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative">
         ${impCol}
         ${exCol}
       </div>
@@ -11442,7 +11420,14 @@ function renderImportEditor() {
 function toggleImportRow(idx, checked) {
   if(_importEditorRows[idx]) {
     _importEditorRows[idx].included = checked;
-    _importEditorRows[idx].color = checked ? _importEditorRows[idx].color : 'red';
+    // Pokud uživatel zaškrtne červenou/žlutou = chce importovat = přebarví na zelenou
+    if(checked && (_importEditorRows[idx].color === 'red' || _importEditorRows[idx].color === 'yellow')) {
+      _importEditorRows[idx].color = 'green';
+      _importEditorRows[idx].score = 0;
+      _importEditorRows[idx].match = null;
+    }
+    // Pokud odškrtne = nezahrne do importu
+    if(!checked) _importEditorRows[idx].color = 'red';
     renderImportEditor();
   }
 }
