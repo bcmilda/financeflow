@@ -712,10 +712,55 @@ async function sendContactForm() {
   const message = (document.getElementById('contactMessage')?.value||'').trim();
   const status  = document.getElementById('contactStatus');
 
+  if(!email) {
+    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte váš email pro odpověď.</div></div>';
+    return;
+  }
   if(!message) {
     status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte zprávu.</div></div>';
     return;
   }
+
+  status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
+
+  let saved = false;
+  try {
+    if(window._db) {
+      const r = _ref(_db, 'support/' + Date.now());
+      await _set(r, { name, email, type, message, date: new Date().toISOString(), version: '6.35' });
+      saved = true;
+    }
+  } catch(e) { console.log('Support save error:', e); }
+
+  if(saved) {
+    status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text"><strong>Děkujeme!</strong> Vaše zpráva byla odeslána. Odpovíme na <strong>' + email + '</strong>.</div></div>';
+  } else {
+    status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">📧</div><div class="insight-text">Nepodařilo se uložit. Napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
+  }
+  document.getElementById('contactMessage').value = '';
+  document.getElementById('contactName').value = '';
+  document.getElementById('contactEmail').value = '';
+}
+
+function showEmailSuggest(val) {
+  const el = document.getElementById('emailSuggest');
+  if(!el) return;
+  const atIdx = val.indexOf('@');
+  if(atIdx < 0) { el.style.display='none'; return; }
+  const prefix = val.slice(0, atIdx+1);
+  const typed = val.slice(atIdx+1).toLowerCase();
+  const domains = ['gmail.com','seznam.cz','email.cz','outlook.com','hotmail.com','icloud.com','yahoo.com','centrum.cz','volny.cz'];
+  const matches = typed ? domains.filter(d => d.startsWith(typed)) : domains;
+  if(!matches.length) { el.style.display='none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = matches.map(d =>
+    `<div style="padding:8px 12px;cursor:pointer;font-size:.84rem" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''" onclick="document.getElementById('contactEmail').value='${prefix}${d}';hideEmailSuggest()">${prefix}<strong>${d}</strong></div>`
+  ).join('');
+}
+function hideEmailSuggest() {
+  const el = document.getElementById('emailSuggest');
+  if(el) el.style.display = 'none';
+}
 
   status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
 

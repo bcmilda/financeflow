@@ -787,7 +787,7 @@
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
-        <div onclick="openPaywall()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
+        <div onclick="showPaywall()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">💎</span>
           <div><div style="font-size:.88rem;font-weight:600">Premium – upgradovat</div><div style="font-size:.72rem;color:var(--text3)">Odemkněte všechny funkce</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
@@ -1409,7 +1409,11 @@
     <div class="modal-head"><h3>📧 Kontakt &amp; podpora</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalContact')">✕</button></div>
     <div class="modal-body">
       <div class="fg"><label>Vaše jméno</label><input class="fi" id="contactName" placeholder="Jan Novák"></div>
-      <div class="fg"><label>Váš email pro odpověď</label><input class="fi" id="contactEmail" type="email" placeholder="vas@email.cz"></div>
+      <div class="fg" style="position:relative">
+        <label>Váš email pro odpověď</label>
+        <input class="fi" id="contactEmail" type="email" placeholder="vas@email.cz" oninput="showEmailSuggest(this.value)" onblur="setTimeout(()=>hideEmailSuggest(),200)" autocomplete="email">
+        <div id="emailSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;z-index:100;overflow:hidden"></div>
+      </div>
       <div class="fg"><label>Typ dotazu</label>
         <select class="fs" id="contactType">
           <option value="bug">🐛 Nahlásit chybu</option>
