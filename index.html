@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.28</title>
+<title>FinanceFlow 6.3</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -10783,20 +10783,27 @@ async function handleImportFile(file) {
 // ── CSV parser ──
 function parseCSV(file) {
   return new Promise((resolve, reject) => {
-    // Nejdřív zkus UTF-8, pak windows-1250 (KB, ČSOB)
     const tryParse = (text) => {
       const sep = text.includes(';') ? ';' : ',';
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      const allLines = text.split('\n').map(l => l.trim()).filter(l => l);
+      // Najdi řádek s hlavičkou (první řádek kde je datum/castka/amount)
+      let headerIdx = 0;
+      for(let i = 0; i < Math.min(allLines.length, 30); i++) {
+        const lower = allLines[i].toLowerCase();
+        if(lower.includes('datum') && (lower.includes('castka') || lower.includes('částka') || lower.includes('amount') || lower.includes('objem'))) {
+          headerIdx = i;
+          break;
+        }
+      }
+      const lines = allLines.slice(headerIdx);
       return lines.map(l => l.split(sep).map(c => c.replace(/^"|"$/g,'').trim()));
     };
     const reader = new FileReader();
     reader.onload = e => {
       try {
-        // Zkus UTF-8 první
         const textUtf8 = new TextDecoder('utf-8', {fatal:true}).decode(e.target.result);
         resolve(tryParse(textUtf8));
       } catch(e1) {
-        // Fallback na windows-1250 (KB, ČSOB výpisy)
         try {
           const text1250 = new TextDecoder('windows-1250').decode(e.target.result);
           resolve(tryParse(text1250));
@@ -10886,8 +10893,8 @@ function mapImportRows(rows, bank) {
   if(!format) {
     if(header.some(h=>h.includes('protiúčet') || h.includes('protiucet'))) format = 'fio';
     else if(header.some(h=>h.includes('popis transakce'))) format = 'airbank';
-    else if(header.some(h=>h.includes('datum zaúčtování') || h.includes('datum zauctovani'))) format = 'csob';
-    else if(header.some(h=>h.includes('nazev protiuctu') || h.includes('název protiúčtu'))) format = 'kb';
+    else if(header.some(h=>h.includes('datum zaúčtování'))) format = 'csob';
+    else if(header.some(h=>h.includes('nazev protiuctu') || h.includes('datum zauctovani') || h.includes('castka'))) format = 'kb';
     else if(header.some(h=>h.includes('datum'))) format = 'template';
   }
 
@@ -10896,7 +10903,7 @@ function mapImportRows(rows, bank) {
     fio: {date:'datum', amount:'objem', name:'název', note:'zpráva pro příjemce', type:'typ'},
     airbank: {date:'datum provedení', amount:'částka', name:'popis transakce', note:'poznámka'},
     csob: {date:'datum zaúčtování', amount:'částka v měně účtu', name:'popis', note:''},
-    kb: {date:'datum zauctovani', amount:'castka', name:'nazev protiuctu', note:'zprava pro prijemce'},
+    kb: {date:'datum provedeni', amount:'castka', name:'nazev protiuctu', note:'popis pro me'},
     rb: {date:'datum', amount:'částka', name:'název protistrany', note:''},
     template: {date:'datum', amount:'částka', name:'název', note:'poznámka', cat:'kategorie', subcat:'podkategorie', tags:'tagy'},
   };
@@ -11040,7 +11047,8 @@ function showImportPreview(rows, filename) {
 
       <!-- Tlačítka -->
       <div style="display:flex;gap:8px">
-        <button class="btn btn-accent" style="flex:1" onclick="confirmImport('${filename}')">✅ Importovat ${rows.length} transakcí</button>
+        <button class="btn btn-accent" style="flex:1" onclick="confirmImportAndEdit('${filename}')">✅ Potvrdit a otevřít Editor (${rows.filter(r=>!dups.includes(r)).length} nových)</button>
+        <button class="btn btn-ghost" onclick="confirmImport('${filename}')">⚡ Importovat rovnou</button>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('importPreview').style.display='none'">✕</button>
       </div>
     </div>`;
@@ -11050,7 +11058,12 @@ function setCatMapping(catName, catId) {
   _catMappings[catName] = catId;
 }
 
-function confirmImport(filename) {
+function confirmImportAndEdit(filename) {
+  // Importuj transakce a přesměruj do editoru transakcí
+  confirmImport(filename, true);
+}
+
+function confirmImport(filename, openEditor) {
   const D = getData();
   const existing = D.transactions||[];
   let imported = 0, skipped = 0;
@@ -11098,16 +11111,26 @@ function confirmImport(filename) {
 
   save();
   const preview = document.getElementById('importPreview');
-  const status  = document.getElementById('importStatus');
+  const statusEl = document.getElementById('importStatus');
   if(preview) preview.style.display = 'none';
-  if(status) {
-    status.style.display = 'block';
-    status.innerHTML = `<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">
-      Importováno <strong>${imported} transakcí</strong>${skipped>0?` · přeskočeno ${skipped} duplikátů`:''}.
-    </div></div>`;
-  }
+  
+  const msg = `<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">
+    Importováno <strong>${imported} transakcí</strong>${skipped>0?' · přeskočeno '+skipped+' duplikátů':''}.
+  </div></div>`;
+  
+  // Zobraz hlášku na správné záložce
+  if(statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = msg; }
+  const pdfSt = document.getElementById('pdfStatus');
+  if(pdfSt) { pdfSt.style.display = 'block'; pdfSt.innerHTML = msg; }
+  
   _importRows = []; _catMappings = {};
-  renderPage();
+  
+  if(openEditor) {
+    // Přepni do editoru transakcí
+    setTimeout(() => showPage('transakce', document.querySelector('.nav-item[onclick*="transakce"]')), 300);
+  } else {
+    renderPage();
+  }
 }
 
 function createCategoryFromImport(name) {
