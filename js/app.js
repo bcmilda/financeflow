@@ -476,7 +476,7 @@ function seedData(){
     {id:4,type:'expense',name:'Lidl',amt:1800,catId:'cat1',subcat:'Supermarket',date:d(7),note:''},
     {id:5,type:'expense',name:'Energie záloha',amt:3200,catId:'cat3',subcat:'Energie',date:d(10),note:''},
     {id:6,type:'income',name:'Freelance web',amt:9000,catId:'cat8',subcat:'Freelance',date:d(12),note:''},
-    {id:7,type:'expense',name:'Netflix+Spotify',amt:480,catId:'cat5',subcat:'Streaming',date:d(13),note:''},
+    {id:7,type:'expense',name:'YouTube Premium',amt:139,catId:'cat5',subcat:'Streaming',date:d(13),note:''},
     {id:8,type:'expense',name:'Lékárna',amt:620,catId:'cat4',subcat:'Léky',date:d(15),note:''},
     {id:10,type:'income',name:'Výplata',amt:41000,catId:'cat7',subcat:'Základní plat',date:pd(1),note:''},
     {id:11,type:'expense',name:'Nákup Penny',amt:1900,catId:'cat1',subcat:'Supermarket',date:pd(4),note:''},

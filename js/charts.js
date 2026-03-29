@@ -396,3 +396,329 @@ function deleteWish(id){if(viewingUid)return;if(!confirm('Smazat přání?'))ret
 function toggleWishDone(id){if(viewingUid)return;const w=(S.wishes||[]).find(x=>x.id===id);if(w){w.done=!w.done;save();renderPage();}}
 
 // ══════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════
+//  VYLEPŠENÉ GRAFY – záložky + filtr
+// ══════════════════════════════════════════════════════
+let _grafMonth = null;
+let _grafYear2 = null;
+
+function initGrafFilters() {
+  const D = getData();
+  const catSel = document.getElementById('grafCatFilter');
+  const subSel = document.getElementById('grafSubFilter');
+  if(!catSel) return;
+  // Naplň kategorie
+  const cats = D.categories || [];
+  catSel.innerHTML = '<option value="">Všechny kategorie</option>' +
+    cats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+}
+
+function onGrafFilterChange() {
+  const D = getData();
+  const catId = document.getElementById('grafCatFilter')?.value || '';
+  const catSel = document.getElementById('grafSubFilter');
+  // Aktualizuj podkategorie
+  if(catId) {
+    const cat = (D.categories||[]).find(c=>c.id===catId);
+    const subs = cat?.subs || [];
+    catSel.innerHTML = '<option value="">Všechny podkategorie</option>' +
+      subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+  } else {
+    catSel.innerHTML = '<option value="">Všechny podkategorie</option>';
+  }
+  // Překresli aktivní záložku
+  const active = document.querySelector('[id^="gtab-"][id$="-content"]:not([style*="none"])');
+  if(active?.id === 'gtab-mesicni-content') renderMesicniGraf();
+  else if(active?.id === 'gtab-rocni-content') renderRocniGraf();
+}
+
+function switchGrafTab(tab, btn) {
+  ['obecne','mesicni','rocni'].forEach(t => {
+    const el = document.getElementById('gtab-'+t+'-content');
+    if(el) el.style.display = t===tab ? 'block' : 'none';
+    const b = document.getElementById('gtab-'+t);
+    if(b) b.classList.toggle('active', t===tab);
+  });
+  if(tab==='mesicni') renderMesicniGraf();
+  else if(tab==='rocni') renderRocniGraf();
+  else renderGrafy();
+}
+
+function getGrafTxs() {
+  const D = getData();
+  const catId = document.getElementById('grafCatFilter')?.value || '';
+  const sub = document.getElementById('grafSubFilter')?.value || '';
+  const type = document.getElementById('grafTypeFilter')?.value || '';
+  let txs = D.transactions || [];
+  if(catId) txs = txs.filter(t=>t.catId===catId);
+  if(sub) txs = txs.filter(t=>(t.subcat||t.subcategory||'')===sub);
+  if(type) txs = txs.filter(t=>t.type===type);
+  return txs;
+}
+
+function changeGrafMonth(d) {
+  if(!_grafMonth) { _grafMonth = S.curMonth; _grafYear2 = S.curYear; }
+  _grafMonth += d;
+  if(_grafMonth < 0) { _grafMonth = 11; _grafYear2--; }
+  if(_grafMonth > 11) { _grafMonth = 0; _grafYear2++; }
+  renderMesicniGraf();
+}
+
+function changeGrafYear(d) {
+  if(!_grafYear2) _grafYear2 = S.curYear;
+  _grafYear2 += d;
+  renderRocniGraf();
+}
+
+function renderMesicniGraf() {
+  if(!_grafMonth && _grafMonth !== 0) { _grafMonth = S.curMonth; _grafYear2 = S.curYear; }
+  const m = _grafMonth, y = _grafYear2;
+  const label = document.getElementById('mesicniGrafLabel');
+  if(label) label.textContent = CZ_M[m] + ' ' + y;
+
+  const allTxs = getGrafTxs();
+  const txs = allTxs.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth()===m && d.getFullYear()===y;
+  });
+
+  // Denní data
+  const days = new Date(y, m+1, 0).getDate();
+  const daily = Array(days).fill(0);
+  const dailyCumul = Array(days).fill(0);
+  txs.filter(t=>t.type==='expense').forEach(t => {
+    const d = new Date(t.date).getDate()-1;
+    if(d>=0 && d<days) daily[d] += t.amount||t.amt||0;
+  });
+  // Kumulativní
+  let sum = 0;
+  const cumul = daily.map(v => { sum+=v; return sum; });
+
+  // Medián z posledních 6 měsíců
+  let medians = [];
+  for(let i=1;i<=6;i++) {
+    let pm=m-i, py=y;
+    if(pm<0){pm+=12;py--;}
+    const ptxs = allTxs.filter(t=>{const d=new Date(t.date);return d.getMonth()===pm&&d.getFullYear()===py&&t.type==='expense';});
+    const total = ptxs.reduce((a,t)=>a+(t.amount||t.amt||0),0);
+    medians.push(total);
+  }
+  const medVal = medians.length ? medians.sort((a,b)=>a-b)[Math.floor(medians.length/2)] : 0;
+
+  const canvas = document.getElementById('mesicniChart');
+  if(!canvas) return;
+  const W = canvas.parentElement.clientWidth||400;
+  canvas.width=W; canvas.height=220;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,220);
+
+  const pad={l:55,r:16,t:20,b:30};
+  const cW=W-pad.l-pad.r, cH=220-pad.t-pad.b;
+  const maxVal=Math.max(...daily, 1);
+  const xf=i=>pad.l+(i+0.5)*(cW/days);
+  const yf=v=>pad.t+cH-(v/maxVal*cH);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(f=>{
+    const y2=pad.t+cH*(1-f);
+    ctx.beginPath();ctx.moveTo(pad.l,y2);ctx.lineTo(W-pad.r,y2);ctx.stroke();
+    ctx.fillStyle='rgba(139,144,168,.5)';ctx.font='10px Instrument Sans';ctx.textAlign='right';
+    ctx.fillText(fmt(Math.round(maxVal*f)),pad.l-4,y2+3);
+  });
+
+  // Sloupce
+  const bW = Math.max(2, cW/days - 2);
+  daily.forEach((v,i)=>{
+    if(v<=0)return;
+    const h=v/maxVal*cH;
+    ctx.fillStyle='rgba(96,165,250,.7)';
+    ctx.fillRect(xf(i)-bW/2, pad.t+cH-h, bW, h);
+  });
+
+  // Kumulativní křivka
+  ctx.strokeStyle='#4ade80';ctx.lineWidth=2;ctx.setLineDash([]);
+  ctx.beginPath();
+  cumul.forEach((v,i)=>{
+    const x=xf(i), y2=yf(v);
+    i===0?ctx.moveTo(x,y2):ctx.lineTo(x,y2);
+  });
+  ctx.stroke();
+
+  // Medián linie
+  if(medVal>0) {
+    const medY = yf(medVal);
+    ctx.strokeStyle='#f87171';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(pad.l,medY);ctx.lineTo(W-pad.r,medY);ctx.stroke();
+    ctx.fillStyle='#f87171';ctx.font='10px Instrument Sans';ctx.textAlign='left';ctx.setLineDash([]);
+    ctx.fillText('Med: '+fmt(medVal)+' Kč',pad.l+4,medY-3);
+  }
+
+  // Osy X - dny
+  ctx.fillStyle='rgba(139,144,168,.6)';ctx.font='9px Instrument Sans';ctx.textAlign='center';ctx.setLineDash([]);
+  [1,5,10,15,20,25,days].forEach(d=>{
+    if(d<=days) ctx.fillText(d,xf(d-1),pad.t+cH+14);
+  });
+
+  // Statistiky
+  const total = txs.filter(t=>t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+  const income = txs.filter(t=>t.type==='income').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+  const statsEl = document.getElementById('mesicniStats');
+  if(statsEl) statsEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Výdaje</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--expense)">${fmt(Math.round(total))} Kč</div></div>
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Příjmy</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--income)">${fmt(Math.round(income))} Kč</div></div>
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Saldo</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:${income-total>=0?'var(--income)':'var(--expense)'}">${fmt(Math.round(income-total))} Kč</div></div>
+    </div>`;
+}
+
+function renderRocniGraf() {
+  if(!_grafYear2) _grafYear2 = S.curYear;
+  const y = _grafYear2;
+  const label = document.getElementById('rocniGrafYear');
+  if(label) label.textContent = y;
+
+  const allTxs = getGrafTxs();
+  const D = getData();
+  const catId = document.getElementById('grafCatFilter')?.value || '';
+  const cat = catId ? (D.categories||[]).find(c=>c.id===catId) : null;
+
+  // Roční tabulka - měsíce jako sloupce, dny jako řádky
+  const months = Array.from({length:12},(_,m)=>{
+    const txs = allTxs.filter(t=>{
+      const d=new Date(t.date);
+      return d.getMonth()===m && d.getFullYear()===y && t.type==='expense';
+    });
+    return txs.reduce((a,t)=>a+(t.amount||t.amt||0),0);
+  });
+
+  const total = months.reduce((a,v)=>a+v,0);
+  const nonZero = months.filter(v=>v>0);
+  const avg = nonZero.length ? Math.round(total/nonZero.length) : 0;
+  const maxM = Math.max(...months,1);
+
+  // Tabulka
+  const tableEl = document.getElementById('rocniTable');
+  if(tableEl) {
+    const rows = months.map((v,m)=>{
+      const pct = maxM>0 ? v/maxM : 0;
+      const color = v>avg*1.3 ? 'rgba(248,113,113,.4)' : v>avg*0.8 ? 'rgba(251,191,36,.3)' : v>0 ? 'rgba(74,222,128,.25)' : 'transparent';
+      return `<tr>
+        <td style="padding:5px 8px;color:var(--text2);font-size:.8rem;white-space:nowrap">${CZ_M[m]}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'Syne',sans-serif;font-weight:600;background:${color};border-radius:4px">${v>0?fmt(Math.round(v))+' Kč':'–'}</td>
+        <td style="padding:5px 8px;width:120px">
+          <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${Math.round(pct*100)}%;background:${v>avg*1.3?'var(--expense)':v>avg*0.8?'var(--debt)':'var(--income)'};border-radius:4px"></div>
+          </div>
+        </td>
+        <td style="padding:5px 8px;font-size:.72rem;color:${v>avg?'var(--expense)':'var(--income)'};text-align:right">${avg>0&&v>0?(v>avg?'+':'')+Math.round((v/avg-1)*100)+'%':''}</td>
+      </tr>`;
+    }).join('');
+
+    tableEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="padding:6px 8px;text-align:left;font-size:.7rem;color:var(--text3)">Měsíc</th>
+          <th style="padding:6px 8px;text-align:right;font-size:.7rem;color:var(--text3)">Výdaje</th>
+          <th style="padding:6px 8px;font-size:.7rem;color:var(--text3)">Vizuál</th>
+          <th style="padding:6px 8px;text-align:right;font-size:.7rem;color:var(--text3)">vs průměr</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="border-top:2px solid var(--border)">
+          <td style="padding:8px;font-weight:700;font-size:.82rem">Celkem</td>
+          <td style="padding:8px;text-align:right;font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(total))} Kč</td>
+          <td></td>
+          <td style="padding:8px;text-align:right;font-size:.72rem;color:var(--text3)">Ø ${fmt(avg)} Kč/měs</td>
+        </tr></tfoot>
+      </table>`;
+  }
+
+  // Box plot (krabicový graf)
+  const canvas = document.getElementById('boxplotChart');
+  if(canvas) {
+    const W = canvas.parentElement.clientWidth||400;
+    canvas.width=W; canvas.height=250;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,W,250);
+
+    const validMonths = months.filter(v=>v>0).sort((a,b)=>a-b);
+    if(validMonths.length < 2) {
+      ctx.fillStyle='rgba(139,144,168,.5)';ctx.font='14px Instrument Sans';ctx.textAlign='center';
+      ctx.fillText('Nedostatek dat pro krabicový graf',W/2,125); return;
+    }
+
+    const q1Idx = Math.floor(validMonths.length/4);
+    const q3Idx = Math.floor(3*validMonths.length/4);
+    const q1 = validMonths[q1Idx];
+    const q3 = validMonths[q3Idx];
+    const median = validMonths[Math.floor(validMonths.length/2)];
+    const min = validMonths[0];
+    const max = validMonths[validMonths.length-1];
+    const iqr = q3-q1;
+
+    const pad={l:60,r:20,t:30,b:40};
+    const cH=250-pad.t-pad.b;
+    const yf=v=>pad.t+cH-(v/max*cH);
+    const boxX=W/2-60, boxW=120;
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
+    [0.25,0.5,0.75,1].forEach(f=>{
+      const y2=pad.t+cH*(1-f);
+      ctx.beginPath();ctx.moveTo(pad.l,y2);ctx.lineTo(W-pad.r,y2);ctx.stroke();
+      ctx.fillStyle='rgba(139,144,168,.5)';ctx.font='10px Instrument Sans';ctx.textAlign='right';
+      ctx.fillText(fmt(Math.round(max*f)),pad.l-4,y2+3);
+    });
+
+    // Whiskers
+    ctx.strokeStyle='rgba(96,165,250,.8)';ctx.lineWidth=2;ctx.setLineDash([]);
+    const midX=boxX+boxW/2;
+    // Linie min-max
+    ctx.beginPath();ctx.moveTo(midX,yf(min));ctx.lineTo(midX,yf(max));ctx.stroke();
+    // Čárky na min/max
+    [min,max].forEach(v=>{ctx.beginPath();ctx.moveTo(midX-20,yf(v));ctx.lineTo(midX+20,yf(v));ctx.stroke();});
+
+    // Box Q1-Q3
+    ctx.fillStyle='rgba(96,165,250,.25)';ctx.strokeStyle='rgba(96,165,250,.8)';ctx.lineWidth=2;
+    ctx.fillRect(boxX,yf(q3),boxW,yf(q1)-yf(q3));
+    ctx.strokeRect(boxX,yf(q3),boxW,yf(q1)-yf(q3));
+
+    // Medián
+    ctx.strokeStyle='#4ade80';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(boxX,yf(median));ctx.lineTo(boxX+boxW,yf(median));ctx.stroke();
+
+    // Průměr (x)
+    ctx.fillStyle='#fbbf24';ctx.font='bold 14px Instrument Sans';ctx.textAlign='center';
+    ctx.fillText('×',midX,yf(avg)+5);
+
+    // Popisky
+    ctx.fillStyle='rgba(139,144,168,.8)';ctx.font='10px Instrument Sans';ctx.textAlign='left';
+    const lblX=boxX+boxW+8;
+    [{v:max,l:'Max'},{v:q3,l:'Q3'},{v:median,l:'Med'},{v:avg,l:'Prům'},{v:q1,l:'Q1'},{v:min,l:'Min'}].forEach(({v,l})=>{
+      ctx.fillStyle='rgba(139,144,168,.7)';
+      ctx.fillText(`${l}: ${fmt(Math.round(v))}`,lblX,yf(v)+3);
+    });
+  }
+
+  // Statistiky pod grafem
+  const statsEl = document.getElementById('rocniStats');
+  if(statsEl) {
+    const std = nonZero.length > 1 ? Math.sqrt(nonZero.reduce((a,v)=>a+(v-avg)**2,0)/nonZero.length) : 0;
+    statsEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
+        <div><div style="font-size:.7rem;color:var(--text3)">Celkem</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(total))} Kč</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Průměr/měs</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(avg)} Kč</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Maximum</div><div style="font-weight:700;color:var(--expense);font-family:'Syne',sans-serif">${fmt(Math.round(Math.max(...months)))} Kč</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Sm. odchylka</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(std))} Kč</div></div>
+      </div>`;
+  }
+}
+
+// Inicializace při načtení grafů
+const _origRenderGrafy = renderGrafy;
+function renderGrafy() {
+  _origRenderGrafy();
+  initGrafFilters();
+}

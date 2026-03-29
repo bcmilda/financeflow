@@ -401,14 +401,93 @@
 
   <!-- GRAFY -->
   <div class="page" id="page-grafy">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:9px 13px;background:var(--bank-bg);border-radius:10px;border:1px solid rgba(96,165,250,.2);font-size:.78rem;color:#8b90a8"><span>💡</span><span><strong style="color:#e8eaf2">Interaktivní grafy</strong> – najeď myší pro hodnoty · kolečko myši pro zoom · dvojklik pro reset</span></div>
-    <div class="grid2" style="margin-bottom:16px">
-      <div class="card"><div class="card-header"><span class="card-title">Příjmy – 12 měsíců</span></div><div class="card-body"><canvas id="incomeChart" height="160"></canvas></div></div>
-      <div class="card"><div class="card-header"><span class="card-title">Výdaje – 12 měsíců</span></div><div class="card-body"><canvas id="expenseChart" height="160"></canvas></div></div>
+    <!-- Záložky grafů -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="tx-filt-btn active" id="gtab-obecne" onclick="switchGrafTab('obecne',this)">📊 Obecné</button>
+      <button class="tx-filt-btn" id="gtab-mesicni" onclick="switchGrafTab('mesicni',this)">📅 Měsíční</button>
+      <button class="tx-filt-btn" id="gtab-rocni" onclick="switchGrafTab('rocni',this)">📆 Roční</button>
     </div>
-    <div class="card gap"><div class="card-header"><span class="card-title">Saldo měsíce – 12 měsíců</span></div><div class="card-body"><canvas id="saldoChart" height="150"></canvas></div></div>
-    <div class="card gap"><div class="card-header"><span class="card-title">Půjčky – vývoj zbývající částky</span></div><div class="card-body"><canvas id="debtChart" height="160"></canvas></div></div>
-    <div class="card gap"><div class="card-header"><span class="card-title">Predikce vs skutečnost – celý rok <span id="grafYear"></span></span></div><div class="card-body"><canvas id="yearPredChart" height="200"></canvas></div></div>
+
+    <!-- Filtr kategorie/podkategorie (sdílený mezi záložkami) -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <select class="fs" id="grafCatFilter" style="flex:1;min-width:140px;font-size:.82rem" onchange="onGrafFilterChange()">
+        <option value="">Všechny kategorie</option>
+      </select>
+      <select class="fs" id="grafSubFilter" style="flex:1;min-width:140px;font-size:.82rem" onchange="onGrafFilterChange()">
+        <option value="">Všechny podkategorie</option>
+      </select>
+      <select class="fs" id="grafTypeFilter" style="min-width:100px;font-size:.82rem" onchange="onGrafFilterChange()">
+        <option value="">Vše</option>
+        <option value="expense">Výdaje</option>
+        <option value="income">Příjmy</option>
+      </select>
+    </div>
+
+    <!-- OBECNÉ -->
+    <div id="gtab-obecne-content">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:9px 13px;background:var(--bank-bg);border-radius:10px;border:1px solid rgba(96,165,250,.2);font-size:.78rem;color:#8b90a8"><span>💡</span><span><strong style="color:#e8eaf2">Interaktivní grafy</strong> – najeď myší pro hodnoty</span></div>
+      <div class="grid2" style="margin-bottom:16px">
+        <div class="card"><div class="card-header"><span class="card-title">Příjmy – 12 měsíců</span></div><div class="card-body"><canvas id="incomeChart" height="160"></canvas></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Výdaje – 12 měsíců</span></div><div class="card-body"><canvas id="expenseChart" height="160"></canvas></div></div>
+      </div>
+      <div class="card gap"><div class="card-header"><span class="card-title">Saldo měsíce – 12 měsíců</span></div><div class="card-body"><canvas id="saldoChart" height="150"></canvas></div></div>
+      <div class="card gap"><div class="card-header"><span class="card-title">Půjčky – vývoj zbývající částky</span></div><div class="card-body"><canvas id="debtChart" height="160"></canvas></div></div>
+      <div class="card gap"><div class="card-header"><span class="card-title">Predikce vs skutečnost – celý rok <span id="grafYear"></span></span></div><div class="card-body"><canvas id="yearPredChart" height="200"></canvas></div></div>
+    </div>
+
+    <!-- MĚSÍČNÍ -->
+    <div id="gtab-mesicni-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title" id="mesicniGrafTitle">Měsíční přehled</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="changeGrafMonth(-1)">‹</button>
+            <span id="mesicniGrafLabel" style="font-size:.82rem;min-width:100px;text-align:center"></span>
+            <button class="btn btn-ghost btn-sm" onclick="changeGrafMonth(1)">›</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="mesicniChart" height="220"></canvas>
+        </div>
+      </div>
+      <!-- Kumulativní křivka -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">📈 Kumulativní výdaje vs medián</span></div>
+        <div class="card-body"><canvas id="kumulChart" height="180"></canvas></div>
+      </div>
+      <!-- Statistiky -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📊 Statistiky měsíce</span></div>
+        <div class="card-body" id="mesicniStats"></div>
+      </div>
+    </div>
+
+    <!-- ROČNÍ -->
+    <div id="gtab-rocni-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <span class="card-title">Roční tabulka</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-ghost btn-sm" onclick="changeGrafYear(-1)">‹</button>
+            <span id="rocniGrafYear" style="font-family:'Syne',sans-serif;font-weight:700"></span>
+            <button class="btn btn-ghost btn-sm" onclick="changeGrafYear(1)">›</button>
+          </div>
+        </div>
+        <div class="card-body" style="overflow-x:auto">
+          <div id="rocniTable"></div>
+        </div>
+      </div>
+      <!-- Krabicový graf -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">📦 Krabicový graf (Box plot)</span></div>
+        <div class="card-body"><canvas id="boxplotChart" height="250"></canvas></div>
+      </div>
+      <!-- Statistiky -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📊 Statistiky kategorie</span></div>
+        <div class="card-body" id="rocniStats"></div>
+      </div>
+    </div>
   </div>
 
   <!-- NAROZENINY & PŘÁNÍ -->

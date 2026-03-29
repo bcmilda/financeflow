@@ -486,16 +486,29 @@ function renderDTISection(D, baseIncome) {
   const debts = D.debts || [];
   if(!debts.length && !baseIncome) return;
 
-  const totalDebt = debts.reduce((a,d) => a+d.remaining, 0);
+  const totalDebt = debts.reduce((a,d) => a+(d.remaining||0), 0);
+  // Splátky jsou v d.installments[].amt - vezmi aktuální splátku
+  const now = new Date();
+  const nowStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const monthlyPayments = debts.reduce((a,d) => {
-    const freq = d.freq||'monthly';
-    return a + (freq==='weekly'?(d.payment||0)*4.33:freq==='biweekly'?(d.payment||0)*2.17:(d.payment||0));
+    // Najdi aktuální splátku z installments
+    let amt = 0;
+    if(d.installments && d.installments.length) {
+      let cur = d.installments[0].amt || 0;
+      for(const inst of d.installments) {
+        if((inst.from||'') <= nowStr) cur = inst.amt || cur;
+      }
+      amt = cur;
+    } else {
+      amt = d.payment || d.installment || 0;
+    }
+    return a + amt;
   }, 0);
   const annualIncome = baseIncome * 12;
 
-  // DTI = celkový dluh / roční příjem × 100
+  // DTI = celkový dluh / roční příjem × 100 (ČNB limit: max 900%)
   const dti = annualIncome > 0 ? Math.round(totalDebt / annualIncome * 100) : 0;
-  // DSTI = měsíční splátky / měsíční příjem × 100
+  // DSTI = měsíční splátky / měsíční příjem × 100 (ČNB limit: max 45%)
   const dsti = baseIncome > 0 ? Math.round(monthlyPayments / baseIncome * 100) : 0;
 
   // ČNB limity
@@ -806,32 +819,73 @@ function renderDetektor() {
   const suggestions = [];
   let totalSavable = 0;
 
-  // 1. Analýza předplatných – jen pokud jsou v transakcích
-  const subKeywords = [
-    {name:'Netflix', kw:'netflix', tip:'Sdílený účet ušetří až 50%'},
-    {name:'Spotify', kw:'spotify', tip:'Student plán nebo rodinný účet'},
-    {name:'YouTube Premium', kw:'youtube', tip:'Zvažte zrušení pokud nepoužíváte'},
-    {name:'Apple', kw:'apple', tip:'Zkontrolujte všechna Apple předplatná'},
-    {name:'Microsoft 365', kw:'microsoft', tip:'Alternativa: LibreOffice zdarma'},
-    {name:'Amazon Prime', kw:'amazon', tip:'Využíváte všechny výhody?'},
-    {name:'HBO Max', kw:'hbo', tip:'Sdílený účet nebo zrušení'},
-    {name:'Disney+', kw:'disney', tip:'Sdílený účet ušetří 50%'},
-  ];
+  // 1. Detekce předplatných z REÁLNÝCH transakcí uživatele
+  // Hledáme opakující se výdaje podobné výše = předplatné
   const subTxs = txs.filter(t=>t.type==='expense');
-  subKeywords.forEach(sub=>{
-    const found = subTxs.find(t=>(t.name||'').toLowerCase().includes(sub.kw));
-    if(!found) return;
-    const amt = found.amount||found.amt||0;
-    if(amt <= 0) return;
+  
+  // Načti komunitní klíčová slova z Firebase + lokální základ
+  const baseSubKeywords = [
+    {kw:'netflix', tip:'Sdílený účet ušetří až 50%'},
+    {kw:'spotify', tip:'Student plán nebo rodinný účet'},
+    {kw:'youtube', tip:'Zvažte zrušení pokud nepoužíváte'},
+    {kw:'apple', tip:'Zkontrolujte všechna Apple předplatná'},
+    {kw:'microsoft', tip:'Alternativa: LibreOffice zdarma'},
+    {kw:'amazon', tip:'Využíváte všechny výhody?'},
+    {kw:'hbo', tip:'Sdílený účet nebo zrušení'},
+    {kw:'disney', tip:'Sdílený účet ušetří 50%'},
+    {kw:'patreon', tip:'Zkontrolujte které příspěvky skutečně využíváte'},
+    {kw:'google one', tip:'Stačí vám nižší tarif?'},
+    {kw:'google', tip:'Zkontrolujte Google předplatná'},
+    {kw:'youtube premium', tip:'Sdílení v rodině ušetří'},
+    {kw:'alza', tip:'Využíváte Alza+ naplno?'},
+    {kw:'deezer', tip:'Přejděte na rodinný tarif'},
+    {kw:'adobe', tip:'Alternativa: Affinity nebo Canva'},
+    {kw:'dropbox', tip:'Google Drive nebo OneDrive mohou být zdarma'},
+    {kw:'evernote', tip:'Notion nebo Obsidian jsou levnější'},
+    {kw:'antivirus', tip:'Windows Defender je zdarma a dostatečný'},
+    {kw:'vpn', tip:'Potřebujete VPN skutečně?'},
+    {kw:'čt', tip:'Televizní poplatek – zkontrolujte výjimky'},
+    {kw:'o2 tv', tip:'Sdílení v domácnosti'},
+    {kw:'skylink', tip:'Využíváte všechny kanály?'},
+    {kw:'membership', tip:'Zkontrolujte zda členství využíváte'},
+    {kw:'členství', tip:'Zkontrolujte zda členství využíváte'},
+    {kw:'předplatné', tip:'Zvažte zrušení nevyužívaných předplatných'},
+  ];
+
+  // Najdi skutečné transakce které odpovídají předplatným
+  const foundSubs = new Map(); // kw -> {name, amt, count}
+  subTxs.forEach(t => {
+    const name = (t.name||'').toLowerCase();
+    for(const sub of baseSubKeywords) {
+      if(name.includes(sub.kw) && !foundSubs.has(sub.kw)) {
+        const amt = t.amount||t.amt||0;
+        if(amt > 0) foundSubs.set(sub.kw, {name: t.name, amt, tip: sub.tip});
+      }
+    }
+  });
+
+  // Přidej doporučení jen pro nalezené předplatné
+  foundSubs.forEach((sub, kw) => {
     suggestions.push({
       category:'📺 Předplatné',
-      item:sub.name,
-      current:`${fmt(amt)} Kč/měs`,
-      saving: Math.round(amt*0.4),
-      tip:sub.tip,
+      item: sub.name,
+      current:`${fmt(sub.amt)} Kč/měs`,
+      saving: Math.round(sub.amt * 0.4),
+      tip: sub.tip,
       severity:'low'
     });
-    totalSavable += Math.round(amt*0.4);
+    totalSavable += Math.round(sub.amt * 0.4);
+    // Ulož do Firebase pro komunitní učení
+    if(window._db && window._currentUser) {
+      try {
+        const ref = _ref(_db, 'community/subscriptions/' + kw.replace(/\s+/g,'_'));
+        _get(ref).then(snap => {
+          const cur = snap.exists() ? (snap.val()||{}) : {};
+          const count = (cur.count||0) + 1;
+          _set(ref, {kw, count, lastSeen: new Date().toISOString().slice(0,10)});
+        });
+      } catch(e) {}
+    }
   });
 
   // 2. Bankovní poplatky
