@@ -10,6 +10,8 @@ function renderGrafy(){
   drawSaldoBars('saldoChart',labels12,sal12);
   renderDebtChart(D);
   renderPredLineChartSimple(S.curYear,D);
+  // v6.37: initGrafFilters sem přesunuto z nebezpečného přepisu funkce
+  setTimeout(()=>{ if(typeof initGrafFilters==='function') initGrafFilters(); }, 0);
 }
 
 function renderDebtChart(D) {
@@ -118,7 +120,11 @@ function renderDebtChart(D) {
 
 function drawSimpleAreaChart(id,labels,data,color){
   const canvas=document.getElementById(id);if(!canvas)return;
-  const W=canvas.parentElement.clientWidth||400;canvas.width=W;
+  // v6.37: oprava canvas width=0 při prvním renderu (stránka ještě neviditelná)
+  const parent=canvas.parentElement;
+  const W=parent.clientWidth||parent.offsetWidth||400;
+  if(W<10){requestAnimationFrame(()=>drawSimpleAreaChart(id,labels,data,color));return;}
+  canvas.width=W;
   const H=canvas.height||160;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxV=Math.max(...data,1);
@@ -199,7 +205,10 @@ function drawSimpleAreaChart(id,labels,data,color){
 
 function drawSaldoBars(id,labels,data){
   const canvas=document.getElementById(id);if(!canvas)return;
-  const W=canvas.parentElement.clientWidth||500;canvas.width=W;
+  const parent=canvas.parentElement;
+  const W=parent.clientWidth||parent.offsetWidth||500;
+  if(W<10){requestAnimationFrame(()=>drawSaldoBars(id,labels,data));return;}
+  canvas.width=W;
   const H=canvas.height||150;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxA=Math.max(...data.map(Math.abs),1);
@@ -717,8 +726,5 @@ function renderRocniGraf() {
 }
 
 // Inicializace při načtení grafů
-const _origRenderGrafy = renderGrafy;
-function renderGrafy() {
-  _origRenderGrafy();
-  initGrafFilters();
-}
+// OPRAVA v6.37: přímé volání initGrafFilters() uvnitř renderGrafy – odstraněno
+// nebezpečné přepisování funkce přes const + function redeclaration

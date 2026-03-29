@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow 6.35</title>
+<title>FinanceFlow v6.37</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -14,8 +14,6 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
 </head>
 <body>
 
@@ -90,7 +88,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v4.1 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.37 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -1467,16 +1465,22 @@
   </div>
 </div>
 
+<!-- DŮLEŽITÉ: Pořadí scriptů je záměrné! (v6.37)
+     Závislosti:
+       computeBaseIncome  → projects.js  (voláno v premium.js)
+       computeFinancialScore, renderNetWorth, renderFinancialScore → premium.js (voláno v ui.js, ai.js)
+       daysUntilBday, initGrafFilters → charts.js (voláno v ui.js)
+       firebase.js jako poslední (type=module, spouští onUserSignedIn) -->
 <script src="js/app.js"></script>
 <script src="js/helpers.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/transactions.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/stats.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/premium.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/debts.js"></script>
 <script src="js/ai.js"></script>
-<script src="js/premium.js"></script>
-<script src="js/projects.js"></script>
 <script src="js/receipts.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/import.js"></script>
@@ -1562,4 +1566,15 @@
       </div>
       <div id="termsEN" style="display:none;font-size:.82rem;color:var(--text2);line-height:1.8">
         <strong style="color:var(--text)">1. Acceptance</strong><br>By using FinanceFlow, you agree to these terms.<br><br>
-        <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic 
+        <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic features are free. Premium features require a subscription.<br><br>
+        <strong style="color:var(--text)">3. Liability</strong><br>FinanceFlow does not provide financial advice. Users are responsible for the accuracy of their data.<br><br>
+        <strong style="color:var(--text)">4. Availability</strong><br>The app is provided as-is without guarantee of continuous availability.<br><br>
+        <strong style="color:var(--text)">5. Contact</strong><br>support@financeflow.cz<br><br>
+        <em style="color:var(--text3)">Effective: April 1, 2026</em>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
