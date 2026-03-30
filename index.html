@@ -145,6 +145,7 @@
     <div class="nav-item" onclick="showPage('dluhy',this)"><span class="nav-icon">💰</span> Půjčky</div>
     <div class="nav-item" onclick="showPage('projekty',this)"><span class="nav-icon">📁</span> Projekty</div>
     <div class="nav-item" onclick="showPagePremium('narozeniny',this)"><span class="nav-icon">🎂</span> Narozeniny & přání <span id="navlock-narozeniny" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
+    <div class="nav-item" onclick="showPage('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam</div>
   </div>
 
   <!-- AI -->
@@ -504,6 +505,16 @@
   </div>
 
   <!-- STATISTIKY -->
+
+<!-- PAGE: Nákupní seznam -->
+<div class="page" id="page-nakup">
+  <div id="nakupAlertBanner" style="display:none"></div>
+  <div id="nakupContent">
+    <div class="empty"><div class="ei">🛒</div><div class="et">Načítám seznam...</div></div>
+  </div>
+</div>
+
+
   <div class="page" id="page-statistiky">
     <div class="grid2">
       <div class="card"><div class="card-header"><span class="card-title">Výdaje dle kategorie</span></div><div class="card-body" id="statCats"></div></div>
@@ -1482,6 +1493,7 @@
 <script src="js/debts.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/receipts.js"></script>
+<script src="js/nakup.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/import.js"></script>
 <script type="module" src="js/firebase.js"></script>
@@ -1572,6 +1584,95 @@
         <strong style="color:var(--text)">5. Contact</strong><br>support@financeflow.cz<br><br>
         <em style="color:var(--text3)">Effective: April 1, 2026</em>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL: Nákupní seznam – přidat/upravit -->
+<div class="overlay" id="modalNakup">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="nakupModalTitle">Přidat do nákupního seznamu</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakup')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editNakupId">
+      <input type="hidden" id="nakupCatalogKey">
+
+      <!-- Název s autocomplete z katalogu -->
+      <div class="fg" style="position:relative">
+        <label>Název produktu</label>
+        <input class="fi" id="nakupItemName" placeholder="např. Rohlík, Mléko 1l, Šampón..."
+          oninput="nakupShowCatalogSuggest(this.value)"
+          onblur="nakupHideSuggest()"
+          autocomplete="off">
+        <div id="nakupCatalogSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;z-index:200;overflow:hidden;max-height:220px;overflow-y:auto"></div>
+      </div>
+
+      <div class="frow">
+        <div class="fg">
+          <label>Množství</label>
+          <input class="fi" id="nakupItemQty" type="number" min="1" value="1" placeholder="1">
+        </div>
+        <div class="fg">
+          <label>Referenční cena (Kč)</label>
+          <input class="fi" id="nakupItemRefPrice" type="number" min="0" step="0.10"
+            placeholder="0" oninput="nakupUpdateAlertPreview()">
+        </div>
+      </div>
+
+      <!-- Slider hlídání slevy -->
+      <div class="fg">
+        <label style="display:flex;justify-content:space-between">
+          <span>🔔 Hlídat pokles ceny</span>
+          <strong id="nakupAlertValue" style="color:var(--income)">0 %</strong>
+        </label>
+        <input type="range" id="nakupAlertSlider" min="0" max="50" step="5" value="0"
+          style="width:100%;accent-color:var(--income);height:6px;border-radius:3px;background:var(--surface3);outline:none;cursor:pointer"
+          oninput="nakupSliderChange(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--text3);margin-top:3px">
+          <span>Vypnuto</span><span>-10%</span><span>-20%</span><span>-30%</span><span>-40%</span><span>-50%</span>
+        </div>
+        <input type="hidden" id="nakupItemAlertPct" value="0">
+        <div id="nakupAlertPreview" style="margin-top:8px;font-size:.78rem;padding:6px 10px;background:var(--surface2);border-radius:8px">
+          <span style="color:var(--text3)">Hlídání vypnuto</span>
+        </div>
+      </div>
+
+      <!-- Email pro alert -->
+      <div class="fg" id="nakupEmailRow">
+        <label>Email pro upozornění</label>
+        <input class="fi" id="nakupAlertEmail" type="email" placeholder="vas@email.cz">
+        <div style="font-size:.72rem;color:var(--text3);margin-top:4px">Pošleme email jakmile cena klesne pod cíl</div>
+      </div>
+
+      <div class="fg">
+        <label>Poznámka</label>
+        <input class="fi" id="nakupItemNote" placeholder="Bio, značka, obchod...">
+      </div>
+
+      <div style="font-size:.72rem;color:var(--text3);padding:8px 10px;background:var(--surface2);border-radius:8px">
+        💡 Ceny se doplňují automaticky ze skenovaných účtenek komunity FinanceFlow.
+        Čím více uživatelů skenuje, tím přesnější data.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalNakup')">Zrušit</button>
+      <button class="btn btn-accent" onclick="saveNakupItem()">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Historie cen produktu -->
+<div class="overlay" id="modalNakupHistory">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="nakupHistoryTitle">Historie cen</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakupHistory')">✕</button>
+    </div>
+    <div class="modal-body" id="nakupHistoryContent">
+      <div style="text-align:center;padding:20px;color:var(--text3)">⏳ Načítám...</div>
     </div>
   </div>
 </div>

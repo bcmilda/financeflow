@@ -1299,6 +1299,10 @@ async function publishToCatalog(items) {
 function rpSave() {
   const r = window._editReceipt; if(!r) return;
   publishToCatalog(r.items||[]);
+  // Aktualizuj i cenový katalog pro hlídač
+  if(r.items?.length && typeof publishPricesToCatalog === 'function') {
+    publishPricesToCatalog(r.items, r.store, r.date);
+  }
 
   // Pokud editujeme existující účtenku z historie, přepiš ji
   const histIdx = _lastReceiptResult?.historyIndex;
@@ -1440,6 +1444,10 @@ function addReceiptAsTx(receipt) {
   S.transactions.push(tx);
   if(!S.receipts) S.receipts=[];
   S.receipts.unshift({...receipt, addedAt:Date.now()});
+  // Publikuj ceny do komunity pro hlídač cen
+  if(receipt.items?.length && typeof publishPricesToCatalog === 'function') {
+    publishPricesToCatalog(receipt.items, receipt.store, receipt.date);
+  }
   if(S.receipts.length>5000) S.receipts=S.receipts.slice(0,5000);
   save();
   _lastReceiptResult = null; // Vymaž uložený výsledek

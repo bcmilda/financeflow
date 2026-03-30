@@ -28,6 +28,7 @@ function renderPage(){
   if(curPage==='detektor')renderDetektor();
   if(curPage==='simulace')renderSimulace();
   if(curPage==='uctenky')renderUctenky();
+  if(curPage==='nakup')renderNakup();
   if(curPage==='admin')renderAdmin();
   if(curPage==='tagy')renderTagy();
   if(curPage==='import')renderImport();

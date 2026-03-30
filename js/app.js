@@ -43,7 +43,7 @@ function signInLocal() {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if(saved) {
       const parsed = JSON.parse(saved);
-      S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]}, parsed);
+      S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[]}, parsed);
     } else {
       seedData();
       saveLocal();
@@ -112,7 +112,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',komunita:'🌍 Komunitní přehled',import:'📥 Import dat'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data
@@ -138,7 +138,7 @@ let _partnerListeners = {};
 window.onUserSignedIn = async function(user) {
   // If migrating from local mode – use local data
   if(window._pendingMigration) {
-    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]}, window._pendingMigration);
+    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[]}, window._pendingMigration);
     S.curMonth = new Date().getMonth();
     S.curYear = new Date().getFullYear();
     window._pendingMigration = null;
@@ -164,7 +164,7 @@ window.onUserSignedIn = async function(user) {
     seedData();
     await saveToFirebase();
   } else {
-    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]}, snap.val());
+    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[]}, snap.val());
     if(!S.birthdays) S.birthdays=[];
     if(!S.wishes) S.wishes=[];
     if(!S.bank) S.bank={startBalance:0};
@@ -180,7 +180,7 @@ window.onUserSignedIn = async function(user) {
     if(saveTimeout) return;
     const fresh = snapshot.val();
     const cm = S.curMonth, cy = S.curYear;
-    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]}, fresh);
+    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[]}, fresh);
     S.curMonth = cm; S.curYear = cy;
     if(!S.birthdays) S.birthdays=[];
     if(!S.wishes) S.wishes=[];
@@ -189,6 +189,7 @@ window.onUserSignedIn = async function(user) {
     if(!S.payTypes) S.payTypes=[];
     if(!S.sablony) S.sablony=[];
     if(!S.projects) S.projects=[];
+    if(!S.nakupList) S.nakupList=[];
     setSyncStatus('ok');
     if(viewingUid === null) renderPage();
   });
@@ -340,7 +341,7 @@ function updateReadonlyUI() {
 function getData() {
   if(viewingUid && partnerData[viewingUid]) {
     const d = partnerData[viewingUid].data;
-    return Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]}, d);
+    return Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[]}, d);
   }
   return S;
 }
@@ -364,6 +365,7 @@ async function saveToFirebase() {
       sablony: S.sablony||[],
       projects: ss.projects===false ? [] : S.projects||[],
       receipts: ss.receipts===false ? [] : S.receipts||[],
+      nakupList: S.nakupList||[],
       shareSettings: S.shareSettings||{}
     };
     await _set(_ref(_db, `users/${window._currentUser.uid}/data`), dataToSave);
