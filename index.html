@@ -263,6 +263,7 @@
         <button class="tx-filt-btn" id="filt-income" onclick="setTxTypeFilter('income',this)">💰 Příjmy</button>
         <button class="tx-filt-btn" id="filt-expense" onclick="setTxTypeFilter('expense',this)">💸 Výdaje</button>
         <button class="tx-filt-btn" id="filt-transfer" onclick="setTxTypeFilter('transfer',this)">↔️ Přesuny</button>
+        <button class="tx-filt-btn" id="filt-dup" onclick="toggleDupFilter(this)" title="Zobrazit jen podezřelé transakce">⚠️ Podezřelé</button>
         <button class="tx-filt-btn" id="filt-adv" onclick="toggleAdvFilter()" style="margin-left:auto">⚙️ Filtr</button>
       </div>
       <!-- Rozšířený filtr – skrytý -->
@@ -310,7 +311,8 @@
         <div class="tx-sort-btn" id="sort-amt" onclick="setTxSort('amt')" style="text-align:right">Částka</div>
         <div></div>
       </div>
-      <div id="txList"></div>
+      <div id="dupBanner" style="display:none"></div>
+        <div id="txList"></div>
     </div>
   </div>
 
@@ -1493,6 +1495,7 @@
 <script src="js/debts.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/receipts.js"></script>
+<script src="js/duplicates.js"></script>
 <script src="js/nakup.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/import.js"></script>
@@ -1673,6 +1676,21 @@
     </div>
     <div class="modal-body" id="nakupHistoryContent">
       <div style="text-align:center;padding:20px;color:var(--text3)">⏳ Načítám...</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Detail duplikátu -->
+<div class="overlay" id="modalDupDetail">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚠️ Podezřelé shody</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalDupDetail')">✕</button>
+    </div>
+    <div class="modal-body" id="dupDetailContent" style="max-height:70vh;overflow-y:auto">
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalDupDetail')">Zavřít</button>
     </div>
   </div>
 </div>

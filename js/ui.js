@@ -251,6 +251,12 @@ function renderTxPage(){
 function renderTx(){
   const D = getData();
   const el = document.getElementById('txList'); if(!el) return;
+  // Detekce duplikátů – spočítej pro celý měsíc
+  const allMonthTxs = getTx(S.curMonth, S.curYear, D);
+  if(typeof detectDuplicates === 'function') {
+    _dupMap = detectDuplicates(allMonthTxs);
+  }
+  renderDupBanner(_dupMap||{});
   const catFilter = document.getElementById('txCatFilter')?.value || '';
   const subFilter = document.getElementById('txSubFilter')?.value || '';
   const projectFilter = document.getElementById('txProjectFilter')?.value || '';
@@ -275,6 +281,10 @@ function renderTx(){
     (t.name||'').toLowerCase().includes(searchFilter) ||
     (t.note||'').toLowerCase().includes(searchFilter)
   );
+  // Filtr duplikátů
+  if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
+    txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
+  }
 
   // Sort
   txs.sort((a,b) => {
@@ -324,16 +334,16 @@ function renderTx(){
         <span style="color:${daySaldo>=0?'var(--income)':'var(--expense)'};font-size:.76rem">${daySaldo>=0?'+':''}${fmt(daySaldo)} Kč</span>
       </div>`;
       // Split children se zobrazují uvnitř parent řádku – nezobrazuj je samostatně
-      dayTxs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro); });
+      dayTxs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
     });
   } else {
-    txs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro); });
+    txs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
   }
 
   el.innerHTML = html;
 }
 
-function buildTxRow(t, D, ro) {
+function buildTxRow(t, D, ro, dupMap={}) {
   const cat = getCat(t.catId||t.category, D.categories);
   const amt = t.amount || t.amt || 0;
   const isTransfer = t.catId==='transfer'||t.category==='transfer';
@@ -384,9 +394,10 @@ function buildTxRow(t, D, ro) {
       <div style="font-size:.68rem">${CZ_D[d.getDay()]}</div>
     </div>
     <div class="tx-table-cell">
-      <div style="display:flex;align-items:center;gap:5px">
+      <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
         <span style="font-size:.9rem">${cat.icon}</span>
         <span style="font-weight:600;font-size:.82rem">${cat.name}</span>
+        ${typeof buildDupBadge==='function' ? buildDupBadge(t, dupMap) : ''}
       </div>
     </div>
     <div class="tx-table-cell tx-col-subcat" style="color:var(--text3);font-size:.78rem">${t.subcat||'–'}</div>
@@ -395,6 +406,7 @@ function buildTxRow(t, D, ro) {
       ${t.note?`<div style="font-size:.74rem;color:var(--text3)">📝 ${t.note}</div>`:''}
       ${(t.tags||[]).length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${(t.tags).map(tag=>`<span style="background:var(--bank);color:white;padding:1px 5px;border-radius:8px;font-size:.64rem">#${tag}</span>`).join('')}</div>`:''}
       ${!customName&&!t.note&&!(t.tags||[]).length?`<span style="color:var(--text3);font-size:.76rem">–</span>`:''}
+      ${typeof buildDupActions==='function' ? buildDupActions(t, dupMap, ro) : ''}
     </div>
     <div class="tx-table-cell tx-col-project">
       ${project?`<span style="font-size:.74rem;background:var(--project-bg);color:var(--project);padding:2px 7px;border-radius:6px;border:1px solid var(--project-border)">📁 ${project.name}</span>`:`<span style="color:var(--text3);font-size:.76rem">–</span>`}
