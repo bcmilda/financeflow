@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.37</title>
+<title>FinanceFlow v6.39</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -14,6 +14,90 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<style>
+/* ══ SETTINGS – Wallet style ══ */
+.settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.settings-section-title {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text3);
+  padding: 12px 16px 6px;
+  font-weight: 700;
+}
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+}
+.settings-item:last-child { border-bottom: none; }
+.settings-item:hover { background: var(--surface2); }
+.settings-item:active { background: var(--surface3); }
+.settings-icon { font-size: 1.1rem; width: 26px; text-align: center; flex-shrink: 0; }
+.settings-item-body { flex: 1; min-width: 0; }
+.settings-item-title { font-size: .88rem; font-weight: 600; }
+.settings-item-sub { font-size: .74rem; color: var(--text3); margin-top: 1px; }
+.settings-chevron { color: var(--text3); font-size: 1.1rem; flex-shrink: 0; }
+.settings-profile-header { padding: 16px; }
+
+/* ══ HELP FAQ ══ */
+.help-faq-item {
+  border-bottom: 1px solid var(--border);
+}
+.help-faq-item:last-child { border-bottom: none; }
+.help-faq-q {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 16px;
+  cursor: pointer;
+  font-size: .86rem;
+  font-weight: 600;
+  gap: 8px;
+}
+.help-faq-q:hover { background: var(--surface2); }
+.help-faq-arrow { color: var(--text3); font-size: 1.1rem; flex-shrink: 0; transition: transform .2s; }
+.help-faq-a {
+  padding: 0 16px 13px;
+  font-size: .82rem;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ══ PIN PAD ══ */
+.pin-display {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 2px solid var(--text3);
+  transition: background .15s;
+}
+.pin-dot.filled { background: var(--income); border-color: var(--income); }
+
+/* ══ DELETE STEPS ══ */
+.delete-step-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 10px;
+}
+</style>
 </head>
 <body>
 
@@ -88,7 +172,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.37 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.39 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -170,6 +254,7 @@
     <div class="nav-item" onclick="showPage('typy',this)"><span class="nav-icon">💳</span> Typy plateb</div>
     <div class="nav-item" onclick="showPage('sablony',this)"><span class="nav-icon">🔄</span> Opakované šablony</div>
     <div class="nav-item" onclick="showPage('import',this)"><span class="nav-icon">📥</span> Import dat</div>
+    <div class="nav-item" onclick="showPage('smsimport',this)"><span class="nav-icon">📱</span> Import z banky</div>
     <div class="nav-item" onclick="showPage('nastaveni',this)"><span class="nav-icon">⚙️</span> Nastavení</div>
     <div class="nav-item" onclick="showPage('oAplikaci',this)"><span class="nav-icon">ℹ️</span> O aplikaci</div>
     <div id="adminNavItem" style="display:none"><div class="nav-item" onclick="showPage('admin',this)"><span class="nav-icon">🔐</span> Admin panel</div></div>
@@ -228,6 +313,13 @@
   </div>
 
   <!-- ADMIN PANEL -->
+<!-- PAGE: SMS Import -->
+<div class="page" id="page-smsimport">
+  <div id="smsContent">
+    <div class="empty"><div class="ei">📱</div><div class="et">Načítám...</div></div>
+  </div>
+</div>
+
   <div class="page" id="page-admin">
     <div id="adminContent"></div>
   </div>
@@ -709,10 +801,10 @@
   </div>
 
   <div class="page" id="page-nastaveni">
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <span class="card-title">🌍 Obecné</span>
-        <div id="settingsSavedBadge" style="display:none;font-size:.74rem;color:var(--income);font-weight:600">✅ Uloženo!</div>
+    <div id="settingsPageContent">
+      <div class="empty"><div class="ei">⚙️</div><div class="et">Načítám nastavení...</div></div>
+    </div>
+  </div>
       </div>
       <div class="card-body">
         <div class="fg" style="margin-bottom:12px">
@@ -899,6 +991,16 @@
           <span style="font-size:1.2rem">⭐</span>
           <div><div style="font-size:.88rem;font-weight:600">Ohodnotit aplikaci</div><div style="font-size:.72rem;color:var(--text3)">Ohodnoťte nás na Google Play</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sdílení & Referral -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-header"><span class="card-title">🔗 Sdílet FinanceFlow</span></div>
+      <div class="card-body" style="padding:8px 12px">
+        <div id="shareSection">
+          <div class="empty" style="padding:12px"><div class="et">Načítám...</div></div>
         </div>
       </div>
     </div>
@@ -1484,22 +1586,25 @@
        computeFinancialScore, renderNetWorth, renderFinancialScore → premium.js (voláno v ui.js, ai.js)
        daysUntilBday, initGrafFilters → charts.js (voláno v ui.js)
        firebase.js jako poslední (type=module, spouští onUserSignedIn) -->
-<script src="js/app.js"></script>
-<script src="js/helpers.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/stats.js"></script>
-<script src="js/transactions.js"></script>
-<script src="js/projects.js"></script>
-<script src="js/premium.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/debts.js"></script>
-<script src="js/ai.js"></script>
-<script src="js/receipts.js"></script>
-<script src="js/duplicates.js"></script>
-<script src="js/nakup.js"></script>
-<script src="js/admin.js"></script>
-<script src="js/import.js"></script>
-<script type="module" src="js/firebase.js"></script>
+<script src="js/app.js?v=34be55c1"></script>
+<script src="js/helpers.js?v=a924c531"></script>
+<script src="js/charts.js?v=9034173e"></script>
+<script src="js/stats.js?v=9456a04e"></script>
+<script src="js/transactions.js?v=e1587930"></script>
+<script src="js/projects.js?v=bc0ad21c"></script>
+<script src="js/premium.js?v=9e57a97a"></script>
+<script src="js/ui.js?v=afa9e311"></script>
+<script src="js/debts.js?v=ee42b536"></script>
+<script src="js/ai.js?v=7acd1c9c"></script>
+<script src="js/receipts.js?v=f1985ec8"></script>
+<script src="js/duplicates.js?v=c52161de"></script>
+<script src="js/settings.js?v=new639"></script>
+<script src="js/share.js?v=new637"></script>
+<script src="js/sms-import.js?v=new637"></script>
+<script src="js/nakup.js?v=a35d4c62"></script>
+<script src="js/admin.js?v=f8a3b0e8"></script>
+<script src="js/import.js?v=763624ee"></script>
+<script type="module" src="js/firebase.js?v=889e8119"></script>
 
 <!-- MODAL: Kontaktní formulář -->
 <div class="overlay" id="modalContact">
@@ -1584,7 +1689,7 @@
         <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic features are free. Premium features require a subscription.<br><br>
         <strong style="color:var(--text)">3. Liability</strong><br>FinanceFlow does not provide financial advice. Users are responsible for the accuracy of their data.<br><br>
         <strong style="color:var(--text)">4. Availability</strong><br>The app is provided as-is without guarantee of continuous availability.<br><br>
-        <strong style="color:var(--text)">5. Contact</strong><br>support@financeflow.cz<br><br>
+        <strong style="color:var(--text)">5. Contact</strong><br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="9ae9efeaeaf5e8eedafcf3f4fbf4f9fffcf6f5edb4f9e0">[email&#160;protected]</a><br><br>
         <em style="color:var(--text3)">Effective: April 1, 2026</em>
       </div>
     </div>
@@ -1690,10 +1795,163 @@
     <div class="modal-body" id="dupDetailContent" style="max-height:70vh;overflow-y:auto">
     </div>
     <div class="modal-foot">
+      <butt
       <button class="btn btn-ghost" onclick="closeModal('modalDupDetail')">Zavřít</button>
     </div>
   </div>
 </div>
+
+<!-- MODAL: Share QR kód -->
+<div class="overlay" id="modalShareQR">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-head">
+      <h3>📱 QR kód pro sdílení</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalShareQR')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="shareQRDiv" style="display:flex;justify-content:center;margin-bottom:10px;min-height:180px;align-items:center"></div>
+      <canvas id="shareQRCanvas" style="display:none"></canvas>
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px" id="shareQRUrl"></div>
+      <button class="btn btn-accent btn-sm" onclick="copyShareLink();closeModal('modalShareQR')">📋 Kopírovat odkaz</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PIN Setup -->
+<div class="overlay" id="modalPinSetup">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-head">
+      <h3>🔒 Nastavit PIN kód</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalPinSetup')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pinSetupStep1">
+        <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Zadej nový PIN (min. 4 číslice)</div>
+        <input class="fi" id="pinInput1" type="password" inputmode="numeric" pattern="[0-9]*"
+          maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em">
+        <div id="pinSetupError" style="color:var(--expense);font-size:.78rem;margin-top:8px;text-align:center"></div>
+      </div>
+      <div id="pinSetupStep2" style="display:none">
+        <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Potvrd PIN zadáním znovu</div>
+        <input class="fi" id="pinInput2" type="password" inputmode="numeric" pattern="[0-9]*"
+          maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em">
+        <div id="pinSetupError" style="color:var(--expense);font-size:.78rem;margin-top:8px;text-align:center"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalPinSetup')">Zrušit</button>
+      <button class="btn btn-accent" id="pinSetupNextBtn" onclick="document.getElementById('pinSetupStep2').style.display==='none'?pinSetupNext():pinSetupConfirm()">Pokračovat</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PIN Verify (při startu) -->
+<div class="overlay" id="modalPinVerify" style="z-index:9999">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-head"><h3>🔒 Zadej PIN</h3></div>
+    <div class="modal-body" style="text-align:center">
+      <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px">Aplikace je chráněna PINem</div>
+      <input class="fi" id="pinVerifyInput" type="password" inputmode="numeric" pattern="[0-9]*"
+        maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em"
+        onkeydown="if(event.key==='Enter')pinVerifySubmit()">
+      <div id="pinVerifyError" style="color:var(--expense);font-size:.78rem;margin-top:8px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-accent" style="width:100%" onclick="pinVerifySubmit()">Potvrdit</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Vymazat data (3 kroky) -->
+<div class="overlay" id="modalDeleteData">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <h3>⚠️ Vymazat všechna data</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalDeleteData')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Krok 1 -->
+      <div id="deleteStep1">
+        <div class="delete-step-icon">🗑️</div>
+        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">
+          Chystáš se <strong style="color:var(--expense)">trvale smazat</strong> všechna svá data:<br>
+          transakce, kategorie, dluhy, projekty, účtenky a nastavení.<br><br>
+          <strong>Tato akce je nevratná.</strong>
+        </div>
+        <div class="insight-item bad">
+          <div class="insight-icon">⚠️</div>
+          <div class="insight-text">Data budou smazána z Firebase i ze zařízení. Zálohu si udělej předem přes Export JSON.</div>
+        </div>
+      </div>
+      <!-- Krok 2 -->
+      <div id="deleteStep2" style="display:none">
+        <div class="delete-step-icon">🤔</div>
+        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">
+          Jsi si <strong>opravdu jist/a</strong>?<br>
+          Tato akce smaže vše a odhlásí tě z aplikace.
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportUserData()" style="width:100%;margin-bottom:8px;text-align:center">
+          📤 Nejdříve exportovat zálohu
+        </button>
+      </div>
+      <!-- Krok 3 -->
+      <div id="deleteStep3" style="display:none">
+        <div class="delete-step-icon">⌨️</div>
+        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:12px">
+          Pro potvrzení napiš slovo <strong>SMAZAT</strong>:
+        </div>
+        <input class="fi" id="deleteConfirmInput" placeholder="SMAZAT" style="text-align:center;font-size:1rem;letter-spacing:.08em">
+      </div>
+    </div>
+    <div class="modal-foot" id="deleteModalFoot">
+      <button class="btn btn-ghost" onclick="closeModal('modalDeleteData')">Zrušit</button>
+      <button class="btn" id="deleteNextBtn" onclick="handleDeleteStep()"
+        style="background:var(--expense);border-color:var(--expense);color:white">
+        Pokračovat
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Nápověda / Help center -->
+<div class="overlay" id="modalHelp">
+  <div class="modal modal-lg" style="max-width:600px">
+    <div class="modal-head">
+      <h3>❓ Nápověda & FAQ</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalHelp')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;max-height:70vh;overflow-y:auto">
+      <div style="padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)">
+        <div style="font-size:.82rem;color:var(--text2)">Nenašel/a jsi odpověď?
+          <a href="mailto:support@financeflow.cz" style="color:var(--bank)">Kontaktuj podporu</a>
+        </div>
+      </div>
+      <div id="helpFaqList" style="background:var(--surface)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Delete data stepper ──
+let _deleteCurrentStep = 1;
+function handleDeleteStep() {
+  if(_deleteCurrentStep === 1) {
+    _deleteCurrentStep = 2;
+    deleteDataStep2();
+    document.getElementById('deleteNextBtn').textContent = 'Ano, pokračovat';
+  } else if(_deleteCurrentStep === 2) {
+    _deleteCurrentStep = 3;
+    deleteDataStep3();
+    document.getElementById('deleteNextBtn').textContent = 'Smazat vše';
+    document.getElementById('deleteNextBtn').onclick = confirmDeleteAllData;
+  }
+}
+// Inicializace PINu a tématu při spuštění
+document.addEventListener('DOMContentLoaded', function() {
+  if(typeof initTheme === 'function') initTheme();
+  if(typeof loadPin === 'function') loadPin();
+});
+</script>
 
 </body>
 </html>
