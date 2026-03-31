@@ -727,7 +727,7 @@ async function sendContactForm() {
   try {
     if(window._db) {
       const r = _ref(_db, 'support/' + Date.now());
-      await _set(r, { name, email, type, message, date: new Date().toISOString(), version: '6.35' });
+      await _set(r, { name, email, type, message, date: new Date().toISOString(), version: '6.37' });
       saved = true;
     }
   } catch(e) { console.log('Support save error:', e); }
@@ -760,30 +760,6 @@ function showEmailSuggest(val) {
 function hideEmailSuggest() {
   const el = document.getElementById('emailSuggest');
   if(el) el.style.display = 'none';
-}
-
-  status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
-
-  // Odešli přes mailto (otevře emailového klienta)
-  const subject = encodeURIComponent(`[FinanceFlow] ${type==='bug'?'Chyba':type==='feature'?'Návrh':type==='support'?'Podpora':type==='premium'?'Premium':'Dotaz'}: ${message.slice(0,50)}`);
-  const body = encodeURIComponent(`Jméno: ${name}\nEmail: ${email}\nTyp: ${type}\n\nZpráva:\n${message}\n\n---\nVerze: 6.34\nUživatel: ${window._currentUser?.email||'nepřihlášen'}`);
-  
-  window.open('mailto:bc.milda@gmail.com?subject='+subject+'&body='+body);
-
-  // Ulož do Firebase admin sekce
-  try {
-    if(window._db) {
-      const ref = _ref(_db, 'support/' + Date.now());
-      await _set(ref, {
-        name, email, type, message,
-        date: new Date().toISOString(),
-        version: '6.35'
-      });
-    }
-  } catch(e) { console.log('Support log error:', e); }
-
-  status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Děkujeme! Otevřeli jsme váš emailový klient. Pokud se neotevřel, napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
-  document.getElementById('contactMessage').value = '';
 }
 
 // ══════════════════════════════════════════════════════
