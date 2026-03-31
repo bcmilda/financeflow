@@ -32,6 +32,7 @@ function renderPage(){
   if(curPage==='admin')renderAdmin();
   if(curPage==='tagy')renderTagy();
   if(curPage==='import')renderImport();
+  if(curPage==='smsimport')renderSmsImport();
   if(curPage==='komunita')renderKomunita();
   updateReadonlyUI();
 }
