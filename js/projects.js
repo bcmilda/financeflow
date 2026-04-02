@@ -504,16 +504,29 @@ function renderDTISection(D, baseIncome) {
     }
     return a + amt;
   }, 0);
-  const annualIncome = baseIncome * 12;
+  // v6.39 FIX: Fallback - pokud baseIncome=0 (žádná 'stabilní' kategorie příjmů),
+  // použij skutečný součet příjmů z posledních 3 měsíců jako průměr
+  let effectiveIncome = baseIncome;
+  if(!effectiveIncome) {
+    let incTotal = 0, incMonths = 0;
+    for(let i=0; i<3; i++) {
+      let m=S.curMonth-i, y=S.curYear; if(m<0){m+=12;y--;}
+      const monthInc = incSum(getTx(m,y,D));
+      if(monthInc > 0) { incTotal += monthInc; incMonths++; }
+    }
+    effectiveIncome = incMonths > 0 ? Math.round(incTotal / incMonths) : 0;
+  }
+  const annualIncome = effectiveIncome * 12;
 
   // DTI = celkový dluh / roční příjem × 100 (ČNB limit: max 900%)
-  const dti = annualIncome > 0 ? Math.round(totalDebt / annualIncome * 100) : 0;
+  const dti = annualIncome > 0 ? Math.round(totalDebt / annualIncome * 100) : null;
   // DSTI = měsíční splátky / měsíční příjem × 100 (ČNB limit: max 45%)
-  const dsti = baseIncome > 0 ? Math.round(monthlyPayments / baseIncome * 100) : 0;
+  const dsti = effectiveIncome > 0 ? Math.round(monthlyPayments / effectiveIncome * 100) : null;
 
   // ČNB limity
-  const dtiStatus = dti < 700 ? 'safe' : dti < 900 ? 'warn' : 'danger';
-  const dstiStatus = dsti < 35 ? 'safe' : dsti < 45 ? 'warn' : 'danger';
+  // Pokud nemáme příjem, zobraz varování místo 0%
+  const dtiStatus = dti === null ? 'nodata' : dti < 700 ? 'safe' : dti < 900 ? 'warn' : 'danger';
+  const dstiStatus = dsti === null ? 'nodata' : dsti < 35 ? 'safe' : dsti < 45 ? 'warn' : 'danger';
   const dtiColor = dtiStatus==='safe'?'var(--income)':dtiStatus==='warn'?'var(--debt)':'var(--expense)';
   const dstiColor = dstiStatus==='safe'?'var(--income)':dstiStatus==='warn'?'var(--debt)':'var(--expense)';
   const dtiLabel = dtiStatus==='safe'?'🟢 Banka schválí':'warn'===dtiStatus?'🟡 Rizikové':'🔴 Banka pravděpodobně zamítne';
@@ -852,39 +865,50 @@ function renderDetektor() {
     {kw:'předplatné', tip:'Zvažte zrušení nevyužívaných předplatných'},
   ];
 
-  // Najdi skutečné transakce které odpovídají předplatným
-  const foundSubs = new Map(); // kw -> {name, amt, count}
-  subTxs.forEach(t => {
-    const name = (t.name||'').toLowerCase();
-    for(const sub of baseSubKeywords) {
-      if(name.includes(sub.kw) && !foundSubs.has(sub.kw)) {
-        const amt = t.amount||t.amt||0;
-        if(amt > 0) foundSubs.set(sub.kw, {name: t.name, amt, tip: sub.tip});
-      }
-    }
-  });
+  // v6.39 FIX: Hledej předplatná z POSLEDNÍCH 3 MĚSÍCŮ (ne jen aktuální měsíc)
+  // Seřaď klíčová slova od nejdelšího (specifičtějšího) po nejkratší
+  const sortedKeywords = [...baseSubKeywords].sort((a,b) => b.kw.length - a.kw.length);
 
-  // Přidej doporučení jen pro nalezené předplatné
-  foundSubs.forEach((sub, kw) => {
-    suggestions.push({
-      category:'📺 Předplatné',
-      item: sub.name,
-      current:`${fmt(sub.amt)} Kč/měs`,
-      saving: Math.round(sub.amt * 0.4),
-      tip: sub.tip,
-      severity:'low'
-    });
-    totalSavable += Math.round(sub.amt * 0.4);
-    // Ulož do Firebase pro komunitní učení
-    if(window._db && window._currentUser) {
-      try {
-        const ref = _ref(_db, 'community/subscriptions/' + kw.replace(/\s+/g,'_'));
-        _get(ref).then(snap => {
-          const cur = snap.exists() ? (snap.val()||{}) : {};
-          const count = (cur.count||0) + 1;
-          _set(ref, {kw, count, lastSeen: new Date().toISOString().slice(0,10)});
+  // Získej transakce z posledních 3 měsíců
+  const recentTxs = [];
+  for(let i=0; i<3; i++) {
+    let m = S.curMonth - i, y = S.curYear;
+    if(m < 0) { m += 12; y--; }
+    getTx(m, y, D).filter(t=>t.type==='expense').forEach(t=>recentTxs.push(t));
+  }
+
+  // Dedup: každá TRANSAKCE použita max 1×, každé KLÍČOVÉ SLOVO max 1×
+  const usedTxIds = new Set();
+  const usedKeywords = new Set();
+
+  recentTxs.forEach(t => {
+    if(usedTxIds.has(t.id)) return; // transakce již zpracována
+    const name = (t.name||'').toLowerCase();
+    const amt = t.amount||t.amt||0;
+    if(amt <= 0) return;
+
+    for(const sub of sortedKeywords) {
+      if(usedKeywords.has(sub.kw)) continue; // klíčové slovo již použito
+      if(name.includes(sub.kw)) {
+        usedTxIds.add(t.id);    // tato transakce zpracována
+        usedKeywords.add(sub.kw); // toto klíčové slovo zpracováno
+        // Zároveň zablokuj kratší klíčová slova která jsou podřetězcem tohoto
+        sortedKeywords.forEach(other => {
+          if(sub.kw.includes(other.kw) && other.kw !== sub.kw) {
+            usedKeywords.add(other.kw);
+          }
         });
-      } catch(e) {}
+        suggestions.push({
+          category:'📺 Předplatné',
+          item: t.name,
+          current:`${fmt(amt)} Kč/měs`,
+          saving: Math.round(amt * 0.4),
+          tip: sub.tip,
+          severity:'low'
+        });
+        totalSavable += Math.round(amt * 0.4);
+        break; // přejdi na další transakci
+      }
     }
   });
 

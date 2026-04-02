@@ -29,10 +29,10 @@ function renderPage(){
   if(curPage==='simulace')renderSimulace();
   if(curPage==='uctenky')renderUctenky();
   if(curPage==='nakup')renderNakup();
+  if(curPage==='smsimport')renderSmsImport();
   if(curPage==='admin')renderAdmin();
   if(curPage==='tagy')renderTagy();
   if(curPage==='import')renderImport();
-  if(curPage==='smsimport')renderSmsImport();
   if(curPage==='komunita')renderKomunita();
   updateReadonlyUI();
 }
@@ -53,7 +53,7 @@ function renderSummaryCards(){
   el.innerHTML=`
     <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(inc)}</div><div class="stat-sub">${prevInc?fmt(prevInc)+' minulý m.':''}</div></div>
     <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(exp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}% vs minulý m.</span>`:''}</div></div>
-    <div class="stat-card balance"><div class="stat-label">Saldo</div><div class="stat-value ${bal>=0?'up':'down'}">${fmt(bal)}</div><div class="stat-sub">${bal>=0?'přebytek':'schodek'}</div></div>
+    <div class="stat-card balance"><div class="stat-label">Zůstatek</div><div class="stat-value ${bal>=0?'up':'down'}">${fmt(bal)}</div><div class="stat-sub">${bal>=0?'přebytek':'schodek'}</div></div>
     <div class="stat-card bank"><div class="stat-label">Úspory (Bank)</div><div class="stat-value bankc">${fmt(bankBal)}</div><div class="stat-sub">kumulované</div></div>
     <div class="stat-card debt"><div class="stat-label">Celkový dluh</div><div class="stat-value warn">${fmt(totalDebt)}</div><div class="stat-sub">${(D.debts||[]).length} závazků</div></div>`;
 }
@@ -252,7 +252,6 @@ function renderTxPage(){
 function renderTx(){
   const D = getData();
   const el = document.getElementById('txList'); if(!el) return;
-  // Detekce duplikátů – spočítej pro celý měsíc
   const allMonthTxs = getTx(S.curMonth, S.curYear, D);
   if(typeof detectDuplicates === 'function') {
     _dupMap = detectDuplicates(allMonthTxs);
@@ -282,7 +281,6 @@ function renderTx(){
     (t.name||'').toLowerCase().includes(searchFilter) ||
     (t.note||'').toLowerCase().includes(searchFilter)
   );
-  // Filtr duplikátů
   if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
     txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
   }

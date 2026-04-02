@@ -10,8 +10,6 @@ function renderGrafy(){
   drawSaldoBars('saldoChart',labels12,sal12);
   renderDebtChart(D);
   renderPredLineChartSimple(S.curYear,D);
-  // v6.37: initGrafFilters sem přesunuto z nebezpečného přepisu funkce
-  setTimeout(()=>{ if(typeof initGrafFilters==='function') initGrafFilters(); }, 0);
 }
 
 function renderDebtChart(D) {
@@ -120,11 +118,7 @@ function renderDebtChart(D) {
 
 function drawSimpleAreaChart(id,labels,data,color){
   const canvas=document.getElementById(id);if(!canvas)return;
-  // v6.37: oprava canvas width=0 při prvním renderu (stránka ještě neviditelná)
-  const parent=canvas.parentElement;
-  const W=parent.clientWidth||parent.offsetWidth||400;
-  if(W<10){requestAnimationFrame(()=>drawSimpleAreaChart(id,labels,data,color));return;}
-  canvas.width=W;
+  const W=canvas.parentElement.clientWidth||400;canvas.width=W;
   const H=canvas.height||160;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxV=Math.max(...data,1);
@@ -205,10 +199,7 @@ function drawSimpleAreaChart(id,labels,data,color){
 
 function drawSaldoBars(id,labels,data){
   const canvas=document.getElementById(id);if(!canvas)return;
-  const parent=canvas.parentElement;
-  const W=parent.clientWidth||parent.offsetWidth||500;
-  if(W<10){requestAnimationFrame(()=>drawSaldoBars(id,labels,data));return;}
-  canvas.width=W;
+  const W=canvas.parentElement.clientWidth||500;canvas.width=W;
   const H=canvas.height||150;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxA=Math.max(...data.map(Math.abs),1);
@@ -444,12 +435,13 @@ function onGrafFilterChange() {
 }
 
 function switchGrafTab(tab, btn) {
-  ['obecne','mesicni','rocni'].forEach(t => {
+  ['obecne','mesicni','rocni','vsechny'].forEach(t => {
     const el = document.getElementById('gtab-'+t+'-content');
     if(el) el.style.display = t===tab ? 'block' : 'none';
     const b = document.getElementById('gtab-'+t);
     if(b) b.classList.toggle('active', t===tab);
   });
+  if(tab==='vsechny') renderVsechnyRoky();
   if(tab==='mesicni') renderMesicniGraf();
   else if(tab==='rocni') renderRocniGraf();
   else renderGrafy();
@@ -726,5 +718,229 @@ function renderRocniGraf() {
 }
 
 // Inicializace při načtení grafů
-// OPRAVA v6.37: přímé volání initGrafFilters() uvnitř renderGrafy – odstraněno
-// nebezpečné přepisování funkce přes const + function redeclaration
+const _origRenderGrafy = renderGrafy;
+function renderGrafy() {
+  _origRenderGrafy();
+  initGrafFilters();
+}
+
+// ══════════════════════════════════════════════════════
+//  VŠECHNY ROKY – tabulka + krabicový graf (v6.39)
+// ══════════════════════════════════════════════════════
+function renderVsechnyRoky() {
+  const el = document.getElementById('gtab-vsechny-content'); if(!el) return;
+  const D = getData();
+  const allTxs = D.transactions || [];
+
+  // Zjisti rozsah let
+  const years = [...new Set(allTxs.map(t => new Date(t.date).getFullYear()))].sort();
+  if(!years.length) {
+    el.innerHTML = '<div class="empty"><div class="et">Žádná data</div></div>';
+    return;
+  }
+
+  // Pro každý rok × každý měsíc spočítej výdaje
+  const data = {}; // year → [jan..dec]
+  years.forEach(y => {
+    data[y] = Array.from({length:12}, (_,m) => {
+      return allTxs.filter(t => {
+        const d = new Date(t.date);
+        return d.getFullYear()===y && d.getMonth()===m && t.type==='expense';
+      }).reduce((a,t) => a+(t.amount||t.amt||0), 0);
+    });
+  });
+
+  // Kategorie filtr
+  const catFilter = document.getElementById('vsechnyGrafCat')?.value || '';
+
+  // Tabulka
+  const months = CZ_M.map(m => m.slice(0,3));
+  let html = `
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="fs" id="vsechnyGrafCat" style="max-width:200px" onchange="renderVsechnyRoky()">
+        <option value="">Všechny kategorie</option>
+        ${(D.categories||[]).filter(c=>c.type==='expense').map(c=>
+          `<option value="${c.id}" ${c.id===catFilter?'selected':''}>${c.icon} ${c.name}</option>`
+        ).join('')}
+      </select>
+      <span style="font-size:.76rem;color:var(--text3)">${years[0]} – ${years[years.length-1]}</span>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:16px">
+    <table class="pred-tbl" style="min-width:600px">
+      <thead><tr>
+        <th style="position:sticky;left:0;background:var(--surface2);text-align:left;z-index:2">Rok</th>
+        ${months.map(m=>`<th>${m}</th>`).join('')}
+        <th style="border-left:2px solid var(--border);color:var(--debt)">Celkem</th>
+        <th style="color:var(--text3)">Průměr/měs</th>
+      </tr></thead>
+      <tbody>`;
+
+  // Průměry měsíců přes všechny roky (pro heatmap)
+  const monthAvgs = Array.from({length:12}, (_,m) => {
+    const vals = years.map(y=>data[y][m]).filter(v=>v>0);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+  });
+  const globalAvg = monthAvgs.filter(v=>v>0).reduce((a,b)=>a+b,0) / monthAvgs.filter(v=>v>0).length || 1;
+
+  years.forEach(y => {
+    const row = data[y];
+    const total = row.reduce((a,b)=>a+b,0);
+    const nonZero = row.filter(v=>v>0);
+    const avg = nonZero.length ? Math.round(total/nonZero.length) : 0;
+    html += `<tr>
+      <td style="position:sticky;left:0;background:var(--surface);font-weight:700;text-align:left;z-index:1">${y}</td>
+      ${row.map((v,m) => {
+        if(!v) return '<td style="color:var(--text3)">–</td>';
+        const ratio = monthAvgs[m] > 0 ? v/monthAvgs[m] : 1;
+        const bg = ratio > 1.3 ? 'rgba(248,113,113,.25)' : ratio > 0.9 ? 'rgba(251,191,36,.18)' : 'rgba(74,222,128,.18)';
+        return `<td style="background:${bg};font-size:.82rem">${fmt(Math.round(v))}</td>`;
+      }).join('')}
+      <td style="border-left:2px solid var(--border);font-weight:700;color:var(--expense)">${fmt(Math.round(total))}</td>
+      <td style="color:var(--text3);font-size:.8rem">${avg ? fmt(avg) : '–'}</td>
+    </tr>`;
+  });
+
+  // Řádek průměrů
+  html += `<tr style="border-top:2px solid var(--border);background:var(--surface2)">
+    <td style="position:sticky;left:0;background:var(--surface2);font-weight:700;text-align:left;z-index:1">Ø průměr</td>
+    ${monthAvgs.map(v => `<td style="font-size:.8rem;color:var(--bank)">${v>0?fmt(Math.round(v)):'–'}</td>`).join('')}
+    <td style="border-left:2px solid var(--border);color:var(--bank);font-weight:700">${fmt(Math.round(monthAvgs.reduce((a,b)=>a+b,0)*12/12))}</td>
+    <td></td>
+  </tr>`;
+
+  html += '</tbody></table></div>';
+
+  // Krabicový graf (box plot) - výdaje per rok
+  html += `<div style="font-size:.78rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Krabicový graf – rozložení měsíčních výdajů</div>
+    <canvas id="vsechnyBoxCanvas" height="220" style="width:100%;display:block;margin-bottom:16px"></canvas>`;
+
+  // Řádkový graf - roční součty
+  html += `<div style="font-size:.78rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Roční výdaje</div>
+    <canvas id="vsechnyLineCanvas" height="160" style="width:100%;display:block"></canvas>`;
+
+  el.innerHTML = html;
+
+  // Nakresli grafy
+  setTimeout(() => {
+    drawVsechnyBoxPlot(years, data);
+    drawVsechnyLine(years, data);
+  }, 50);
+}
+
+function drawVsechnyBoxPlot(years, data) {
+  const cv = document.getElementById('vsechnyBoxCanvas'); if(!cv) return;
+  const W = cv.parentElement.clientWidth || 600;
+  cv.width = W; cv.height = 220;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, 220);
+
+  const n = years.length;
+  if(!n) return;
+
+  // Spočítej statistiky pro každý rok
+  const stats = years.map(y => {
+    const vals = data[y].filter(v=>v>0).sort((a,b)=>a-b);
+    if(!vals.length) return null;
+    const q1 = vals[Math.floor(vals.length*0.25)];
+    const q3 = vals[Math.floor(vals.length*0.75)];
+    const med = vals[Math.floor(vals.length/2)];
+    const min = vals[0];
+    const max = vals[vals.length-1];
+    const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+    return {q1,q3,med,min,max,avg,vals};
+  }).filter(Boolean);
+
+  if(!stats.length) return;
+
+  const maxV = Math.max(...stats.map(s=>s.max), 1);
+  const pad = {l:55,r:16,t:20,b:28};
+  const cW = W-pad.l-pad.r, cH = 220-pad.t-pad.b;
+  const yf = v => pad.t + cH*(1-v/maxV);
+  const boxW = Math.min(40, cW/n*0.5);
+
+  // Grid
+  ctx.setLineDash([3,4]); ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(f => {
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t+cH*(1-f)); ctx.lineTo(W-pad.r, pad.t+cH*(1-f)); ctx.stroke();
+    ctx.fillStyle='rgba(150,155,180,.6)'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(fmt(Math.round(maxV*f/1000))+'k', pad.l-3, pad.t+cH*(1-f)+4);
+  });
+  ctx.setLineDash([]);
+
+  const colors = ['#60a5fa','#4ade80','#f59e0b','#f87171','#a78bfa','#34d399','#fb923c','#e879f9','#facc15'];
+
+  stats.forEach((s, i) => {
+    const cx = pad.l + (i+0.5)*(cW/n);
+    const color = colors[i % colors.length];
+
+    // Whiskers
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, yf(s.min)); ctx.lineTo(cx, yf(s.max)); ctx.stroke();
+    [s.min, s.max].forEach(v => {
+      ctx.beginPath(); ctx.moveTo(cx-boxW*0.3, yf(v)); ctx.lineTo(cx+boxW*0.3, yf(v)); ctx.stroke();
+    });
+
+    // Box Q1-Q3
+    const bx = cx - boxW/2;
+    const by = yf(s.q3);
+    const bh = yf(s.q1) - yf(s.q3);
+    ctx.fillStyle = color+'33'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.fillRect(bx, by, boxW, bh);
+    ctx.strokeRect(bx, by, boxW, bh);
+
+    // Medián
+    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(bx, yf(s.med)); ctx.lineTo(bx+boxW, yf(s.med)); ctx.stroke();
+
+    // Průměr ×
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('×', cx, yf(s.avg)+4);
+
+    // Rok label
+    ctx.fillStyle='rgba(150,155,180,.8)'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(years[i], cx, 220-8);
+  });
+}
+
+function drawVsechnyLine(years, data) {
+  const cv = document.getElementById('vsechnyLineCanvas'); if(!cv) return;
+  const W = cv.parentElement.clientWidth || 600;
+  cv.width = W; cv.height = 160;
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, 160);
+
+  const totals = years.map(y => data[y].reduce((a,b)=>a+b,0));
+  const maxV = Math.max(...totals, 1);
+  const n = years.length;
+  const pad = {l:55,r:16,t:14,b:24};
+  const cW = W-pad.l-pad.r, cH = 160-pad.t-pad.b;
+  const xf = i => pad.l + (n<2 ? cW/2 : i/(n-1)*cW);
+  const yf = v => pad.t + cH*(1-v/maxV);
+
+  ctx.setLineDash([3,4]); ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1;
+  [0.25,0.5,0.75,1].forEach(f => {
+    ctx.beginPath(); ctx.moveTo(pad.l,pad.t+cH*(1-f)); ctx.lineTo(W-pad.r,pad.t+cH*(1-f)); ctx.stroke();
+    ctx.fillStyle='rgba(150,155,180,.6)'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(fmt(Math.round(maxV*f/1000))+'k', pad.l-3, pad.t+cH*(1-f)+4);
+  });
+  ctx.setLineDash([]);
+
+  // Area
+  const r=parseInt('60',16),g=parseInt('a5',16),b=parseInt('fa',16);
+  const grad=ctx.createLinearGradient(0,pad.t,0,160-pad.b);
+  grad.addColorStop(0,`rgba(${r},${g},${b},.3)`); grad.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  ctx.beginPath(); ctx.moveTo(xf(0),160-pad.b);
+  totals.forEach((v,i)=>ctx.lineTo(xf(i),yf(v)));
+  ctx.lineTo(xf(n-1),160-pad.b); ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2.5; ctx.beginPath();
+  totals.forEach((v,i)=>i===0?ctx.moveTo(xf(i),yf(v)):ctx.lineTo(xf(i),yf(v)));
+  ctx.stroke();
+
+  totals.forEach((v,i)=>{
+    ctx.beginPath(); ctx.arc(xf(i),yf(v),3,0,Math.PI*2);
+    ctx.fillStyle='#60a5fa'; ctx.fill();
+  });
+
+  ctx.fillStyle='rgba(150,155,180,.8)'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  years.forEach((y,i) => ctx.fillText(y, xf(i), 160-6));
+}
+

@@ -14,89 +14,25 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+
 <style>
-/* ══ SETTINGS – Wallet style ══ */
-.settings-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-.settings-section-title {
-  font-size: .68rem;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--text3);
-  padding: 12px 16px 6px;
-  font-weight: 700;
-}
-.settings-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-  transition: background .12s;
-}
-.settings-item:last-child { border-bottom: none; }
-.settings-item:hover { background: var(--surface2); }
-.settings-item:active { background: var(--surface3); }
-.settings-icon { font-size: 1.1rem; width: 26px; text-align: center; flex-shrink: 0; }
-.settings-item-body { flex: 1; min-width: 0; }
-.settings-item-title { font-size: .88rem; font-weight: 600; }
-.settings-item-sub { font-size: .74rem; color: var(--text3); margin-top: 1px; }
-.settings-chevron { color: var(--text3); font-size: 1.1rem; flex-shrink: 0; }
-.settings-profile-header { padding: 16px; }
-
-/* ══ HELP FAQ ══ */
-.help-faq-item {
-  border-bottom: 1px solid var(--border);
-}
-.help-faq-item:last-child { border-bottom: none; }
-.help-faq-q {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 13px 16px;
-  cursor: pointer;
-  font-size: .86rem;
-  font-weight: 600;
-  gap: 8px;
-}
-.help-faq-q:hover { background: var(--surface2); }
-.help-faq-arrow { color: var(--text3); font-size: 1.1rem; flex-shrink: 0; transition: transform .2s; }
-.help-faq-a {
-  padding: 0 16px 13px;
-  font-size: .82rem;
-  color: var(--text2);
-  line-height: 1.6;
-}
-
-/* ══ PIN PAD ══ */
-.pin-display {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin: 16px 0;
-}
-.pin-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--surface3);
-  border: 2px solid var(--text3);
-  transition: background .15s;
-}
-.pin-dot.filled { background: var(--income); border-color: var(--income); }
-
-/* ══ DELETE STEPS ══ */
-.delete-step-icon {
-  font-size: 2.5rem;
-  text-align: center;
-  margin-bottom: 10px;
-}
+.settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.settings-section-title{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);padding:12px 16px 6px;font-weight:700}
+.settings-item{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.settings-item:last-child{border-bottom:none}
+.settings-item:hover{background:var(--surface2)}
+.settings-icon{font-size:1.1rem;width:26px;text-align:center;flex-shrink:0}
+.settings-item-body{flex:1;min-width:0}
+.settings-item-title{font-size:.88rem;font-weight:600}
+.settings-item-sub{font-size:.74rem;color:var(--text3);margin-top:1px}
+.settings-chevron{color:var(--text3);font-size:1.1rem;flex-shrink:0}
+.help-faq-item{border-bottom:1px solid var(--border)}
+.help-faq-item:last-child{border-bottom:none}
+.help-faq-q{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;cursor:pointer;font-size:.86rem;font-weight:600;gap:8px}
+.help-faq-q:hover{background:var(--surface2)}
+.help-faq-a{padding:0 16px 13px;font-size:.82rem;color:var(--text2);line-height:1.6}
+.dup-badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:6px;cursor:pointer;background:rgba(251,191,36,.15);color:var(--debt);border:1px solid rgba(251,191,36,.3)}
+.dup-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
 </style>
 </head>
 <body>
@@ -313,13 +249,6 @@
   </div>
 
   <!-- ADMIN PANEL -->
-<!-- PAGE: SMS Import -->
-<div class="page" id="page-smsimport">
-  <div id="smsContent">
-    <div class="empty"><div class="ei">📱</div><div class="et">Načítám...</div></div>
-  </div>
-</div>
-
   <div class="page" id="page-admin">
     <div id="adminContent"></div>
   </div>
@@ -355,7 +284,7 @@
         <button class="tx-filt-btn" id="filt-income" onclick="setTxTypeFilter('income',this)">💰 Příjmy</button>
         <button class="tx-filt-btn" id="filt-expense" onclick="setTxTypeFilter('expense',this)">💸 Výdaje</button>
         <button class="tx-filt-btn" id="filt-transfer" onclick="setTxTypeFilter('transfer',this)">↔️ Přesuny</button>
-        <button class="tx-filt-btn" id="filt-dup" onclick="toggleDupFilter(this)" title="Zobrazit jen podezřelé transakce">⚠️ Podezřelé</button>
+        <button class="tx-filt-btn" id="filt-dup" onclick="toggleDupFilter(this)" title="Zobrazit jen podezřelé">⚠️ Podezřelé</button>
         <button class="tx-filt-btn" id="filt-adv" onclick="toggleAdvFilter()" style="margin-left:auto">⚙️ Filtr</button>
       </div>
       <!-- Rozšířený filtr – skrytý -->
@@ -499,6 +428,7 @@
       <button class="tx-filt-btn active" id="gtab-obecne" onclick="switchGrafTab('obecne',this)">📊 Obecné</button>
       <button class="tx-filt-btn" id="gtab-mesicni" onclick="switchGrafTab('mesicni',this)">📅 Měsíční</button>
       <button class="tx-filt-btn" id="gtab-rocni" onclick="switchGrafTab('rocni',this)">📆 Roční</button>
+      <button class="tx-filt-btn" id="gtab-vsechny" onclick="switchGrafTab('vsechny',this)">📅 Všechny roky</button>
     </div>
 
     <!-- Filtr kategorie/podkategorie (sdílený mezi záložkami) -->
@@ -570,6 +500,7 @@
           <div id="rocniTable"></div>
         </div>
       </div>
+        <div id="gtab-vsechny-content" style="display:none"></div>
       <!-- Krabicový graf -->
       <div class="card" style="margin-bottom:14px">
         <div class="card-header"><span class="card-title">📦 Krabicový graf (Box plot)</span></div>
@@ -599,16 +530,19 @@
   </div>
 
   <!-- STATISTIKY -->
-
-<!-- PAGE: Nákupní seznam -->
-<div class="page" id="page-nakup">
-  <div id="nakupAlertBanner" style="display:none"></div>
-  <div id="nakupContent">
-    <div class="empty"><div class="ei">🛒</div><div class="et">Načítám seznam...</div></div>
+  <!-- PAGE: Nákupní seznam -->
+  <div class="page" id="page-nakup">
+    <div id="nakupAlertBanner" style="display:none"></div>
+    <div id="nakupContent">
+      <div class="empty"><div class="ei">🛒</div><div class="et">Načítám seznam...</div></div>
+    </div>
   </div>
-</div>
-
-
+  <!-- PAGE: SMS Import -->
+  <div class="page" id="page-smsimport">
+    <div id="smsContent">
+      <div class="empty"><div class="ei">📱</div><div class="et">Načítám...</div></div>
+    </div>
+  </div>
   <div class="page" id="page-statistiky">
     <div class="grid2">
       <div class="card"><div class="card-header"><span class="card-title">Výdaje dle kategorie</span></div><div class="card-body" id="statCats"></div></div>
@@ -805,151 +739,6 @@
       <div class="empty"><div class="ei">⚙️</div><div class="et">Načítám nastavení...</div></div>
     </div>
   </div>
-      </div>
-      <div class="card-body">
-        <div class="fg" style="margin-bottom:12px">
-          <label>Jazyk aplikace</label>
-          <select class="fi" id="settingLang">
-            <option value="cs">🇨🇿 Čeština</option>
-            <option value="sk">🇸🇰 Slovenčina</option>
-            <option value="en">🇬🇧 English</option>
-          </select>
-        </div>
-        <div class="fg" style="margin-bottom:12px">
-          <label>Výchozí měna</label>
-          <select class="fi" id="settingCurrency">
-            <option value="CZK">🇨🇿 CZK – Česká koruna</option>
-            <option value="EUR">🇪🇺 EUR – Euro</option>
-            <option value="USD">🇺🇸 USD – Americký dolar</option>
-            <option value="GBP">🇬🇧 GBP – Britská libra</option>
-            <option value="PLN">🇵🇱 PLN – Polský zlotý</option>
-            <option value="HUF">🇭🇺 HUF – Maďarský forint</option>
-          </select>
-        </div>
-        <div class="fg" style="margin-bottom:16px">
-          <label>Formát data</label>
-          <select class="fi" id="settingDateFmt">
-            <option value="cs">DD.MM.YYYY (česky)</option>
-            <option value="iso">YYYY-MM-DD (ISO)</option>
-            <option value="us">MM/DD/YYYY (US)</option>
-          </select>
-        </div>
-        <div class="fg" style="margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-            <label style="margin:0">Složení domácnosti</label>
-            <div style="position:relative;display:inline-block">
-              <span style="cursor:pointer;font-size:1rem"
-                onmouseenter="document.getElementById('householdTooltip').style.display='block'"
-                onmouseleave="document.getElementById('householdTooltip').style.display='none'"
-                ontouchstart="document.getElementById('householdTooltip').style.display='block'">💡</span>
-              <div id="householdTooltip" style="display:none;position:absolute;left:0;top:100%;width:240px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:.74rem;color:var(--text2);z-index:100;box-shadow:0 4px 16px rgba(0,0,0,.3);line-height:1.6">
-                Data ČSÚ se přepočítají pomocí <strong>OECD spotřebních jednotek</strong>.<br>
-                Dospělý 1 = 1,0 · Dospělý 2+ = 0,5 · Dítě 14+ = 0,5 · Dítě 0–13 = 0,3<br>
-                Výsledek je váš <strong>ekvivalent spotřební jednotky</strong>.
-              </div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
-            <div style="text-align:center">
-              <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">👨‍👩 Dospělí</div>
-              <input class="fi" type="number" id="settingAdults" min="1" max="10" step="1" value="2"
-                style="text-align:center;font-size:1.1rem;font-weight:700;padding:8px 4px"
-                oninput="updateHouseholdEquiv()">
-              <div style="font-size:.66rem;color:var(--text3);margin-top:2px">váha 1,0 / 0,5</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">👶 Děti 0–13</div>
-              <input class="fi" type="number" id="settingChildren013" min="0" max="10" step="1" value="0"
-                style="text-align:center;font-size:1.1rem;font-weight:700;padding:8px 4px"
-                oninput="updateHouseholdEquiv()">
-              <div style="font-size:.66rem;color:var(--text3);margin-top:2px">váha 0,3</div>
-            </div>
-            <div style="text-align:center">
-              <div style="font-size:.72rem;color:var(--text2);margin-bottom:4px">🧒 Děti 14+</div>
-              <input class="fi" type="number" id="settingChildren14" min="0" max="10" step="1" value="0"
-                style="text-align:center;font-size:1.1rem;font-weight:700;padding:8px 4px"
-                oninput="updateHouseholdEquiv()">
-              <div style="font-size:.66rem;color:var(--text3);margin-top:2px">váha 0,5</div>
-            </div>
-          </div>
-          <div id="householdEquivDisplay" style="background:var(--surface2);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--text2);text-align:center;border:1px solid var(--border)">
-            Ekvivalent: <strong id="householdEquivVal">1,5</strong> spotřební jednotky · ČR průměr: 2,15
-          </div>
-        </div>
-        <button class="btn btn-accent" style="width:100%" onclick="saveSettingsBtn()">💾 Uložit nastavení</button>
-        <!-- Anonymní statistiky -->
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div>
-              <div style="font-size:.84rem;font-weight:600">🌍 Komunitní statistiky</div>
-              <div style="font-size:.72rem;color:var(--text3);margin-top:2px">Přispívat anonymními daty do komunitního přehledu</div>
-            </div>
-            <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;cursor:pointer">
-              <input type="checkbox" id="settingCommunity" checked style="opacity:0;width:0;height:0;position:absolute">
-              <span id="communityToggleBg" style="position:absolute;inset:0;background:var(--income);border-radius:24px;transition:.3s">
-                <span id="communityToggleKnob" style="position:absolute;left:20px;top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></span>
-              </span>
-            </label>
-          </div>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:6px">Data jsou 100% anonymní – sdílí se pouze průměrné výdaje dle kategorií, žádné osobní údaje.</div>
-        </div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px" id="localModeCard" style="display:none">
-      <div class="card-header"><span class="card-title">📱 Lokální režim</span><span class="local-badge">Bez účtu</span></div>
-      <div class="card-body">
-        <div class="insight-item warn" style="margin-bottom:12px">
-          <div class="insight-icon">⚠️</div>
-          <div class="insight-text">Data jsou uložena pouze na tomto zařízení. Pro zálohu použijte Export JSON níže.</div>
-        </div>
-        <button class="btn-google" onclick="migrateToGoogle()" style="margin-bottom:8px">
-          <svg viewBox="0 0 24 24" style="width:18px;height:18px"><path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.615 24 12.255 24z"/><path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/><path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.64 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
-          Přejít na Google účet a zachovat data
-        </button>
-        <div style="font-size:.72rem;color:var(--text3)">Data z lokálního režimu se automaticky přenesou na váš Google účet.</div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-body">
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="exportData()"><span style="font-size:1.1rem">⬇️</span><div style="text-align:left"><div style="font-weight:600">Zálohovat do souboru</div><div style="font-size:.72rem;color:var(--text3)">Stáhne JSON soubor se všemi daty</div></div></button>
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="importDataPrompt()"><span style="font-size:1.1rem">⬆️</span><div style="text-align:left"><div style="font-weight:600">Obnovit ze souboru</div><div style="font-size:.72rem;color:var(--text3)">Nahraje data z JSON zálohy</div></div></button>
-          <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px;color:var(--expense)" onclick="confirmDeleteAllData()"><span style="font-size:1.1rem">🗑️</span><div style="text-align:left"><div style="font-weight:600;color:var(--expense)">Smazat všechna data</div><div style="font-size:.72rem;color:var(--text3)">Nenávratně vymaže všechny transakce</div></div></button>
-        </div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header"><span class="card-title">📤 Export transakcí</span></div>
-      <div class="card-body">
-        <div class="frow" style="margin-bottom:12px">
-          <div class="fg"><label>Od</label><input class="fi" type="date" id="exportFrom"></div>
-          <div class="fg"><label>Do</label><input class="fi" type="date" id="exportTo"></div>
-        </div>
-        <div class="fg" style="margin-bottom:12px">
-          <label>Typ</label>
-          <select class="fi" id="exportType">
-            <option value="all">Vše</option>
-            <option value="expense">Jen výdaje</option>
-            <option value="income">Jen příjmy</option>
-          </select>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative">
-          <button class="btn btn-accent" onclick="exportCSV()">📊 CSV</button>
-          <button class="btn btn-ghost" onclick="exportData()">📦 JSON</button>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">👤 Účet</span></div>
-      <div class="card-body">
-        <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px;width:100%;margin-bottom:8px" onclick="openProfileModal()"><span style="font-size:1.1rem">✎</span><div style="text-align:left"><div style="font-weight:600">Upravit profil</div><div style="font-size:.72rem;color:var(--text3)">Jméno a fotka</div></div></button>
-        <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px;width:100%;color:var(--expense)" onclick="signOut()"><span style="font-size:1.1rem">⏻</span><div style="text-align:left"><div style="font-weight:600;color:var(--expense)">Odhlásit se</div></div></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- O APLIKACI -->
   <div class="page" id="page-oAplikaci">
 
     <!-- Logo -->
@@ -999,12 +788,9 @@
     <div class="card" style="margin-bottom:14px">
       <div class="card-header"><span class="card-title">🔗 Sdílet FinanceFlow</span></div>
       <div class="card-body" style="padding:8px 12px">
-        <div id="shareSection">
-          <div class="empty" style="padding:12px"><div class="et">Načítám...</div></div>
-        </div>
+        <div id="shareSection"><div class="empty"><div class="et">Načítám...</div></div></div>
       </div>
     </div>
-
     <!-- Poznámky k vydání -->
     <div class="card">
       <div class="card-header"><span class="card-title">📋 Poznámky k vydání</span></div>
@@ -1580,28 +1366,22 @@
   </div>
 </div>
 
-<!-- DŮLEŽITÉ: Pořadí scriptů je záměrné! (v6.37)
-     Závislosti:
-       computeBaseIncome  → projects.js  (voláno v premium.js)
-       computeFinancialScore, renderNetWorth, renderFinancialScore → premium.js (voláno v ui.js, ai.js)
-       daysUntilBday, initGrafFilters → charts.js (voláno v ui.js)
-       firebase.js jako poslední (type=module, spouští onUserSignedIn) -->
-<script src="js/app.js?v=34be55c1"></script>
+<script src="js/app.js?v=1e893f8d"></script>
 <script src="js/helpers.js?v=a924c531"></script>
-<script src="js/charts.js?v=9034173e"></script>
-<script src="js/stats.js?v=9456a04e"></script>
+<script src="js/ui.js?v=4f30bb45"></script>
 <script src="js/transactions.js?v=e1587930"></script>
-<script src="js/projects.js?v=bc0ad21c"></script>
-<script src="js/premium.js?v=9e57a97a"></script>
-<script src="js/ui.js?v=afa9e311"></script>
+<script src="js/charts.js?v=ee209722"></script>
+<script src="js/stats.js?v=9456a04e"></script>
 <script src="js/debts.js?v=ee42b536"></script>
 <script src="js/ai.js?v=7acd1c9c"></script>
+<script src="js/premium.js?v=9e57a97a"></script>
+<script src="js/projects.js?v=db47b1db"></script>
 <script src="js/receipts.js?v=f1985ec8"></script>
-<script src="js/duplicates.js?v=c52161de"></script>
 <script src="js/settings.js?v=new639"></script>
-<script src="js/share.js?v=new637"></script>
-<script src="js/sms-import.js?v=new637"></script>
-<script src="js/nakup.js?v=a35d4c62"></script>
+<script src="js/share.js?v=new638"></script>
+<script src="js/sms-import.js?v=new638"></script>
+<script src="js/duplicates.js?v=new637"></script>
+<script src="js/nakup.js?v=new637"></script>
 <script src="js/admin.js?v=f8a3b0e8"></script>
 <script src="js/import.js?v=763624ee"></script>
 <script type="module" src="js/firebase.js?v=889e8119"></script>
@@ -1686,271 +1466,73 @@
       </div>
       <div id="termsEN" style="display:none;font-size:.82rem;color:var(--text2);line-height:1.8">
         <strong style="color:var(--text)">1. Acceptance</strong><br>By using FinanceFlow, you agree to these terms.<br><br>
-        <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic features are free. Premium features require a subscription.<br><br>
-        <strong style="color:var(--text)">3. Liability</strong><br>FinanceFlow does not provide financial advice. Users are responsible for the accuracy of their data.<br><br>
-        <strong style="color:var(--text)">4. Availability</strong><br>The app is provided as-is without guarantee of continuous availability.<br><br>
-        <strong style="color:var(--text)">5. Contact</strong><br><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="9ae9efeaeaf5e8eedafcf3f4fbf4f9fffcf6f5edb4f9e0">[email&#160;protected]</a><br><br>
-        <em style="color:var(--text3)">Effective: April 1, 2026</em>
-      </div>
-    </div>
-  </div>
-</div>
+        <strong style="color:var(--text)">2. Free and Premium</strong><br>Basic features are free. Premium requires subscription.</div></div></div></div>
 
-
-<!-- MODAL: Nákupní seznam – přidat/upravit -->
-<div class="overlay" id="modalNakup">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="nakupModalTitle">Přidat do nákupního seznamu</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakup')">✕</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editNakupId">
-      <input type="hidden" id="nakupCatalogKey">
-
-      <!-- Název s autocomplete z katalogu -->
-      <div class="fg" style="position:relative">
-        <label>Název produktu</label>
-        <input class="fi" id="nakupItemName" placeholder="např. Rohlík, Mléko 1l, Šampón..."
-          oninput="nakupShowCatalogSuggest(this.value)"
-          onblur="nakupHideSuggest()"
-          autocomplete="off">
-        <div id="nakupCatalogSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;z-index:200;overflow:hidden;max-height:220px;overflow-y:auto"></div>
-      </div>
-
-      <div class="frow">
-        <div class="fg">
-          <label>Množství</label>
-          <input class="fi" id="nakupItemQty" type="number" min="1" value="1" placeholder="1">
-        </div>
-        <div class="fg">
-          <label>Referenční cena (Kč)</label>
-          <input class="fi" id="nakupItemRefPrice" type="number" min="0" step="0.10"
-            placeholder="0" oninput="nakupUpdateAlertPreview()">
-        </div>
-      </div>
-
-      <!-- Slider hlídání slevy -->
-      <div class="fg">
-        <label style="display:flex;justify-content:space-between">
-          <span>🔔 Hlídat pokles ceny</span>
-          <strong id="nakupAlertValue" style="color:var(--income)">0 %</strong>
-        </label>
-        <input type="range" id="nakupAlertSlider" min="0" max="50" step="5" value="0"
-          style="width:100%;accent-color:var(--income);height:6px;border-radius:3px;background:var(--surface3);outline:none;cursor:pointer"
-          oninput="nakupSliderChange(this.value)">
-        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--text3);margin-top:3px">
-          <span>Vypnuto</span><span>-10%</span><span>-20%</span><span>-30%</span><span>-40%</span><span>-50%</span>
-        </div>
-        <input type="hidden" id="nakupItemAlertPct" value="0">
-        <div id="nakupAlertPreview" style="margin-top:8px;font-size:.78rem;padding:6px 10px;background:var(--surface2);border-radius:8px">
-          <span style="color:var(--text3)">Hlídání vypnuto</span>
-        </div>
-      </div>
-
-      <!-- Email pro alert -->
-      <div class="fg" id="nakupEmailRow">
-        <label>Email pro upozornění</label>
-        <input class="fi" id="nakupAlertEmail" type="email" placeholder="vas@email.cz">
-        <div style="font-size:.72rem;color:var(--text3);margin-top:4px">Pošleme email jakmile cena klesne pod cíl</div>
-      </div>
-
-      <div class="fg">
-        <label>Poznámka</label>
-        <input class="fi" id="nakupItemNote" placeholder="Bio, značka, obchod...">
-      </div>
-
-      <div style="font-size:.72rem;color:var(--text3);padding:8px 10px;background:var(--surface2);border-radius:8px">
-        💡 Ceny se doplňují automaticky ze skenovaných účtenek komunity FinanceFlow.
-        Čím více uživatelů skenuje, tím přesnější data.
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modalNakup')">Zrušit</button>
-      <button class="btn btn-accent" onclick="saveNakupItem()">Uložit</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Historie cen produktu -->
-<div class="overlay" id="modalNakupHistory">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="nakupHistoryTitle">Historie cen</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakupHistory')">✕</button>
-    </div>
-    <div class="modal-body" id="nakupHistoryContent">
-      <div style="text-align:center;padding:20px;color:var(--text3)">⏳ Načítám...</div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Detail duplikátu -->
-<div class="overlay" id="modalDupDetail">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>⚠️ Podezřelé shody</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalDupDetail')">✕</button>
-    </div>
-    <div class="modal-body" id="dupDetailContent" style="max-height:70vh;overflow-y:auto">
-    </div>
-    <div class="modal-foot">
-      <butt
-      <button class="btn btn-ghost" onclick="closeModal('modalDupDetail')">Zavřít</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL: Share QR kód -->
-<div class="overlay" id="modalShareQR">
-  <div class="modal" style="max-width:340px">
-    <div class="modal-head">
-      <h3>📱 QR kód pro sdílení</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalShareQR')">✕</button>
-    </div>
-    <div class="modal-body" style="text-align:center">
-      <div id="shareQRDiv" style="display:flex;justify-content:center;margin-bottom:10px;min-height:180px;align-items:center"></div>
-      <canvas id="shareQRCanvas" style="display:none"></canvas>
-      <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px" id="shareQRUrl"></div>
-      <button class="btn btn-accent btn-sm" onclick="copyShareLink();closeModal('modalShareQR')">📋 Kopírovat odkaz</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL: PIN Setup -->
 <div class="overlay" id="modalPinSetup">
   <div class="modal" style="max-width:340px">
-    <div class="modal-head">
-      <h3>🔒 Nastavit PIN kód</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalPinSetup')">✕</button>
-    </div>
+    <div class="modal-head"><h3>🔒 Nastavit PIN</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalPinSetup')">✕</button></div>
     <div class="modal-body">
-      <div id="pinSetupStep1">
-        <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Zadej nový PIN (min. 4 číslice)</div>
-        <input class="fi" id="pinInput1" type="password" inputmode="numeric" pattern="[0-9]*"
-          maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em">
-        <div id="pinSetupError" style="color:var(--expense);font-size:.78rem;margin-top:8px;text-align:center"></div>
-      </div>
-      <div id="pinSetupStep2" style="display:none">
-        <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Potvrd PIN zadáním znovu</div>
-        <input class="fi" id="pinInput2" type="password" inputmode="numeric" pattern="[0-9]*"
-          maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em">
-        <div id="pinSetupError" style="color:var(--expense);font-size:.78rem;margin-top:8px;text-align:center"></div>
-      </div>
+      <div id="pinSetupStep1"><div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Zadej nový PIN (min. 4 číslice)</div><input class="fi" id="pinInput1" type="password" inputmode="numeric" maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em"></div>
+      <div id="pinSetupStep2" style="display:none"><div style="font-size:.84rem;color:var(--text2);margin-bottom:12px;text-align:center">Potvrd PIN</div><input class="fi" id="pinInput2" type="password" inputmode="numeric" maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em"></div>
+      <div id="pinSetupError" style="color:var(--expense);font-size:.78rem;margin-top:8px;text-align:center"></div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('modalPinSetup')">Zrušit</button>
-      <button class="btn btn-accent" id="pinSetupNextBtn" onclick="document.getElementById('pinSetupStep2').style.display==='none'?pinSetupNext():pinSetupConfirm()">Pokračovat</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalPinSetup')">Zrušit</button><button class="btn btn-accent" onclick="document.getElementById('pinSetupStep2').style.display==='none'?pinSetupNext():pinSetupConfirm()">Pokračovat</button></div>
   </div>
 </div>
-
-<!-- MODAL: PIN Verify (při startu) -->
 <div class="overlay" id="modalPinVerify" style="z-index:9999">
   <div class="modal" style="max-width:320px">
     <div class="modal-head"><h3>🔒 Zadej PIN</h3></div>
-    <div class="modal-body" style="text-align:center">
-      <div style="font-size:.84rem;color:var(--text2);margin-bottom:12px">Aplikace je chráněna PINem</div>
-      <input class="fi" id="pinVerifyInput" type="password" inputmode="numeric" pattern="[0-9]*"
-        maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em"
-        onkeydown="if(event.key==='Enter')pinVerifySubmit()">
-      <div id="pinVerifyError" style="color:var(--expense);font-size:.78rem;margin-top:8px"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-accent" style="width:100%" onclick="pinVerifySubmit()">Potvrdit</button>
-    </div>
+    <div class="modal-body" style="text-align:center"><input class="fi" id="pinVerifyInput" type="password" inputmode="numeric" maxlength="8" placeholder="••••" style="text-align:center;font-size:1.4rem;letter-spacing:.3em" onkeydown="if(event.key==='Enter')pinVerifySubmit()"><div id="pinVerifyError" style="color:var(--expense);font-size:.78rem;margin-top:8px"></div></div>
+    <div class="modal-foot"><button class="btn btn-accent" style="width:100%" onclick="pinVerifySubmit()">Potvrdit</button></div>
   </div>
 </div>
-
-<!-- MODAL: Vymazat data (3 kroky) -->
 <div class="overlay" id="modalDeleteData">
   <div class="modal" style="max-width:380px">
-    <div class="modal-head">
-      <h3>⚠️ Vymazat všechna data</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalDeleteData')">✕</button>
-    </div>
+    <div class="modal-head"><h3>⚠️ Vymazat data</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalDeleteData')">✕</button></div>
     <div class="modal-body">
-      <!-- Krok 1 -->
-      <div id="deleteStep1">
-        <div class="delete-step-icon">🗑️</div>
-        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">
-          Chystáš se <strong style="color:var(--expense)">trvale smazat</strong> všechna svá data:<br>
-          transakce, kategorie, dluhy, projekty, účtenky a nastavení.<br><br>
-          <strong>Tato akce je nevratná.</strong>
-        </div>
-        <div class="insight-item bad">
-          <div class="insight-icon">⚠️</div>
-          <div class="insight-text">Data budou smazána z Firebase i ze zařízení. Zálohu si udělej předem přes Export JSON.</div>
-        </div>
-      </div>
-      <!-- Krok 2 -->
-      <div id="deleteStep2" style="display:none">
-        <div class="delete-step-icon">🤔</div>
-        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">
-          Jsi si <strong>opravdu jist/a</strong>?<br>
-          Tato akce smaže vše a odhlásí tě z aplikace.
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="exportUserData()" style="width:100%;margin-bottom:8px;text-align:center">
-          📤 Nejdříve exportovat zálohu
-        </button>
-      </div>
-      <!-- Krok 3 -->
-      <div id="deleteStep3" style="display:none">
-        <div class="delete-step-icon">⌨️</div>
-        <div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:12px">
-          Pro potvrzení napiš slovo <strong>SMAZAT</strong>:
-        </div>
-        <input class="fi" id="deleteConfirmInput" placeholder="SMAZAT" style="text-align:center;font-size:1rem;letter-spacing:.08em">
-      </div>
+      <div id="deleteStep1"><div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">Chystáš se <strong style="color:var(--expense)">trvale smazat</strong> všechna data.<br><strong>Nevratná akce.</strong></div></div>
+      <div id="deleteStep2" style="display:none"><div style="font-size:.86rem;text-align:center;margin-bottom:12px">Jsi si <strong>opravdu jist/a</strong>?</div><button class="btn btn-ghost btn-sm" onclick="exportUserData()" style="width:100%;margin-bottom:8px;text-align:center">📤 Exportovat zálohu</button></div>
+      <div id="deleteStep3" style="display:none"><div style="font-size:.86rem;text-align:center;margin-bottom:12px">Napiš <strong>SMAZAT</strong>:</div><input class="fi" id="deleteConfirmInput" placeholder="SMAZAT" style="text-align:center"></div>
     </div>
-    <div class="modal-foot" id="deleteModalFoot">
-      <button class="btn btn-ghost" onclick="closeModal('modalDeleteData')">Zrušit</button>
-      <button class="btn" id="deleteNextBtn" onclick="handleDeleteStep()"
-        style="background:var(--expense);border-color:var(--expense);color:white">
-        Pokračovat
-      </button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalDeleteData')">Zrušit</button><button class="btn" id="deleteNextBtn" onclick="handleDeleteStep()" style="background:var(--expense);border-color:var(--expense);color:white">Pokračovat</button></div>
   </div>
 </div>
-
-<!-- MODAL: Nápověda / Help center -->
 <div class="overlay" id="modalHelp">
   <div class="modal modal-lg" style="max-width:600px">
-    <div class="modal-head">
-      <h3>❓ Nápověda & FAQ</h3>
-      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalHelp')">✕</button>
-    </div>
-    <div class="modal-body" style="padding:0;max-height:70vh;overflow-y:auto">
-      <div style="padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)">
-        <div style="font-size:.82rem;color:var(--text2)">Nenašel/a jsi odpověď?
-          <a href="mailto:support@financeflow.cz" style="color:var(--bank)">Kontaktuj podporu</a>
-        </div>
-      </div>
-      <div id="helpFaqList" style="background:var(--surface)"></div>
-    </div>
+    <div class="modal-head"><h3>❓ Nápověda</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalHelp')">✕</button></div>
+    <div class="modal-body" style="padding:0;max-height:70vh;overflow-y:auto"><div id="helpFaqList" style="background:var(--surface)"></div></div>
   </div>
 </div>
-
+<div class="overlay" id="modalShareQR">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-head"><h3>📱 QR kód</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalShareQR')">✕</button></div>
+    <div class="modal-body" style="text-align:center"><div id="shareQRDiv" style="display:flex;justify-content:center;margin-bottom:10px;min-height:180px;align-items:center"></div><canvas id="shareQRCanvas" style="display:none"></canvas><div style="font-size:.72rem;color:var(--text3);margin-bottom:8px" id="shareQRUrl"></div><button class="btn btn-accent btn-sm" onclick="copyShareLink();closeModal('modalShareQR')">📋 Kopírovat</button></div>
+  </div>
+</div>
+<div class="overlay" id="modalDupDetail">
+  <div class="modal"><div class="modal-head"><h3>⚠️ Podezřelé shody</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalDupDetail')">✕</button></div><div class="modal-body" id="dupDetailContent" style="max-height:70vh;overflow-y:auto"></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalDupDetail')">Zavřít</button></div></div>
+</div>
+<div class="overlay" id="modalNakup">
+  <div class="modal"><div class="modal-head"><h3 id="nakupModalTitle">Přidat položku</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakup')">✕</button></div>
+    <div class="modal-body"><input type="hidden" id="editNakupId"><input type="hidden" id="nakupCatalogKey">
+      <div class="fg" style="position:relative"><label>Název produktu</label><input class="fi" id="nakupItemName" placeholder="Rohlík, Mléko..." oninput="nakupShowCatalogSuggest(this.value)" onblur="nakupHideSuggest()" autocomplete="off"><div id="nakupCatalogSuggest" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:10px;z-index:200;overflow:hidden;max-height:220px;overflow-y:auto"></div></div>
+      <div class="frow"><div class="fg"><label>Množství</label><input class="fi" id="nakupItemQty" type="number" min="1" value="1"></div><div class="fg"><label>Ref. cena (Kč)</label><input class="fi" id="nakupItemRefPrice" type="number" min="0" step="0.1" placeholder="0" oninput="nakupUpdateAlertPreview()"></div></div>
+      <div class="fg"><label style="display:flex;justify-content:space-between"><span>🔔 Hlídat pokles</span><strong id="nakupAlertValue" style="color:var(--income)">0 %</strong></label><input type="range" id="nakupAlertSlider" min="0" max="50" step="5" value="0" style="width:100%;accent-color:var(--income)" oninput="nakupSliderChange(this.value)"><input type="hidden" id="nakupItemAlertPct" value="0"><div id="nakupAlertPreview" style="margin-top:8px;font-size:.78rem;padding:6px 10px;background:var(--surface2);border-radius:8px"><span style="color:var(--text3)">Hlídání vypnuto</span></div></div>
+      <div class="fg"><label>Email pro upozornění</label><input class="fi" id="nakupAlertEmail" type="email" placeholder="vas@email.cz"></div>
+      <div class="fg"><label>Poznámka</label><input class="fi" id="nakupItemNote" placeholder="Bio, značka..."></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalNakup')">Zrušit</button><button class="btn btn-accent" onclick="saveNakupItem()">Uložit</button></div>
+  </div>
+</div>
+<div class="overlay" id="modalNakupHistory">
+  <div class="modal"><div class="modal-head"><h3 id="nakupHistoryTitle">Historie cen</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakupHistory')">✕</button></div><div class="modal-body" id="nakupHistoryContent"></div></div>
+</div>
 <script>
-// ── Delete data stepper ──
-let _deleteCurrentStep = 1;
-function handleDeleteStep() {
-  if(_deleteCurrentStep === 1) {
-    _deleteCurrentStep = 2;
-    deleteDataStep2();
-    document.getElementById('deleteNextBtn').textContent = 'Ano, pokračovat';
-  } else if(_deleteCurrentStep === 2) {
-    _deleteCurrentStep = 3;
-    deleteDataStep3();
-    document.getElementById('deleteNextBtn').textContent = 'Smazat vše';
-    document.getElementById('deleteNextBtn').onclick = confirmDeleteAllData;
-  }
-}
-// Inicializace PINu a tématu při spuštění
-document.addEventListener('DOMContentLoaded', function() {
-  if(typeof initTheme === 'function') initTheme();
-  if(typeof loadPin === 'function') loadPin();
-});
+let _deleteCurrentStep=1;
+function handleDeleteStep(){if(_deleteCurrentStep===1){_deleteCurrentStep=2;deleteDataStep2();document.getElementById('deleteNextBtn').textContent='Ano, pokračovat';}else if(_deleteCurrentStep===2){_deleteCurrentStep=3;deleteDataStep3();document.getElementById('deleteNextBtn').textContent='Smazat vše';document.getElementById('deleteNextBtn').onclick=confirmDeleteAllData;}}
+document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='function')initTheme();if(typeof loadPin==='function')loadPin();});
 </script>
 
 </body>
