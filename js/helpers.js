@@ -106,10 +106,11 @@ function computePersonalSeason(catId, sub, D) {
  * Vrátí: { trend: 'up'|'down'|'stable', pct: číslo }
  */
 function detectTrend(catId, sub, D) {
+  // Potřebujeme alespoň 4 měsíce historických dat pro smysluplný trend
   const now = new Date();
-  const vals = [];
+  const monthData = [];
 
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 11; i >= 0; i--) {
     let m = now.getMonth() - i;
     let y = now.getFullYear();
     if (m < 0) { m += 12; y--; }
@@ -121,19 +122,32 @@ function detectTrend(catId, sub, D) {
                d.getMonth() === m && d.getFullYear() === y;
       })
       .reduce((a, t) => a + (t.amount || t.amt || 0), 0);
-    vals.push(sum);
+    if (sum > 0) monthData.push(sum);
   }
 
-  const older = vals.slice(0, 3).filter(v => v > 0);
-  const newer = vals.slice(3).filter(v => v > 0);
-  if (!older.length || !newer.length) return { trend: 'stable', pct: 0 };
+  // Min. 4 měsíce dat pro trend
+  if (monthData.length < 4) return { trend: 'stable', pct: 0 };
+
+  // Outlier removal: odstraň hodnoty > 3× medián
+  const sorted = [...monthData].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const filtered = monthData.filter(v => v <= median * 3);
+
+  if (filtered.length < 4) return { trend: 'stable', pct: 0 };
+
+  // Porovnej první polovinu vs druhá polovina
+  const half = Math.floor(filtered.length / 2);
+  const older = filtered.slice(0, half);
+  const newer = filtered.slice(filtered.length - half);
 
   const avgOlder = older.reduce((a, b) => a + b, 0) / older.length;
   const avgNewer = newer.reduce((a, b) => a + b, 0) / newer.length;
-  const pct = avgOlder > 0 ? Math.round((avgNewer - avgOlder) / avgOlder * 100) : 0;
+  if (!avgOlder) return { trend: 'stable', pct: 0 };
 
+  const pct = Math.round((avgNewer - avgOlder) / avgOlder * 100);
+  // Zobrazuj trend jen pokud je větší než 15% (není šum)
   return {
-    trend: pct > 8 ? 'up' : pct < -8 ? 'down' : 'stable',
+    trend: pct > 15 ? 'up' : pct < -15 ? 'down' : 'stable',
     pct,
     avgOlder: Math.round(avgOlder),
     avgNewer: Math.round(avgNewer)

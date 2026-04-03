@@ -46,6 +46,7 @@ function renderPredTable(year,D){
     ${months.map(({m})=>`<th style="${isCur(m,year)?'color:var(--income)':''}">${CZ_M[m].slice(0,3)}</th>`).join('')}
     <th style="border-left:2px solid var(--border);color:var(--debt)">YTD</th>
     <th style="color:#a78bfa" title="Součet skutečných výdajů + predikce zbytku roku">Předpoklad YTD</th>
+    <th style="color:#7c6fcd;min-width:90px" title="Čistý odhad: součet predikcí pro všech 12 měsíců">Odhad roku</th>
   </tr></thead><tbody>`;
   expCats.forEach(cat=>{
     let ytd=0;
@@ -55,7 +56,12 @@ function renderPredTable(year,D){
       const past=isPast(m,y),cur=isCur(m,y);
       if(past||cur)ytd+=actual;
       if(cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${actual?fmt(actual):'–'}</div>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:''}</td>`;
-      if(past)return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div></td>`;
+      if(past){
+        const diff = actual && pred ? actual - pred : 0;
+        const diffPct = pred && Math.abs(diff/pred)>0.05 ? Math.round(diff/pred*100) : 0;
+        const diffEl = diffPct ? `<div style="font-size:.62rem;color:${diff>0?'var(--expense)':'#4ade80'};opacity:.85">${diff>0?'+':''}${fmt(diff)} (${diffPct>0?'+':''}${diffPct}%)</div>` : '';
+        return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div>${diffEl}</td>`;
+      }
       const globalS=SEASON[m]?.mult||1;
       const personalS=computePersonalSeason(cat.id,null,D);
       const effectiveS=personalS?(personalS[m]*0.8+globalS*0.2):globalS;
@@ -63,10 +69,11 @@ function renderPredTable(year,D){
       const seasPct=Math.round((effectiveS-1)*100);
       const trendInfo=detectTrend(cat.id,null,D);
       const trendIcon=trendInfo.trend==='up'?'↑':trendInfo.trend==='down'?'↓':'';
-      return`<td>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:'<div style="color:var(--text3)">–</div>'}${isSeas?`<div style="font-size:.64rem;color:var(--debt)">${seasPct>0?'+':''}${seasPct}% sez.</div>`:''}${trendIcon?`<div style="font-size:.64rem;color:${trendInfo.trend==='up'?'var(--expense)':'var(--income)'}">${trendIcon}${Math.abs(trendInfo.pct)}% trend</div>`:''}</td>`;
+      return`<td>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:'<div style="color:var(--text3)">–</div>'}${isSeas?`<div style="font-size:.64rem;color:var(--debt)">${seasPct>0?'+':''}${seasPct}% sez.</div>`:''}</td>`;
     });
     const decPred=computeYearForecast(cat.id,null,year,D);
-    html+=`<tr><td style="position:sticky;left:0;background:var(--surface);z-index:1;font-weight:600;text-align:left">${cat.icon} ${cat.name}</td>${cells.join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${ytd?fmt(ytd):'–'}</td><td class="pred-dec">${decPred?fmt(decPred):'–'}</td></tr>`;
+    const yearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,null,mi,year,D)||0).reduce((a,b)=>a+b,0);
+    html+=`<tr><td style="position:sticky;left:0;background:var(--surface);z-index:1;font-weight:600;text-align:left">${cat.icon} ${cat.name}</td>${cells.join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${ytd?fmt(ytd):'–'}</td><td class="pred-dec">${decPred?fmt(decPred):'–'}</td><td style="color:#7c6fcd;font-weight:600;border-left:1px solid var(--border)">${yearEst?fmt(yearEst):'–'}</td></tr>`;
     (cat.subs||[]).forEach(sub=>{
       let sytd=0;
       const scells=months.map(({m,y})=>{
@@ -78,7 +85,8 @@ function renderPredTable(year,D){
         if(past)return`<td><div style="font-size:.76rem">${actual?fmt(actual):'–'}</div></td>`;
         return`<td>${pred?`<div style="font-size:.76rem;color:var(--bank)">${fmt(pred)}</div>`:'–'}</td>`;
       });
-      html+=`<tr class="sub-row"><td style="position:sticky;left:0;background:var(--surface);z-index:1;text-align:left">↳ ${sub}</td>${scells.join('')}<td style="border-left:2px solid var(--border);font-size:.76rem;color:var(--debt)">${sytd?fmt(sytd):'–'}</td><td style="font-size:.76rem;color:#a78bfa">${computeYearForecast(cat.id,sub,year,D)?fmt(computeYearForecast(cat.id,sub,year,D)):'–'}</td></tr>`;
+      const subYearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,sub,mi,year,D)||0).reduce((a,b)=>a+b,0);
+      html+=`<tr class="sub-row"><td style="position:sticky;left:0;background:var(--surface);z-index:1;text-align:left">↳ ${sub}</td>${scells.join('')}<td style="border-left:2px solid var(--border);font-size:.76rem;color:var(--debt)">${sytd?fmt(sytd):'–'}</td><td style="font-size:.76rem;color:#a78bfa">${computeYearForecast(cat.id,sub,year,D)?fmt(computeYearForecast(cat.id,sub,year,D)):'–'}</td><td style="font-size:.76rem;color:#7c6fcd;border-left:1px solid var(--border)">${subYearEst?fmt(subYearEst):'–'}</td></tr>`;
     });
   });
   const totals=months.map(({m,y})=>({act:expCats.reduce((a,c)=>a+getActual(c.id,null,m,y,D),0),pred:expCats.reduce((a,c)=>{const p=predictCat(c.id,null,m,y,D);return a+(p||0);},0),past:isPast(m,y),cur:isCur(m,y)}));
@@ -87,7 +95,7 @@ function renderPredTable(year,D){
     if(t.cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${t.act?fmt(t.act):'–'}</div>${t.pred?`<div class="cell-pred" style="font-size:.71rem">${fmt(t.pred)}</div>`:''}</td>`;
     if(t.past)return`<td><div class="cell-real">${t.act?fmt(t.act):'–'}</div></td>`;
     return`<td><div class="cell-pred">${t.pred?fmt(t.pred):'–'}</div></td>`;
-  }).join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${fmt(totalYTD)}</td><td class="pred-dec">${fmt(expCats.reduce((a,c)=>a+(computeYearForecast(c.id,null,year,D)||0),0))}</td></tr>`;
+  }).join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${fmt(totalYTD)}</td><td class="pred-dec">${fmt(expCats.reduce((a,c)=>a+(computeYearForecast(c.id,null,year,D)||0),0))}</td><td style="color:#7c6fcd;font-weight:700;border-left:1px solid var(--border)">${fmt(expCats.reduce((a,c)=>a+(Array.from({length:12},(_,mi)=>predictCat(c.id,null,mi,year,D)||0).reduce((x,y)=>x+y,0)),0))}</td></tr>`;
   html+=`</tbody></table></div>`;
   const bdays=(D.birthdays||[]).filter(b=>b.month-1===S.curMonth);
   if(bdays.length)html+=`<div style="margin-top:10px;padding:9px 12px;background:var(--bday-bg);border-radius:9px;font-size:.78rem;color:var(--bday)">🎂 Narozeniny v ${CZ_M[S.curMonth]}: ${bdays.map(b=>`<strong>${b.name}</strong>`).join(', ')}</div>`;

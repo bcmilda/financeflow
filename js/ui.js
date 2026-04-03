@@ -36,6 +36,7 @@ function renderPage(){
   if(curPage==='admin')renderAdmin();
   if(curPage==='tagy')renderTagy();
   if(curPage==='import')renderImport();
+  if(curPage==='kalendar')renderKalendar();
   if(curPage==='komunita')renderKomunita();
   updateReadonlyUI();
 }

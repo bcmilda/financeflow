@@ -173,6 +173,7 @@
     <div class="nav-item" onclick="showPage('projekty',this)"><span class="nav-icon">📁</span> Projekty</div>
     <div class="nav-item" onclick="showPagePremium('narozeniny',this)"><span class="nav-icon">🎂</span> Narozeniny & přání <span id="navlock-narozeniny" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
     <div class="nav-item" onclick="showPage('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam</div>
+    <div class="nav-item" onclick="showPage('kalendar',this)"><span class="nav-icon">📅</span> Kalendář</div>
   </div>
 
   <!-- AI -->
@@ -546,6 +547,12 @@
     </div>
   </div>
   <!-- PAGE: SMS Import -->
+  <!-- PAGE: Kalendář -->
+  <div class="page" id="page-kalendar">
+    <div id="kalendarContent">
+      <div class="empty"><div class="ei">📅</div><div class="et">Načítám kalendář...</div></div>
+    </div>
+  </div>
   <div class="page" id="page-smsimport">
     <div id="smsContent">
       <div class="empty"><div class="ei">📱</div><div class="et">Načítám...</div></div>
@@ -1374,10 +1381,10 @@
   </div>
 </div>
 
-<script src="js/app.js?v=136df8b1"></script>
-<script src="js/helpers.js?v=ac141b33"></script>
-<script src="js/ui.js?v=4f30bb45"></script>
-<script src="js/transactions.js?v=7daa4d3a"></script>
+<script src="js/app.js?v=9f719cf9"></script>
+<script src="js/helpers.js?v=88664899"></script>
+<script src="js/ui.js?v=3134d203"></script>
+<script src="js/transactions.js?v=723058c5"></script>
 <script src="js/charts.js?v=263bc672"></script>
 <script src="js/stats.js?v=9456a04e"></script>
 <script src="js/debts.js?v=ee42b536"></script>
@@ -1390,6 +1397,7 @@
 <script src="js/sms-import.js?v=new638"></script>
 <script src="js/duplicates.js?v=new637"></script>
 <script src="js/nakup.js?v=new637"></script>
+<script src="js/kalendar.js?v=new641"></script>
 <script src="js/admin.js?v=f8a3b0e8"></script>
 <script src="js/import.js?v=763624ee"></script>
 <script type="module" src="js/firebase.js?v=889e8119"></script>
@@ -1543,5 +1551,16 @@ function handleDeleteStep(){if(_deleteCurrentStep===1){_deleteCurrentStep=2;dele
 document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='function')initTheme();if(typeof loadPin==='function')loadPin();});
 </script>
 
+
+<!-- MODAL: Kalendář - detail dne -->
+<div class="overlay" id="modalKalendarDay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <h3 id="kalendarDayTitle">Detail dne</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalKalendarDay')">✕</button>
+    </div>
+    <div class="modal-body" id="kalendarDayContent" style="max-height:70vh;overflow-y:auto"></div>
+  </div>
+</div>
 </body>
 </html>
