@@ -17,7 +17,10 @@ function renderPage(){
   if(curPage==='penezenky')renderWalletList();
   if(curPage==='typy')renderPayTypeList();
   if(curPage==='sablony')renderSablonaList();
-  if(curPage==='nastaveni')applySettings();
+  if(curPage==='nastaveni'){
+    if(typeof renderSettingsPage==='function') renderSettingsPage();
+    else if(typeof applySettings==='function') applySettings();
+  }
   if(curPage==='sdileni')renderSdileni();
   if(curPage==='projekty')renderProjectGrid();
   if(curPage==='projektDetail'&&_currentProjectId)renderProjectDetail(_currentProjectId);
@@ -50,6 +53,20 @@ function renderSummaryCards(){
   const expDiff=prevExp>0?Math.round((exp-prevExp)/prevExp*100):null;
   const bankBal=computeBank(D);
   const totalDebt=(D.debts||[]).reduce((a,d)=>a+d.remaining,0);
+  // Prázdný měsíc banner - pokud nemáme transakce ale minulý měsíc ano
+  const emptyBanner = document.getElementById('emptyMonthBanner');
+  if(emptyBanner) {
+    if(!txs.length && prevTxs.length) {
+      emptyBanner.style.display = 'block';
+      emptyBanner.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:10px;margin-bottom:10px">
+        <span style="font-size:1.1rem">💡</span>
+        <div style="flex:1;font-size:.82rem;color:var(--text2)">V <strong>${CZ_M[S.curMonth]}</strong> zatím žádné transakce. Poslední aktivita byla v ${CZ_M[pm]}.</div>
+        <button class="btn btn-ghost btn-sm" onclick="changeMonth(-1)" style="flex-shrink:0">← ${CZ_M[pm]}</button>
+      </div>`;
+    } else {
+      emptyBanner.style.display = 'none';
+    }
+  }
   el.innerHTML=`
     <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(inc)}</div><div class="stat-sub">${prevInc?fmt(prevInc)+' minulý m.':''}</div></div>
     <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(exp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}% vs minulý m.</span>`:''}</div></div>
