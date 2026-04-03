@@ -55,7 +55,7 @@ function renderPredTable(year,D){
       const past=isPast(m,y),cur=isCur(m,y);
       if(past||cur)ytd+=actual;
       if(cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${actual?fmt(actual):'–'}</div>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:''}</td>`;
-      if(past)return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div></td>`;
+      if(past)return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div>${pred?`<div class="cell-pred" style="opacity:.6">${fmt(pred)}</div>`:''}</td>`;
       const s=SEASON[m]?.mult||1,isSeas=s>1.08;
       return`<td>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:'<div style="color:var(--text3)">–</div>'}${isSeas?`<div style="font-size:.66rem;color:var(--debt)">+${Math.round((s-1)*100)}% sez.</div>`:''}</td>`;
     });
@@ -69,7 +69,7 @@ function renderPredTable(year,D){
         const past=isPast(m,y),cur=isCur(m,y);
         if(past||cur)sytd+=actual;
         if(cur)return`<td style="background:rgba(74,222,128,.04)"><div style="font-size:.76rem">${actual?fmt(actual):'–'}</div>${pred?`<div class="cell-pred" style="font-size:.68rem">${fmt(pred)}</div>`:''}</td>`;
-        if(past)return`<td><div style="font-size:.76rem">${actual?fmt(actual):'–'}</div></td>`;
+        if(past)return`<td><div style="font-size:.76rem">${actual?fmt(actual):'–'}</div>${pred?`<div class="cell-pred" style="font-size:.68rem;opacity:.6">${fmt(pred)}</div>`:''}</td>`;
         return`<td>${pred?`<div style="font-size:.76rem;color:var(--bank)">${fmt(pred)}</div>`:'–'}</td>`;
       });
       html+=`<tr class="sub-row"><td style="position:sticky;left:0;background:var(--surface);z-index:1;text-align:left">↳ ${sub}</td>${scells.join('')}<td style="border-left:2px solid var(--border);font-size:.76rem;color:var(--debt)">${sytd?fmt(sytd):'–'}</td><td style="font-size:.76rem;color:#a78bfa">${predictCat(cat.id,sub,11,year,D)?fmt(predictCat(cat.id,sub,11,year,D)):'–'}</td></tr>`;

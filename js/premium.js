@@ -726,20 +726,44 @@ async function sendContactForm() {
   let saved = false;
   try {
     if(window._db) {
-      const r = _ref(_db, 'support/' + Date.now());
-      await _set(r, { name, email, type, message, date: new Date().toISOString(), version: '6.37' });
+      const key = Date.now() + '_' + Math.random().toString(36).slice(2,6);
+      const uid = window._currentUser?.uid || 'anon';
+      await _set(_ref(_db, 'support/' + key), {
+        name, email, type, message, uid,
+        date: new Date().toISOString(),
+        version: '6.40', status: 'new'
+      });
       saved = true;
     }
   } catch(e) { console.log('Support save error:', e); }
 
+  // Email notifikace přes Worker
+  try {
+    const typeLabel = type==='bug'?'🐛 Chyba':type==='feature'?'💡 Návrh funkce':type==='support'?'❓ Podpora':'📧 Zpráva';
+    await fetch('https://misty-limit-0523.bc-milda.workers.dev', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        type: 'contact_form',
+        subject: `[FinanceFlow] ${typeLabel} od ${name||email}`,
+        from_name: name, from_email: email,
+        msg_type: type, message
+      })
+    });
+  } catch(e) { console.log('Email notify error:', e); }
+
   if(saved) {
-    status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text"><strong>Děkujeme!</strong> Vaše zpráva byla odeslána. Odpovíme na <strong>' + email + '</strong>.</div></div>';
+    status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text"><strong>Děkujeme!</strong> Vaše zpráva byla odeslána. Odpovíme na <strong>' + email + '</strong> co nejdříve.</div></div>';
+    setTimeout(() => {
+      document.getElementById('contactName').value = '';
+      document.getElementById('contactEmail').value = '';
+      document.getElementById('contactMessage').value = '';
+      status.innerHTML = '';
+      closeModal('modalContact');
+    }, 2500);
   } else {
-    status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">📧</div><div class="insight-text">Nepodařilo se uložit. Napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
+    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">Nepodařilo se uložit. Napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
   }
-  document.getElementById('contactMessage').value = '';
-  document.getElementById('contactName').value = '';
-  document.getElementById('contactEmail').value = '';
 }
 
 function showEmailSuggest(val) {
@@ -761,6 +785,7 @@ function hideEmailSuggest() {
   const el = document.getElementById('emailSuggest');
   if(el) el.style.display = 'none';
 }
+
 
 // ══════════════════════════════════════════════════════
 //  CELKOVÝ MAJETEK (NET WORTH)

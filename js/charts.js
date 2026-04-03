@@ -5,11 +5,14 @@ function renderGrafy(){
   document.getElementById('grafYear').textContent=S.curYear;
   const inc12=[],exp12=[],sal12=[],labels12=[];
   for(let i=11;i>=0;i--){let m=S.curMonth-i,y=S.curYear;if(m<0){m+=12;y--;}const txs=getTx(m,y,D);inc12.push(incSum(txs));exp12.push(expSum(txs));sal12.push(incSum(txs)-expSum(txs));labels12.push(CZ_M[m].slice(0,3));}
-  drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
-  drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
-  drawSaldoBars('saldoChart',labels12,sal12);
-  renderDebtChart(D);
-  renderPredLineChartSimple(S.curYear,D);
+  // setTimeout zajistí správnou šířku canvasu (display:block musí být aplikován)
+  setTimeout(() => {
+    drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
+    drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
+    drawSaldoBars('saldoChart',labels12,sal12);
+    renderDebtChart(D);
+    renderPredLineChartSimple(S.curYear,D);
+  }, 0);
 }
 
 function renderDebtChart(D) {
@@ -441,10 +444,13 @@ function switchGrafTab(tab, btn) {
     const b = document.getElementById('gtab-'+t);
     if(b) b.classList.toggle('active', t===tab);
   });
-  if(tab==='vsechny') renderVsechnyRoky();
-  if(tab==='mesicni') renderMesicniGraf();
-  else if(tab==='rocni') renderRocniGraf();
-  else renderGrafy();
+  // Vykresli správný obsah PO zobrazení tabulky (clientWidth != 0)
+  setTimeout(() => {
+    if(tab==='obecne')  renderGrafy();
+    else if(tab==='mesicni') renderMesicniGraf();
+    else if(tab==='rocni')   renderRocniGraf();
+    else if(tab==='vsechny') renderVsechnyRoky();
+  }, 0);
 }
 
 function getGrafTxs() {
