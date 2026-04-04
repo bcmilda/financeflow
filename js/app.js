@@ -209,6 +209,15 @@ window.onUserSignedIn = async function(user) {
   setSyncStatus('ok');
   updateMLabel();
   checkAdminNav();
+
+  // PIN ochrana - zkontroluj po přihlášení
+  if (typeof loadPin === 'function') loadPin();
+  if (typeof _pin !== 'undefined' && _pin) {
+    // Zobraz PIN dialog - krátká pauza aby se UI načetlo
+    setTimeout(() => {
+      if (typeof openPinVerify === 'function') openPinVerify();
+    }, 800);
+  }
   renderPage();
   // Ulož affiliate ref pokud existuje
   if(window._pendingAffiliateRef) {

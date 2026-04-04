@@ -6,13 +6,15 @@ function renderGrafy(){
   const inc12=[],exp12=[],sal12=[],labels12=[];
   for(let i=11;i>=0;i--){let m=S.curMonth-i,y=S.curYear;if(m<0){m+=12;y--;}const txs=getTx(m,y,D);inc12.push(incSum(txs));exp12.push(expSum(txs));sal12.push(incSum(txs)-expSum(txs));labels12.push(CZ_M[m].slice(0,3));}
   // setTimeout zajistí správnou šířku canvasu (display:block musí být aplikován)
-  setTimeout(() => {
-    drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
-    drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
-    drawSaldoBars('saldoChart',labels12,sal12);
-    renderDebtChart(D);
-    renderPredLineChartSimple(S.curYear,D);
-  }, 0);
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
+      drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
+      drawSaldoBars('saldoChart',labels12,sal12);
+      renderDebtChart(D);
+      renderPredLineChartSimple(S.curYear,D);
+    }, 30);
+  });
 }
 
 function renderDebtChart(D) {
@@ -121,7 +123,10 @@ function renderDebtChart(D) {
 
 function drawSimpleAreaChart(id,labels,data,color){
   const canvas=document.getElementById(id);if(!canvas)return;
-  const W=canvas.parentElement.clientWidth||400;canvas.width=W;
+  // Force reflow - zajistí správnou šířku i pokud byl element skrytý
+  const parent=canvas.parentElement;
+  const W=parent.getBoundingClientRect().width||parent.offsetWidth||parent.clientWidth||400;
+  canvas.width=W;
   const H=canvas.height||160;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxV=Math.max(...data,1);
@@ -444,13 +449,16 @@ function switchGrafTab(tab, btn) {
     const b = document.getElementById('gtab-'+t);
     if(b) b.classList.toggle('active', t===tab);
   });
-  // Vykresli správný obsah PO zobrazení tabulky (clientWidth != 0)
-  setTimeout(() => {
-    if(tab==='obecne')  renderGrafy();
-    else if(tab==='mesicni') renderMesicniGraf();
-    else if(tab==='rocni')   renderRocniGraf();
-    else if(tab==='vsechny') renderVsechnyRoky();
-  }, 0);
+  // Vykresli správný obsah PO zobrazení tabulky
+  // requestAnimationFrame zajistí že prohlížeč dokončí layout před kreslením
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      if(tab==='obecne')  renderGrafy();
+      else if(tab==='mesicni') renderMesicniGraf();
+      else if(tab==='rocni')   renderRocniGraf();
+      else if(tab==='vsechny') renderVsechnyRoky();
+    }, 30);
+  });
 }
 
 function getGrafTxs() {

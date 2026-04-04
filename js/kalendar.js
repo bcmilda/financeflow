@@ -8,132 +8,154 @@ function renderKalendar() {
   const m = S.curMonth, y = S.curYear;
   const txs = getTx(m, y, D);
 
-  // Seskup transakce per den
+  // Seskup per den
   const perDay = {};
   txs.forEach(t => {
     const d = new Date(t.date).getDate();
     if (!perDay[d]) perDay[d] = { inc: 0, exp: 0, txs: [] };
     const amt = t.amount || t.amt || 0;
-    if (t.type === 'income')   perDay[d].inc += amt;
-    if (t.type === 'expense')  perDay[d].exp += amt;
+    if (t.type === 'income')  perDay[d].inc += amt;
+    if (t.type === 'expense') perDay[d].exp += amt;
     perDay[d].txs.push(t);
   });
 
-  // Celkové měsíční hodnoty pro kontext
   const totalInc = txs.filter(t=>t.type==='income').reduce((a,t)=>a+(t.amount||t.amt||0),0);
   const totalExp = txs.filter(t=>t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+  const totalSaldo = totalInc - totalExp;
 
-  // První den měsíce (0=Ne, 1=Po... → převeď na Po=0)
   const firstDay = new Date(y, m, 1).getDay();
-  const startOffset = firstDay === 0 ? 6 : firstDay - 1; // Pondělí jako první
+  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const today = new Date();
-  const todayD = today.getFullYear() === y && today.getMonth() === m ? today.getDate() : -1;
-
+  const todayD = today.getFullYear()===y && today.getMonth()===m ? today.getDate() : -1;
   const dayNames = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 
-  // Najdi max výdaj pro škálování barev
+  // Max pro škálování intenzity
   const maxExp = Math.max(...Object.values(perDay).map(d => d.exp), 1);
+  const maxInc = Math.max(...Object.values(perDay).map(d => d.inc), 1);
 
   let html = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div style="display:flex;gap:14px">
-        <span class="sm muted">📈 Příjmy: <strong style="color:var(--income)">${fmt(totalInc)} Kč</strong></span>
-        <span class="sm muted">📉 Výdaje: <strong style="color:var(--expense)">${fmt(totalExp)} Kč</strong></span>
-        <span class="sm muted">⚖️ Saldo: <strong style="color:${totalInc-totalExp>=0?'var(--income)':'var(--expense)'}">${fmt(totalInc-totalExp)} Kč</strong></span>
+    <!-- Header souhrn -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Příjmy</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#4ade80">+${fmt(totalInc)} Kč</div>
       </div>
-      <div style="display:flex;gap:10px;font-size:.72rem;color:var(--text3)">
-        <span>🟢 příjem</span><span>🔴 výdaj</span><span>⬜ bez transakcí</span>
+      <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Výdaje</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#f87171">-${fmt(totalExp)} Kč</div>
+      </div>
+      <div style="background:${totalSaldo>=0?'rgba(74,222,128,.08)':'rgba(248,113,113,.08)'};border:1px solid ${totalSaldo>=0?'rgba(74,222,128,.2)':'rgba(248,113,113,.2)'};border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Saldo</div>
+        <div style="font-size:1.1rem;font-weight:700;color:${totalSaldo>=0?'#4ade80':'#f87171'}">${totalSaldo>=0?'+':''}${fmt(totalSaldo)} Kč</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px">
-      ${dayNames.map(d => `<div style="text-align:center;font-size:.72rem;font-weight:700;color:var(--text3);padding:4px 0">${d}</div>`).join('')}
+    <!-- Záhlaví dnů -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">
+      ${dayNames.map((d,i) => `<div style="text-align:center;font-size:.72rem;font-weight:700;color:${i>=5?'rgba(248,113,113,.6)':'var(--text3)'};padding:5px 0;letter-spacing:.04em">${d}</div>`).join('')}
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+    <!-- Mřížka dnů -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
   `;
 
-  // Prázdné buňky před prvním dnem
+  // Prázdné buňky
   for (let i = 0; i < startOffset; i++) {
-    html += `<div style="aspect-ratio:1;border-radius:8px;background:var(--surface2);opacity:.3"></div>`;
+    html += `<div style="min-height:72px;border-radius:8px;background:rgba(255,255,255,.02)"></div>`;
   }
 
-  // Dny v měsíci
   for (let d = 1; d <= daysInMonth; d++) {
     const data = perDay[d];
     const isToday = d === todayD;
-    const isPast = y < today.getFullYear() || (y === today.getFullYear() && m < today.getMonth()) ||
-                   (y === today.getFullYear() && m === today.getMonth() && d < todayD);
-    const isFuture = !isToday && !isPast;
-
-    let bg = 'var(--surface2)';
-    let borderStyle = isToday ? '2px solid var(--income)' : '1px solid var(--border)';
-
-    if (data && data.exp > 0) {
-      // Intenzita červené podle výše výdaje
-      const intensity = Math.min(data.exp / maxExp, 1);
-      const alpha = 0.08 + intensity * 0.25;
-      bg = `rgba(248,113,113,${alpha.toFixed(2)})`;
-    }
-    if (data && data.inc > 0 && data.exp === 0) {
-      bg = 'rgba(74,222,128,.12)';
-    }
-    if (data && data.inc > 0 && data.exp > 0) {
-      // Smíšený den - barva podle salda
-      const saldo = data.inc - data.exp;
-      bg = saldo >= 0 ? 'rgba(74,222,128,.1)' : 'rgba(248,113,113,.15)';
-    }
-    if (isFuture && !data) bg = 'var(--surface)';
+    const dayOfWeek = (startOffset + d - 1) % 7; // 0=Po, 5=So, 6=Ne
+    const isWeekend = dayOfWeek >= 5;
+    const now = new Date(y, m, d);
+    const isPast = now < new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
     const saldo = data ? data.inc - data.exp : 0;
     const hasTx = data && data.txs.length > 0;
 
+    // Barva pozadí dle salda
+    let bgColor, borderColor, numColor;
+    if (!hasTx) {
+      bgColor = isPast ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.02)';
+      borderColor = isToday ? 'rgba(74,222,128,.5)' : isWeekend ? 'rgba(255,255,255,.05)' : 'rgba(255,255,255,.04)';
+      numColor = isPast ? 'var(--text3)' : 'rgba(255,255,255,.2)';
+    } else if (saldo > 0) {
+      const intensity = Math.min(data.inc / maxInc, 1);
+      bgColor = `rgba(74,222,128,${(0.06 + intensity * 0.18).toFixed(2)})`;
+      borderColor = `rgba(74,222,128,${(0.15 + intensity * 0.25).toFixed(2)})`;
+      numColor = 'var(--text2)';
+    } else if (saldo < 0) {
+      const intensity = Math.min(data.exp / maxExp, 1);
+      bgColor = `rgba(248,113,113,${(0.06 + intensity * 0.20).toFixed(2)})`;
+      borderColor = `rgba(248,113,113,${(0.15 + intensity * 0.30).toFixed(2)})`;
+      numColor = 'var(--text2)';
+    } else {
+      bgColor = 'rgba(251,191,36,.06)';
+      borderColor = 'rgba(251,191,36,.2)';
+      numColor = 'var(--text2)';
+    }
+
+    if (isToday) borderColor = 'rgba(74,222,128,.7)';
+
     html += `
       <div onclick="${hasTx ? `showKalendarDay(${d},${m},${y})` : ''}"
         style="
-          aspect-ratio:1;border-radius:8px;background:${bg};border:${borderStyle};
-          display:flex;flex-direction:column;padding:5px;
-          cursor:${hasTx ? 'pointer' : 'default'};
-          transition:transform .1s,box-shadow .1s;
-          position:relative;overflow:hidden;
-          ${hasTx ? 'cursor:pointer' : ''}
+          min-height:72px;border-radius:8px;
+          background:${bgColor};
+          border:1px solid ${borderColor};
+          ${isToday ? 'box-shadow:0 0 0 1px rgba(74,222,128,.3);' : ''}
+          display:flex;flex-direction:column;padding:6px 7px;
+          cursor:${hasTx?'pointer':'default'};
+          transition:transform .12s,box-shadow .12s;
+          position:relative;
         "
-        ${hasTx ? `onmouseover="this.style.transform='scale(1.04)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.3)'"
-                   onmouseout="this.style.transform='';this.style.boxShadow=''"` : ''}
+        ${hasTx ? `onmouseover="this.style.transform='scale(1.03)';this.style.zIndex='10'"
+                   onmouseout="this.style.transform='';this.style.zIndex=''"` : ''}
       >
-        <div style="font-size:.72rem;font-weight:${isToday?'800':'600'};color:${isToday?'var(--income)':isFuture?'var(--text3)':'var(--text)'}">
-          ${d}${isToday ? ' •' : ''}
+        <!-- Číslo dne + počet transakcí -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+          <span style="font-size:.78rem;font-weight:${isToday?'800':'600'};color:${isToday?'#4ade80':numColor};${isWeekend&&!isToday?'color:rgba(248,113,113,.7)':''}">${d}</span>
+          ${hasTx ? `<span style="font-size:.6rem;color:var(--text3);background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px">${data.txs.length}</span>` : ''}
         </div>
-        ${data && data.exp > 0 ? `<div style="font-size:.60rem;color:var(--expense);margin-top:auto;font-weight:600;line-height:1.2">-${fmtK(data.exp)}</div>` : ''}
-        ${data && data.inc > 0 ? `<div style="font-size:.60rem;color:var(--income);line-height:1.2;font-weight:600">+${fmtK(data.inc)}</div>` : ''}
-        ${data && hasTx ? `<div style="position:absolute;top:3px;right:4px;font-size:.58rem;color:var(--text3)">${data.txs.length}</div>` : ''}
+
+        <!-- Hlavní číslo - saldo -->
+        ${hasTx ? `
+          <div style="margin-top:auto">
+            <div style="font-size:${Math.abs(saldo)>=10000?'.72rem':'.78rem'};font-weight:700;color:${saldo>=0?'#4ade80':'#f87171'};line-height:1.2;letter-spacing:-.01em">
+              ${saldo>=0?'+':''}${fmtK(saldo)}
+            </div>
+            ${data.exp>0&&data.inc>0 ? `<div style="font-size:.58rem;color:var(--text3);margin-top:1px">▲${fmtK(data.inc)} ▼${fmtK(data.exp)}</div>` :
+              data.exp>0 ? `<div style="font-size:.58rem;color:rgba(248,113,113,.6)">-${fmtK(data.exp)}</div>` :
+              `<div style="font-size:.58rem;color:rgba(74,222,128,.6)">+${fmtK(data.inc)}</div>`}
+          </div>
+        ` : `<div style="margin-top:auto;font-size:.62rem;color:rgba(255,255,255,.12);text-align:center">${isPast&&!hasTx?'–':''}</div>`}
       </div>
     `;
   }
 
-  // Doplň prázdné buňky na konci
+  // Doplň konec
   const total = startOffset + daysInMonth;
   const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
   for (let i = 0; i < remainder; i++) {
-    html += `<div style="aspect-ratio:1;border-radius:8px;background:var(--surface2);opacity:.2"></div>`;
+    html += `<div style="min-height:72px;border-radius:8px;background:rgba(255,255,255,.02)"></div>`;
   }
 
-  html += `</div>`;
+  html += `</div>
 
-  // Legenda intenzity výdajů
-  html += `
-    <div style="margin-top:10px;display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text3)">
-      <span>Výdaje:</span>
-      ${[0.1, 0.2, 0.35, 0.5, 1].map(i => `
-        <div style="width:18px;height:18px;border-radius:4px;background:rgba(248,113,113,${(0.08+i*0.25).toFixed(2)})"></div>
-      `).join('')}
-      <span>↑ vyšší</span>
-    </div>
-  `;
+  <!-- Legenda -->
+  <div style="display:flex;align-items:center;gap:16px;margin-top:10px;font-size:.72rem;color:var(--text3);flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(74,222,128,.2);border:1px solid rgba(74,222,128,.3)"></div>Příjem/Zisk</div>
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(248,113,113,.2);border:1px solid rgba(248,113,113,.3)"></div>Výdaj/Ztráta</div>
+    <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:14px;border-radius:4px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1)"></div>Bez transakcí</div>
+    <div style="margin-left:auto;color:var(--text3)">Klikni na den pro detail</div>
+  </div>`;
 
   el.innerHTML = html;
 }
+
 
 // Formátuj číslo kompaktně (1234 → 1,2k)
 function fmtK(n) {

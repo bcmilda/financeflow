@@ -32,7 +32,7 @@ function adjustStartBal(){
 function renderPredikce(){
   const D=getData();
   document.getElementById('predMonth').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;
-  document.getElementById('predYear').textContent=S.curYear;
+
   renderPredTable(S.curYear,D);
   renderPredLineChartSimple(S.curYear,D);
 }
@@ -60,7 +60,8 @@ function renderPredTable(year,D){
         const diff = actual && pred ? actual - pred : 0;
         const diffPct = pred && Math.abs(diff/pred)>0.05 ? Math.round(diff/pred*100) : 0;
         const diffEl = diffPct ? `<div style="font-size:.62rem;color:${diff>0?'var(--expense)':'#4ade80'};opacity:.85">${diff>0?'+':''}${fmt(diff)} (${diffPct>0?'+':''}${diffPct}%)</div>` : '';
-        return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div>${diffEl}</td>`;
+        const predEl = pred ? `<div class="cell-pred" style="opacity:.55">${fmt(pred)}</div>` : '';
+        return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div>${predEl}${diffEl}</td>`;
       }
       const globalS=SEASON[m]?.mult||1;
       const personalS=computePersonalSeason(cat.id,null,D);
