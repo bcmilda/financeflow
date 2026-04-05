@@ -41,23 +41,7 @@ function getHistAvg(catId,sub,forM,forY,data){
   if(!vals.length)return null;
   return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
-function predictCat(catId,sub,m,y,data){
-  const D=data||getData();
-  let avg=getHistAvg(catId,sub,m,y,D);
-  if(avg===null){
-    const curExp=getTx(S.curMonth,S.curYear,D).filter(t=>t.type==='expense'&&t.catId===catId&&(!sub||t.subcat===sub)).reduce((a,t)=>a+t.amt,0);
-    if(!curExp)return null;
-    avg=curExp;
-  }
-  const seasMult=SEASON[m]?.mult||1;
-  let bdayBoost=0;
-  const cat=getCat(catId,D.categories);
-  if(cat.name&&cat.name.toLowerCase().includes('dárek')){
-    const bdays=(D.birthdays||[]).filter(b=>b.month-1===m);
-    bdayBoost=bdays.reduce((a,b)=>a+(b.gift||0),0);
-  }
-  return Math.round(avg*seasMult)+bdayBoost;
-}
+
 
 // ══════════════════════════════════════════════════════
 //  BANK
@@ -124,3 +108,100 @@ function updateMLabel(){document.getElementById('mlabel').textContent=`${CZ_M[S.
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════
+//  PREDIKČNÍ SYSTÉM v2 – Personalizované učení (v6.41)
+// ══════════════════════════════════════════════════════
+
+function computePersonalSeason(catId, sub, D) {
+  const txs = (D.transactions||[]).filter(t => {
+    if(t.type!=='expense'||t.catId!==catId) return false;
+    if(sub&&t.subcat!==sub) return false;
+    return true;
+  });
+  if(!txs.length) return null;
+  const byYearMonth = {};
+  txs.forEach(t => {
+    const d=new Date(t.date);
+    const k=d.getFullYear()+'-'+d.getMonth();
+    byYearMonth[k]=(byYearMonth[k]||0)+(t.amount||t.amt||0);
+  });
+  const years=[...new Set(Object.keys(byYearMonth).map(k=>k.split('-')[0]))];
+  if(years.length<2) return null;
+  const monthSums=Array(12).fill(0), monthCounts=Array(12).fill(0);
+  Object.entries(byYearMonth).forEach(([k,v])=>{
+    const m=parseInt(k.split('-')[1]);
+    monthSums[m]+=v; monthCounts[m]++;
+  });
+  const monthAvgs=monthSums.map((s,m)=>monthCounts[m]>0?s/monthCounts[m]:null);
+  const validAvgs=monthAvgs.filter(v=>v!==null);
+  if(!validAvgs.length) return null;
+  const overallAvg=validAvgs.reduce((a,b)=>a+b,0)/validAvgs.length;
+  if(!overallAvg) return null;
+  return monthAvgs.map((avg,m)=>avg===null?(SEASON[m]?.mult||1):avg/overallAvg);
+}
+
+function detectTrend(catId, sub, D) {
+  const now=new Date();
+  const monthData=[];
+  for(let i=11;i>=0;i--){
+    let m=now.getMonth()-i, y=now.getFullYear();
+    if(m<0){m+=12;y--;}
+    const sum=(D.transactions||[]).filter(t=>{
+      const d=new Date(t.date);
+      return t.type==='expense'&&t.catId===catId&&(!sub||t.subcat===sub)&&d.getMonth()===m&&d.getFullYear()===y;
+    }).reduce((a,t)=>a+(t.amount||t.amt||0),0);
+    if(sum>0) monthData.push(sum);
+  }
+  if(monthData.length<4) return {trend:'stable',pct:0};
+  const sorted=[...monthData].sort((a,b)=>a-b);
+  const median=sorted[Math.floor(sorted.length/2)];
+  const filtered=monthData.filter(v=>v<=median*3);
+  if(filtered.length<4) return {trend:'stable',pct:0};
+  const half=Math.floor(filtered.length/2);
+  const older=filtered.slice(0,half), newer=filtered.slice(filtered.length-half);
+  const avgOlder=older.reduce((a,b)=>a+b,0)/older.length;
+  const avgNewer=newer.reduce((a,b)=>a+b,0)/newer.length;
+  if(!avgOlder) return {trend:'stable',pct:0};
+  const pct=Math.round((avgNewer-avgOlder)/avgOlder*100);
+  return {trend:pct>15?'up':pct<-15?'down':'stable',pct,avgOlder:Math.round(avgOlder),avgNewer:Math.round(avgNewer)};
+}
+
+function computeYearForecast(catId, sub, year, D) {
+  let total=0;
+  const now=new Date();
+  const curM=now.getMonth(), curY=now.getFullYear();
+  for(let m=0;m<12;m++){
+    const isPastMonth=year<curY||(year===curY&&m<curM);
+    const isCurrentMonth=year===curY&&m===curM;
+    if(isPastMonth||isCurrentMonth) total+=getActual(catId,sub,m,year,D);
+    else { const pred=predictCat(catId,sub,m,year,D); if(pred) total+=pred; }
+  }
+  return Math.round(total);
+}
+
+// Přepis predictCat s personal season + trend
+function predictCat(catId,sub,m,y,data){
+  const D=data||getData();
+  let avg=getHistAvg(catId,sub,m,y,D);
+  if(avg===null){
+    const curExp=getTx(S.curMonth,S.curYear,D).filter(t=>t.type==='expense'&&t.catId===catId&&(!sub||t.subcat===sub)).reduce((a,t)=>a+(t.amount||t.amt||0),0);
+    if(!curExp) return null;
+    avg=curExp;
+  }
+  const personalSeason=computePersonalSeason(catId,sub,D);
+  let seasMult;
+  if(personalSeason){ seasMult=personalSeason[m]*0.8+(SEASON[m]?.mult||1)*0.2; }
+  else { seasMult=SEASON[m]?.mult||1; }
+  const trendInfo=detectTrend(catId,sub,D);
+  let trendMult=1;
+  if(trendInfo.trend==='up') trendMult=1+Math.min(trendInfo.pct/100*0.5,0.15);
+  if(trendInfo.trend==='down') trendMult=1+Math.max(trendInfo.pct/100*0.5,-0.15);
+  const cat=getCat(catId,D.categories);
+  let bdayBoost=0;
+  if(cat.name&&cat.name.toLowerCase().includes('darek')){
+    const bdays=(D.birthdays||[]).filter(b=>b.month-1===m);
+    bdayBoost=bdays.reduce((a,b)=>a+(b.gift||0),0);
+  }
+  return Math.round(avg*seasMult*trendMult)+bdayBoost;
+}

@@ -633,14 +633,8 @@ function exportUserData() {
   if (typeof showToast === 'function') showToast('📤 Export stažen');
 }
 
-// Přepis applySettings z premium.js – zavolá renderSettingsPage
-const _origApplySettings = typeof applySettings === 'function' ? applySettings : null;
-function applySettings() {
-  if (_origApplySettings) _origApplySettings();
-  renderSettingsPage();
-  loadPin();
-  initTheme();
-}
+// applySettings je v premium.js - nás settings.js ji nepřepisuje
+// renderSettingsPage se volá přímo z renderPage() v ui.js
 
 // Inicializace při startu
 initTheme();

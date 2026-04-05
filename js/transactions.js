@@ -64,12 +64,8 @@ function renderPredTable(year,D){
         return`<td><div class="cell-real">${actual?fmt(actual):'–'}</div>${predEl}${diffEl}</td>`;
       }
       const globalS=SEASON[m]?.mult||1;
-      const personalS=computePersonalSeason(cat.id,null,D);
-      const effectiveS=personalS?(personalS[m]*0.8+globalS*0.2):globalS;
-      const isSeas=effectiveS>1.08||effectiveS<0.93;
-      const seasPct=Math.round((effectiveS-1)*100);
-      const trendInfo=detectTrend(cat.id,null,D);
-      const trendIcon=trendInfo.trend==='up'?'↑':trendInfo.trend==='down'?'↓':'';
+      const isSeas=globalS>1.08||globalS<0.93;
+      const seasPct=Math.round((globalS-1)*100);
       return`<td>${pred?`<div class="cell-pred">${fmt(pred)}</div>`:'<div style="color:var(--text3)">–</div>'}${isSeas?`<div style="font-size:.64rem;color:var(--debt)">${seasPct>0?'+':''}${seasPct}% sez.</div>`:''}</td>`;
     });
     const decPred=computeYearForecast(cat.id,null,year,D);
