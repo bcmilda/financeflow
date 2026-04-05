@@ -713,56 +713,67 @@ async function sendContactForm() {
   const status  = document.getElementById('contactStatus');
 
   if(!email) {
-    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte váš email pro odpověď.</div></div>';
+    status.innerHTML='<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte email.</div></div>';
     return;
   }
   if(!message) {
-    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte zprávu.</div></div>';
+    status.innerHTML='<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Prosím vyplňte zprávu.</div></div>';
     return;
   }
 
-  status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
+  status.innerHTML='<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Odesílám...</div></div>';
 
   let saved = false;
+
+  // 1. Ulož do Firebase
   try {
     if(window._db) {
-      const key = Date.now() + '_' + Math.random().toString(36).slice(2,6);
-      const uid = window._currentUser?.uid || 'anon';
-      await _set(_ref(_db, 'support/' + key), {
-        name, email, type, message, uid,
-        date: new Date().toISOString(),
-        version: '6.40', status: 'new'
+      const key = Date.now()+'_'+Math.random().toString(36).slice(2,6);
+      const uid = window._currentUser?.uid||'anon';
+      await _set(_ref(_db,'support/'+key),{
+        name,email,type,message,uid,
+        date:new Date().toISOString(),version:'6.41',status:'new'
       });
       saved = true;
     }
-  } catch(e) { console.log('Support save error:', e); }
+  } catch(e) { console.log('Firebase save error:',e); }
 
-  // Email notifikace přes Worker
+  // 2. EmailJS - pošle email přímo (nevyžaduje doménu)
   try {
-    const typeLabel = type==='bug'?'🐛 Chyba':type==='feature'?'💡 Návrh funkce':type==='support'?'❓ Podpora':'📧 Zpráva';
-    await fetch('https://misty-limit-0523.bc-milda.workers.dev', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        type: 'contact_form',
-        subject: `[FinanceFlow] ${typeLabel} od ${name||email}`,
-        from_name: name, from_email: email,
-        msg_type: type, message
-      })
-    });
-  } catch(e) { console.log('Email notify error:', e); }
+    const EMAILJS_SERVICE = 'service_financeflow';
+    const EMAILJS_TEMPLATE = 'template_contact';
+    const EMAILJS_KEY = 'YOUR_EMAILJS_PUBLIC_KEY'; // TODO: doplnit z emailjs.com
+    
+    if(EMAILJS_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY' && window.emailjs) {
+      await window.emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        from_name: name||'Anonymní',
+        from_email: email,
+        msg_type: type,
+        message,
+        to_email: 'bc.milda@gmail.com'
+      }, EMAILJS_KEY);
+    } else {
+      // Fallback: Worker s Resend
+      const typeLabel = type==='bug'?'🐛 Chyba':type==='feature'?'💡 Návrh':type==='support'?'❓ Podpora':'📧 Zpráva';
+      await fetch('https://misty-limit-0523.bc-milda.workers.dev',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({type:'contact_form',from_name:name,from_email:email,msg_type:type,message})
+      });
+    }
+  } catch(e) { console.log('Email send error:',e); }
 
   if(saved) {
-    status.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text"><strong>Děkujeme!</strong> Vaše zpráva byla odeslána. Odpovíme na <strong>' + email + '</strong> co nejdříve.</div></div>';
-    setTimeout(() => {
-      document.getElementById('contactName').value = '';
-      document.getElementById('contactEmail').value = '';
-      document.getElementById('contactMessage').value = '';
-      status.innerHTML = '';
+    status.innerHTML='<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text"><strong>Děkujeme!</strong> Vaše zpráva byla přijata. Odpovíme na <strong>'+email+'</strong>.</div></div>';
+    setTimeout(()=>{
+      document.getElementById('contactName').value='';
+      document.getElementById('contactEmail').value='';
+      document.getElementById('contactMessage').value='';
+      status.innerHTML='';
       closeModal('modalContact');
-    }, 2500);
+    },2500);
   } else {
-    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">Nepodařilo se uložit. Napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
+    status.innerHTML='<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">Nepodařilo se uložit. Napište přímo na <strong>bc.milda@gmail.com</strong>.</div></div>';
   }
 }
 

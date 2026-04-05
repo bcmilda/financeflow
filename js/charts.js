@@ -123,9 +123,15 @@ function renderDebtChart(D) {
 
 function drawSimpleAreaChart(id,labels,data,color){
   const canvas=document.getElementById(id);if(!canvas)return;
-  // Force reflow - zajistí správnou šířku i pokud byl element skrytý
+  // Zajisti že canvas je viditelný a má správnou šířku
+  canvas.style.display='block';
+  canvas.style.width='100%';
   const parent=canvas.parentElement;
-  const W=parent.getBoundingClientRect().width||parent.offsetWidth||parent.clientWidth||400;
+  // Zkus více způsobů jak získat šířku - getBoundingClientRect je nejspolehlivější
+  let W=parent.getBoundingClientRect().width;
+  if(!W||W<50) W=parent.offsetWidth||parent.clientWidth||0;
+  if(!W||W<50) W=canvas.offsetWidth||400;
+  if(W<50) return; // Stále 0 - element ještě není v DOM nebo je skrytý
   canvas.width=W;
   const H=canvas.height||160;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
