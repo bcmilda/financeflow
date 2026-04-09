@@ -888,6 +888,34 @@ async function addReceiptPhoto(file) {
   const status = document.getElementById('receiptStatus');
   if(status) { status.style.display='block'; status.innerHTML='<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Připravuji foto...</div></div>'; }
   try {
+    // ── OFFLINE VĚTEV ──────────────────────────────────────────────
+    // Pokud nejsme online, uložíme fotku do IndexedDB a ukážeme zprávu.
+    // Analýza proběhne automaticky po obnovení připojení.
+    if (!navigator.onLine && window.OfflineSync) {
+      const offlineId = await window.OfflineSync.saveReceiptOffline(file, {
+        month: S.curMonth,
+        year:  S.curYear,
+      });
+      if(status) {
+        status.style.display='block';
+        status.innerHTML=`
+          <div class="insight-item warn" style="flex-direction:column;align-items:flex-start;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:1.1rem">📵</span>
+              <strong>Uloženo offline</strong>
+            </div>
+            <div style="font-size:.78rem;color:var(--text2)">
+              Fotka je uložena v telefonu (ID: ${offlineId}).<br>
+              AI analýza proběhne automaticky, jakmile se připojíš k internetu.
+            </div>
+            <div style="font-size:.72rem;color:var(--text3)">
+              ☁️ Klikni na žlutý odznak vpravo dole pro správu offline fronty.
+            </div>
+          </div>`;
+      }
+      return; // Nepokračujeme – čekáme na síť
+    }
+    // ── ONLINE VĚTEV (původní kód) ─────────────────────────────────
     const base64 = await compressReceiptImage(file);
     const thumb = 'data:image/jpeg;base64,' + base64;
     _receiptQueue.push({base64, thumb});
@@ -943,6 +971,44 @@ async function analyzeMultiReceipt() {
     if(status) { status.style.display='block'; status.innerHTML='<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Pro analýzu účtenek se musíte přihlásit přes <strong>Google účet</strong>.</div></div>'; }
     return;
   }
+
+  // ── OFFLINE VĚTEV ──────────────────────────────────────────────────
+  if (!navigator.onLine && window.OfflineSync) {
+    const n = _receiptQueue.length;
+    // Ulož každé foto z fronty do IndexedDB jako Blob
+    let savedCount = 0;
+    for (const item of _receiptQueue) {
+      try {
+        // base64 → Blob
+        const byteStr = atob(item.base64);
+        const arr = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([arr], { type: 'image/jpeg' });
+        await window.OfflineSync.saveReceiptOffline(blob, {
+          month: S.curMonth, year: S.curYear,
+          multiPart: n > 1, partIndex: savedCount,
+        });
+        savedCount++;
+      } catch(e) { console.error('Offline save error:', e); }
+    }
+    _receiptQueue = [];
+    updateReceiptQueue();
+    if(status) {
+      status.style.display='block';
+      status.innerHTML=`
+        <div class="insight-item warn" style="flex-direction:column;align-items:flex-start;gap:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1.1rem">📵</span>
+            <strong>${savedCount} ${savedCount===1?'foto uloženo':'fotek uloženo'} offline</strong>
+          </div>
+          <div style="font-size:.78rem;color:var(--text2)">
+            AI analýza proběhne automaticky po připojení k internetu.
+          </div>
+        </div>`;
+    }
+    return;
+  }
+  // ── ONLINE VĚTEV (původní kód) ─────────────────────────────────────
 
   const n = _receiptQueue.length;
   if(status) { status.style.display='block'; status.innerHTML=`<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Claude analyzuje ${n === 1 ? 'účtenku' : n + ' části účtenky'}...</div></div>`; }
