@@ -5,15 +5,18 @@ function renderGrafy(){
   document.getElementById('grafYear').textContent=S.curYear;
   const inc12=[],exp12=[],sal12=[],labels12=[];
   for(let i=11;i>=0;i--){let m=S.curMonth-i,y=S.curYear;if(m<0){m+=12;y--;}const txs=getTx(m,y,D);inc12.push(incSum(txs));exp12.push(expSum(txs));sal12.push(incSum(txs)-expSum(txs));labels12.push(CZ_M[m].slice(0,3));}
-  // setTimeout zajistí správnou šířku canvasu (display:block musí být aplikován)
+  // Dvojitý requestAnimationFrame zajistí, že prohlížeč dokončí layout (display:none→block)
+  // před tím než začneme číst getBoundingClientRect()
   requestAnimationFrame(() => {
-    setTimeout(() => {
-      drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
-      drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
-      drawSaldoBars('saldoChart',labels12,sal12);
-      renderDebtChart(D);
-      renderPredLineChartSimple(S.curYear,D);
-    }, 30);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        drawSimpleAreaChart('incomeChart',labels12,inc12,'#4ade80');
+        drawSimpleAreaChart('expenseChart',labels12,exp12,'#f87171');
+        drawSaldoBars('saldoChart',labels12,sal12);
+        renderDebtChart(D);
+        renderPredLineChartSimple(S.curYear,D);
+      }, 50);
+    });
   });
 }
 
@@ -121,7 +124,7 @@ function renderDebtChart(D) {
   canvas.onmouseleave=function(){renderDebtChart(D);};
 }
 
-function drawSimpleAreaChart(id,labels,data,color){
+function drawSimpleAreaChart(id,labels,data,color,_retryCount){
   const canvas=document.getElementById(id);if(!canvas)return;
   // Zajisti že canvas je viditelný a má správnou šířku
   canvas.style.display='block';
@@ -130,8 +133,15 @@ function drawSimpleAreaChart(id,labels,data,color){
   // Zkus více způsobů jak získat šířku - getBoundingClientRect je nejspolehlivější
   let W=parent.getBoundingClientRect().width;
   if(!W||W<50) W=parent.offsetWidth||parent.clientWidth||0;
-  if(!W||W<50) W=canvas.offsetWidth||400;
-  if(W<50) return; // Stále 0 - element ještě není v DOM nebo je skrytý
+  if(!W||W<50) W=canvas.offsetWidth||0;
+  // Pokud šířka stále 0 a máme retry pokusy zbývající → zkus znovu po delší době
+  if(W<50){
+    const retry=(_retryCount||0)+1;
+    if(retry<=5){
+      setTimeout(()=>drawSimpleAreaChart(id,labels,data,color,retry), retry*80);
+    }
+    return;
+  }
   canvas.width=W;
   const H=canvas.height||160;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
@@ -213,7 +223,9 @@ function drawSimpleAreaChart(id,labels,data,color){
 
 function drawSaldoBars(id,labels,data){
   const canvas=document.getElementById(id);if(!canvas)return;
-  const W=canvas.parentElement.clientWidth||500;canvas.width=W;
+  let W=canvas.parentElement.getBoundingClientRect().width;
+  if(!W||W<50) W=canvas.parentElement.clientWidth||canvas.parentElement.offsetWidth||500;
+  canvas.width=W;
   const H=canvas.height||150;
   const ctx=canvas.getContext('2d');ctx.clearRect(0,0,W,H);
   const maxA=Math.max(...data.map(Math.abs),1);

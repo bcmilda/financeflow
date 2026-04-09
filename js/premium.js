@@ -501,11 +501,12 @@ function saveSettingsBtn() {
   }
   // Apply language to UI
   applyLanguage();
-  const badge = document.getElementById('settingsSavedBadge');
-  if(badge) {
-    badge.textContent = _settings.lang==='en'?'✅ Saved!':_settings.lang==='sk'?'✅ Uložené!':'✅ Uloženo!';
-    badge.style.display='block';
-    setTimeout(()=>badge.style.display='none', 2500);
+  // Skryj save bar
+  const bar = document.getElementById('settingsSaveBar');
+  if(bar) bar.style.display = 'none';
+  // Toast zpráva
+  if(typeof showToast === 'function') {
+    showToast(_settings.lang==='en'?'✅ Settings saved!':_settings.lang==='sk'?'✅ Nastavenia uložené!':'✅ Nastavení uloženo!');
   }
 }
 

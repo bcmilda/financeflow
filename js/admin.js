@@ -398,11 +398,30 @@ async function loadLowConf() {
   const el = document.getElementById('adminLowConfTable'); if(!el) return;
   el.innerHTML = '<div class="empty"><div class="et">⏳ Načítám...</div></div>';
   try {
-    // Načti transakce ze všech uživatelů kde confidence < 50
-    const snap = await _get(_ref(_db, 'users'));
-    if(!snap.exists()) { el.innerHTML = '<div class="empty"><div class="et">Žádná data</div></div>'; return; }
+    // REST API s auth tokenem – Firebase SDK _get nemá přístup k /users root bez admin pravidla
+    const idToken = await window._currentUser?.getIdToken?.();
+    if(!idToken) throw new Error('Nejste přihlášeni');
+    const res = await fetch(
+      'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users.json?auth=' + idToken
+    );
+    if(!res.ok) {
+      if(res.status === 401 || res.status === 403) {
+        el.innerHTML = `<div style="padding:12px;font-size:.8rem;color:var(--text2)">
+          ℹ️ Pro tuto funkci je potřeba nastavit Firebase pravidlo:<br>
+          <code style="background:var(--surface3);padding:4px 8px;border-radius:4px;font-size:.76rem;display:block;margin-top:6px">
+            "users": { ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" }
+          </code>
+          <div style="margin-top:8px;color:var(--text3)">Přejdi na Firebase Console → Realtime Database → Rules</div>
+        </div>`;
+        return;
+      }
+      throw new Error('HTTP ' + res.status);
+    }
+    const data = await res.json();
+    if(!data) { el.innerHTML = '<div class="empty"><div class="et">Žádná data</div></div>'; return; }
+
     const lowConf = [];
-    Object.entries(snap.val()).forEach(([uid, udata]) => {
+    Object.entries(data).forEach(([uid, udata]) => {
       const txs = udata?.data?.transactions || [];
       txs.forEach(tx => {
         if(tx.type !== 'expense') return;
@@ -466,13 +485,33 @@ async function loadMappingStats() {
   const el = document.getElementById('adminMappingStats'); if(!el) return;
   el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>';
   try {
-    const snap = await _get(_ref(_db, 'users'));
-    if(!snap.exists()) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
+    // REST API s auth tokenem
+    const idToken = await window._currentUser?.getIdToken?.();
+    if(!idToken) throw new Error('Nejste přihlášeni');
+    const res = await fetch(
+      'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users.json?auth=' + idToken
+    );
+    if(!res.ok) {
+      if(res.status === 401 || res.status === 403) {
+        el.innerHTML = `<div class="card-body"><div style="font-size:.8rem;color:var(--text2)">
+          ℹ️ Pro tuto funkci je potřeba nastavit Firebase pravidlo:<br>
+          <code style="background:var(--surface3);padding:4px 8px;border-radius:4px;font-size:.76rem;display:block;margin-top:6px">
+            "users": { ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" }
+          </code>
+          <div style="margin-top:8px;color:var(--text3)">Přejdi na Firebase Console → Realtime Database → Rules</div>
+        </div></div>`;
+        return;
+      }
+      throw new Error('HTTP ' + res.status);
+    }
+    const data = await res.json();
+    if(!data) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
+
     let total = 0, highConf = 0, midConf = 0, lowConf = 0, fallback = 0;
     const groupCounts = {};
     COICOP_GROUPS_DEF.forEach(g => groupCounts[g.id] = 0);
 
-    Object.values(snap.val()).forEach(udata => {
+    Object.values(data).forEach(udata => {
       const txs = udata?.data?.transactions || [];
       txs.forEach(tx => {
         if(tx.type !== 'expense') return;

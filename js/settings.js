@@ -39,9 +39,32 @@ function applyTheme(mode, save = true) {
     root.style.setProperty('--bank-bg',    'rgba(37,99,235,.1)');
     root.setAttribute('data-theme', 'light');
   } else if (mode === 'auto') {
+    // Zjisti systémové téma a aplikuj barvy – ale _themeMode zůstane 'auto'
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'light', false);
-    root.setAttribute('data-theme', 'auto');
+    if (prefersDark) {
+      // Tmavé – odstraň overrides (CSS výchozí jsou dark)
+      ['--bg','--surface','--surface2','--surface3','--text','--text2','--text3',
+       '--border','--border2','--income-bg','--expense-bg','--debt-bg','--bank-bg'
+      ].forEach(v => root.style.removeProperty(v));
+      root.setAttribute('data-theme', 'dark');
+    } else {
+      // Světlé
+      root.style.setProperty('--bg',       '#f0f2f7');
+      root.style.setProperty('--surface',  '#ffffff');
+      root.style.setProperty('--surface2', '#f5f7fc');
+      root.style.setProperty('--surface3', '#e8ecf5');
+      root.style.setProperty('--text',     '#111827');
+      root.style.setProperty('--text2',    '#374151');
+      root.style.setProperty('--text3',    '#6b7280');
+      root.style.setProperty('--border',   'rgba(0,0,0,.1)');
+      root.style.setProperty('--border2',  'rgba(0,0,0,.18)');
+      root.style.setProperty('--income-bg',  'rgba(22,163,74,.12)');
+      root.style.setProperty('--expense-bg', 'rgba(220,38,38,.1)');
+      root.style.setProperty('--debt-bg',    'rgba(217,119,6,.1)');
+      root.style.setProperty('--bank-bg',    'rgba(37,99,235,.1)');
+      root.setAttribute('data-theme', 'light');
+    }
+    // _themeMode zůstane 'auto' – neměníme ho
     _themeMode = 'auto';
   } else {
     // dark (výchozí – odstraň override, CSS proměnné jsou definovány pro dark)
@@ -633,8 +656,14 @@ function exportUserData() {
   if (typeof showToast === 'function') showToast('📤 Export stažen');
 }
 
-// applySettings je v premium.js - nás settings.js ji nepřepisuje
-// renderSettingsPage se volá přímo z renderPage() v ui.js
+// Přepis applySettings z premium.js – zavolá renderSettingsPage
+const _origApplySettings = typeof applySettings === 'function' ? applySettings : null;
+function applySettings() {
+  if (_origApplySettings) _origApplySettings();
+  renderSettingsPage();
+  loadPin();
+  initTheme();
+}
 
 // Inicializace při startu
 initTheme();
