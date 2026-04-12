@@ -3,6 +3,7 @@
 function renderGrafy(){
   const D=getData();
   document.getElementById('grafYear').textContent=S.curYear;
+  initGrafFilters();
   const inc12=[],exp12=[],sal12=[],labels12=[];
   for(let i=11;i>=0;i--){let m=S.curMonth-i,y=S.curYear;if(m<0){m+=12;y--;}const txs=getTx(m,y,D);inc12.push(incSum(txs));exp12.push(expSum(txs));sal12.push(incSum(txs)-expSum(txs));labels12.push(CZ_M[m].slice(0,3));}
   // Dvojitý requestAnimationFrame zajistí, že prohlížeč dokončí layout (display:none→block)
@@ -605,6 +606,7 @@ function renderMesicniGraf() {
       <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Příjmy</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--income)">${fmt(Math.round(income))} Kč</div></div>
       <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Saldo</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:${income-total>=0?'var(--income)':'var(--expense)'}">${fmt(Math.round(income-total))} Kč</div></div>
     </div>`;
+  renderKumulChart(days, cumul, medVal);
 }
 
 function renderRocniGraf() {
@@ -749,12 +751,6 @@ function renderRocniGraf() {
   }
 }
 
-// Inicializace při načtení grafů
-const _origRenderGrafy = renderGrafy;
-function renderGrafy() {
-  _origRenderGrafy();
-  initGrafFilters();
-}
 
 // ══════════════════════════════════════════════════════
 //  VŠECHNY ROKY – tabulka + krabicový graf (v6.39)
@@ -974,5 +970,70 @@ function drawVsechnyLine(years, data) {
 
   ctx.fillStyle='rgba(150,155,180,.8)'; ctx.font='10px sans-serif'; ctx.textAlign='center';
   years.forEach((y,i) => ctx.fillText(y, xf(i), 160-6));
+}
+
+function renderKumulChart(days, cumul, medVal) {
+  const canvas = document.getElementById('kumulChart');
+  if(!canvas) return;
+  let W = canvas.parentElement.getBoundingClientRect().width;
+  if(!W || W<50) W = canvas.parentElement.clientWidth || 400;
+  canvas.width = W; canvas.height = 180;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, 180);
+
+  const maxVal = Math.max(medVal, ...(cumul.length ? cumul : [0]), 1);
+  const pad = {l:55, r:16, t:14, b:28};
+  const cW = W-pad.l-pad.r, cH = 180-pad.t-pad.b;
+  const xf = i => pad.l + (i+0.5)*(cW/days);
+  const yf = v => pad.t + cH*(1-v/maxVal);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  [0.25,0.5,0.75,1].forEach(f => {
+    const y2 = pad.t + cH*(1-f);
+    ctx.beginPath(); ctx.moveTo(pad.l, y2); ctx.lineTo(W-pad.r, y2); ctx.stroke();
+    ctx.fillStyle='rgba(139,144,168,.5)'; ctx.font='10px Instrument Sans'; ctx.textAlign='right';
+    ctx.fillText(fmt(Math.round(maxVal*f)), pad.l-4, y2+3);
+  });
+  ctx.setLineDash([]);
+
+  // Area fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, 180-pad.b);
+  grad.addColorStop(0, 'rgba(74,222,128,.3)');
+  grad.addColorStop(1, 'rgba(74,222,128,0)');
+  ctx.beginPath();
+  ctx.moveTo(xf(0), 180-pad.b);
+  cumul.forEach((v,i) => ctx.lineTo(xf(i), yf(v)));
+  ctx.lineTo(xf(cumul.length-1), 180-pad.b);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+
+  // Kumulativní linie
+  ctx.strokeStyle='#4ade80'; ctx.lineWidth=2.5; ctx.setLineDash([]);
+  ctx.beginPath();
+  cumul.forEach((v,i) => i===0 ? ctx.moveTo(xf(i),yf(v)) : ctx.lineTo(xf(i),yf(v)));
+  ctx.stroke();
+
+  // Body na nenulových hodnotách
+  cumul.forEach((v,i) => {
+    if(v===0) return;
+    ctx.beginPath(); ctx.arc(xf(i), yf(v), 2.5, 0, Math.PI*2);
+    ctx.fillStyle='#4ade80'; ctx.fill();
+  });
+
+  // Linie mediánu
+  if(medVal > 0) {
+    const medY = yf(medVal);
+    ctx.strokeStyle='#f87171'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(pad.l, medY); ctx.lineTo(W-pad.r, medY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#f87171'; ctx.font='bold 10px Instrument Sans'; ctx.textAlign='left';
+    ctx.fillText('Medián: '+fmt(Math.round(medVal))+' Kč', pad.l+5, medY-4);
+  }
+
+  // Popisky osy X (dny)
+  ctx.fillStyle='rgba(139,144,168,.6)'; ctx.font='9px Instrument Sans'; ctx.textAlign='center'; ctx.setLineDash([]);
+  [1,5,10,15,20,25,days].forEach(d => {
+    if(d<=days) ctx.fillText(d, xf(d-1), pad.t+cH+14);
+  });
 }
 
