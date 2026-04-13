@@ -1,0 +1,299 @@
+{
+  "main": {
+    "id": "7431506f5cad1383",
+    "type": "split",
+    "children": [
+      {
+        "id": "e3d4633e2143d820",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9360228ab8fd8419",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "ToDo.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "ToDo"
+            }
+          },
+          {
+            "id": "76c2bfdf296ce3e6",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "architecture.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "architecture"
+            }
+          },
+          {
+            "id": "db022098a1ad4418",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "decisions.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "decisions"
+            }
+          },
+          {
+            "id": "61872d6235529424",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "decisions.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "decisions"
+            }
+          }
+        ],
+        "currentTab": 3
+      },
+      {
+        "id": "b95a1c90b8e56d54",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "44f30eddff32145e",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graf"
+            }
+          },
+          {
+            "id": "771cfbf484af8045",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "context.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "context"
+            }
+          },
+          {
+            "id": "6ab891bddef6823e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "ToDo.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "ToDo"
+            }
+          },
+          {
+            "id": "887217997ec6f326",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Bugs.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Bugs"
+            }
+          }
+        ],
+        "currentTab": 3
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "7a12541cb2c64d24",
+    "type": "split",
+    "children": [
+      {
+        "id": "1713cc072b50b47e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "1714be8a540c8620",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Průzkumník souborů"
+            }
+          },
+          {
+            "id": "8cfc93bbc043deb5",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Hledat"
+            }
+          },
+          {
+            "id": "0ad09a977d359559",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Záložky"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "95a786d2ac1d039c",
+    "type": "split",
+    "children": [
+      {
+        "id": "ce42d171fb8757de",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d64326404f5706c2",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "decisions.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Zpětné odkazy pro decisions"
+            }
+          },
+          {
+            "id": "e3d96ba1c8f0b97c",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "decisions.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Odchozí odkazy z decisions"
+            }
+          },
+          {
+            "id": "13ed003b60a99507",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Štítky"
+            }
+          },
+          {
+            "id": "7561c4b8a4c41848",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Všechny vlastnosti"
+            }
+          },
+          {
+            "id": "f5baa64f6bffc177",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "decisions.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Přehled decisions"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Otevřít rychlé přepínání": false,
+      "graph:Otevřít graf": false,
+      "canvas:Vytvořit nový canvas": false,
+      "daily-notes:Otevřít dnešní poznámku": false,
+      "templates:Vložit šablonu": false,
+      "command-palette:Otevřít paletu příkazů": false,
+      "bases:Vytvořit novou základnu": false
+    }
+  },
+  "active": "61872d6235529424",
+  "lastOpenFiles": [
+    "features.md",
+    "decisions.md",
+    "architecture.md",
+    "ToDo.md",
+    "Vítejte.md",
+    "context.md",
+    "Bugs.md",
+    "vytvořtef odkaz.md"
+  ]
+}
