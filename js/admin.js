@@ -29,6 +29,7 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-lowconf"  onclick="switchAdminTab('lowconf',this)">⚠️ Low confidence</button>
       <button class="tx-filt-btn"        id="atab-stats"    onclick="switchAdminTab('stats',this)">📊 Statistiky</button>
       <button class="tx-filt-btn"        id="atab-leads"    onclick="switchAdminTab('leads',this)">📋 Leady</button>
+      <button class="tx-filt-btn"        id="atab-verze"    onclick="switchAdminTab('verze',this)">📝 Verze</button>
     </div>
 
     <!-- USERS -->
@@ -124,6 +125,14 @@ async function renderAdmin() {
         </div>
         <div id="adminLeadsTable"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
+    </div>
+
+    <!-- VERZE / CHANGELOG -->
+    <div id="atab-verze-content" style="display:none">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📝 Historie verzí</span></div>
+        <div id="adminVerzeList"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      </div>
     </div>`;
 
   loadUserStats();
@@ -132,7 +141,7 @@ async function renderAdmin() {
 }
 
 function switchAdminTab(tab, btn) {
-  ['users','keywords','corrections','lowconf','stats','leads'].forEach(t => {
+  ['users','keywords','corrections','lowconf','stats','leads','verze'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -146,6 +155,41 @@ function switchAdminTab(tab, btn) {
   if(tab==='corrections') loadCorrections();
   if(tab==='lowconf') loadLowConf();
   if(tab==='stats') loadMappingStats();
+  if(tab==='verze') loadVerze();
+}
+
+const VERZE_LOG = [
+  {
+    verze: 'v6.45',
+    datum: '2026-04-13',
+    zmeny: [
+      '🐛 Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem)',
+      '🐛 Přidána funkce renderKumulChart() – kumulativní graf se nevykresloval (chyběla implementace)',
+      '🐛 Opraven HTML layout v záložce Grafy – blok gtab-vsechny-content byl chybně vnořen do gtab-rocni-content',
+      '🐛 Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML)',
+      '✅ Vytvořen soubor .env pro bezpečné uložení API klíče Resend',
+      '✅ Přidána záložka Verze do Admin panelu',
+    ]
+  }
+];
+
+function loadVerze() {
+  const el = document.getElementById('adminVerzeList'); if(!el) return;
+  if(!VERZE_LOG.length) {
+    el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">Žádné záznamy</div></div></div>';
+    return;
+  }
+  el.innerHTML = VERZE_LOG.map(v => `
+    <div style="border-bottom:1px solid var(--border);padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <span style="font-size:1rem;font-weight:800;color:var(--accent)">${v.verze}</span>
+        <span style="font-size:.74rem;color:var(--text3)">${v.datum}</span>
+      </div>
+      <ul style="margin:0;padding-left:18px;list-style:none">
+        ${v.zmeny.map(z => `<li style="font-size:.82rem;color:var(--text2);margin-bottom:5px;padding-left:2px">${z}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
 }
 
 async function loadUserStats() {
