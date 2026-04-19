@@ -1,0 +1,75 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth.uid === $uid",
+        ".write": "auth.uid === $uid",
+        "data": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists()"
+        },
+        "profile": {
+          ".read": "auth != null"
+        },
+        "premium": {
+          ".read": "auth.uid === $uid"
+        },
+        "settings": {
+          ".read": "auth.uid === $uid"
+        },
+        "partners": {
+          ".read": "auth.uid === $uid"
+        }
+      }
+    },
+    "leads": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "affiliate": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "community": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "catalog": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$item": {
+        ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 60"
+      },
+      "prices": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$product": {
+          "$record": {
+            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
+          }
+        }
+      }
+    },
+    "keyword_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "coicop_corrections": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$correction": {
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "support": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$entry": {
+        ".validate": "newData.hasChildren(['email','message','date'])"
+      }
+    }
+  }
+}
