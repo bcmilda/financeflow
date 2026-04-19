@@ -1,6 +1,6 @@
 # Bugs – FinanceFlow
 
-> Poslední aktualizace: 2026-04-19 | Verze: v6.45
+> Poslední aktualizace: 2026-04-19 | Verze: v6.46
 
 ---
 
@@ -24,24 +24,21 @@
 - **Sekce:** Deployment / GitHub Pages
 - **URL:** `https://bcmilda.github.io/financeflow/lepsi-uver.html`
 - **Popis:** Stránka porovnání úroků bank se nenačte přes GitHub Pages.
-- **Poznámka:** Soubor `lepsi-uver.html` na větvi `main` existuje – problém je jinde (Pages build, Cloudflare?).
+- **Poznámka:** Soubor `lepsi-uver.html` na větvi `main` existuje – problém je jinde.
 - **Priorita:** Střední
 
 ### BUG-04 · Kontaktní formulář – emaily se neodesílají
 - **Sekce:** O aplikaci → Kontakt
 - **Popis:** Formulář neodešle email. Resend API klíč v Cloudflare Workeru je starý/neplatný.
 - **Řešení:** V Cloudflare Worker dashboardu nastavit env proměnnou `RESEND_API_KEY` = nový klíč. Worker v5 byl aktualizován – klíč už není hardcoded.
-- **Stav:** Worker kód opraven, ale Cloudflare proměnná ještě nebyla nastavena.
+- **Stav:** Worker kód opraven v repozitáři, ale deploy + nastavení proměnné v Cloudflare zatím nefunguje.
 - **Priorita:** Střední
 
----
-
-## 🟡 Varování / Vedlejší efekty
-
-### BUG-05 · Cloudflare Worker – chybějící origin
+### BUG-05 · Cloudflare Worker – CORS chyba pro bcmilda.github.io
 - **Sekce:** AI funkce / Cloudflare Worker
 - **Popis:** `https://bcmilda.github.io` chyběl v `allowedOrigins` → CORS chyba při volání AI z GitHub Pages.
-- **Stav:** ✅ Opraveno ve Worker v5 – nutno deployovat nový kód do Cloudflare.
+- **Stav:** ❌ Neopraveno – Worker v5 kód je připraven v repozitáři (`cloudflare-worker/worker.js`), ale deploy do Cloudflare dashboardu stále nefunguje přes uživatele.
+- **Priorita:** Střední
 
 ---
 
