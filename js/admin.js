@@ -163,12 +163,16 @@ const VERZE_LOG = [
     verze: 'v6.45',
     datum: '2026-04-13',
     zmeny: [
-      '🐛 Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem)',
-      '🐛 Přidána funkce renderKumulChart() – kumulativní graf se nevykresloval (chyběla implementace)',
-      '🐛 Opraven HTML layout v záložce Grafy – blok gtab-vsechny-content byl chybně vnořen do gtab-rocni-content',
-      '🐛 Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML)',
-      '✅ Vytvořen soubor .env pro bezpečné uložení API klíče Resend',
-      '✅ Přidána záložka Verze do Admin panelu',
+      '🐛 Grafy → Obecné / Měsíční: Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem), způsobovalo zamrznutí záložky',
+      '🐛 Grafy → Měsíční: Přidána chybějící funkce renderKumulChart() – kumulativní graf se vůbec nevykresloval',
+      '🐛 Grafy → Všechny roky: Opraven HTML layout – blok gtab-vsechny-content byl chybně vnořen uvnitř gtab-rocni-content, způsobovalo špatné zobrazení',
+      '🐛 Grafy → Obecné: Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML, způsobovalo JS chybu)',
+      '⚠️ Grafy (oprava): Oprava grafů pomohla, ale zároveň se rozbila sekce Predikce – tabulka predikce se nezobrazuje a graf "Predikce vs Skutečnost" se zobrazí pouze po překliknutí na Dashboard a zpět, jinak zůstává prázdný',
+      '✅ Nastavení / Zabezpečení: Vytvořen soubor .env pro bezpečné uložení API klíče Resend (klíč unikl, byl nahrazen novým)',
+      '✅ Admin panel → Verze: Přidána tato záložka s historií verzí a changelogem',
+      '❌ GitHub Pages: https://bcmilda.github.io/financeflow/ nefunguje – stránka se nenačte',
+      '❌ GitHub Pages: https://bcmilda.github.io/financeflow/lepsi-uver.html nefunguje',
+      '❌ O aplikaci → Kontakt: Odesílání emailů přes kontaktní formulář nefunguje – Resend API klíč v Cloudflare Workeru je starý/neplatný',
     ]
   }
 ];
