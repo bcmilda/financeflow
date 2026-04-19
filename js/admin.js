@@ -160,19 +160,27 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.46',
+    datum: '2026-04-19',
+    zmeny: [
+      '✅ Admin panel → Verze: Záznamy doplněny o cestu sekce (kde k opravě došlo)',
+      '✅ Dokumentace: Vytvořeny docs/bugs.md a docs/todo.md',
+      '✅ Repozitář: Playwright soubory přesunuty do složky Playwrite/',
+      '✅ Cloudflare Worker: Přidán worker.js do repozitáře (cloudflare-worker/worker.js), bcmilda.github.io přidán do CORS, Resend key přesunut do env proměnné',
+      '✅ CLAUDE.md: Vytvořen kontext soubor pro Claude Code sessions',
+      '✅ CI/CD: Přidán GitHub Actions workflow pro automatický preview deploy na push do dev větve',
+    ]
+  },
+  {
     verze: 'v6.45',
     datum: '2026-04-13',
     zmeny: [
-      '🐛 Grafy → Obecné / Měsíční: Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem), způsobovalo zamrznutí záložky',
-      '🐛 Grafy → Měsíční: Přidána chybějící funkce renderKumulChart() – kumulativní graf se vůbec nevykresloval',
-      '🐛 Grafy → Všechny roky: Opraven HTML layout – blok gtab-vsechny-content byl chybně vnořen uvnitř gtab-rocni-content, způsobovalo špatné zobrazení',
-      '🐛 Grafy → Obecné: Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML, způsobovalo JS chybu)',
-      '⚠️ Grafy (oprava): Oprava grafů pomohla, ale zároveň se rozbila sekce Predikce – tabulka predikce se nezobrazuje a graf "Predikce vs Skutečnost" se zobrazí pouze po překliknutí na Dashboard a zpět, jinak zůstává prázdný',
-      '✅ Nastavení / Zabezpečení: Vytvořen soubor .env pro bezpečné uložení API klíče Resend (klíč unikl, byl nahrazen novým)',
-      '✅ Admin panel → Verze: Přidána tato záložka s historií verzí a changelogem',
-      '❌ GitHub Pages: https://bcmilda.github.io/financeflow/ nefunguje – stránka se nenačte',
-      '❌ GitHub Pages: https://bcmilda.github.io/financeflow/lepsi-uver.html nefunguje',
-      '❌ O aplikaci → Kontakt: Odesílání emailů přes kontaktní formulář nefunguje – Resend API klíč v Cloudflare Workeru je starý/neplatný',
+      '🐛 Grafy → Obecné / Měsíční: Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem)',
+      '🐛 Grafy → Měsíční: Přidána chybějící funkce renderKumulChart() – kumulativní graf se nevykresloval',
+      '🐛 Grafy → Všechny roky: Opraven HTML layout – blok gtab-vsechny-content byl chybně vnořen uvnitř gtab-rocni-content',
+      '🐛 Grafy → Obecné: Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML)',
+      '✅ Nastavení: Vytvořen soubor .env pro bezpečné uložení API klíče Resend',
+      '✅ Admin panel → Verze: Přidána záložka s historií verzí a changelogem',
     ]
   }
 ];
