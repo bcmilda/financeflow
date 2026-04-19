@@ -1,6 +1,6 @@
 # FinanceFlow – Claude kontext
 
-> **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si vždy přečti všechny soubory ve složce `docs/` — bez nich nemáš kompletní informace o projektu.
+> **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
 
 ## Projekt
 
@@ -12,7 +12,29 @@
 - `css/styles.css` — veškeré styly
 - `js/` — moduly (charts.js, admin.js, ai.js, atd.)
 - `firebase.json` — Firebase Hosting konfigurace
-- `docs/` — **plný kontext projektu, přečíst povinně**
+- `doc/` — plný kontext projektu, přečti si relevantní `.md` soubory podle potřeby a aktuálního úkolu
+- `docs/` — pracovní složka Claude Code pro poznámky a dočasné soubory
+
+### Pravidla pro složku `doc/` (originální, chráněná)
+- **Nikdy nepřepisuj ani nemaž existující obsah**
+- Lze pouze dopisovat nové informace, konsolidovat nebo aktualizovat
+- Před jakýmkoliv importem nebo aktualizací se vždy zeptat vlastníka a počkat na potvrzení
+- Pokud najdeš konflikty nebo rozpory, sepiš je a nejdříve provedeme diskusi a úpravy — teprve potom import
+
+### Soubory v `doc/`
+- `GLOSSARY.md` — slovník pojmů a zkratek používaných v projektu
+- `SECURITY.md` — bezpečnostní pravidla, správa API klíčů, Firebase Security Rules
+- `architecture.md` — technická architektura aplikace, struktura souborů a modulů
+- `bugs.md` — seznam známých chyb, jejich stav a poznámky k opravám
+- `context.md` — obecný kontext projektu, cílová skupina, záměr a směřování
+- `decisions.md` — architektonická a produktová rozhodnutí s odůvodněním
+- `explanations.md` — technické vysvětlivky a poznámky k implementaci
+- `features.md` — přehled funkcí aplikace, jejich stav a popis
+- `todo.md` — seznam úkolů, priorit a otevřených bodů
+
+### Pravidla pro složku `docs/` (pracovní, Claude Code)
+- Volný přístup — lze vkládat, přepisovat i mazat dle libosti
+- Slouží pro poznámky, rychlé náhledy a pracovní podklady před implementací do `doc/`
 
 ## Firebase
 
