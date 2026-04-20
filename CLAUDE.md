@@ -2,6 +2,16 @@
 
 > **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
 
+## Session start — povinné čtení
+
+Na začátku každého sezení si přečti následující soubory, než začneš cokoliv dělat:
+
+1. Tento soubor (`CLAUDE.md`)
+2. **Firebase Security Rules** — [`database.rules.json`](https://github.com/bcmilda/financeflow/blob/dev/.github/workflows/database.rules.json) — pravidla přístupu k Realtime Database
+3. **Cloudflare Worker** — [`worker.js`](https://github.com/bcmilda/financeflow/blob/dev/cloudflare-worker/worker.js) — proxy vrstva mezi aplikací a externími API
+
+---
+
 ## Projekt
 
 **FinanceFlow** je webová aplikace pro správu rodinných financí (příjmy, výdaje, půjčky, projekty, AI analýzy). Postavená jako SPA (Single Page Application) — čistý HTML/CSS/JS bez frameworku, backend je Firebase.
