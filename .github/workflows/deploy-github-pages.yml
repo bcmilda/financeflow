@@ -1,0 +1,50 @@
+name: Deploy to GitHub Pages (main + dev)
+
+# main → root (kořen GitHub Pages)
+# dev  → /dev/ podsložka (testovací verze)
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write   # potřeba pro push do gh-pages branch
+
+# Zabráníme paralelním deploy
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy MAIN to root
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .
+          # exclude_assets: žádné – publikujeme vše z root
+          keep_files: true   # důležité: nesmazat /dev/ podsložku
+          commit_message: "🚀 Deploy main to root (${{ github.sha }})"
+          # Vyloučíme adresáře, které do GitHub Pages nepatří
+          exclude_assets: '.github,.git,.firebaserc,firebase.json,Playwrite,doc,docs,cloudflare-worker,*.md,skills-lock.json'
+
+      - name: Deploy DEV to /dev/ subdirectory
+        if: github.ref == 'refs/heads/dev'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .
+          destination_dir: dev   # publikuje do /dev/ podsložky
+          keep_files: true   # důležité: nesmazat root (main verzi)
+          commit_message: "🧪 Deploy dev to /dev/ (${{ github.sha }})"
+          exclude_assets: '.github,.git,.firebaserc,firebase.json,Playwrite,doc,docs,cloudflare-worker,*.md,skills-lock.json'
