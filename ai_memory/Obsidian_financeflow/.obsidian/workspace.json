@@ -112,14 +112,10 @@
             "id": "887217997ec6f326",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Bugs.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Bugs"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graf"
             }
           }
         ],
@@ -143,7 +139,7 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": true
               },
               "icon": "lucide-folder-closed",
               "title": "Průzkumník souborů"
@@ -285,15 +281,15 @@
       "bases:Vytvořit novou základnu": false
     }
   },
-  "active": "61872d6235529424",
+  "active": "887217997ec6f326",
   "lastOpenFiles": [
-    "features.md",
+    "Bugs.md",
     "decisions.md",
+    "features.md",
     "architecture.md",
     "ToDo.md",
     "Vítejte.md",
     "context.md",
-    "Bugs.md",
     "vytvořtef odkaz.md"
   ]
 }
