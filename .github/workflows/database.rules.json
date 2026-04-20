@@ -1,17 +1,18 @@
 {
   "rules": {
     "users": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$uid": {
-        ".read": "auth.uid === $uid",
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === $uid",
         "data": {
-          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists()"
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
         },
         "profile": {
           ".read": "auth != null"
         },
         "premium": {
-          ".read": "auth.uid === $uid"
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
         },
         "settings": {
           ".read": "auth.uid === $uid"
@@ -22,16 +23,26 @@
       }
     },
     "leads": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$leadId": {
+        ".validate": "newData.hasChildren(['name']) || newData.hasChildren(['email']) || newData.hasChildren(['phone'])"
+      }
     },
     "affiliate": {
-      ".read": "auth != null",
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       ".write": "auth != null"
     },
     "community": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      "$monthKey": {
+        "users": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.hasChildren(['updatedAt'])"
+          }
+        }
+      }
     },
     "catalog": {
       ".read": "auth != null",
@@ -55,9 +66,9 @@
     },
     "coicop_corrections": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      "$correction": {
-        ".write": "auth != null && !data.exists()"
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       }
     },
     "admins": {
