@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy MAIN to root
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/dev'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -38,7 +38,7 @@ jobs:
           exclude_assets: '.github,.git,.firebaserc,firebase.json,Playwrite,doc,docs,cloudflare-worker,*.md,skills-lock.json'
 
       - name: Deploy DEV to /dev/ subdirectory
-        if: github.ref == 'refs/heads/dev'
+        if: github.ref == 'refs/heads/dev' && false
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
