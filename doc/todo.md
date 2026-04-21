@@ -1,8 +1,8 @@
 # FinanceFlow – TODO & Roadmap
 
-> Konsolidovaný dokument ze **4 sessions** (`todo.md` → `todo-1.md` → `todo-2.md` → `TODO-3.md`).
+> Konsolidovaný dokument ze **5 sessions** (`todo.md` → `todo-1.md` → `todo-2.md` → `TODO-3.md` → Session 5 přepis).
 > Úkoly přečíslovány pod unikátní ID `TODO-001+`. Každý záznam označen zdrojovou session: `**(Session N)**`.
-> Poslední aktualizace: konsolidace 4 sessions, 2026-04-16.
+> Poslední aktualizace: konsolidace 5 sessions, 2026-04-19.
 
 ---
 
@@ -10,13 +10,14 @@
 
 | Priorita | Otevřené | Příklady |
 |---|---|---|
-| 🔴 Kritické (P1) | 5 | Firebase Rules admin, Offline integrace v transactions.js, Email (EmailJS), Dělení PDF, Grafy fix |
-| 🟡 Střední (P2) | ~17 | Error handler, Sentry, JSON validace, Box plot, Landing page, Playwright, Nové kategorie, AI mapování, **Nákupní seznam průzkum**, **COICOP rework** |
-| 🟢 Nízké (P3) | ~20 | Service Worker, Komprese fotek, Platební systém, Android Notifikace, Google Play, Bundling, Měny, EN/SK |
+| 🔴 Kritické (P1) | 5 | **Predikce nefunguje** (S5), Deploy Worker v5 (S5), Nastavit RESEND_API_KEY (S5), Firebase Rules admin, Dělení PDF |
+| 🟡 Střední (P2) | ~19 | **GitHub Pages nefunguje** (S5), **Firebase Auth pro GH Pages** (S5), Error handler, Sentry, JSON validace, Box plot, Landing page, Playwright, Nové kategorie, AI mapování, Nákupní seznam průzkum, COICOP rework |
+| 🟢 Nízké (P3) | ~22 | **Docs složka** (S5), **Merge dev→main** (S5), Service Worker, Komprese fotek, Platební systém, Android Notifikace, Google Play, Bundling, Měny, EN/SK |
 | 🔵 Nice-to-have (P4) | ~7 | Exporty, Push notif, Vlastní doména, Motivy, Sdílení read-only |
 | 💡 Nápady | ~20 | Gamifikace, AI report, Google Sheets, Hlas, Portfolio, Multi-user |
 
-**Celkem otevřených úkolů:** ~70 (mnoho se napříč sessions překrývá – viz sekce „Překryvy a konflikty")
+**Celkem otevřených úkolů:** ~73
+**Session 5 posun:** Grafy částečně opraveny (v6.45), ale Predikce se rozbila. Worker v5 v repu, deploy čeká. Nový cluster: GitHub Pages.
 
 ---
 
@@ -37,8 +38,10 @@
 | K | **Nákupní seznam** | S2 Vysoká | ⚠️ **Pravděpodobně dokončeno, ale nutno ověřit** – existuje `nakup.js` v S3+, uživatel si nepamatuje, co feature dělá a jak funguje → otevřít jako TODO-047 (průzkum) |
 | L | **COICOP auto-učení** | S1 P2 | ✅ Pravděpodobně dokončeno (v S2+ existuje `coicop_corrections` v Firebase) |
 | M | **PIN pad** | S3 P1 | ✅ **Dokončeno** (potvrzeno uživatelem – viz `bugs.md`) |
-| N | **Grafy fix (ověřit po v6.41)** | S3 P1 | 🔴 **Reopen** – po S4 (4-vrstvá oprava) stále nefunguje, viz `bugs.md` OPEN-002 |
+| N | **Grafy fix (ověřit po v6.41)** | S3 P1 | ⚠️ **Částečně opraveno v S5** — záložky Obecné/Měsíční/Roční/Všechny roky fungují (FIX-042–045, v6.45), ale vedlejší efekt rozbil Predikce → viz TODO-049 a `bugs.md` OPEN-022 |
 | O | **Firebase Rules admin** | S4 TODO-01 | 🔗 Přímo spojeno s otevřeným auditem v `architecture.md` sekce 8 |
+| P | **GitHub Pages cluster** | **S5** | Nový — GH Pages nefunguje (OPEN-023/024), CORS Worker (OPEN-025), auth z GH Pages domény (TODO-053). Všechny pravděpodobně sdílejí společnou příčinu (deploy Worker v5 + Firebase auth config) |
+| Q | **Worker v5 deploy** | **S5** | Worker v5 kód je v repu (`cloudflare-worker/worker.js`), ale deploy + nastavení `RESEND_API_KEY` Cloudflare Secret čeká. Blokuje: OPEN-001 (email), OPEN-025 (CORS) |
 
 ---
 
@@ -77,17 +80,44 @@
   5. Přidat do `premium.js` (nahradí Worker fallback)
 - **Časový odhad:** 30 minut
 - **Alternativa:** Zůstat u Resend + verifikovat doménu (viz `bugs.md` OPEN-001 Řešení B)
+- **(Session 5 update):** Worker v5 je připraven v repu (`cloudflare-worker/worker.js`), klíč přesunut do `env.RESEND_API_KEY`. **Zbývá:** deploy Worker v5 (TODO-050) + nastavit Cloudflare Secret (TODO-051). Po splnění těchto dvou kroků může Resend fungovat i bez EmailJS — záleží, zda je `bc.milda@gmail.com` registrovaný na Resend účtu.
 
-### TODO-004 · Grafy – znovu opravit (reopen) **(Session 3 P1, reopen)**
+### TODO-004 · ~~Grafy – znovu opravit~~ ⚠️ ČÁSTEČNĚ VYŘEŠENO **(Session 3 P1, reopen, S5 partial fix)**
 - **Soubory:** `charts.js`, `helpers.js`
-- **Stav:** Po 2 pokusech (S3 FIX-026 + S4 FIX-040) **stále nefunguje**
-- **🔗 Cross-reference:** `bugs.md` OPEN-002
-- **Další kroky:** Hard refresh (Ctrl+Shift+R), console.log v retry mechanismu, zvážit `ResizeObserver` místo časového retry, ověřit CSS parent šířku
+- **Stav po S5:** Základní grafy (Obecné / Měsíční / Roční / Všechny roky) **opraveny v6.45** (FIX-042–045). ✅
+- **Vedlejší efekt:** Sekce Predikce přestala fungovat → přesunuto do **TODO-049**.
+- **🔗 Cross-reference:** `bugs.md` OPEN-002 (aktualizováno na „částečně opraveno")
 
 ### TODO-005 · Dělení PDF na části **(Session 2 Vysoká)**
 - **Problém:** Velké PDF výpisy (>200 transakcí) selhávají s `stop_reason: max_tokens` (8192 už je maximum)
 - **Akce:** Rozdělit PDF na chunky po 50 transakcích, volat API postupně, mergovat výsledky
 - **🔗 Cross-reference:** `bugs.md` OPEN-003
+
+### TODO-049 · Opravit sekci Predikce **(Session 5, 🔴 P1)**
+- **Sekce:** Grafy → Predikce
+- **Problém:** Po opravě grafů v S5 (FIX-042–045, v6.45) přestala fungovat sekce Predikce. Tabulka predikce výdajů se vůbec nezobrazuje. Graf „Predikce vs Skutečnost" se zobrazí pouze po překliknutí Dashboard → zpět.
+- **Příčina:** Pravděpodobně vedlejší efekt opravy `initGrafFilters()` (FIX-042) nebo `renderKumulChart()` (FIX-043) – nutné prošetřit.
+- **Akce:** Prozkoumat `charts.js` a `helpers.js` (verze v6.45+) a najít, co se rozbilo. Po opravě otestovat všechny záložky grafů + Predikce tabulku.
+- **🔗 Cross-reference:** `bugs.md` OPEN-022, TODO-004 (grafy — ten vedlejší efekt)
+
+### TODO-050 · Nasadit Cloudflare Worker v5 **(Session 5, 🔴 P1)**
+- **Problém:** Worker v5 kód je připraven v repu (`cloudflare-worker/worker.js`), ale **deploy do Cloudflare dashboardu dosud neproběhl**. Bez deploye nefunguje: email (OPEN-001), CORS pro GitHub Pages (OPEN-025).
+- **Akce:**
+  1. Otevřít Cloudflare dashboard → Workers → `misty-limit-0523`
+  2. Záložka Edit Code (nebo Quick Edit)
+  3. Zkopírovat obsah `cloudflare-worker/worker.js` z repa
+  4. Deploy
+- **Blokuje:** TODO-051 (RESEND klíč), OPEN-001 (email), OPEN-025 (CORS)
+
+### TODO-051 · Nastavit `RESEND_API_KEY` v Cloudflare **(Session 5, 🔴 P1)**
+- **Problém:** Nový Resend API klíč není nastavený jako env proměnná v Cloudflare.
+- **Akce:**
+  1. Vygenerovat nový klíč na `resend.com/api-keys`
+  2. Cloudflare dashboard → Worker → Settings → Variables and Secrets
+  3. Add variable → Type: **Secret**, Name: `RESEND_API_KEY`, Value: nový klíč
+  4. Save and Deploy
+- **Prerekvizita:** TODO-050 (Worker v5 musí být deploynutý, aby kód četl z `env.RESEND_API_KEY`)
+- **🔗 Cross-reference:** `bugs.md` OPEN-001, `SECURITY.md` sekce 1, `architecture.md` sekce 7
 
 ---
 
@@ -211,6 +241,25 @@ Sada kategorií k importu:
 - **🔗 Cross-reference:** ADR-005 v `decisions.md` (COICOP jako globální klasifikace), `bugs.md` OPEN-017 (COICOP trend záložka prázdná), OPEN-018 (keyword engine diakritika)
 - **Priorita:** Střední – ovlivňuje UX hlavní funkce aplikace
 
+### TODO-052 · Opravit GitHub Pages **(Session 5, 🟡 P2)**
+- **URL:** `https://bcmilda.github.io/financeflow/`
+- **Problém:** Stránka se nenačte. GitHub Pages je zapnuté (branch: `main`), ale web neběží. Stejný problém s `lepsi-uver.html`.
+- **Možné příčiny:**
+  - Chybí Service Worker (`sw.js`) pro SPA routing na GitHub Pages
+  - Firebase Auth nepovoluje `bcmilda.github.io` jako authorized domain
+  - Soubory na `main` větvi nejsou aktuální (chybí merge z `dev`)
+- **Akce:**
+  1. Zkontrolovat `main` větev — jsou tam aktuální soubory?
+  2. Pokud ne → merge `dev` → `main` (TODO-055)
+  3. Zkontrolovat Firebase Console → Authentication → Authorized domains → přidat `bcmilda.github.io`
+  4. Deploy Worker v5 s CORS pro `bcmilda.github.io` (TODO-050)
+- **🔗 Cross-reference:** `bugs.md` OPEN-023, OPEN-024, OPEN-025, `architecture.md` (hosting konflikt)
+
+### TODO-053 · Přidat `bcmilda.github.io` do Firebase Auth **(Session 5, 🟡 P2)**
+- **Problém:** Pokud `bcmilda.github.io` není v Firebase Console → Authentication → Settings → Authorized domains, Google Sign-In z GitHub Pages nebude fungovat.
+- **Akce:** Firebase Console → Authentication → Settings → Authorized domains → Add domain → `bcmilda.github.io`
+- **Prerekvizita pro:** GitHub Pages funkčnost (TODO-052)
+
 ---
 
 ## 🟢 P3 – NIŽŠÍ PRIORITA (příští sprinty)
@@ -220,6 +269,7 @@ Sada kategorií k importu:
 - **Akce:** Service Worker s cache-first strategií pro statické assety
 - **Odhad:** 2–3 dny
 - **Poznámka:** S4 částečně vyřešen přes IndexedDB (`offline-sync.js`), ale to řeší jen offline data, ne offline načtení aplikace
+- **(Session 5 update):** S5 explicitně zmiňuje `sw.js` jako prerekvizitu pro funkční PWA na GitHub Pages. Service Worker je potřeba nejen pro offline, ale i pro GH Pages SPA routing.
 
 ### TODO-020 · Automatizované testy – Playwright **(Session 3 P2 → Session 4 TODO-08)**
 - **Stav:** Playwright nainstalován, žádné testy
@@ -231,6 +281,19 @@ Sada kategorií k importu:
   - Analýza účtenky (mock Worker)
   - Offline uložení a sync
   - Predikce tabulka (bez JS chyb)
+
+### TODO-054 · Docs složka na GitHubu **(Session 5, 🟢 P3)**
+- **Problém:** Všech 11 `.md` souborů je pouze v Claude Projectu, ne v repu.
+- **Akce:** Nahrát všechny konsolidované `.md` soubory do `/docs/` na `dev` větvi GitHubu.
+- **Pozn.:** Repo je private — sanitizace není nutná, ale viz `SECURITY.md` pro API klíče v `.md` souborech.
+
+### TODO-055 · Merge `dev` → `main` po testování **(Session 5, 🟢 P3)**
+- **Problém:** GitHub Pages čte z `main` větve, ale práce probíhá na `dev`. Bez merge není na GH Pages nic aktuálního.
+- **Akce:**
+  1. Otestovat preview URL z GitHub Actions (automatický deploy na push do `dev`)
+  2. Pokud vše OK → vytvořit Pull Request `dev` → `main`
+  3. Merge → automatický deploy na Firebase Hosting + GitHub Pages
+- **Prerekvizita pro:** TODO-052 (GitHub Pages funkčnost)
 
 ### TODO-021 · Komprese fotek v `analyzeMultiReceipt` offline větvi **(Session 4 TODO-09)**
 - **Problém:** V offline větvi se konvertuje base64 → Blob ručně (atob loop). Fotky jsou již zkomprimované z `compressReceiptImage()`, ale konverze je neefektivní.
@@ -423,6 +486,16 @@ Indikátor stavu připojení v UI. Částečně hotové (offline badge pro pendi
 - [x] Cache-busting hashe aktualizovány pro všechny změněné soubory
 - [x] `index.html` přejmenován na FinanceFlow v6.44
 
+### V Session 5 (v6.45 → v6.46)
+- [x] 4 bugy grafů opraveny (infinite loop, kumulChart, HTML layout, box plot canvas) — `bugs.md` FIX-042 až FIX-045
+- [x] `.env` soubor vytvořen pro Resend API klíč (security best practice)
+- [x] Záložka **Verze** přidána do Admin panelu (changelog UI)
+- [x] GitHub Actions – automatický preview deploy na push do `dev`
+- [x] Worker v5 v repu (`cloudflare-worker/worker.js`) — ⚠️ **deploy do Cloudflare dosud neproběhl** (viz TODO-050)
+- [x] Playwright soubory přesunuty do složky `Playwrite/`
+- [x] `CLAUDE.md` vytvořen – onboarding kontext pro Claude Code sessions
+- [x] `cloudflare-worker/worker.js` verzovaný v repu (ne jen v Cloudflare dashboardu)
+
 ### Mimo sessions (pravděpodobně dokončeno)
 - [x] COICOP auto-učení → Firebase (`coicop_corrections/{uid}/{kw}`)
 - [x] PIN obrazovka – funguje (potvrzeno uživatelem v `bugs.md`)
@@ -444,7 +517,9 @@ Indikátor stavu připojení v UI. Částečně hotové (offline badge pro pendi
 | v6.41 | ✅ Hotovo | Kalendář, Predikce v2, Resend email, PIN logika |
 | v6.42 | 🔄 Plánované | EmailJS (TODO-003), Box plot přesun (TODO-009), Landing page (TODO-010) |
 | v6.43–6.44 | ✅ Hotovo | Offline IndexedDB, Session 4 opravy |
-| v6.45+ | 🔄 Plánované | Firebase Rules audit (TODO-001), Grafy reopen (TODO-004), Error handler (TODO-006), Sentry (TODO-007) |
+| v6.45 | ✅ Hotovo **(S5)** | 4 opravy grafů (FIX-042–045), GitHub Actions, Worker v5 v repu, `.env`, CLAUDE.md |
+| v6.46 | 🔄 Aktuální **(S5)** | Predikce fix (TODO-049), Worker deploy (TODO-050), RESEND key (TODO-051), GitHub Pages (TODO-052) |
+| v6.47+ | 🔄 Plánované | Firebase Rules audit (TODO-001), Error handler (TODO-006), Sentry (TODO-007) |
 | v6.5x | ⬜ Budoucnost | Playwright testy (TODO-020), Android NotificationListener MVP (TODO-024) |
 | v6.6x | ⬜ Budoucnost | Platební systém (TODO-022) |
 | v6.7x | ⬜ Budoucnost | PWA Service Worker (TODO-019), plný offline režim |
@@ -461,10 +536,15 @@ Q2 2026 (Duben–Červen):
   ✅ Privacy Policy + Podmínky
   ✅ Nákupní seznam
   ✅ IndexedDB offline (účtenky)
+  ✅ Grafy opraveny (S5, v6.45) – ale Predikce rozbita
+  ✅ GitHub Actions (S5)
+  ✅ Worker v5 v repu (S5) – deploy čeká
+  🔄 Predikce fix (TODO-049)
+  🔄 Worker deploy + RESEND key (TODO-050, TODO-051)
+  🔄 GitHub Pages (TODO-052)
   🔄 Nové kategorie (TODO-012)
   🔄 Hlídání cen (TODO-018)
   🔄 EmailJS (TODO-003)
-  🔄 Grafy fix (TODO-004)
 
 Q3 2026 (Červenec–Září):
   ⬜ Playwright testy (TODO-020)
@@ -500,4 +580,4 @@ Viz `decisions.md` sekce 5.2 pro kompletní pravidla versioningu a commit workfl
 
 ---
 
-*Konsolidováno: 2026-04-16 | Sessions: 1 → 4 | Autor: Milan Migdal*
+*Konsolidováno: 2026-04-19 | Sessions: 1 → 5 | Autor: Milan Migdal*
