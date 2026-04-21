@@ -1,0 +1,76 @@
+name: Deploy to GitHub Pages (main + dev)
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Deploy MAIN to root of gh-pages
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p /tmp/deploy
+          rsync -av --exclude='.git' --exclude='.github' --exclude='doc' --exclude='docs' \
+            --exclude='Playwrite' --exclude='cloudflare-worker' --exclude='node_modules' \
+            --exclude='*.md' --exclude='firebase.json' --exclude='.firebaserc' \
+            --exclude='skills-lock.json' \
+            ./ /tmp/deploy/
+
+          git fetch origin gh-pages || true
+          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+
+          if [ -d "dev" ]; then cp -r dev /tmp/dev_backup; fi
+
+          find . -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} + 2>/dev/null || true
+
+          if [ -d "/tmp/dev_backup" ]; then cp -r /tmp/dev_backup ./dev; fi
+
+          cp -r /tmp/deploy/. ./
+
+          git add -A
+          git diff --staged --quiet || git commit -m "Deploy main to root"
+          git push origin gh-pages
+
+      - name: Deploy DEV to /dev/ subfolder of gh-pages
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          mkdir -p /tmp/deploy
+          rsync -av --exclude='.git' --exclude='.github' --exclude='doc' --exclude='docs' \
+            --exclude='Playwrite' --exclude='cloudflare-worker' --exclude='node_modules' \
+            --exclude='*.md' --exclude='firebase.json' --exclude='.firebaserc' \
+            --exclude='skills-lock.json' \
+            ./ /tmp/deploy/
+
+          git fetch origin gh-pages || true
+          git checkout gh-pages 2>/dev/null || git checkout --orphan gh-pages
+
+          mkdir -p dev
+          rsync -av --delete /tmp/deploy/ dev/
+
+          git add -A
+          git diff --staged --quiet || git commit -m "Deploy dev to /dev/"
+          git push origin gh-pages

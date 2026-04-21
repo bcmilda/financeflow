@@ -16,6 +16,9 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["finance", "productivity"],
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "lang": "cs"
 }
