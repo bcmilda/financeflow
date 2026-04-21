@@ -114,3 +114,27 @@ dev  →  main
 
 Přímý `git push` z `DEV/` nefunguje — repozitář je v `financeflow/financeflow/`.
 Milan provádí push ručně přes GitHub Desktop nebo CMD z `financeflow/financeflow/`.
+
+---
+
+### ⚠️ Pravidlo: Change preview před aktualizací `doc/` souborů
+
+Před každým přepsáním **jakéhokoliv souboru v `doc/`** vytvoř nejprve **change preview soubor** do `docs/`:
+- Pravidlo platí pro všech 9 souborů: `todo.md`, `bugs.md`, `context.md`, `architecture.md`, `decisions.md`, `features.md`, `explanations.md`, `GLOSSARY.md`, `SECURITY.md`
+- Název preview souboru: `docs/change_[název].md` (např. `docs/change_bugs.md`, `docs/change_architecture.md`)
+
+**Co je change preview:**
+Je to **přesná kopie originálu** (`doc/todo.md`) se změnami vyznačenými přímo v textu:
+- `<ins>text</ins>` = nové / doplňené *(GitHub zobrazí zeleně podtžžené)*
+- `<del>text</del>` = odstraněno / přesunuto *(GitHub zobrazí červene přeškrtnuté)*
+- Beze změně = zkopirovaný text originalu bez tagování
+
+Sekčná které se nemění lze nahradit zkratkou `*(beze změn)*`.
+
+**Workflow:**
+1. Claude vytvoří `docs/change_todo.md` jako kopii originálu se `<ins>`/`<del>` označením
+2. Milan zkontroluje a napíše "schváleno"
+3. Claude přepíše `doc/todo.md` finální verzí (bez `<ins>`/`<del>` tagů)
+
+**Výjimka:** Pokud Milan řekne „rovnou přepiš“ nebo „bez preview“, přeskoč krok 1.
+
