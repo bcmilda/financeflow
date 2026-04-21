@@ -16,6 +16,23 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 
 **FinanceFlow** je webová aplikace pro správu rodinných financí (příjmy, výdaje, půjčky, projekty, AI analýzy). Postavená jako SPA (Single Page Application) — čistý HTML/CSS/JS bez frameworku, backend je Firebase.
 
+---
+
+## Struktura složek na disku
+
+> **KRITICKÉ:** Existují DVĚ složky – neplést!
+
+- `C:\Users\Milan\Desktop\FinanceFlow\DEV\` — pracovní složka (zde Claude edituje soubory přes MCP)
+- `C:\Users\Milan\Desktop\FinanceFlow\financeflow\financeflow\` — git repozitář (odsud Milan provádí `git push` + `firebase deploy --only hosting`)
+
+**Workflow při opravě:**
+1. Claude upraví soubory v `DEV/`
+2. Milan zkopíruje změněné soubory z `DEV/` do `financeflow/financeflow/`
+3. Milan udělá commit + push z `financeflow/financeflow/` (přes GitHub Desktop nebo cmd)
+4. Milan spustí `firebase deploy --only hosting` z `financeflow/financeflow/`
+
+---
+
 ## Architektura
 
 - `index.html` — hlavní a jediný HTML soubor (SPA)
@@ -46,6 +63,8 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 - Volný přístup — lze vkládat, přepisovat i mazat dle libosti
 - Slouží pro poznámky, rychlé náhledy a pracovní podklady před implementací do `doc/`
 
+---
+
 ## Firebase
 
 - **Projekt ID:** `financeflow-a249c`
@@ -53,16 +72,20 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 - **DB:** Realtime Database (`financeflow-a249c-default-rtdb.europe-west1`)
 - **Auth:** Google Sign-In + anonymous
 
+---
+
 ## Git workflow
 
 ```
-claude/session-branch  →  dev  →  main
-       (moje změny)     (test)   (produkce)
+dev  →  main
+(test)   (produkce)
 ```
 
 - `dev` → automatický preview deploy (GitHub Actions) při každém push
 - `main` → live deploy (GitHub Actions) při každém push
 - Merge `dev` → `main` provádí vlastník (bcmilda) po otestování
+
+---
 
 ## Konvence
 
@@ -72,10 +95,22 @@ claude/session-branch  →  dev  →  main
 - `.env` obsahuje `RESEND_API_KEY` — nikdy necommitovat (je v `.gitignore`)
 - Admin panel přístupný pouze pro UID: `LNEC8VNB2QPwIv6WWQ9lqgR4O5v1`
 
+### ⚠️ Pravidlo: Aktualizace index.html při změně JS souboru
+
+> **VŽDY** kdykoliv Claude upraví jakýkoliv soubor v `js/`, musí také:
+>
+> 1. Aktualizovat **verzi** v `<title>FinanceFlow vX.XX</title>` (řádek 6, increment +0.01)
+> 2. Aktualizovat **verzi** v sidebar logu: `<small>vX.XX · Premium</small>`
+> 3. Aktualizovat **cache-busting hash** změněného JS souboru na řádku `<script src="js/XYZ.js?v=HASH">` — hash = prvních 8 znaků MD5 nového souboru
+> 4. Přidat záznam do `VERZE_LOG` v `js/admin.js` s datem a popisem změn
+>
+> **Proč:** Bez nového hashe browser cachuje staré JS soubory a opravy se neprojeví.
+>
+> **Jak spočítat hash:** `md5sum js/helpers.js | cut -c1-8`
+
+---
+
 ## Push na GitHub
 
-Přímý `git push` přes proxy nefunguje (403). Použít GitHub API přes Python + PAT:
-```bash
-python3 -c "... urllib.request PUT na api.github.com/repos/bcmilda/financeflow/contents/..."
-```
-PAT uložen uživatelem, vždy vyžádat před push operací.
+Přímý `git push` z `DEV/` nefunguje — repozitář je v `financeflow/financeflow/`.
+Milan provádí push ručně přes GitHub Desktop nebo CMD z `financeflow/financeflow/`.
