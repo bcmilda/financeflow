@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════
-//  NASTAVENÍ – FinanceFlow v6.39
+//  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
 //  Vymazat data, Nápověda
 // ══════════════════════════════════════════════════════
@@ -76,7 +76,7 @@ function applyTheme(mode, save = true) {
 
   if (save) {
     try { localStorage.setItem('ff_theme', mode); } catch(e) {}
-    if (_settings) _settings.theme = mode;
+    if (typeof _settings !== 'undefined' && _settings) _settings.theme = mode;
   }
 
   // Aktualizuj UI přepínač pokud je viditelný
@@ -656,16 +656,20 @@ function exportUserData() {
   if (typeof showToast === 'function') showToast('📤 Export stažen');
 }
 
-// Přepis applySettings z premium.js – zavolá renderSettingsPage
-const _origApplySettings = typeof applySettings === 'function' ? applySettings : null;
-function applySettings() {
-  if (_origApplySettings) _origApplySettings();
-  renderSettingsPage();
-  loadPin();
-  initTheme();
-}
+// ══════════════════════════════════════════════════════
+// FIX-048 (v6.47): Odstraněn nebezpečný override applySettings.
+// Předchozí kód:
+//   const _origApplySettings = typeof applySettings === 'function' ? applySettings : null;
+//   function applySettings() { if (_origApplySettings) _origApplySettings(); ... }
+// způsoboval nekonečnou rekurzi (too much recursion), protože _origApplySettings
+// ukazoval na sám sebe v okamžiku načtení settings.js (původní applySettings z premium.js
+// už byla přepsána touto novou definicí, nebo neexistovala).
+//
+// Místo toho: necháme premium.js mít svou applySettings nedotčenou
+// a v settings.js voláme renderSettingsPage() přímo z míst, která to potřebují
+// (renderPage() v ui.js → switch case 'nastaveni' → renderSettingsPage()).
+// ══════════════════════════════════════════════════════
 
 // Inicializace při startu
 initTheme();
 loadPin();
-
