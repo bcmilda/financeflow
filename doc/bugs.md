@@ -1,9 +1,9 @@
 # FinanceFlow – Bugs & Fixes
 
-> Konsolidovaný dokument ze **5 sessions** (`bugs.md` → `bugs-1.md` → `bugs-2.md` → `BUGS-3.md` → `docs/bugs.md`).
+> Konsolidovaný dokument ze **5 sessions** (`bugs.md` → `bugs-1.md` → `bugs-2.md` → `BUGS-3.md` → Session 5 přepis).
 > Bugy jsou přečíslovány pod unikátní ID `BUG-001+` (původní ID ze sessions jsou v závorkách).
 > Každý záznam je označen zdrojovou session: `**(Session N)**`.
-> Poslední aktualizace: konsolidace Session 5, 2026-04-19.
+> Poslední aktualizace: konsolidace 5 sessions, 2026-04-19.
 
 ---
 
@@ -11,13 +11,13 @@
 
 | Priorita | Počet | Příklady |
 |---|---|---|
-| 🔴 Kritické | 4 | Email notifikace, **Grafy prázdné** (2× oprava neúspěšná), PDF import token limit, **Predikce tabulka** |
-| 🟡 Střední | 9 | Auto téma (reopen), Box plot záložka, Predikce ověření, popup blokován, kategorie race, DTI fallback, PDF size, GitHub Pages, Cloudflare Worker CORS |
+| 🔴 Kritické | 3 | **Predikce tabulka se nezobrazuje** (S5), Email notifikace (Worker v5 připraven, deploy čeká), PDF import token limit |
+| 🟡 Střední | 10 | GitHub Pages nefunguje (S5), lepsi-uver.html (S5), CORS Worker pro GH Pages (S5), Auto téma (reopen), Box plot záložka, Predikce modré hodnoty, popup blokován, kategorie race, DTI fallback, PDF size |
 | 🟢 Nízké | 8 | Loading, testy, měsíční graf, .xlsm, Safari appearance, offline login, COICOP trend, diakritika |
 
 **Celkem aktuálně otevřených:** ~21 bugů
-**Uzavřeno uživatelem v Session 5 (v6.45):** Infinite loop grafy, kumulChart, HTML layout grafy, Box plot canvas
-**Uzavřeno uživatelem dříve:** PIN pad (funguje)
+**Vyřešeno v Session 5 (v6.45):** 4 opravy grafů (infinite loop, kumulativní graf, HTML layout, box plot canvas)
+**Důležitý posun:** Grafy (OPEN-002) **částečně opraveny** v S5 — záložky Obecné/Měsíční/Roční/Všechny roky nyní fungují, ale vedlejší efekt rozbil Predikce
 
 ---
 
@@ -51,41 +51,51 @@ Jakýkoli jiný adresát je tiše zahozen.
 
 #### ⚠️ Security kontext
 Viz FIX-041 – Resend klíč byl rotován (původní leaknutý přes GitGuardian), nový hardcoded
-v kódu taktéž deaktivován. **Rotace klíče + přesun do `env.RESEND_API_KEY` je prerekvizita
-jakéhokoli z řešení A/B/C.**
+v kódu taktéž deaktivován.
+
+**(Session 5 update):** Worker v5 je připraven v repozitáři (`cloudflare-worker/worker.js`) —
+klíč **už není hardcoded** v kódu, čte se z `env.RESEND_API_KEY`. Ale:
+- ❌ **Deploy do Cloudflare zatím neproběhl** (uživatel ho nespustil)
+- ❌ **`RESEND_API_KEY` env proměnná v Cloudflare dashboardu** není nastavena
+- **Akce:** 1) Nastavit `RESEND_API_KEY` v Cloudflare Worker → Settings → Variables → Secret. 2) Deploy Worker v5.
 
 #### 🔗 Cross-reference
 - `explanations.md` sekce 2 – detailnější vysvětlení Resend free tier omezení
 - `todo.md` TODO-003 – akční úkol
 - `architecture.md` sekce 7 – Resend konfigurace
 
-### OPEN-002 · Grafy prázdné – fix nefunguje **(Session 3 + 4, stále aktuální)**
+### OPEN-002 · Grafy prázdné – ~~fix nefunguje~~ ⚠️ ČÁSTEČNĚ OPRAVENO v S5 **(Session 3 + 4 + 5)**
 - **Soubory:** `charts.js`, `helpers.js`
-- **Závažnost:** Vysoká – celá sekce Grafy nefunkční
+- **Závažnost:** Vysoká → ⚠️ snížena po S5 opravách
 - **Historie oprav:**
   - **S3 (FIX-026):** `requestAnimationFrame(() => setTimeout(fn, 50))` + `getBoundingClientRect()` → **nestačilo**
-  - **S4 (FIX-040):** Rozšíření na 4 vrstvy – dvojitý `rAF`, retry 5× s narůstajícím zpožděním (80–400 ms), `drawSaldoBars` přes `getBoundingClientRect` → **dle uživatele stále nefunguje**
-- **Root cause (teoretický):** Canvas element má šířku 0 při volání `getBoundingClientRect()` protože browser nestihl dokončit layout po přechodu `display:none → block`
-- **Reprodukce:**
-  1. Přihlásit se do aplikace
-  2. Kliknout na „Grafy" v sidebaru
-  3. Canvasy jsou tmavé obdélníky / prázdné
-- **🔴 Další kroky navrhované:**
-  - Ověřit, zda byla nahrána verze s FIX-040 (může být jen cache problém → hard refresh Ctrl+Shift+R)
-  - Přidat console.log do retry mechanismu a ověřit, kolik retry proběhne a jakou šířku canvas má
-  - Zvážit alternativní přístup: `ResizeObserver` + `IntersectionObserver` místo časového retry
-  - Možná příčina: problém není v timing, ale v tom, že parent elementu chybí explicitní šířka (CSS)
+  - **S4 (FIX-040):** Rozšíření na 4 vrstvy – dvojitý `rAF`, retry 5× s narůstajícím zpožděním (80–400 ms) → **stále nefungovalo**
+  - **S5 (FIX-042 až FIX-045, v6.45):** 4 konkrétní opravy:
+    1. `initGrafFilters()` – infinite loop kvůli hoisting problému ✅
+    2. Chybějící `renderKumulChart()` – kumulativní graf se nevykresloval ✅
+    3. HTML layout – `gtab-vsechny-content` vnořen do `gtab-rocni-content` ✅
+    4. Box plot – canvas ID neexistoval ✅
+- **Aktuální stav po S5:**
+  - ✅ Záložky **Obecné, Měsíční, Roční, Všechny roky** nyní **fungují**
+  - ❌ **Vedlejší efekt:** Sekce Predikce přestala fungovat — viz **OPEN-022**
+- **Reprodukce (aktualizovaná):**
+  - Grafy samotné: ✅ po hard refresh by měly fungovat
+  - Predikce: viz OPEN-022
 
-### OPEN-021 · Predikce – tabulka se nezobrazuje **(Session 5)**
+### OPEN-022 · Predikce – tabulka se nezobrazuje **(Session 5, v6.46)**
 - **Sekce:** Grafy → Predikce
-- **Soubor:** `transactions.js`, pravděpodobně `charts.js`
-- **Popis:** Po opravě grafů v Session 5 přestala fungovat sekce Predikce. Tabulka predikce výdajů se vůbec nezobrazuje.
-- **Vedlejší efekt:** Graf „Predikce vs Skutečnost" se zobrazí pouze po překliknutí na Dashboard a zpět – jinak je prázdný.
-- **Příčina:** Pravděpodobně vedlejší efekt opravy `initGrafFilters()` nebo `renderKumulChart()` – nutné prošetřit.
-- **🔗 Cross-reference:** `todo.md` TODO-004 (Grafy reopen), OPEN-002 (Grafy prázdné – série oprav)
-- **Priorita:** Vysoká – regrese způsobená opravou v6.45
-
----
+- **Závažnost:** Vysoká – celá sekce Predikce nefunkční
+- **Popis:** Po opravě grafů v Session 5 (FIX-042 až FIX-045) přestala fungovat sekce Predikce. Tabulka predikce výdajů se vůbec nezobrazuje.
+- **Vedlejší efekt:** Graf „Predikce vs Skutečnost" se zobrazí **pouze** po překliknutí na Dashboard a zpět – jinak je prázdný.
+- **Příčina:** Pravděpodobně vedlejší efekt opravy `initGrafFilters()` (FIX-042) nebo `renderKumulChart()` (FIX-043) – **nutné prošetřit**.
+- **Reprodukce:**
+  1. Přihlásit se do aplikace (v6.46)
+  2. Přejít na Grafy → Predikce
+  3. Tabulka je prázdná / neexistuje
+  4. Překliknout na Dashboard a zpět → graf se zobrazí (ale tabulka ne)
+- **🔗 Cross-reference:**
+  - OPEN-002 (Grafy – S5 opravy, které to pravděpodobně způsobily)
+  - OPEN-006 (Predikce – modré hodnoty pro minulé měsíce, starší bug ve stejné sekci)
 
 ### OPEN-003 · PDF import – token limit **(Session 2)**
 - **Příčina:** Velké PDF výpisy (>200 transakcí) selhávají na `stop_reason: max_tokens`
@@ -96,33 +106,6 @@ jakéhokoli z řešení A/B/C.**
 ---
 
 ## 🟡 OTEVŘENÉ CHYBY – Střední priorita
-
-### OPEN-022 · GitHub Pages – financeflow nefunguje **(Session 5)**
-- **URL:** `https://bcmilda.github.io/financeflow/`
-- **Popis:** Stránka se nenačte. GitHub Pages je sice zapnuté (branch: main), ale web neběží.
-- **Příčina:** Neznámá – možná chybí service worker, nebo problém s routováním SPA.
-- **🔗 Cross-reference:** `todo.md` TODO-049 (GitHub Pages fix)
-- **Priorita:** Střední
-
-### OPEN-023 · GitHub Pages – lepsi-uver.html nefunguje **(Session 5)**
-- **URL:** `https://bcmilda.github.io/financeflow/lepsi-uver.html`
-- **Popis:** Stránka porovnání úroků bank se nenačte přes GitHub Pages.
-- **Poznámka:** Soubor `lepsi-uver.html` na větvi `main` existuje – problém je jinde.
-- **Priorita:** Střední
-
-### OPEN-024 · Kontaktní formulář – emaily se neodesílají (Resend klíč v Cloudflare) **(Session 5)**
-- **Sekce:** O aplikaci → Kontakt
-- **Popis:** Formulář neodešle email. Resend API klíč v Cloudflare Workeru je starý/neplatný.
-- **Řešení:** V Cloudflare Worker dashboardu nastavit env proměnnou `RESEND_API_KEY` = nový klíč. Worker v5 byl aktualizován – klíč už není hardcoded.
-- **Stav:** Worker kód opraven v repozitáři, ale deploy + nastavení proměnné v Cloudflare zatím nefunguje.
-- **🔗 Cross-reference:** OPEN-001 (Email notifikace), `architecture.md` sekce 7
-- **Priorita:** Střední
-
-### OPEN-025 · Cloudflare Worker – CORS chyba pro bcmilda.github.io **(Session 5)**
-- **Sekce:** AI funkce / Cloudflare Worker
-- **Popis:** `https://bcmilda.github.io` chyběl v `allowedOrigins` → CORS chyba při volání AI z GitHub Pages.
-- **Stav:** ❌ Neopraveno – Worker v5 kód je připraven v repozitáři (`cloudflare-worker/worker.js`), ale deploy do Cloudflare dashboardu stále nefunguje.
-- **Priorita:** Střední
 
 ### OPEN-004 · PDF import – Cloudflare Worker size limit **(Session 1)**
 - **Příčina:** Velké PDF (>10 MB) selžou na Cloudflare Worker size limitu bez uživatelsky přívětivé chyby
@@ -146,6 +129,7 @@ jakéhokoli z řešení A/B/C.**
 - **Aktuálně:** Box plot je v záložce „Roční" (dává smysl až při více letech dat)
 - **Správně:** přesunout do záložky „Všechny roky"
 - **Akce:** Záložka „Měsíční" = přidat 12 box plotů (jeden per měsíc přes všechny roky)
+- **(Session 5):** Canvas ID pro box plot opraven (FIX-045) — box plot se nyní **renderuje**, ale stále je ve **špatné záložce**. Přesun dosud neproběhl.
 
 ### OPEN-006 · Predikce – modré hodnoty pro minulé měsíce **(Session 3)**
 - **Status:** Opraveno v `transactions.js` v6.41, ale nutno ověřit po nahrání
@@ -163,6 +147,27 @@ jakéhokoli z řešení A/B/C.**
 ### OPEN-009 · DTI/DSTI fallback **(Session 2)**
 - **Stav:** Vyřešeno pro `installments[]` (viz FIX-018), ale `d.payment` fallback nemusí fungovat
 - **Reprodukce:** Přidat půjčku bez `installments` pole
+
+### OPEN-023 · GitHub Pages – financeflow nefunguje **(Session 5)**
+- **URL:** `https://bcmilda.github.io/financeflow/`
+- **Popis:** Stránka se nenačte. GitHub Pages je sice zapnuté (branch: `main`), ale web neběží.
+- **Příčina:** Neznámá – možná chybí Service Worker, nebo problém s routováním SPA (SPA používá CSS class routing, ne URL hash → GitHub Pages pravděpodobně vrací 404 na přímý přístup).
+- **Priorita:** Střední
+- **🔗 Cross-reference:** `architecture.md` – hosting konflikt (Firebase Hosting vs GitHub Pages), `decisions.md` ADR-011
+
+### OPEN-024 · GitHub Pages – lepsi-uver.html nefunguje **(Session 5)**
+- **URL:** `https://bcmilda.github.io/financeflow/lepsi-uver.html`
+- **Popis:** Stránka porovnání úroků bank se nenačte přes GitHub Pages.
+- **Poznámka:** Soubor `lepsi-uver.html` na větvi `main` **existuje** – problém je jinde (pravděpodobně stejná příčina jako OPEN-023).
+- **Priorita:** Střední
+
+### OPEN-025 · Cloudflare Worker – CORS chyba pro `bcmilda.github.io` **(Session 5)**
+- **Sekce:** AI funkce / Cloudflare Worker
+- **Popis:** `https://bcmilda.github.io` chyběl v `allowedOrigins` → CORS chyba při volání AI z GitHub Pages.
+- **Stav:** ❌ Neopraveno – Worker v5 kód v repozitáři (`cloudflare-worker/worker.js`) tuto doménu **přidává**, ale deploy do Cloudflare dashboardu dosud neproběhl.
+- **Prerekvizita:** Deploy Worker v5 (ten samý deploy jako pro OPEN-001 email fix).
+- **Priorita:** Střední
+- **🔗 Cross-reference:** `SECURITY.md` sekce 6 (Worker CORS nastavení)
 
 ---
 
@@ -215,11 +220,13 @@ Následující bugy se objevují v několika sessions s mírně odlišným popis
 
 | # | Téma | Sessions | Stav |
 |---|---|---|---|
-| A | **Grafy prázdné** | S3 FIX-004 (vyřešeno `rAF + setTimeout`) → S4 FIX-022 (rozšíření na 4 vrstvy s retry) | Dvoufázová oprava – S3 oprava nestačila, S4 ji vylepšila |
-| B | **Resend klíč / email** | S3 OPEN-001 → S4 FIX-024 (aktualizace klíče) → **teď deaktivováno kvůli GitGuardian** | Cyklus: problém → fix → security incident → znovu problém |
-| C | **Admin panel Permission denied** | S4 FIX-021 | Workaround přes REST API, ale vyžaduje Firebase Rules úpravu – viz `architecture.md` sekce 8 |
+| A | **Grafy prázdné** | S3 FIX-026 → S4 FIX-040 → **S5 FIX-042–045** | Třífázová oprava – S3/S4 nestačily, S5 opravil 4 konkrétní bugy (v6.45). Záložky fungují ✅, ale vedlejší efekt rozbil Predikce (OPEN-022) |
+| B | **Resend klíč / email** | S3 OPEN-001 → S4 FIX-041 → GitGuardian → **S5 Worker v5 (klíč v env)** | Worker v5 připraven v repu, ale deploy čeká. Klíč přesunut do `env.RESEND_API_KEY` ✅, ale Cloudflare Secret nenastavený ❌ |
+| C | **Admin panel Permission denied** | S4 FIX-039 | Workaround přes REST API, ale vyžaduje Firebase Rules úpravu – viz `architecture.md` sekce 8 |
 | D | **Nákupní seznam** | S2 OPEN-019 → S3 existuje `nakup.js` | Pravděpodobně vyřešeno mezi S2 a S3, ověř |
-| E | **DTI/DSTI** | S2 FIX-018 (v6.36) → S3 FIX-009 (v6.35-41) → S2 OPEN-009 | Řetězec 3 souvisejících bugů |
+| E | **DTI/DSTI** | S2 FIX-022 (v6.36) → S3 FIX-027 (v6.35-41) → S2 OPEN-009 | Řetězec 3 souvisejících bugů |
+| F | **GitHub Pages** | **S5 OPEN-023, OPEN-024, OPEN-025** | Nový cluster – GH Pages nefunguje + lepsi-uver.html + CORS Worker. Všechny 3 pravděpodobně sdílejí společnou příčinu (deploy) |
+| G | **Predikce** | S3 OPEN-006 (modré hodnoty) + **S5 OPEN-022 (tabulka nefunguje)** | Dva různé bugy ve stejné sekci – OPEN-006 je starší UX problém, OPEN-022 je nový vedlejší efekt oprav grafů |
 
 ---
 
@@ -431,39 +438,6 @@ Následující bugy se objevují v několika sessions s mírně odlišným popis
 
 ---
 
-### Session 5 – opravy v6.45 **(Session 5)**
-
-#### FIX-042 · Infinite loop v `initGrafFilters()` – hoisting problem **(S5)**
-- **Soubor:** `charts.js`
-- **Závažnost:** Vysoká – způsoboval pád celé sekce Grafy
-- **Root cause:** Hoisting problem v `initGrafFilters()` způsoboval nekonečnou smyčku
-- **Oprava:** Opravena inicializace filtrů grafů
-- **Verze:** v6.45
-
-#### FIX-043 · Chybějící `renderKumulChart()` – kumulativní graf **(S5)**
-- **Soubor:** `charts.js`
-- **Závažnost:** Střední – záložka Měsíční bez kumulativního grafu
-- **Root cause:** Funkce `renderKumulChart()` nebyla volána při přepnutí záložky
-- **Oprava:** Přidáno správné volání `renderKumulChart()` v záložce Měsíční
-- **Verze:** v6.45
-
-#### FIX-044 · Špatný HTML layout – `gtab-vsechny-content` vnořen do `gtab-rocni-content` **(S5)**
-- **Soubor:** `index.html`
-- **Závažnost:** Střední – záložka „Všechny roky" se zobrazovala uvnitř záložky „Roční"
-- **Root cause:** Chybné zanořování `div` elementů v HTML struktuře záložek grafů
-- **Oprava:** Opravena HTML struktura – záložky jsou nyní na správné úrovni
-- **Verze:** v6.45
-
-#### FIX-045 · Nefunkční karta Box plot – canvas ID neexistovalo **(S5)**
-- **Soubor:** `charts.js`, `index.html`
-- **Závažnost:** Střední – Box plot karta v Grafech nefunkční
-- **Root cause:** Canvas element s očekávaným ID pro box plot neexistoval v DOM
-- **Oprava:** Přidán canvas element se správným ID do `index.html`
-- **Verze:** v6.45
-- **🔗 Cross-reference:** OPEN-005 (Box plot ve špatné záložce) – tento fix opravil canvas, přesun záložky je stále otevřený
-
----
-
 ### Session 4 – pozdní opravy **(Session 4)**
 
 #### FIX-037 · Zelené tlačítko „Uložit nastavení" nezmizí **(S4 BUG-01)**
@@ -514,14 +488,52 @@ Následující bugy se objevují v několika sessions s mírně odlišným popis
 
 ---
 
+### Verze v6.45 – opravy grafů **(Session 5)**
+
+> **Kontext:** Session 5 neměla plný kontext projektu („vaří z vody"), ale přesto identifikovala
+> a opravila 4 konkrétní problémy v sekci Grafy. Opravy **fungují** pro záložky Obecné/Měsíční/Roční/
+> Všechny roky, ale měly **vedlejší efekt** na sekci Predikce (viz OPEN-022).
+
+#### FIX-042 · Infinite loop v `initGrafFilters()` **(S5)**
+- **Verze:** v6.45
+- **Příčina:** Hoisting problém v `initGrafFilters()` způsoboval nekonečnou smyčku
+- **Oprava:** Opraven hoisting — funkce se nyní inicializuje správně
+- **Soubor:** `charts.js`
+
+#### FIX-043 · Chybějící `renderKumulChart()` **(S5)**
+- **Verze:** v6.45
+- **Příčina:** Funkce `renderKumulChart()` chyběla → kumulativní graf v záložce Měsíční se nevykresloval
+- **Oprava:** Funkce doplněna
+- **Soubor:** `charts.js`
+
+#### FIX-044 · Špatný HTML layout záložky „Všechny roky" **(S5)**
+- **Verze:** v6.45
+- **Příčina:** `gtab-vsechny-content` byl vnořen do `gtab-rocni-content` → záložka „Všechny roky" se nezobrazovala správně
+- **Oprava:** HTML struktura opravena, záložky jsou nyní na stejné úrovni
+- **Soubor:** `index.html` (nebo `charts.js` template)
+
+#### FIX-045 · Box plot – canvas ID neexistoval **(S5)**
+- **Verze:** v6.45
+- **Příčina:** Karta Box plot odkazovala na canvas element s neexistujícím ID
+- **Oprava:** Canvas ID opraveno
+- **Soubor:** `charts.js`
+- **🔗 Cross-reference:** OPEN-005 (box plot ve špatné záložce — tento fix řeší **renderování**, ne **umístění**)
+
+---
+
 ## 🔁 Kroky reprodukce – kritické bugy
 
-### Grafy prázdné **(verze před FIX-040)**
+### Grafy prázdné **(verze před v6.45 — po S5 opravách částečně vyřešeno)**
 ```
+STAV PŘED v6.45:
 1. Přihlásit se do aplikace
 2. Kliknout na "Grafy" v sidebaru
 3. Výsledek: canvasy jsou tmavé obdélníky (žádná data)
 4. Příčina: showPage() volá renderGrafy() synchronně → canvas má šířku 0
+
+STAV PO v6.45 (Session 5):
+→ Záložky Obecné/Měsíční/Roční/Všechny roky FUNGUJÍ ✅
+→ Ale Predikce přestala fungovat → viz OPEN-022
 ```
 
 ### „too much recursion" (settings – FIX-035)
@@ -539,6 +551,17 @@ Následující bugy se objevují v několika sessions s mírně odlišným popis
 3. Výsledek: ReferenceError: computePersonalSeason is not defined
 4. Příčina: funkce je v helpers.js ale buňka ji volá přímo
    Správně: volat přes predictCat()
+```
+
+### Predikce – tabulka se nezobrazuje (OPEN-022, Session 5, v6.46)
+```
+1. Přihlásit se do aplikace (v6.46, po opravě grafů v6.45)
+2. Přejít na Grafy → Predikce
+3. Výsledek: Tabulka predikce výdajů je prázdná / neexistuje
+4. Graf "Predikce vs Skutečnost" se zobrazí POUZE po:
+   Dashboard → zpět na Grafy → Predikce (jinak prázdný)
+5. Příčina: Pravděpodobně vedlejší efekt FIX-042 (initGrafFilters)
+   nebo FIX-043 (renderKumulChart) – nutné prošetřit
 ```
 
 ---
@@ -566,4 +589,4 @@ Konzole: [chybová hláška]
 
 ---
 
-*Konsolidováno: 2026-04-19 | Sessions: 1 → 5 | Autor: Milan Migdal*
+*Konsolidováno :  2026-04-21  | Sessions: 1 → 5 | Autor: Milan Migdal*
