@@ -160,6 +160,15 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.47',
+    datum: '2026-04-21',
+    zmeny: [
+      '🐛 helpers.js: Přidána chybějící funkce computeYearForecast() – opravena sekce Predikce (tabulka se nezobrazovala)',
+      '🐛 settings.js: Odstraněn nebezpečný rekurzivní override applySettings() – opravena chyba „too much recursion“',
+      '✅ index.html: Aktualizována verze na v6.47, cache-busting hashe pro helpers.js a settings.js',
+    ]
+  },
+  {
     verze: 'v6.46',
     datum: '2026-04-19',
     zmeny: [
