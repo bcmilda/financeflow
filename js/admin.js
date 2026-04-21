@@ -160,15 +160,36 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.47',
+    datum: '2026-04-21',
+    zmeny: [
+      '🐛 helpers.js: Přidána chybějící funkce computeYearForecast() – opravena sekce Predikce (tabulka se nezobrazovala)',
+      '🐛 settings.js: Odstraněn nebezpečný rekurzivní override applySettings() – opravena chyba „too much recursion“',
+      '✅ index.html: Aktualizována verze na v6.47, cache-busting hashe pro helpers.js a settings.js',
+    ]
+  },
+  {
+    verze: 'v6.46',
+    datum: '2026-04-19',
+    zmeny: [
+      '✅ Admin panel → Verze: Záznamy doplněny o cestu sekce (kde k opravě došlo)',
+      '✅ Dokumentace: Vytvořeny docs/bugs.md a docs/todo.md',
+      '✅ Repozitář: Playwright soubory přesunuty do složky Playwrite/',
+      '✅ Cloudflare Worker: Přidán worker.js do repozitáře (cloudflare-worker/worker.js), bcmilda.github.io přidán do CORS, Resend key přesunut do env proměnné',
+      '✅ CLAUDE.md: Vytvořen kontext soubor pro Claude Code sessions',
+      '✅ CI/CD: Přidán GitHub Actions workflow pro automatický preview deploy na push do dev větve',
+    ]
+  },
+  {
     verze: 'v6.45',
     datum: '2026-04-13',
     zmeny: [
-      '🐛 Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem)',
-      '🐛 Přidána funkce renderKumulChart() – kumulativní graf se nevykresloval (chyběla implementace)',
-      '🐛 Opraven HTML layout v záložce Grafy – blok gtab-vsechny-content byl chybně vnořen do gtab-rocni-content',
-      '🐛 Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML)',
-      '✅ Vytvořen soubor .env pro bezpečné uložení API klíče Resend',
-      '✅ Přidána záložka Verze do Admin panelu',
+      '🐛 Grafy → Obecné / Měsíční: Opraven infinite loop v initGrafFilters() – funkce byla volána před svou definicí (hoisting problem)',
+      '🐛 Grafy → Měsíční: Přidána chybějící funkce renderKumulChart() – kumulativní graf se nevykresloval',
+      '🐛 Grafy → Všechny roky: Opraven HTML layout – blok gtab-vsechny-content byl chybně vnořen uvnitř gtab-rocni-content',
+      '🐛 Grafy → Obecné: Odstraněna nefunkční karta Box plot (canvas ID boxplotChart neexistoval v HTML)',
+      '✅ Nastavení: Vytvořen soubor .env pro bezpečné uložení API klíče Resend',
+      '✅ Admin panel → Verze: Přidána záložka s historií verzí a changelogem',
     ]
   }
 ];

@@ -60,6 +60,27 @@ function predictCat(catId,sub,m,y,data){
 }
 
 // ══════════════════════════════════════════════════════
+//  YEAR FORECAST – součet skutečnosti (minulé+aktuální měsíce) + predikce (budoucí měsíce)
+//  Vrací "Předpoklad YTD" – kolik kategorie utratí za celý rok
+// ══════════════════════════════════════════════════════
+function computeYearForecast(catId, sub, year, data) {
+  const D = data || getData();
+  let total = 0;
+  for (let m = 0; m < 12; m++) {
+    const past = isPast(m, year);
+    const cur = isCur(m, year);
+    if (past || cur) {
+      // Použij skutečnost
+      total += getActual(catId, sub, m, year, D) || 0;
+    } else {
+      // Použij predikci pro budoucí měsíce
+      total += predictCat(catId, sub, m, year, D) || 0;
+    }
+  }
+  return Math.round(total);
+}
+
+// ══════════════════════════════════════════════════════
 //  BANK
 // ══════════════════════════════════════════════════════
 function computeBank(data){
