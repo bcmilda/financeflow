@@ -756,11 +756,20 @@ async function sendContactForm() {
     } else {
       // Fallback: Worker s Resend
       const typeLabel = type==='bug'?'🐛 Chyba':type==='feature'?'💡 Návrh':type==='support'?'❓ Podpora':'📧 Zpráva';
-      await fetch('https://misty-limit-0523.bc-milda.workers.dev',{
+      // Získej Firebase ID token pro autorizaci Workeru
+      let idToken = '';
+      try {
+        if(window._currentUser) idToken = await window._currentUser.getIdToken();
+      } catch(e) { console.log('Token error:', e); }
+      const headers = {'Content-Type':'application/json'};
+      if(idToken) headers['Authorization'] = 'Bearer ' + idToken;
+      const workerRes = await fetch('https://misty-limit-0523.bc-milda.workers.dev',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({type:'contact_form',from_name:name,from_email:email,msg_type:type,message})
+        headers,
+        body:JSON.stringify({type:'contact_form',payload:{from_name:name,from_email:email,msg_type:type,message}})
       });
+      const workerData = await workerRes.json().catch(()=>({}));
+      console.log('Worker response:', workerData);
     }
   } catch(e) { console.log('Email send error:',e); }
 
