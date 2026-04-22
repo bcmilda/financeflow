@@ -394,6 +394,20 @@ function save() {
     setSyncStatus('ok');
     return;
   }
+  // TODO-002: Offline detekce – pokud není internet, uloži do IndexedDB fronty
+  if (!navigator.onLine && window.OfflineSync) {
+    // Najdi nejnovější transakci (právě přidanou) a ulož ji offline
+    const lastTx = S.transactions?.[S.transactions.length - 1];
+    if (lastTx) {
+      window.OfflineSync.saveTxOffline(lastTx).then(() => {
+        setSyncStatus('ok');
+        if (typeof showToast === 'function') {
+          showToast('⏳ Offline – transakce bude uložena po připojení k internetu');
+        }
+      }).catch(e => console.error('Offline save error:', e));
+    }
+    return;
+  }
   clearTimeout(saveTimeout);
   setSyncStatus('syncing');
   saveTimeout = setTimeout(() => {
