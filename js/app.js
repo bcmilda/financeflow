@@ -149,6 +149,10 @@ window.onUserSignedIn = async function(user) {
   }
   _isLocalMode = false;
   setSyncStatus('syncing');
+  // Sentry – nastav uživatele pro lepší debug
+  if (typeof Sentry !== 'undefined') {
+    Sentry.setUser({ id: user.uid, email: user.email || 'anon' });
+  }
   updateSidebarUser(user);
   
   // Load user profile (custom display name)

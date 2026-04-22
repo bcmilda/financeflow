@@ -3,13 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.47</title>
+<title>FinanceFlow v6.48</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FinanceFlow">
+<!-- ══ SENTRY – monitoring chyb (TODO-007) ══ -->
+<script
+  src="https://js-de.sentry-cdn.com/3ce6efc6333af4293ac9b67d7b710f4b.min.js"
+  crossorigin="anonymous"
+></script>
+<script>
+  Sentry.onLoad(function() {
+    Sentry.init({
+      // Konfigurace dle sentry.io Project Settings
+    });
+    Sentry.configureScope(function(scope) {
+      scope.setTag('app_version', '6.48');
+      scope.setTag('environment', location.hostname.includes('github') ? 'github-pages' : 'firebase');
+    });
+  });
+</script>
+<!-- ══ konec Sentry ══ -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
