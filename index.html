@@ -1578,14 +1578,16 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
           Sentry.onLoad(function(){
             try {
               Sentry.init({
+                dsn: 'https://3ce6efc6333af4293ac9b67d7b710f4b@o4511266124988416.ingest.de.sentry.io/4511266132787280',
                 tracesSampleRate: 0.1,
                 replaysSessionSampleRate: 0,
-                replaysOnErrorSampleRate: 0
+                replaysOnErrorSampleRate: 0,
+                environment: location.hostname.indexOf('github') >= 0 ? 'github-pages' : 'firebase',
+                release: 'financeflow@6.48'
               });
               if (Sentry.configureScope) {
                 Sentry.configureScope(function(scope){
                   scope.setTag('app_version', '6.48');
-                  scope.setTag('environment', location.hostname.indexOf('github')>=0 ? 'github-pages' : 'firebase');
                 });
               }
             } catch(e){ console.warn('Sentry init failed:', e); }
