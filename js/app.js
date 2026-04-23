@@ -149,10 +149,12 @@ window.onUserSignedIn = async function(user) {
   }
   _isLocalMode = false;
   setSyncStatus('syncing');
-  // Sentry – nastav uživatele pro lepší debug
-  if (typeof Sentry !== 'undefined') {
-    Sentry.setUser({ id: user.uid, email: user.email || 'anon' });
-  }
+  // Sentry – nastav uživatele bezpečně (Sentry je async, nemusí být ještě načten)
+  setTimeout(function() {
+    if (typeof Sentry !== 'undefined' && typeof Sentry.setUser === 'function') {
+      Sentry.setUser({ id: user.uid, email: user.email || 'anon' });
+    }
+  }, 3000);
   updateSidebarUser(user);
   
   // Load user profile (custom display name)
