@@ -10,23 +10,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FinanceFlow">
-<!-- ══ SENTRY – monitoring chyb (TODO-007) ══ -->
-<script
-  src="https://js-de.sentry-cdn.com/3ce6efc6333af4293ac9b67d7b710f4b.min.js"
-  crossorigin="anonymous"
-></script>
-<script>
-  Sentry.onLoad(function() {
-    Sentry.init({
-      // Konfigurace dle sentry.io Project Settings
-    });
-    Sentry.configureScope(function(scope) {
-      scope.setTag('app_version', '6.48');
-      scope.setTag('environment', location.hostname.includes('github') ? 'github-pages' : 'firebase');
-    });
-  });
-</script>
-<!-- ══ konec Sentry ══ -->
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -132,7 +115,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.47 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.48 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -1577,5 +1560,45 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
     <div class="modal-body" id="kalendarDayContent" style="max-height:70vh;overflow-y:auto"></div>
   </div>
 </div>
+
+<!-- ══ SENTRY – monitoring chyb (TODO-007) ══ -->
+<!-- Async loader – NEBLOKUJE vykreslení stránky, načítá se na pozadí -->
+<!-- Pokud Sentry selže, aplikace funguje normálně díky try/catch ochraně -->
+<script>
+(function(){
+  try {
+    var s = document.createElement('script');
+    s.src = 'https://js-de.sentry-cdn.com/3ce6efc6333af4293ac9b67d7b710f4b.min.js';
+    s.crossOrigin = 'anonymous';
+    s.async = true;
+    s.defer = true;
+    s.onload = function(){
+      try {
+        if (typeof Sentry !== 'undefined' && Sentry.onLoad) {
+          Sentry.onLoad(function(){
+            try {
+              Sentry.init({
+                tracesSampleRate: 0.1,
+                replaysSessionSampleRate: 0,
+                replaysOnErrorSampleRate: 0
+              });
+              if (Sentry.configureScope) {
+                Sentry.configureScope(function(scope){
+                  scope.setTag('app_version', '6.48');
+                  scope.setTag('environment', location.hostname.indexOf('github')>=0 ? 'github-pages' : 'firebase');
+                });
+              }
+            } catch(e){ console.warn('Sentry init failed:', e); }
+          });
+        }
+      } catch(e){ console.warn('Sentry onLoad failed:', e); }
+    };
+    s.onerror = function(){ console.warn('Sentry CDN unavailable'); };
+    document.body.appendChild(s);
+  } catch(e){ console.warn('Sentry loader failed:', e); }
+})();
+</script>
+<!-- ══ konec Sentry ══ -->
+
 </body>
 </html>
