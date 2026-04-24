@@ -603,6 +603,9 @@ async function handlePdfFile(file) {
       throw new Error('Nepodařilo se přečíst PDF: ' + e.message);
     }
 
+    console.log('[PDF] Stránek extrahováno:', pages.length);
+    console.log('[PDF] Ukázka str. 1 (prvních 300 znaků):', pages[0]?.slice(0,300));
+
     if (!pages.length || pages.every(p => !p.trim())) {
       throw new Error('PDF neobsahuje čitelný text (možná skenovaný dokument).');
     }
@@ -633,13 +636,15 @@ async function handlePdfFile(file) {
 
       if(!response.ok) throw new Error('HTTP ' + response.status + ' při zpracování části ' + (i+1));
       const data = await response.json();
+      console.log('[PDF] Dávka', i, 'raw response:', JSON.stringify(data).slice(0, 500));
       const text = data.content?.[0]?.text || '';
-      if(!text) continue; // prázdná dávka – přeskoč
+      if(!text) { console.log('[PDF] Dávka', i, '- prázdný text, skip'); continue; }
 
       let result;
       try { result = JSON.parse(text.replace(/```json[\s\S]*?```|```/g,'').trim()); }
-      catch(e) { continue; } // špatný JSON v dávce – přeskoč a pokračuj
+      catch(e) { console.log('[PDF] Dávka', i, '- JSON parse chyba:', e.message, '| text:', text.slice(0,200)); continue; }
 
+      console.log('[PDF] Dávka', i, '- transakce:', result.transactions?.length);
       if(result.bank && !bank) bank = result.bank;
       if(result.account && !account) account = result.account;
       if(Array.isArray(result.transactions)) {
