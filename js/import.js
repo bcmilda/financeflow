@@ -527,7 +527,44 @@ function createCategoryFromImport(name) {
   return newCat.id;
 }
 
-// ── PDF import přes Worker ──
+// ── PDF import přes Worker (s pdf.js text extraction + chunking) ──
+const PDF_PAGES_PER_BATCH = 15; // stránek na jedno API volání
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
+const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+
+let _pdfjsLib = null;
+async function loadPdfJs() {
+  if (_pdfjsLib) return _pdfjsLib;
+  const mod = await import(PDFJS_CDN);
+  mod.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+  _pdfjsLib = mod;
+  return mod;
+}
+
+async function extractPdfPages(arrayBuffer) {
+  const pdfjsLib = await loadPdfJs();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const text = content.items.map(it => it.str).join(' ');
+    pages.push(text);
+  }
+  return pages;
+}
+
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+function updatePdfStatus(msg) {
+  const el = document.getElementById('pdfStatus');
+  if (el) { el.style.display = 'block'; el.innerHTML = msg; }
+}
+
 function handlePdfDrop(e) {
   e.preventDefault();
   document.getElementById('pdfDropZone').style.borderColor = 'var(--border)';
@@ -537,53 +574,80 @@ function handlePdfDrop(e) {
 
 async function handlePdfFile(file) {
   if(!file) return;
-  const status  = document.getElementById('pdfStatus');
   const preview = document.getElementById('pdfPreview');
-  status.style.display = 'block';
-  status.innerHTML = '<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Claude analyzuje PDF výpis... může to trvat 15–30 sekund.</div></div>';
-  preview.style.display = 'none';
+  if(preview) preview.style.display = 'none';
+
+  updatePdfStatus('<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Načítám PDF a extrahuji text...</div></div>');
 
   const token = await getAuthToken();
   if(!token) {
-    status.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Pro import PDF se musíte přihlásit.</div></div>';
+    updatePdfStatus('<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Pro import PDF se musíte přihlásit.</div></div>');
     return;
   }
 
   try {
-    // Převeď PDF na base64
-    const base64 = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => res(reader.result.split(',')[1]);
-      reader.onerror = () => rej(new Error('Nelze přečíst PDF'));
-      reader.readAsDataURL(file);
-    });
+    // 1) Načti PDF jako ArrayBuffer a extrahuj text přes pdf.js
+    const arrayBuffer = await file.arrayBuffer();
+    let pages;
+    try {
+      pages = await extractPdfPages(arrayBuffer);
+    } catch(e) {
+      throw new Error('Nepodařilo se přečíst PDF: ' + e.message);
+    }
 
-    const response = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body: JSON.stringify({
-        type: 'bank_statement',
-        payload: {pdfData: base64, mediaType: 'application/pdf', filename: file.name}
-      })
-    });
+    if (!pages.length || pages.every(p => !p.trim())) {
+      throw new Error('PDF neobsahuje čitelný text (možná skenovaný dokument).');
+    }
 
-    if(!response.ok) throw new Error('HTTP ' + response.status);
-    const data = await response.json();
-    const text = data.content?.[0]?.text||'';
-    if(!text) throw new Error('Prázdná odpověď');
+    // 2) Rozděl stránky na dávky
+    const batches = chunkArray(pages, PDF_PAGES_PER_BATCH);
+    const totalBatches = batches.length;
+    let allTransactions = [];
+    let bank = null, account = null;
 
-    let result;
-    try { result = JSON.parse(text.replace(/```json|```/g,'').trim()); }
-    catch(e) { throw new Error('Neplatný formát odpovědi od Claude'); }
+    for (let i = 0; i < batches.length; i++) {
+      updatePdfStatus(`<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Claude analyzuje část ${i+1} z ${totalBatches}... (stránky ${i*PDF_PAGES_PER_BATCH+1}–${Math.min((i+1)*PDF_PAGES_PER_BATCH, pages.length)} z ${pages.length})</div></div>`);
 
-    if(!result.transactions?.length) throw new Error('Nepodařilo se extrahovat transakce z PDF');
+      const batchText = batches[i].join('\n\n--- Nová stránka ---\n\n');
 
-    status.style.display = 'none';
-    // Přepni na CSV záložku kde je tlačítko pro import
+      const response = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify({
+          type: 'bank_statement_text',
+          payload: {
+            text: batchText,
+            batchIndex: i,
+            totalBatches
+          }
+        })
+      });
+
+      if(!response.ok) throw new Error('HTTP ' + response.status + ' při zpracování části ' + (i+1));
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '';
+      if(!text) continue; // prázdná dávka – přeskoč
+
+      let result;
+      try { result = JSON.parse(text.replace(/```json[\s\S]*?```|```/g,'').trim()); }
+      catch(e) { continue; } // špatný JSON v dávce – přeskoč a pokračuj
+
+      if(result.bank && !bank) bank = result.bank;
+      if(result.account && !account) account = result.account;
+      if(Array.isArray(result.transactions)) {
+        allTransactions = allTransactions.concat(result.transactions);
+      }
+    }
+
+    if(!allTransactions.length) throw new Error('Nepodařilo se extrahovat žádné transakce z PDF.');
+
+    updatePdfStatus(`<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">PDF úspěšně analyzován${bank ? ' ('+bank+')' : ''}. Zkontrolujte transakce níže a potvrďte import.</div></div>`);
+
+    // 3) Přepni na CSV záložku a zobraz preview
     switchImportTab('csv', document.getElementById('itab-csv'));
-    // Krátká prodleva aby se záložka stihla přepnout
     await new Promise(r => setTimeout(r, 100));
-    showImportPreview(result.transactions.map(t => ({
+
+    showImportPreview(allTransactions.map(t => ({
       date: parseImportDate(t.date||'') || new Date().toISOString().slice(0,10),
       amount: Math.abs(parseFloat(t.amount)||0),
       type: parseFloat(t.amount||0) < 0 ? 'expense' : 'income',
@@ -591,15 +655,9 @@ async function handlePdfFile(file) {
       note: t.note||'',
       catId: '', _catName: t.category||'', subcat:'', tags:[],
     })).filter(t=>t.amount>0), file.name);
-    // Zobraz hlášku na PDF záložce také
-    const pdfStatus2 = document.getElementById('pdfStatus');
-    if(pdfStatus2) {
-      pdfStatus2.style.display = 'block';
-      pdfStatus2.innerHTML = '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">PDF úspěšně analyzován. Zkontrolujte transakce níže a potvrďte import.</div></div>';
-    }
 
   } catch(e) {
-    status.innerHTML = `<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text"><strong>Chyba:</strong> ${e.message}</div></div>`;
+    updatePdfStatus(`<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text"><strong>Chyba:</strong> ${e.message}</div></div>`);
   }
 }
 
