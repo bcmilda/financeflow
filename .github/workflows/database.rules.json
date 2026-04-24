@@ -60,6 +60,17 @@
         }
       }
     },
+    "referrals": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$refCode": {
+        ".validate": "newData.hasChildren(['uid','createdAt'])"
+      }
+    },
+    "referral_clicks": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null"
+    },
     "keyword_overrides": {
       ".read": "auth != null",
       ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"

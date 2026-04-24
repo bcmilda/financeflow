@@ -162,6 +162,35 @@ Pravidla:
           }]
         };
 
+      } else if (type === 'bank_statement_text') {
+        // Textová varianta – klient extrahoval text z PDF přes pdf.js a posílá ho po dávkách
+        if (!payload.text) return json({ error: 'Chybí text' }, 400, corsHeaders);
+        const isFirst = payload.batchIndex === 0;
+        const hint = isFirst
+          ? 'Toto je první část výpisu. Extrahuj název banky a číslo účtu pokud jsou přítomny.'
+          : `Toto je část ${payload.batchIndex + 1} z ${payload.totalBatches}. Extrahuj pouze transakce, bank/account nastav na null.`;
+        claudeRequest = {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8192,
+          messages: [{
+            role: 'user',
+            content: `${hint}
+Analyzuj tento text bankovního výpisu a extrahuj VŠECHNY transakce. Vrať POUZE validní JSON bez dalšího textu:
+{"bank":"název banky nebo null","account":"číslo účtu nebo null","transactions":[{"date":"YYYY-MM-DD","amount":číslo,"name":"název protistrany/popis","note":"doplňující info","category":"odhadnutá kategorie"}]}
+
+Pravidla:
+- amount: kladné číslo pro příjmy, záporné pro výdaje
+- date: vždy ve formátu YYYY-MM-DD
+- name: hlavní popis transakce
+- category: odhadni z názvu (Jídlo & Nákupy / Doprava / Bydlení / Zdraví / Restaurace / Jiné)
+- Pokud není datum čitelné nebo řádek není transakce, vynech ho
+- Vrať POUZE JSON, žádný jiný text
+
+TEXT VÝPISU:
+${payload.text}`
+          }]
+        };
+
       } else if (type === 'wish_url') {
         if (!payload.url) return json({ error: 'Chybí URL' }, 400, corsHeaders);
         let pageText = '';
