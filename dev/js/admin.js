@@ -160,6 +160,21 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.48',
+    datum: '2026-04-23',
+    zmeny: [
+      '✅ index.html: Sentry.io monitoring chyb integrován – async loader před </body>, neblokuje načítání, DSN nastaven',
+      '✅ index.html: Opravena verze v sekci O aplikaci (byla 6.35, nyní 6.48)',
+      '🐛 app.js: Opraveno Sentry.setUser() – volání odloženo na setTimeout 3s (Sentry je async loader)',
+      '🐛 app.js: Přidána offline větev do save() – při !navigator.onLine uloží transakci do IndexedDB fronty (TODO-002)',
+      '✅ premium.js: Opraven sendContactForm() – přidán Authorization: Bearer token header pro Worker',
+      '✅ premium.js: Opravena struktura payloadu – Worker čeká {type, payload:{...}}',
+      '✅ cloudflare-worker/worker.js: Worker v5 nasazen – lepší Resend error logging, RESEND_API_KEY z env',
+      '✅ doc/todo.md: Aktualizováno – TODO-001/002/003/004/007 označeny hotovo/nasazeno',
+      '✅ doc/bugs.md: Aktualizováno – FIX-046 až FIX-050 přidány, TL;DR aktualizován',
+    ]
+  },
+  {
     verze: 'v6.47',
     datum: '2026-04-21',
     zmeny: [

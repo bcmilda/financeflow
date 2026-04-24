@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.47</title>
+<title>FinanceFlow v6.48</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -115,7 +115,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.47 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.48 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -757,7 +757,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.35</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.48</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1378,7 +1378,7 @@
   </div>
 </div>
 
-<script src="js/app.js?v=109e73d4"></script>
+<script src="js/app.js?v=ed1bcf97"></script>
 <script src="js/helpers.js?v=e50f43f4"></script>
 <script src="js/ui.js?v=3134d203"></script>
 <script src="js/transactions.js?v=8ee648e0"></script>
@@ -1396,7 +1396,7 @@
 <script src="js/duplicates.js?v=new637"></script>
 <script src="js/nakup.js?v=new637"></script>
 <script src="js/kalendar.js?v=b77a74f8"></script>
-<script src="js/admin.js?v=87433101"></script>
+<script src="js/admin.js?v=0cf87ca6"></script>
 <script src="js/import.js?v=763624ee"></script>
 <script type="module" src="js/firebase.js?v=889e8119"></script>
 
@@ -1560,5 +1560,48 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
     <div class="modal-body" id="kalendarDayContent" style="max-height:70vh;overflow-y:auto"></div>
   </div>
 </div>
+
+<!-- ══ SENTRY – monitoring chyb (TODO-007) ══ -->
+<!-- Async loader – NEBLOKUJE vykreslení stránky, načítá se na pozadí -->
+<!-- Pokud Sentry selže, aplikace funguje normálně díky try/catch ochraně -->
+<script>
+(function(){
+  try {
+    var s = document.createElement('script');
+    s.src = 'https://js-de.sentry-cdn.com/3ce6efc6333af4293ac9b67d7b710f4b.min.js';
+    s.crossOrigin = 'anonymous';
+    s.async = true;
+    s.defer = true;
+    s.onload = function(){
+      try {
+        if (typeof Sentry !== 'undefined' && Sentry.onLoad) {
+          Sentry.onLoad(function(){
+            try {
+              Sentry.init({
+                dsn: 'https://3ce6efc6333af4293ac9b67d7b710f4b@o4511266124988416.ingest.de.sentry.io/4511266132787280',
+                tracesSampleRate: 0,
+                replaysSessionSampleRate: 0,
+                replaysOnErrorSampleRate: 0,
+                integrations: [],
+                environment: location.hostname.indexOf('github') >= 0 ? 'github-pages' : 'firebase',
+                release: 'financeflow@6.48'
+              });
+              if (Sentry.configureScope) {
+                Sentry.configureScope(function(scope){
+                  scope.setTag('app_version', '6.48');
+                });
+              }
+            } catch(e){ console.warn('Sentry init failed:', e); }
+          });
+        }
+      } catch(e){ console.warn('Sentry onLoad failed:', e); }
+    };
+    s.onerror = function(){ console.warn('Sentry CDN unavailable'); };
+    document.body.appendChild(s);
+  } catch(e){ console.warn('Sentry loader failed:', e); }
+})();
+</script>
+<!-- ══ konec Sentry ══ -->
+
 </body>
 </html>

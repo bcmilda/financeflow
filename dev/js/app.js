@@ -149,6 +149,12 @@ window.onUserSignedIn = async function(user) {
   }
   _isLocalMode = false;
   setSyncStatus('syncing');
+  // Sentry – nastav uživatele bezpečně (Sentry je async, nemusí být ještě načten)
+  setTimeout(function() {
+    if (typeof Sentry !== 'undefined' && typeof Sentry.setUser === 'function') {
+      Sentry.setUser({ id: user.uid, email: user.email || 'anon' });
+    }
+  }, 3000);
   updateSidebarUser(user);
   
   // Load user profile (custom display name)
@@ -392,6 +398,20 @@ function save() {
   if(_isLocalMode) {
     saveLocal();
     setSyncStatus('ok');
+    return;
+  }
+  // TODO-002: Offline detekce – pokud není internet, uloži do IndexedDB fronty
+  if (!navigator.onLine && window.OfflineSync) {
+    // Najdi nejnovější transakci (právě přidanou) a ulož ji offline
+    const lastTx = S.transactions?.[S.transactions.length - 1];
+    if (lastTx) {
+      window.OfflineSync.saveTxOffline(lastTx).then(() => {
+        setSyncStatus('ok');
+        if (typeof showToast === 'function') {
+          showToast('⏳ Offline – transakce bude uložena po připojení k internetu');
+        }
+      }).catch(e => console.error('Offline save error:', e));
+    }
     return;
   }
   clearTimeout(saveTimeout);
