@@ -528,17 +528,25 @@ function createCategoryFromImport(name) {
 }
 
 // ── PDF import přes Worker (s pdf.js text extraction + chunking) ──
-const PDF_PAGES_PER_BATCH = 15; // stránek na jedno API volání
-const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
-const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
+const PDF_PAGES_PER_BATCH = 15;
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-let _pdfjsLib = null;
-async function loadPdfJs() {
-  if (_pdfjsLib) return _pdfjsLib;
-  const mod = await import(PDFJS_CDN);
-  mod.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-  _pdfjsLib = mod;
-  return mod;
+let _pdfjsLoaded = false;
+function loadPdfJs() {
+  return new Promise((resolve, reject) => {
+    if (_pdfjsLoaded && window.pdfjsLib) { resolve(window.pdfjsLib); return; }
+    if (window.pdfjsLib) { _pdfjsLoaded = true; resolve(window.pdfjsLib); return; }
+    const script = document.createElement('script');
+    script.src = PDFJS_CDN;
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+      _pdfjsLoaded = true;
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = () => reject(new Error('Nepodařilo se načíst pdf.js z CDN'));
+    document.head.appendChild(script);
+  });
 }
 
 async function extractPdfPages(arrayBuffer) {
