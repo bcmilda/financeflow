@@ -641,7 +641,20 @@ async function handlePdfFile(file) {
       if(!text) { console.log('[PDF] Dávka', i, '- prázdný text, skip'); continue; }
 
       let result;
-      try { result = JSON.parse(text.replace(/```json[\s\S]*?```|```/g,'').trim()); }
+      try {
+        // Extrahuj JSON - zkus fence match, pak celý text, pak substring od {
+        let jsonStr = text;
+        const fenceMatch = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+        if (fenceMatch) {
+          jsonStr = fenceMatch[1];
+        } else {
+          // Bez fence - najdi první { a poslední }
+          const start = text.indexOf('{');
+          const end = text.lastIndexOf('}');
+          if (start !== -1 && end !== -1 && end > start) jsonStr = text.slice(start, end + 1);
+        }
+        result = JSON.parse(jsonStr.trim());
+      }
       catch(e) { console.log('[PDF] Dávka', i, '- JSON parse chyba:', e.message, '| text:', text.slice(0,200)); continue; }
 
       console.log('[PDF] Dávka', i, '- transakce:', result.transactions?.length);
