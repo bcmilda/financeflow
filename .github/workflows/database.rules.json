@@ -1,0 +1,97 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === $uid",
+        "data": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+        },
+        "profile": {
+          ".read": "auth != null"
+        },
+        "premium": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+        },
+        "settings": {
+          ".read": "auth.uid === $uid"
+        },
+        "partners": {
+          ".read": "auth.uid === $uid"
+        }
+      }
+    },
+    "leads": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$leadId": {
+        ".validate": "newData.hasChildren(['name']) || newData.hasChildren(['email']) || newData.hasChildren(['phone'])"
+      }
+    },
+    "affiliate": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null"
+    },
+    "community": {
+      "$monthKey": {
+        "users": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.hasChildren(['updatedAt'])"
+          }
+        }
+      }
+    },
+    "catalog": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$item": {
+        ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 60"
+      },
+      "prices": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$product": {
+          "$record": {
+            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
+          }
+        }
+      }
+    },
+    "referrals": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$refCode": {
+        ".validate": "newData.hasChildren(['uid','createdAt'])"
+      }
+    },
+    "referral_clicks": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null"
+    },
+    "keyword_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "coicop_corrections": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "support": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$entry": {
+        ".validate": "newData.hasChildren(['email','message','date'])"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {"id":"cat1","name":"Jídlo & Nákupy","icon":"🛒","color":"#f87171","type":"expense","subs":["Supermarket","Tržnice","Rozvoz jídla","Restaurace"],"healthPct":20,"healthAmt":8000},
+  {"id":"cat2","name":"Doprava","icon":"🚗","color":"#60a5fa","type":"expense","subs":["Benzín","MHD","Taxi/Uber","Servis"],"healthPct":10,"healthAmt":5000},
+  {"id":"cat3","name":"Bydlení","icon":"🏠","color":"#a78bfa","type":"expense","subs":["Nájem","Energie","Internet","Pojištění"],"healthPct":30,"healthAmt":null},
+  {"id":"cat4","name":"Zdraví","icon":"💊","color":"#fb923c","type":"expense","subs":["Léky","Lékař","Gym","Drogerie"],"healthPct":8,"healthAmt":4000},
+  {"id":"cat5","name":"Zábava","icon":"🎬","color":"#e879f9","type":"expense","subs":["Kino/Kultura","Streaming","Hry","Výlety"],"healthPct":8,"healthAmt":3000},
+  {"id":"cat6","name":"Dárky","icon":"🎁","color":"#fbbf24","type":"expense","subs":["Narozeniny","Vánoce","Ostatní dárky"],"healthPct":5,"healthAmt":2000},
+  {"id":"cat7","name":"Výplata","icon":"💰","color":"#4ade80","type":"income","subs":["Základní plat","Bonus","Přesčasy"],"stable":true},
+  {"id":"cat8","name":"Ostatní příjmy","icon":"💵","color":"#34d399","type":"income","subs":["Freelance","Pronájem","Dividendy","Ostatní"],"stable":false},
+  {"id":"cat9","name":"Spoření","icon":"🐷","color":"#818cf8","type":"expense","subs":["Spořicí účet","Stavební spoření"],"healthPct":10,"healthAmt":null,"isSaving":true},
+  {"id":"cat10","name":"Investice","icon":"📈","color":"#34d399","type":"expense","subs":["ETF","Akcie","Krypto"],"healthPct":5,"healthAmt":null,"isSaving":true}
+]
