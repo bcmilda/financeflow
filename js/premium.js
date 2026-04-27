@@ -178,6 +178,8 @@ function renderWalletList() {
   }).join('');
   // Refresh transfer dropdowns
   renderTransferDropdowns(wallets);
+  // Virtuální peněženka – cíle spoření (TODO-056)
+  if (typeof onPenezenkyRender === 'function') onPenezenkyRender();
 }
 
 function computeWalletBalance(walletId, D) {

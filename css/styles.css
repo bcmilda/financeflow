@@ -465,3 +465,9 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
   .grid2,.grid3,.grid4,.family-grid{grid-template-columns:1fr}
   .frow,.frow3{grid-template-columns:1fr}
 }
+
+/* ══ PLÁNY A CÍLE – TODO-056 ══ */
+.goal-card { transition: box-shadow .2s; }
+.goal-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.18); }
+.nakup-tab { font-family: 'Instrument Sans', sans-serif; letter-spacing: 0; }
+.nakup-tab.active { font-weight: 700; }

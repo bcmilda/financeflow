@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.48</title>
+<title>FinanceFlow v6.49</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -695,6 +695,8 @@
       </div>
       <div class="card-body" id="walletList"></div>
     </div>
+    <!-- Virtuální peněženka – cíle spoření (TODO-056) -->
+    <div id="virtualWalletSection" style="display:none"></div>
     <div class="card">
       <div class="card-header"><span class="card-title">🔄 Převod mezi peněženkami</span></div>
       <div class="card-body">
@@ -1394,7 +1396,7 @@
 <script src="js/share.js?v=new638"></script>
 <script src="js/sms-import.js?v=new638"></script>
 <script src="js/duplicates.js?v=new637"></script>
-<script src="js/nakup.js?v=new637"></script>
+<script src="js/nakup.js?v=todo056"></script>
 <script src="js/kalendar.js?v=b77a74f8"></script>
 <script src="js/admin.js?v=0cf87ca6"></script>
 <script src="js/import.js?v=763624ee"></script>
@@ -1543,6 +1545,86 @@
 <div class="overlay" id="modalNakupHistory">
   <div class="modal"><div class="modal-head"><h3 id="nakupHistoryTitle">Historie cen</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalNakupHistory')">✕</button></div><div class="modal-body" id="nakupHistoryContent"></div></div>
 </div>
+
+<!-- MODAL: Nový / upravit finanční cíl (TODO-056) -->
+<div class="overlay" id="modalGoal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="goalModalTitle">Nový finanční cíl</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalGoal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editGoalId">
+      <div class="frow">
+        <div class="fg" style="flex:0 0 64px">
+          <label>Ikona</label>
+          <input class="fi" id="goalIcon" value="🎯" placeholder="🎯" style="font-size:1.4rem;text-align:center;padding:8px 4px">
+        </div>
+        <div class="fg">
+          <label>Název cíle</label>
+          <input class="fi" id="goalName" placeholder="Dovolená, Auto, Notebook...">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Popis (volitelný)</label>
+        <input class="fi" id="goalDesc" placeholder="Španělsko 2026, 2. ruka BMW...">
+      </div>
+      <div class="frow">
+        <div class="fg">
+          <label>Cílová částka (Kč)</label>
+          <input class="fi" id="goalTargetAmount" type="number" min="0" placeholder="50 000" oninput="goalUpdateEstimate()">
+        </div>
+        <div class="fg">
+          <label>Měsíční vklad (Kč)</label>
+          <input class="fi" id="goalMonthlyTarget" type="number" min="0" placeholder="2 000" oninput="goalUpdateEstimate()">
+        </div>
+      </div>
+      <div id="goalEstimate" style="font-size:.78rem;color:var(--income);margin:-6px 0 10px;padding:0 4px"></div>
+      <div class="fg">
+        <label>Deadline (volitelný)</label>
+        <input class="fi" id="goalDeadline" type="date">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalGoal')">Zrušit</button>
+      <button class="btn btn-accent" onclick="saveGoal()">Uložit cíl</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Přidat vklad do cíle (TODO-056) -->
+<div class="overlay" id="modalGoalDeposit">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>💰 Přidat vklad</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalGoalDeposit')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="depositGoalId">
+      <div style="font-size:.88rem;font-weight:700;margin-bottom:12px;color:var(--text2)">🎯 <span id="depositGoalName"></span></div>
+      <div id="depositGoalInfo"></div>
+      <div class="frow">
+        <div class="fg">
+          <label>Částka vkladu (Kč)</label>
+          <input class="fi" id="depositAmount" type="number" min="1" placeholder="1 000">
+        </div>
+        <div class="fg">
+          <label>Datum</label>
+          <input class="fi" id="depositDate" type="date">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Poznámka (volitelná)</label>
+        <input class="fi" id="depositNote" placeholder="Výplata, bonus, kapesné...">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalGoalDeposit')">Zrušit</button>
+      <button class="btn btn-accent" onclick="saveGoalDeposit()">💰 Přidat vklad</button>
+    </div>
+  </div>
+</div>
+
 <script>
 let _deleteCurrentStep=1;
 function handleDeleteStep(){if(_deleteCurrentStep===1){_deleteCurrentStep=2;deleteDataStep2();document.getElementById('deleteNextBtn').textContent='Ano, pokračovat';}else if(_deleteCurrentStep===2){_deleteCurrentStep=3;deleteDataStep3();document.getElementById('deleteNextBtn').textContent='Smazat vše';document.getElementById('deleteNextBtn').onclick=confirmDeleteAllData;}}
@@ -1584,11 +1666,11 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
                 replaysOnErrorSampleRate: 0,
                 integrations: [],
                 environment: location.hostname.indexOf('github') >= 0 ? 'github-pages' : 'firebase',
-                release: 'financeflow@6.48'
+                release: 'financeflow@6.49'
               });
               if (Sentry.configureScope) {
                 Sentry.configureScope(function(scope){
-                  scope.setTag('app_version', '6.48');
+                  scope.setTag('app_version', '6.49');
                 });
               }
             } catch(e){ console.warn('Sentry init failed:', e); }
