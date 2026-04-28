@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.49</title>
+<title>FinanceFlow v6.50</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -115,7 +115,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.48 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.50 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -1388,7 +1388,7 @@
 
 <script src="js/app.js?v=ed1bcf97"></script>
 <script src="js/helpers.js?v=e50f43f4"></script>
-<script src="js/ui.js?v=3134d203"></script>
+<script src="js/ui.js?v=todo060"></script>
 <script src="js/transactions.js?v=8ee648e0"></script>
 <script src="js/charts.js?v=95220b96"></script>
 <script src="js/stats.js?v=9456a04e"></script>
@@ -1673,11 +1673,11 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
                 replaysOnErrorSampleRate: 0,
                 integrations: [],
                 environment: location.hostname.indexOf('github') >= 0 ? 'github-pages' : 'firebase',
-                release: 'financeflow@6.49'
+                release: 'financeflow@6.50'
               });
               if (Sentry.configureScope) {
                 Sentry.configureScope(function(scope){
-                  scope.setTag('app_version', '6.49');
+                  scope.setTag('app_version', '6.50');
                 });
               }
             } catch(e){ console.warn('Sentry init failed:', e); }

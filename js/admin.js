@@ -160,6 +160,19 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.50',
+    datum: '2026-04-29',
+    zmeny: [
+      '✅ ui.js: TODO-060 – Bubble chart (kategorie jako bubliny) nahrazuje donut graf na dashboardu',
+      '✅ ui.js: TODO-058 – renderBudouci() přidáno do page routeru',
+      '✅ index.html: bubbleChartWrap místo donutCanvas + page-budouci + nav Budoucí platby',
+      '✅ budouci.js: Nová sekce Budoucí platby – šablony + narozeniny + cíle + dluhy, horizont 30–365 dní',
+      '✅ app.js: budouci přidáno do PAGE_TITLES, verze v6.50',
+      '🐛 TODO-064: Bank – NaN/0 při prázdném měsíci (k opravě)',
+      '🐛 TODO-065: Měsíční report – grafy trendu 3M/6M/12M se nezobrazují (k opravě)',
+    ]
+  },
+  {
     verze: 'v6.49',
     datum: '2026-04-27',
     zmeny: [
