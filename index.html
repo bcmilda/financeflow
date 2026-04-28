@@ -173,6 +173,7 @@
     <div class="nav-item" onclick="showPage('projekty',this)"><span class="nav-icon">📁</span> Projekty</div>
     <div class="nav-item" onclick="showPagePremium('narozeniny',this)"><span class="nav-icon">🎂</span> Narozeniny & přání <span id="navlock-narozeniny" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
     <div class="nav-item" onclick="showPage('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam</div>
+    <div class="nav-item" onclick="showPage('budouci',this)"><span class="nav-icon">🗓️</span> Budoucí platby</div>
     <div class="nav-item" onclick="showPage('kalendar',this)"><span class="nav-icon">📅</span> Kalendář</div>
   </div>
 
@@ -246,8 +247,7 @@
       <div class="card">
         <div class="card-header"><span class="card-title">Výdaje dle kategorií</span></div>
         <div class="card-body">
-          <canvas id="donutCanvas" width="240" height="160"></canvas>
-          <div id="donutLegend" style="margin-top:9px"></div>
+          <div id="bubbleChartWrap"></div>
         </div>
       </div>
     </div>
@@ -541,6 +541,12 @@
     <div id="nakupAlertBanner" style="display:none"></div>
     <div id="nakupContent">
       <div class="empty"><div class="ei">🛒</div><div class="et">Načítám seznam...</div></div>
+    </div>
+  </div>
+  <!-- PAGE: Budoucí platby (TODO-058) -->
+  <div class="page" id="page-budouci">
+    <div id="budouciContent">
+      <div class="empty"><div class="ei">🗓️</div><div class="et">Načítám...</div></div>
     </div>
   </div>
   <!-- PAGE: SMS Import -->
@@ -1397,8 +1403,9 @@
 <script src="js/sms-import.js?v=new638"></script>
 <script src="js/duplicates.js?v=new637"></script>
 <script src="js/nakup.js?v=todo056"></script>
+<script src="js/budouci.js?v=todo058"></script>
 <script src="js/kalendar.js?v=b77a74f8"></script>
-<script src="js/admin.js?v=0cf87ca6"></script>
+<script src="js/admin.js?v=todo058"></script>
 <script src="js/import.js?v=763624ee"></script>
 <script type="module" src="js/firebase.js?v=889e8119"></script>
 
