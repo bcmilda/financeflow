@@ -102,224 +102,211 @@ function renderDashboard(){
 }
 
 // ══════════════════════════════════════════════════════
-//  BUBBLE CHART – náhrada donut grafu (TODO-060)
-//  L1: kategorie | L2: podkat. satelity + sdílené | L3: překryv
+//  BUBBLE CHART – 4 varianty (TODO-060)
+//  A) Cluster  B) Drill-down  C) Gradient  D) Treemap
 // ══════════════════════════════════════════════════════
-let _bv = 'A';     // varianta: 'A' drill-down | 'B' gradient
-let _bl1 = null;   // L2 drill: catId nebo null
-let _bl2 = null;   // L3 drill: subName nebo null
+let _bv='A', _bl1=null, _bl2=null;
 
 function renderBubbleChart(D) {
-  const el = document.getElementById('bubbleChartWrap'); if (!el) return;
-  D = D || getData();
-
-  const expCats = (D.categories||[]).filter(c => c.type==='expense'||c.type==='both');
-  const cats = expCats.map(c => {
-    const total = getActual(c.id, null, S.curMonth, S.curYear, D);
-    const subs  = (c.subs||[]).map(sub => ({
-      name: sub, val: getActual(c.id, sub, S.curMonth, S.curYear, D), catId: c.id,
-    })).filter(s => s.val > 0);
-    return { id:c.id, name:c.name, color:c.color||'#60a5fa', icon:c.icon||'📦', total, subs };
-  }).filter(c => c.total > 0).sort((a,b) => b.total - a.total).slice(0,8);
-
-  if (!cats.length) {
-    el.innerHTML = '<div class="empty" style="padding:20px"><div class="ei">📊</div><div class="et">Žádné výdaje</div></div>';
-    return;
-  }
-
-  // Sdílené podkategorie = stejný název ve 2+ kategoriích
-  const subCatMap = {};
-  cats.forEach(c => c.subs.forEach(s => {
-    if (!subCatMap[s.name]) subCatMap[s.name] = [];
-    subCatMap[s.name].push({ catId:c.id, catName:c.name, catColor:c.color, val:s.val });
-  }));
-  const sharedSubs = Object.fromEntries(Object.entries(subCatMap).filter(([,a]) => a.length >= 2));
-
-  const totalAll = cats.reduce((s,c) => s + c.total, 0);
-
-  const tabs = `<div style="display:flex;gap:3px;margin-bottom:10px;background:var(--surface3);border-radius:10px;padding:3px">
-    <button onclick="bubbleTab('A')" style="flex:1;padding:6px 0;border:none;border-radius:7px;font-size:.72rem;font-weight:${_bv==='A'?700:500};cursor:pointer;background:${_bv==='A'?'var(--surface2)':'transparent'};color:${_bv==='A'?'var(--text)':'var(--text3)'};transition:all .15s">● Drill-down</button>
-    <button onclick="bubbleTab('B')" style="flex:1;padding:6px 0;border:none;border-radius:7px;font-size:.72rem;font-weight:${_bv==='B'?700:500};cursor:pointer;background:${_bv==='B'?'var(--surface2)':'transparent'};color:${_bv==='B'?'var(--text)':'var(--text3)'};transition:all .15s">◑ Gradient</button>
+  const el=document.getElementById('bubbleChartWrap'); if(!el) return;
+  D=D||getData();
+  const expCats=(D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
+  const cats=expCats.map(c=>{
+    const total=getActual(c.id,null,S.curMonth,S.curYear,D);
+    const subs=(c.subs||[]).map(sub=>({name:sub,val:getActual(c.id,sub,S.curMonth,S.curYear,D),catId:c.id})).filter(s=>s.val>0);
+    return {id:c.id,name:c.name,color:c.color||'#60a5fa',icon:c.icon||'📦',total,subs};
+  }).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,8);
+  if(!cats.length){el.innerHTML='<div class="empty" style="padding:20px"><div class="ei">📊</div><div class="et">Žádné výdaje</div></div>';return;}
+  const subCatMap={};
+  cats.forEach(c=>c.subs.forEach(s=>{if(!subCatMap[s.name])subCatMap[s.name]=[];subCatMap[s.name].push({catId:c.id,catName:c.name,catColor:c.color,val:s.val});}));
+  const sharedSubs=Object.fromEntries(Object.entries(subCatMap).filter(([,a])=>a.length>=2));
+  const totalAll=cats.reduce((s,c)=>s+c.total,0);
+  const tabs=`<div style="display:flex;gap:3px;margin-bottom:10px;background:var(--surface3);border-radius:10px;padding:3px">
+    ${[['A','⬤ Cluster'],['B','◎ Drill'],['C','◑ Gradient'],['D','▦ Treemap']].map(([k,v])=>`<button onclick="bubbleTab('${k}')"
+      style="flex:1;padding:5px 0;border:none;border-radius:7px;font-size:.68rem;font-weight:${_bv===k?700:500};cursor:pointer;background:${_bv===k?'var(--surface2)':'transparent'};color:${_bv===k?'var(--text)':'var(--text3)'};transition:all .15s">${v}</button>`).join('')}
   </div>`;
-
-  let body = '';
-  if (_bv === 'A') {
-    if (!_bl1)      body = bubbleL1(cats, totalAll, sharedSubs);
-    else if (!_bl2) body = bubbleL2(cats, totalAll, sharedSubs);
-    else            body = bubbleL3(cats, sharedSubs);
-  } else {
-    body = bubbleGradient(cats, totalAll, sharedSubs);
-  }
-  el.innerHTML = tabs + body;
+  let body='';
+  if(_bv==='A') body=bCluster(cats,totalAll,sharedSubs);
+  else if(_bv==='B'){if(!_bl1)body=bL1(cats,totalAll,sharedSubs);else if(!_bl2)body=bL2(cats,totalAll,sharedSubs);else body=bL3(cats,sharedSubs);}
+  else if(_bv==='C') body=bGradient(cats,totalAll,sharedSubs);
+  else body=bTreemap(cats,totalAll,el.clientWidth||280);
+  el.innerHTML=tabs+body;
 }
+function bubbleTab(v){_bv=v;_bl1=null;_bl2=null;renderBubbleChart(getData());}
+function bubbleDrillL2(id){_bl1=id;_bl2=null;renderBubbleChart(getData());}
+function bubbleDrillL3(s){_bl2=s;renderBubbleChart(getData());}
+function bubbleBack(l){if(l===1){_bl1=null;_bl2=null;}else _bl2=null;renderBubbleChart(getData());}
+function bPos(n,cx,cy,r){if(n===1)return[{x:cx,y:cy}];return Array.from({length:n},(_,i)=>({x:Math.round(cx+Math.cos((i/n)*Math.PI*2-Math.PI/2)*r),y:Math.round(cy+Math.sin((i/n)*Math.PI*2-Math.PI/2)*r)}));}
 
-function bubbleTab(v) { _bv=v; _bl1=null; _bl2=null; renderBubbleChart(getData()); }
-function bubbleDrillL2(catId) { _bl1=catId; _bl2=null; renderBubbleChart(getData()); }
-function bubbleDrillL3(subName) { _bl2=subName; renderBubbleChart(getData()); }
-function bubbleBack(level) { if(level===1){_bl1=null;_bl2=null;}else{_bl2=null;} renderBubbleChart(getData()); }
-
-function bPos(n,cx,cy,r) {
-  if(n===1) return [{x:cx,y:cy}];
-  return Array.from({length:n},(_,i)=>{
-    const a=(i/n)*Math.PI*2-Math.PI/2;
-    return {x:Math.round(cx+Math.cos(a)*r),y:Math.round(cy+Math.sin(a)*r)};
+// A) CLUSTER
+function bCluster(cats,totalAll,sharedSubs){
+  const W=320,H=260,maxV=cats[0].total;
+  const mr=cats.length<=3?70:cats.length<=5?80:90;
+  const mp=bPos(cats.length,W/2,H/2,mr);
+  let svg='';
+  cats.forEach((cat,i)=>{
+    const cr=Math.max(22,Math.min(44,Math.round(22+(cat.total/maxV)*22)));
+    const {x,y}=mp[i];
+    const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
+    const sp=bPos(cat.subs.length,x,y,cr+18);
+    cat.subs.forEach((sub,j)=>{
+      const {x:sx,y:sy}=sp[j];
+      const sr=Math.max(10,Math.min(18,Math.round(10+(sub.val/maxSub)*8)));
+      const sh=!!sharedSubs[sub.name];
+      svg+=`<line x1="${x}" y1="${y}" x2="${sx}" y2="${sy}" stroke="${cat.color}33" stroke-width="1"/>
+        <circle cx="${sx}" cy="${sy}" r="${sr}" fill="${sh?'#888a9a22':cat.color+'18'}" stroke="${sh?'#888a9a':cat.color+'77'}" stroke-width="1" ${sh?'stroke-dasharray="3,2"':''}/>
+        ${sh?`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface)" stroke-width="1"/>`:''}
+        <text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="6" fill="${sh?'#a8adc4':'var(--text3)'}" font-family="Instrument Sans" style="pointer-events:none">${sub.name.slice(0,7)}</text>`;
+    });
+    svg+=`<circle cx="${x}" cy="${y}" r="${cr}" fill="${cat.color}25" stroke="${cat.color}" stroke-width="1.8"/>
+      <text x="${x}" y="${y-5}" text-anchor="middle" font-size="10" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
+      <text x="${x}" y="${y+6}" text-anchor="middle" font-size="7" font-weight="700" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,8)}</text>
+      <text x="${x}" y="${y+15}" text-anchor="middle" font-size="6.5" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>`;
   });
+  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:6px;height:6px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name} <span style="color:var(--text3)">(${c.subs.length})</span></span>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg><div style="margin-top:4px">${leg}</div>${Object.keys(sharedSubs).length?'<div style="font-size:.65rem;color:var(--text3);margin-top:3px">⬤ šedá tečka = sdílená podkategorie</div>':''}`;
 }
 
-// ── L1: všechny kategorie ──
-function bubbleL1(cats, totalAll, sharedSubs) {
-  const W=280,H=240,cx=W/2,cy=H/2;
-  const maxV=cats[0].total;
+// B) DRILL L1
+function bL1(cats,totalAll,sharedSubs){
+  const W=280,H=240,cx=W/2,cy=H/2,maxV=cats[0].total;
   const pos=bPos(cats.length,cx,cy,cats.length<=3?60:cats.length<=5?72:82);
-  let circles='';
+  let svg='';
   cats.forEach((cat,i)=>{
     const r=Math.max(20,Math.min(46,Math.round(20+(cat.total/maxV)*26)));
     const {x,y}=pos[i];
-    const pct=Math.round(cat.total/totalAll*100);
-    const hasShared=cat.subs.some(s=>sharedSubs[s.name]);
-    circles+=`<g style="cursor:pointer" onclick="bubbleDrillL2('${cat.id}')">
+    const hs=cat.subs.some(s=>sharedSubs[s.name]);
+    svg+=`<g style="cursor:pointer" onclick="bubbleDrillL2('${cat.id}')">
       <circle cx="${x}" cy="${y}" r="${r}" fill="${cat.color}20" stroke="${cat.color}" stroke-width="1.5"/>
-      ${hasShared?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4.5" fill="#888a9a" stroke="var(--surface2)" stroke-width="1.5"/>` : ''}
+      ${hs?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4.5" fill="#888a9a" stroke="var(--surface2)" stroke-width="1.5"/>`:''}
       <text x="${x}" y="${y-5}" text-anchor="middle" font-size="11" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
       <text x="${x}" y="${y+7}" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,9)}</text>
-      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${pct}%</text>
+      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>
     </g>`;
   });
-  const legend=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px 2px 0;cursor:pointer" onclick="bubbleDrillL2('${c.id}')"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-block"></span>${c.name}</span>`).join('');
-  const hint=Object.keys(sharedSubs).length?`<div style="font-size:.68rem;color:var(--text3);margin-top:5px">⬤ šedá tečka = sdílená podkategorie</div>`:'';
-  return `<div style="font-size:.7rem;color:var(--text3);margin-bottom:3px">Klikni na kategorii pro detail</div>
-    <svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${circles}</svg>
-    <div style="margin-top:4px">${legend}</div>${hint}`;
+  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px;cursor:pointer" onclick="bubbleDrillL2('${c.id}')"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  return `<div style="font-size:.7rem;color:var(--text3);margin-bottom:3px">Klikni na kategorii pro detail</div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg><div style="margin-top:4px">${leg}</div>${Object.keys(sharedSubs).length?'<div style="font-size:.68rem;color:var(--text3);margin-top:4px">⬤ šedá tečka = sdílená podkategorie</div>':''}`;
 }
 
-// ── L2: detail kategorie + podkategorie satelity ──
-function bubbleL2(cats, totalAll, sharedSubs) {
-  const cat=cats.find(c=>c.id===_bl1); if(!cat){_bl1=null;return bubbleL1(cats,totalAll,sharedSubs);}
-  const W=280,H=250,cx=W/2,cy=H/2+10,mainR=50;
-  const subPos=cat.subs.length?bPos(cat.subs.length,cx,cy,90):[];
+// B) DRILL L2
+function bL2(cats,totalAll,sharedSubs){
+  const cat=cats.find(c=>c.id===_bl1);if(!cat){_bl1=null;return bL1(cats,totalAll,sharedSubs);}
+  const W=280,H=250,cx=W/2,cy=H/2+10,mr=50;
+  const sp=cat.subs.length?bPos(cat.subs.length,cx,cy,90):[];
   let svg='';
-  cat.subs.forEach((_,i)=>{const {x,y}=subPos[i];svg+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${cat.color}55" stroke-width="1" stroke-dasharray="3,3"/>`;});
-  svg+=`<circle cx="${cx}" cy="${cy}" r="${mainR}" fill="${cat.color}25" stroke="${cat.color}" stroke-width="2"/>
+  cat.subs.forEach((_,i)=>{const {x,y}=sp[i];svg+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${cat.color}44" stroke-width="1" stroke-dasharray="3,3"/>`;});
+  svg+=`<circle cx="${cx}" cy="${cy}" r="${mr}" fill="${cat.color}25" stroke="${cat.color}" stroke-width="2"/>
     <text x="${cx}" y="${cy-10}" text-anchor="middle" font-size="14" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
     <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text)" font-family="Instrument Sans" style="pointer-events:none">${cat.name}</text>
     <text x="${cx}" y="${cy+18}" text-anchor="middle" font-size="8" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(cat.total)} Kč</text>`;
-  const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
+  const ms=Math.max(...cat.subs.map(s=>s.val),1);
   cat.subs.forEach((sub,i)=>{
-    const {x,y}=subPos[i];
-    const sr=Math.max(15,Math.min(30,Math.round(15+(sub.val/maxSub)*15)));
-    const isShared=!!sharedSubs[sub.name];
-    if(isShared){
-      svg+=`<g style="cursor:pointer" onclick="bubbleDrillL3('${sub.name.replace(/'/g,"\\'")}')">
-        <circle cx="${x}" cy="${y}" r="${sr}" fill="#888a9a18" stroke="#888a9a" stroke-width="1.5" stroke-dasharray="4,3"/>
-        <text x="${x}" y="${y-3}" text-anchor="middle" font-size="7" fill="#a8adc4" font-family="Instrument Sans" style="pointer-events:none">🔗 ${sub.name.slice(0,9)}</text>
-        <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(sub.val)} Kč</text>
-      </g>`;
-    } else {
-      svg+=`<g>
-        <circle cx="${x}" cy="${y}" r="${sr}" fill="${cat.color}18" stroke="${cat.color}88" stroke-width="1.2"/>
-        <text x="${x}" y="${y-3}" text-anchor="middle" font-size="7.5" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${sub.name.slice(0,10)}</text>
-        <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(sub.val)} Kč</text>
-      </g>`;
-    }
+    const {x,y}=sp[i];
+    const sr=Math.max(15,Math.min(30,Math.round(15+(sub.val/ms)*15)));
+    const sh=!!sharedSubs[sub.name];
+    if(sh) svg+=`<g style="cursor:pointer" onclick="bubbleDrillL3('${sub.name.replace(/'/g,"\\'")}')">
+      <circle cx="${x}" cy="${y}" r="${sr}" fill="#888a9a15" stroke="#888a9a" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="${x}" y="${y-3}" text-anchor="middle" font-size="7" fill="#a8adc4" font-family="Instrument Sans" style="pointer-events:none">🔗 ${sub.name.slice(0,9)}</text>
+      <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(sub.val)} Kč</text>
+    </g>`;
+    else svg+=`<g><circle cx="${x}" cy="${y}" r="${sr}" fill="${cat.color}18" stroke="${cat.color}88" stroke-width="1.2"/>
+      <text x="${x}" y="${y-3}" text-anchor="middle" font-size="7.5" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${sub.name.slice(0,10)}</text>
+      <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(sub.val)} Kč</text>
+    </g>`;
   });
   if(!cat.subs.length) svg+=`<text x="${cx}" y="${cy+70}" text-anchor="middle" font-size="8" fill="var(--text3)" font-family="Instrument Sans">Žádné podkategorie</text>`;
-  const sharedHint=cat.subs.some(s=>sharedSubs[s.name])?'<div style="font-size:.68rem;color:var(--text3);margin-top:5px">🔗 šedá = sdílená podkategorie, klikni pro překryv</div>':'';
-  const breadcrumb=`<div style="font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:4px">
-    <span style="cursor:pointer;color:var(--bank)" onclick="bubbleBack(1)">📍 Kategorie</span>
-    <span>›</span><strong style="color:${cat.color}">${cat.name}</strong>
-  </div>`;
-  return `${breadcrumb}<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg>${sharedHint}`;
+  return `<div style="font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:4px">
+    <span style="cursor:pointer;color:var(--bank)" onclick="bubbleBack(1)">📍 Kategorie</span><span>›</span><strong style="color:${cat.color}">${cat.name}</strong>
+  </div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg>${cat.subs.some(s=>sharedSubs[s.name])?'<div style="font-size:.68rem;color:var(--text3);margin-top:4px">🔗 šedá = sdílená, klikni pro překryv</div>':''}`;
 }
 
-// ── L3: překryv – sdílená podkategorie mezi kategoriemi ──
-function bubbleL3(cats, sharedSubs) {
-  const sub=_bl2;
-  const entries=sharedSubs[sub]; if(!entries?.length){_bl2=null;return bubbleL2(cats,0,sharedSubs);}
+// B) DRILL L3
+function bL3(cats,sharedSubs){
+  const sub=_bl2,entries=sharedSubs[sub];
+  if(!entries?.length){_bl2=null;return bL2(cats,0,sharedSubs);}
   const W=280,H=230,cy=H/2,n=entries.length;
-  const catPositions=n===1?[{x:W/2,y:cy}]:entries.map((_,i)=>{
-    const a=(i/n)*Math.PI*2-Math.PI/2;
-    return {x:Math.round(W/2+Math.cos(a)*90),y:Math.round(cy+Math.sin(a)*70)};
-  });
+  const cp=n===1?[{x:W/2,y:cy}]:entries.map((_,i)=>({x:Math.round(W/2+Math.cos((i/n)*Math.PI*2-Math.PI/2)*90),y:Math.round(cy+Math.sin((i/n)*Math.PI*2-Math.PI/2)*70)}));
   let svg='';
-  entries.forEach((_,i)=>{const {x,y}=catPositions[i];svg+=`<line x1="${x}" y1="${y}" x2="${W/2}" y2="${cy}" stroke="#888a9a55" stroke-width="1" stroke-dasharray="4,3"/>`;});
-  const totalShared=entries.reduce((s,e)=>s+e.val,0);
-  svg+=`<circle cx="${W/2}" cy="${cy}" r="32" fill="#888a9a15" stroke="#888a9a" stroke-width="1.5" stroke-dasharray="4,3"/>
+  entries.forEach((_,i)=>{const {x,y}=cp[i];svg+=`<line x1="${x}" y1="${y}" x2="${W/2}" y2="${cy}" stroke="#888a9a44" stroke-width="1" stroke-dasharray="4,3"/>`;});
+  const tot=entries.reduce((s,e)=>s+e.val,0);
+  svg+=`<circle cx="${W/2}" cy="${cy}" r="32" fill="#888a9a12" stroke="#888a9a" stroke-width="1.5" stroke-dasharray="4,3"/>
     <text x="${W/2}" y="${cy-5}" text-anchor="middle" font-size="8" font-weight="700" fill="#a8adc4" font-family="Instrument Sans" style="pointer-events:none">🔗 ${sub.slice(0,12)}</text>
-    <text x="${W/2}" y="${cy+8}" text-anchor="middle" font-size="7.5" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(totalShared)} Kč</text>`;
+    <text x="${W/2}" y="${cy+8}" text-anchor="middle" font-size="7.5" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(tot)} Kč</text>`;
   entries.forEach((e,i)=>{
-    const {x,y}=catPositions[i];
-    const r=Math.max(24,Math.min(40,Math.round(24+(e.val/totalShared)*16)));
+    const {x,y}=cp[i];const r=Math.max(24,Math.min(40,Math.round(24+(e.val/tot)*16)));
     svg+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${e.catColor}25" stroke="${e.catColor}" stroke-width="1.8"/>
       <text x="${x}" y="${y-5}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${e.catColor}" font-family="Instrument Sans" style="pointer-events:none">${e.catName.slice(0,9)}</text>
       <text x="${x}" y="${y+7}" text-anchor="middle" font-size="7.5" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(e.val)} Kč</text>`;
   });
-  const breadcrumb=`<div style="font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:4px;flex-wrap:wrap">
+  const det=entries.map(e=>`<div style="display:flex;align-items:center;gap:6px;font-size:.74rem;margin-bottom:3px"><span style="width:8px;height:8px;border-radius:50%;background:${e.catColor};flex-shrink:0;display:inline-block"></span><span style="flex:1">${e.catName}</span><strong>${fmt(e.val)} Kč</strong></div>`).join('');
+  return `<div style="font-size:.7rem;color:var(--text3);display:flex;align-items:center;gap:4px;margin-bottom:4px;flex-wrap:wrap">
     <span style="cursor:pointer;color:var(--bank)" onclick="bubbleBack(1)">📍 Kategorie</span><span>›</span>
     <span style="cursor:pointer;color:var(--bank)" onclick="bubbleBack(2)">${cats.find(c=>c.id===_bl1)?.name||'Zpět'}</span><span>›</span>
     <strong style="color:#a8adc4">🔗 ${sub}</strong>
-  </div>`;
-  const detail=entries.map(e=>`<div style="display:flex;align-items:center;gap:6px;font-size:.74rem;margin-bottom:4px">
-    <span style="width:8px;height:8px;border-radius:50%;background:${e.catColor};flex-shrink:0;display:inline-block"></span>
-    <span style="flex:1">${e.catName}</span><strong>${fmt(e.val)} Kč</strong>
-  </div>`).join('');
-  return `${breadcrumb}<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg>
-    <div style="margin-top:8px;padding:8px 10px;background:var(--surface3);border-radius:10px">${detail}</div>`;
+  </div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg>
+  <div style="margin-top:8px;padding:8px 10px;background:var(--surface3);border-radius:10px">${det}</div>`;
 }
 
-// ── Varianta B: Gradient bubliny ──
-function bubbleGradient(cats, totalAll, sharedSubs) {
-  const W=280,H=240,cx=W/2,cy=H/2;
-  const maxV=cats[0].total;
+// C) GRADIENT
+function bGradient(cats,totalAll,sharedSubs){
+  const W=280,H=240,cx=W/2,cy=H/2,maxV=cats[0].total;
   const pos=bPos(cats.length,cx,cy,cats.length<=3?60:cats.length<=5?72:82);
-  let defs='<defs>',circles='';
+  let defs='<defs>',circles='',links='';
   cats.forEach((cat,i)=>{
     const r=Math.max(22,Math.min(48,Math.round(22+(cat.total/maxV)*26)));
     const {x,y}=pos[i];
-    const pct=Math.round(cat.total/totalAll*100);
-    const hasShared=cat.subs.some(s=>sharedSubs[s.name]);
+    const hs=cat.subs.some(s=>sharedSubs[s.name]);
     const gid='g'+cat.id.replace(/\W/g,'');
-    defs+=`<radialGradient id="${gid}" cx="38%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="${cat.color}" stop-opacity="0.3"/>
-    </radialGradient>`;
-    const stroke=hasShared?`stroke="url(#${gid})" stroke-width="2.5" filter="url(#glow)"` : `stroke="${cat.color}66" stroke-width="1.5"`;
-    circles+=`<g>
-      <circle cx="${x}" cy="${y}" r="${r}" fill="url(#${gid})" ${stroke}/>
-      ${hasShared?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4" fill="#888a9a" stroke="var(--surface)" stroke-width="1"/>` : ''}
+    defs+=`<radialGradient id="${gid}" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="${cat.color}" stop-opacity="0.95"/><stop offset="100%" stop-color="${cat.color}" stop-opacity="0.25"/></radialGradient>`;
+    circles+=`<g><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${gid})" ${hs?`stroke="url(#${gid})" stroke-width="2.5" filter="url(#glow)"`:`stroke="${cat.color}66" stroke-width="1.5"`}/>
+      ${hs?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4" fill="#888a9a" stroke="var(--surface)" stroke-width="1"/>`:''}
       <text x="${x}" y="${y-4}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${cat.icon}</text>
       <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,9)}</text>
-      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.65)" font-family="Instrument Sans" style="pointer-events:none">${pct}%</text>
+      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.65)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>
     </g>`;
   });
   defs+=`<filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
-  let links='';
-  Object.values(sharedSubs).forEach(entries=>{
-    for(let a=0;a<entries.length;a++) for(let b=a+1;b<entries.length;b++){
-      const i1=cats.findIndex(c=>c.id===entries[a].catId);
-      const i2=cats.findIndex(c=>c.id===entries[b].catId);
-      if(i1<0||i2<0) return;
-      links+=`<line x1="${pos[i1].x}" y1="${pos[i1].y}" x2="${pos[i2].x}" y2="${pos[i2].y}" stroke="rgba(168,173,196,.2)" stroke-width="1" stroke-dasharray="3,4"/>`;
-    }
-  });
-  const legend=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px 2px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  const sharedHint=Object.keys(sharedSubs).length?`<span style="font-size:.67rem;color:var(--text3);margin-left:6px">⬤ šedá = sdílené</span>`:'';
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${defs}${links}${circles}</svg>
-    <div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center">${legend}${sharedHint}</div>`;
+  Object.values(sharedSubs).forEach(entries=>{for(let a=0;a<entries.length;a++)for(let b=a+1;b<entries.length;b++){const i1=cats.findIndex(c=>c.id===entries[a].catId),i2=cats.findIndex(c=>c.id===entries[b].catId);if(i1>=0&&i2>=0)links+=`<line x1="${pos[i1].x}" y1="${pos[i1].y}" x2="${pos[i2].x}" y2="${pos[i2].y}" stroke="rgba(168,173,196,.2)" stroke-width="1" stroke-dasharray="3,4"/>`;}});
+  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px 2px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${defs}${links}${circles}</svg><div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center">${leg}${Object.keys(sharedSubs).length?'<span style="font-size:.67rem;color:var(--text3);margin-left:4px">⬤ šedá = sdílené</span>':''}</div>`;
 }
 
-// Původní renderDonutChart zachován jako fallback
-function renderDonutChart(D){
-  const canvas=document.getElementById('donutCanvas');if(!canvas)return;
-  const expCats=(D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
-  const data=expCats.map(c=>({label:c.name,val:getActual(c.id,null,S.curMonth,S.curYear,D),color:c.color})).filter(d=>d.val>0);
-  const total=data.reduce((a,d)=>a+d.val,0);
-  const W=canvas.parentElement.clientWidth||300;canvas.width=Math.min(W,300);canvas.height=160;
-  const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(!total){document.getElementById('donutLegend').innerHTML='';return;}
-  const cx=canvas.width*.38,cy=80,r=60,ir=38;let angle=-Math.PI/2;
-  data.forEach(d=>{const sweep=d.val/total*Math.PI*2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,angle,angle+sweep);ctx.closePath();ctx.fillStyle=d.color;ctx.fill();angle+=sweep;});
-  ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);ctx.fillStyle='var(--surface)';ctx.fill();
-  const lgEl=document.getElementById('donutLegend');if(lgEl)lgEl.innerHTML=data.slice(0,5).map(d=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:.74rem"><div style="width:8px;height:8px;border-radius:2px;background:${d.color};flex-shrink:0"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;color:var(--text2)">${d.label}</span><span style="color:var(--text3)">${Math.round(d.val/total*100)}%</span></div>`).join('');
+// D) TREEMAP
+function bTreemap(cats,totalAll,W){
+  W=W||280;const H=200,pad=3;
+  function squarify(items,x,y,w,h){
+    if(!items.length)return[];
+    const rects=[];let rem=[...items];
+    while(rem.length){
+      const row=[];let rs=0;
+      const hz=w>=h,side=hz?h:w;
+      for(const item of rem){
+        const ti=[...row,item],ts=rs+item.area;
+        const mr=Math.max(...ti.map(i=>{const l=ts/side;return Math.max((l*l*i.area)/(ts*ts),(ts*ts)/(l*l*i.area))}));
+        if(row.length&&mr>(row.length===1?Infinity:Math.max(...row.map(i=>{const l=rs/side;return Math.max((l*l*i.area)/(rs*rs),(rs*rs)/(l*l*i.area))}))))break;
+        row.push(item);rs+=item.area;
+      }
+      const rl=rs/side;let p=hz?y:x;
+      row.forEach(item=>{const sz=item.area/rl;if(hz)rects.push({...item,x,y:p,w:rl,h:sz});else rects.push({...item,x:p,y,w:sz,h:rl});p+=sz;});
+      if(hz){x+=rl;w-=rl;}else{y+=rl;h-=rl;}
+      rem=rem.filter(i=>!row.includes(i));
+    }
+    return rects;
+  }
+  const items=cats.map(c=>({...c,area:(c.total/totalAll)*W*H}));
+  const rects=squarify(items,pad,pad,W-pad*2,H-pad*2);
+  const cells=rects.map(r=>{
+    const rw=r.w-pad,rh=r.h-pad,pct=Math.round(r.total/totalAll*100);
+    const cy2=r.y+rh/2;
+    const si=rw>30&&rh>25,sn=rw>35&&rh>20,sv=rw>50&&rh>38;
+    return `<g><rect x="${r.x}" y="${r.y}" width="${rw}" height="${rh}" rx="5" fill="${r.color}22" stroke="${r.color}" stroke-width="1.2"/>
+      ${si?`<text x="${r.x+rw/2}" y="${cy2-(sv?12:sn?6:0)}" text-anchor="middle" font-size="${Math.min(16,rh/3)}" style="pointer-events:none">${r.icon}</text>`:''}
+      ${sn?`<text x="${r.x+rw/2}" y="${cy2+(si?6:0)+(sv?-4:0)}" text-anchor="middle" font-size="${Math.min(10,rw/6)}" font-weight="700" fill="var(--text)" font-family="Instrument Sans" style="pointer-events:none">${r.name.slice(0,Math.floor(rw/6))}</text>`:''}
+      ${sv?`<text x="${r.x+rw/2}" y="${cy2+(si?18:sn?12:0)}" text-anchor="middle" font-size="${Math.min(9,rw/7)}" fill="${r.color}" font-family="Instrument Sans" style="pointer-events:none">${fmt(r.total)} Kč</text>`:`${!sv&&sn?`<text x="${r.x+rw/2}" y="${cy2+(si?14:8)}" text-anchor="middle" font-size="8" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${pct}%</text>`:''}`}
+    </g>`;
+  }).join('');
+  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:7px;height:7px;border-radius:3px;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${cells}</svg><div style="margin-top:4px">${leg}</div>`;
 }
 
 function renderBarChart(D){

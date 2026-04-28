@@ -177,7 +177,10 @@ const VERZE_LOG = [
       '✅ ui.js: TODO-060 – Drill-down bubble chart nahrazuje donut graf: Varianta A (L1 kategorie → L2 podkat. + sdílené → L3 překryv), Varianta B (gradient bubliny)',
       '✅ ui.js: TODO-060 – Šedá tečka = indikátor sdílené podkategorie, přerušovaný okraj + 🔗 na L2',
       '✅ index.html: TODO-060 – bubbleChartWrap nahrazuje donutCanvas + donutLegend',
-      '🐛 TODO-064: Bank sekce – kumulativní zůstatek ukazuje NaN/0 při prázdném měsíci (k opravě)',
+      '✅ ui.js: TODO-060 – 4 varianty bubble chart: A) Cluster (vše viditelné), B) Drill-down (L1→L2→L3 překryv), C) Gradient, D) Treemap',
+      '✅ ui.js: TODO-060 – Šedá tečka = sdílená podkategorie; 🔗 přerušovaný okraj na L2; L3 zobrazí překryv mezi kategoriemi',
+      '✅ index.html: TODO-060 – bubbleChartWrap nahrazuje donutCanvas',
+      '🐛 TODO-064: Bank sekce – NaN/0 při prázdném měsíci (k opravě)',
       '🐛 TODO-065: Měsíční report – grafy měsíčního trendu se nezobrazují v záložkách 3M/6M/12M (k opravě)',
       '🐛 TODO-066: Budoucí platby – přestaly fungovat po nasazení TODO-060 kvůli kolizi ui.js (k opravě)',
     ]
