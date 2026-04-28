@@ -121,20 +121,28 @@ function renderBubbleChart(D) {
 
   // Sdílené podkategorie = stejný název ve 2+ kategoriích
   const subCatMap={};
-  cats.forEach(c=>c.subs.forEach(s=>{if(!subCatMap[s.name])subCatMap[s.name]=[];subCatMap[s.name].push({catId:c.id,catName:c.name,catColor:c.color,val:s.val});}));
+  cats.forEach(c=>c.subs.forEach(s=>{
+    if(!subCatMap[s.name])subCatMap[s.name]=[];
+    subCatMap[s.name].push({catId:c.id,catName:c.name,catColor:c.color,val:s.val});
+  }));
   const sharedSubs=Object.fromEntries(Object.entries(subCatMap).filter(([,a])=>a.length>=2));
   const totalAll=cats.reduce((s,c)=>s+c.total,0);
 
-  const tabs=`<div style="display:flex;gap:3px;margin-bottom:12px;background:var(--surface3);border-radius:10px;padding:3px;flex-shrink:0">
+  const tabs=`<div style="display:flex;gap:3px;margin-bottom:10px;background:var(--surface3);border-radius:10px;padding:3px;flex-shrink:0">
     ${[['A','⬤ Cluster'],['B','◎ Drill'],['C','◑ Gradient'],['D','▦ Treemap']].map(([k,v])=>`<button onclick="bubbleTab('${k}')"
-      style="flex:1;padding:6px 0;border:none;border-radius:7px;font-size:.7rem;font-weight:${_bv===k?700:500};cursor:pointer;
+      style="flex:1;padding:6px 0;border:none;border-radius:7px;font-size:.68rem;font-weight:${_bv===k?700:500};cursor:pointer;
         background:${_bv===k?'var(--surface2)':'transparent'};color:${_bv===k?'var(--text)':'var(--text3)'};transition:all .15s">${v}</button>`).join('')}
   </div>`;
 
   let body='';
-  if(_bv==='A') body=bCluster(cats,totalAll,sharedSubs,el.clientWidth||280);
-  else if(_bv==='B'){if(!_bl1)body=bDrillCats(cats,totalAll,sharedSubs,el.clientWidth||280);else if(!_bl2)body=bDrillSub(cats,totalAll,sharedSubs,el.clientWidth||280);else body=bDrillTag(cats,sharedSubs,el.clientWidth||280);}
-  else if(_bv==='C') body=bGradient(cats,totalAll,sharedSubs,el.clientWidth||280);
+  const W=el.clientWidth||280;
+  if(_bv==='A') body=bCluster(cats,totalAll,sharedSubs,W);
+  else if(_bv==='B'){
+    if(!_bl1)      body=bDrillCats(cats,totalAll,sharedSubs,W);
+    else if(!_bl2) body=bDrillSub(cats,sharedSubs,W);
+    else           body=bDrillTag(cats,sharedSubs,W);
+  }
+  else if(_bv==='C') body=bGradient(cats,totalAll,sharedSubs,W);
   else body=bTreemap(cats,totalAll);
 
   el.innerHTML=tabs+body;
@@ -142,273 +150,300 @@ function renderBubbleChart(D) {
 
 function bubbleTab(v){_bv=v;_bl1=null;_bl2=null;_bl2prev=null;renderBubbleChart(getData());}
 function bubbleDrillL2(id){_bl1=id;_bl2=null;renderBubbleChart(getData());}
-function bubbleDrillL3(s,prev){_bl2=s;_bl2prev=prev;renderBubbleChart(getData());}
-function bubbleBack(l){if(l===0){_bl1=null;_bl2=null;_bl2prev=null;}else if(l===1){_bl2=null;_bl2prev=null;}renderBubbleChart(getData());}
+function bubbleDrillL3(subName,prevCatId){_bl2=subName;_bl2prev=prevCatId;renderBubbleChart(getData());}
+function bubbleBack(l){if(l===0){_bl1=null;_bl2=null;}else{_bl2=null;}renderBubbleChart(getData());}
 
-function rgba2(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
+// Helper: rgba z hex
+function bRgba(hex,a){
+  const r=parseInt(hex.slice(1,3),16)||0,g=parseInt(hex.slice(3,5),16)||0,b=parseInt(hex.slice(5,7),16)||0;
+  return `rgba(${r},${g},${b},${a})`;
+}
 
-// ── A) CLUSTER – kategorie + satelity vždy viditelné ──
+// ── A) CLUSTER – kategorie + satelity (satelity se DOTÝKAJÍ kategorie) ──
 function bCluster(cats,totalAll,sharedSubs,W){
   const H=280;
   const maxV=cats[0].total;
-  // Fixní pozice jako v prototypu – relativní k W/H
-  const positions=[
-    {x:.18,y:.28},{x:.52,y:.15},{x:.83,y:.28},
-    {x:.12,y:.70},{x:.50,y:.78},{x:.83,y:.68},{x:.35,y:.50},{x:.68,y:.50}
+  // Fixní pozice rozmístěné po SVG (jako v prototypu)
+  const POS=[
+    {x:.18,y:.3},{x:.52,y:.15},{x:.84,y:.3},
+    {x:.12,y:.72},{x:.5,y:.78},{x:.84,y:.72},{x:.35,y:.52},{x:.67,y:.52}
   ];
-  let svg='<defs>';
-  // Radial gradient pro každou kategorii
+  let defs='<defs>';
   cats.forEach((cat,i)=>{
-    svg+=`<radialGradient id="cg${i}" cx="40%" cy="40%" r="60%">
+    defs+=`<radialGradient id="cg${i}" cx="40%" cy="40%" r="60%">
       <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.28"/>
       <stop offset="100%" stop-color="${cat.color}" stop-opacity="0.06"/>
     </radialGradient>`;
   });
-  svg+='</defs>';
+  defs+='</defs>';
+  let circles='', lines='';
   cats.forEach((cat,i)=>{
-    const pos=positions[i]||{x:Math.random(),y:.5};
-    const cx=Math.round(pos.x*W), cy=Math.round(pos.y*H);
-    const cr=Math.max(28,Math.min(52,Math.round(28+(cat.total/maxV)*24)));
+    const p=POS[i]||{x:.5,y:.5};
+    const cx=Math.round(p.x*W), cy=Math.round(p.y*H);
+    const cr=Math.max(24,Math.min(46,Math.round(24+(cat.total/maxV)*22)));
     const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
-    // Satelity VNĚ – střed satelitu = cr + sr + gap
+    const nSub=cat.subs.length;
     cat.subs.forEach((sub,j)=>{
-      const sr=Math.max(10,Math.min(18,Math.round(10+(sub.val/maxSub)*8)));
-      const angle=((j/Math.max(cat.subs.length,1))*Math.PI*2)-(Math.PI/2);
-      const dist=cr+sr+8;
+      const sr=Math.max(10,Math.min(17,Math.round(10+(sub.val/maxSub)*7)));
+      const angle=nSub===1?-Math.PI/2:((j/nSub)*Math.PI*2-Math.PI/2);
+      // Satelit se DOTÝKÁ hlavní bubliny: střed satelitu = cr + sr od středu kategorie
+      const dist=cr+sr;
       const sx=Math.round(cx+Math.cos(angle)*dist);
       const sy=Math.round(cy+Math.sin(angle)*dist);
       const sh=!!sharedSubs[sub.name];
-      svg+=`<line x1="${cx+Math.cos(angle)*cr}" y1="${cy+Math.sin(angle)*cr}" x2="${sx-Math.cos(angle)*sr*.5}" y2="${sy-Math.sin(angle)*sr*.5}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
-      svg+=`<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${rgba2(sh?'#888a9a':cat.color,.13)}" stroke="${sh?'#888a9a':cat.color}" stroke-width="1.2" ${sh?'stroke-dasharray="3,2"':''}/>`;
-      if(sh) svg+=`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface2)" stroke-width="1"/>`;
-      svg+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="5.5" fill="${sh?'#a8adc4':'var(--text3)'}" font-family="Instrument Sans" pointer-events="none">${sub.name.slice(0,7)}</text>`;
+      // Linka od okraje hlavní k okraji satelitu
+      lines+=`<line x1="${Math.round(cx+Math.cos(angle)*cr)}" y1="${Math.round(cy+Math.sin(angle)*cr)}"
+        x2="${Math.round(sx-Math.cos(angle)*sr)}" y2="${Math.round(sy-Math.sin(angle)*sr)}"
+        stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".35"/>`;
+      circles+=`<circle cx="${sx}" cy="${sy}" r="${sr}"
+        fill="${bRgba(sh?'#888a9a':cat.color,.13)}" stroke="${sh?'#888a9a':cat.color}" stroke-width="${sh?1.5:1.2}" ${sh?'stroke-dasharray="4,2"':''}/>`;
+      if(sh) circles+=`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface2)" stroke-width="1"/>`;
+      circles+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="5.5"
+        fill="${sh?'#a8adc4':'var(--text3)'}" font-family="Instrument Sans" pointer-events="none">${sub.name.slice(0,7)}</text>`;
     });
-    // Hlavní bublina PO satelitech
-    svg+=`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="url(#cg${i})" stroke="${cat.color}" stroke-width="2.5"/>`;
-    svg+=`<text x="${cx}" y="${cy-7}" text-anchor="middle" font-size="${Math.max(9,cr*.22)}" font-weight="700" fill="${cat.color}" font-family="Instrument Sans" pointer-events="none">${cat.name}</text>`;
-    svg+=`<text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="${Math.max(8,cr*.18)}" fill="${rgba2(cat.color,.8)}" font-family="Instrument Sans" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
+    // Hlavní bublina vykreslená PO satelitech (aby byla navrchu)
+    circles+=`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="url(#cg${i})" stroke="${cat.color}" stroke-width="2.5" style="cursor:pointer" onclick="bubbleDrillL2('${cat.id}')"/>`;
+    circles+=`<text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="${Math.max(9,Math.round(cr*.24))}" font-weight="700" fill="${cat.color}" font-family="Instrument Sans" pointer-events="none">${cat.name}</text>`;
+    circles+=`<text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="${Math.max(8,Math.round(cr*.2))}" fill="${bRgba(cat.color,.8)}" font-family="Instrument Sans" pointer-events="none">${(cat.total/1000).toFixed(1)}k Kč</text>`;
   });
   const leg=cats.slice(0,6).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:6px;height:6px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${svg}</svg><div style="margin-top:6px">${leg}</div>${Object.keys(sharedSubs).length?'<div style="font-size:.65rem;color:var(--text3);margin-top:3px">⬤ šedá tečka = sdílená podkategorie</div>':''}`;
+  const hint=Object.keys(sharedSubs).length?'<div style="font-size:.65rem;color:var(--text3);margin-top:3px">⬤ šedá tečka = sdílená podkategorie · klikni na kategorii pro detail</div>':'<div style="font-size:.65rem;color:var(--text3);margin-top:3px">Klikni na kategorii pro drill-down</div>';
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${defs}${lines}${circles}</svg><div style="margin-top:6px">${leg}</div>${hint}`;
 }
 
-// ── B) DRILL – L1: všechny kategorie ──
+// ── B) DRILL L1 – všechny kategorie, kliknutím přejít do L2 ──
 function bDrillCats(cats,totalAll,sharedSubs,W){
-  const H=320;
+  const H=300;
   const maxAmt=cats[0].total;
-  const positions=[
-    {x:.2,y:.3},{x:.55,y:.18},{x:.84,y:.32},
-    {x:.13,y:.68},{x:.5,y:.72},{x:.82,y:.68},{x:.35,y:.5},{x:.67,y:.5}
+  const POS=[
+    {x:.2,y:.3},{x:.55,y:.2},{x:.83,y:.33},
+    {x:.13,y:.7},{x:.5,y:.72},{x:.82,y:.7},{x:.34,y:.52},{x:.67,y:.52}
   ];
   let html='';
   cats.forEach((cat,i)=>{
-    const R=28+(cat.total/maxAmt)*38;
-    const px=Math.round((positions[i]||{x:.5,y:.5}).x*W);
-    const py=Math.round((positions[i]||{x:.5,y:.5}).y*H);
-    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${rgba2(cat.color,.15)}" stroke="${cat.color}" stroke-width="2" style="cursor:pointer;transition:all .2s" onclick="bubbleDrillL2('${cat.id}')" onmouseover="this.style.fill='${rgba2(cat.color,.28)}'" onmouseout="this.style.fill='${rgba2(cat.color,.15)}'"/>`;
-    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${cat.color}" font-size="${Math.max(9,R*.22)}" font-weight="700" font-family="Instrument Sans" pointer-events="none">${cat.name}</text>`;
-    html+=`<text x="${px}" y="${py+9}" text-anchor="middle" fill="${rgba2(cat.color,.8)}" font-size="${Math.max(8,R*.18)}" font-family="Instrument Sans" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
+    const R=Math.round(28+(cat.total/maxAmt)*38);
+    const px=Math.round((POS[i]||{x:.5,y:.5}).x*W);
+    const py=Math.round((POS[i]||{x:.5,y:.5}).y*H);
+    html+=`<circle cx="${px}" cy="${py}" r="${R}"
+      fill="${bRgba(cat.color,.15)}" stroke="${cat.color}" stroke-width="2"
+      style="cursor:pointer;transition:fill .15s"
+      onclick="bubbleDrillL2('${cat.id}')"
+      onmouseover="this.style.fill='${bRgba(cat.color,.28)}'"
+      onmouseout="this.style.fill='${bRgba(cat.color,.15)}'"/>`;
+    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${cat.color}" font-size="${Math.max(9,Math.round(R*.22))}" font-weight="700" font-family="Instrument Sans" pointer-events="none">${cat.name}</text>`;
+    html+=`<text x="${px}" y="${py+9}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="${Math.max(8,Math.round(R*.18))}" font-family="Instrument Sans" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
   });
-  return `<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">📍 Přehled kategorií <span style="opacity:.7">– klikni na kategorii</span></div>
+  return `<div style="font-size:.72rem;color:var(--text3);margin-bottom:5px">📍 Přehled kategorií <span style="opacity:.7">– klikni na kategorii</span></div>
     <svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>`;
 }
 
-// ── B) DRILL – L2: podkategorie satelity ──
-function bDrillSub(cats,totalAll,sharedSubs,W){
-  const cat=cats.find(c=>c.id===_bl1); if(!cat){_bl1=null;return bDrillCats(cats,totalAll,sharedSubs,W);}
-  const H=320, cx=W/2, cy=H/2, R=65;
+// ── B) DRILL L2 – podkategorie satelity kolem střední kategorie ──
+function bDrillSub(cats,sharedSubs,W){
+  const cat=cats.find(c=>c.id===_bl1);
+  if(!cat){_bl1=null;return bDrillCats(cats,0,sharedSubs,W);}
+  const H=300, cx=W/2, cy=H/2, R=65;
   let html='';
+  const nSub=cat.subs.length;
   cat.subs.forEach((sub,si)=>{
-    const angle=(si/cat.subs.length)*Math.PI*2-Math.PI/2;
-    const dist=R+44;
-    const sx=cx+Math.cos(angle)*dist, sy=cy+Math.sin(angle)*dist;
+    const angle=(si/nSub)*Math.PI*2-Math.PI/2;
     const subR=28;
-    const sharedTag=sharedSubs[sub.name];
-    // Linka
-    html+=`<line x1="${cx+Math.cos(angle)*R}" y1="${cy+Math.sin(angle)*R}" x2="${sx-Math.cos(angle)*subR*.6}" y2="${sy-Math.sin(angle)*subR*.6}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".4"/>`;
-    if(sharedTag){
-      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${rgba2(cat.color,.2)}" stroke="${cat.color}" stroke-width="2" stroke-dasharray="4 2" style="cursor:pointer" onclick="bubbleDrillL3('${sub.name.replace(/'/g,'\'')}','${cat.id}')"/>`;
+    // dist=R+44 přesně jako v prototypu
+    const dist=R+44;
+    const sx=Math.round(cx+Math.cos(angle)*dist);
+    const sy=Math.round(cy+Math.sin(angle)*dist);
+    const isShared=!!sharedSubs[sub.name];
+    // Linka od okraje střední k okraji satelitu
+    html+=`<line x1="${Math.round(cx+Math.cos(angle)*R)}" y1="${Math.round(cy+Math.sin(angle)*R)}"
+      x2="${Math.round(sx-Math.cos(angle)*subR*.6)}" y2="${Math.round(sy-Math.sin(angle)*subR*.6)}"
+      stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".4"/>`;
+    if(isShared){
+      // Sdílená: přerušovaný okraj, klikatelná, text "🔗 sdílené"
+      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}"
+        fill="${bRgba(cat.color,.2)}" stroke="${cat.color}" stroke-width="2" stroke-dasharray="4 2"
+        style="cursor:pointer"
+        onclick="bubbleDrillL3('${sub.name.replace(/'/g,"\\'")}','${cat.id}')"/>`;
       html+=`<text x="${sx}" y="${sy-4}" text-anchor="middle" fill="${cat.color}" font-size="8" font-weight="700" font-family="Instrument Sans" pointer-events="none">${sub.name}</text>`;
-      html+=`<text x="${sx}" y="${sy+7}" text-anchor="middle" fill="${rgba2(cat.color,.7)}" font-size="7" font-family="Instrument Sans" pointer-events="none">🔗 sdílené</text>`;
+      html+=`<text x="${sx}" y="${sy+6}" text-anchor="middle" fill="${bRgba(cat.color,.7)}" font-size="7" font-family="Instrument Sans" pointer-events="none">🔗 sdílené</text>`;
     } else {
-      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${rgba2(cat.color,.13)}" stroke="${cat.color}" stroke-width="1.5"/>`;
-      html+=`<text x="${sx}" y="${sy}" text-anchor="middle" dominant-baseline="middle" fill="${cat.color}" font-size="8" font-family="Instrument Sans" pointer-events="none">${sub.name}</text>`;
+      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}"
+        fill="${bRgba(cat.color,.13)}" stroke="${cat.color}" stroke-width="1.5"/>`;
+      html+=`<text x="${sx}" y="${sy}" text-anchor="middle" dominant-baseline="middle"
+        fill="${cat.color}" font-size="8" font-family="Instrument Sans" pointer-events="none">${sub.name}</text>`;
     }
   });
-  // Střed
-  html+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${rgba2(cat.color,.18)}" stroke="${cat.color}" stroke-width="2.5"/>`;
+  // Střed – kategorie (vykreslena PO satelitech = navrchu)
+  html+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${bRgba(cat.color,.18)}" stroke="${cat.color}" stroke-width="2.5"/>`;
   html+=`<text x="${cx}" y="${cy-7}" text-anchor="middle" fill="${cat.color}" font-size="13" font-weight="700" font-family="Instrument Sans" pointer-events="none">${cat.name}</text>`;
-  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${rgba2(cat.color,.8)}" font-size="10" font-family="Instrument Sans" pointer-events="none">${fmt(cat.total)} Kč</text>`;
-  const breadcrumb=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <strong style="color:${cat.color}">${cat.name}</strong>${cat.subs.some(s=>sharedSubs[s.name])?' <span style="opacity:.7">– klikni na 🔗 pro sdílení</span>':''}</div>`;
-  return `${breadcrumb}<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>`;
+  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="10" font-family="Instrument Sans" pointer-events="none">${fmt(cat.total)} Kč</text>`;
+  const hint=cat.subs.some(s=>sharedSubs[s.name])?'<div style="font-size:.68rem;color:var(--text3);margin-top:4px">🔗 přerušovaný okraj = sdílená podkategorie, klikni pro detail</div>':'';
+  return `<div style="font-size:.72rem;color:var(--text3);margin-bottom:5px">
+    📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span>
+    › <strong style="color:${cat.color}">${cat.name}</strong>
+  </div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>${hint}`;
 }
 
-// ── B) DRILL – L3: sdílená podkategorie ──
+// ── B) DRILL L3 – sdílená podkategorie uprostřed, kategorie kolem ──
 function bDrillTag(cats,sharedSubs,W){
-  const entries=sharedSubs[_bl2]; if(!entries?.length){_bl2=null;return bDrillSub(cats,0,sharedSubs,W);}
-  const H=300, cx=W/2, cy=H/2;
-  const prevCatName=cats.find(c=>c.id===_bl2prev)?.name||entries[0].catName;
+  const entries=sharedSubs[_bl2];
+  if(!entries?.length){_bl2=null;return bDrillSub(cats,sharedSubs,W);}
+  const H=280, cx=W/2, cy=H/2;
+  const prevCat=cats.find(c=>c.id===_bl2prev);
   let html='';
-  // Sdílená uprostřed
   const tot=entries.reduce((s,e)=>s+e.val,0);
+  const nCat=entries.length;
+  // Kategorie kolem na dist=115 (přesně jako v prototypu)
+  entries.forEach((e,ci)=>{
+    const angle=(ci/nCat)*Math.PI*2-Math.PI/2;
+    const dist=110, R=36;
+    const px=Math.round(cx+Math.cos(angle)*dist);
+    const py=Math.round(cy+Math.sin(angle)*dist);
+    // Linka od okraje sdílené (r=40) k okraji kategorie
+    html+=`<line x1="${Math.round(cx+Math.cos(angle)*40)}" y1="${Math.round(cy+Math.sin(angle)*40)}"
+      x2="${Math.round(px-Math.cos(angle)*R*.7)}" y2="${Math.round(py-Math.sin(angle)*R*.7)}"
+      stroke="${e.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>`;
+    html+=`<circle cx="${px}" cy="${py}" r="${R}"
+      fill="${bRgba(e.catColor,.18)}" stroke="${e.catColor}" stroke-width="2"
+      style="cursor:pointer" onclick="bubbleDrillL2('${e.catId}')"/>`;
+    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${e.catColor}" font-size="10" font-weight="700" font-family="Instrument Sans" pointer-events="none">${e.catName}</text>`;
+    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${bRgba(e.catColor,.7)}" font-size="8" font-family="Instrument Sans" pointer-events="none">${fmt(e.val)} Kč</text>`;
+  });
+  // Sdílená uprostřed
   html+=`<circle cx="${cx}" cy="${cy}" r="40" fill="rgba(255,255,255,.06)" stroke="white" stroke-width="2" opacity=".5"/>`;
   html+=`<text x="${cx}" y="${cy-6}" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Instrument Sans" pointer-events="none">🔗 ${_bl2}</text>`;
   html+=`<text x="${cx}" y="${cy+8}" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="9" font-family="Instrument Sans" pointer-events="none">${fmt(tot)} Kč</text>`;
-  // Kategorie kolem na dist=115
-  entries.forEach((e,ci)=>{
-    const angle=(ci/entries.length)*Math.PI*2-Math.PI/2;
-    const dist=115;
-    const px=cx+Math.cos(angle)*dist, py=cy+Math.sin(angle)*dist;
-    const R=38;
-    html+=`<line x1="${cx+Math.cos(angle)*42}" y1="${cy+Math.sin(angle)*42}" x2="${px-Math.cos(angle)*R*.7}" y2="${py-Math.sin(angle)*R*.7}" stroke="${e.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>`;
-    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${rgba2(e.catColor,.18)}" stroke="${e.catColor}" stroke-width="2" style="cursor:pointer" onclick="bubbleDrillL2('${e.catId}')"/>`;
-    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${e.catColor}" font-size="10" font-weight="700" font-family="Instrument Sans" pointer-events="none">${e.catName}</text>`;
-    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${rgba2(e.catColor,.7)}" font-size="8" font-family="Instrument Sans" pointer-events="none">${fmt(e.val)} Kč</text>`;
-  });
-  const breadcrumb=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+  const prevName=prevCat?.name||entries[0].catName;
+  return `<div style="font-size:.72rem;color:var(--text3);margin-bottom:5px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
     📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> ›
-    <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(1)">${prevCatName}</span> ›
+    <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(1)">${prevName}</span> ›
     <strong style="color:#a8adc4">🔗 ${_bl2}</strong>
-  </div>`;
-  return `${breadcrumb}<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>`;
+  </div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>`;
 }
 
-// ── C) GRADIENT – kategorie jako radialGradient, sdílené jako linearGradient + glow + osa ──
+// ── C) GRADIENT – přesně dle shared-bubbles-v2 varianta C ──
 function bGradient(cats,totalAll,sharedSubs,W){
   const H=320;
-  const maxV=cats[0].total;
-  // Pozice kategorií – trojúhelník/polygon
-  const nCats=cats.length;
-  const catPositions=cats.map((_,i)=>({
-    x:Math.round(W*(0.15+0.7*Math.cos((i/nCats)*Math.PI*2-Math.PI/2+Math.PI/nCats)*.5+0.35)),
-    y:Math.round(H*(0.15+0.7*Math.sin((i/nCats)*Math.PI*2-Math.PI/2+Math.PI/nCats)*.4+0.35)),
-    cat:cats[i]
-  }));
+  const nCats=Math.min(cats.length,6);
+  const sharedArr=Object.entries(sharedSubs);
+
+  // Pozice kategorií – polygon (trojúhelník nebo víc)
+  const catPos=cats.slice(0,nCats).map((cat,i)=>{
+    const angle=(i/nCats)*Math.PI*2-Math.PI/2;
+    const r=nCats<=3?H*.25:nCats<=4?H*.27:H*.28;
+    return {x:Math.round(W/2+Math.cos(angle)*r*W/H),y:Math.round(H/2+Math.sin(angle)*r),cat};
+  });
 
   let defs='<defs>';
-  // Gradient pro kategorie (radial, průhledný)
-  cats.forEach((cat,i)=>{
-    defs+=`<radialGradient id="gg${i}" cx="40%" cy="40%" r="60%">
+  // Radial gradient pro kategorie
+  cats.slice(0,nCats).forEach((cat,i)=>{
+    defs+=`<radialGradient id="gcg${i}" cx="40%" cy="40%" r="60%">
       <stop offset="0%" stop-color="${cat.color}" stop-opacity="0.28"/>
       <stop offset="100%" stop-color="${cat.color}" stop-opacity="0.06"/>
     </radialGradient>`;
   });
-  // Gradient pro sdílené podkategorie (linear z barev obou rodičů)
-  const sharedArr=Object.entries(sharedSubs);
+  // Linear gradient pro sdílené uzly (barvy obou rodičů)
   sharedArr.forEach(([name,entries],i)=>{
-    const c1=entries[0].catColor, c2=entries[1]?.catColor||entries[0].catColor;
-    defs+=`<linearGradient id="sg${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${c1}"/>
-      <stop offset="100%" stop-color="${c2}"/>
+    const c1=entries[0].catColor, c2=(entries[1]||entries[0]).catColor;
+    defs+=`<linearGradient id="gsg${i}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
     </linearGradient>`;
-    defs+=`<radialGradient id="sgg${i}" cx="50%" cy="50%" r="50%">
+    defs+=`<radialGradient id="gsgg${i}" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="${c1}" stop-opacity="0.35"/>
       <stop offset="100%" stop-color="${c2}" stop-opacity="0"/>
     </radialGradient>`;
   });
-  defs+=`<filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-  defs+=`<filter id="glowsoft"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
-  defs+='</defs>';
+  defs+=`<filter id="bglow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
 
-  let html=defs;
-
-  // Pozice sdílených – uprostřed mezi rodiči
-  const sharedPositions=sharedArr.map(([name,entries])=>{
-    const p1=catPositions.find(cp=>cp.cat.id===entries[0].catId);
-    const p2=catPositions.find(cp=>cp.cat.id===entries[1]?.catId)||p1;
-    if(!p1||!p2) return null;
-    return {x:Math.round((p1.x+p2.x)/2),y:Math.round((p1.y+p2.y)/2),name,entries};
+  // Pozice sdílených = průměr pozic jejich rodičů
+  const sharedPos=sharedArr.map(([name,entries],i)=>{
+    const pCats=entries.map(e=>catPos.find(cp=>cp.cat.id===e.catId)).filter(Boolean);
+    if(!pCats.length) return null;
+    const x=Math.round(pCats.reduce((s,p)=>s+p.x,0)/pCats.length);
+    const y=Math.round(pCats.reduce((s,p)=>s+p.y,0)/pCats.length);
+    return {x,y,name,entries,idx:i};
   }).filter(Boolean);
 
-  // Linky sdílené → kategorie
-  sharedPositions.forEach((sp,i)=>{
+  let html=defs;
+  const catR=40;
+
+  // Linky sdílených → kategorie (s tečkou na konci)
+  sharedPos.forEach(sp=>{
     sp.entries.forEach((e,pi)=>{
-      const cp=catPositions.find(p=>p.cat.id===e.catId); if(!cp) return;
-      const SR=22, catR=40;
-      const dx=cp.x-sp.x, dy=cp.y-sp.y, dist=Math.sqrt(dx*dx+dy*dy);
-      const ex=sp.x+(dx/dist)*SR, ey=sp.y+(dy/dist)*SR;
-      const sx2=cp.x-(dx/dist)*catR, sy2=cp.y-(dy/dist)*catR;
-      html+=`<line x1="${sx2}" y1="${sy2}" x2="${ex}" y2="${ey}" stroke="${e.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>`;
+      const cp=catPos.find(p=>p.cat.id===e.catId); if(!cp) return;
+      const SR=18;
+      const dx=cp.x-sp.x, dy=cp.y-sp.y, dist=Math.sqrt(dx*dx+dy*dy)||1;
+      // Bod na okraji sdílené bubliny
+      const ex=Math.round(sp.x+(dx/dist)*SR), ey=Math.round(sp.y+(dy/dist)*SR);
+      // Bod na okraji kategorie
+      const sx2=Math.round(cp.x-(dx/dist)*catR), sy2=Math.round(cp.y-(dy/dist)*catR);
+      html+=`<line x1="${sx2}" y1="${sy2}" x2="${ex}" y2="${ey}"
+        stroke="${e.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>`;
       html+=`<circle cx="${ex}" cy="${ey}" r="2.5" fill="${e.catColor}" opacity=".7"/>`;
     });
   });
 
-  // Satelity kategorií (vlastní podkategorie)
-  catPositions.forEach((cp,i)=>{
-    const R=40;
+  // Satelity (vlastní podkategorie – ne sdílené)
+  catPos.forEach((cp,i)=>{
     cp.cat.subs.filter(s=>!sharedSubs[s.name]).forEach((sub,si)=>{
-      const angle=(si/Math.max(cp.cat.subs.length,1))*Math.PI*2-Math.PI/2;
+      const nSub=cp.cat.subs.filter(s=>!sharedSubs[s.name]).length;
+      const angle=nSub===1?-Math.PI/2:((si/nSub)*Math.PI*2-Math.PI/2);
       const subR=12;
-      const dist=R+subR*.6+8;
-      const sx=cp.x+Math.cos(angle)*dist, sy=cp.y+Math.sin(angle)*dist;
-      html+=`<line x1="${cp.x+Math.cos(angle)*R}" y1="${cp.y+Math.sin(angle)*R}" x2="${sx-Math.cos(angle)*subR*.5}" y2="${sy-Math.sin(angle)*subR*.5}" stroke="${cp.cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
-      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${rgba2(cp.cat.color,.13)}" stroke="${cp.cat.color}" stroke-width="1.2"/>`;
-      html+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="6" fill="${rgba2(cp.cat.color,.8)}" font-family="Instrument Sans" pointer-events="none">${sub.name.split(' ')[0].slice(0,7)}</text>`;
+      const dist=catR+subR*.6+6;
+      const sx=Math.round(cp.x+Math.cos(angle)*dist);
+      const sy=Math.round(cp.y+Math.sin(angle)*dist);
+      html+=`<line x1="${Math.round(cp.x+Math.cos(angle)*catR)}" y1="${Math.round(cp.y+Math.sin(angle)*catR)}"
+        x2="${Math.round(sx-Math.cos(angle)*subR*.5)}" y2="${Math.round(sy-Math.sin(angle)*subR*.5)}"
+        stroke="${cp.cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
+      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cp.cat.color,.15)}" stroke="${cp.cat.color}" stroke-width="1.2"/>`;
+      html+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="6" fill="${bRgba(cp.cat.color,.8)}" font-family="Instrument Sans" pointer-events="none">${sub.name.split(' ')[0].slice(0,7)}</text>`;
     });
   });
 
-  // Kategorie bubliny
-  catPositions.forEach((cp,i)=>{
-    const R=40;
-    html+=`<circle cx="${cp.x}" cy="${cp.y}" r="${R}" fill="url(#gg${i})" stroke="${cp.cat.color}" stroke-width="2.5"/>`;
+  // Kategorie bubliny (průhledný radialGradient fill)
+  catPos.forEach((cp,i)=>{
+    html+=`<circle cx="${cp.x}" cy="${cp.y}" r="${catR}" fill="url(#gcg${i})" stroke="${cp.cat.color}" stroke-width="2.5"/>`;
     html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" font-family="Instrument Sans" pointer-events="none">${cp.cat.name}</text>`;
-    html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${rgba2(cp.cat.color,.8)}" font-size="9" font-family="Instrument Sans" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
+    html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" font-family="Instrument Sans" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
   });
 
-  // Sdílené bubliny – linearGradient + glow
-  sharedPositions.forEach((sp,i)=>{
-    const SR=22;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR+10}" fill="url(#sgg${i})" pointer-events="none"/>`;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR}" fill="${rgba2(sp.entries[0].catColor,.08)}" stroke="url(#sg${i})" stroke-width="2.5" filter="url(#glow)"/>`;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR*.5}" fill="url(#sg${i})" opacity=".25" pointer-events="none"/>`;
-    html+=`<text x="${sp.x}" y="${sp.y-5}" text-anchor="middle" fill="white" font-size="8" font-weight="700" font-family="Instrument Sans" pointer-events="none">${sp.name}</text>`;
-    html+=`<text x="${sp.x}" y="${sp.y+7}" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="7" font-family="Instrument Sans" pointer-events="none">${fmt(sp.entries.reduce((s,e)=>s+e.val,0))} Kč</text>`;
+  // Sdílené uzly – linearGradient okraj + glow + vnitřní gradient
+  sharedPos.forEach(sp=>{
+    const SR=18;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR+8}" fill="url(#gsgg${sp.idx})" pointer-events="none"/>`;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR}"
+      fill="${bRgba(sp.entries[0].catColor,.08)}"
+      stroke="url(#gsg${sp.idx})" stroke-width="2.5" filter="url(#bglow)"/>`;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR*.5}" fill="url(#gsg${sp.idx})" opacity=".25" pointer-events="none"/>`;
+    html+=`<text x="${sp.x}" y="${sp.y-5}" text-anchor="middle" fill="white" font-size="7.5" font-weight="700" font-family="Instrument Sans" pointer-events="none">${sp.name}</text>`;
+    html+=`<text x="${sp.x}" y="${sp.y+6}" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="7" font-family="Instrument Sans" pointer-events="none">${fmt(sp.entries.reduce((s,e)=>s+e.val,0))} Kč</text>`;
   });
 
   const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  const sharedLeg=Object.entries(sharedSubs).slice(0,3).map(([name,entries])=>{
-    const c1=entries[0].catColor,c2=entries[1]?.catColor||c1;
-    return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:14px;height:7px;border-radius:4px;background:linear-gradient(90deg,${c1},${c2});display:inline-block"></span>${name} (sdílené)</span>`;
+  const shLeg=sharedArr.slice(0,3).map(([name,entries])=>{
+    const c1=entries[0].catColor,c2=(entries[1]||entries[0]).catColor;
+    return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:14px;height:7px;border-radius:4px;background:linear-gradient(90deg,${c1},${c2});display:inline-block"></span>${name}</span>`;
   }).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg><div style="margin-top:6px;display:flex;flex-wrap:wrap">${leg}${sharedLeg}</div>`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:hidden">${html}</svg>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap">${leg}${shLeg?'<span style="font-size:.65rem;color:var(--text3);margin:1px 4px">(sdílené →)</span>'+shLeg:''}</div>`;
 }
 
-// ── D) TREEMAP – HTML grid, styl jako v prototypu ──
+// ── D) TREEMAP – HTML grid přesně dle chart-preview-v3.html ──
 function bTreemap(cats,totalAll){
   const sorted=[...cats].sort((a,b)=>b.total-a.total);
-  const max=sorted[0].total;
-
-  // Squarified treemap – 2 řádky gridu
-  // Row 1: velké kategorie (>15% celku)
-  const big=sorted.filter(c=>c.total/totalAll>0.15);
-  const small=sorted.filter(c=>c.total/totalAll<=0.15);
-
-  function cell(cat,h,extraStyle=''){
-    const pct=Math.round(cat.total/totalAll*100);
-    return `<div style="background:${cat.color}22;border:1px solid ${cat.color}44;border-radius:8px;padding:10px 12px;
-      display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;
-      min-height:${h}px;transition:filter .2s,transform .15s;overflow:hidden;${extraStyle}"
+  function cell(cat,minH){
+    return `<div style="background:${cat.color}22;border:1px solid ${cat.color}44;border-radius:8px;
+      padding:10px 12px;display:flex;flex-direction:column;justify-content:flex-end;
+      cursor:pointer;min-height:${minH}px;overflow:hidden;transition:filter .2s,transform .15s"
       onmouseover="this.style.filter='brightness(1.15)';this.style.transform='scale(1.01)'"
       onmouseout="this.style.filter='';this.style.transform=''">
       <div style="font-size:.72rem;font-weight:500;color:${cat.color};opacity:.85">${cat.name}</div>
       <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.95rem;color:${cat.color}">${fmt(cat.total)} Kč</div>
     </div>`;
   }
-
-  // Řádek 1 – velké (flex-basis dle %)
-  const row1=big.map(c=>{
-    const flex=Math.round(c.total/totalAll*100);
-    return `<div style="flex:${flex};min-width:60px">${cell(c,70)}</div>`;
-  }).join('');
-
-  // Řádek 2 – malé
-  const row2=small.map(c=>{
-    const flex=Math.round(c.total/totalAll*100);
-    return `<div style="flex:${flex};min-width:40px">${cell(c,50)}</div>`;
-  }).join('');
-
+  const big=sorted.filter(c=>c.total/totalAll>0.12);
+  const small=sorted.filter(c=>c.total/totalAll<=0.12);
+  const row1=big.map(c=>`<div style="flex:${Math.round(c.total/totalAll*100)};min-width:55px">${cell(c,72)}</div>`).join('');
+  const row2=small.map(c=>`<div style="flex:${Math.round(c.total/totalAll*100)};min-width:40px">${cell(c,52)}</div>`).join('');
   const leg=sorted.slice(0,6).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:7px;height:7px;border-radius:3px;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-
   return `<div style="display:flex;flex-direction:column;gap:4px">
     ${row1?`<div style="display:flex;gap:4px">${row1}</div>`:''}
     ${row2?`<div style="display:flex;gap:4px">${row2}</div>`:''}
