@@ -140,30 +140,33 @@ function bPos(n,cx,cy,r){if(n===1)return[{x:cx,y:cy}];return Array.from({length:
 
 // A) CLUSTER
 function bCluster(cats,totalAll,sharedSubs){
-  const W=320,H=260,maxV=cats[0].total;
-  const mr=cats.length<=3?70:cats.length<=5?80:90;
+  const W=340,H=300,maxV=cats[0].total;
+  const mr=cats.length<=2?85:cats.length<=4?95:110;
   const mp=bPos(cats.length,W/2,H/2,mr);
   let svg='';
   cats.forEach((cat,i)=>{
-    const cr=Math.max(22,Math.min(44,Math.round(22+(cat.total/maxV)*22)));
+    const cr=Math.max(18,Math.min(34,Math.round(18+(cat.total/maxV)*16)));
     const {x,y}=mp[i];
     const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
-    const sp=bPos(cat.subs.length,x,y,cr+18);
+    // Satelity VNĚ: dist = cr + sr + mezera
     cat.subs.forEach((sub,j)=>{
-      const {x:sx,y:sy}=sp[j];
-      const sr=Math.max(10,Math.min(18,Math.round(10+(sub.val/maxSub)*8)));
+      const sr=Math.max(8,Math.min(15,Math.round(8+(sub.val/maxSub)*7)));
+      const angle=((j/Math.max(cat.subs.length,1))*Math.PI*2)-(Math.PI/2);
+      const dist=cr+sr+9;
+      const sx=Math.round(x+Math.cos(angle)*dist);
+      const sy=Math.round(y+Math.sin(angle)*dist);
       const sh=!!sharedSubs[sub.name];
       svg+=`<line x1="${x}" y1="${y}" x2="${sx}" y2="${sy}" stroke="${cat.color}33" stroke-width="1"/>
         <circle cx="${sx}" cy="${sy}" r="${sr}" fill="${sh?'#888a9a22':cat.color+'18'}" stroke="${sh?'#888a9a':cat.color+'77'}" stroke-width="1" ${sh?'stroke-dasharray="3,2"':''}/>
-        ${sh?`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface)" stroke-width="1"/>`:''}
-        <text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="6" fill="${sh?'#a8adc4':'var(--text3)'}" font-family="Instrument Sans" style="pointer-events:none">${sub.name.slice(0,7)}</text>`;
+        ${sh?`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface2)" stroke-width="1"/>`:''}
+        <text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="5.5" fill="${sh?'#a8adc4':'var(--text3)'}" font-family="Instrument Sans" style="pointer-events:none">${sub.name.slice(0,7)}</text>`;
     });
-    svg+=`<circle cx="${x}" cy="${y}" r="${cr}" fill="${cat.color}25" stroke="${cat.color}" stroke-width="1.8"/>
-      <text x="${x}" y="${y-5}" text-anchor="middle" font-size="10" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
-      <text x="${x}" y="${y+6}" text-anchor="middle" font-size="7" font-weight="700" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,8)}</text>
-      <text x="${x}" y="${y+15}" text-anchor="middle" font-size="6.5" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>`;
+    svg+=`<circle cx="${x}" cy="${y}" r="${cr}" fill="${cat.color}28" stroke="${cat.color}" stroke-width="2"/>
+      <text x="${x}" y="${y-7}" text-anchor="middle" font-size="10" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
+      <text x="${x}" y="${y+4}" text-anchor="middle" font-size="6.5" font-weight="700" fill="var(--text)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,8)}</text>
+      <text x="${x}" y="${y+13}" text-anchor="middle" font-size="6" fill="${cat.color}" font-family="Instrument Sans" style="pointer-events:none">${fmt(cat.total)} Kč</text>`;
   });
-  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:6px;height:6px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name} <span style="color:var(--text3)">(${c.subs.length})</span></span>`).join('');
+  const leg=cats.slice(0,6).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:6px;height:6px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
   return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${svg}</svg><div style="margin-top:4px">${leg}</div>${Object.keys(sharedSubs).length?'<div style="font-size:.65rem;color:var(--text3);margin-top:3px">⬤ šedá tečka = sdílená podkategorie</div>':''}`;
 }
 
@@ -181,7 +184,7 @@ function bL1(cats,totalAll,sharedSubs){
       ${hs?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4.5" fill="#888a9a" stroke="var(--surface2)" stroke-width="1.5"/>`:''}
       <text x="${x}" y="${y-5}" text-anchor="middle" font-size="11" fill="${cat.color}" style="pointer-events:none">${cat.icon}</text>
       <text x="${x}" y="${y+7}" text-anchor="middle" font-size="7.5" font-weight="600" fill="var(--text2)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,9)}</text>
-      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>
+      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${fmt(cat.total)} Kč</text>
     </g>`;
   });
   const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px;cursor:pointer" onclick="bubbleDrillL2('${c.id}')"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
@@ -257,23 +260,27 @@ function bGradient(cats,totalAll,sharedSubs){
     const {x,y}=pos[i];
     const hs=cat.subs.some(s=>sharedSubs[s.name]);
     const gid='g'+cat.id.replace(/\W/g,'');
-    defs+=`<radialGradient id="${gid}" cx="38%" cy="35%" r="65%"><stop offset="0%" stop-color="${cat.color}" stop-opacity="0.95"/><stop offset="100%" stop-color="${cat.color}" stop-opacity="0.25"/></radialGradient>`;
-    circles+=`<g><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${gid})" ${hs?`stroke="url(#${gid})" stroke-width="2.5" filter="url(#glow)"`:`stroke="${cat.color}66" stroke-width="1.5"`}/>
-      ${hs?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4" fill="#888a9a" stroke="var(--surface)" stroke-width="1"/>`:''}
-      <text x="${x}" y="${y-4}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${cat.icon}</text>
-      <text x="${x}" y="${y+8}" text-anchor="middle" font-size="7.5" font-weight="700" fill="rgba(255,255,255,.9)" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,9)}</text>
-      <text x="${x}" y="${y+18}" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.65)" font-family="Instrument Sans" style="pointer-events:none">${Math.round(cat.total/totalAll*100)}%</text>
+    defs+=`<radialGradient id="${gid}" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/><stop offset="100%" stop-color="${cat.color}" stop-opacity="0.9"/></radialGradient>`;
+    const fill=hs?`url(#${gid})`:`${cat.color}bb`;
+    const stroke=hs?`stroke="${cat.color}" stroke-width="2.5" filter="url(#glow)"`:'stroke="${cat.color}66" stroke-width="1.5"';
+    circles+=`<g>
+      <circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${stroke}/>
+      ${hs?`<circle cx="${x+r-5}" cy="${y-r+5}" r="4" fill="#888a9a" stroke="var(--surface)" stroke-width="1.5"/>`:''}
+      <text x="${x}" y="${y-6}" text-anchor="middle" font-size="10" fill="#fff" style="pointer-events:none">${cat.icon}</text>
+      <text x="${x}" y="${y+6}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#fff" font-family="Instrument Sans" style="pointer-events:none">${cat.name.slice(0,9)}</text>
+      <text x="${x}" y="${y+17}" text-anchor="middle" font-size="7" fill="rgba(255,255,255,.8)" font-family="Instrument Sans" style="pointer-events:none">${fmt(cat.total)} Kč</text>
     </g>`;
   });
-  defs+=`<filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
-  Object.values(sharedSubs).forEach(entries=>{for(let a=0;a<entries.length;a++)for(let b=a+1;b<entries.length;b++){const i1=cats.findIndex(c=>c.id===entries[a].catId),i2=cats.findIndex(c=>c.id===entries[b].catId);if(i1>=0&&i2>=0)links+=`<line x1="${pos[i1].x}" y1="${pos[i1].y}" x2="${pos[i2].x}" y2="${pos[i2].y}" stroke="rgba(168,173,196,.2)" stroke-width="1" stroke-dasharray="3,4"/>`;}});
+  defs+=`<filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+  Object.values(sharedSubs).forEach(entries=>{for(let a=0;a<entries.length;a++)for(let b=a+1;b<entries.length;b++){const i1=cats.findIndex(c=>c.id===entries[a].catId),i2=cats.findIndex(c=>c.id===entries[b].catId);if(i1>=0&&i2>=0)links+=`<line x1="${pos[i1].x}" y1="${pos[i1].y}" x2="${pos[i2].x}" y2="${pos[i2].y}" stroke="rgba(168,173,196,.2)" stroke-width="1" stroke-dasharray="3,4"/>`;}}); 
   const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.67rem;margin:2px 4px 2px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${defs}${links}${circles}</svg><div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center">${leg}${Object.keys(sharedSubs).length?'<span style="font-size:.67rem;color:var(--text3);margin-left:4px">⬤ šedá = sdílené</span>':''}</div>`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${defs}${links}${circles}</svg><div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center">${leg}${Object.keys(sharedSubs).length?'<span style="font-size:.67rem;color:var(--text3);margin-left:4px">⬤ šedá = gradient</span>':''}
+</div>`;
 }
 
 // D) TREEMAP
 function bTreemap(cats,totalAll,W){
-  W=W||280;const H=200,pad=3;
+  W=W||280;const H=220,pad=2;
   function squarify(items,x,y,w,h){
     if(!items.length)return[];
     const rects=[];let rem=[...items];
@@ -295,18 +302,21 @@ function bTreemap(cats,totalAll,W){
   }
   const items=cats.map(c=>({...c,area:(c.total/totalAll)*W*H}));
   const rects=squarify(items,pad,pad,W-pad*2,H-pad*2);
+  const tDefs='<defs>'+rects.map(r=>{const gid='tg'+r.id.replace(/\W/g,'');return `<linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${r.color}" stop-opacity="0.35"/><stop offset="100%" stop-color="${r.color}" stop-opacity="0.12"/></linearGradient>`;}).join('')+'</defs>';
   const cells=rects.map(r=>{
-    const rw=r.w-pad,rh=r.h-pad,pct=Math.round(r.total/totalAll*100);
-    const cy2=r.y+rh/2;
-    const si=rw>30&&rh>25,sn=rw>35&&rh>20,sv=rw>50&&rh>38;
-    return `<g><rect x="${r.x}" y="${r.y}" width="${rw}" height="${rh}" rx="5" fill="${r.color}22" stroke="${r.color}" stroke-width="1.2"/>
-      ${si?`<text x="${r.x+rw/2}" y="${cy2-(sv?12:sn?6:0)}" text-anchor="middle" font-size="${Math.min(16,rh/3)}" style="pointer-events:none">${r.icon}</text>`:''}
-      ${sn?`<text x="${r.x+rw/2}" y="${cy2+(si?6:0)+(sv?-4:0)}" text-anchor="middle" font-size="${Math.min(10,rw/6)}" font-weight="700" fill="var(--text)" font-family="Instrument Sans" style="pointer-events:none">${r.name.slice(0,Math.floor(rw/6))}</text>`:''}
-      ${sv?`<text x="${r.x+rw/2}" y="${cy2+(si?18:sn?12:0)}" text-anchor="middle" font-size="${Math.min(9,rw/7)}" fill="${r.color}" font-family="Instrument Sans" style="pointer-events:none">${fmt(r.total)} Kč</text>`:`${!sv&&sn?`<text x="${r.x+rw/2}" y="${cy2+(si?14:8)}" text-anchor="middle" font-size="8" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${pct}%</text>`:''}`}
+    const rw=r.w-pad,rh=r.h-pad;
+    const gid='tg'+r.id.replace(/\W/g,'');
+    const tx=r.x+8,ty=r.y+rh-8; // text vlevo dole
+    const showName=rw>40&&rh>22,showVal=rw>55&&rh>38,showIcon=rw>50&&rh>50;
+    return `<g>
+      <rect x="${r.x}" y="${r.y}" width="${rw}" height="${rh}" rx="6" fill="url(#${gid})" stroke="${r.color}" stroke-width="1.2"/>
+      ${showIcon?`<text x="${r.x+rw/2}" y="${r.y+rh/2-10}" text-anchor="middle" font-size="${Math.min(22,rh/3)}" style="pointer-events:none;opacity:.4">${r.icon}</text>`:''}
+      ${showName?`<text x="${tx}" y="${showVal?ty-14:ty}" font-size="${Math.min(10,rw/7)}" fill="var(--text3)" font-family="Instrument Sans" style="pointer-events:none">${r.name}</text>`:''}
+      ${showVal?`<text x="${tx}" y="${ty}" font-size="${Math.min(13,rw/6)}" font-weight="700" fill="${r.color}" font-family="Syne,sans-serif" style="pointer-events:none">${fmt(r.total)} Kč</text>`:''}
     </g>`;
   }).join('');
   const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;margin:1px 4px 1px 0"><span style="width:7px;height:7px;border-radius:3px;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${cells}</svg><div style="margin-top:4px">${leg}</div>`;
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${tDefs}${cells}</svg><div style="margin-top:4px">${leg}</div>`;
 }
 
 function renderBarChart(D){
