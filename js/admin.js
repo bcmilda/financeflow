@@ -160,6 +160,29 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.49',
+    datum: '2026-04-27',
+    zmeny: [
+      '✅ nakup.js: TODO-056 – Sekce Plány a cíle: záložky Nákupní seznam / Plány a cíle, progress bar, deadline, motivační stav (🎉/🟢/🔵/🟡/🔴)',
+      '✅ nakup.js: TODO-056 – Virtuální peněženka: vklady do cílů ukládány do Firebase goal_deposits/{id}',
+      '✅ nakup.js: TODO-056 – renderVirtualWallet() zobrazí přehled cílů v sekci Peněženky',
+      '✅ premium.js: TODO-056 – onPenezenkyRender() hook volán z renderWalletList()',
+      '✅ index.html: TODO-056 – Přidány modály modalGoal + modalGoalDeposit, virtualWalletSection v page-penezenky',
+      '✅ projects.js: TODO-057 – Měsíční report: záložky 7D / 1M / 3M / 6M / 12M s přepočtem metrik per perioda',
+      '✅ helpers.js: TODO-057 – Přidány getTxByRange() + getMonthsInRange()',
+      '✅ budouci.js: TODO-058 – Nová sekce Budoucí platby: timeline ze šablon + narozenin + cílů + dluhů, horizont 30/60/90/180/365 dní',
+      '✅ app.js: TODO-058 – budouci přidáno do PAGE_TITLES',
+      '✅ ui.js: TODO-058 – renderBudouci() přidáno do page routeru',
+      '✅ index.html: TODO-058 – page-budouci + nav 🗓️ Budoucí platby + script tag budouci.js',
+      '✅ ui.js: TODO-060 – Drill-down bubble chart nahrazuje donut graf: Varianta A (L1 kategorie → L2 podkat. + sdílené → L3 překryv), Varianta B (gradient bubliny)',
+      '✅ ui.js: TODO-060 – Šedá tečka = indikátor sdílené podkategorie, přerušovaný okraj + 🔗 na L2',
+      '✅ index.html: TODO-060 – bubbleChartWrap nahrazuje donutCanvas + donutLegend',
+      '🐛 TODO-064: Bank sekce – kumulativní zůstatek ukazuje NaN/0 při prázdném měsíci (k opravě)',
+      '🐛 TODO-065: Měsíční report – grafy měsíčního trendu se nezobrazují v záložkách 3M/6M/12M (k opravě)',
+      '🐛 TODO-066: Budoucí platby – přestaly fungovat po nasazení TODO-060 kvůli kolizi ui.js (k opravě)',
+    ]
+  },
+  {
     verze: 'v6.48',
     datum: '2026-04-23',
     zmeny: [
