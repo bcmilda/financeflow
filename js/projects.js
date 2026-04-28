@@ -380,37 +380,227 @@ function drawHealthRing(canvasId, score, size=160) {
 // ══════════════════════════════════════════════════════
 //  MĚSÍČNÍ REPORT
 // ══════════════════════════════════════════════════════
-function renderReport() {
-  const el = document.getElementById('reportContent'); if(!el) return;
-  const D = getData();
-  const scores = computeHealthScores(D);
-  const txs = getTx(S.curMonth, S.curYear, D);
-  const totalInc = incSum(txs), totalExp = expSum(txs), saldo = totalInc - totalExp;
-  let pm=S.curMonth-1, py=S.curYear; if(pm<0){pm=11;py--;}
-  const prevTxs = getTx(pm, py, D);
-  const prevInc = incSum(prevTxs), prevExp = expSum(prevTxs);
-  const expDiff = prevExp>0 ? Math.round((totalExp-prevExp)/prevExp*100) : null;
+// ── Stav záložky reportu (TODO-057) ──
+let _reportPeriod = '1M'; // '7D' | '1M' | '3M' | '6M' | '12M'
 
-  // Category health rows
-  const expCats = (D.categories||[]).filter(c => c.type==='expense'||c.type==='both');
+// Vrátí {fromDate, toDate, label} pro danou periodu
+function reportGetPeriod(period) {
+  const today = new Date();
+  const toDate = today.toISOString().slice(0, 10);
+  let fromDate, label;
+  if (period === '7D') {
+    const from = new Date(today); from.setDate(from.getDate() - 6);
+    fromDate = from.toISOString().slice(0, 10);
+    label = 'Posledních 7 dní';
+  } else if (period === '1M') {
+    fromDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+    label = 'Tento měsíc';
+  } else if (period === '3M') {
+    const from = new Date(today); from.setMonth(from.getMonth() - 2); from.setDate(1);
+    fromDate = from.toISOString().slice(0, 10);
+    label = 'Poslední 3 měsíce';
+  } else if (period === '6M') {
+    const from = new Date(today); from.setMonth(from.getMonth() - 5); from.setDate(1);
+    fromDate = from.toISOString().slice(0, 10);
+    label = 'Posledních 6 měsíců';
+  } else { // 12M
+    const from = new Date(today); from.setMonth(from.getMonth() - 11); from.setDate(1);
+    fromDate = from.toISOString().slice(0, 10);
+    label = 'Posledních 12 měsíců';
+  }
+  return { fromDate, toDate, label };
+}
+
+function reportSetPeriod(period) {
+  _reportPeriod = period;
+  renderReport();
+}
+
+function renderReport() {
+  const el = document.getElementById('reportContent'); if (!el) return;
+  const D = getData();
+  const periods = ['7D','1M','3M','6M','12M'];
+  const labels  = {
+    '7D': '7 dní', '1M': 'Měsíc', '3M': '3 měs.', '6M': '6 měs.', '12M': '12 měs.'
+  };
+
+  const { fromDate, toDate, label } = reportGetPeriod(_reportPeriod);
+  const txs = getTxByRange(fromDate, toDate, D);
+  const totalInc = incSum(txs);
+  const totalExp = expSum(txs);
+  const saldo    = totalInc - totalExp;
+
+  // Předchozí srovnávací perioda (stejně dlouhá)
+  const periodMs = new Date(toDate) - new Date(fromDate);
+  const prevTo   = new Date(fromDate); prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo.getTime() - periodMs);
+  const prevTxs  = getTxByRange(prevFrom.toISOString().slice(0,10), prevTo.toISOString().slice(0,10), D);
+  const prevInc  = incSum(prevTxs);
+  const prevExp  = expSum(prevTxs);
+  const expDiff  = prevExp > 0 ? Math.round((totalExp - prevExp) / prevExp * 100) : null;
+  const incDiff  = prevInc > 0 ? Math.round((totalInc - prevInc) / prevInc * 100) : null;
+
+  // Průměr za měsíc (pro 3M+ smysluplné)
+  const months = getMonthsInRange(fromDate, toDate);
+  const monthCount = Math.max(1, months.length);
+  const avgMonthExp = Math.round(totalExp / monthCount);
+  const avgMonthInc = Math.round(totalInc / monthCount);
+
+  // Top kategorie výdajů
+  const expCats = (D.categories || []).filter(c => c.type === 'expense' || c.type === 'both');
+  const catData = expCats.map(cat => {
+    const spent = txs.filter(t => t.type === 'expense' && t.catId === cat.id).reduce((a,t) => a + t.amt, 0);
+    return { ...cat, spent };
+  }).filter(c => c.spent > 0).sort((a,b) => b.spent - a.spent);
+
+  const topCats = catData.slice(0, 5);
+  const maxCatSpent = topCats[0]?.spent || 1;
+
+  // Měsíční trend (horizontal bar chart data) pro 3M+
+  const monthTrends = months.map(({m, y}) => {
+    const mTxs = getTx(m, y, D);
+    return {
+      label: CZ_M[m].slice(0,3) + (months.length > 7 ? ` '${String(y).slice(2)}` : ''),
+      inc: incSum(mTxs),
+      exp: expSum(mTxs),
+    };
+  });
+  const maxBarVal = Math.max(...monthTrends.map(t => Math.max(t.inc, t.exp)), 1);
+
+  // Zdraví kategorií (pouze pro 1M záložku)
+  const scores = computeHealthScores(D);
+
+  el.innerHTML = `
+    <!-- Záložky period (TODO-057) -->
+    <div style="display:flex;gap:4px;margin-bottom:18px;background:var(--surface2);border-radius:12px;padding:4px;border:1px solid var(--border)">
+      ${periods.map(p => `
+        <button onclick="reportSetPeriod('${p}')"
+          style="flex:1;padding:8px 0;border:none;border-radius:9px;font-size:.78rem;font-weight:${_reportPeriod===p?'700':'500'};cursor:pointer;transition:all .15s;
+            background:${_reportPeriod===p?'var(--surface)':'transparent'};
+            color:${_reportPeriod===p?'var(--text)':'var(--text3)'};
+            box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">
+          ${labels[p]}
+        </button>`).join('')}
+    </div>
+
+    <!-- Nadpis periody -->
+    <div class="report-section-title">📊 ${label} – Přehled</div>
+    <div style="font-size:.76rem;color:var(--text3);margin:-10px 0 14px;padding:0 2px">
+      ${fmtD(fromDate)} – ${fmtD(toDate)}
+    </div>
+
+    <!-- Hlavní metriky -->
+    <div style="display:grid;grid-template-columns:repeat(${_reportPeriod==='7D'?'3':'4'},1fr);gap:10px;margin-bottom:16px">
+      <div class="stat-card income">
+        <div class="stat-label">Příjmy</div>
+        <div class="stat-value up">${fmt(totalInc)}</div>
+        <div class="stat-sub">${incDiff !== null ? `<span style="color:${incDiff>=0?'var(--income)':'var(--expense)'}">${incDiff>=0?'↑':'↓'}${Math.abs(incDiff)}% vs min.</span>` : ''}</div>
+      </div>
+      <div class="stat-card expense">
+        <div class="stat-label">Výdaje</div>
+        <div class="stat-value down">${fmt(totalExp)}</div>
+        <div class="stat-sub">${expDiff !== null ? `<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}% vs min.</span>` : ''}</div>
+      </div>
+      <div class="stat-card balance">
+        <div class="stat-label">Saldo</div>
+        <div class="stat-value ${saldo>=0?'up':'down'}">${fmt(saldo)}</div>
+      </div>
+      ${_reportPeriod !== '7D' ? `
+      <div class="stat-card bank">
+        <div class="stat-label">Prům./měsíc</div>
+        <div class="stat-value bankc">${fmt(avgMonthExp)}</div>
+        <div class="stat-sub" style="font-size:.68rem">výdaje</div>
+      </div>` : ''}
+    </div>
+
+    <!-- Top kategorie -->
+    <div class="report-section-title">🏷️ Výdaje dle kategorií</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body">
+        ${topCats.length ? topCats.map(cat => {
+          const pct = Math.round(cat.spent / maxCatSpent * 100);
+          const pctOfTotal = totalExp > 0 ? Math.round(cat.spent / totalExp * 100) : 0;
+          const barColor = cat.color || '#06b6d4';
+          return `<div style="margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+              <span style="font-size:.9rem">${cat.icon}</span>
+              <span style="font-size:.82rem;font-weight:600;flex:1">${cat.name}</span>
+              <span style="font-size:.82rem;font-weight:700">${fmt(cat.spent)} Kč</span>
+              <span style="font-size:.72rem;color:var(--text3);min-width:30px;text-align:right">${pctOfTotal}%</span>
+            </div>
+            <div style="height:7px;background:var(--surface3);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .3s"></div>
+            </div>
+          </div>`;
+        }).join('') : '<div class="empty"><div class="et">Žádné výdaje v tomto období</div></div>'}
+        ${catData.length > 5 ? `
+          <div style="font-size:.74rem;color:var(--text3);margin-top:6px;text-align:center">
+            + ${catData.length - 5} dalších kategorií · celkem ${fmt(catData.slice(5).reduce((a,c)=>a+c.spent,0))} Kč
+          </div>` : ''}
+      </div>
+    </div>
+
+    <!-- Měsíční trend (pouze pro 3M+) -->
+    ${monthTrends.length > 1 ? `
+    <div class="report-section-title">📈 Měsíční trend</div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-body" style="padding:12px 8px">
+        <div style="display:flex;align-items:flex-end;gap:4px;height:100px">
+          ${monthTrends.map(t => {
+            const expH = Math.round(t.exp / maxBarVal * 90);
+            const incH = Math.round(t.inc / maxBarVal * 90);
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="width:100%;display:flex;gap:2px;align-items:flex-end;justify-content:center;height:90px">
+                <div style="flex:1;background:var(--income);border-radius:3px 3px 0 0;height:${incH}px;opacity:.7" title="Příjmy ${fmt(t.inc)} Kč"></div>
+                <div style="flex:1;background:var(--expense);border-radius:3px 3px 0 0;height:${expH}px;opacity:.8" title="Výdaje ${fmt(t.exp)} Kč"></div>
+              </div>
+              <div style="font-size:.6rem;color:var(--text3);text-align:center;white-space:nowrap">${t.label}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:8px;font-size:.7rem">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--income);opacity:.7;display:inline-block"></span>Příjmy</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--expense);opacity:.8;display:inline-block"></span>Výdaje</span>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- Finanční zdraví (jen pro 1M) -->
+    ${_reportPeriod === '1M' ? reportBuildHealthSection(D, scores) : ''}
+
+    <!-- DTI/DSTI placeholder (jen pro 1M) – renderDTISection se připojí níže -->
+    <div id="reportDTIContainer"></div>
+  `;
+
+  // DTI sekce jen pro 1M
+  if (_reportPeriod === '1M') {
+    setTimeout(() => {
+      if (typeof drawHealthRing === 'function') drawHealthRing('mainHealthRing', scores.overall, 160);
+      renderDTISection(D, scores.baseIncome);
+    }, 50);
+  }
+}
+
+// Extrahovaná sekce zdraví (původně inline v renderReport)
+function reportBuildHealthSection(D, scores) {
+  const expCats = (D.categories || []).filter(c => c.type === 'expense' || c.type === 'both');
+  let pm = S.curMonth - 1, py = S.curYear; if (pm < 0) { pm = 11; py--; }
   const catRows = expCats.map(cat => {
     const spent = getActual(cat.id, null, S.curMonth, S.curYear, D);
-    if(spent === 0 && !cat.isSaving) return null;
+    if (spent === 0 && !cat.isSaving) return null;
     const score = computeCatHealth(cat, spent, scores.baseIncome);
     const limitPct = cat.healthPct ? `${cat.healthPct}%` : '–';
-    const limitAmt = cat.healthAmt ? fmt(cat.healthAmt) : (cat.isSaving ? 'min' : '–');
-    const pctOfInc = scores.totalInc > 0 ? Math.round(spent/scores.totalInc*100) : 0;
-    const planAmt = cat.healthPct && scores.baseIncome > 0 ? fmt(Math.round(scores.baseIncome*cat.healthPct/100)) : '–';
+    const planAmt = cat.healthPct && scores.baseIncome > 0 ? fmt(Math.round(scores.baseIncome * cat.healthPct / 100)) : '–';
+    const pctOfInc = scores.totalInc > 0 ? Math.round(spent / scores.totalInc * 100) : 0;
     const sc = score !== null ? score : 75;
     const barW = Math.min(100, sc);
-    const trend = (() => {
-      const prev = getActual(cat.id, null, pm, py, D);
-      if(!prev) return '';
-      const d = Math.round((spent-prev)/prev*100);
+    const prev = getActual(cat.id, null, pm, py, D);
+    const trend = prev ? (() => {
+      const d = Math.round((spent - prev) / prev * 100);
       return d > 5 ? `<span style="color:var(--expense);font-size:.7rem">↑${d}%</span>` :
              d < -5 ? `<span style="color:var(--income);font-size:.7rem">↓${Math.abs(d)}%</span>` :
              `<span style="color:var(--text3);font-size:.7rem">↔ stabilní</span>`;
-    })();
+    })() : '';
     return `<div class="health-bar-row">
       <div style="font-size:1rem;flex-shrink:0">${cat.icon}</div>
       <div style="flex:1;min-width:0">
@@ -427,20 +617,11 @@ function renderReport() {
     </div>`;
   }).filter(Boolean).join('');
 
-  el.innerHTML = `
-    <div class="report-section-title">📊 ${CZ_M[S.curMonth]} ${S.curYear} – Měsíční přehled</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
-      <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(totalInc)}</div><div class="stat-sub" style="font-size:.68rem">${prevInc?'min. '+fmt(prevInc):''}</div></div>
-      <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(totalExp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}%</span>`:''}</div></div>
-      <div class="stat-card balance"><div class="stat-label">Saldo</div><div class="stat-value ${saldo>=0?'up':'down'}">${fmt(saldo)}</div></div>
-      <div class="stat-card bank"><div class="stat-label">Základ příjmu</div><div class="stat-value bankc">${fmt(scores.baseIncome)}</div><div class="stat-sub" style="font-size:.68rem">prům. 3 měs.</div></div>
-    </div>
-
+  return `
     <div class="report-section-title">💚 Finanční zdraví dle kategorií</div>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-body">${catRows||'<div class="empty"><div class="et">Žádné výdaje tento měsíc</div></div>'}</div>
+      <div class="card-body">${catRows || '<div class="empty"><div class="et">Žádné výdaje tento měsíc</div></div>'}</div>
     </div>
-
     <div class="report-section-title">🏆 Celkové finanční zdraví</div>
     <div class="grid2" style="margin-bottom:16px;align-items:start">
       <div class="card" style="text-align:center;padding:24px">
@@ -473,14 +654,9 @@ function renderReport() {
         </div>
       </div>
     </div>`;
-
-  // Draw ring after DOM update
-  setTimeout(() => drawHealthRing('mainHealthRing', scores.overall, 160), 50);
-
-  // Add DTI/DSTI section
-  renderDTISection(D, scores.baseIncome);
 }
 
+// renderDTISection – připojuje DTI/DSTI sekci do reportContent
 function renderDTISection(D, baseIncome) {
   const el = document.getElementById('reportContent'); if(!el) return;
   const debts = D.debts || [];

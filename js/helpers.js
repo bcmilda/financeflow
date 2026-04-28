@@ -19,6 +19,10 @@ const expSum=txs=>txs.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amt,0);
 const getActual=(catId,sub,m,y,data)=>{const D=data||getData();return(D.transactions||[]).filter(t=>t.type==='expense'&&t.catId===catId&&(!sub||t.subcat===sub)).filter(t=>{const d=new Date(t.date);return d.getMonth()===m&&d.getFullYear()===y;}).reduce((a,t)=>a+t.amt,0);};
 const isPast=(m,y)=>{const n=new Date();return y<n.getFullYear()||(y===n.getFullYear()&&m<n.getMonth());};
 const isCur=(m,y)=>{const n=new Date();return m===n.getMonth()&&y===n.getFullYear();};
+// Vrátí transakce v rozsahu dat (fromDate, toDate = 'YYYY-MM-DD' string nebo Date objekt)
+const getTxByRange=(fromDate,toDate,data)=>{const D=data||getData();const from=new Date(fromDate);const to=new Date(toDate);to.setHours(23,59,59,999);return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d>=from&&d<=to;});};
+// Vrátí pole {m, y} objektů pro každý měsíc v rozsahu
+function getMonthsInRange(fromDate,toDate){const result=[];const from=new Date(fromDate);const to=new Date(toDate);let m=from.getMonth(),y=from.getFullYear();while(y<to.getFullYear()||(y===to.getFullYear()&&m<=to.getMonth())){result.push({m,y});if(++m>11){m=0;y++;}}return result;}
 function getCurInst(debt){const now=`${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;let a=debt.installments[0]?.amt||0;for(const i of debt.installments)if(i.from<=now)a=i.amt;return a;}
 
 // ══════════════════════════════════════════════════════
