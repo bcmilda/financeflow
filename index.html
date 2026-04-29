@@ -170,6 +170,7 @@
     <div class="nav-label">Plánování</div>
     <div class="nav-item" onclick="showPagePremium('predikce',this)"><span class="nav-icon">🧭</span> Predikce <span id="navlock-predikce" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
     <div class="nav-item" onclick="showPage('dluhy',this)"><span class="nav-icon">💰</span> Půjčky</div>
+    <div class="nav-item" onclick="showPage('aktiva',this)"><span class="nav-icon">💎</span> Finanční aktiva</div>
     <div class="nav-item" onclick="showPage('projekty',this)"><span class="nav-icon">📁</span> Projekty</div>
     <div class="nav-item" onclick="showPagePremium('narozeniny',this)"><span class="nav-icon">🎂</span> Narozeniny & přání <span id="navlock-narozeniny" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
     <div class="nav-item" onclick="showPage('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam</div>
@@ -675,6 +676,13 @@
   </div>
 
   <!-- PROJEKTY -->
+  <!-- PAGE: Finanční aktiva (TODO-059) -->
+  <div class="page" id="page-aktiva">
+    <div id="assetsContent">
+      <div class="empty"><div class="ei">💎</div><div class="et">Načítám aktiva...</div></div>
+    </div>
+  </div>
+
   <div class="page" id="page-projekty">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;gap:8px">
@@ -900,6 +908,52 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modalWallet')">Zrušit</button>
       <button class="btn btn-accent" onclick="saveWallet()">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Finanční aktivum (TODO-059) -->
+<div class="overlay" id="modalAsset">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="assetModalTitle">Nové aktivum</h3>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal('modalAsset')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editAssetId">
+      <div class="fg">
+        <label>Typ aktiva</label>
+        <select class="fs" id="assetType" onchange="assetUpdateTypeHint()">
+          <option value="property">🏠 Nemovitost</option>
+          <option value="investment">📈 Investice</option>
+          <option value="vehicle">🚗 Vozidlo</option>
+          <option value="savings">🏦 Spoření / fond</option>
+          <option value="custom">💎 Ostatní</option>
+        </select>
+        <div id="assetTypeHint" style="font-size:.72rem;margin-top:4px;padding:0 2px"></div>
+      </div>
+      <div class="frow">
+        <div class="fg" style="flex:0 0 58px">
+          <label>Ikona</label>
+          <input class="fi" id="assetIcon" style="font-size:1.3rem;text-align:center;padding:8px 4px">
+        </div>
+        <div class="fg">
+          <label>Název</label>
+          <input class="fi" id="assetName" placeholder="Byt Praha, S&P500 ETF...">
+        </div>
+      </div>
+      <div class="fg">
+        <label>Aktuální hodnota (Kč)</label>
+        <input class="fi" id="assetValue" type="number" min="0" placeholder="3 500 000">
+      </div>
+      <div class="fg">
+        <label>Poznámka (volitelná)</label>
+        <input class="fi" id="assetNote" placeholder="Koupeno 2021, broker Degiro...">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modalAsset')">Zrušit</button>
+      <button class="btn btn-accent" onclick="saveAsset()">Uložit aktivum</button>
     </div>
   </div>
 </div>
@@ -1386,7 +1440,7 @@
   </div>
 </div>
 
-<script src="js/app.js?v=ed1bcf97"></script>
+<script src="js/app.js?v=todo059"></script>
 <script src="js/helpers.js?v=e50f43f4"></script>
 <script src="js/ui.js?v=todo060"></script>
 <script src="js/transactions.js?v=8ee648e0"></script>
@@ -1395,7 +1449,7 @@
 <script src="js/debts.js?v=ee42b536"></script>
 <script src="js/ai.js?v=7acd1c9c"></script>
 <script src="js/premium.js?v=bb2ce262"></script>
-<script src="js/projects.js?v=db47b1db"></script>
+<script src="js/projects.js?v=todo059"></script>
 <script src="js/receipts.js?v=79a61e43"></script>
 <script src="js/offline-sync.js?v=d98422f4"></script>
 <script src="js/settings.js?v=b876091d"></script>
@@ -1404,6 +1458,8 @@
 <script src="js/duplicates.js?v=new637"></script>
 <script src="js/nakup.js?v=todo056"></script>
 <script src="js/budouci.js?v=todo058"></script>
+<script src="js/assets.js?v=todo059"></script>
+<script src="js/advisor.js?v=todo059"></script>
 <script src="js/kalendar.js?v=b77a74f8"></script>
 <script src="js/admin.js?v=v650"></script>
 <script src="js/import.js?v=763624ee"></script>

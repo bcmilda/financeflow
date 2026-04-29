@@ -33,7 +33,6 @@ function renderPage(){
   if(curPage==='uctenky')renderUctenky();
   if(curPage==='nakup')renderNakup();
   if(curPage==='budouci')renderBudouci();
-  if(curPage==='budouci')renderBudouci();
   if(curPage==='aktiva')renderAssets();
   if(curPage==='smsimport')renderSmsImport();
   if(curPage==='admin')renderAdmin();
