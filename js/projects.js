@@ -406,7 +406,7 @@ function renderReport() {
 
   // Záložka Poradce
   if (_reportPeriod === 'advisor') {
-    el.innerHTML = tabBar;
+    el.innerHTML = tabBar + '<div id="advisorContainer"></div>';
     if (typeof renderAdvisor === 'function') renderAdvisor();
     return;
   }

@@ -8,7 +8,10 @@ let _advisorData    = null; // cache výsledku AI
 
 // ── Vstupní bod – volán z renderReport() v projects.js ──
 async function renderAdvisor() {
-  const el = document.getElementById('reportContent'); if (!el) return;
+  // Psát do advisorContainer (uvnitř reportContent, za tabBar)
+  const el = document.getElementById('advisorContainer') ||
+             document.getElementById('reportContent');
+  if (!el) return;
   const D  = getData();
 
   // Spočítej všechna data synchronně
