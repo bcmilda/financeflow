@@ -8,25 +8,27 @@ let _advisorData    = null; // cache výsledku AI
 
 // ── Vstupní bod – volán z renderReport() v projects.js ──
 async function renderAdvisor() {
-  // Psát do advisorContainer (uvnitř reportContent, za tabBar)
   const el = document.getElementById('advisorContainer') ||
              document.getElementById('reportContent');
   if (!el) return;
-  const D  = getData();
 
-  // Spočítej všechna data synchronně
-  const data = advisorBuildData(D);
+  try {
+    const D = getData();
+    const data = advisorBuildData(D);
+    el.innerHTML = advisorRenderHTML(data);
 
-  el.innerHTML = advisorRenderHTML(data);
+    // Nakresli grafy po DOM render
+    setTimeout(() => {
+      try { advisorDrawCashflowChart(data.cashflow12M); } catch(e) { console.warn('cashflow chart err', e); }
+      try { advisorDrawExpenseBar(data.expenseStructure); } catch(e) { console.warn('expense bar err', e); }
+    }, 60);
 
-  // Nakresli grafy po DOM render
-  setTimeout(() => {
-    advisorDrawCashflowChart(data.cashflow12M);
-    advisorDrawExpenseBar(data.expenseStructure);
-  }, 60);
-
-  // AI doporučení – načti async
-  advisorLoadAI(data, D);
+    // AI doporučení – načti async
+    advisorLoadAI(data, D);
+  } catch(e) {
+    console.error('renderAdvisor error:', e);
+    el.innerHTML = `<div style="padding:20px;color:var(--expense)">⚠️ Chyba při načítání reportu: ${e.message}</div>`;
+  }
 }
 
 // ══════════════════════════════════════════════════════

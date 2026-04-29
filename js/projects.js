@@ -406,19 +406,54 @@ function renderReport() {
 
   // Záložka Poradce
   if (_reportPeriod === 'advisor') {
-    el.innerHTML = tabBar + '<div id="advisorContainer"></div>';
-    if (typeof renderAdvisor === 'function') renderAdvisor();
+    el.innerHTML = tabBar + '<div id="advisorContainer"><div class="empty" style="padding:24px"><div class="ei">⏳</div><div class="et">Načítám report...</div></div></div>';
+    // Volat až po renderování DOM
+    setTimeout(() => { if (typeof renderAdvisor === 'function') renderAdvisor(); }, 10);
     return;
   }
 
   const D = getData();
   const scores = computeHealthScores(D);
-  const txs = getTx(S.curMonth, S.curYear, D);
+
+  // Výběr měsíce dle záložky
+  let rMonth = S.curMonth, rYear = S.curYear;
+  if (_reportPeriod === '7D' || _reportPeriod === '1M') {
+    rMonth = S.curMonth; rYear = S.curYear;
+  } else if (_reportPeriod === '3M') {
+    rMonth = S.curMonth - 2; rYear = S.curYear;
+    if (rMonth < 0) { rMonth += 12; rYear--; }
+  } else if (_reportPeriod === '6M') {
+    rMonth = S.curMonth - 5; rYear = S.curYear;
+    if (rMonth < 0) { rMonth += 12; rYear--; }
+  } else if (_reportPeriod === '12M') {
+    rMonth = S.curMonth - 11; rYear = S.curYear;
+    while (rMonth < 0) { rMonth += 12; rYear--; }
+  }
+
+  // Agreguj transakce přes více měsíců
+  let txs = [];
+  if (_reportPeriod === '1M' || _reportPeriod === '7D') {
+    txs = getTx(S.curMonth, S.curYear, D);
+  } else {
+    let m = rMonth, y = rYear;
+    while (y < S.curYear || (y === S.curYear && m <= S.curMonth)) {
+      txs = txs.concat(getTx(m, y, D));
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  }
   const totalInc = incSum(txs), totalExp = expSum(txs), saldo = totalInc - totalExp;
-  let pm=S.curMonth-1, py=S.curYear; if(pm<0){pm=11;py--;}
+
+  // Předchozí stejně dlouhé období pro srovnání
+  let pm = rMonth - 1, py = rYear; if (pm < 0) { pm = 11; py--; }
   const prevTxs = getTx(pm, py, D);
   const prevInc = incSum(prevTxs), prevExp = expSum(prevTxs);
   const expDiff = prevExp>0 ? Math.round((totalExp-prevExp)/prevExp*100) : null;
+
+  // Název období pro nadpis
+  const periodLabel = _reportPeriod === '7D' ? 'Posledních 7 dní' :
+    _reportPeriod === '1M' ? `${CZ_M[S.curMonth]} ${S.curYear}` :
+    _reportPeriod === '3M' ? `${CZ_M[rMonth]} – ${CZ_M[S.curMonth]} ${S.curYear}` :
+    _reportPeriod === '6M' ? `Posledních 6 měsíců` : `Posledních 12 měsíců`;
 
   // Category health rows
   const expCats = (D.categories||[]).filter(c => c.type==='expense'||c.type==='both');
@@ -457,7 +492,7 @@ function renderReport() {
   }).filter(Boolean).join('');
 
   el.innerHTML = tabBar + `
-    <div class="report-section-title">📊 ${CZ_M[S.curMonth]} ${S.curYear} – Měsíční přehled</div>
+    <div class="report-section-title">📊 ${periodLabel}</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
       <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(totalInc)}</div><div class="stat-sub" style="font-size:.68rem">${prevInc?'min. '+fmt(prevInc):''}</div></div>
       <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(totalExp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}%</span>`:''}</div></div>
