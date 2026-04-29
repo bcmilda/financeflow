@@ -225,6 +225,23 @@ OBSAH: ${pageText}
           }]
         };
 
+      } else if (type === 'advisor_report') {
+        if (!payload.context) return json({ error: 'Chybí context' }, 400, corsHeaders);
+
+        claudeRequest = {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: `Jsi zkušený finanční poradce v ČR. Analyzuješ finanční data klienta a dáváš konkrétní, akční doporučení.
+Odpovídej POUZE validním JSON bez markdown bloků, bez preamble:
+{"recommendations":[{"title":"krátký název","detail":"1-2 věty co udělat","saving":"odhad úspory nebo přínos (volitelné)"}]}
+Maximálně 4 doporučení, seřazená dle priority (nejkritičtější první).
+Pravidla: buď konkrétní (čísla, %), nepoužívej obecné rady, zohledni limity ČNB (DSTI max 45%, DTI max 9×), doporučená rezerva 6 měsíců.`,
+          messages: [{
+            role: 'user',
+            content: payload.context
+          }]
+        };
+
       } else if (type === 'price_alert') {
         if (!payload.items?.length) return json({ error: 'Chybí items' }, 400, corsHeaders);
         const userName = payload.userName || 'uživatel';
