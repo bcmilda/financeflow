@@ -103,7 +103,7 @@ function renderDashboard(){
   renderBarChart(D);
 }
 
-// ══ BUBBLE CHART – 4 varianty (TODO-060) ══
+// ══ BUBBLE CHART – 4 varianty (TODO-060) – přesně dle prototypu ff-grafy-final.html ══
 let _bv='A', _bl1=null, _bl2=null, _bl2prev=null;
 
 function renderBubbleChart(D) {
@@ -115,234 +115,283 @@ function renderBubbleChart(D) {
     const subs=(c.subs||[]).map(sub=>({name:sub,val:getActual(c.id,sub,S.curMonth,S.curYear,D),catId:c.id})).filter(s=>s.val>0);
     return {id:c.id,name:c.name,color:c.color||'#60a5fa',icon:c.icon||'📦',total,subs};
   }).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,8);
-  if(!cats.length){el.innerHTML='<div class="empty" style="padding:16px"><div class="ei">📊</div><div class="et">Žádné výdaje</div></div>';return;}
+
+  if(!cats.length){
+    el.innerHTML='<div class="empty" style="padding:16px"><div class="ei">📊</div><div class="et">Žádné výdaje</div></div>';
+    return;
+  }
+
+  // Sdílené subkategorie (existují ve 2+ kategoriích)
   const subMap={};
-  cats.forEach(c=>c.subs.forEach(s=>{if(!subMap[s.name])subMap[s.name]=[];subMap[s.name].push({catId:c.id,catName:c.name,catColor:c.color,val:s.val});}));
-  const shared=Object.fromEntries(Object.entries(subMap).filter(([,a])=>a.length>=2));
+  cats.forEach(c=>c.subs.forEach(s=>{
+    if(!subMap[s.name])subMap[s.name]=[];
+    subMap[s.name].push({catId:c.id,catName:c.name,catColor:c.color,val:s.val});
+  }));
+  const SHARED_NAMES=new Set(Object.keys(subMap).filter(n=>subMap[n].length>=2));
   const totalAll=cats.reduce((s,c)=>s+c.total,0);
-  const tabs=`<div style="display:flex;gap:3px;margin-bottom:10px;background:var(--surface3,#1e2335);border-radius:10px;padding:3px">
-    ${[['A','⬤ Cluster'],['B','◎ Drill'],['C','◑ Gradient'],['D','▦ Treemap']].map(([k,v])=>`<button onclick="bubbleTab('${k}')" style="flex:1;padding:6px 0;border:none;border-radius:7px;font-size:.68rem;font-weight:${_bv===k?700:500};cursor:pointer;background:${_bv===k?'var(--surface2,#181c27)':'transparent'};color:${_bv===k?'var(--text,#f0f2f8)':'var(--text2,#8b93b0)'};transition:all .15s">${v}</button>`).join('')}
+
+  const tabs=`<div style="display:flex;gap:3px;margin-bottom:14px;background:var(--surface3);border-radius:11px;padding:3px">
+    ${[['A','⬤ Cluster'],['B','◎ Drill'],['C','◑ Gradient'],['D','▦ Treemap']].map(([k,v])=>`<button onclick="bubbleTab('${k}')"
+      style="flex:1;padding:7px 0;border:none;border-radius:8px;font-size:.7rem;font-weight:${_bv===k?700:500};cursor:pointer;transition:all .18s;font-family:inherit;
+        background:${_bv===k?'var(--surface2)':'transparent'};
+        color:${_bv===k?'var(--text)':'var(--text3)'};
+        ${_bv===k?'box-shadow:0 1px 6px rgba(0,0,0,.3)':''}">${v}</button>`).join('')}
   </div>`;
-  const W=Math.max(el.clientWidth||260,200);
-  let body='';
-  if(_bv==='A')      body=bCluster(cats,totalAll,shared,W);
-  else if(_bv==='B') body=!_bl1?bDrillCats(cats,shared,W):!_bl2?bDrillSub(cats,shared,W):bDrillTag(cats,shared,W);
-  else if(_bv==='C') body=bGradient(cats,totalAll,shared,W);
-  else               body=bTreemap(cats,totalAll);
-  el.innerHTML=tabs+body;
+
+  // Wrap div pro každou variantu — kvůli offsetWidth pro responsive
+  el.innerHTML=tabs+`<div id="bubbleBody"></div>`;
+  const body=document.getElementById('bubbleBody');
+  const W=Math.max(body.offsetWidth||el.offsetWidth||280, 240);
+
+  if(_bv==='A')      bCluster(cats,totalAll,SHARED_NAMES,W,body);
+  else if(_bv==='B'){
+    if(!_bl1)      bDrillL1(cats,W,body);
+    else if(!_bl2) bDrillL2(cats,SHARED_NAMES,W,body);
+    else           bDrillL3(cats,W,body);
+  }
+  else if(_bv==='C') bGradient(cats,totalAll,subMap,W,body);
+  else               bTreemap(cats,totalAll,body);
 }
+
 function bubbleTab(v){_bv=v;_bl1=null;_bl2=null;_bl2prev=null;renderBubbleChart(getData());}
 function bubbleDrillL2(id){_bl1=id;_bl2=null;renderBubbleChart(getData());}
 function bubbleDrillL3(sub,prevId){_bl2=sub;_bl2prev=prevId;renderBubbleChart(getData());}
 function bubbleBack(l){if(l===0){_bl1=null;_bl2=null;}else _bl2=null;renderBubbleChart(getData());}
 function bRgba(hex,a){const r=parseInt(hex.slice(1,3),16)||96,g=parseInt(hex.slice(3,5),16)||165,b=parseInt(hex.slice(5,7),16)||250;return `rgba(${r},${g},${b},${a})`;}
-function bEsc(s){return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
-// Tooltip pro SVG bubliny – globální div
-function bTip(el,txt){
-  let t=document.getElementById('_bTip');
-  if(!t){t=document.createElement('div');t.id='_bTip';t.style.cssText='position:fixed;background:#1e2335;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:7px 11px;font-size:.75rem;pointer-events:none;z-index:9999;line-height:1.5;color:#f0f2f8;display:none';document.body.appendChild(t);}
-  if(!txt){t.style.display='none';return;}
-  t.innerHTML=txt;t.style.display='block';
-  const r=el.getBoundingClientRect();
-  t.style.left=Math.min(r.left+r.width/2,window.innerWidth-160)+'px';
-  t.style.top=(r.top-t.offsetHeight-8)+'px';
-}
 
-// A) CLUSTER – velké kategorie, kolem nich malé subkategorie
-function bCluster(cats,totalAll,shared,W){
-  const H=270,maxV=cats[0].total;
-  const POS=[{x:.18,y:.28},{x:.52,y:.14},{x:.84,y:.28},{x:.12,y:.72},{x:.5,y:.78},{x:.84,y:.72},{x:.35,y:.52},{x:.67,y:.52}];
+// ── A) CLUSTER – velké kruhy + satelity ──
+function bCluster(cats,totalAll,SHARED,W,body){
+  const H=280, maxV=cats[0].total;
+  const POS=[{x:.18,y:.27},{x:.52,y:.13},{x:.84,y:.27},{x:.12,y:.72},{x:.5,y:.78},{x:.84,y:.72},{x:.34,y:.52},{x:.67,y:.52}];
+
   let defs='<defs>';
   cats.forEach((c,i)=>defs+=`<radialGradient id="cg${i}" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="${c.color}" stop-opacity="0.32"/><stop offset="100%" stop-color="${c.color}" stop-opacity="0.07"/></radialGradient>`);
   defs+='</defs>';
-  let lines='',circles='';
+
+  let lines='', circles='';
   cats.forEach((cat,i)=>{
     const p=POS[i]||{x:.5,y:.5};
-    const cx=Math.round(p.x*W),cy=Math.round(p.y*H);
-    const cr=Math.max(24,Math.min(44,Math.round(24+(cat.total/maxV)*20)));
+    const cx=Math.round(p.x*W), cy=Math.round(p.y*H);
+    const cr=Math.max(24,Math.min(46,Math.round(24+(cat.total/maxV)*22)));
     const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
-    const tipTxt=`<b>${cat.name}</b><br>${fmt(cat.total)} Kč<br><span style='color:#8b93b0'>${Math.round(cat.total/totalAll*100)} % výdajů</span>`;
+
     cat.subs.forEach((sub,j)=>{
-      const sr=Math.max(10,Math.min(16,Math.round(10+(sub.val/maxSub)*6)));
-      const a=cat.subs.length===1?-Math.PI/2:((j/cat.subs.length)*Math.PI*2-Math.PI/2);
-      const dist=cr+sr+4;
-      const sx=Math.round(cx+Math.cos(a)*dist),sy=Math.round(cy+Math.sin(a)*dist);
-      const sh=!!shared[sub.name];
-      const subTip=`<b>${sub.name}</b><br>${fmt(sub.val)} Kč<br><span style='color:${cat.color}'>${cat.name}</span>${sh?' · 🔗 sdílená':''}`;
-      lines+=`<line x1="${Math.round(cx+Math.cos(a)*cr)}" y1="${Math.round(cy+Math.sin(a)*cr)}" x2="${Math.round(sx-Math.cos(a)*sr)}" y2="${Math.round(sy-Math.sin(a)*sr)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".35"/>`;
-      circles+=`<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${bRgba(sh?'#888a9a':cat.color,.15)}" stroke="${sh?'#888a9a':cat.color}" stroke-width="${sh?1.5:1.2}" ${sh?'stroke-dasharray="4,2"':''} style="cursor:default" onmouseenter="bTip(this,'${bEsc(subTip)}')" onmouseleave="bTip(this,'')"/>`;
-      if(sh)circles+=`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#888a9a" stroke="var(--surface2,#181c27)" stroke-width="1" pointer-events="none"/>`;
-      circles+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="5.5" fill="${sh?'#a8adc4':'rgba(255,255,255,.5)'}" font-family="Instrument Sans,sans-serif" pointer-events="none">${sub.name.slice(0,7)}</text>`;
+      const sr=Math.max(10,Math.min(17,Math.round(10+(sub.val/maxSub)*7)));
+      const a=(cat.subs.length===1)?-Math.PI/2:((j/cat.subs.length)*Math.PI*2-Math.PI/2);
+      const dist=cr+sr+5;
+      const sx=Math.round(cx+Math.cos(a)*dist), sy=Math.round(cy+Math.sin(a)*dist);
+      const isS=SHARED.has(sub.name);
+      lines+=`<line x1="${Math.round(cx+Math.cos(a)*cr)}" y1="${Math.round(cy+Math.sin(a)*cr)}" x2="${Math.round(sx-Math.cos(a)*sr)}" y2="${Math.round(sy-Math.sin(a)*sr)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
+      circles+=`<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${bRgba(isS?'#7a8aaa':cat.color,.16)}" stroke="${isS?'#7a8aaa':cat.color}" stroke-width="${isS?1.5:1.2}" ${isS?'stroke-dasharray="4,2"':''}/>`;
+      if(isS) circles+=`<circle cx="${sx+sr-3}" cy="${sy-sr+3}" r="3" fill="#7a8aaa" stroke="var(--surface)" stroke-width="1.5" pointer-events="none"/>`;
+      circles+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="5.5" fill="${isS?'#a8adc4':bRgba(cat.color,.7)}" pointer-events="none">${sub.name.slice(0,8)}</text>`;
     });
-    circles+=`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="url(#cg${i})" stroke="${cat.color}" stroke-width="2.5" style="cursor:pointer" onclick="bubbleDrillL2('${bEsc(cat.id)}')" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-    circles+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="${Math.max(8,Math.round(cr*.22))}" font-weight="700" fill="${cat.color}" font-family="Instrument Sans,sans-serif" pointer-events="none">${cat.name.slice(0,9)}</text>`;
-    circles+=`<text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="${Math.max(7,Math.round(cr*.19))}" fill="${bRgba(cat.color,.85)}" font-family="Instrument Sans,sans-serif" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
+
+    circles+=`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="url(#cg${i})" stroke="${cat.color}" stroke-width="2.5" style="cursor:pointer" onclick="bubbleDrillL2('${cat.id}');bubbleTab('B')"/>`;
+    circles+=`<text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="${Math.max(8,Math.round(cr*.22))}" font-weight="700" fill="${cat.color}" pointer-events="none">${cat.name.slice(0,9)}</text>`;
+    circles+=`<text x="${cx}" y="${cy+9}" text-anchor="middle" font-size="${Math.max(7,Math.round(cr*.19))}" fill="${bRgba(cat.color,.85)}" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
   });
-  const leg=cats.slice(0,6).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.64rem;margin:1px 4px 1px 0"><span style="width:6px;height:6px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-block"></span>${c.name}</span>`).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${defs}${lines}${circles}</svg><div style="margin-top:5px;display:flex;flex-wrap:wrap">${leg}</div>${Object.keys(shared).length?'<div style="font-size:.63rem;color:var(--text2,#8b93b0);margin-top:3px">⬤ šedá tečka = sdílená subkat. · klikni na kat. pro drill-down</div>':''}`;
+
+  const leg=cats.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:.65rem;margin:1px 5px 1px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  body.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${defs}${lines}${circles}</svg>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap">${leg}</div>
+    ${SHARED.size?'<div style="font-size:.65rem;color:var(--text3);margin-top:6px">Klikni na kategorii pro detail · šedá = sdílená podkategorie</div>':''}`;
 }
 
-// B) DRILL L1 – přehled kategorií
-function bDrillCats(cats,shared,W){
-  const H=290,maxV=cats[0].total;
-  const POS=[{x:.2,y:.28},{x:.55,y:.18},{x:.83,y:.32},{x:.13,y:.7},{x:.5,y:.75},{x:.82,y:.7},{x:.34,y:.52},{x:.67,y:.52}];
+// ── B) DRILL L1 ──
+function bDrillL1(cats,W,body){
+  const H=300, maxV=cats[0].total;
+  const POS=[{x:.2,y:.27},{x:.55,y:.17},{x:.83,y:.3},{x:.13,y:.7},{x:.5,y:.75},{x:.82,y:.7},{x:.34,y:.52},{x:.67,y:.52}];
   let html='';
   cats.forEach((cat,i)=>{
-    const R=Math.round(28+(cat.total/maxV)*38);
-    const px=Math.round((POS[i]||{x:.5,y:.5}).x*W),py=Math.round((POS[i]||{x:.5,y:.5}).y*H);
-    const pct=Math.round(cat.total/cats.reduce((s,c)=>s+c.total,0)*100);
-    const tipTxt=`<b>${cat.name}</b><br>${fmt(cat.total)} Kč · ${pct} %<br><span style='color:#8b93b0'>Klikni pro podkategorie</span>`;
-    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(cat.color,.15)}" stroke="${cat.color}" stroke-width="2" style="cursor:pointer;transition:fill .15s" onclick="bubbleDrillL2('${bEsc(cat.id)}')" onmouseenter="this.style.fill='${bRgba(cat.color,.3)}';bTip(this,'${bEsc(tipTxt)}')" onmouseleave="this.style.fill='${bRgba(cat.color,.15)}';bTip(this,'')"/>`;
-    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${cat.color}" font-size="${Math.max(9,Math.round(R*.22))}" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${cat.name}</text>`;
-    html+=`<text x="${px}" y="${py+9}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="${Math.max(8,Math.round(R*.18))}" font-family="Instrument Sans,sans-serif" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
+    const R=Math.round(28+(cat.total/maxV)*40);
+    const px=Math.round((POS[i]||{x:.5,y:.5}).x*W), py=Math.round((POS[i]||{x:.5,y:.5}).y*H);
+    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(cat.color,.14)}" stroke="${cat.color}" stroke-width="2" style="cursor:pointer;transition:fill .15s" onclick="bubbleDrillL2('${cat.id}')" onmouseover="this.style.fill='${bRgba(cat.color,.3)}'" onmouseout="this.style.fill='${bRgba(cat.color,.14)}'"/>`;
+    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${cat.color}" font-size="${Math.max(9,Math.round(R*.22))}" font-weight="700" pointer-events="none">${cat.name}</text>`;
+    html+=`<text x="${px}" y="${py+9}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="${Math.max(8,Math.round(R*.18))}" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
   });
-  return `<div style="font-size:.7rem;color:var(--text2,#8b93b0);margin-bottom:4px">📍 Přehled kategorií – klikni pro detail</div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${html}</svg>`;
+  body.innerHTML=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">📍 Přehled kategorií – klikni pro detail</div>
+    <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>`;
 }
 
-// B) DRILL L2 – podkategorie kolem rodiče
-function bDrillSub(cats,shared,W){
-  const cat=cats.find(c=>c.id===_bl1);if(!cat){_bl1=null;return bDrillCats(cats,shared,W);}
-  const H=290,cx=W/2,cy=H/2+10,R=60;
+// ── B) DRILL L2 ──
+function bDrillL2(cats,SHARED,W,body){
+  const cat=cats.find(c=>c.id===_bl1); if(!cat){_bl1=null;return bDrillL1(cats,W,body);}
+  const H=300, cx=W/2, cy=H/2+5, R=62;
   let html='';
   const n=Math.max(cat.subs.length,1);
   cat.subs.forEach((sub,si)=>{
     const a=(si/n)*Math.PI*2-Math.PI/2;
-    const subR=Math.max(20,Math.min(30,Math.round(20+(sub.val/cat.total)*40)));
-    const dist=R+subR+10;
-    const sx=Math.round(cx+Math.cos(a)*dist),sy=Math.round(cy+Math.sin(a)*dist);
-    const isS=!!shared[sub.name];
-    const pct=Math.round(sub.val/cat.total*100);
-    const tipTxt=`<b>${sub.name}</b><br>${fmt(sub.val)} Kč · ${pct} % kat.<br><span style='color:${cat.color}'>${cat.name}</span>${isS?'<br>🔗 sdílená s více kategoriemi':''}`;
+    const subR=Math.max(20,Math.min(30,Math.round(18+(sub.val/cat.total)*38)));
+    const dist=R+subR+12;
+    const sx=Math.round(cx+Math.cos(a)*dist), sy=Math.round(cy+Math.sin(a)*dist);
+    const isS=SHARED.has(sub.name);
     html+=`<line x1="${Math.round(cx+Math.cos(a)*R)}" y1="${Math.round(cy+Math.sin(a)*R)}" x2="${Math.round(sx-Math.cos(a)*subR*.6)}" y2="${Math.round(sy-Math.sin(a)*subR*.6)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".4"/>`;
     if(isS){
-      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cat.color,.2)}" stroke="${cat.color}" stroke-width="2" stroke-dasharray="4 2" style="cursor:pointer" onclick="bubbleDrillL3('${bEsc(sub.name)}','${bEsc(cat.id)}')" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-      html+=`<text x="${sx}" y="${sy-5}" text-anchor="middle" fill="${cat.color}" font-size="8" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${sub.name.slice(0,10)}</text>`;
-      html+=`<text x="${sx}" y="${sy+6}" text-anchor="middle" fill="${bRgba(cat.color,.7)}" font-size="7" font-family="Instrument Sans,sans-serif" pointer-events="none">🔗 sdílené</text>`;
+      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cat.color,.2)}" stroke="${cat.color}" stroke-width="2" stroke-dasharray="4 2" style="cursor:pointer" onclick="bubbleDrillL3('${sub.name.replace(/'/g,"\\'")}','${cat.id}')"/>`;
+      html+=`<text x="${sx}" y="${sy-5}" text-anchor="middle" fill="${cat.color}" font-size="8" font-weight="700" pointer-events="none">${sub.name.slice(0,11)}</text>`;
+      html+=`<text x="${sx}" y="${sy+6}" text-anchor="middle" fill="${bRgba(cat.color,.7)}" font-size="7" pointer-events="none">🔗 sdílené</text>`;
     } else {
-      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cat.color,.13)}" stroke="${cat.color}" stroke-width="1.5" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-      html+=`<text x="${sx}" y="${sy}" text-anchor="middle" dominant-baseline="middle" fill="${cat.color}" font-size="8" font-family="Instrument Sans,sans-serif" pointer-events="none">${sub.name.slice(0,10)}</text>`;
+      html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cat.color,.13)}" stroke="${cat.color}" stroke-width="1.5"/>`;
+      html+=`<text x="${sx}" y="${sy}" text-anchor="middle" dominant-baseline="middle" fill="${cat.color}" font-size="8" pointer-events="none">${sub.name.slice(0,11)}</text>`;
     }
   });
-  if(!cat.subs.length) html+=`<text x="${cx}" y="${cy+R+20}" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="9">Žádné podkategorie</text>`;
+  if(!cat.subs.length) html+=`<text x="${cx}" y="${cy+R+24}" text-anchor="middle" fill="rgba(255,255,255,.3)" font-size="9">Žádné podkategorie</text>`;
   html+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${bRgba(cat.color,.18)}" stroke="${cat.color}" stroke-width="2.5"/>`;
-  html+=`<text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${cat.color}" font-size="13" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${cat.name}</text>`;
-  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="10" font-family="Instrument Sans,sans-serif" pointer-events="none">${fmt(cat.total)} Kč</text>`;
-  const hint=cat.subs.some(s=>shared[s.name])?'<div style="font-size:.67rem;color:var(--text2,#8b93b0);margin-top:4px">🔗 přerušovaný okraj = sdílená, klikni pro detail</div>':'';
-  return `<div style="font-size:.7rem;color:var(--text2,#8b93b0);margin-bottom:4px">📍 <span style="color:var(--income,#06d6a0);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <strong style="color:${cat.color}">${cat.name}</strong></div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${html}</svg>${hint}`;
+  html+=`<text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${cat.color}" font-size="13" font-weight="700" pointer-events="none">${cat.name}</text>`;
+  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="10" pointer-events="none">${fmt(cat.total)} Kč</text>`;
+  const hint=cat.subs.some(s=>SHARED.has(s.name))?'<div style="font-size:.65rem;color:var(--text3);margin-top:6px">🔗 přerušovaný okraj = sdílená, klikni pro detail</div>':'';
+  body.innerHTML=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <b style="color:${cat.color}">${cat.name}</b></div>
+    <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>${hint}`;
 }
 
-// B) DRILL L3 – sdílený tag a jeho kategorie
-function bDrillTag(cats,shared,W){
-  const entries=shared[_bl2];if(!entries?.length){_bl2=null;return bDrillSub(cats,shared,W);}
-  const H=270,cx=W/2,cy=H/2,tot=entries.reduce((s,e)=>s+e.val,0);
-  const prevCat=cats.find(c=>c.id===_bl2prev);
+// ── B) DRILL L3 ──
+function bDrillL3(cats,W,body){
+  const subName=_bl2, prevCatId=_bl2prev;
+  const entries=cats.filter(c=>c.subs.some(s=>s.name===subName)).map(c=>({cat:c,val:c.subs.find(s=>s.name===subName).val}));
+  if(!entries.length){_bl2=null;return bDrillL2(cats,new Set(),W,body);}
+  const H=280, cx=W/2, cy=H/2;
+  const tot=entries.reduce((s,e)=>s+e.val,0);
+  const prevCat=cats.find(c=>c.id===prevCatId);
   let html='';
   entries.forEach((e,ci)=>{
-    const a=(ci/entries.length)*Math.PI*2-Math.PI/2,dist=105,R=36;
-    const px=Math.round(cx+Math.cos(a)*dist),py=Math.round(cy+Math.sin(a)*dist);
-    const tipTxt=`<b>${e.catName}</b><br>${fmt(e.val)} Kč v této kat.<br><span style='color:#8b93b0'>Klikni pro detail kategorie</span>`;
-    html+=`<line x1="${Math.round(cx+Math.cos(a)*42)}" y1="${Math.round(cy+Math.sin(a)*42)}" x2="${Math.round(px-Math.cos(a)*R*.7)}" y2="${Math.round(py-Math.sin(a)*R*.7)}" stroke="${e.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>`;
-    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(e.catColor,.18)}" stroke="${e.catColor}" stroke-width="2" style="cursor:pointer" onclick="bubbleDrillL2('${bEsc(e.catId)}')" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${e.catColor}" font-size="10" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${e.catName}</text>`;
-    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${bRgba(e.catColor,.7)}" font-size="8" font-family="Instrument Sans,sans-serif" pointer-events="none">${fmt(e.val)} Kč</text>`;
+    const a=(ci/entries.length)*Math.PI*2-Math.PI/2, dist=110, R=36;
+    const px=Math.round(cx+Math.cos(a)*dist), py=Math.round(cy+Math.sin(a)*dist);
+    html+=`<line x1="${Math.round(cx+Math.cos(a)*42)}" y1="${Math.round(cy+Math.sin(a)*42)}" x2="${Math.round(px-Math.cos(a)*R*.7)}" y2="${Math.round(py-Math.sin(a)*R*.7)}" stroke="${e.cat.color}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".45"/>`;
+    html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(e.cat.color,.18)}" stroke="${e.cat.color}" stroke-width="2" style="cursor:pointer" onclick="bubbleDrillL2('${e.cat.id}')"/>`;
+    html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${e.cat.color}" font-size="10" font-weight="700" pointer-events="none">${e.cat.name}</text>`;
+    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${bRgba(e.cat.color,.7)}" font-size="8" pointer-events="none">${fmt(e.val)} Kč</text>`;
   });
-  html+=`<circle cx="${cx}" cy="${cy}" r="40" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.3)" stroke-width="2"/>`;
-  html+=`<text x="${cx}" y="${cy-6}" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">🔗 ${_bl2}</text>`;
-  html+=`<text x="${cx}" y="${cy+8}" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="9" font-family="Instrument Sans,sans-serif" pointer-events="none">${fmt(tot)} Kč</text>`;
-  return `<div style="font-size:.7rem;color:var(--text2,#8b93b0);margin-bottom:4px;display:flex;gap:3px;flex-wrap:wrap">📍 <span style="color:var(--income,#06d6a0);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <span style="color:var(--income,#06d6a0);cursor:pointer" onclick="bubbleBack(1)">${prevCat?.name||'Zpět'}</span> › <strong style="color:#a8adc4">🔗 ${_bl2}</strong></div><svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${html}</svg>`;
+  html+=`<circle cx="${cx}" cy="${cy}" r="40" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.25)" stroke-width="2"/>`;
+  html+=`<text x="${cx}" y="${cy-6}" text-anchor="middle" fill="white" font-size="11" font-weight="700" pointer-events="none">🔗 ${subName}</text>`;
+  html+=`<text x="${cx}" y="${cy+8}" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="9" pointer-events="none">${fmt(tot)} celkem</text>`;
+  body.innerHTML=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px;display:flex;gap:4px;flex-wrap:wrap">📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(1)">${prevCat?.name||'Zpět'}</span> › <b style="color:#a8adc4">🔗 ${subName}</b></div>
+    <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>`;
 }
 
-// C) GRADIENT – sdílené tagy s gradientem + osa
-function bGradient(cats,totalAll,shared,W){
-  const H=310,n=Math.min(cats.length,6);
-  // Kategorie v trojúhelníkovém/kruhovém rozložení
+// ── C) GRADIENT – sdílené na ose dole ──
+function bGradient(cats,totalAll,subMap,W,body){
+  const H=330, n=Math.min(cats.length,6);
+
+  // Pozice kategorií – kruh nahoře
   const catPos=cats.slice(0,n).map((cat,i)=>{
     const a=(i/n)*Math.PI*2-Math.PI/2;
-    const rx=W*.3,ry=H*.27;
-    return {x:Math.round(W/2+Math.cos(a)*rx),y:Math.round(H*0.45+Math.sin(a)*ry),cat};
+    return {x:Math.round(W/2+Math.cos(a)*W*.29), y:Math.round(H*.44+Math.sin(a)*H*.26), cat};
   });
-  const shArr=Object.entries(shared);
+
+  // Sdílené subkategorie – sebrat všechny které jsou ve 2+ kategoriích
+  const sharedArr=Object.entries(subMap).filter(([,arr])=>arr.length>=2).slice(0,5);
+  if(!sharedArr.length){
+    // Žádné sdílené – ukaž jen kategorie
+    let defs='<defs>';
+    cats.slice(0,n).forEach((c,i)=>defs+=`<radialGradient id="gg${i}" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="${c.color}" stop-opacity="0.28"/><stop offset="100%" stop-color="${c.color}" stop-opacity="0.06"/></radialGradient>`);
+    defs+='</defs>';
+    let html=defs;
+    catPos.forEach((cp,i)=>{
+      html+=`<circle cx="${cp.x}" cy="${cp.y}" r="36" fill="url(#gg${i})" stroke="${cp.cat.color}" stroke-width="2.5"/>`;
+      html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" pointer-events="none">${cp.cat.name}</text>`;
+      html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
+    });
+    body.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>
+      <div style="font-size:.65rem;color:var(--text3);margin-top:8px;text-align:center">Žádné sdílené podkategorie mezi kategoriemi</div>`;
+    return;
+  }
+
+  // Pozice sdílených na horizontální ose dole
+  const axisY=H-30;
+  const shPos=sharedArr.map(([name,arr],i)=>{
+    const c1=arr[0].catColor, c2=arr[1].catColor;
+    const total=arr.reduce((s,a)=>s+a.val,0);
+    return {
+      x:Math.round(W*(0.18+i*(0.64/(sharedArr.length-1||1)))),
+      y:axisY, name, arr, color1:c1, color2:c2, total, i
+    };
+  });
+
   let defs='<defs>';
   cats.slice(0,n).forEach((c,i)=>{
-    defs+=`<radialGradient id="gcg${i}" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="${c.color}" stop-opacity="0.28"/><stop offset="100%" stop-color="${c.color}" stop-opacity="0.06"/></radialGradient>`;
+    defs+=`<radialGradient id="gg${i}" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="${c.color}" stop-opacity="0.28"/><stop offset="100%" stop-color="${c.color}" stop-opacity="0.06"/></radialGradient>`;
   });
-  shArr.forEach(([,e],i)=>{
-    const c1=e[0].catColor,c2=(e[1]||e[0]).catColor;
-    defs+=`<linearGradient id="gsg${i}" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient>`;
-    defs+=`<radialGradient id="gsgg${i}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${c1}" stop-opacity="0.35"/><stop offset="100%" stop-color="${c2}" stop-opacity="0"/></radialGradient>`;
+  shPos.forEach((sp,i)=>{
+    defs+=`<linearGradient id="sg${i}" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="${sp.color1}"/><stop offset="100%" stop-color="${sp.color2}"/></linearGradient>`;
+    defs+=`<radialGradient id="sgg${i}" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="${sp.color1}" stop-opacity="0.3"/><stop offset="100%" stop-color="${sp.color2}" stop-opacity="0"/></radialGradient>`;
   });
-  defs+=`<linearGradient id="axisG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="rgba(255,255,255,0.05)"/><stop offset="50%" stop-color="rgba(255,255,255,0.2)"/><stop offset="100%" stop-color="rgba(255,255,255,0.05)"/></linearGradient>`;
-  defs+=`<filter id="bglow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
-
-  // Sdílené bubliny na ose (spodní řada)
-  const axisY=H-28;
-  const shPos=shArr.map(([name,e],i)=>({
-    x:Math.round(W*(0.15+i*(0.7/Math.max(shArr.length-1,1)))),
-    y:axisY,name,e,i
-  }));
+  defs+=`<linearGradient id="axisGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="rgba(255,255,255,0.03)"/><stop offset="50%" stop-color="rgba(255,255,255,0.18)"/><stop offset="100%" stop-color="rgba(255,255,255,0.03)"/></linearGradient>`;
+  defs+=`<filter id="gglow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
 
   let html=defs;
   const CR=36;
 
-  // Osa
-  if(shPos.length){
-    html+=`<line x1="${W*.05}" y1="${axisY}" x2="${W*.95}" y2="${axisY}" stroke="url(#axisG)" stroke-width="6" stroke-linecap="round" opacity=".5"/>`;
-    html+=`<line x1="${W*.05}" y1="${axisY}" x2="${W*.95}" y2="${axisY}" stroke="url(#axisG)" stroke-width="1.5" stroke-linecap="round"/>`;
-    html+=`<text x="${W/2}" y="${axisY-12}" text-anchor="middle" fill="rgba(255,255,255,.25)" font-size="7" letter-spacing="2" font-family="Instrument Sans,sans-serif">SDÍLENÉ VÝDAJE</text>`;
-  }
+  // Osa SDÍLENÉ VÝDAJE
+  html+=`<line x1="${W*.05}" y1="${axisY}" x2="${W*.95}" y2="${axisY}" stroke="url(#axisGrad)" stroke-width="6" stroke-linecap="round" opacity=".5"/>`;
+  html+=`<line x1="${W*.05}" y1="${axisY}" x2="${W*.95}" y2="${axisY}" stroke="url(#axisGrad)" stroke-width="1.5" stroke-linecap="round"/>`;
+  html+=`<text x="${W/2}" y="${axisY-13}" text-anchor="middle" fill="rgba(255,255,255,.22)" font-size="7" letter-spacing="2">SDÍLENÉ VÝDAJE</text>`;
 
-  // Linky kategorie → sdílená bublina
+  // Linky kategorie → sdílená
   shPos.forEach(sp=>{
-    sp.e.forEach(en=>{
+    sp.arr.forEach(en=>{
       const cp=catPos.find(p=>p.cat.id===en.catId);if(!cp)return;
-      const dx=cp.x-sp.x,dy=cp.y-sp.y,dist=Math.sqrt(dx*dx+dy*dy)||1;
-      const ex=Math.round(sp.x+(dx/dist)*18),ey=Math.round(sp.y+(dy/dist)*18);
-      const sx2=Math.round(cp.x-(dx/dist)*CR),sy2=Math.round(cp.y-(dy/dist)*CR);
-      html+=`<line x1="${sx2}" y1="${sy2}" x2="${ex}" y2="${ey}" stroke="${en.catColor}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".45"/>`;
-      html+=`<circle cx="${ex}" cy="${ey}" r="2.5" fill="${en.catColor}" opacity=".7"/>`;
+      const cat=cp.cat;
+      const dx=cp.x-sp.x, dy=cp.y-sp.y, dist=Math.sqrt(dx*dx+dy*dy)||1;
+      const ex=Math.round(sp.x+(dx/dist)*20), ey=Math.round(sp.y+(dy/dist)*20);
+      const sx2=Math.round(cp.x-(dx/dist)*CR), sy2=Math.round(cp.y-(dy/dist)*CR);
+      html+=`<line x1="${sx2}" y1="${sy2}" x2="${ex}" y2="${ey}" stroke="${cat.color}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".4"/>`;
+      html+=`<circle cx="${ex}" cy="${ey}" r="2.5" fill="${cat.color}" opacity=".65"/>`;
     });
   });
 
   // Kategorie bubliny
   catPos.forEach((cp,i)=>{
-    const tipTxt=`<b>${cp.cat.name}</b><br>${fmt(cp.cat.total)} Kč<br>${Math.round(cp.cat.total/totalAll*100)} % výdajů`;
-    html+=`<circle cx="${cp.x}" cy="${cp.y}" r="${CR}" fill="url(#gcg${i})" stroke="${cp.cat.color}" stroke-width="2.5" style="cursor:default" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-    html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${cp.cat.name}</text>`;
-    html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" font-family="Instrument Sans,sans-serif" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
+    html+=`<circle cx="${cp.x}" cy="${cp.y}" r="${CR}" fill="url(#gg${i})" stroke="${cp.cat.color}" stroke-width="2.5"/>`;
+    html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" pointer-events="none">${cp.cat.name}</text>`;
+    html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
   });
 
-  // Sdílené gradient bubliny na ose
+  // Sdílené bubliny na ose
   shPos.forEach(sp=>{
     const SR=20;
-    const tot=sp.e.reduce((s,e)=>s+e.val,0);
-    const tipTxt=`<b>🔗 ${sp.name}</b><br>${fmt(tot)} Kč<br>${sp.e.map(e=>e.catName).join(' + ')}`;
-    // Průsečníky osy s bublinou
-    html+=`<circle cx="${sp.x-SR}" cy="${sp.y}" r="3" fill="url(#gsg${sp.i})" opacity=".8"/>`;
-    html+=`<circle cx="${sp.x+SR}" cy="${sp.y}" r="3" fill="url(#gsg${sp.i})" opacity=".8"/>`;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR+10}" fill="url(#gsgg${sp.i})" pointer-events="none"/>`;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR}" fill="rgba(255,255,255,.05)" stroke="url(#gsg${sp.i})" stroke-width="2.5" filter="url(#bglow)" style="cursor:pointer" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
-    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR*.5}" fill="url(#gsg${sp.i})" opacity=".25" pointer-events="none"/>`;
-    html+=`<text x="${sp.x}" y="${sp.y-5}" text-anchor="middle" fill="white" font-size="7.5" font-weight="700" font-family="Instrument Sans,sans-serif" pointer-events="none">${sp.name}</text>`;
-    html+=`<text x="${sp.x}" y="${sp.y+6}" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="7" font-family="Instrument Sans,sans-serif" pointer-events="none">${(tot/1000).toFixed(1)}k</text>`;
+    html+=`<circle cx="${sp.x-SR}" cy="${sp.y}" r="3.5" fill="url(#sg${sp.i})" opacity=".8"/>`;
+    html+=`<circle cx="${sp.x+SR}" cy="${sp.y}" r="3.5" fill="url(#sg${sp.i})" opacity=".8"/>`;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR+12}" fill="url(#sgg${sp.i})" pointer-events="none"/>`;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR}" fill="rgba(255,255,255,.05)" stroke="url(#sg${sp.i})" stroke-width="2.5" filter="url(#gglow)"/>`;
+    html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR*.5}" fill="url(#sg${sp.i})" opacity=".22" pointer-events="none"/>`;
+    html+=`<text x="${sp.x}" y="${sp.y-5}" text-anchor="middle" fill="white" font-size="7.5" font-weight="700" pointer-events="none">${sp.name.slice(0,9)}</text>`;
+    html+=`<text x="${sp.x}" y="${sp.y+6}" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="7" pointer-events="none">${(sp.total/1000).toFixed(1)}k</text>`;
   });
 
-  const leg=cats.slice(0,5).map(c=>`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.64rem;margin:1px 4px 1px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
-  const shLeg=shArr.slice(0,3).map(([name,e])=>{const c1=e[0].catColor,c2=(e[1]||e[0]).catColor;return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.64rem;margin:1px 4px 1px 0"><span style="width:14px;height:7px;border-radius:4px;background:linear-gradient(90deg,${c1},${c2});display:inline-block"></span>${name}</span>`;}).join('');
-  return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">${html}</svg><div style="margin-top:5px;display:flex;flex-wrap:wrap">${leg}${shLeg?'<span style="color:rgba(255,255,255,.3);margin:0 4px">|</span>'+shLeg:''}</div>`;
+  const legCats=cats.slice(0,n).map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:.65rem;margin:1px 5px 1px 0"><span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  const legShared=shPos.map(sp=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:.65rem;margin:1px 5px 1px 0"><span style="width:16px;height:7px;border-radius:4px;background:linear-gradient(90deg,${sp.color1},${sp.color2});display:inline-block"></span>${sp.name}</span>`).join('');
+  body.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:2px 10px">${legCats}${legShared}</div>`;
 }
 
-// D) TREEMAP – obdélníky, velikost = výdaj
-function bTreemap(cats,totalAll){
+// ── D) TREEMAP ──
+function bTreemap(cats,totalAll,body){
   const sorted=[...cats].sort((a,b)=>b.total-a.total);
-  const cell=(cat,h)=>{
+  const big=sorted.filter(c=>c.total/totalAll>0.1);
+  const small=sorted.filter(c=>c.total/totalAll<=0.1);
+
+  const cell=(cat,minH)=>{
     const pct=Math.round(cat.total/totalAll*100);
-    return `<div style="background:${cat.color}1e;border:1px solid ${cat.color}55;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;justify-content:flex-end;cursor:default;min-height:${h}px;overflow:hidden;transition:background .2s,border-color .2s" onmouseenter="this.style.background='${cat.color}35';this.style.borderColor='${cat.color}99'" onmouseleave="this.style.background='${cat.color}1e';this.style.borderColor='${cat.color}55'"><div style="font-size:.7rem;font-weight:600;color:${cat.color}">${cat.name}</div><div style="font-size:.85rem;font-weight:800;color:${cat.color};font-family:Instrument Sans,sans-serif">${fmt(cat.total)}</div><div style="font-size:.65rem;color:${bRgba(cat.color,.6)}">${pct} %</div></div>`;
+    return `<div style="flex:${Math.max(1,Math.round(cat.total/totalAll*100))};min-width:${minH>60?65:45}px;min-height:${minH}px;
+      border-radius:9px;padding:9px 11px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;
+      transition:filter .18s,background .18s;cursor:default;
+      background:${cat.color}18;border:1px solid ${cat.color}44"
+      onmouseover="this.style.background='${cat.color}32';this.style.borderColor='${cat.color}99'"
+      onmouseout="this.style.background='${cat.color}18';this.style.borderColor='${cat.color}44'">
+      <div style="font-size:.68rem;font-weight:600;margin-bottom:2px;color:${cat.color}">${cat.name}</div>
+      <div style="font-size:.85rem;font-weight:800;color:${cat.color}">${fmt(cat.total)} Kč</div>
+      <div style="font-size:.62rem;opacity:.65;margin-top:1px;color:${cat.color}">${pct} %</div>
+    </div>`;
   };
-  const big=sorted.filter(c=>c.total/totalAll>0.12);
-  const small=sorted.filter(c=>c.total/totalAll<=0.12);
-  const row1=big.map(c=>`<div style="flex:${Math.max(1,Math.round(c.total/totalAll*100))};min-width:60px">${cell(c,75)}</div>`).join('');
-  const row2=small.map(c=>`<div style="flex:${Math.max(1,Math.round(c.total/totalAll*100))};min-width:42px">${cell(c,52)}</div>`).join('');
-  return `<div style="display:flex;flex-direction:column;gap:4px">${row1?`<div style="display:flex;gap:4px">${row1}</div>`:''}${row2?`<div style="display:flex;gap:4px">${row2}</div>`:''}</div>`;
+
+  const leg=sorted.map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:.65rem;margin:1px 5px 1px 0"><span style="width:7px;height:7px;border-radius:2px;background:${c.color};display:inline-block"></span>${c.name}</span>`).join('');
+  body.innerHTML=
+    `<div style="display:flex;flex-direction:column;gap:4px">`+
+    (big.length?`<div style="display:flex;gap:4px">${big.map(c=>cell(c,78)).join('')}</div>`:'')+
+    (small.length?`<div style="display:flex;gap:4px">${small.map(c=>cell(c,52)).join('')}</div>`:'')+
+    `</div>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:2px 10px">${leg}</div>`;
 }
 
 

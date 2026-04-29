@@ -382,7 +382,6 @@ function drawHealthRing(canvasId, score, size=160) {
 // ══════════════════════════════════════════════════════
 // ── Stav záložky reportu ──
 let _reportPeriod = '1M'; // '7D'|'1M'|'3M'|'6M'|'12M'|'advisor'
-
 function reportSetPeriod(p) { _reportPeriod = p; renderReport(); }
 
 function renderReport() {
@@ -407,8 +406,17 @@ function renderReport() {
   // Záložka Poradce
   if (_reportPeriod === 'advisor') {
     el.innerHTML = tabBar + '<div id="advisorContainer"><div class="empty" style="padding:24px"><div class="ei">⏳</div><div class="et">Načítám report...</div></div></div>';
-    // Volat až po renderování DOM
-    setTimeout(() => { if (typeof renderAdvisor === 'function') renderAdvisor(); }, 10);
+    setTimeout(() => {
+      try {
+        if (typeof renderAdvisor === 'function') renderAdvisor();
+        else {
+          document.getElementById('advisorContainer').innerHTML = '<div style="padding:20px;color:var(--expense)">⚠️ advisor.js není načten</div>';
+        }
+      } catch(e) {
+        console.error('renderAdvisor error:', e);
+        document.getElementById('advisorContainer').innerHTML = `<div style="padding:20px;color:var(--expense)">⚠️ Chyba: ${e.message}</div>`;
+      }
+    }, 30);
     return;
   }
 
@@ -417,22 +425,13 @@ function renderReport() {
 
   // Výběr měsíce dle záložky
   let rMonth = S.curMonth, rYear = S.curYear;
-  if (_reportPeriod === '7D' || _reportPeriod === '1M') {
-    rMonth = S.curMonth; rYear = S.curYear;
-  } else if (_reportPeriod === '3M') {
-    rMonth = S.curMonth - 2; rYear = S.curYear;
-    if (rMonth < 0) { rMonth += 12; rYear--; }
-  } else if (_reportPeriod === '6M') {
-    rMonth = S.curMonth - 5; rYear = S.curYear;
-    if (rMonth < 0) { rMonth += 12; rYear--; }
-  } else if (_reportPeriod === '12M') {
-    rMonth = S.curMonth - 11; rYear = S.curYear;
-    while (rMonth < 0) { rMonth += 12; rYear--; }
-  }
+  if (_reportPeriod === '3M')      { rMonth = S.curMonth - 2; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
+  else if (_reportPeriod === '6M') { rMonth = S.curMonth - 5; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
+  else if (_reportPeriod === '12M'){ rMonth = S.curMonth - 11; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
 
   // Agreguj transakce přes více měsíců
   let txs = [];
-  if (_reportPeriod === '1M' || _reportPeriod === '7D') {
+  if (_reportPeriod === '7D' || _reportPeriod === '1M') {
     txs = getTx(S.curMonth, S.curYear, D);
   } else {
     let m = rMonth, y = rYear;
@@ -443,13 +442,13 @@ function renderReport() {
   }
   const totalInc = incSum(txs), totalExp = expSum(txs), saldo = totalInc - totalExp;
 
-  // Předchozí stejně dlouhé období pro srovnání
-  let pm = rMonth - 1, py = rYear; if (pm < 0) { pm = 11; py--; }
+  // Předchozí měsíc pro srovnání
+  let pm = S.curMonth-1, py = S.curYear; if(pm<0){pm=11;py--;}
   const prevTxs = getTx(pm, py, D);
   const prevInc = incSum(prevTxs), prevExp = expSum(prevTxs);
   const expDiff = prevExp>0 ? Math.round((totalExp-prevExp)/prevExp*100) : null;
 
-  // Název období pro nadpis
+  // Název období
   const periodLabel = _reportPeriod === '7D' ? 'Posledních 7 dní' :
     _reportPeriod === '1M' ? `${CZ_M[S.curMonth]} ${S.curYear}` :
     _reportPeriod === '3M' ? `${CZ_M[rMonth]} – ${CZ_M[S.curMonth]} ${S.curYear}` :
@@ -492,7 +491,7 @@ function renderReport() {
   }).filter(Boolean).join('');
 
   el.innerHTML = tabBar + `
-    <div class="report-section-title">📊 ${periodLabel}</div>
+    <div class="report-section-title">📊 ${periodLabel} – Měsíční přehled</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
       <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(totalInc)}</div><div class="stat-sub" style="font-size:.68rem">${prevInc?'min. '+fmt(prevInc):''}</div></div>
       <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(totalExp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}%</span>`:''}</div></div>
