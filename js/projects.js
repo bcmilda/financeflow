@@ -300,10 +300,12 @@ function computeCatHealth(cat, spent, baseIncome) {
 }
 
 // Výpočet 3 složek skóre
-function computeHealthScores(D) {
+function computeHealthScores(D, m, y) {
   D = D || getData();
+  if (m === undefined) m = S.curMonth;
+  if (y === undefined) y = S.curYear;
   const baseIncome = computeBaseIncome(D);
-  const txs = getTx(S.curMonth, S.curYear, D);
+  const txs = getTx(m, y, D);
   const totalInc = incSum(txs);
   const totalExp = expSum(txs);
 
@@ -320,7 +322,7 @@ function computeHealthScores(D) {
   // 2. ROZPOČTOVÉ ZDRAVÍ – kategorie vs limity
   const expCats = (D.categories||[]).filter(c => c.type==='expense' || c.type==='both');
   const catScores = expCats.map(cat => {
-    const spent = getActual(cat.id, null, S.curMonth, S.curYear, D);
+    const spent = getActual(cat.id, null, m, y, D);
     const score = computeCatHealth(cat, spent, baseIncome);
     return score !== null ? score : null;
   }).filter(s => s !== null);
@@ -328,10 +330,10 @@ function computeHealthScores(D) {
 
   // 3. ÚSPOROVÉ ZDRAVÍ – spoření + investice
   const savingCats = (D.categories||[]).filter(c => c.isSaving);
-  let savingScore = 50; // výchozí pokud nemá kategorie spoření
+  let savingScore = 50;
   if(savingCats.length > 0 && baseIncome > 0) {
-    const totalSaved = savingCats.reduce((a,c) => a + getActual(c.id, null, S.curMonth, S.curYear, D), 0);
-    const minSaving = baseIncome * 0.1; // min 10% příjmu
+    const totalSaved = savingCats.reduce((a,c) => a + getActual(c.id, null, m, y, D), 0);
+    const minSaving = baseIncome * 0.1;
     const ratio = totalSaved / minSaving;
     savingScore = Math.min(100, Math.round(ratio * 100));
   }
@@ -421,13 +423,14 @@ function renderReport() {
   }
 
   const D = getData();
-  const scores = computeHealthScores(D);
-
   // Výběr měsíce dle záložky
   let rMonth = S.curMonth, rYear = S.curYear;
   if (_reportPeriod === '3M')      { rMonth = S.curMonth - 2; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
   else if (_reportPeriod === '6M') { rMonth = S.curMonth - 5; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
   else if (_reportPeriod === '12M'){ rMonth = S.curMonth - 11; rYear = S.curYear; while(rMonth<0){rMonth+=12;rYear--;} }
+
+  // computeHealthScores pro správný měsíc
+  const scores = computeHealthScores(D, rMonth, rYear);
 
   // Agreguj transakce přes více měsíců
   let txs = [];

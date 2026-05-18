@@ -21,6 +21,7 @@ async function renderAdvisor() {
     setTimeout(() => {
       try { advisorDrawCashflowChart(data.cashflow12M); } catch(e) { console.warn('cashflow chart err', e); }
       try { advisorDrawExpenseBar(data.expenseStructure); } catch(e) { console.warn('expense bar err', e); }
+      try { renderHealthProgressSchema(data); } catch(e) { console.warn('health schema err', e); }
     }, 60);
 
     // AI doporučení – načti async
@@ -282,7 +283,19 @@ function advisorRenderHTML(d) {
     </div>
   </div>
 
-  <!-- 5. TRENDY – progress příjmů / výdajů / úspor -->
+  <!-- 5. PROGRES SCHÉMA FINANČNÍHO ZDRAVÍ – kruhy dle měsíců -->
+  <div style="margin-bottom:16px">
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">🏥 Finanční zdraví – průběh měsíců</div>
+    <div class="card">
+      <div class="card-body" style="padding:12px 8px">
+        <div id="healthProgressSchemaContainer" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <div style="color:var(--text3);font-size:.8rem;padding:16px">Načítám...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. TRENDY – progress příjmů / výdajů / úspor -->
   <div style="margin-bottom:16px">
     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">📊 Trendy (vs. předchozí měsíc)</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -546,4 +559,89 @@ function advisorShowAIError(box, msg) {
     <div style="font-size:.72rem;color:var(--text3);margin-top:4px">${msg}</div>
     <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="advisorLoadAI(advisorBuildData(getData()), getData())">Zkusit znovu</button>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+//  PROGRES SCHÉMA FINANČNÍHO ZDRAVÍ – TODO-071
+//  1M=1 kruh, 3M=3 kruhy, 6M=6, 12M=12
+// ══════════════════════════════════════════════════════
+function renderHealthProgressSchema(data) {
+  const container = document.getElementById('healthProgressSchemaContainer');
+  if (!container) return;
+
+  const D = getData();
+  // Počet měsíců dle aktivní záložky reportu
+  const periodMap = { '7D':1, '1M':1, '3M':3, '6M':6, '12M':12 };
+  const n = periodMap[typeof _reportPeriod !== 'undefined' ? _reportPeriod : '3M'] || 3;
+
+  const months = [];
+  for (let i = n - 1; i >= 0; i--) {
+    let m = S.curMonth - i, y = S.curYear;
+    while (m < 0) { m += 12; y--; }
+    const txs = getTx(m, y, D);
+    const inc = incSum(txs), exp = expSum(txs);
+    const score = advisorMonthScore(inc, exp, D);
+    months.push({ m, y, score, label: CZ_M[m].slice(0, 3) });
+  }
+
+  const size = n <= 3 ? 80 : n <= 6 ? 64 : 52;
+  container.innerHTML = months.map(mo => {
+    const color = mo.score >= 75 ? '#4ade80' : mo.score >= 50 ? '#fbbf24' : '#f87171';
+    return `<div style="text-align:center">
+      <canvas id="hring_${mo.m}_${mo.y}" width="${size}" height="${size}"></canvas>
+      <div style="font-size:.65rem;color:var(--text3);margin-top:3px">${mo.label}</div>
+    </div>`;
+  }).join('');
+
+  // Vykreslit kruhy
+  months.forEach(mo => {
+    drawHealthRing(`hring_${mo.m}_${mo.y}`, mo.score, size);
+  });
+}
+
+function advisorMonthScore(inc, exp, D) {
+  if (inc === 0) return 0;
+  const savRate = Math.max(0, (inc - exp) / inc);
+  // 50 bodů za úspory > 0, +50 za optimální míru (>20%)
+  let score = savRate > 0 ? Math.min(50, Math.round(savRate * 250)) : 0;
+  // Bonus za rezervu: pokud má peněženky > 3M výdajů
+  const walletTotal = (D.wallets || []).reduce((s, w) => s + (w.balance || 0), 0);
+  if (exp > 0 && walletTotal / exp >= 3) score += 30;
+  else if (exp > 0 && walletTotal / exp >= 1) score += 15;
+  // Bonus za žádné dluhy
+  const debts = (D.debts || []);
+  if (!debts.length) score += 20;
+  return Math.min(100, Math.round(score));
+}
+
+function drawHealthRing(canvasId, score, size) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2, cy = size / 2, r = size * 0.38;
+  const color = score >= 75 ? '#4ade80' : score >= 50 ? '#fbbf24' : '#f87171';
+  const lw = size * 0.1;
+
+  // Pozadí kruhu
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = lw;
+  ctx.stroke();
+
+  // Výplň dle skóre
+  const pct = score / 100;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Text skóre uprostřed
+  ctx.fillStyle = color;
+  ctx.font = `bold ${Math.round(size * 0.22)}px Syne, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(score, cx, cy);
 }
