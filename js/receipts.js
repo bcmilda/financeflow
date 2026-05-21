@@ -883,16 +883,61 @@ async function compressReceiptImage(file) {
   });
 }
 
+// FIX-058 (TODO-021): Komprese vracející OBOJÍ – Blob (pro offline IndexedDB)
+// a base64 (pro online Worker). Tím se vyhneme dvojí kompresi i zbytečné konverzi
+// base64↔Blob v analyzeMultiReceipt offline větvi.
+// Stejné parametry jako compressReceiptImage (MAX_PX=1600, JPEG 0.85).
+async function compressReceiptImageDual(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const MAX_PX = 1600;
+      let w = img.width, h = img.height;
+      if (w > MAX_PX || h > MAX_PX) {
+        if (w > h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
+        else { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+      // Blob → toBlob (asynchronní, bez base64 mezikroku) – nejefektivnější
+      canvas.toBlob(blob => {
+        if (!blob) { rej(new Error('Komprese selhala (toBlob vrátil null)')); return; }
+        // Pro online cestu zároveň extrahujeme base64 z dataURL (z téhož canvasu)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const base64 = dataUrl.split(',')[1];
+        res({
+          blob,
+          base64,
+          thumb: dataUrl,
+          width: w,
+          height: h,
+          sizeKB: Math.round(blob.size / 1024),
+        });
+      }, 'image/jpeg', 0.85);
+    };
+    img.onerror = () => rej(new Error('Nepodařilo se načíst obrázek'));
+    img.src = url;
+  });
+}
+
 async function addReceiptPhoto(file) {
   if(!file) return;
   const status = document.getElementById('receiptStatus');
   if(status) { status.style.display='block'; status.innerHTML='<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Připravuji foto...</div></div>'; }
   try {
+    // FIX-058 (TODO-021): Komprese se dělá VŽDY hned (online i offline cesta),
+    // a vrací Blob i base64. Tím se vyhneme dvojí kompresi v offline větvi.
+    const compressed = await compressReceiptImageDual(file);
+
     // ── OFFLINE VĚTEV ──────────────────────────────────────────────
-    // Pokud nejsme online, uložíme fotku do IndexedDB a ukážeme zprávu.
+    // Pokud nejsme online, uložíme JIŽ ZKOMPRIMOVANOU fotku do IndexedDB.
     // Analýza proběhne automaticky po obnovení připojení.
     if (!navigator.onLine && window.OfflineSync) {
-      const offlineId = await window.OfflineSync.saveReceiptOffline(file, {
+      const offlineId = await window.OfflineSync.saveReceiptOffline(compressed.blob, {
         month: S.curMonth,
         year:  S.curYear,
       });
@@ -902,7 +947,7 @@ async function addReceiptPhoto(file) {
           <div class="insight-item warn" style="flex-direction:column;align-items:flex-start;gap:6px">
             <div style="display:flex;align-items:center;gap:8px">
               <span style="font-size:1.1rem">📵</span>
-              <strong>Uloženo offline</strong>
+              <strong>Uloženo offline (${compressed.sizeKB} KB)</strong>
             </div>
             <div style="font-size:.78rem;color:var(--text2)">
               Fotka je uložena v telefonu (ID: ${offlineId}).<br>
@@ -915,10 +960,14 @@ async function addReceiptPhoto(file) {
       }
       return; // Nepokračujeme – čekáme na síť
     }
-    // ── ONLINE VĚTEV (původní kód) ─────────────────────────────────
-    const base64 = await compressReceiptImage(file);
-    const thumb = 'data:image/jpeg;base64,' + base64;
-    _receiptQueue.push({base64, thumb});
+    // ── ONLINE VĚTEV – přidání do fronty pro analýzu ────────────────
+    // FIX-058: Ukládáme i Blob, aby `analyzeMultiReceipt` offline větev
+    // mohla použít Blob přímo bez zbytečné atob/Uint8Array konverze.
+    _receiptQueue.push({
+      base64: compressed.base64,
+      thumb:  compressed.thumb,
+      blob:   compressed.blob, // FIX-058: nově – pro offline fallback v multi-receipt
+    });
     updateReceiptQueue();
     if(status) status.style.display='none';
     // Nezačínáme automaticky – uživatel klikne na tlačítko Analyzovat
@@ -975,15 +1024,23 @@ async function analyzeMultiReceipt() {
   // ── OFFLINE VĚTEV ──────────────────────────────────────────────────
   if (!navigator.onLine && window.OfflineSync) {
     const n = _receiptQueue.length;
-    // Ulož každé foto z fronty do IndexedDB jako Blob
+    // FIX-058 (TODO-021): Ukládáme JIŽ ZKOMPRIMOVANÉ Bloby přímo z fronty.
+    // Před fixem: base64 → atob loop → Uint8Array → Blob → compressPhoto (DRUHÁ KOMPRESE).
+    // Po fixu: Blob z queue → saveReceiptOffline → compressPhoto detekuje že už je
+    // zkomprimovaný a uloží 1:1 (žádná degradace kvality, žádná zbytečná CPU práce).
     let savedCount = 0;
     for (const item of _receiptQueue) {
       try {
-        // base64 → Blob
-        const byteStr = atob(item.base64);
-        const arr = new Uint8Array(byteStr.length);
-        for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-        const blob = new Blob([arr], { type: 'image/jpeg' });
+        // FIX-058: Použij Blob z queue (nový formát). Fallback na starou base64→Blob
+        // konverzi pro robustnost (pro případ že někdo přidá položku starým způsobem).
+        let blob = item.blob;
+        if (!blob) {
+          // Legacy fallback – mělo by být vzácné
+          const byteStr = atob(item.base64);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          blob = new Blob([arr], { type: 'image/jpeg' });
+        }
         await window.OfflineSync.saveReceiptOffline(blob, {
           month: S.curMonth, year: S.curYear,
           multiPart: n > 1, partIndex: savedCount,
@@ -1496,7 +1553,7 @@ function addReceiptAsTx(receipt) {
   };
   const cat = catMap[receipt.category] || D.categories?.[0];
   const tx = {
-    id: Date.now(),
+    id: genTxId(),
     name: receipt.store||'Nákup',
     amount: receipt.total||0,
     amt: receipt.total||0,
@@ -1515,7 +1572,8 @@ function addReceiptAsTx(receipt) {
     publishPricesToCatalog(receipt.items, receipt.store, receipt.date);
   }
   if(S.receipts.length>5000) S.receipts=S.receipts.slice(0,5000);
-  save();
+  // FIX-057: save() vrací promise – ulož ji aby offline-sync mohl awaitovat selhání
+  const savePromise = save();
   _lastReceiptResult = null; // Vymaž uložený výsledek
   const preview = document.getElementById('receiptPreview');
   const status = document.getElementById('receiptStatus');
@@ -1524,6 +1582,7 @@ function addReceiptAsTx(receipt) {
   // Refresh jen history tab pokud je viditelný, nezničí scan tab
   const histEl = document.getElementById('utab-history-content');
   if(histEl && histEl.style.display!=='none') renderUctenky();
+  return savePromise; // FIX-057: pro offline sync error propagation
 }
 
 // ══════════════════════════════════════════════════════

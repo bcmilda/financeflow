@@ -75,7 +75,7 @@ function saveTx(){
     const txObj = {type:'expense', name:txName, amount:amt, amt, catId:'debt-payment', category:'debt-payment', date, note, debtId:debtId||null};
     if(projectId) txObj.projectId = projectId;
     if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
-    else S.transactions.push({id:Date.now(),...txObj});
+    else S.transactions.push({id:genTxId(),...txObj});
     // Snížit zbývající částku půjčky
     if(debt && !eid) {
       debt.remaining = Math.max(0, debt.remaining - amt);
@@ -100,7 +100,7 @@ function saveTx(){
   const tags = parseTags(tagsRaw);
   if(tags.length) txObj.tags = tags;
   if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
-  else S.transactions.push({id:Date.now(),...txObj});
+  else S.transactions.push({id:genTxId(),...txObj});
   save(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
 }
 function renderCatPicker(){

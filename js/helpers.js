@@ -12,6 +12,11 @@ const fmtP=n=>{
 const fmtD=s=>new Date(s).toLocaleDateString('cs-CZ',{day:'numeric',month:'short'});
 const getCat=(id,cats)=>(cats||getData().categories||[]).find(c=>c.id===id)||{name:'?',icon:'📋',color:'#666',subs:[]};
 const uid=()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
+// FIX-056: Generátor numerických ID transakcí odolný proti kolizím.
+// Date.now() vrací ms-přesné timestampy → při batch importu nebo dvojkliku se může opakovat.
+// Přidáme 4-bit random suffix (0-15) → 16× nižší šance kolize ve stejné ms.
+// Číslo zůstane bezpečně v Number rangu (max ~5e16, JS limit 2^53 ≈ 9e15... ale skutečné Date.now()*16 ~2.7e13).
+function genTxId(){return Date.now()*16+Math.floor(Math.random()*16);}
 function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`;}
 const getTx=(m,y,data)=>{const D=data||getData();return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d.getMonth()===(m!==undefined?m:S.curMonth)&&d.getFullYear()===(y!==undefined?y:S.curYear);});};
 const incSum=txs=>txs.filter(t=>t.type==='income').reduce((a,t)=>a+t.amt,0);

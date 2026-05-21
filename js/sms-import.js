@@ -573,7 +573,7 @@ function smsImportSelected() {
     else if (r.currency === 'GBP') amt = Math.round(amt * 29);
 
     const tx = {
-      id:     Date.now() + idx,
+      id:     genTxId(),
       type:   r.type,
       name,
       amount: amt,
