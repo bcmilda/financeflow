@@ -184,10 +184,22 @@ Analyzuj tento text bankovního výpisu a extrahuj VŠECHNY transakce. Vrať POU
 Pravidla:
 - amount: kladné číslo pro příjmy, záporné pro výdaje
 - date: vždy ve formátu YYYY-MM-DD
-- name: hlavní popis transakce
-- category: odhadni z názvu (Jídlo & Nákupy / Doprava / Bydlení / Zdraví / Restaurace / Jiné)
-- Pokud není datum čitelné nebo řádek není transakce, vynech ho
+- name: hlavní popis transakce (název obchodníka nebo protistrany)
+- note: typ transakce, variabilní symbol nebo zpráva pro příjemce
+- category: odhadni z názvu (Jídlo & Nákupy / Doprava / Bydlení / Zdraví / Restaurace & Kavárny / Jiné)
 - Vrať POUZE JSON, žádný jiný text
+
+KRITICKÁ PRAVIDLA pro speciální typy transakcí:
+1. KAŽDÝ ŘÁDEK S ČÁSTKOU JE SAMOSTATNÁ TRANSAKCE - extrahuj je všechny bez výjimky
+2. EUR transakce (platby v cizí měně): Komerční banka tvoří 3 záznamy pro 1 EUR platbu:
+   a) Původní EUR výdaj (např. "CLAUDE.AI SUBSCRIPTION -21,78 EUR") → extrahuj jako výdaj, amount v EUR (záporné)
+   b) Vyrovnávací příjem EUR (např. "MILAN MIGDAL +20,78 EUR Vyrovnávací úhrada") → extrahuj jako příjem v EUR
+   c) Vyrovnávací výdaj CZK (např. "MILAN MIGDAL -525,63 Kč Vyrovnávací úhrada") → extrahuj jako výdaj v CZK
+   VŠECHNY 3 záznamy musí být v transactions! Nesluč je do jednoho.
+3. Záznamy "MILAN MIGDAL" nebo název majitele účtu s typem "Vyrovnávací úhrada" jsou platné transakce - nevynechávej je.
+4. Transakce s Kč i EUR extrahuj - pro EUR použij přibližnou CZK hodnotu pokud je uvedena, jinak ponech EUR částku.
+5. Pokud vidíš "Celkový počet transakcí N" na konci výpisu, zkontroluj že jsi extrahoval přesně N transakcí.
+6. Poplatky banky (poplatek za tarif, poplatek za extra službu) jsou také transakce - extrahuj je.
 
 TEXT VÝPISU:
 ${payload.text}`
