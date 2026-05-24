@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v6.69</title>
+<title>FinanceFlow v6.70</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -115,7 +115,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.69 · Premium</small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v6.70 · Premium</small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -779,7 +779,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.69</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.70</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1103,48 +1103,108 @@
 
 <!-- MODAL: Category -->
 <div class="overlay" id="modalCat">
-  <div class="modal">
+  <div class="modal" style="max-width:520px">
     <div class="modal-head"><h3 id="catModalTitle">Přidat kategorii</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalCat')">✕</button></div>
     <div class="modal-body">
       <input type="hidden" id="editCatId">
-      <div class="frow">
-        <div class="fg"><label>Název</label><input class="fi" id="catName" placeholder="Jídlo & Nákupy"></div>
-        <div class="fg"><label>Ikona (emoji)</label><input class="fi" id="catIcon" placeholder="🛒" maxlength="4"></div>
+
+      <!-- NÁZEV + IKONA -->
+      <div class="frow" style="margin-bottom:12px">
+        <div class="fg" style="margin-bottom:0">
+          <label style="color:var(--text);font-weight:600">Název</label>
+          <input class="fi" id="catName" placeholder="Jídlo & Nákupy">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label style="color:var(--text);font-weight:600">Ikona (emoji)</label>
+          <div style="position:relative">
+            <input class="fi" id="catIcon" placeholder="🛒" maxlength="4" style="cursor:pointer" readonly onclick="toggleEmojiPicker()" onfocus="this.blur()">
+            <div id="emojiPickerDrop" style="display:none;position:absolute;z-index:200;top:calc(100% + 4px);left:0;right:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)">
+              <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-bottom:6px" id="emojiGrid"></div>
+              <div style="display:flex;gap:6px;align-items:center;border-top:1px solid var(--border);padding-top:6px">
+                <input id="emojiCustom" class="fi" placeholder="Vlastní emoji…" maxlength="4" style="flex:1;font-size:1rem" oninput="previewEmoji(this.value)">
+                <button class="btn btn-accent btn-sm" onclick="confirmCustomEmoji()">OK</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="frow">
-        <div class="fg"><label>Barva</label><input class="fi" id="catColor" type="color" value="#4ade80"></div>
-        <div class="fg"><label>Typ</label>
-          <select class="fs" id="catType">
+
+      <!-- BARVA + TYP -->
+      <div class="frow" style="margin-bottom:12px">
+        <div class="fg" style="margin-bottom:0">
+          <label style="color:var(--text);font-weight:600">Barva</label>
+          <input class="fi" id="catColor" type="color" value="#4ade80" style="height:38px;padding:3px 6px;cursor:pointer">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <label style="color:var(--text);font-weight:600">Typ</label>
+          <select class="fs" id="catType" onchange="catTypeChanged()">
             <option value="expense">💸 Výdaj</option>
             <option value="income">💰 Příjem</option>
             <option value="both">↔️ Oboje</option>
           </select>
         </div>
       </div>
-      <div class="fg"><label>Podkategorie (oddělené čárkou)</label><input class="fi" id="catSubs" placeholder="Supermarket, Tržnice, Restaurace"></div>
+
+      <!-- CHARAKTER PŘÍJMU (jen pro income) -->
+      <div id="catIncomeCharRow" class="fg" style="display:none;margin-bottom:12px">
+        <label style="color:var(--text);font-weight:600">Charakter příjmu</label>
+        <select class="fs" id="catIncomeChar">
+          <option value="">— nevybráno —</option>
+          <option value="regular">🔄 Pravidelný (každý měsíc stejný)</option>
+          <option value="irregular">📊 Nepravidelný (mění se výše)</option>
+          <option value="onetime">1️⃣ Jednorázový</option>
+          <option value="passive">🌱 Pasivní (dividendy, pronájem…)</option>
+        </select>
+      </div>
+
+      <!-- PODKATEGORIE – tagový editor -->
+      <div class="fg" style="margin-bottom:12px">
+        <label style="color:var(--text);font-weight:600">Podkategorie</label>
+        <div id="catSubTags" style="display:flex;flex-wrap:wrap;gap:5px;min-height:32px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;cursor:text" onclick="document.getElementById('catSubInput').focus()"></div>
+        <div style="display:flex;gap:6px;margin-top:5px">
+          <input class="fi" id="catSubInput" placeholder="Nová podkategorie…" style="flex:1" onkeydown="catSubInputKey(event)">
+          <button class="btn btn-ghost btn-sm" onclick="catSubAdd()" style="flex-shrink:0">+ Přidat</button>
+        </div>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:3px">Enter nebo klikni + Přidat · klikni na tag × pro odebrání</div>
+      </div>
+
+      <!-- CHARAKTER VÝDAJE (jen pro expense/both) -->
+      <div id="catExpenseCharRow" class="fg" style="display:none;margin-bottom:12px">
+        <label style="color:var(--text);font-weight:600">Charakter výdaje</label>
+        <select class="fs" id="catExpenseChar">
+          <option value="">— nevybráno —</option>
+          <option value="regular">🔄 Pravidelný (každý měsíc, fixní částka)</option>
+          <option value="variable">📊 Variabilní (každý měsíc, mění se výše)</option>
+          <option value="irregular">🎲 Nepravidelný (ne každý měsíc)</option>
+          <option value="onetime">1️⃣ Jednorázový</option>
+          <option value="none">⬜ Žádný / neurčeno</option>
+        </select>
+      </div>
+
+      <!-- LIMIT FINANČNÍHO ZDRAVÍ -->
       <div style="background:var(--surface3);border-radius:10px;padding:12px;margin-top:4px">
-        <div style="font-size:.74rem;font-weight:600;color:var(--text2);margin-bottom:8px">💚 Limit finančního zdraví</div>
-        <div class="frow">
-          <div class="fg">
-            <label>Max % z příjmu <span style="color:var(--text3);font-weight:400">(výdaj) / Min % (spoření)</span></label>
+        <div style="font-size:.74rem;font-weight:700;color:var(--text);margin-bottom:10px">💚 Limit finančního zdraví</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">
+          <div>
+            <label style="display:block;font-size:.71rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600;margin-bottom:4px">Max % z příjmu <span style="color:var(--text3);font-weight:400;text-transform:none">(výdaj) / Min % (spoření)</span></label>
             <div style="display:flex;align-items:center;gap:6px">
-              <input class="fi" type="number" id="catHealthPct" placeholder="např. 20" min="0" max="100" style="flex:1">
-              <span style="color:var(--text3);font-size:.85rem">%</span>
+              <input class="fi" type="number" id="catHealthPct" placeholder="20" min="0" max="100" style="flex:1">
+              <span style="color:var(--text2);font-size:.85rem;font-weight:600">%</span>
             </div>
           </div>
-          <div class="fg">
-            <label>Max částka Kč <span style="color:var(--text3);font-weight:400">(volitelné)</span></label>
+          <div>
+            <label style="display:block;font-size:.71rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text2);font-weight:600;margin-bottom:4px">Max částka <span style="color:var(--text3);font-weight:400;text-transform:none">(volitelné)</span></label>
             <div style="display:flex;align-items:center;gap:6px">
-              <input class="fi" type="number" id="catHealthAmt" placeholder="např. 8000" min="0" style="flex:1">
-              <span style="color:var(--text3);font-size:.85rem">Kč</span>
+              <input class="fi" type="number" id="catHealthAmt" placeholder="8000" min="0" style="flex:1">
+              <span style="color:var(--text2);font-size:.85rem;font-weight:600">Kč</span>
             </div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
           <input type="checkbox" id="catIsSaving" style="width:16px;height:16px;cursor:pointer;accent-color:var(--income)">
           <label for="catIsSaving" style="font-size:.78rem;cursor:pointer;color:var(--text2)">🐷 Kategorie spoření/investic <span style="color:var(--text3)">(% je minimum, ne maximum)</span></label>
         </div>
-        <div style="font-size:.7rem;color:var(--text3);margin-top:6px">Ponech prázdné = bez limitu (kategorie nebude zahrnuta do hodnocení)</div>
+        <div style="font-size:.7rem;color:var(--text3);margin-top:6px">Ponech prázdné = bez limitu</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1457,7 +1517,7 @@
 <script src="js/ui.js?v=28ff576f"></script>
 <script src="js/transactions.js?v=8ee648e0"></script>
 <script src="js/charts.js?v=95220b96"></script>
-<script src="js/stats.js?v=8f7a0a3a"></script>
+<script src="js/stats.js?v=f8a7ae0d"></script>
 <script src="js/debts.js?v=5a44523d"></script>
 <script src="js/ai.js?v=7acd1c9c"></script>
 <script src="js/premium.js?v=00f68740"></script>

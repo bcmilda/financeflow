@@ -120,28 +120,32 @@ function renderCatPage(){
   const renderGroup=(groupCats, groupLabel)=>{
     if(!groupCats.length) return '';
     return `<div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:10px 2px 4px">${groupLabel}</div>
-    ${groupCats.map((c,idx)=>{
+    ${groupCats.map((c)=>{
       const isIncome=c.type==='income'||c.type==='both';
+      const isExpense=c.type==='expense'||c.type==='both';
       const isStable=c.stable===true;
       const hasSubs=(c.subs||[]).length>0;
       const expanded=!!_catExpanded[c.id];
-      // Pozice v celkovém poli (pro šipky)
       const globalIdx=cats.indexOf(c);
       const isFirst=globalIdx===0;
       const isLast=globalIdx===cats.length-1;
+      // Charakter badge
+      const charLabel = isIncome&&c.incomeChar ? (INCOME_CHAR_LABELS[c.incomeChar]||'')
+                      : isExpense&&c.expenseChar&&c.expenseChar!=='none' ? (EXPENSE_CHAR_LABELS[c.expenseChar]||'') : '';
       return `<div class="cat-item" style="flex-direction:column;align-items:stretch;padding:0">
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 10px 10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px">
           <div class="cat-icon-big" style="background:${hexA(c.color,.15)};flex-shrink:0">${c.icon}</div>
           <div class="cat-info" style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
               <span class="cat-name" style="font-weight:600">${c.name}</span>
-              <span style="font-size:.65rem;color:var(--text3);background:var(--surface3);padding:2px 6px;border-radius:10px">${c.type==='income'?'příjem':c.type==='both'?'příjem/výdaj':'výdaj'}</span>
-              ${isIncome&&isStable?`<span style="font-size:.62rem;color:var(--income);background:rgba(74,222,128,.12);padding:2px 6px;border-radius:10px">✅ stabilní</span>`:''}
+              <span style="font-size:.63rem;color:var(--text3);background:var(--surface3);padding:2px 6px;border-radius:10px">${c.type==='income'?'příjem':c.type==='both'?'příjem/výdaj':'výdaj'}</span>
+              ${charLabel?`<span style="font-size:.63rem;color:var(--text2);background:var(--surface3);padding:2px 6px;border-radius:10px">${charLabel}</span>`:''}
+              ${isIncome&&isStable?`<span style="font-size:.63rem;color:var(--income);background:rgba(74,222,128,.12);padding:2px 6px;border-radius:10px">✅ stabilní</span>`:''}
             </div>
             ${hasSubs?`<div style="margin-top:3px">
               <button onclick="toggleCatExpand('${c.id}')" style="background:none;border:none;padding:0;cursor:pointer;font-size:.72rem;color:var(--text3);display:flex;align-items:center;gap:3px">
                 <span style="transition:transform .2s;display:inline-block;transform:rotate(${expanded?'90deg':'0deg'})">▶</span>
-                ${expanded?'Skrýt podkategorie':'Zobrazit'} (${(c.subs||[]).length})
+                ${expanded?'Skrýt':'Zobrazit'} podkategorie (${(c.subs||[]).length})
               </button>
             </div>`:`<div style="font-size:.72rem;color:var(--text3);margin-top:2px">bez podkategorií</div>`}
           </div>
@@ -150,7 +154,7 @@ function renderCatPage(){
             <button class="btn btn-ghost btn-icon btn-sm" title="Posunout dolů" onclick="moveCatDown('${c.id}')" style="font-size:.7rem;padding:2px 5px;opacity:${isLast?.3:1}" ${isLast?'disabled':''}>▼</button>`:''}
           </div>
           ${!ro?`<div style="display:flex;gap:4px;flex-shrink:0">
-            ${isIncome?`<button class="btn btn-ghost btn-icon btn-sm" title="${isStable?'Označit jako nestabilní':'Označit jako stabilní'}" onclick="toggleCatStable('${c.id}')" style="font-size:.8rem">${isStable?'✅':'⚪'}</button>`:''}
+            ${isIncome?`<button class="btn btn-ghost btn-icon btn-sm" title="${isStable?'Označit jako nestabilní':'Označit jako stabilní'}" onclick="toggleCatStable('${c.id}')" style="font-size:.85rem">${isStable?'✅':'⚪'}</button>`:''}
             <button class="btn btn-edit btn-icon btn-sm" onclick="editCat('${c.id}')">✎</button>
             <button class="btn btn-danger btn-icon btn-sm" onclick="deleteCat('${c.id}')">✕</button>
           </div>`:''}
@@ -192,21 +196,95 @@ function moveCatDown(id){
   save();renderCatPage();
 }
 
-function toggleCatStable(id){
-  const c=(S.categories||[]).find(x=>x.id===id);if(!c)return;
-  c.stable=!c.stable;
-  save();renderCatPage();
+// ── EMOJI PICKER ──
+const CAT_EMOJIS = ['🛒','🚗','🏠','💊','🎬','🎁','💰','💵','🐷','📈',
+  '🚙','🏦','💸','🏛️','🤝','👶','🧹','🏖️','💻','🍽️','📦','✈️','🛍️',
+  '👕','🔧','🍺','🛡️','📮','📚','📺','🏢','🤲','🔨','⚙️','💳','📱',
+  '📊','🏨','🏧','😰','💪','📄','🚬','🐾','🌱','👷','🎯','🔑','🌍'];
+
+function toggleEmojiPicker(){
+  const drop=document.getElementById('emojiPickerDrop');
+  if(!drop) return;
+  const isOpen = drop.style.display==='block';
+  if(isOpen){ drop.style.display='none'; return; }
+  // Build grid once
+  const grid=document.getElementById('emojiGrid');
+  if(!grid.children.length){
+    CAT_EMOJIS.forEach(e=>{
+      const btn=document.createElement('button');
+      btn.textContent=e;
+      btn.style.cssText='background:none;border:none;font-size:1.25rem;cursor:pointer;padding:3px;border-radius:6px;transition:background .1s';
+      btn.onmouseenter=()=>btn.style.background='var(--surface3)';
+      btn.onmouseleave=()=>btn.style.background='none';
+      btn.onclick=()=>{ document.getElementById('catIcon').value=e; drop.style.display='none'; };
+      grid.appendChild(btn);
+    });
+  }
+  drop.style.display='block';
+  // Zavři při kliku mimo
+  setTimeout(()=>{
+    const close=(e)=>{ if(!drop.contains(e.target)&&e.target.id!=='catIcon'){ drop.style.display='none'; document.removeEventListener('mousedown',close); } };
+    document.addEventListener('mousedown',close);
+  },10);
 }
+function previewEmoji(val){ if(val) document.getElementById('catIcon').value=val; }
+function confirmCustomEmoji(){
+  const v=document.getElementById('emojiCustom').value.trim();
+  if(v){ document.getElementById('catIcon').value=v; document.getElementById('emojiPickerDrop').style.display='none'; document.getElementById('emojiCustom').value=''; }
+}
+
+// ── TAGOVÝ EDITOR PODKATEGORIÍ ──
+let _catSubsList = []; // pracovní pole tagů
+
+function catSubRender(){
+  const wrap=document.getElementById('catSubTags'); if(!wrap) return;
+  wrap.innerHTML=_catSubsList.map((s,i)=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;background:var(--surface3);border:1px solid var(--border);border-radius:12px;font-size:.78rem;color:var(--text)">
+      ${s}<button onclick="catSubRemove(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.75rem;padding:0;line-height:1;margin-left:1px" title="Odebrat">✕</button>
+    </span>`).join('');
+}
+function catSubAdd(){
+  const inp=document.getElementById('catSubInput'); if(!inp) return;
+  const val=inp.value.trim(); if(!val) return;
+  // Podpora více položek najednou oddělených čárkou
+  val.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{ if(!_catSubsList.includes(s)) _catSubsList.push(s); });
+  inp.value=''; catSubRender();
+}
+function catSubRemove(i){ _catSubsList.splice(i,1); catSubRender(); }
+function catSubInputKey(e){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); catSubAdd(); } }
+
+// ── VIDITELNOST POLÍ DLE TYPU ──
+function catTypeChanged(){
+  const type=document.getElementById('catType')?.value||'expense';
+  const incRow=document.getElementById('catIncomeCharRow');
+  const expRow=document.getElementById('catExpenseCharRow');
+  if(incRow) incRow.style.display=(type==='income')?'block':'none';
+  if(expRow) expRow.style.display=(type==='expense'||type==='both')?'block':'none';
+}
+
+// ── CHARAKTER – popisky ──
+const INCOME_CHAR_LABELS = {regular:'🔄 Pravidelný', irregular:'📊 Nepravidelný', onetime:'1️⃣ Jednorázový', passive:'🌱 Pasivní'};
+const EXPENSE_CHAR_LABELS = {regular:'🔄 Pravidelný', variable:'📊 Variabilní', irregular:'🎲 Nepravidelný', onetime:'1️⃣ Jednorázový', none:'⬜ Neurčeno'};
+
 function openCatModal(){
   if(viewingUid)return;
-  ['editCatId','catName','catSubs','catHealthPct','catHealthAmt'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('editCatId').value='';
+  document.getElementById('catName').value='';
   document.getElementById('catIcon').value='📋';
   document.getElementById('catColor').value='#4ade80';
   document.getElementById('catType').value='expense';
+  document.getElementById('catHealthPct').value='';
+  document.getElementById('catHealthAmt').value='';
   document.getElementById('catIsSaving').checked=false;
+  const ic=document.getElementById('catIncomeChar'); if(ic) ic.value='';
+  const ec=document.getElementById('catExpenseChar'); if(ec) ec.value='';
+  _catSubsList=[];
+  catSubRender();
+  catTypeChanged();
   document.getElementById('catModalTitle').textContent='Přidat kategorii';
   document.getElementById('modalCat').classList.add('open');
 }
+
 function editCat(id){
   if(viewingUid)return;
   const c=S.categories.find(x=>x.id===id);if(!c)return;
@@ -215,13 +293,18 @@ function editCat(id){
   document.getElementById('catIcon').value=c.icon;
   document.getElementById('catColor').value=c.color;
   document.getElementById('catType').value=c.type;
-  document.getElementById('catSubs').value=(c.subs||[]).join(', ');
   document.getElementById('catHealthPct').value=c.healthPct||'';
   document.getElementById('catHealthAmt').value=c.healthAmt||'';
   document.getElementById('catIsSaving').checked=!!c.isSaving;
+  const ic=document.getElementById('catIncomeChar'); if(ic) ic.value=c.incomeChar||'';
+  const ec=document.getElementById('catExpenseChar'); if(ec) ec.value=c.expenseChar||'';
+  _catSubsList=[...(c.subs||[])];
+  catSubRender();
+  catTypeChanged();
   document.getElementById('catModalTitle').textContent='Upravit kategorii';
   document.getElementById('modalCat').classList.add('open');
 }
+
 function saveCat(){
   if(viewingUid)return;
   const eid=document.getElementById('editCatId').value;
@@ -229,17 +312,20 @@ function saveCat(){
   const icon=document.getElementById('catIcon').value.trim()||'📋';
   const color=document.getElementById('catColor').value;
   const type=document.getElementById('catType').value;
-  const subs=document.getElementById('catSubs').value.split(',').map(s=>s.trim()).filter(Boolean);
   const healthPct=parseFloat(document.getElementById('catHealthPct').value)||null;
   const healthAmt=parseFloat(document.getElementById('catHealthAmt').value)||null;
   const isSaving=document.getElementById('catIsSaving').checked;
+  const incomeChar=document.getElementById('catIncomeChar')?.value||'';
+  const expenseChar=document.getElementById('catExpenseChar')?.value||'';
   if(!name){alert('Zadej název');return;}
-  const obj={name,icon,color,type,subs,healthPct,healthAmt,isSaving};
+  const obj={name,icon,color,type,subs:[..._catSubsList],healthPct,healthAmt,isSaving,incomeChar,expenseChar};
   if(eid){const c=S.categories.find(x=>x.id===eid);if(c)Object.assign(c,obj);}
   else S.categories.push({id:uid(),...obj});
   save();closeModal('modalCat');renderPage();
 }
+
 function deleteCat(id){if(viewingUid)return;if(!confirm('Smazat kategorii?'))return;S.categories=S.categories.filter(c=>c.id!==id);save();renderPage();}
+
 
 // ══════════════════════════════════════════════════════
 //  RODINNÝ SOUHRN
