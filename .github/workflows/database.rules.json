@@ -12,7 +12,8 @@
           ".read": "auth != null"
         },
         "premium": {
-          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
         },
         "settings": {
           ".read": "auth.uid === $uid"
