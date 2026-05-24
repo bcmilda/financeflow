@@ -1,5 +1,57 @@
 var _auth, _db, _provider;
 
+// ── VÝCHOZÍ KATEGORIE (seed + migrace) ──
+// Použito v seedData() pro nové uživatele a v importDefaultCategories() pro migraci existujících.
+// Při přidání nové kategorie: přidej sem + zvyš verzi v index.html.
+const DEFAULT_CATEGORIES = [
+  {id:'cat1', name:'Jídlo & Nákupy',  icon:'🛒', color:'#f87171', type:'expense', subs:['Supermarket','Tržnice','Rozvoz jídla','Restaurace'], healthPct:20, healthAmt:8000},
+  {id:'cat2', name:'Doprava',          icon:'🚗', color:'#60a5fa', type:'expense', subs:['Benzín','MHD','Taxi/Uber','Servis'],                  healthPct:10, healthAmt:5000},
+  {id:'cat3', name:'Bydlení',          icon:'🏠', color:'#a78bfa', type:'expense', subs:['Nájem','Energie','Internet','Pojištění'],             healthPct:30, healthAmt:null},
+  {id:'cat4', name:'Zdraví',           icon:'💊', color:'#fb923c', type:'expense', subs:['Léky','Lékař','Oční','Zubní','Holič','Drogerie'],    healthPct:8,  healthAmt:4000},
+  {id:'cat5', name:'Zábava',           icon:'🎬', color:'#e879f9', type:'expense', subs:['Kino/Kultura','Streaming','Hry','Výlety','Bruslení','Vstupenky','Zoo'], healthPct:8, healthAmt:3000},
+  {id:'cat6', name:'Dárky',            icon:'🎁', color:'#fbbf24', type:'expense', subs:['Narozeniny','Vánoce','Ostatní dárky'],               healthPct:5,  healthAmt:2000},
+  {id:'cat7', name:'Výplata',          icon:'💰', color:'#4ade80', type:'income',  subs:['Základní plat','Bonus','Přesčasy'],                  stable:true},
+  {id:'cat8', name:'Ostatní příjmy',   icon:'💵', color:'#34d399', type:'income',  subs:['Freelance','Pronájem','Dividendy','Ostatní'],        stable:false},
+  {id:'cat9', name:'Spoření',          icon:'🐷', color:'#818cf8', type:'expense', subs:['Spořicí účet','Stavební spoření'],                   healthPct:10, healthAmt:null, isSaving:true},
+  {id:'cat10',name:'Investice',        icon:'📈', color:'#34d399', type:'both',    subs:['ETF','Akcie','Krypto','Podílové fondy'],             healthPct:5,  healthAmt:null, isSaving:true},
+  {id:'cat11',name:'Auto',             icon:'🚙', color:'#38bdf8', type:'expense', subs:['Palivo','Pojištění auta','Opravy','STK','Havarijní pojištění','Parkovné','Dálniční známka']},
+  {id:'cat12',name:'Banka',            icon:'🏦', color:'#94a3b8', type:'expense', subs:['Poplatky za účet','Poplatky za kartu','Kurzové poplatky','Ostatní bankovní poplatky']},
+  {id:'cat13',name:'Cashback',         icon:'💸', color:'#6ee7b7', type:'income',  subs:['Cashback karta','Věrnostní program','Bonus za nákup'], stable:false},
+  {id:'cat14',name:'Finanční úřad',    icon:'🏛️', color:'#f59e0b', type:'both',    subs:['Daň z příjmů','DPH','Silniční daň','Daňový přeplatek','Daňová záloha']},
+  {id:'cat15',name:'Dar',              icon:'🤝', color:'#a3e635', type:'income',  subs:['Dar od rodiny','Dar od přátel','Dědictví','Sbírka'], stable:false},
+  {id:'cat16',name:'Dítě',             icon:'👶', color:'#fb7185', type:'expense', subs:['Školka/škola','Kroužky','Oblečení dítěte','Hračky','Kapesné','Knihy a učebnice']},
+  {id:'cat17',name:'Domácí potřeby',   icon:'🧹', color:'#c084fc', type:'expense', subs:['Čisticí prostředky','Spotřebiče','Nádobí','Dekorace','Nábytek','Opravy domácnosti']},
+  {id:'cat18',name:'Dovolená & Relax', icon:'🏖️', color:'#22d3ee', type:'expense', subs:['Hotel/Ubytování','Letenka','Dovolená balíček','Výlet','Strava na cestách','Pojištění cesty']},
+  {id:'cat19',name:'Elektronika',      icon:'💻', color:'#818cf8', type:'expense', subs:['Telefon','Počítač','Příslušenství','TV/Audio','Smart home']},
+  {id:'cat20',name:'Jídlo & Pití',     icon:'🍽️', color:'#f97316', type:'expense', subs:['Restaurace','Kavárna','Fast food','Alkohol','Rozvoz','Catering']},
+  {id:'cat21',name:'Jiné',             icon:'📦', color:'#6b7280', type:'expense', subs:['Různé výdaje','Nerozřazeno']},
+  {id:'cat22',name:'Letenka',          icon:'✈️', color:'#0ea5e9', type:'expense', subs:['Letenka tam','Letenka zpět','Letenka tam a zpět','Příplatek za zavazadla']},
+  {id:'cat23',name:'Nákup',            icon:'🛍️', color:'#ec4899', type:'expense', subs:['Online nákup','Kamenný obchod','Trh/Bazár','Aukce']},
+  {id:'cat24',name:'Oblečení',         icon:'👕', color:'#f472b6', type:'expense', subs:['Triko/Kalhoty','Boty','Zimní oblečení','Sportovní oblečení','Doplňky','Oprava oblečení']},
+  {id:'cat25',name:'Opravy',           icon:'🔧', color:'#78716c', type:'expense', subs:['Řemeslníci','Materiál','Svépomocí','Spotřebiče','Auto opravy']},
+  {id:'cat26',name:'Alkohol',          icon:'🍺', color:'#d97706', type:'expense', subs:['Pivo','Víno','Tvrdý alkohol','Bar/Hospoda']},
+  {id:'cat27',name:'Pojištění',        icon:'🛡️', color:'#7c3aed', type:'expense', subs:['Životní pojištění','Majetkové pojištění','Cestovní pojištění','Havarijní pojištění','Zdravotní pojištění']},
+  {id:'cat28',name:'Pošta',            icon:'📮', color:'#ef4444', type:'expense', subs:['Zásilka','Clo','Dopis','Poštovné','Ověření podpisu','Balíkovna']},
+  {id:'cat29',name:'Sebevzdělání',     icon:'📚', color:'#0891b2', type:'expense', subs:['Online kurz','Školení','Certifikát','Cizí jazyk','Knihy','Konference']},
+  {id:'cat30',name:'Předplatné',       icon:'📺', color:'#8b5cf6', type:'expense', subs:['YouTube Premium','Spotify','Netflix','Google One','Disney+','Adobe','Patreon','Alza+','Aplikace','Noviny/Časopisy','HBO Max']},
+  {id:'cat31',name:'Příspěvky zaměstnavatele', icon:'🏢', color:'#10b981', type:'income', subs:['Penzijko','Stravenky/Edenred','Benefit karta','Příspěvek na sport','Příspěvek na vzdělání'], stable:false},
+  {id:'cat32',name:'Půjčka',           icon:'🤲', color:'#dc2626', type:'both',    subs:['Hypotéka','Spotřebitelský úvěr','Půjčka od rodiny','Kreditní karta','Leasing']},
+  {id:'cat33',name:'Rekonstrukce',     icon:'🔨', color:'#92400e', type:'expense', subs:['Zedník','Instalatér','Elektrikář','Materiál','Kotel','Okna','Podlahy','Koupelna']},
+  {id:'cat34',name:'Služby',           icon:'⚙️', color:'#0f766e', type:'expense', subs:['Účetnictví','Právník','IT služby','Úklid','Zahradník','Hodinář','Kadeřník']},
+  {id:'cat35',name:'Splátka',          icon:'💳', color:'#b45309', type:'expense', subs:['Splátka hypotéky','Splátka úvěru','Splátka leasingu','Splátka kreditní karty','Splátka půjčky']},
+  {id:'cat36',name:'Telefon',          icon:'📱', color:'#0284c7', type:'expense', subs:['Tarif','Data','Roaming','Oprava telefonu','Příslušenství']},
+  {id:'cat37',name:'Trading',          icon:'📊', color:'#059669', type:'both',    subs:['Bybit','XTB','Binance','Revolut Invest','ETF','Forex','Krypto nákup','Krypto prodej']},
+  {id:'cat38',name:'Ubytování',        icon:'🏨', color:'#7c3aed', type:'expense', subs:['Hotel','Airbnb','Hostel','Penzion','Chatka/Kemp']},
+  {id:'cat39',name:'Výběry ATM',       icon:'🏧', color:'#64748b', type:'expense', subs:['Výběr bankomat','Výběr cizí bankomat','Výběr v zahraničí']},
+  {id:'cat40',name:'Ztráta',           icon:'😰', color:'#6b7280', type:'expense', subs:['Ztracená hotovost','Krádež','Pokuta','Penále','Záloha propadla']},
+  {id:'cat41',name:'Fitness & Posilovna', icon:'💪', color:'#16a34a', type:'expense', subs:['Členství posilovna','Permanentka','Osobní trenér','Sportovní vybavení','Plavání','Jóga']},
+  {id:'cat42',name:'Poplatky',         icon:'📄', color:'#dc2626', type:'expense', subs:['Správní poplatek','Bankovní poplatek','Kolky','Notář','Katastr','Registr']},
+  {id:'cat43',name:'Cigarety',         icon:'🚬', color:'#78716c', type:'expense', subs:['Krabičky','Tabák','Příslušenství','E-cigareta','Náplně']},
+  {id:'cat44',name:'Domácí mazlíček',  icon:'🐾', color:'#f59e0b', type:'expense', subs:['Jídlo pro mazlíčka','Pelíšek/Výbava','Veterinář','Hračky pro mazlíčka','Psí hotel']},
+  {id:'cat45',name:'Pasivní příjem',   icon:'🌱', color:'#22c55e', type:'income',  subs:['Dividendy','Pronájem nemovitosti','Licenční poplatky','P2P půjčky','Úroky'], stable:false},
+  {id:'cat46',name:'Brigáda',          icon:'👷', color:'#84cc16', type:'income',  subs:['Brigáda jednorázová','Brigáda pravidelná','DPP','DPČ','Přivýdělek'],          stable:false},
+];
+
 function _ref(db, path) { return window._ref(db, path); }
 function _set(r, val) { return window._set(r, val); }
 function _get(r) { return window._get(r); }
@@ -527,18 +579,7 @@ function seedData(){
     {id:'s1',name:'Internet O2',amount:399,type:'expense',catId:'cat3',freq:'monthly',den:15,auto:true,note:'Automatická platba'},
     {id:'s2',name:'Výplata',amount:42000,type:'income',catId:'cat7',freq:'monthly',den:1,auto:true,note:''},
   ];
-  S.categories=[
-    {id:'cat1',name:'Jídlo & Nákupy',icon:'🛒',color:'#f87171',type:'expense',subs:['Supermarket','Tržnice','Rozvoz jídla','Restaurace'],healthPct:20,healthAmt:8000},
-    {id:'cat2',name:'Doprava',icon:'🚗',color:'#60a5fa',type:'expense',subs:['Benzín','MHD','Taxi/Uber','Servis'],healthPct:10,healthAmt:5000},
-    {id:'cat3',name:'Bydlení',icon:'🏠',color:'#a78bfa',type:'expense',subs:['Nájem','Energie','Internet','Pojištění'],healthPct:30,healthAmt:null},
-    {id:'cat4',name:'Zdraví',icon:'💊',color:'#fb923c',type:'expense',subs:['Léky','Lékař','Gym','Drogerie'],healthPct:8,healthAmt:4000},
-    {id:'cat5',name:'Zábava',icon:'🎬',color:'#e879f9',type:'expense',subs:['Kino/Kultura','Streaming','Hry','Výlety'],healthPct:8,healthAmt:3000},
-    {id:'cat6',name:'Dárky',icon:'🎁',color:'#fbbf24',type:'expense',subs:['Narozeniny','Vánoce','Ostatní dárky'],healthPct:5,healthAmt:2000},
-    {id:'cat7',name:'Výplata',icon:'💰',color:'#4ade80',type:'income',subs:['Základní plat','Bonus','Přesčasy'],stable:true},
-    {id:'cat8',name:'Ostatní příjmy',icon:'💵',color:'#34d399',type:'income',subs:['Freelance','Pronájem','Dividendy','Ostatní'],stable:false},
-    {id:'cat9',name:'Spoření',icon:'🐷',color:'#818cf8',type:'expense',subs:['Spořicí účet','Stavební spoření'],healthPct:10,healthAmt:null,isSaving:true},
-    {id:'cat10',name:'Investice',icon:'📈',color:'#34d399',type:'expense',subs:['ETF','Akcie','Krypto'],healthPct:5,healthAmt:null,isSaving:true},
-  ];
+  S.categories=DEFAULT_CATEGORIES.map(c=>({...c}));
   S.birthdays=[{id:'b1',name:'Maminka',day:15,month:5,gift:800,note:'Oblíbené červené víno'},{id:'b2',name:'Táta',day:3,month:8,gift:600,note:''},{id:'b3',name:'Sestra',day:22,month:3,gift:500,note:''}];
   const now=new Date(),y=now.getFullYear(),m=now.getMonth();
   const d=(n,mo=m)=>`${y}-${String(mo+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`;
