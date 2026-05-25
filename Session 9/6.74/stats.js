@@ -113,9 +113,9 @@ function renderCatPage(){
   }
 
   // Lookup COICOP definice pro kruh (barva + číslo)
-  const _coicopArr = (typeof COICOP_GROUPS_DEF !== 'undefined' ? COICOP_GROUPS_DEF : null)
-                  || (typeof window !== 'undefined' ? window.COICOP_GROUPS_DEF : null) || [];
-  const coicopDef = Object.fromEntries(_coicopArr.map(g=>[g.id,g]));
+  const coicopDef = typeof COICOP_GROUPS_DEF !== 'undefined'
+    ? Object.fromEntries(COICOP_GROUPS_DEF.map(g=>[g.id,g]))
+    : {};
 
   // Helper: COICOP kruh s číslem
   const coicopCircle = (num) => {
@@ -173,7 +173,7 @@ function renderCatPage(){
           <div class="cat-info" style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
               <span class="cat-name" style="font-weight:600">${c.name}</span>
-              <span style="font-size:.63rem;color:var(--text);font-weight:600;background:${c.type==='income'?'rgba(74,222,128,.18)':c.type==='both'?'rgba(96,165,250,.18)':'rgba(248,113,113,.15)'};padding:2px 7px;border-radius:10px">${c.type==='income'?'💰 příjem':c.type==='both'?'↔️ příjem/výdaj':'💸 výdaj'}</span>
+              <span style="font-size:.63rem;color:var(--text3);background:var(--surface3);padding:2px 6px;border-radius:10px">${c.type==='income'?'příjem':c.type==='both'?'příjem/výdaj':'výdaj'}</span>
               ${charLabel?`<span style="font-size:.63rem;color:var(--text2);background:var(--surface3);padding:2px 6px;border-radius:10px">${charLabel}</span>`:''}
               ${isIncome&&isStable?`<span style="font-size:.63rem;color:var(--income);background:rgba(74,222,128,.12);padding:2px 6px;border-radius:10px">✅ stabilní</span>`:''}
               ${isShared?`<span style="font-size:.6rem;color:var(--text3);padding:1px 5px;border:1px dashed var(--border);border-radius:8px" title="${sharedTitle}">⟷ sdílené</span>`:''}
@@ -196,12 +196,13 @@ function renderCatPage(){
           </div>`:''}
         </div>
         ${hasSubs&&expanded?`<div style="border-top:1px solid var(--border);padding:8px 14px 10px 46px;background:var(--surface2)">
-          <div style="font-size:.7rem;color:var(--text2);margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Podkategorie</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <div style="font-size:.68rem;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase">Podkategorie</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${(c.subs||[]).map(s=>{
+              // Zobraz COICOP kruh u podkategorie pokud se liší od nadřazené
               const subCoicop = (c.coicopOverrides||{})[s];
               const subCircle = subCoicop && subCoicop !== c.coicop ? coicopCircle(subCoicop) : '';
-              return `<span style="font-size:.78rem;padding:4px 10px;background:${hexA(c.color,.18)};border:1px solid ${hexA(c.color,.4)};border-radius:12px;color:var(--text);font-weight:500;display:inline-flex;align-items:center;gap:4px">${s}${subCircle}</span>`;
+              return `<span style="font-size:.75rem;padding:3px 9px;background:${hexA(c.color,.12)};border:1px solid ${hexA(c.color,.3)};border-radius:12px;color:var(--text2);display:inline-flex;align-items:center;gap:4px">${s}${subCircle}</span>`;
             }).join('')}
           </div>
         </div>`:''}
