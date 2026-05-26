@@ -12,8 +12,7 @@
           ".read": "auth != null"
         },
         "premium": {
-          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
         },
         "settings": {
           ".read": "auth.uid === $uid"
@@ -81,6 +80,13 @@
       ".write": "auth != null",
       "$uid": {
         ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admin_coicop_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$catId": {
+        ".validate": "newData.hasChildren(['coicop','name','assignedAt']) && newData.child('coicop').isNumber() && newData.child('coicop').val() >= 1 && newData.child('coicop').val() <= 13"
       }
     },
     "admins": {
