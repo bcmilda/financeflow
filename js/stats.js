@@ -141,6 +141,8 @@ function renderCatPage(){
   const incCats=cats.filter(c=>c.type==='income');
   const bothCats=cats.filter(c=>c.type==='both');
 
+  // Množina názvů všech kategorií (lowercase) pro detekci sdílených tagů
+  const catNameSet = new Set(cats.map(c=>c.name.toLowerCase().trim()));
   // Množina sdílených kategorií pro rychlé vyhledání
   const sharedCatIds = new Set(cats.flatMap(c=>c.shared||[]));
 
@@ -213,7 +215,14 @@ function renderCatPage(){
             ${(c.subs||[]).map(s=>{
               const subCoicop = (c.coicopOverrides||{})[s];
               const subCircle = subCoicop && subCoicop !== c.coicop ? coicopCircle(subCoicop) : '';
-              return `<span style="font-size:.78rem;padding:4px 10px;background:${hexA(c.color,.18)};border:1px solid ${hexA(c.color,.4)};border-radius:12px;color:var(--text);font-weight:500;display:inline-flex;align-items:center;gap:4px">${s}${subCircle}</span>`;
+              // Přerušovaný rámeček pokud název podkategorie = název jiné kategorie
+              const isSubShared = catNameSet.has(s.toLowerCase().trim());
+              const matchedCat = isSubShared ? cats.find(x=>x.name.toLowerCase().trim()===s.toLowerCase().trim()&&x.id!==c.id) : null;
+              const subBorder = isSubShared
+                ? `border:1.5px dashed ${matchedCat?matchedCat.color+'99':hexA(c.color,.6)};`
+                : `border:1px solid ${hexA(c.color,.4)};`;
+              const subTitle = matchedCat ? `title="Sdíleno s kategorií: ${matchedCat.name}"` : '';
+              return `<span ${subTitle} style="font-size:.78rem;padding:4px 10px;background:${hexA(c.color,.18)};${subBorder}border-radius:12px;color:var(--text);font-weight:500;display:inline-flex;align-items:center;gap:4px;cursor:${isSubShared?'help':'default'}">${s}${isSubShared?' ⟷':''}${subCircle}</span>`;
             }).join('')}
           </div>
         </div>`:''}

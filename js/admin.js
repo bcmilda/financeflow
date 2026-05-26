@@ -188,6 +188,13 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.77',
+    datum: '2026-05-25',
+    zmeny: [
+      '✨ NEW (S9): stats.js – tagy podkategorií v expand sekci mají přerušovaný rámeček pokud název podkategorie odpovídá názvu jiné kategorie (např. „Opravy" v Auto, „Pojištění" v Bydlení). Tooltip zobrazí „Sdíleno s kategorií: X". Symbol ⟷ za názvem.',
+    ]
+  },
+  {
     verze: 'v6.76',
     datum: '2026-05-25',
     zmeny: [
