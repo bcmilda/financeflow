@@ -83,20 +83,30 @@ function normalizeStoreName(name) {
 function renderUctenky() {
   const el = document.getElementById('uctenkyContent'); if(!el) return;
   const receipts = S.receipts || [];
-  const hasData = receipts.length >= 3;
-  const allItems = receipts.flatMap(r => (r.items||[]).map(it => ({...it, store:normalizeStoreName(r.store), date:r.date})));
+
+  // Deduplikace – identifikátor: obchod|datum|suma|počet položek
+  const _seen = new Set();
+  const uniqueReceipts = receipts.filter(r => {
+    const key = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`;
+    if(_seen.has(key)) return false;
+    _seen.add(key); return true;
+  });
+  const dupCount = receipts.length - uniqueReceipts.length;
+
+  const hasData = uniqueReceipts.length >= 3;
+  const allItems = uniqueReceipts.flatMap(r => (r.items||[]).map(it => ({...it, store:normalizeStoreName(r.store), date:r.date})));
   const storeStats = {};
-  receipts.forEach(r => {
+  uniqueReceipts.forEach(r => {
     const s = normalizeStoreName(r.store);
     if(!storeStats[s]) storeStats[s] = {total:0, count:0, visits:0};
     storeStats[s].total += r.total||0;
     storeStats[s].count += (r.items||[]).length;
     storeStats[s].visits++;
   });
-  const totalSpent = receipts.reduce((a,r)=>a+(r.total||0),0);
-  const avgReceipt = receipts.length ? Math.round(totalSpent/receipts.length) : 0;
+  const totalSpent = uniqueReceipts.reduce((a,r)=>a+(r.total||0),0);
+  const avgReceipt = uniqueReceipts.length ? Math.round(totalSpent/uniqueReceipts.length) : 0;
   const catStats = {};
-  receipts.forEach(r => {
+  uniqueReceipts.forEach(r => {
     const c = r.category||'Jiné';
     if(!catStats[c]) catStats[c] = 0;
     catStats[c] += r.total||0;
@@ -222,14 +232,18 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-stores" onclick="switchUctenkyTab(\'stores\',this)">🏪 Obchody</button>'
     + '<button class="tx-filt-btn" id="utab-history" onclick="switchUctenkyTab(\'history\',this)">📋 Historie</button>'
     + '</div>'
-    + buildScanTab(receipts, totalSpent)
-    + buildLearnTab(receipts, allItems, storeStats, totalSpent)
-    + buildStatsTab(hasData, receipts, totalSpent, allItems, catStats)
-    + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, receipts, catStats, householdSize)
+    + (dupCount > 0 ? `<div style="padding:10px 14px;margin-bottom:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <span style="font-size:.8rem;color:var(--text2)">⚠️ Nalezeno <strong>${dupCount} duplicitních účtenek</strong> (stejný obchod + datum + suma + počet položek). Zobrazuji jen unikátní.</span>
+        <button class="btn btn-accent btn-sm" onclick="removeDuplicateReceipts()">🗑️ Smazat duplikáty</button>
+      </div>` : '')
+    + buildScanTab(uniqueReceipts, totalSpent)
+    + buildLearnTab(uniqueReceipts, allItems, storeStats, totalSpent)
+    + buildStatsTab(hasData, uniqueReceipts, totalSpent, allItems, catStats)
+    + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, uniqueReceipts, catStats, householdSize)
     + buildTrendTab(coicopMonthly, COICOP_GROUPS_DEF, last6Months)
     + buildPricesTab(priceChanges)
-    + buildStoresTab(storeStats, totalSpent)
-    + buildHistoryTab(receipts);
+    + buildStoresTab(storeStats, totalSpent, uniqueReceipts)
+    + buildHistoryTab(uniqueReceipts);
 
   // Obnov aktivní záložku (ne vždy scan)
   switchUctenkyTab(_activeUctenkyTab);
@@ -415,10 +429,11 @@ function renderItemStatsList(topItems, allItems, D, period) {
   const sorted = Object.entries(freq).sort((a,b)=>b[1].count-a[1].count).slice(0,15);
   if(!sorted.length) return '<div class="empty"><div class="et">Žádné položky za toto období</div></div>';
 
-  return `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;border-bottom:2px solid var(--border);padding:4px 0 6px;margin-bottom:4px">
-    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase">Položka</div>
-    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center;padding:0 12px">Počet</div>
-    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right;padding:0 12px">Celkem</div>
+  const COLS = '1fr 60px 90px 80px';
+  return `<div style="display:grid;grid-template-columns:${COLS};gap:0;border-bottom:2px solid var(--border);padding:6px 0 8px;margin-bottom:2px">
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Položka</div>
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Počet</div>
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right;padding-right:4px">Celkem</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right">Průměr</div>
   </div>` +
   sorted.map(([name,v])=>{
@@ -432,21 +447,21 @@ function renderItemStatsList(topItems, allItems, D, period) {
           : v.prices[v.prices.length-1] < v.prices[0]
             ? `<span style="color:var(--income);font-weight:700"> ↓</span>` : '')
       : '';
-    return `<div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0;padding:8px 0;border-bottom:1px solid var(--border);align-items:center">
-      <div style="min-width:0">
-        <div style="font-size:.88rem;font-weight:700;color:var(--text)">${icon} ${name}${priceTrend}</div>
-        ${cat?`<div style="font-size:.72rem;font-weight:600;color:${color};margin-top:1px">${cat.name}</div>`:''}
+    return `<div style="display:grid;grid-template-columns:${COLS};gap:0;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
+      <div style="min-width:0;padding-right:8px">
+        <div style="font-size:.88rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${name}${priceTrend}</div>
+        ${cat?`<div style="font-size:.72rem;font-weight:600;color:${color};margin-top:2px">${cat.name}</div>`:`<div style="height:14px"></div>`}
       </div>
-      <div style="text-align:center;padding:0 12px">
-        <span style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--text2)">${v.count}</span>
-        <div style="font-size:.62rem;color:var(--text3)">nákupů</div>
+      <div style="text-align:center">
+        <div style="font-family:Syne,sans-serif;font-size:1.05rem;font-weight:800;color:var(--text)">${v.count}</div>
+        <div style="font-size:.6rem;color:var(--text3)">nákupů</div>
       </div>
-      <div style="text-align:right;padding:0 12px">
-        <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--expense)">${fmt(Math.round(v.total))} Kč</div>
+      <div style="text-align:right;padding-right:4px">
+        <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--expense)">${fmt(Math.round(v.total))}&nbsp;Kč</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:.85rem;font-weight:600;color:var(--text2)">ø ${fmt(avgPrice)}</div>
-        <div style="font-size:.62rem;color:var(--text3)">Kč/ks</div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--text2)">ø&nbsp;${fmt(avgPrice)}</div>
+        <div style="font-size:.6rem;color:var(--text3)">Kč/ks</div>
       </div>
     </div>`;
   }).join('');
@@ -801,8 +816,24 @@ function updatePriceSlider(pi, val, dates) {
   label.textContent = dates[0] + ' – ' + dates[idx];
 }
 
-function buildStoresTab(storeStats, totalSpent) {
-  const receipts = S.receipts||[];
+// Smaže duplikátní účtenky z S.receipts a uloží
+function removeDuplicateReceipts() {
+  if(!confirm('Smazat duplikátní účtenky? Tato akce je nevratná.')) return;
+  const seen = new Set();
+  const before = (S.receipts||[]).length;
+  S.receipts = (S.receipts||[]).filter(r => {
+    const key = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`;
+    if(seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  const removed = before - S.receipts.length;
+  save();
+  renderUctenky();
+  alert(`✅ Odstraněno ${removed} duplikátů. Zbývá ${S.receipts.length} účtenek.`);
+}
+
+function buildStoresTab(storeStats, totalSpent, receipts) {
+  receipts = receipts || S.receipts || [];
   let html = '<div id="utab-stores-content" style="display:none">';
   if(!Object.keys(storeStats).length) {
     html += '<div class="card"><div class="card-body"><div class="empty"><div class="et">Žádné obchody zatím</div></div></div></div>';
@@ -894,6 +925,7 @@ function buildStoresTab(storeStats, totalSpent) {
 }
 
 function buildHistoryTab(receipts) {
+  receipts = receipts || S.receipts || [];
   let html = '<div id="utab-history-content" style="display:none">';
   if(!receipts.length) {
     html += '<div class="card"><div class="card-body"><div class="empty"><div class="ei">📋</div><div class="et">Žádné účtenky</div></div></div></div>';
@@ -901,9 +933,9 @@ function buildHistoryTab(receipts) {
   }
 
   html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div style="font-size:.76rem;color:var(--text2)">${receipts.length} účtenek celkem</div>
+    <div style="font-size:.78rem;color:var(--text2)">${receipts.length} účtenek celkem</div>
     <div style="display:flex;gap:6px">
-      <button class="btn btn-ghost btn-sm" onclick="exportReceiptsCSV()" title="Export">📊 Export</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportReceiptsCSV()">📊 Export</button>
       <button class="btn btn-ghost btn-sm" style="color:var(--expense)" onclick="deleteAllReceipts()">🗑️ Smazat vše</button>
     </div>
   </div>`;
@@ -1204,22 +1236,31 @@ function deleteAllReceipts() {
 function editReceiptFromHistory(index) {
   const r = S.receipts?.[index];
   if(!r) return;
-  // FIX (S9): Inline expand pod tlačítkem – bez modal overlay
   const editId = 'rcpt_edit_'+index;
   const existing = document.getElementById(editId);
-  if(existing) { existing.remove(); return; } // toggle
+  if(existing) { existing.remove(); return; }
 
   _lastReceiptResult = {receipt: JSON.parse(JSON.stringify(r)), n: 1, historyIndex: index};
 
   const div = document.createElement('div');
   div.id = editId;
-  div.style.cssText = 'border-top:2px solid var(--accent);background:var(--surface2);padding:14px';
+  div.style.cssText = 'border-top:2px solid var(--accent);background:var(--surface2);padding:14px;margin:0';
   div.innerHTML = buildReceiptPreviewHTML(_lastReceiptResult.receipt, 1);
 
-  // Vlož za řádek tlačítka (parent div účtenky)
-  const btn = document.querySelector(`[onclick*="editReceiptFromHistory(${index})"]`);
-  const row = btn?.closest('[style*="border-bottom"]') || btn?.parentElement?.parentElement;
-  if(row) { row.after(div); } else { document.body.appendChild(div); }
+  // Najdi editační tlačítko a vlož editor za jeho rodičovský řádek
+  const btns = document.querySelectorAll('[onclick]');
+  let inserted = false;
+  btns.forEach(btn => {
+    if(btn.getAttribute('onclick') && btn.getAttribute('onclick').includes('editReceiptFromHistory('+index+')') && !inserted) {
+      const row = btn.closest('[style*="border-bottom"]') || btn.parentElement;
+      if(row && row.parentElement) { row.parentElement.insertBefore(div, row.nextSibling); inserted = true; }
+    }
+  });
+  if(!inserted) {
+    const activeContent = document.querySelector('.page:not([style*="none"]) [id$="-content"]:not([style*="none"])');
+    if(activeContent) activeContent.appendChild(div);
+    else document.body.appendChild(div);
+  }
   setTimeout(initReceiptEditor, 50);
 }
 

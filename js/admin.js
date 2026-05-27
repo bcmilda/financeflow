@@ -217,6 +217,16 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v6.93',
+    datum: '2026-05-27',
+    zmeny: [
+      '🐛 FIX (S9): receipts.js – buildStoresTab() a buildHistoryTab() přijímají uniqueReceipts jako parametr (ne S.receipts globál) → konec duplicit v zobrazení',
+      '✨ NEW (S9): receipts.js – deduplicator v renderUctenky(): identifikátor obchod|datum|suma|počet položek → žlutý banner s počtem duplikátů + tlačítko "Smazat duplikáty" (removeDuplicateReceipts)',
+      '🐛 FIX (S9): receipts.js – editReceiptFromHistory() inline expand opravena detekce rodičovského řádku přes querySelectorAll+getAttribute',
+      '✨ UX (S9): receipts.js – statistika položek: fixní grid 1fr 60px 90px 80px, padding:10px, mezera pod kategorií',
+    ]
+  },
+  {
     verze: 'v6.92',
     datum: '2026-05-27',
     zmeny: [
