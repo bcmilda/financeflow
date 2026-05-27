@@ -72,6 +72,13 @@
             ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
           }
         }
+      },
+      "items": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          ".validate": "newData.hasChildren(['name'])"
+        }
       }
     },
     "referrals": {
