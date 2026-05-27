@@ -19,6 +19,20 @@
         },
         "partners": {
           ".read": "auth.uid === $uid"
+        },
+        "categoryMappings": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$key": {
+            ".validate": "newData.hasChildren([\"catId\",\"updatedAt\"]) && newData.child(\"catId\").isString() && newData.child(\"catId\").val().length > 0"
+          }
+        },
+        "itemStats": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$itemKey": {
+            ".validate": "newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"updatedAt\"]) || newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"lastDate\"])"
+          }
         }
       }
     },
