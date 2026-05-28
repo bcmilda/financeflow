@@ -181,3 +181,50 @@ function updateMLabel(){document.getElementById('mlabel').textContent=`${CZ_M[S.
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════════
+
+// ── TODO-082: COICOP agregáty ──
+function computeCoicopAggregates(txs, D) {
+  const defMap = Object.fromEntries((typeof DEFAULT_CATEGORIES!=='undefined'?DEFAULT_CATEGORIES:[]).map(d=>[d.id,d]));
+  const result = {};
+  let unassigned = 0;
+  (txs||[]).forEach(tx => {
+    if(tx.type !== 'expense') return;
+    if(tx.isBalancing) return;
+    const catId = tx.catId || tx.category || '';
+    const amt = Math.abs(tx.amount || tx.amt || 0);
+    if(amt <= 0) return;
+    const defCat = defMap[catId];
+    let coicop = defCat?.coicop || null;
+    if(defCat?.coicopOverrides && tx.subcat && defCat.coicopOverrides[tx.subcat]) {
+      coicop = defCat.coicopOverrides[tx.subcat];
+    }
+    if(!coicop) {
+      const userCat = (D?.categories||[]).find(c=>c.id===catId);
+      if(userCat?.coicop) coicop = userCat.coicop;
+    }
+    if(coicop && coicop >= 1 && coicop <= 13) {
+      result[coicop] = (result[coicop]||0) + amt;
+    } else {
+      unassigned += amt;
+    }
+  });
+  return {cats: result, unassigned: Math.round(unassigned)};
+}
+
+async function uploadCoicopToFirebase(month, year, D) {
+  try {
+    if(!window._currentUser || !window._db) return;
+    const uid = window._currentUser.uid;
+    const txs = getTx(month, year, D);
+    const income = incSum(txs);
+    const exp = expSum(txs);
+    if(exp <= 0) return;
+    const {cats, unassigned} = computeCoicopAggregates(txs, D);
+    const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
+    await _set(_ref(_db, `community/${monthKey}/users/${uid}`), {
+      totalExp: Math.round(exp), income: Math.round(income),
+      savingRate: income > 0 ? Math.round((income-exp)/income*100) : 0,
+      cats, unassigned, updatedAt: Date.now(),
+    });
+  } catch(e) { console.warn('uploadCoicop failed:', e?.message); }
+}

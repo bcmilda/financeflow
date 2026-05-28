@@ -1,6 +1,65 @@
 var _auth, _db, _provider;
 
-// ── VÝCHOZÍ KATEGORIE (seed + migrace) ──
+// ── TODO-006: Globální error handler ──
+// Zachytí neošetřené JS výjimky a Promise rejection → zobrazí uživatelsky přívětivou chybovou obrazovku
+// místo bílé/prázdné stránky
+(function initGlobalErrorHandler() {
+  const _errorBucket = new Set(); // deduplikace identických chyb
+
+  function showCrashBanner(msg, detail) {
+    // Pokud aplikace ještě nenačtena, počkej na DOM
+    const show = () => {
+      // Deduplikace – stejnou chybu nezobrazuj dvakrát
+      if(_errorBucket.has(msg)) return;
+      _errorBucket.add(msg);
+      setTimeout(() => _errorBucket.delete(msg), 10000); // reset po 10s
+
+      // Sentry capture – pokud je dostupný
+      try { if(window.Sentry) window.Sentry.captureException(new Error(msg)); } catch(e){}
+
+      const el = document.getElementById('globalErrorBanner');
+      if(!el) {
+        // Fallback – banner ještě neexistuje v DOM
+        const banner = document.createElement('div');
+        banner.id = 'globalErrorBanner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fecaca;padding:10px 14px;font-size:.82rem;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.5)';
+        banner.innerHTML = `<span style="font-size:1.2rem">⚠️</span><div style="flex:1"><strong>Chyba aplikace:</strong> ${msg.slice(0,120)}</div><button onclick="location.reload()" style="background:#ef4444;border:none;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.8rem;flex-shrink:0">🔄 Obnovit</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#fca5a5;cursor:pointer;font-size:1rem;flex-shrink:0">✕</button>`;
+        document.body?.prepend(banner) || document.head?.after(banner);
+        return;
+      }
+      // Banner existuje – aktualizuj a zobraz
+      el.querySelector('.crash-msg').textContent = msg.slice(0,120);
+      el.style.display = 'flex';
+      // Auto-hide po 8s pro nekritické chyby
+      setTimeout(() => { el.style.display = 'none'; }, 8000);
+    };
+
+    if(document.body) show();
+    else document.addEventListener('DOMContentLoaded', show, {once:true});
+  }
+
+  // JS runtime errors
+  window.addEventListener('error', (e) => {
+    // Ignoruj chyby ze třetích stran (CDN, extensions)
+    if(e.filename && !e.filename.includes(location.hostname)) return;
+    // Ignoruj ResizeObserver loop (harmless browser quirk)
+    if(e.message?.includes('ResizeObserver')) return;
+    console.error('[GlobalError]', e.message, e.filename, e.lineno);
+    showCrashBanner(e.message || 'Neznámá chyba JS');
+  });
+
+  // Unhandled Promise rejections
+  window.addEventListener('unhandledrejection', (e) => {
+    const msg = e.reason?.message || String(e.reason) || 'Neošetřená Promise rejection';
+    // Ignoruj Firebase CORS/network chyby při offline
+    if(msg.includes('network') || msg.includes('Failed to fetch')) return;
+    if(msg.includes('permission-denied')) return; // Firebase pravidla – normální pro nepřihlášené
+    console.error('[UnhandledRejection]', msg);
+    showCrashBanner(msg);
+  });
+})();
+
+
 // Synchronizováno s Firebase exportem (Session 9, v6.73).
 // Nová pole: coicop (1–13|null), shared (ID překrývajících kategorií), coicopOverrides (podkategorie s jiným COICOP než nadřazená).
 // Příjmové kategorie mají coicop:null – nevstupují do COICOP výdajové analýzy.
@@ -605,6 +664,13 @@ function save() {
   saveTimeout = setTimeout(() => {
     saveTimeout = null; // clear BEFORE saving so listener can resume after
     saveToFirebase();
+    // TODO-082: Throttled COICOP upload do komunity (max 1× za 5 minut)
+    if(typeof uploadCoicopToFirebase === 'function' && !_isLocalMode) {
+      clearTimeout(window._coicopUploadTimeout);
+      window._coicopUploadTimeout = setTimeout(() => {
+        uploadCoicopToFirebase(S.curMonth, S.curYear, getData()).catch(()=>{});
+      }, 300000); // 5 minut throttle
+    }
   }, 1200);
 }
 
