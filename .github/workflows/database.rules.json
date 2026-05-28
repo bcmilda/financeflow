@@ -56,6 +56,19 @@
             ".validate": "newData.hasChildren(['updatedAt'])"
           }
         }
+      },
+      "itemTags": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          "$tag": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
+      "itemTagValidation": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       }
     },
     "catalog": {
