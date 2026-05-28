@@ -11,8 +11,104 @@ function openAddTx(){
   setTxType('expense');selCatId='';selSub='';customSub='';
   populateTxProjectSelect();
   populateTxTransferWallets();
+  populateTxWalletSelect();
+  populateTxPayTypeSelect();
+  updateTxConverter();
+  // Reset kalkulačka
+  _calcVal=''; _calcOp=''; _calcPrev='';
+  const cd=document.getElementById('txCalcDisplay'); if(cd) cd.value='0';
+  const cp=document.getElementById('txCalcPanel'); if(cp) cp.style.display='none';
   renderCatPicker();
   document.getElementById('modalAdd').classList.add('open');
+}
+
+// Naplnit select peněženek
+function populateTxWalletSelect() {
+  const sel = document.getElementById('txWalletId'); if(!sel) return;
+  const wallets = S.wallets||[];
+  sel.innerHTML = '<option value="">– výchozí –</option>'
+    + wallets.map(w=>`<option value="${w.id}">${w.icon||'💼'} ${w.name}${w.currency&&w.currency!=='CZK'?' ('+w.currency+')':''}</option>`).join('');
+}
+
+// Naplnit select typů plateb
+function populateTxPayTypeSelect() {
+  const sel = document.getElementById('txPayTypeId'); if(!sel) return;
+  const types = S.payTypes||[];
+  sel.innerHTML = '<option value="">– nevybráno –</option>'
+    + '<option value="cash">💵 Hotovost</option>'
+    + '<option value="card">💳 Karta</option>'
+    + '<option value="transfer">🏦 Bankovní převod</option>'
+    + types.filter(t=>!['cash','card','transfer'].includes(t.id))
+            .map(t=>`<option value="${t.id}">${t.icon||'💳'} ${t.name}</option>`).join('');
+}
+
+// Aktualizovat měnu z vybrané peněženky
+function updateTxCurrency() {
+  const sel = document.getElementById('txWalletId'); if(!sel) return;
+  const wallet = (S.wallets||[]).find(w=>w.id===sel.value);
+  if(wallet?.currency && wallet.currency !== 'CZK') {
+    const curSel = document.getElementById('txConverterCur');
+    if(curSel) { curSel.value = wallet.currency; updateTxConverter(); }
+  }
+}
+
+// Orientační kurzy CZK (aktualizovat ručně nebo z API)
+const _FX_RATES = {EUR:25.3, USD:23.1, PLN:5.7, GBP:29.5, CHF:26.8, HUF:0.062, SKK:1.0};
+
+function updateTxConverter() {
+  const amt = parseFloat(document.getElementById('txAmt')?.value)||0;
+  const cur = document.getElementById('txConverterCur')?.value||'EUR';
+  const rate = _FX_RATES[cur]||25;
+  const converted = amt > 0 ? (amt/rate).toFixed(2) : '0';
+  const el = document.getElementById('txConverterAmt');
+  if(el) el.textContent = converted + ' ' + cur;
+  const re = document.getElementById('txConverterRate');
+  if(re) re.textContent = `(1 ${cur} = ${rate} Kč)`;
+}
+
+// ── Kalkulačka ──
+let _calcVal='', _calcOp='', _calcPrev='';
+
+function toggleTxCalc() {
+  const p = document.getElementById('txCalcPanel');
+  if(!p) return;
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
+
+function calcBtn(k) {
+  const d = document.getElementById('txCalcDisplay');
+  if(!d) return;
+  if(k==='C') { _calcVal=''; _calcOp=''; _calcPrev=''; d.value='0'; return; }
+  if(k==='⌫') { _calcVal=_calcVal.slice(0,-1)||''; d.value=_calcVal||'0'; return; }
+  if(k==='±') { _calcVal = _calcVal.startsWith('-') ? _calcVal.slice(1) : (_calcVal?'-'+_calcVal:'-'); d.value=_calcVal; return; }
+  if(['÷','×','−','+'].includes(k)) {
+    _calcPrev = _calcVal||d.value; _calcOp=k; _calcVal=''; return;
+  }
+  if(k==='=') {
+    const a=parseFloat(_calcPrev||'0'), b=parseFloat(_calcVal||'0');
+    let r=0;
+    if(_calcOp==='÷') r = b?a/b:0;
+    else if(_calcOp==='×') r = a*b;
+    else if(_calcOp==='−') r = a-b;
+    else if(_calcOp==='+') r = a+b;
+    else r = b||a;
+    _calcVal = String(Math.round(r*100)/100);
+    _calcOp=''; _calcPrev='';
+    d.value = _calcVal;
+    return;
+  }
+  if(k==='.' && _calcVal.includes('.')) return;
+  _calcVal += k;
+  d.value = _calcVal;
+}
+
+function calcInsert() {
+  const d = document.getElementById('txCalcDisplay');
+  const a = document.getElementById('txAmt');
+  if(!d||!a) return;
+  const val = parseFloat(d.value)||0;
+  if(val>0) { a.value=val; updateTxConverter(); }
+  toggleTxCalc();
 }
 function setTxType(type){
   curTxType=type;
@@ -95,6 +191,10 @@ function saveTx(){
   const autoName = name||(cat.name!=='❓'?cat.name+(finalSub?' – '+finalSub:''):'Transakce');
   const txObj = {type, name:autoName, amount:amt, amt, catId:selCatId, category:selCatId, subcat:finalSub, date, note};
   if(projectId) txObj.projectId = projectId;
+  const walletId = document.getElementById('txWalletId')?.value||'';
+  const payTypeId = document.getElementById('txPayTypeId')?.value||'';
+  if(walletId) txObj.wallet = walletId;
+  if(payTypeId) txObj.payType = payTypeId;
   // Tagy
   const tagsRaw = document.getElementById('txTags')?.value || '';
   const tags = parseTags(tagsRaw);
@@ -116,7 +216,8 @@ function renderSubPicker(){
   const cat=S.categories.find(c=>c.id===selCatId);
   if(!cat||!(cat.subs||[]).length){if(wrap)wrap.style.display='none';return;}
   if(wrap)wrap.style.display='block';
-  inner.innerHTML=(cat.subs||[]).map(s=>`<div class="sub-chip ${selSub===s?'sel':''}" onclick="selSubBtn('${s}')">${s}</div>`).join('');
+  const catColor = cat?.color||'var(--accent)';
+  inner.innerHTML=(cat.subs||[]).map(s=>`<div class="sub-chip ${selSub===s?'sel':''}" onclick="selSubBtn('${s}')" style="border-color:${catColor};${selSub===s?`background:${catColor};color:#fff;font-weight:600;`:'color:var(--text);'}">${s}</div>`).join('');
 }
 function selSubBtn(s){selSub=s;customSub='';document.getElementById('customSubInput').value='';renderSubPicker();}
 // ══════════════════════════════════════════════════════
