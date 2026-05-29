@@ -958,8 +958,9 @@ function buildTxRow(t, D, ro, dupMap={}) {
     <div class="tx-table-cell">
       ${customName?`<div style="font-size:.82rem;color:var(--text2)">${customName}</div>`:''}
       ${t.note?`<div style="font-size:.74rem;color:var(--text3)">📝 ${t.note}</div>`:''}
-      ${(t.tags||[]).length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${(t.tags).map(tag=>`<span style="background:var(--bank);color:white;padding:1px 5px;border-radius:8px;font-size:.64rem">#${tag}</span>`).join('')}</div>`:''}
-      ${!customName&&!t.note&&!(t.tags||[]).length?`<span style="color:var(--text3);font-size:.76rem">–</span>`:''}
+      ${(t.tags||[]).length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${(t.tags).map(tag=>`<span style="background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.4);color:#ec4899;padding:1px 5px;border-radius:8px;font-size:.64rem;font-weight:600">#${tag}</span>`).join('')}</div>`:''}
+      ${(typeof t.tags==='string'&&t.tags)?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.64rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`:''}
+      ${!customName&&!t.note&&!(t.tags||[]).length&&!t.tags?`<span style="color:var(--text3);font-size:.76rem">–</span>`:''}
       ${typeof buildDupActions==='function' ? buildDupActions(t, dupMap, ro) : ''}
     </div>
     <div class="tx-table-cell tx-col-project">

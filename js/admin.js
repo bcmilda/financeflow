@@ -233,6 +233,33 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.02',
+    datum: '2026-05-28',
+    zmeny: [
+      '🐛 FIX (S9): receipts.js – duplicita položek ve Statistikách: normalizace klíče na lowercase (ROHLÍK 43G ≡ Rohlík 43g)',
+      '✨ NEW (S9): receipts.js – Statistiky: přidán sloupec "Ks" (celkový počet kusů), zobrazení více tagů na položku, displayName = nejdelší varianta názvu',
+      '✨ NEW (S9): receipts.js – Graf položek/tagů: SVG sloupcový + čárový kumulativní graf, selekce Název/Tag × Ks/Kč × 1M/3M/6M/12M',
+      '🐛 FIX (S9): ui.js – tagy v Transakcích: modrá→růžová (#ec4899) pro pole tags[] (hashtag tagy), přidány zelené tagy z účtenek (tx.tags string)',
+      '✅ Fix (S9): admin.js – přidán v7.01 do VERZE_LOG (chyběl)',
+      '✅ Fix (S9): receipts.js – renderItemChart() inicializuje se při přepnutí záložky Statistiky',
+    ]
+  },
+  {
+    verze: 'v7.01',
+    datum: '2026-05-28',
+    zmeny: [
+      '🐛 FIX (S9): receipts.js – saveItemTagMapping() CORS chyba: odstraněn method TRANSACTION, klíče normalizovány přes NFD (bez diakritiky, bez mezer), správné GET+PUT',
+      '🐛 FIX (S9): receipts.js – X zavřít červená barva + červený rámeček, opravena logika zavírání (rcpt_hist/rcpt_edit/receiptPreview)',
+      '🐛 FIX (S9): receipts.js – tag input nápověda zmizí při focus (onfocus/onblur)',
+      '🐛 FIX (S9): receipts.js – catTags v Historii růžová barva místo barvy kategorie',
+      '✅ Fix (S9): receipts.js – přehozen počet účtenek za select filtry v buildHistoryTab',
+      '✅ Fix (S9): admin.js – (1×) růžová barva #ec4899, font-weight:700',
+      '✅ Fix (S9): admin.js – fajfka: šedá = neschváleno, zelená = schváleno (načítá status z itemTagValidation)',
+      '✅ Fix (S9): receipts.js – zelené tagy viditelné v Statistikách (renderItemStatsList)',
+      '✅ Fix (S9): receipts.js – addReceiptAsTx() ukládá subcat + tags do transakce',
+    ]
+  },
+  {
     verze: 'v7.00',
     datum: '2026-05-28',
     zmeny: [
@@ -1511,9 +1538,23 @@ async function loadLowConf() {
       });
     });
     lowConf.sort((a,b) => a.confidence - b.confidence);
-    const top50 = lowConf.slice(0, 50);
+
+    // Deduplikuj dle názvu – zobraz jen unikátní názvy (první výskyt + počet)
+    const seen = {};
+    const deduped = [];
+    lowConf.forEach(item => {
+      const key = (item.tx.name||'?').toLowerCase().trim();
+      if(!seen[key]) {
+        seen[key] = {count: 1, item};
+        deduped.push(seen[key]);
+      } else {
+        seen[key].count++;
+      }
+    });
+    deduped.sort((a,b) => a.item.confidence - b.item.confidence);
+    const top50 = deduped.slice(0, 50);
     el.innerHTML = `
-      <div style="font-size:.72rem;color:var(--text2);margin-bottom:8px">${lowConf.length} transakcí s nízkou jistotou · zobrazeno ${top50.length}</div>
+      <div style="font-size:.72rem;color:var(--text2);margin-bottom:8px">${lowConf.length} transakcí · <strong>${deduped.length} unikátních názvů</strong> · zobrazeno ${top50.length} <span style="color:var(--text3)">· pravidlo stačí přidat jednou</span></div>
       <table style="width:100%;border-collapse:collapse;font-size:.78rem">
         <thead><tr style="border-bottom:2px solid var(--border)">
           <th style="text-align:left;padding:6px 8px;color:var(--text2)">Transakce</th>
@@ -1522,12 +1563,12 @@ async function loadLowConf() {
           <th style="padding:6px 8px"></th>
         </tr></thead>
         <tbody>
-          ${top50.map(({uid, tx, coicopId, confidence}) => {
+          ${top50.map(({item: {uid, tx, coicopId, confidence}, count}) => {
             const grp = COICOP_GROUPS_DEF.find(g=>g.id==coicopId);
             const confColor = confidence < 20 ? 'var(--expense)' : confidence < 35 ? '#f59e0b' : 'var(--text2)';
             return `<tr style="border-bottom:1px solid var(--border)">
               <td style="padding:6px 8px">
-                <div style="font-weight:600">${tx.name||'–'}</div>
+                <div style="font-weight:600">${tx.name||'–'} ${count>1?`<span style="font-size:.65rem;background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.3);color:#ec4899;padding:1px 5px;border-radius:6px;font-weight:700">${count}×</span>`:''}</div>
                 <div style="font-size:.68rem;color:var(--text2)">${uid} · ${tx.date||''}</div>
               </td>
               <td style="padding:6px 8px;font-size:.74rem">
@@ -1536,7 +1577,7 @@ async function loadLowConf() {
               </td>
               <td style="padding:6px 8px;text-align:center;font-weight:700;color:${confColor}">${confidence}%</td>
               <td style="padding:6px 8px">
-                <button class="btn btn-ghost btn-sm" onclick="addKeywordFromLowConf('${(tx.name||'').toLowerCase().replace(/'/g,'')}',${coicopId})" style="font-size:.7rem;padding:2px 6px">➕ Přidat pravidlo</button>
+                <button class="btn btn-ghost btn-sm" onclick="addKeywordFromLowConf('${(tx.name||'').toLowerCase().replace(/'/g,'')}',${coicopId},this)" style="font-size:.7rem;padding:2px 6px">➕ Přidat pravidlo</button>
               </td>
             </tr>`;
           }).join('')}
@@ -1547,14 +1588,86 @@ async function loadLowConf() {
   }
 }
 
-function addKeywordFromLowConf(name, suggestedId) {
-  const kw = prompt(`Klíčové slovo pro pravidlo:\n(např. část názvu "${name}")`, name.split(' ')[0]);
-  if(!kw) return;
-  const newId = prompt(`COICOP skupina:\n${COICOP_GROUPS_DEF.map(g=>`${g.id}. ${g.name}`).join('\n')}\n\nZadejte číslo:`, suggestedId);
-  if(!newId) return;
-  _update(_ref(_db), {
-    [`keyword_overrides/${kw.toLowerCase()}`]: {coicopId: parseInt(newId), updatedAt: Date.now(), updatedBy: 'admin-lowconf'}
-  }).then(() => { alert('✅ Pravidlo přidáno!'); loadKeywords(); });
+function addKeywordFromLowConf(name, suggestedId, rowEl) {
+  // Najdi řádek tlačítka
+  const row = rowEl || document.querySelector(`[onclick*="addKeywordFromLowConf('${name}'"]`)?.closest('tr');
+
+  // Sestav klíčové slovo – první smysluplné slovo z názvu
+  const suggestedKw = name.replace(/\s*(s\.r\.o\.|a\.s\.|spol\.)\s*/gi,'').trim().split(/\s+/)[0].toLowerCase();
+
+  // Vytvoř inline dialog pod řádkem
+  const existingDialog = document.getElementById('lowconf-dialog');
+  if(existingDialog) existingDialog.remove();
+
+  const dialog = document.createElement('tr');
+  dialog.id = 'lowconf-dialog';
+  dialog.innerHTML = `<td colspan="4" style="padding:10px 8px;background:var(--surface2);border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.68rem;color:var(--bank);font-weight:700;margin-bottom:3px">KLÍČOVÉ SLOVO</div>
+        <input id="lc-kw" value="${suggestedKw}" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:.8rem;color:var(--text);width:130px">
+      </div>
+      <div>
+        <div style="font-size:.68rem;color:var(--bank);font-weight:700;margin-bottom:3px">COICOP SKUPINA</div>
+        <select id="lc-coicop" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:.78rem;color:var(--text)">
+          ${COICOP_GROUPS_DEF.map(g=>`<option value="${g.id}" ${g.id==suggestedId?'selected':''}>${g.id}. ${g.name}</option>`).join('')}
+          <option value="0">0. Bez COICOP (investice, spoření…)</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-end;padding-bottom:1px">
+        <button onclick="saveLowConfRule('${name}')" class="btn btn-accent btn-sm" style="padding:6px 12px">✓ Uložit</button>
+        <button onclick="document.getElementById('lowconf-dialog')?.remove()" class="btn btn-ghost btn-sm" style="padding:6px 10px">✕</button>
+      </div>
+    </div>
+    <div id="lc-status" style="font-size:.72rem;margin-top:4px;color:var(--text3)">
+      Pravidlo bude platit pro všechny transakce obsahující klíčové slovo.
+    </div>
+  </td>`;
+
+  if(row) row.after(dialog);
+  else document.getElementById('adminLowConfTable')?.querySelector('tbody')?.appendChild(dialog);
+  document.getElementById('lc-kw')?.focus();
+}
+
+async function saveLowConfRule(originalName) {
+  const kw = document.getElementById('lc-kw')?.value.trim().toLowerCase();
+  const coicopId = parseInt(document.getElementById('lc-coicop')?.value||'0');
+  const statusEl = document.getElementById('lc-status');
+
+  if(!kw || kw.length < 2) {
+    if(statusEl) { statusEl.textContent='⚠️ Klíčové slovo musí mít alespoň 2 znaky'; statusEl.style.color='var(--expense)'; }
+    return;
+  }
+
+  if(statusEl) { statusEl.textContent='⏳ Ukládám...'; statusEl.style.color='var(--text3)'; }
+
+  try {
+    await _update(_ref(_db), {
+      [`keyword_overrides/${kw}`]: {
+        coicopId, updatedAt: Date.now(), updatedBy: 'admin-lowconf',
+        originalName, skipCoicop: coicopId===0
+      }
+    });
+
+    if(statusEl) { statusEl.textContent=`✅ Uloženo: "${kw}" → ${coicopId===0?'Bez COICOP':COICOP_GROUPS_DEF.find(g=>g.id===coicopId)?.name||coicopId}`; statusEl.style.color='var(--income)'; }
+
+    // Vizuálně označ řádek jako vyřešený
+    const dialog = document.getElementById('lowconf-dialog');
+    const row = dialog?.previousElementSibling;
+    if(row) {
+      row.style.opacity='0.45';
+      row.style.textDecoration='line-through';
+      const btn = row.querySelector('button');
+      if(btn) { btn.textContent='✅ Hotovo'; btn.disabled=true; btn.style.color='var(--income)'; }
+    }
+
+    // Zavři dialog po 1.5s
+    setTimeout(()=>{ document.getElementById('lowconf-dialog')?.remove(); }, 1500);
+
+    loadKeywords(); // Aktualizuj záložku Keywords
+  } catch(e) {
+    if(statusEl) { statusEl.textContent='❌ Chyba: '+e.message; statusEl.style.color='var(--expense)'; }
+  }
 }
 
 // ══════════════════════════════════════════════════════

@@ -443,6 +443,32 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
       </div>
     </div>
 
+    <!-- Graf: Název/Tag/Období -->
+    <div class="card" style="margin-top:14px">
+      <div class="card-header">
+        <span class="card-title">📊 Graf položek / tagů</span>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <select id="itemChartMode" onchange="renderItemChart()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
+            <option value="name">📦 Dle názvu položky</option>
+            <option value="tag">🏷️ Dle tagu</option>
+          </select>
+          <select id="itemChartMetric" onchange="renderItemChart()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
+            <option value="qty">📦 Počet kusů</option>
+            <option value="total">💰 Suma Kč</option>
+          </select>
+          <select id="itemChartPeriod" onchange="renderItemChart()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
+            <option value="1M">1 měsíc</option>
+            <option value="3M" selected>3 měsíce</option>
+            <option value="6M">6 měsíců</option>
+            <option value="12M">12 měsíců</option>
+          </select>
+        </div>
+        <div id="itemChartCanvas" style="min-height:180px;overflow-x:auto"></div>
+      </div>
+    </div>
+
     <!-- Firebase itemStats – načte se on-demand -->
     <div id="itemStatsFirebase" style="display:none">
       <div class="card">
@@ -454,6 +480,104 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
     </div>
   </div>`;
   return html;
+}
+
+function renderItemChart() {
+  const el = document.getElementById('itemChartCanvas'); if(!el) return;
+  const mode = document.getElementById('itemChartMode')?.value||'name';
+  const metric = document.getElementById('itemChartMetric')?.value||'qty';
+  const period = document.getElementById('itemChartPeriod')?.value||'3M';
+
+  const receipts = S.receipts||[];
+  const months = parseInt(period)||3;
+  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-months);
+
+  // Získej všechny položky z období
+  const items = receipts.flatMap(r=>(r.items||[]).map(it=>({...it,date:r.date||''})))
+    .filter(it => {
+      if(!it.date) return false;
+      return new Date(it.date) >= cutoff;
+    });
+
+  // Seskup dle měsíce a dle klíče (název nebo tag)
+  const monthlyData = {}; // {klíč: {YYYY-MM: {qty, total}}}
+  const allKeys = new Set();
+  const allMonths = new Set();
+
+  items.forEach(it => {
+    const month = (it.date||'').slice(0,7);
+    if(!month) return;
+    allMonths.add(month);
+    const rawKeys = mode==='tag'
+      ? (it.tag||'').split(/[\s,]+/).filter(Boolean)
+      : [it.name?.trim().toLowerCase().slice(0,20)].filter(Boolean);
+    rawKeys.forEach(k => {
+      if(!k) return;
+      allKeys.add(k);
+      if(!monthlyData[k]) monthlyData[k]={};
+      if(!monthlyData[k][month]) monthlyData[k][month]={qty:0,total:0};
+      monthlyData[k][month].qty += it.qty||1;
+      monthlyData[k][month].total += (it.price||0)*(it.qty||1);
+    });
+  });
+
+  const sortedMonths = [...allMonths].sort();
+  // Top 6 klíčů dle sumy/qty
+  const sortedKeys = [...allKeys].sort((a,b)=>{
+    const aSum = Object.values(monthlyData[a]||{}).reduce((s,v)=>s+(metric==='qty'?v.qty:v.total),0);
+    const bSum = Object.values(monthlyData[b]||{}).reduce((s,v)=>s+(metric==='qty'?v.qty:v.total),0);
+    return bSum-aSum;
+  }).slice(0,6);
+
+  if(!sortedKeys.length||!sortedMonths.length) {
+    el.innerHTML='<div style="color:var(--text3);font-size:.76rem;padding:20px;text-align:center">Žádná data pro zvolené parametry</div>';
+    return;
+  }
+
+  const COLORS=['#60a5fa','#4ade80','#f87171','#fbbf24','#a78bfa','#34d399'];
+  const BAR_W=32, GAP=6, GROUP_GAP=16;
+  const groupW = sortedKeys.length*(BAR_W+GAP)-GAP+GROUP_GAP;
+  const svgW = sortedMonths.length*groupW+60;
+  const svgH = 180;
+  const maxVal = Math.max(...sortedKeys.flatMap(k=>sortedMonths.map(m=>monthlyData[k]?.[m]?.[metric]||0)),1);
+
+  let bars='', lines='', legend='', xLabels='';
+  sortedMonths.forEach((month,mi)=>{
+    const xBase=60+mi*groupW;
+    xLabels+=`<text x="${xBase+groupW/2-GROUP_GAP/2}" y="${svgH-4}" font-size="9" text-anchor="middle" fill="var(--text3)">${month.slice(5)}</text>`;
+    sortedKeys.forEach((k,ki)=>{
+      const val=monthlyData[k]?.[month]?.[metric]||0;
+      const barH=Math.max(2,Math.round(val/maxVal*(svgH-40)));
+      const x=xBase+ki*(BAR_W+GAP);
+      const y=svgH-20-barH;
+      bars+=`<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}" fill="${COLORS[ki%6]}" rx="3" opacity=".85">
+        <title>${k}: ${metric==='qty'?val+'ks':fmt(Math.round(val))+' Kč'}</title>
+      </rect>`;
+      if(val>0) bars+=`<text x="${x+BAR_W/2}" y="${y-3}" font-size="8" text-anchor="middle" fill="var(--text2)">${metric==='qty'?val:''}</text>`;
+    });
+  });
+
+  // Čárový graf – kumulativní součet pro každý klíč
+  sortedKeys.forEach((k,ki)=>{
+    let cum=0;
+    const pts=sortedMonths.map((month,mi)=>{
+      cum+=(monthlyData[k]?.[month]?.[metric]||0);
+      const xBase=60+mi*groupW;
+      const x=xBase+ki*(BAR_W+GAP)+BAR_W/2;
+      const y=svgH-20-Math.round(cum/Math.max(maxVal*sortedMonths.length,1)*(svgH-40));
+      return `${x},${y}`;
+    });
+    if(sortedMonths.length>1) lines+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${COLORS[ki%6]}" stroke-width="1.5" stroke-dasharray="4,2" opacity=".6"/>`;
+    legend+=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${COLORS[ki%6]}"></span>${k.slice(0,12)}</span>`;
+  });
+
+  el.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${legend}</div>
+    <svg width="${svgW}" height="${svgH}" style="overflow:visible">
+      <line x1="55" y1="${svgH-20}" x2="${svgW}" y2="${svgH-20}" stroke="var(--border)" stroke-width="1"/>
+      ${bars}${lines}${xLabels}
+      <text x="10" y="${svgH/2}" font-size="9" fill="var(--text3)" transform="rotate(-90,10,${svgH/2})">${metric==='qty'?'ks':'Kč'}</text>
+    </svg>`;
 }
 
 function renderItemStatsList(topItems, allItems, D, period) {
@@ -473,54 +597,67 @@ function renderItemStatsList(topItems, allItems, D, period) {
 
   const freq = {};
   filtered.forEach(it=>{
-    const k=(it.name||'').trim(); if(k.length<2)return;
-    if(!freq[k])freq[k]={count:0,total:0,catId:it.itemCatId||'',prices:[],tag:it.tag||''};
+    const k=(it.name||'').trim().toLowerCase(); // FIX: lowercase pro dedup ROHLÍK vs Rohlík
+    if(k.length<2)return;
+    if(!freq[k])freq[k]={count:0,total:0,catId:it.itemCatId||'',prices:[],tag:it.tag||'',displayName:it.name||''};
     freq[k].count++;
+    freq[k].qty = (freq[k].qty||0) + (it.qty||1); // celkový počet kusů
     const lineTotal=(it.price||0)*(it.qty||1);
     freq[k].total+=lineTotal;
     if(it.price>0) freq[k].prices.push(it.price);
-    if(it.tag && !freq[k].tag) freq[k].tag = it.tag; // použij první dostupný tag
+    if(it.tag && !freq[k].tag) freq[k].tag = it.tag;
+    if(!freq[k].displayName || it.name?.length > freq[k].displayName.length) freq[k].displayName = it.name; // nejdelší verze názvu
   });
 
   const sorted = Object.entries(freq).sort((a,b)=>b[1].count-a[1].count).slice(0,15);
   if(!sorted.length) return '<div class="empty"><div class="et">Žádné položky za toto období</div></div>';
 
-  const COLS = '1fr 60px 90px 80px';
+  const COLS = '1fr 52px 52px 84px 72px'; // Položka | Nákupů | Kusů | Celkem | Průměr
   return `<div style="display:grid;grid-template-columns:${COLS};gap:0;border-bottom:2px solid var(--border);padding:6px 0 8px;margin-bottom:2px">
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Položka</div>
-    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Počet</div>
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Nák.</div>
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Ks</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right;padding-right:4px">Celkem</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right">Průměr</div>
   </div>` +
-  sorted.map(([name,v])=>{
+  sorted.map(([,v])=>{
+    const name = v.displayName || v.catId;
     const cat = (D.categories||[]).find(c=>c.id===v.catId);
     const icon = cat?.icon||'';
     const color = cat?.color||'var(--text3)';
     const avgPrice = v.count>0?Math.round(v.total/v.count):0;
+    const totalQty = v.qty||v.count;
     const priceTrend = v.prices.length>=2
       ? (v.prices[v.prices.length-1] > v.prices[0]
           ? `<span style="color:var(--expense);font-weight:700"> ↑</span>`
           : v.prices[v.prices.length-1] < v.prices[0]
             ? `<span style="color:var(--income);font-weight:700"> ↓</span>` : '')
       : '';
+    // Více tagů – rozdělit mezerou/čárkou
+    const tagArr = (v.tag||'').split(/[\s,]+/).filter(Boolean);
+    const tagBadges = tagArr.map(t=>`<span style="font-size:.62rem;padding:1px 5px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);border-radius:6px;color:var(--income);font-weight:600">🏷️ ${t}</span>`).join('');
     return `<div style="display:grid;grid-template-columns:${COLS};gap:0;padding:10px 0;border-bottom:1px solid var(--border);align-items:center">
-      <div style="min-width:0;padding-right:8px">
-        <div style="font-size:.88rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${name}${priceTrend}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap">
-          ${cat?`<span style="font-size:.72rem;font-weight:600;color:${color}">${cat.name}</span>`:`<span style="height:14px;display:block"></span>`}
-          ${v.tag?`<span style="font-size:.64rem;padding:1px 6px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);border-radius:8px;color:var(--income);font-weight:600">🏷️ ${v.tag}</span>`:''}
+      <div style="min-width:0;padding-right:6px">
+        <div style="font-size:.86rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${icon} ${name}${priceTrend}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap">
+          ${cat?`<span style="font-size:.7rem;font-weight:600;color:${color}">${cat.name}</span>`:''}
+          ${tagBadges}
         </div>
       </div>
       <div style="text-align:center">
-        <div style="font-family:Syne,sans-serif;font-size:1.05rem;font-weight:800;color:var(--text)">${v.count}</div>
-        <div style="font-size:.6rem;color:var(--text3)">nákupů</div>
+        <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--text)">${v.count}</div>
+        <div style="font-size:.58rem;color:var(--text3)">nák.</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--text2)">${totalQty}</div>
+        <div style="font-size:.58rem;color:var(--text3)">ks</div>
       </div>
       <div style="text-align:right;padding-right:4px">
-        <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--expense)">${fmt(Math.round(v.total))}&nbsp;Kč</div>
+        <div style="font-family:Syne,sans-serif;font-size:.95rem;font-weight:800;color:var(--expense)">${fmt(Math.round(v.total))}&nbsp;Kč</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:.82rem;font-weight:600;color:var(--text2)">ø&nbsp;${fmt(avgPrice)}</div>
-        <div style="font-size:.6rem;color:var(--text3)">Kč/ks</div>
+        <div style="font-size:.58rem;color:var(--text3)">Kč/ks</div>
       </div>
     </div>`;
   }).join('');
