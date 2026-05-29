@@ -69,6 +69,10 @@
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      },
+      "suggestionOverrides": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth != null"
       }
     },
     "catalog": {
