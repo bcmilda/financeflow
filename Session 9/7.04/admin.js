@@ -249,6 +249,18 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.05',
+    datum: '2026-05-29',
+    zmeny: [
+      '✨ TODO-087 (S9): projects.js – Detektor úspor A) Zbytečné utrácení: detekce malých plateb (≤300 Kč) opakujících se 4× a více za měsíc. Top 3 položky s odhadem úspory 50 %.',
+      '✨ TODO-087 (S9): projects.js – Detektor úspor B) Výplata efekt: pokud ≥60 % měsíčních výdajů padne do 7 dní po první příjmové transakci → alert s % a tipem na metodu obálky.',
+      '✨ TODO-087 (S9): projects.js – Detektor úspor C) Jídlo venku: keyword match restaurace/kavárna/McDonald/KFC…, denní průměr Kč/den, odhad měsíční sumy, úspora 30 %.',
+      '✨ TODO-087 (S9): projects.js – Detektor úspor D) Zdražení: propojení s itemStats z S.receipts – porovnání cen položek za 3 měsíce, alert při zdražení >10 %, odkaz do Analýza účtenek → Zdražování.',
+      '✨ TODO-087 (S9): projects.js – catColor rozšířen o nové barvy (oranžová/fialová/červená), analyzesList rozšířen na 10 položek.',
+      '✨ TODO-087 (S9): projects.js – odkaz "Analýza účtenek → Zdražování" v info sekci Detektoru.',
+    ]
+  },
+  {
     verze: 'v7.04',
     datum: '2026-05-29',
     zmeny: [
@@ -2340,6 +2352,9 @@ async function _renderKomunitaImpl(el) {
   // Pouze výdaje (žádné příjmy ani převody)
   const myExpTxs = myTxs.filter(t => t.type === 'expense' && !t.isBalancing);
   const myExp = myExpTxs.reduce((a,t)=>a+Math.abs(t.amount||t.amt||0),0);
+  const myIncome = incSum(myTxs);
+  const myBaseIncome = computeBaseIncome(D) || myIncome || 1;
+  const mySaving = myBaseIncome > 0 ? Math.round((myBaseIncome - myExp) / myBaseIncome * 100) : 0;
 
   // Načti komunitní data z Firebase pro zvolený měsíc
   let communityData = null;
