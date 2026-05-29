@@ -1508,12 +1508,13 @@ function renderDetektor() {
         if (cat.includes('Bankovní')) return '#fbbf24';
         if (cat.includes('Telefon')) return '#34d399';
         if (cat.includes('Refinancování')) return '#f87171';
-        if (cat.includes('Zbytečné')) return '#fb923c';   // oranžová
-        if (cat.includes('Výplata')) return '#e879f9';    // fialová
-        if (cat.includes('Jídlo')) return '#f97316';      // oranžovočervená
-        if (cat.includes('Zdražení')) return '#ef4444';   // červená
+        if (cat.includes('Zbytečné')) return '#fb923c';
+        if (cat.includes('Výplata')) return '#e879f9';
+        if (cat.includes('Jídlo')) return '#f97316';
+        if (cat.includes('Zdražení')) return '#ef4444';
         return '#94a3b8';
       };
+      const sevLabel = s => s==='high'?'🔴 Vysoká':s==='mid'?'🟡 Střední':'🟢 Nízká';
       return suggestions.sort((a,b)=>b.saving-a.saving).map(s=>{
         const col = catColor(s.category);
         return `
