@@ -7,19 +7,19 @@ const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||
 // receipts.js má vlastní kopii COICOP_GROUPS_DEF – při konfliktu má přednost tato (helpers.js se načítá dříve).
 if(typeof COICOP_GROUPS_DEF === 'undefined'){
   window.COICOP_GROUPS_DEF = [
-    {id:1,  name:'Potraviny a nealk. nápoje',  icon:'🛒', color:'#4ade80', avg_osoba:3300, avg_domacnost:7800},
-    {id:2,  name:'Alkohol a tabák',             icon:'🍺', color:'#f59e0b', avg_osoba:310,  avg_domacnost:730},
-    {id:3,  name:'Oblečení a obuv',             icon:'👗', color:'#f472b6', avg_osoba:400,  avg_domacnost:940},
-    {id:4,  name:'Bydlení a energie',           icon:'🏠', color:'#60a5fa', avg_osoba:4000, avg_domacnost:9500},
-    {id:5,  name:'Vybavení domácnosti',         icon:'🛋️', color:'#a78bfa', avg_osoba:500,  avg_domacnost:1200},
-    {id:6,  name:'Zdraví',                      icon:'💊', color:'#f87171', avg_osoba:500,  avg_domacnost:1100},
-    {id:7,  name:'Doprava',                     icon:'🚗', color:'#fb923c', avg_osoba:1800, avg_domacnost:4200},
-    {id:8,  name:'Komunikace',                  icon:'📱', color:'#34d399', avg_osoba:350,  avg_domacnost:820},
-    {id:9,  name:'Rekreace a kultura',          icon:'🎭', color:'#e879f9', avg_osoba:1100, avg_domacnost:2600},
-    {id:10, name:'Vzdělávání',                  icon:'📚', color:'#2dd4bf', avg_osoba:150,  avg_domacnost:350},
-    {id:11, name:'Restaurace a ubytování',      icon:'🍽️', color:'#facc15', avg_osoba:600,  avg_domacnost:1400},
-    {id:12, name:'Ostatní zboží a služby',      icon:'💼', color:'#94a3b8', avg_osoba:400,  avg_domacnost:950},
-    {id:13, name:'Transfery a ostatní',         icon:'↔️', color:'#cbd5e1', avg_osoba:200,  avg_domacnost:470},
+    {id:1,  name:'Potraviny a nealkoholické nápoje',     icon:'🛒', color:'#4ade80', avg_osoba:3300, avg_domacnost:7920},
+    {id:2,  name:'Alkoholické nápoje, tabák',            icon:'🍺', color:'#f59e0b', avg_osoba:620,  avg_domacnost:1490},
+    {id:3,  name:'Odívání a obuv',                       icon:'👗', color:'#f472b6', avg_osoba:700,  avg_domacnost:1680},
+    {id:4,  name:'Bydlení, voda, energie, paliva',       icon:'🏠', color:'#60a5fa', avg_osoba:5200, avg_domacnost:12480},
+    {id:5,  name:'Vybavení domácnosti, údržba',          icon:'🛋️', color:'#a78bfa', avg_osoba:1100, avg_domacnost:2640},
+    {id:6,  name:'Zdraví',                               icon:'💊', color:'#f87171', avg_osoba:900,  avg_domacnost:2160},
+    {id:7,  name:'Doprava',                              icon:'🚗', color:'#fb923c', avg_osoba:2400, avg_domacnost:5760},
+    {id:8,  name:'Informace a komunikace',               icon:'📱', color:'#34d399', avg_osoba:750,  avg_domacnost:1800},
+    {id:9,  name:'Rekreace, sport a kultura',            icon:'🎭', color:'#e879f9', avg_osoba:1900, avg_domacnost:4560},
+    {id:10, name:'Vzdělávání',                           icon:'📚', color:'#2dd4bf', avg_osoba:250,  avg_domacnost:600},
+    {id:11, name:'Stravování a ubytování',               icon:'🍽️', color:'#facc15', avg_osoba:1500, avg_domacnost:3600},
+    {id:12, name:'Pojištění a finanční služby',          icon:'🛡️', color:'#94a3b8', avg_osoba:900,  avg_domacnost:2160},
+    {id:13, name:'Osobní péče, sociální ochrana, různé', icon:'🧴', color:'#cbd5e1', avg_osoba:1100, avg_domacnost:2640},
   ];
 }
 
