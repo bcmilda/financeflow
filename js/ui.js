@@ -476,7 +476,7 @@ function bTipHide(){const el=document.getElementById('_bubbleTip');if(el)el.styl
 // absolutní px+padding) → bubliny nepřetékají z viewBoxu (řeší OPEN-031).
 // Přidány tooltipy (hover) + 📎 sponka uvnitř kategorie, která obsahuje sdílenou subkat.
 function bCluster(cats,totalAll,SHARED,W,body){
-  const H=300, maxV=cats[0].total;
+  const H=420, maxV=cats[0].total;
   // Relativní pozice 0–1; pak dopočítáme skutečný bounding box vč. satelitů a
   // roztáhneme viewBox, aby nic nepřetékalo (řeší trvalý problém přetékání).
   const POS=[{x:.20,y:.28},{x:.52,y:.18},{x:.82,y:.30},{x:.16,y:.70},{x:.50,y:.76},{x:.84,y:.68},{x:.34,y:.50},{x:.67,y:.50}];
@@ -492,24 +492,24 @@ function bCluster(cats,totalAll,SHARED,W,body){
   cats.forEach((cat,i)=>{
     const p=POS[i]||{x:.5,y:.5};
     const cx=Math.round(p.x*W), cy=Math.round(p.y*H);
-    const cr=Math.max(24,Math.min(46,Math.round(24+(cat.total/maxV)*22)));
+    const cr=Math.max(34,Math.min(60,Math.round(34+(cat.total/maxV)*26)));
     const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
     const hasShared=cat.subs.some(s=>SHARED.has(s.name));
     const catTip=`<b>${cat.icon||''} ${cat.name}</b><br>${fmt(cat.total)} Kč<br><span style='color:${cat.color}'>${Math.round(cat.total/totalAll*100)} % výdajů</span>${hasShared?'<br>📎 obsahuje sdílený prvek':''}`;
-    track(cx,cy,cr+6);
+    track(cx,cy,cr+8);
 
     cat.subs.forEach((sub,j)=>{
-      const sr=Math.max(10,Math.min(17,Math.round(10+(sub.val/maxSub)*7)));
+      const sr=Math.max(16,Math.min(26,Math.round(16+(sub.val/maxSub)*10)));
       const a=(cat.subs.length===1)?-Math.PI/2:((j/cat.subs.length)*Math.PI*2-Math.PI/2);
-      const dist=cr+sr+8;
+      const dist=cr+sr+10;
       const sx=Math.round(cx+Math.cos(a)*dist), sy=Math.round(cy+Math.sin(a)*dist);
       const isS=SHARED.has(sub.name);
       track(sx,sy,sr+4);
       const subTip=`<b>${sub.name}</b><br>${fmt(sub.val)} Kč<br><span style='color:${cat.color}'>${cat.name}</span>${isS?' · 🔗 sdílené':''}`;
       lines+=`<line x1="${Math.round(cx+Math.cos(a)*cr)}" y1="${Math.round(cy+Math.sin(a)*cr)}" x2="${Math.round(sx-Math.cos(a)*sr)}" y2="${Math.round(sy-Math.sin(a)*sr)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
       circles+=`<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${bRgba(isS?'#8b9bc0':cat.color,.18)}" stroke="${isS?'#8b9bc0':cat.color}" stroke-width="${isS?2:1.2}" ${isS?'stroke-dasharray="4,2"':''} style="cursor:pointer" onmouseenter="bTip(this,'${bEsc(subTip)}')" onmouseleave="bTip(this,'')"/>`;
-      if(isS) circles+=`<text x="${sx}" y="${sy-sr-1}" text-anchor="middle" font-size="9" pointer-events="none">📎</text>`;
-      circles+=`<text x="${sx}" y="${sy+2.5}" text-anchor="middle" font-size="5.5" fill="${isS?'#c2c7dc':bRgba(cat.color,.8)}" pointer-events="none">${sub.name.slice(0,9)}</text>`;
+      if(isS) circles+=`<text x="${sx}" y="${sy-sr-2}" text-anchor="middle" font-size="12" pointer-events="none">📎</text>`;
+      circles+=`<text x="${sx}" y="${sy+3}" text-anchor="middle" font-size="8" fill="${isS?'#c2c7dc':bRgba(cat.color,.9)}" pointer-events="none">${sub.name.slice(0,10)}</text>`;
     });
 
     circles+=`<circle cx="${cx}" cy="${cy}" r="${cr}" fill="url(#cg${i})" stroke="${cat.color}" stroke-width="2.5" style="cursor:pointer" onclick="bubbleDrillL2('${cat.id}');bubbleTab('B')" onmouseenter="bTip(this,'${bEsc(catTip)}')" onmouseleave="bTip(this,'')"/>`;

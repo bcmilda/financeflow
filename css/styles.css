@@ -384,7 +384,17 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 #splitItemsList input[type=number]::-webkit-inner-spin-button,
 #splitItemsList input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 #splitItemsList input[type=number]{-moz-appearance:textfield}
-.tx-filt-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+.tx-filt-btn{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:#1a1d27;font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+/* Session 10: responzivní stat-karty v Komunitním přehledu – na mobilu se 3 karty
+   nevešly a text se ořezával (tři tečky). 1 sloupec na úzkém displeji. */
+.community-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.community-stat-grid .stat-value{font-size:1.15rem;white-space:normal;overflow:visible;text-overflow:clip}
+.community-stat-grid .stat-label{white-space:normal}
+@media(max-width:640px){
+  .community-stat-grid{grid-template-columns:1fr}
+  .community-stat-grid .stat-card{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .community-stat-grid .stat-value{font-size:1.25rem}
+}
 .tx-filt-btn:hover{background:var(--surface3);color:var(--text)}
 .tx-filt-btn.active{background:var(--income-bg);border-color:rgba(74,222,128,.4);color:var(--income);font-weight:600}
 .tx-filt-select{flex:1;min-width:120px;padding:5px 8px!important;font-size:.78rem!important}
