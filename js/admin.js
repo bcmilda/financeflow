@@ -244,6 +244,16 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.18',
+    datum: '2026-05-31',
+    zmeny: [
+      '🔧 S10: settings.js – tlačítko „Uložit nastavení" přesunuto hned pod sekci Složení domácnosti (přehlednější, dříve bylo až úplně dole).',
+      '⬇️ S10: admin.js – karty Příjem/Výdaje/Úspory ČR přesunuty POD souhrn Moje výdaje/ČSÚ/Nezařazeno; font sjednocen (Syne, jako souhrnné karty).',
+      'ℹ️ S10: admin.js – popisek režimu „Domácnost" upřesněn: rodinný souhrn (sčítání výdajů obou partnerů přes sdílený odkaz) je zatím v přípravě – „Moje výdaje" jsou nyní jen tvoje.',
+      '🔗 S10: admin.js – přidán odkaz „👥 Sdílení & partneři →" (goToSharing scrolluje na sekci sdílení v „O aplikaci").',
+    ]
+  },
+  {
     verze: 'v7.17',
     datum: '2026-05-31',
     zmeny: [
@@ -2490,6 +2500,19 @@ function goToHouseholdSettings(){
     }
   }, 250);
 }
+// Session 10: přejdi na sdílení (sekce shareSection v „O aplikaci").
+function goToSharing(){
+  if(typeof showPage==='function') showPage('oAplikaci');
+  setTimeout(()=>{
+    const el=document.getElementById('shareSection');
+    if(el){
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.style.transition='box-shadow .3s';
+      el.style.boxShadow='0 0 0 2px var(--income)';
+      setTimeout(()=>{ el.style.boxShadow=''; }, 1800);
+    }
+  }, 300);
+}
 
 async function renderKomunita() {
   const el = document.getElementById('komunitaContent'); if(!el) return;
@@ -2641,30 +2664,6 @@ async function _renderKomunitaImpl(el) {
             <span style="font-size:.7rem;color:var(--text3)">${modeLabel}</span>
           </div>
           <div class="card-body">
-            <!-- Klíčové metriky ČR (nahoře pod hlavičkou Moje výdaje dle COICOP) -->
-            <div class="community-stat-grid" style="margin-bottom:14px">
-              <div class="stat-card income">
-                <div class="stat-label">Průměrný příjem ČR</div>
-                <div class="stat-value up">${fmt(CSU.avgIncome)} Kč</div>
-                <div class="stat-sub" style="color:${myBaseIncome>CSU.avgIncome?'var(--income)':'var(--expense)'}">
-                  Vy: ${fmt(Math.round(myBaseIncome))} Kč ${myBaseIncome>CSU.avgIncome?'↑ nad':'↓ pod'} průměrem
-                </div>
-              </div>
-              <div class="stat-card expense">
-                <div class="stat-label">Průměrné výdaje ČR</div>
-                <div class="stat-value down">${fmt(CSU.avgExp)} Kč</div>
-                <div class="stat-sub" style="color:${myExp<CSU.avgExp?'var(--income)':'var(--expense)'}">
-                  Vy: ${fmt(Math.round(myExp))} Kč ${myExp<CSU.avgExp?'✅ méně':'⚠️ více'}
-                </div>
-              </div>
-              <div class="stat-card balance">
-                <div class="stat-label">Průměrné úspory ČR</div>
-                <div class="stat-value">${CSU.savingRate}%</div>
-                <div class="stat-sub" style="color:${mySaving>CSU.savingRate?'var(--income)':'var(--expense)'}">
-                  Vy: ${mySaving}% ${mySaving>CSU.savingRate?'↑ nad':'↓ pod'} průměrem
-                </div>
-              </div>
-            </div>
             <!-- Session 10: přepínač osoba/domácnost -->
             <div style="display:flex;gap:3px;background:var(--surface2);border-radius:9px;padding:3px;margin-bottom:8px">
               <button class="tx-filt-btn" onclick="setCsuMode('osoba')" style="flex:1;${_csuMode==='osoba'?'background:var(--income-bg);color:var(--income);font-weight:700':''}">👤 Já (osoba)</button>
@@ -2673,10 +2672,11 @@ async function _renderKomunitaImpl(el) {
             <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px;line-height:1.5;padding:0 2px">
               ${_csuMode==='osoba'
                 ? '👤 <strong>Já (osoba)</strong>: porovnání tvých výdajů s průměrem ČSÚ na <strong>1 osobu</strong>. Vyber, pokud appku používáš sám/sama.'
-                : `🏠 <strong>Domácnost</strong>: ČSÚ průměr přepočtený na složení tvé domácnosti (OECD ekvivalent <strong>${oecd.toFixed(2).replace('.',',')}×</strong>). Vyber, pokud vede rozpočet celá rodina – ideálně když appku sdílí oba partneři.`}
+                : `🏠 <strong>Domácnost</strong>: ČSÚ průměr přepočtený na složení tvé domácnosti (OECD ekvivalent <strong>${oecd.toFixed(2).replace('.',',')}×</strong>). Vyber, pokud rozpočet vede celá rodina. <em>Pozn.: zobrazené „Moje výdaje" jsou zatím jen tvoje – společný rodinný souhrn (sčítání výdajů obou partnerů přes sdílený odkaz) je v přípravě.</em>`}
             </div>
-            <div style="margin-bottom:12px">
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
               <button class="tx-filt-btn" onclick="goToHouseholdSettings()" style="font-size:.72rem">⚙️ Nastavení složení domácnosti →</button>
+              <button class="tx-filt-btn" onclick="goToSharing()" style="font-size:.72rem">👥 Sdílení &amp; partneři →</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
               <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
@@ -2690,6 +2690,30 @@ async function _renderKomunitaImpl(el) {
               <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
                 <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:${unassignedPct>20?'var(--expense)':'var(--text)'}">${unassignedPct}%</div>
                 <div style="font-size:.68rem;color:var(--text3)">Nezařazeno</div>
+              </div>
+            </div>
+            <!-- Klíčové metriky ČR (přesunuto pod COICOP souhrn; font sjednocen se souhrnem) -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px" class="csu-cr-grid">
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+                <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Průměrný příjem ČR</div>
+                <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:var(--income)">${fmt(CSU.avgIncome)} Kč</div>
+                <div style="font-size:.66rem;margin-top:3px;color:${myBaseIncome>CSU.avgIncome?'var(--income)':'var(--expense)'}">
+                  Vy: ${fmt(Math.round(myBaseIncome))} Kč ${myBaseIncome>CSU.avgIncome?'↑ nad':'↓ pod'} průměrem
+                </div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+                <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Průměrné výdaje ČR</div>
+                <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:var(--expense)">${fmt(CSU.avgExp)} Kč</div>
+                <div style="font-size:.66rem;margin-top:3px;color:${myExp<CSU.avgExp?'var(--income)':'var(--expense)'}">
+                  Vy: ${fmt(Math.round(myExp))} Kč ${myExp<CSU.avgExp?'✅ méně':'⚠️ více'}
+                </div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:10px;border:1px solid var(--border)">
+                <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Průměrné úspory ČR</div>
+                <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:var(--bank)">${CSU.savingRate}%</div>
+                <div style="font-size:.66rem;margin-top:3px;color:${mySaving>CSU.savingRate?'var(--income)':'var(--expense)'}">
+                  Vy: ${mySaving}% ${mySaving>CSU.savingRate?'↑ nad':'↓ pod'} průměrem
+                </div>
               </div>
             </div>
             ${unassigned > 0 ? `<div style="padding:6px 10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:.74rem;color:var(--text2);margin-bottom:10px">

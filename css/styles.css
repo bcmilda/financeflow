@@ -394,6 +394,7 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
   .community-stat-grid{grid-template-columns:1fr}
   .community-stat-grid .stat-card{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .community-stat-grid .stat-value{font-size:1.25rem}
+  .csu-cr-grid{grid-template-columns:1fr!important}
 }
 .tx-filt-btn:hover{background:var(--surface3);color:var(--text)}
 .tx-filt-btn.active{background:var(--income-bg);border-color:rgba(74,222,128,.4);color:var(--income);font-weight:600}

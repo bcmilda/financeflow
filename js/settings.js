@@ -456,6 +456,13 @@ function renderSettingsPage() {
           </div>
         </div>
       </div>
+      <!-- Session 10: tlačítko Uložit hned pod Složení domácnosti -->
+      <div style="padding:12px 14px 4px">
+        <button class="btn btn-accent" onclick="saveSettingsBtn()" style="width:100%;padding:13px;font-size:.9rem">
+          💾 Uložit nastavení
+        </button>
+        <div id="settingsSaveHint" style="display:none;text-align:center;font-size:.74rem;color:var(--text3);margin-top:8px">Máš neuložené změny</div>
+      </div>
     </div>
 
     <!-- ── ZABEZPEČENÍ ── -->
@@ -557,17 +564,9 @@ function renderSettingsPage() {
         Odhlásit se
       </button>
     </div>
-
-    <!-- Session 10: normální (neplovoucí) tlačítko Uložit, vždy viditelné na konci -->
-    <div style="padding:16px 0 24px">
-      <button class="btn btn-accent" onclick="saveSettingsBtn()" style="width:100%;padding:13px;font-size:.9rem">
-        💾 Uložit nastavení
-      </button>
-      <div id="settingsSaveHint" style="display:none;text-align:center;font-size:.74rem;color:var(--text3);margin-top:8px">Máš neuložené změny</div>
-    </div>
   `;
 
-  // Zobraz hint po změně (tlačítko je vždy viditelné)
+  // Zobraz hint po změně (tlačítko je u sekce Složení domácnosti)
   document.querySelectorAll('#settingsPageContent select, #settingsPageContent input[type=number]')
     .forEach(el => el.addEventListener('change', showSettingsSaveBar));
 }
