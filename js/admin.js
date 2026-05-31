@@ -72,10 +72,6 @@ async function renderAdmin() {
           <div id="adminUsersList"><div class="empty"><div class="et">⏳ Klikni na 🔄 pro načtení seznamu</div></div></div>
         </div>
       </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">🔗 Affiliate</span></div>
-        <div id="adminAffiliateStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
-      </div>
     </div>
 
     <!-- KEYWORD ENGINE -->
@@ -223,7 +219,6 @@ async function renderAdmin() {
   // Obnov aktivní záložku – zabrání resetu při změně měsíce
   switchAdminTab(_activeTab, document.getElementById('atab-'+_activeTab));
   loadUserStats();
-  loadAffiliateStats();
   loadKeywords();
 }
 
@@ -248,6 +243,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v7.17',
+    datum: '2026-05-31',
+    zmeny: [
+      '⬆️ S10: admin.js – karty Příjem/Výdaje/Úspory ČR nyní SKUTEČNĚ nahoře, hned pod hlavičkou „Moje výdaje dle COICOP" (dříve byly omylem až pod tabulkou).',
+      'ℹ️ S10: admin.js – přepínač Já/Domácnost má vysvětlující popisek: „Já" = na 1 osobu (sám/sama), „Domácnost" = OECD ekvivalent rodiny (ideálně když appku sdílí oba partneři).',
+      '📊 S10: admin.js – ČSÚ tabulka má nově 2 sloupce domácnosti: „Domácnost ČR (2,4 os)" + „Tvoje dom. (OECD dle nastavení)" – přepočet reaguje na počet dospělých a dětí (např. 1+3, 3+3).',
+      '🔽 S10: admin.js + helpers.js – rozklikávací strom doplněn o 3. úroveň (třídy COICOP): oddíl → skupina → třída. Nová mapa COICOP_CLASSES.',
+      '🗑️ S10: admin.js – odstraněno duplicitní pole „Affiliate" z Admin panelu (nefunkční, řešeno jinde).',
+    ]
+  },
   {
     verze: 'v7.16',
     datum: '2026-05-30',
@@ -2468,7 +2474,9 @@ let _csuMode = 'domacnost';
 function setCsuMode(m){ _csuMode = m; if(typeof renderKomunita==='function') renderKomunita(); }
 // rozklikávání oddílů v ČSÚ tabulce (zobrazení skupin 2. úrovně)
 const _csuExpanded = new Set();
+const _csuExpGroup = new Set(); // Session 10: rozbalené skupiny (3. úroveň – třídy)
 function csuToggleDiv(id){ id=parseInt(id); if(_csuExpanded.has(id))_csuExpanded.delete(id); else _csuExpanded.add(id); if(typeof renderKomunita==='function') renderKomunita(); }
+function csuToggleGroup(code){ if(_csuExpGroup.has(code))_csuExpGroup.delete(code); else _csuExpGroup.add(code); if(typeof renderKomunita==='function') renderKomunita(); }
 // Session 10: přejdi do Nastavení a odscrolluj přímo na Složení domácnosti + zvýrazni.
 function goToHouseholdSettings(){
   if(typeof showPage==='function') showPage('nastaveni');
@@ -2633,10 +2641,39 @@ async function _renderKomunitaImpl(el) {
             <span style="font-size:.7rem;color:var(--text3)">${modeLabel}</span>
           </div>
           <div class="card-body">
+            <!-- Klíčové metriky ČR (nahoře pod hlavičkou Moje výdaje dle COICOP) -->
+            <div class="community-stat-grid" style="margin-bottom:14px">
+              <div class="stat-card income">
+                <div class="stat-label">Průměrný příjem ČR</div>
+                <div class="stat-value up">${fmt(CSU.avgIncome)} Kč</div>
+                <div class="stat-sub" style="color:${myBaseIncome>CSU.avgIncome?'var(--income)':'var(--expense)'}">
+                  Vy: ${fmt(Math.round(myBaseIncome))} Kč ${myBaseIncome>CSU.avgIncome?'↑ nad':'↓ pod'} průměrem
+                </div>
+              </div>
+              <div class="stat-card expense">
+                <div class="stat-label">Průměrné výdaje ČR</div>
+                <div class="stat-value down">${fmt(CSU.avgExp)} Kč</div>
+                <div class="stat-sub" style="color:${myExp<CSU.avgExp?'var(--income)':'var(--expense)'}">
+                  Vy: ${fmt(Math.round(myExp))} Kč ${myExp<CSU.avgExp?'✅ méně':'⚠️ více'}
+                </div>
+              </div>
+              <div class="stat-card balance">
+                <div class="stat-label">Průměrné úspory ČR</div>
+                <div class="stat-value">${CSU.savingRate}%</div>
+                <div class="stat-sub" style="color:${mySaving>CSU.savingRate?'var(--income)':'var(--expense)'}">
+                  Vy: ${mySaving}% ${mySaving>CSU.savingRate?'↑ nad':'↓ pod'} průměrem
+                </div>
+              </div>
+            </div>
             <!-- Session 10: přepínač osoba/domácnost -->
             <div style="display:flex;gap:3px;background:var(--surface2);border-radius:9px;padding:3px;margin-bottom:8px">
               <button class="tx-filt-btn" onclick="setCsuMode('osoba')" style="flex:1;${_csuMode==='osoba'?'background:var(--income-bg);color:var(--income);font-weight:700':''}">👤 Já (osoba)</button>
               <button class="tx-filt-btn" onclick="setCsuMode('domacnost')" style="flex:1;${_csuMode==='domacnost'?'background:var(--income-bg);color:var(--income);font-weight:700':''}">🏠 Domácnost</button>
+            </div>
+            <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px;line-height:1.5;padding:0 2px">
+              ${_csuMode==='osoba'
+                ? '👤 <strong>Já (osoba)</strong>: porovnání tvých výdajů s průměrem ČSÚ na <strong>1 osobu</strong>. Vyber, pokud appku používáš sám/sama.'
+                : `🏠 <strong>Domácnost</strong>: ČSÚ průměr přepočtený na složení tvé domácnosti (OECD ekvivalent <strong>${oecd.toFixed(2).replace('.',',')}×</strong>). Vyber, pokud vede rozpočet celá rodina – ideálně když appku sdílí oba partneři.`}
             </div>
             <div style="margin-bottom:12px">
               <button class="tx-filt-btn" onclick="goToHouseholdSettings()" style="font-size:.72rem">⚙️ Nastavení složení domácnosti →</button>
@@ -2666,31 +2703,6 @@ async function _renderKomunitaImpl(el) {
 
     <!-- TAB: ČSÚ -->
     <div id="ktab-csu-content" style="display:block">
-      <!-- Klíčové metriky ČR (přesunuto nahoru pod Moje výdaje dle COICOP) -->
-      <div class="community-stat-grid">
-        <div class="stat-card income">
-          <div class="stat-label">Průměrný příjem ČR</div>
-          <div class="stat-value up">${fmt(CSU.avgIncome)} Kč</div>
-          <div class="stat-sub" style="color:${myBaseIncome>CSU.avgIncome?'var(--income)':'var(--expense)'}">
-            Vy: ${fmt(Math.round(myBaseIncome))} Kč ${myBaseIncome>CSU.avgIncome?'↑ nad':'↓ pod'} průměrem
-          </div>
-        </div>
-        <div class="stat-card expense">
-          <div class="stat-label">Průměrné výdaje ČR</div>
-          <div class="stat-value down">${fmt(CSU.avgExp)} Kč</div>
-          <div class="stat-sub" style="color:${myExp<CSU.avgExp?'var(--income)':'var(--expense)'}">
-            Vy: ${fmt(Math.round(myExp))} Kč ${myExp<CSU.avgExp?'✅ méně':'⚠️ více'}
-          </div>
-        </div>
-        <div class="stat-card balance">
-          <div class="stat-label">Průměrné úspory ČR</div>
-          <div class="stat-value">${CSU.savingRate}%</div>
-          <div class="stat-sub" style="color:${mySaving>CSU.savingRate?'var(--income)':'var(--expense)'}">
-            Vy: ${mySaving}% ${mySaving>CSU.savingRate?'↑ nad':'↓ pod'} průměrem
-          </div>
-        </div>
-      </div>
-
       <!-- Zdroj info -->
       <div style="background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;color:var(--text2);border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <span>📋 Zdroj: <strong>Český statistický úřad</strong> – Statistika rodinných účtů ${CSU.year}</span>
@@ -2709,8 +2721,9 @@ async function _renderKomunitaImpl(el) {
               <thead><tr style="color:var(--text3);text-align:left">
                 <th style="padding:6px 8px">Oddíl</th>
                 <th style="padding:6px 8px;text-align:right">Osoba/měs</th>
-                <th style="padding:6px 8px;text-align:right">Domácnost/měs*</th>
-                <th style="padding:6px 8px;text-align:right">% výdajů</th>
+                <th style="padding:6px 8px;text-align:right">Domácnost ČR<br><span style="font-weight:400">(2,4 os)</span></th>
+                <th style="padding:6px 8px;text-align:right;color:var(--income)">Tvoje dom.<br><span style="font-weight:400">(OECD ${(() => { const e=(typeof calcOECD==='function')?calcOECD(_settings?.household_adults||2,_settings?.household_ch013||0,_settings?.household_ch14||0):1.5; return e.toFixed(2).replace('.',','); })()}×)</span></th>
+                <th style="padding:6px 8px;text-align:right">%</th>
               </tr></thead>
               <tbody>
                 ${(() => {
@@ -2719,31 +2732,52 @@ async function _renderKomunitaImpl(el) {
                     ? calcOECD(_settings?.household_adults||2, _settings?.household_ch013||0, _settings?.household_ch14||0) : 1.5;
                   const totOs = G.reduce((a,g)=>a+(g.avg_osoba||0),0);
                   let html = G.map(g=>{
-                    const os=g.avg_osoba||0, dom=Math.round(os*oecd2);
+                    const os=g.avg_osoba||0;
+                    const domCR=Math.round(os*2.4);        // průměrná ČR domácnost
+                    const domMine=Math.round(os*oecd2);    // tvoje domácnost dle nastavení
                     const subs=g.groups||[];
                     const hasSubs=subs.length>0;
                     const exp=_csuExpanded.has(g.id);
                     let row=`<tr style="border-top:1px solid var(--border)${hasSubs?';cursor:pointer':''}" ${hasSubs?`onclick="csuToggleDiv(${g.id})"`:''}>
                       <td style="padding:6px 8px">${hasSubs?`<span style="display:inline-block;width:12px;color:var(--text3)">${exp?'▾':'▸'}</span>`:'<span style="display:inline-block;width:12px"></span>'}<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${g.color};color:#000;font-size:.58rem;font-weight:800;margin:0 6px">${g.id}</span>${g.icon} ${g.name}</td>
                       <td style="padding:6px 8px;text-align:right;font-weight:600">${fmt(os)}</td>
-                      <td style="padding:6px 8px;text-align:right;color:var(--bank);font-weight:600">${fmt(dom)}</td>
+                      <td style="padding:6px 8px;text-align:right;color:var(--text3)">${fmt(domCR)}</td>
+                      <td style="padding:6px 8px;text-align:right;color:var(--income);font-weight:600">${fmt(domMine)}</td>
                       <td style="padding:6px 8px;text-align:right;color:var(--text3)">${totOs?Math.round(os/totOs*100):0}%</td>
                     </tr>`;
                     if(exp && hasSubs){
-                      row += subs.map(s=>`<tr style="background:var(--surface2);font-size:.68rem">
-                        <td style="padding:3px 8px 3px 38px;color:var(--text2)">${s}</td>
-                        <td style="padding:3px 8px;text-align:right;color:var(--text3)">—</td>
-                        <td style="padding:3px 8px;text-align:right;color:var(--text3)">—</td>
-                        <td style="padding:3px 8px"></td>
-                      </tr>`).join('');
+                      row += subs.map(s=>{
+                        const code=s.split(' ')[0]; // např. "01.1"
+                        const classes=(window.COICOP_CLASSES||{})[code]||[];
+                        const hasC=classes.length>0;
+                        const gExp=_csuExpGroup.has(code);
+                        let grow=`<tr style="background:var(--surface2);font-size:.68rem${hasC?';cursor:pointer':''}" ${hasC?`onclick="csuToggleGroup('${code}')"`:''}>
+                          <td style="padding:3px 8px 3px 30px;color:var(--text2)">${hasC?`<span style="display:inline-block;width:10px;color:var(--text3)">${gExp?'▾':'▸'}</span> `:'<span style="display:inline-block;width:10px"></span> '}${s}</td>
+                          <td style="padding:3px 8px;text-align:right;color:var(--text3)">—</td>
+                          <td style="padding:3px 8px;text-align:right;color:var(--text3)">—</td>
+                          <td style="padding:3px 8px;text-align:right;color:var(--text3)">—</td>
+                          <td style="padding:3px 8px"></td>
+                        </tr>`;
+                        if(gExp && hasC){
+                          grow += classes.map(cl=>`<tr style="background:var(--surface);font-size:.64rem">
+                            <td style="padding:2px 8px 2px 52px;color:var(--text3)">${cl}</td>
+                            <td style="padding:2px 8px;text-align:right;color:var(--text3)">—</td>
+                            <td style="padding:2px 8px;text-align:right;color:var(--text3)">—</td>
+                            <td style="padding:2px 8px;text-align:right;color:var(--text3)">—</td>
+                            <td style="padding:2px 8px"></td>
+                          </tr>`).join('');
+                        }
+                        return grow;
+                      }).join('');
                     }
                     return row;
                   }).join('');
-                  const totDom=Math.round(totOs*oecd2);
+                  const totDomCR=Math.round(totOs*2.4), totDomMine=Math.round(totOs*oecd2);
                   html += `<tr style="border-top:2px solid var(--border2);font-weight:800">
                     <td style="padding:7px 8px">Celkem</td>
                     <td style="padding:7px 8px;text-align:right">${fmt(totOs)}</td>
-                    <td style="padding:7px 8px;text-align:right;color:var(--bank)">${fmt(totDom)}</td>
+                    <td style="padding:7px 8px;text-align:right;color:var(--text3)">${fmt(totDomCR)}</td>
+                    <td style="padding:7px 8px;text-align:right;color:var(--income)">${fmt(totDomMine)}</td>
                     <td style="padding:7px 8px;text-align:right">100%</td>
                   </tr>`;
                   return html;
@@ -2752,7 +2786,10 @@ async function _renderKomunitaImpl(el) {
             </table>
           </div>
           <div style="font-size:.7rem;color:var(--text3);padding:8px;background:var(--surface2);border-radius:8px;margin-top:10px;line-height:1.6">
-            ℹ️ Klikni na oddíl pro rozbalení skupin (2. úroveň COICOP). ČSÚ publikuje výdaje <strong>na osobu</strong>. *Domácnost = osoba × OECD ekvivalent tvé domácnosti (např. 2 dospělí = 1,5×; nastav v ⚙️ Nastavení). Pozn.: „průměrná česká domácnost" má 2,4 osoby, ale pro férové srovnání se používá ekvivalent <em>tvé</em> domácnosti. Zdroj: SRÚ ${CSU.year}, czso.gov.cz – hodnoty jsou kalibrovaný odhad.
+            ℹ️ Klikni na oddíl → rozbalí skupiny (2. úroveň), klikni na skupinu → rozbalí třídy (3. úroveň COICOP). ČSÚ publikuje výdaje <strong>na osobu</strong>.<br>
+            • <strong>Domácnost ČR (2,4 os)</strong> = osoba × 2,4 (statisticky průměrná česká domácnost).<br>
+            • <strong>Tvoje dom.</strong> = osoba × OECD ekvivalent <em>tvé</em> domácnosti z Nastavení (1. dospělý = 1,0; další dospělý = 0,5; dítě 14+ = 0,5; dítě 0–13 = 0,3). Např. 1 dospělý + 3 děti, nebo 2 dospělí, atd. – přepočet se mění podle toho, co zadáš.<br>
+            Zdroj: SRÚ ${CSU.year}, czso.gov.cz – hodnoty jsou kalibrovaný odhad.
           </div>
         </div>
       </div>
