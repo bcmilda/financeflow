@@ -137,6 +137,13 @@
       "$entry": {
         ".validate": "newData.hasChildren(['email','message','date'])"
       }
+    },
+    "announcements": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$id": {
+        ".validate": "newData.hasChildren(['title','text','type','createdAt'])"
+      }
     }
   }
 }
