@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bubble – Kategorie + Podkategorie</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --border: rgba(255,255,255,0.07);
+    --text1: #f0f2f8;
+    --text2: #8b93b0;
+  }
+  body { background: var(--bg); color: var(--text1); font-family: 'DM Sans', system-ui, sans-serif; padding: 20px 16px; min-height: 100vh; }
+  h1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; background: linear-gradient(135deg, #6c8eff, #ff6b8a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .sub { color: var(--text2); font-size: .8rem; margin-bottom: 20px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+
+  svg { width: 100%; overflow: visible; }
+
+  .tooltip {
+    position: fixed; background: #1e2335; border: 1px solid rgba(255,255,255,.12);
+    border-radius: 8px; padding: 8px 12px; font-size: .78rem;
+    pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 100;
+  }
+  .tooltip.show { opacity: 1; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: .75rem; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .hint { font-size: .75rem; color: var(--text2); margin-top: 12px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Kategorie + Podkategorie</h1>
+<p class="sub">Velká bublina = kategorie &nbsp;·&nbsp; Malé bubliny = podkategorie (překrývají se s rodičem)</p>
+
+<div class="card">
+  <svg id="svg" height="480"></svg>
+  <p class="hint">Hover pro detail · Malé bubliny patří k nejbližší velké bublině stejné barvy</p>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DATA = [
+  {
+    name: 'Bydlení', amount: 18500, color: '#6c8eff',
+    sub: [
+      { name: 'Nájem', amount: 12000 },
+      { name: 'Energie', amount: 4200 },
+      { name: 'Internet', amount: 800 },
+      { name: 'Pojištění', amount: 1500 },
+    ]
+  },
+  {
+    name: 'Jídlo', amount: 9200, color: '#ff6b8a',
+    sub: [
+      { name: 'Supermarket', amount: 5800 },
+      { name: 'Ovoce & Zelenina', amount: 1400 },
+      { name: 'Pečivo', amount: 900 },
+      { name: 'Bio potraviny', amount: 1100 },
+    ]
+  },
+  {
+    name: 'Doprava', amount: 4800, color: '#ffd166',
+    sub: [
+      { name: 'Pohonné hmoty', amount: 2200 },
+      { name: 'MHD', amount: 550 },
+      { name: 'Parkování', amount: 800 },
+      { name: 'Servis auta', amount: 1250 },
+    ]
+  },
+  {
+    name: 'Restaurace', amount: 2900, color: '#06d6a0',
+    sub: [
+      { name: 'Obědy', amount: 1400 },
+      { name: 'Večeře', amount: 900 },
+      { name: 'Káva', amount: 600 },
+    ]
+  },
+  {
+    name: 'Zábava', amount: 2100, color: '#ff9f43',
+    sub: [
+      { name: 'Streaming', amount: 650 },
+      { name: 'Kino & Kultura', amount: 900 },
+      { name: 'Hry', amount: 550 },
+    ]
+  },
+  {
+    name: 'Zdraví', amount: 3200, color: '#a29bfe',
+    sub: [
+      { name: 'Lékárna', amount: 1200 },
+      { name: 'Lékař', amount: 800 },
+      { name: 'Sport', amount: 1200 },
+    ]
+  },
+];
+
+const fmt = n => n.toLocaleString('cs-CZ') + ' Kč';
+const total = DATA.reduce((s,c) => s + c.amount, 0);
+
+const tooltip = document.getElementById('tooltip');
+function showTip(e, html) { tooltip.innerHTML = html; tooltip.classList.add('show'); }
+function moveTip(e) { tooltip.style.left = (e.clientX+14)+'px'; tooltip.style.top=(e.clientY-10)+'px'; }
+function hideTip() { tooltip.classList.remove('show'); }
+document.addEventListener('mousemove', moveTip);
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+function colorWithAlpha(hex, a) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function lighten(hex, amt=40) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+}
+
+function buildBubbles() {
+  const svg = document.getElementById('svg');
+  const W = svg.getBoundingClientRect().width || 340;
+  const H = 480;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const maxAmt = Math.max(...DATA.map(c=>c.amount));
+  const MIN_R = 36, MAX_R = 72;
+
+  // Rozložení center hlavních kategorií – rozmístěné aby měly prostor pro satelity
+  const centers = [
+    {x: W*0.25, y: H*0.25},
+    {x: W*0.75, y: H*0.22},
+    {x: W*0.50, y: H*0.52},
+    {x: W*0.20, y: H*0.72},
+    {x: W*0.80, y: H*0.70},
+    {x: W*0.55, y: H*0.88},
+  ];
+
+  let html = '';
+
+  DATA.forEach((cat, ci) => {
+    const R = MIN_R + (cat.amount / maxAmt) * (MAX_R - MIN_R);
+    const cx = centers[ci].x;
+    const cy = centers[ci].y;
+    const maxSub = Math.max(...cat.sub.map(s=>s.amount));
+    const subCount = cat.sub.length;
+
+    // Podkategorie rovnoměrně rozmístěné KOLEM rodiče po kružnici
+    cat.sub.forEach((sub, si) => {
+      const subR = 14 + (sub.amount / maxSub) * 20;
+      // Úhel: rovnoměrně rozložit, začít nahoře (-90°)
+      const angle = (si / subCount) * Math.PI * 2 - Math.PI / 2;
+      // Vzdálenost středu podkategorie od středu rodiče
+      const dist = R + subR * 0.6 + 8;
+      const sx = cx + Math.cos(angle) * dist;
+      const sy = cy + Math.sin(angle) * dist;
+      const pct = Math.round(sub.amount / cat.amount * 100);
+
+      // Spojovací linka
+      html += `<line
+        x1="${cx + Math.cos(angle) * R}" y1="${cy + Math.sin(angle) * R}"
+        x2="${sx - Math.cos(angle) * subR * 0.5}" y2="${sy - Math.sin(angle) * subR * 0.5}"
+        stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity="0.4"
+      />`;
+
+      // Bublina podkategorie
+      html += `<circle
+        cx="${sx}" cy="${sy}" r="${subR}"
+        fill="${colorWithAlpha(cat.color, 0.2)}"
+        stroke="${cat.color}"
+        stroke-width="1.5"
+        style="cursor:pointer"
+        onmouseenter="showTip(event,'<b>${sub.name}</b><br><span style=color:${cat.color}>${cat.name}</span><br>${fmt(sub.amount)} · ${pct} % kategorie')"
+        onmouseleave="hideTip()"
+      />`;
+
+      // Label podkategorie
+      html += `<text x="${sx}" y="${sy - 4}" text-anchor="middle" dominant-baseline="middle"
+        fill="${lighten(cat.color, 50)}" font-size="${Math.min(8, subR*0.4)}"
+        font-family="DM Sans,sans-serif" pointer-events="none">
+        ${sub.name.split(' ')[0]}
+      </text>
+      <text x="${sx}" y="${sy + 6}" text-anchor="middle" dominant-baseline="middle"
+        fill="${colorWithAlpha(cat.color, 0.7)}" font-size="${Math.min(7, subR*0.36)}"
+        font-family="DM Sans,sans-serif" pointer-events="none">
+        ${(sub.amount/1000).toFixed(1)}k
+      </text>`;
+    });
+
+    // Hlavní kategorie bublina (kreslíme NAD podkategoriemi)
+    html += `<circle
+      cx="${cx}" cy="${cy}" r="${R}"
+      fill="${colorWithAlpha(cat.color, 0.18)}"
+      stroke="${cat.color}"
+      stroke-width="2.5"
+      style="cursor:pointer"
+      onmouseenter="showTip(event,'<b>${cat.name}</b><br>${fmt(cat.amount)}<br>${Math.round(cat.amount/total*100)} % z celku<br><span style=color:var(--text2);font-size:.7rem>${cat.sub.length} podkategorií</span>')"
+      onmouseleave="hideTip()"
+    />`;
+
+    html += `
+      <text x="${cx}" y="${cy - 7}" text-anchor="middle"
+        fill="${cat.color}" font-size="${Math.max(10, R*0.22)}" font-weight="700"
+        font-family="DM Sans,sans-serif" pointer-events="none">
+        ${cat.name}
+      </text>
+      <text x="${cx}" y="${cy + 9}" text-anchor="middle"
+        fill="${colorWithAlpha(cat.color, 0.85)}" font-size="${Math.max(9, R*0.18)}"
+        font-family="DM Sans,sans-serif" pointer-events="none">
+        ${(cat.amount/1000).toFixed(1)}k
+      </text>`;
+  });
+
+  svg.innerHTML = html;
+
+  document.getElementById('legend').innerHTML = DATA.map(c => `
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${c.color}"></div>
+      <span style="color:var(--text1)">${c.name}</span>
+      <span style="color:var(--text2);font-size:.7rem">(${c.sub.length} subkat.)</span>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>
+
+<script>
+buildBubbles();
+window.addEventListener('resize', buildBubbles);
+</script>
