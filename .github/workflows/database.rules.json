@@ -142,7 +142,16 @@
       ".read": "auth != null",
       ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$id": {
-        ".validate": "newData.hasChildren(['title','text','type','createdAt'])"
+        ".validate": "newData.hasChildren(['title','type','createdAt'])"
+      }
+    },
+    "poll_votes": {
+      ".read": "auth != null",
+      "$pollId": {
+        "$uid": {
+          ".write": "auth.uid === $uid",
+          ".validate": "newData.isNumber()"
+        }
       }
     }
   }
