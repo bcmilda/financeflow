@@ -170,6 +170,142 @@ function renderStats(){
     if(debts>0)html+=`<div class="insight-item warn"><div class="insight-icon">💰</div><div class="insight-text">Celkový dluh: <strong>${fmt(debts)}</strong></div></div>`;
     iEl.innerHTML=html||'<div class="empty"><div class="et">Přidej transakce</div></div>';
   }
+  renderChordDiagram(); // Session 11 – tok výdajů
+}
+
+// ══════════════════════════════════════════════════════
+//  CHORD DIAGRAM – tok výdajů (Session 11)
+//  Kruhový diagram vztahů mezi TOP N kategoriemi výdajů.
+//  Arky = podíl kategorie na celku; struny spojují kategorie,
+//  tloušťka = geometrický průměr obou kategorií → velké
+//  struny mezi dominantními kategoriemi.
+// ══════════════════════════════════════════════════════
+function renderChordDiagram() {
+  const el = document.getElementById('statChord');
+  if (!el) return;
+  const D = getData();
+
+  // Sběr dat dle aktuálního režimu (month / year / all)
+  const catDefs = (D.categories||[]).filter(c => !c.parentId && (c.type==='expense'||c.type==='both'));
+  const items = catDefs.map(c => {
+    let amt = 0;
+    if (_statCatMode === 'month') {
+      amt = getActual(c.id, null, S.curMonth, S.curYear, D);
+    } else if (_statCatMode === 'year') {
+      for (let m = 0; m < 12; m++) amt += getActual(c.id, null, m, S.curYear, D);
+    } else {
+      const pm = S.curMonth, py = S.curYear;
+      amt = (D.transactions||[]).filter(t => t.catId === c.id && (t.amount||t.amt||0) < 0)
+               .reduce((a, t) => a + Math.abs(t.amount||t.amt||0), 0);
+    }
+    return { id: c.id, name: c.name||c.id, amount: amt, color: c.color||'#60a5fa' };
+  }).filter(x => x.amount > 0).sort((a,b) => b.amount - a.amount).slice(0, 8);
+
+  if (items.length < 2) {
+    el.innerHTML = '<div class="empty"><div class="ei">🎭</div><div class="et">Pro chord diagram přidej výdaje alespoň do 2 kategorií</div></div>';
+    return;
+  }
+
+  const total = items.reduce((a, x) => a + x.amount, 0);
+  const N = items.length;
+  const W = Math.min(400, window.innerWidth - 32);
+  const cx = W / 2, cy = W / 2;
+  const Rout = W * 0.40;   // vnější poloměr arky
+  const Rin  = W * 0.30;   // vnitřní poloměr (úpony strun)
+  const GAP  = 0.05;       // mezera mezi segmenty (rad)
+
+  const totalSpan = Math.PI * 2 - GAP * N;
+  let cur = -Math.PI / 2;  // začátek nahoře
+
+  // Přiřaď úhly každému segmentu
+  const segs = items.map(it => {
+    const span = (it.amount / total) * totalSpan;
+    const s = cur, e = cur + span;
+    cur = e + GAP;
+    return { ...it, s, e, mid: (s + e) / 2, span };
+  });
+
+  const pt = (a, r) => [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  const co = ([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`;
+
+  // Hex → rgba helper
+  function withAlpha(hex, a) {
+    const h = hex.replace('#','');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  let svg = '';
+
+  // ── 1) Struny (chords) ──────────────────────────────
+  // Přidělení šířky struny na každém arku: seřadíme partnery,
+  // každý dostane proporcionální výřez z vnitřní hrany arku.
+  for (let i = 0; i < N; i++) {
+    for (let j = i + 1; j < N; j++) {
+      const si = segs[i], sj = segs[j];
+      // šířka struny na arku i = (ai/total)*span_i ale max 85% span
+      const wi = Math.min(si.span * 0.85, (sj.amount / total) * si.span * 3.5);
+      const wj = Math.min(sj.span * 0.85, (si.amount / total) * sj.span * 3.5);
+      const ai1 = si.mid - wi / 2, ai2 = si.mid + wi / 2;
+      const aj1 = sj.mid - wj / 2, aj2 = sj.mid + wj / 2;
+      const Pi1 = pt(ai1, Rin), Pi2 = pt(ai2, Rin);
+      const Pj1 = pt(aj1, Rin), Pj2 = pt(aj2, Rin);
+      const col = withAlpha(si.color, 0.40);
+      const stroke = withAlpha(si.color, 0.15);
+      // Cesta: arc i → bezier do arc j → arc j zpět → bezier zpět
+      const d = [
+        `M${co(Pi1)}`,
+        `A${Rin.toFixed(1)},${Rin.toFixed(1)} 0 0 1 ${co(Pi2)}`,
+        `Q${cx},${cy} ${co(Pj2)}`,
+        `A${Rin.toFixed(1)},${Rin.toFixed(1)} 0 0 0 ${co(Pj1)}`,
+        `Q${cx},${cy} ${co(Pi1)}Z`,
+      ].join(' ');
+      svg += `<path d="${d}" fill="${col}" stroke="${stroke}" stroke-width="0.5">
+        <title>${si.name} ↔ ${sj.name}\n${si.name}: ${Math.round(si.amount/total*100)}%  ${sj.name}: ${Math.round(sj.amount/total*100)}%</title></path>`;
+    }
+  }
+
+  // ── 2) Arky (segmenty) ──────────────────────────────
+  for (const s of segs) {
+    const [ox1,oy1] = pt(s.s, Rout), [ox2,oy2] = pt(s.e, Rout);
+    const [ix1,iy1] = pt(s.s, Rin),  [ix2,iy2] = pt(s.e, Rin);
+    const lf = s.span > Math.PI ? 1 : 0;
+    const d = [
+      `M${ix1.toFixed(1)},${iy1.toFixed(1)}`,
+      `A${Rin.toFixed(1)},${Rin.toFixed(1)} 0 ${lf} 1 ${ix2.toFixed(1)},${iy2.toFixed(1)}`,
+      `L${ox2.toFixed(1)},${oy2.toFixed(1)}`,
+      `A${Rout.toFixed(1)},${Rout.toFixed(1)} 0 ${lf} 0 ${ox1.toFixed(1)},${oy1.toFixed(1)}Z`,
+    ].join(' ');
+    svg += `<path d="${d}" fill="${s.color}" opacity="0.92">
+      <title>${s.name}: ${typeof fmt==='function'?fmt(s.amount):s.amount} Kč (${Math.round(s.amount/total*100)}%)</title></path>`;
+  }
+
+  // ── 3) Popisky ──────────────────────────────────────
+  for (const s of segs) {
+    const [lx, ly] = pt(s.mid, Rout + W * 0.06);
+    const anchor = Math.cos(s.mid) < -0.05 ? 'end' : Math.cos(s.mid) > 0.05 ? 'start' : 'middle';
+    const pct = Math.round(s.amount / total * 100);
+    const name = s.name.length > 9 ? s.name.slice(0, 8) + '…' : s.name;
+    const fs1 = Math.max(9, W * 0.031), fs2 = Math.max(8, W * 0.026);
+    svg += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle"
+        style="font-size:${fs1}px;fill:#c2c7da;font-weight:600;font-family:sans-serif">${name}</text>
+      <text x="${lx.toFixed(1)}" y="${(ly + fs1 + 1).toFixed(1)}" text-anchor="${anchor}"
+        style="font-size:${fs2}px;fill:${s.color};font-family:sans-serif">${pct}%</text>`;
+  }
+
+  // ── 4) Střed: celková suma ──────────────────────────
+  svg += `<text x="${cx}" y="${cy - 8}" text-anchor="middle" style="font-size:${W*0.038}px;fill:#c2c7da;font-family:sans-serif">Celkem</text>
+    <text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:${W*0.048}px;fill:var(--text);font-weight:700;font-family:sans-serif">${typeof fmt==='function'?fmt(total):'—'}</text>
+    <text x="${cx}" y="${cy + 14 + W*0.042}" text-anchor="middle" style="font-size:${W*0.03}px;fill:#a8aec8;font-family:sans-serif">Kč</text>`;
+
+  const pad = W * 0.18;
+  el.innerHTML = `<svg viewBox="${-pad} ${-pad} ${W+2*pad} ${W+2*pad}" width="100%"
+    style="max-width:${W+2*pad}px;display:block;margin:0 auto;overflow:visible">${svg}</svg>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px">
+      ${segs.map(s=>`<span style="display:flex;align-items:center;gap:5px;font-size:.74rem;color:#c2c7da">
+        <span style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></span>${s.name} ${Math.round(s.amount/total*100)}%
+      </span>`).join('')}
+    </div>`;
 }
 
 // ══════════════════════════════════════════════════════
