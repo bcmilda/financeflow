@@ -261,30 +261,99 @@ function saveLocal() {
   } catch(e) { console.error('LocalStorage save error:', e); }
 }
 
-// ── Session 11: Lokální snapshot pro PLNÝ OFFLINE ──────────
-// RTDB web SDK nemá diskovou persistenci, takže si data cacheujeme sami.
-// Snapshot se ukládá při každé změně/načtení; při offline cold startu se z něj
-// aplikace nahydratuje (uživatel vidí poslední známá data).
-function _snapshotKey() {
-  return window._currentUser ? ('ff_snapshot_' + window._currentUser.uid) : null;
-}
-function saveSnapshot() {
-  const key = _snapshotKey(); if (!key) return;
-  try {
-    const s = {
-      transactions: S.transactions || [], debts: S.debts || [], categories: S.categories || [],
-      bank: S.bank || {startBalance:0}, birthdays: S.birthdays || [], wishes: S.wishes || [],
-      wallets: S.wallets || [], payTypes: S.payTypes || [], sablony: S.sablony || [],
-      projects: S.projects || [], receipts: S.receipts || [], nakupList: S.nakupList || [],
-      assets: S.assets || [], shareSettings: S.shareSettings || {}, _savedAt: Date.now(),
+// ── Session 11: Lokální snapshot → IndexedDB (ff_snapshot_db) ──────────────
+// IndexedDB nemá limit ~5 MB jako localStorage → vhodné pro velká S.
+// Jedna DB, jeden store `snapshots`, klíč = uid. Nezávislé na offline-sync.js.
+// Fallback: localStorage (migrace starých dat + záloha při IDB chybě).
+let _snapDB = null;
+
+function _openSnapDB() {
+  if (_snapDB) return _snapDB;
+  _snapDB = new Promise((resolve, reject) => {
+    const req = indexedDB.open('ff_snapshot_db', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('snapshots'))
+        db.createObjectStore('snapshots', { keyPath: 'uid' });
     };
-    localStorage.setItem(key, JSON.stringify(s));
-  } catch (e) { /* QuotaExceeded apod. – snapshot přeskočíme */ }
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => { _snapDB = null; reject(e.target.error); };
+  });
+  return _snapDB;
 }
-function loadSnapshot() {
-  const key = _snapshotKey(); if (!key) return null;
-  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
-  catch (e) { return null; }
+
+async function saveSnapshot() {
+  if (!window._currentUser) return;
+  const uid = window._currentUser.uid;
+  try {
+    const data = {
+      transactions:  S.transactions  || [], debts:      S.debts        || [],
+      categories:    S.categories    || [], bank:       S.bank         || {startBalance:0},
+      birthdays:     S.birthdays     || [], wishes:     S.wishes       || [],
+      wallets:       S.wallets       || [], payTypes:   S.payTypes     || [],
+      sablony:       S.sablony       || [], projects:   S.projects     || [],
+      receipts:      S.receipts      || [], nakupList:  S.nakupList    || [],
+      assets:        S.assets        || [], shareSettings: S.shareSettings || {},
+      _savedAt: Date.now(),
+    };
+    const db = await _openSnapDB();
+    await new Promise((res, rej) => {
+      const tx = db.transaction('snapshots', 'readwrite');
+      tx.objectStore('snapshots').put({ uid, data });
+      tx.oncomplete = res;
+      tx.onerror = e => rej(e.target.error);
+    });
+    // Migrace: smaž starý localStorage snapshot → uvolní místo (jednou)
+    try { localStorage.removeItem('ff_snapshot_' + uid); } catch (_) {}
+  } catch (e) {
+    // IDB selhalo → záchranný fallback na localStorage
+    try {
+      const s = {transactions:S.transactions||[],debts:S.debts||[],categories:S.categories||[],
+                 bank:S.bank||{startBalance:0},birthdays:S.birthdays||[],wishes:S.wishes||[],
+                 wallets:S.wallets||[],payTypes:S.payTypes||[],sablony:S.sablony||[],
+                 projects:S.projects||[],receipts:S.receipts||[],nakupList:S.nakupList||[],
+                 assets:S.assets||[],shareSettings:S.shareSettings||{},_savedAt:Date.now()};
+      localStorage.setItem('ff_snapshot_' + uid, JSON.stringify(s));
+    } catch (_) {}
+  }
+}
+
+async function loadSnapshot() {
+  if (!window._currentUser) return null;
+  const uid = window._currentUser.uid;
+  try {
+    const db = await _openSnapDB();
+    const row = await new Promise((res, rej) => {
+      const req = db.transaction('snapshots', 'readonly').objectStore('snapshots').get(uid);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+    if (row && row.data) return row.data;
+
+    // Žádný IDB záznam – zkus migrovat ze starého localStorage snapshotu
+    const lsKey = 'ff_snapshot_' + uid;
+    const old = localStorage.getItem(lsKey);
+    if (old) {
+      const parsed = JSON.parse(old);
+      // Zapiš do IDB a smaž z localStorage (jednosměrná migrace)
+      const db2 = await _openSnapDB();
+      await new Promise((res, rej) => {
+        const tx = db2.transaction('snapshots', 'readwrite');
+        tx.objectStore('snapshots').put({ uid, data: parsed });
+        tx.oncomplete = res;
+        tx.onerror    = e => rej(e.target.error);
+      });
+      try { localStorage.removeItem(lsKey); } catch (_) {}
+      return parsed;
+    }
+    return null;
+  } catch (e) {
+    // IDB nedostupná (soukromé okno v Safari apod.) → fallback na localStorage
+    try {
+      const r = localStorage.getItem('ff_snapshot_' + uid);
+      return r ? JSON.parse(r) : null;
+    } catch (_) { return null; }
+  }
 }
 
 function updateLocalBadge() {
@@ -441,7 +510,7 @@ window.onUserSignedIn = async function(user) {
 
   if (!navigator.onLine || getErr) {
     // OFFLINE / síťová chyba → nahydratuj z posledního lokálního snapshotu
-    const local = loadSnapshot();
+    const local = await loadSnapshot();
     if (local) {
       S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[],assets:[]}, local);
       S.curMonth = new Date().getMonth();
