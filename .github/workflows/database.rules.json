@@ -153,6 +153,13 @@
           ".validate": "newData.isNumber()"
         }
       }
+    },
+    "push_subs": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$key": {
+        ".write": "auth != null",
+        ".validate": "newData.child('uid').val() === auth.uid"
+      }
     }
   }
 }
