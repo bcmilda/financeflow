@@ -278,6 +278,21 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.56',
+    datum: '2026-06-07',
+    zmeny: [
+      '📄 S11: Přestrukturování pro financeflow.cz – landing page (landing_v4.html) nasazena jako homepage (index.html). Appka přesunuta na /app (app.html). firebase.json rewrites: /app → app.html, /** → index.html (landing). manifest.json start_url → /app.',
+    ]
+  },
+  {
+    verze: 'v7.55b',
+    datum: '2026-06-07',
+    zmeny: [
+      '📄 S11: manifest.json – start_url, scope, id aktualizovány na https://financeflow.cz/',
+      '📄 S11: legal.html – URL a kontaktní email aktualizovány na financeflow.cz',
+    ]
+  },
+  {
     verze: 'v7.55',
     datum: '2026-06-06',
     zmeny: [
