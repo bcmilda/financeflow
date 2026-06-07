@@ -1237,8 +1237,10 @@ function renderDebtFreedomWidget(D) {
   if(!baseIncome || !monthlyPayments) { el.innerHTML=''; return; }
 
   const pct = Math.min(100, Math.round(monthlyPayments / baseIncome * 100));
-  const daysPerMonth = 21;
-  const daysForDebt = Math.round(daysPerMonth * pct / 100);
+  const _now = new Date();
+  const daysPerMonth = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate(); // 28–31 dle měsíce
+  const rawRatio = baseIncome > 0 ? monthlyPayments / baseIncome : 1;
+  const daysForDebt = Math.min(daysPerMonth, Math.round(daysPerMonth * rawRatio));
   const daysForSelf = daysPerMonth - daysForDebt;
   const safe = pct <= 30;
   const warning = pct > 30 && pct <= 50;
@@ -1300,7 +1302,7 @@ function renderDebtFreedomWidget(D) {
     <!-- Vizuální kalendář -->
     <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:8px">
       ${Array.from({length:daysPerMonth},(_,i)=>`
-        <div title="${i<daysForDebt?'Pro banky':'Pro tebe'}" style="width:24px;height:24px;border-radius:4px;background:${i<daysForDebt?barColor:'var(--income)'};opacity:${i<daysForDebt?'.75':'.35'};display:flex;align-items:center;justify-content:center;font-size:.58rem;color:white;font-weight:700">${i+1}</div>
+        <div title="${i<daysForDebt?'Pro banky':'Pro tebe'}" style="width:24px;height:24px;border-radius:4px;background:${i<daysForDebt?barColor:'var(--income)'};opacity:${i<daysForDebt?'.8':'.75'};display:flex;align-items:center;justify-content:center;font-size:.58rem;color:white;font-weight:700">${i+1}</div>
       `).join('')}
     </div>
     <div style="font-size:.68rem;color:var(--text3);margin-bottom:14px">
