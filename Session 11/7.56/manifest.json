@@ -2,7 +2,7 @@
   "name": "FinanceFlow",
   "short_name": "FinanceFlow",
   "description": "Rodinné finance pod kontrolou",
-  "start_url": "https://financeflow.cz/",
+  "start_url": "https://financeflow.cz/app",
   "scope": "https://financeflow.cz/",
   "id": "https://financeflow.cz/",
   "display": "standalone",
