@@ -469,18 +469,17 @@ function switchGrafTab(tab, btn) {
     const b = document.getElementById('gtab-'+t);
     if(b) b.classList.toggle('active', t===tab);
   });
-  // Skryj hlavní měsíční přepínač – Grafy mají vlastní navigaci
+  // Month-nav: viditelný jen pro Obecné (používá globální curMonth)
   const mn = document.querySelector('.month-nav');
-  if(mn) mn.style.display = 'none';
-  // Vlastní nav přepínače – měsíc (Měsíční) a rok (Roční)
+  if(mn) mn.style.display = tab==='obecne' ? '' : 'none';
+  // Vlastní navigace
   const grafMonthNav = document.getElementById('grafMonthNav');
   const grafYearNav  = document.getElementById('grafYearNav');
   if(grafMonthNav) grafMonthNav.style.display = tab==='mesicni' ? 'flex' : 'none';
   if(grafYearNav)  grafYearNav.style.display  = tab==='rocni'   ? 'flex' : 'none';
-  // Filtr: skryj v obecné
+  // grafFilterWrap: zobrazit pro mesicni+rocni; vsechny má vlastní interní filtr
   const fw = document.getElementById('grafFilterWrap');
-  if(fw) fw.style.display = (tab==='obecne') ? 'none' : 'flex';
-  // Vykresli správný obsah
+  if(fw) fw.style.display = (tab==='obecne'||tab==='vsechny') ? 'none' : 'flex';
   requestAnimationFrame(() => {
     setTimeout(() => {
       if(tab==='obecne')  renderGrafy();
@@ -561,9 +560,10 @@ function renderMesicniGraf() {
 
   const pad={l:55,r:16,t:20,b:30};
   const cW=W-pad.l-pad.r, cH=220-pad.t-pad.b;
-  const maxVal=Math.max(...daily, 1);
+  const maxCumul = cumul.length ? cumul[cumul.length-1] : 0;
+  const maxVal = Math.max(...daily, maxCumul, medVal||0, 1);
   const xf=i=>pad.l+(i+0.5)*(cW/days);
-  const yf=v=>pad.t+cH-(v/maxVal*cH);
+  const yf=v=>pad.t+cH-Math.max(0,Math.min(cH, v/maxVal*cH));
 
   // Grid
   ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;
@@ -574,17 +574,17 @@ function renderMesicniGraf() {
     ctx.fillText(fmt(Math.round(maxVal*f)),pad.l-4,y2+3);
   });
 
-  // Sloupce
+  // Sloupce (denní výdaje)
   const bW = Math.max(2, cW/days - 2);
   daily.forEach((v,i)=>{
     if(v<=0)return;
     const h=v/maxVal*cH;
-    ctx.fillStyle='rgba(96,165,250,.7)';
+    ctx.fillStyle='rgba(96,165,250,.55)';
     ctx.fillRect(xf(i)-bW/2, pad.t+cH-h, bW, h);
   });
 
-  // Kumulativní křivka
-  ctx.strokeStyle='#4ade80';ctx.lineWidth=2;ctx.setLineDash([]);
+  // Kumulativní křivka – přes všechny dny (rovně tam kde není data)
+  ctx.strokeStyle='#4ade80';ctx.lineWidth=2.5;ctx.setLineDash([]);
   ctx.beginPath();
   cumul.forEach((v,i)=>{
     const x=xf(i), y2=yf(v);
@@ -592,13 +592,27 @@ function renderMesicniGraf() {
   });
   ctx.stroke();
 
-  // Medián linie
+  // Medián linie (kompaktní label nahoře, ne přes linii)
   if(medVal>0) {
     const medY = yf(medVal);
-    ctx.strokeStyle='#f87171';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
     ctx.beginPath();ctx.moveTo(pad.l,medY);ctx.lineTo(W-pad.r,medY);ctx.stroke();
-    ctx.fillStyle='#f87171';ctx.font='10px Instrument Sans';ctx.textAlign='left';ctx.setLineDash([]);
-    ctx.fillText('Med: '+fmt(medVal)+' Kč',pad.l+4,medY-3);
+    ctx.setLineDash([]);
+  }
+
+  // Legenda (vpravo nahoře)
+  const lgx = pad.l+cW-4, lgy = pad.t+8;
+  ctx.font='9px Instrument Sans';ctx.textAlign='right';
+  ctx.fillStyle='rgba(96,165,250,.9)'; ctx.fillRect(lgx-50,lgy-6,10,8);
+  ctx.fillStyle='rgba(139,144,168,.8)'; ctx.fillText('Denní výdaje', lgx-54, lgy+1);
+  ctx.strokeStyle='#4ade80';ctx.lineWidth=2;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(lgx-50,lgy+14);ctx.lineTo(lgx-40,lgy+14);ctx.stroke();
+  ctx.fillStyle='rgba(139,144,168,.8)'; ctx.fillText('Kumulace', lgx-54, lgy+16);
+  if(medVal>0){
+    ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(lgx-50,lgy+28);ctx.lineTo(lgx-40,lgy+28);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(139,144,168,.8)'; ctx.fillText('Medián '+fmt(medVal)+' Kč', lgx-54, lgy+30);
   }
 
   // Osy X - dny
@@ -1039,8 +1053,9 @@ function renderKumulChart(days, cumul, medVal) {
     ctx.strokeStyle='#f87171'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
     ctx.beginPath(); ctx.moveTo(pad.l, medY); ctx.lineTo(W-pad.r, medY); ctx.stroke();
     ctx.setLineDash([]);
+    // Hodnota mediánu napravo od linie (ne přes graf)
     ctx.fillStyle='#f87171'; ctx.font='bold 10px Instrument Sans'; ctx.textAlign='left';
-    ctx.fillText('Medián 6 měs.: '+fmt(Math.round(medVal))+' Kč', pad.l+5, medY-4);
+    ctx.fillText(fmt(Math.round(medVal))+' Kč', W-pad.r+3, medY+3);
   }
 
   // Popisky osy X (dny)
@@ -1052,9 +1067,17 @@ function renderKumulChart(days, cumul, medVal) {
   ctx.fillText('den v měsíci', pad.l+cW/2, 180-2);
   // popisek osy Y
   ctx.save();ctx.translate(11,pad.t+cH/2);ctx.rotate(-Math.PI/2);ctx.fillStyle='#7e84a0';ctx.font='9px Instrument Sans';ctx.textAlign='center';ctx.fillText('Kč (kumulativně)',0,0);ctx.restore();
-  // legenda
-  ctx.textAlign='left';ctx.font='9px Instrument Sans';
-  ctx.strokeStyle='#4ade80';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(pad.l,8);ctx.lineTo(pad.l+14,8);ctx.stroke();ctx.fillStyle='#a8aec8';ctx.fillText('Kumulativní výdaje',pad.l+18,11);
-  ctx.strokeStyle='#f87171';ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(pad.l+128,8);ctx.lineTo(pad.l+142,8);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#a8aec8';ctx.fillText('Medián (6 měs.)',pad.l+146,11);
+  // Legenda – větší, přehledná
+  const llx = pad.l, lly = 9;
+  ctx.font='bold 11px Instrument Sans'; ctx.textAlign='left';
+  ctx.strokeStyle='#4ade80';ctx.lineWidth=2.5;ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(llx,lly);ctx.lineTo(llx+16,lly);ctx.stroke();
+  ctx.fillStyle='#c2c7da';ctx.fillText('Kumulativní výdaje',llx+20,lly+4);
+  if(medVal>0){
+    const llx2=llx+168;
+    ctx.strokeStyle='#f87171';ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(llx2,lly);ctx.lineTo(llx2+16,lly);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#f87171';ctx.fillText('Medián 6 měs.: '+fmt(Math.round(medVal))+' Kč',llx2+20,lly+4);
+  }
 }
 
