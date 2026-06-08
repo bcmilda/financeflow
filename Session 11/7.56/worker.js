@@ -13,6 +13,8 @@ export default {
 
     const origin = request.headers.get('Origin') || '';
     const allowedOrigins = [
+      'https://financeflow.cz',
+      'https://www.financeflow.cz',
       'https://financeflow-a249c.web.app',
       'https://financeflow-a249c.firebaseapp.com',
       'https://misty-limit-0523.bc-milda.workers.dev',
