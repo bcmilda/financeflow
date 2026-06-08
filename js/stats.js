@@ -155,19 +155,40 @@ function renderStats(){
         </div>` : ''}
       </div>`).join('') || '<div class="empty"><div class="et">Žádné výdaje v tomto období</div></div>');
   }
-  // Insights
-  let pm=S.curMonth-1,py=S.curYear;if(pm<0){pm=11;py--;}
-  const monthTotal=expCats.reduce((a,c)=>a+getActual(c.id,null,S.curMonth,S.curYear,D),0);
-  const prev=expCats.reduce((a,c)=>a+getActual(c.id,null,pm,py,D),0);
+  // Insights — mode-aware
   const iEl=document.getElementById('statInsights');
   if(iEl){
-    const diff=prev>0?Math.round((monthTotal-prev)/prev*100):null;
     let html='';
-    if(diff!==null)html+=`<div class="insight-item ${diff>5?'bad':diff<-5?'good':'warn'}"><div class="insight-icon">${diff>5?'📈':diff<-5?'📉':'↔️'}</div><div class="insight-text">Výdaje ${diff>0?'vzrostly o':'klesly o'} <strong>${Math.abs(diff)}%</strong> oproti ${CZ_M[pm]}</div></div>`;
     const bank=computeBank(D);
-    if(bank>0)html+=`<div class="insight-item good"><div class="insight-icon">🏦</div><div class="insight-text">Celkové úspory: <strong>${fmt(bank)}</strong></div></div>`;
     const debts=(D.debts||[]).reduce((a,d)=>a+d.remaining,0);
-    if(debts>0)html+=`<div class="insight-item warn"><div class="insight-icon">💰</div><div class="insight-text">Celkový dluh: <strong>${fmt(debts)}</strong></div></div>`;
+
+    if(_statCatMode==='month'){
+      let pm=S.curMonth-1,py=S.curYear;if(pm<0){pm=11;py--;}
+      const monthTotal=expCats.reduce((a,c)=>a+getActual(c.id,null,S.curMonth,S.curYear,D),0);
+      const prev=expCats.reduce((a,c)=>a+getActual(c.id,null,pm,py,D),0);
+      const diff=prev>0?Math.round((monthTotal-prev)/prev*100):null;
+      if(diff!==null)html+=`<div class="insight-item ${diff>5?'bad':diff<-5?'good':'warn'}"><div class="insight-icon">${diff>5?'📈':diff<-5?'📉':'↔️'}</div><div class="insight-text">Výdaje ${diff>0?'vzrostly o':'klesly o'} <strong>${Math.abs(diff)}%</strong> oproti ${CZ_M[pm]}</div></div>`;
+    } else if(_statCatMode==='year'){
+      const curY=_statCatYear||S.curYear;
+      const prevY=curY-1;
+      const yearTotal=expCats.reduce((a,c)=>a+statCatSum(c.id,null,D),0);
+      // Výdaje za předchozí rok
+      const prevYearTotal=(D.transactions||[]).filter(t=>new Date(t.date).getFullYear()===prevY&&t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      const diff=prevYearTotal>0?Math.round((yearTotal-prevYearTotal)/prevYearTotal*100):null;
+      if(diff!==null)html+=`<div class="insight-item ${diff>5?'bad':diff<-5?'good':'warn'}"><div class="insight-icon">${diff>5?'📈':diff<-5?'📉':'↔️'}</div><div class="insight-text">Roční výdaje ${diff>0?'vzrostly o':'klesly o'} <strong>${Math.abs(diff)}%</strong> vs. ${prevY}</div></div>`;
+      if(yearTotal>0)html+=`<div class="insight-item info"><div class="insight-icon">📅</div><div class="insight-text">Celkové výdaje ${curY}: <strong>${fmt(yearTotal)}</strong></div></div>`;
+    } else {
+      // all — celkový pohled
+      const allTotal=(D.transactions||[]).filter(t=>t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      const allIncome=(D.transactions||[]).filter(t=>t.type==='income').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      if(allTotal>0)html+=`<div class="insight-item info"><div class="insight-icon">💸</div><div class="insight-text">Celkové výdaje za vše: <strong>${fmt(allTotal)}</strong></div></div>`;
+      if(allIncome>0)html+=`<div class="insight-item good"><div class="insight-icon">💰</div><div class="insight-text">Celkové příjmy za vše: <strong>${fmt(allIncome)}</strong></div></div>`;
+      const balance=allIncome-allTotal;
+      if(allTotal>0&&allIncome>0)html+=`<div class="insight-item ${balance>=0?'good':'bad'}"><div class="insight-icon">${balance>=0?'✅':'⚠️'}</div><div class="insight-text">Celkové saldo: <strong>${balance>=0?'+':''}${fmt(balance)}</strong></div></div>`;
+    }
+
+    if(bank>0)html+=`<div class="insight-item good"><div class="insight-icon">🏦</div><div class="insight-text">Celkové úspory: <strong>${fmt(bank)}</strong></div></div>`;
+    if(debts>0)html+=`<div class="insight-item warn"><div class="insight-icon">💳</div><div class="insight-text">Celkový dluh: <strong>${fmt(debts)}</strong></div></div>`;
     iEl.innerHTML=html||'<div class="empty"><div class="et">Přidej transakce</div></div>';
   }
   renderChordDiagram(); // Session 11 – tok výdajů
@@ -194,9 +215,8 @@ function renderChordDiagram() {
     } else if (_statCatMode === 'year') {
       for (let m = 0; m < 12; m++) amt += getActual(c.id, null, m, S.curYear, D);
     } else {
-      const pm = S.curMonth, py = S.curYear;
-      amt = (D.transactions||[]).filter(t => t.catId === c.id && (t.amount||t.amt||0) < 0)
-               .reduce((a, t) => a + Math.abs(t.amount||t.amt||0), 0);
+      // FIX: použít statCatSum pro 'all' - správně prochází všechny roky/měsíce
+      amt = statCatSum(c.id, null, D);
     }
     return { id: c.id, name: c.name||c.id, amount: amt, color: c.color||'#60a5fa' };
   }).filter(x => x.amount > 0).sort((a,b) => b.amount - a.amount).slice(0, 8);

@@ -278,6 +278,14 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.58',
+    datum: '2026-06-08',
+    zmeny: [
+      '📄 S11 FIX: stats.js renderChordDiagram() – mode all: opravený filtr (byl amount<0, výdaje jsou positive s type:expense). Nyní používá statCatSum() který správně prochází všechny roky/měsíce. Chord diagram se nyní zobrazí v oddílu Vše.',
+      '📄 S11 FIX: stats.js statInsights (Postřehy) – mode-aware: Měsíc = porovnání s předchozím měsícem (jako dřív); Rok = porovnání s předchozím rokem + roční celkové výdaje; Vše = celkové výdaje/příjmy/saldo za všechna data.',
+    ]
+  },
+  {
     verze: 'v7.57',
     datum: '2026-06-08',
     zmeny: [
