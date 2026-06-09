@@ -80,8 +80,8 @@ function hexA(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,
 const getTx=(m,y,data)=>{const D=data||getData();return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d.getMonth()===(m!==undefined?m:S.curMonth)&&d.getFullYear()===(y!==undefined?y:S.curYear);});};
 // FIX-069 (Session 8): isBalancing transakce (EUR vyrovnávací úhrady) se nepočítají do příjmů/výdajů.
 // Jsou evidovány v databázi pro úplnost výpisu, ale nesmí ovlivnit finanční statistiky.
-const incSum=txs=>txs.filter(t=>t.type==='income'&&!t.isBalancing).reduce((a,t)=>a+(t.amount||t.amt||0),0);
-const expSum=txs=>txs.filter(t=>t.type==='expense'&&!t.isBalancing).reduce((a,t)=>a+(t.amount||t.amt||0),0);
+const incSum=txs=>txs.filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent).reduce((a,t)=>a+(t.amount||t.amt||0),0);
+const expSum=txs=>txs.filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent).reduce((a,t)=>a+(t.amount||t.amt||0),0);
 // FIX-073 (Session 8): getActual opraveno - čte t.amount||t.amt||0 (PDF transakce mají 'amount', starší mají 'amt').
 // Původně čteno jen t.amt → transakce z PDF importu byly ignorovány (vrátilo 0) → Treemap prázdná, výdaje chybí.
 // Také přidán isBalancing filter – vyrovnávací transakce se nezapočítávají.

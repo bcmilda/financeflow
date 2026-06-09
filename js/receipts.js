@@ -1507,17 +1507,23 @@ function deleteAllReceipts() {
 function editReceiptFromHistory(index) {
   const r = S.receipts?.[index];
   if(!r) return;
+  // FIX: reset globálního stavu (zabrání konfliktu po navigaci/překliknutí)
+  window._editReceipt = null;
 
   // Použij dedikovaný div v buildHistoryTab
   const slot = document.getElementById('rcpt_hist_'+index);
   if(slot) {
-    const isOpen = slot.style.display !== 'none';
+    const isOpen = slot.style.display !== 'none' && slot.innerHTML.trim() !== '';
+    // Zavři VŠECHNY ostatní otevřené editory (jen jeden editor naráz)
+    document.querySelectorAll('[id^="rcpt_hist_"]').forEach(s => {
+      if(s.id !== 'rcpt_hist_'+index) { s.style.display='none'; s.innerHTML=''; }
+    });
     if(isOpen) { slot.style.display = 'none'; slot.innerHTML = ''; return; }
     _lastReceiptResult = {receipt: JSON.parse(JSON.stringify(r)), n: 1, historyIndex: index};
     slot.innerHTML = buildReceiptPreviewHTML(_lastReceiptResult.receipt, 1);
     if(window._editReceipt) window._editReceipt._historyIdx = index;
     slot.style.display = 'block';
-    // FIX: synchronní volání (bez setTimeout) – zabrání race condition s Firebase re-render
+    // Synchronní volání – zabrání race condition s Firebase re-render
     initReceiptEditor();
     slot.scrollIntoView({behavior:'smooth', block:'nearest'});
     return;
@@ -2603,7 +2609,9 @@ function addReceiptAsTx(receipt) {
         // Tagy z položek (🏷️ zelené tagy)
         tags: [...new Set(group.items.map(it=>it.tag).filter(Boolean))].join(' '),
         note,
-        receiptItems: group.items.map(it=>({name:it.name, price:it.price, qty:it.qty, tag:it.tag||''})),
+        receiptItems: group.items.map(it=>({name:it.name, price:it.price, qty:it.qty, unit:it.unit||'ks', lineTotal:it.lineTotal, tag:it.tag||''})),
+        receiptDate: receipt.date || '',
+        receiptStore: receipt.store || '',
       });
 
       // Ulož mapování pro každou položku
@@ -2642,3 +2650,30 @@ function addReceiptAsTx(receipt) {
 }
 
 // ══════════════════════════════════════════════════════
+
+// Otevři konkrétní účtenku v Historii podle data+obchodu (z transakce s 📷)
+function openReceiptInHistory(date, store) {
+  showPage('uctenky');
+  setTimeout(() => {
+    const histBtn = document.getElementById('utab-history');
+    if(histBtn) switchUctenkyTab('history', histBtn);
+    setTimeout(() => {
+      // Najdi index účtenky v S.receipts podle data+obchodu
+      const idx = (S.receipts||[]).findIndex(r =>
+        (r.date||'')===date && (r.store||'').toLowerCase()===(store||'').toLowerCase());
+      if(idx >= 0) {
+        // Nastav filtr obchodu pro zúžení
+        const sf = document.getElementById('histStoreFilter');
+        if(sf && store) { sf.value = store; if(typeof filterHistory==='function') filterHistory(); }
+        // Otevři editor té účtenky + scroll
+        setTimeout(() => {
+          const row = document.querySelector(`[onclick*="editReceiptFromHistory(${idx})"]`);
+          if(row) { editReceiptFromHistory(idx); }
+          const slot = document.getElementById('rcpt_hist_'+idx);
+          if(slot) slot.scrollIntoView({behavior:'smooth', block:'center'});
+        }, 150);
+      }
+    }, 120);
+  }, 100);
+}
+window.openReceiptInHistory = openReceiptInHistory;

@@ -194,7 +194,7 @@ function renderSeasChart(year,D){
   const canvas=document.getElementById('seasChart');if(!canvas)return;
   // Reálný měsíční výdaj (průměr přes dostupné roky pro daný měsíc)
   const byMonth=Array(12).fill(0), cnt=Array(12).fill(0);
-  (D.transactions||[]).filter(t=>t.type==='expense').forEach(t=>{
+  (D.transactions||[]).filter(t=>t.type==='expense'&&!t.splitParent).forEach(t=>{
     const d=new Date(t.date);byMonth[d.getMonth()]+=(t.amount||t.amt||0);cnt[d.getMonth()]++;
   });
   // průměrný měsíční výdaj jako základ indexu

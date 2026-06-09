@@ -278,6 +278,16 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.67',
+    datum: '2026-06-09',
+    zmeny: [
+      '📄 S11 FIX: Split DOUBLE COUNTING komplexně opraven napříč aplikací. incSum/expSum (helpers.js), allExpTxs (ui.js suhrn), měsíční výdaj index (transactions.js), prevYearTotal/allTotal/allIncome (stats.js) – všude přidán filtr !t.splitParent. Split parent se nikde nezapočítává (children pokrývají sumu).',
+      '📄 S11 FIX: ui.js buildTxRow – zelené tagy z účtenky se nezobrazovaly. Příčina: addReceiptAsTx ukládá tags jako STRING, ale array check (t.tags||[]).length u stringu vrátil délku textu → .map() spadl. Opraveno na Array.isArray(t.tags) check.',
+      '📄 S11 FIX: receipts.js editReceiptFromHistory – reset window._editReceipt + zavření všech ostatních editorů před otevřením (zabrání konfliktu stavu po navigaci). isOpen check vylepšen.',
+      '📄 S11: receipts.js openReceiptInHistory() + addReceiptAsTx ukládá receiptDate/receiptStore – 📷 tlačítko v transakci nyní otevře KONKRÉTNÍ účtenku v Historii (filtr obchodu + scroll + editor).',
+    ]
+  },
+  {
     verze: 'v7.66',
     datum: '2026-06-09',
     zmeny: [

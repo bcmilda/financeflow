@@ -173,14 +173,14 @@ function renderStats(){
       const prevY=curY-1;
       const yearTotal=expCats.reduce((a,c)=>a+statCatSum(c.id,null,D),0);
       // Výdaje za předchozí rok
-      const prevYearTotal=(D.transactions||[]).filter(t=>new Date(t.date).getFullYear()===prevY&&t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      const prevYearTotal=(D.transactions||[]).filter(t=>new Date(t.date).getFullYear()===prevY&&t.type==='expense'&&!t.splitParent).reduce((a,t)=>a+(t.amount||t.amt||0),0);
       const diff=prevYearTotal>0?Math.round((yearTotal-prevYearTotal)/prevYearTotal*100):null;
       if(diff!==null)html+=`<div class="insight-item ${diff>5?'bad':diff<-5?'good':'warn'}"><div class="insight-icon">${diff>5?'📈':diff<-5?'📉':'↔️'}</div><div class="insight-text">Roční výdaje ${diff>0?'vzrostly o':'klesly o'} <strong>${Math.abs(diff)}%</strong> vs. ${prevY}</div></div>`;
       if(yearTotal>0)html+=`<div class="insight-item info"><div class="insight-icon">📅</div><div class="insight-text">Celkové výdaje ${curY}: <strong>${fmt(yearTotal)}</strong></div></div>`;
     } else {
       // all — celkový pohled
-      const allTotal=(D.transactions||[]).filter(t=>t.type==='expense').reduce((a,t)=>a+(t.amount||t.amt||0),0);
-      const allIncome=(D.transactions||[]).filter(t=>t.type==='income').reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      const allTotal=(D.transactions||[]).filter(t=>t.type==='expense'&&!t.splitParent).reduce((a,t)=>a+(t.amount||t.amt||0),0);
+      const allIncome=(D.transactions||[]).filter(t=>t.type==='income'&&!t.splitParent).reduce((a,t)=>a+(t.amount||t.amt||0),0);
       if(allTotal>0)html+=`<div class="insight-item info"><div class="insight-icon">💸</div><div class="insight-text">Celkové výdaje za vše: <strong>${fmt(allTotal)}</strong></div></div>`;
       if(allIncome>0)html+=`<div class="insight-item good"><div class="insight-icon">💰</div><div class="insight-text">Celkové příjmy za vše: <strong>${fmt(allIncome)}</strong></div></div>`;
       const balance=allIncome-allTotal;

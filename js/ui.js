@@ -797,7 +797,7 @@ function renderSouhrn(){
   // FIX-076 (Session 8): totalCur/totalPrev zahrnují VŠECHNY výdajové transakce (včetně nekategorizovaných).
   // Původně se počítalo jen přes getActual() per kategorie → transakce bez catId (PDF import) chyběly.
   const allExpTxs = m => (D.transactions||[]).filter(t=>{
-    if(t.type!=='expense'||t.isBalancing) return false;
+    if(t.type!=='expense'||t.isBalancing||t.splitParent) return false;
     const d=new Date(t.date);
     return d.getMonth()===m[0]&&d.getFullYear()===m[1];
   }).reduce((a,t)=>a+(t.amount||t.amt||0),0);
@@ -1092,9 +1092,9 @@ function buildTxRow(t, D, ro, dupMap={}) {
     <div class="tx-table-cell">
       ${customName?`<div style="font-size:.82rem;color:var(--text2)">${customName}</div>`:''}
       ${t.note?`<div style="font-size:.74rem;color:var(--text3)">📝 ${t.note}</div>`:''}
-      ${(t.tags||[]).length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${(t.tags).map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.64rem;font-weight:700">#${tag}</span>`).join('')}</div>`:''}
+      ${(Array.isArray(t.tags)&&t.tags.length)?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${(t.tags).map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.64rem;font-weight:700">#${tag}</span>`).join('')}</div>`:''}
       ${(typeof t.tags==='string'&&t.tags)?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:2px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.64rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`:''}
-      ${!customName&&!t.note&&!(t.tags||[]).length&&!t.tags?`<span style="color:var(--text3);font-size:.76rem">–</span>`:''}
+      ${!customName&&!t.note&&!(Array.isArray(t.tags)&&t.tags.length)&&!t.tags?`<span style="color:var(--text3);font-size:.76rem">–</span>`:''}
       ${typeof buildDupActions==='function' ? buildDupActions(t, dupMap, ro) : ''}
     </div>
     <div class="tx-table-cell tx-col-project">
@@ -1107,7 +1107,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     </div>
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end">
       ${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}
-      ${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();showPage('uctenky');setTimeout(()=>{const utH=document.getElementById('utab-history');if(utH)switchUctenkyTab('history',utH);},100)" style="font-size:.8rem">📷</button>`:''}
+      ${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}
       ${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}
     </div>
   </div>
