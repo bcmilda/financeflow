@@ -289,6 +289,17 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.74',
+    datum: '2026-06-10',
+    zmeny: [
+      '🐛 FIX (S12.1): app.js – DEFAULT cat42 Poplatky měla chybně coicop:12 bez overridů. Správně: rodič 13 (Ostatní služby – správní poplatky, kolky, notář…) + coicopOverrides {Bankovní poplatek: 12}. Proto u podkategorií Poplatků nebyla žádná COICOP čísla.',
+      '✅ NEW (S12.1): admin.js – audit podkategorií zahrnuje i DEFAULTNÍ suby SDÍLENÝCH kategorií bez overridu (dědění rodiče je u nich nejednoznačné) a vynechává příjmové kategorie (COICOP = spotřeba).',
+      '✅ NEW (S12.1): admin.js – COICOP selecty mají volbu „0 – mimo COICOP" (příjem/převod/spoření); 0 je platné přiřazení (nevrací se do auditu), helpers.js ho vyřadí z COICOP analýzy (nezdědí rodiče).',
+      '✅ NEW (S12.1): admin.js – 🤖 AI Rádce u každého řádku mapování: Claude přes worker navrhne oddíl 0–13 + zdůvodnění, předvyplní select, admin jen potvrdí.',
+      '📱 NEW (S12.1): styles.css – globální mobilní audit přetékání: min-width:0 pro flex/grid děti, overflow-wrap:anywhere, clamp() pro .stat-value/.stat-label/.card-title na ≤480px, max-width:100% pro img/svg/canvas.',
+    ]
+  },
+  {
     verze: 'v7.73',
     datum: '2026-06-10',
     zmeny: [
@@ -2650,13 +2661,14 @@ async function loadCustomCatsNoCoicop() {
       cats.forEach(c => {
         if(!c || !c.id || !c.name) return; // přeskočit prázdné záznamy
         if(defIds.has(c.id)) return;        // přeskočit výchozí (cat1–cat46)
-        if(!customMap[c.id]) customMap[c.id] = {name:c.name, icon:c.icon||'📦', color:c.color||'#6b7280', users:[], coicop:c.coicop||null};
+        if(c.type === 'income') return;     // S12.1: příjmové kategorie do COICOP nepatří
+        if(!customMap[c.id]) customMap[c.id] = {name:c.name, icon:c.icon||'📦', color:c.color||'#6b7280', users:[], coicop:(c.coicop!==undefined&&c.coicop!==null)?c.coicop:null};
         if(!customMap[c.id].users.includes(uid)) customMap[c.id].users.push(uid);
       });
     });
 
-    const withoutCoicop = Object.entries(customMap).filter(([,c])=>!c.coicop);
-    const withCoicop = Object.entries(customMap).filter(([,c])=>!!c.coicop);
+    const withoutCoicop = Object.entries(customMap).filter(([,c])=>c.coicop===null);
+    const withCoicop = Object.entries(customMap).filter(([,c])=>c.coicop!==null);
 
     if(!Object.keys(customMap).length){
       el.innerHTML = `<div class="card-body">
@@ -2678,15 +2690,18 @@ async function loadCustomCatsNoCoicop() {
           <span style="font-size:.7rem;color:var(--text3)">${c.users.length} už.</span>
           <select id="coicop-sel-${catId}" class="fs" style="font-size:.76rem;padding:4px 8px;width:220px">
             <option value="">— vybrat skupinu —</option>
+            <option value="0">0 – mimo COICOP (příjem/převod/spoření)</option>
             ${coicopOptions}
           </select>
+          <button class="btn btn-ghost btn-sm" onclick="aiSuggestCoicopAdmin('coicop-sel-${catId}','${c.name.replace(/'/g,"\\'")}','',this)" title="AI Rádce navrhne oddíl">🤖</button>
           <button class="btn btn-accent btn-sm" onclick="assignCoicop('${catId}','${c.name}')">Přiřadit</button>
+          <span class="ai-coicop-reason" style="flex-basis:100%;font-size:.68rem;color:var(--text3)"></span>
         </div>`).join('')}
       `:''}
       ${withCoicop.length?`
       <div style="font-size:.72rem;font-weight:700;color:var(--income);text-transform:uppercase;margin:12px 0 8px">✅ Již přiřazeno (${withCoicop.length})</div>
       ${withCoicop.map(([catId,c])=>{
-        const g=COICOP_GROUPS_DEF.find(x=>x.id===c.coicop)||{};
+        const g=c.coicop===0?{name:'mimo COICOP',color:'#7e84a0'}:(COICOP_GROUPS_DEF.find(x=>x.id===c.coicop)||{});
         return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--surface2);border-radius:8px;margin-bottom:4px">
           <span>${c.icon}</span>
           <span style="font-size:.82rem;flex:1">${c.name}</span>
@@ -2786,15 +2801,18 @@ async function loadCustomSubsNoCoicop() {
       cats = (Array.isArray(cats)?cats:Object.values(cats)).filter(Boolean);
       cats.forEach(c => {
         if(!c || !c.id || !c.name || !Array.isArray(c.subs)) return;
+        if(c.type === 'income') return; // S12.1: příjmy do COICOP (spotřeba) nepatří
         const def = defMap[c.id];
         const defOv = def?.coicopOverrides || {};
         const usrOv = c.coicopOverrides || {};
         const parentCoicop = (c.coicop!==undefined&&c.coicop!==null) ? c.coicop : (def?.coicop ?? null);
+        const isShared = !!(def?.shared || c.shared);
         c.subs.forEach(sub => {
           if(!sub || typeof sub!=='string') return;
-          if(defOv[sub]) return;                       // má default override
-          if(usrOv[sub]) { mapped.push({cat:c, sub, num:usrOv[sub]}); return; } // už domapováno
-          if(def && def.subs && def.subs.includes(sub)) return; // výchozí podkategorie bez overridu = dědí rodiče záměrně
+          if(defOv[sub] !== undefined) return;        // má default override
+          if(usrOv[sub] !== undefined && usrOv[sub] !== null) { mapped.push({cat:c, sub, num:usrOv[sub]}); return; } // domapováno (i 0)
+          // S12.1: u SDÍLENÝCH kategorií je dědění rodiče nejednoznačné → defaultní suby bez overridu TAKÉ do auditu
+          if(def && def.subs && def.subs.includes(sub) && !isShared) return;
           if(!_subFbKeyOk(sub)){ skippedBadKey++; return; }
           const key = c.id+'|'+sub;
           if(!pending[key]) pending[key] = {catId:c.id, catName:c.name, icon:c.icon||'📦', sub, parentCoicop, users:[]};
@@ -2821,15 +2839,19 @@ async function loadCustomSubsNoCoicop() {
           ${p.parentCoicop?`<span style="font-size:.68rem;color:var(--text3)" title="Bez overridu se počítá do oddílu rodiče">dědí ${p.parentCoicop}</span>`:'<span style="font-size:.68rem;color:var(--expense)">rodič bez COICOP!</span>'}
           <span style="font-size:.7rem;color:var(--text3)">${p.users.length} už.</span>
           <select id="${selId}" class="fs" style="font-size:.74rem;padding:4px 8px;width:210px">
-            <option value="">— vybrat oddíl —</option>${coicopOptions}
+            <option value="">— vybrat oddíl —</option>
+            <option value="0">0 – mimo COICOP (příjem/převod/spoření)</option>
+            ${coicopOptions}
           </select>
+          <button class="btn btn-ghost btn-sm" onclick="aiSuggestCoicopAdmin('${selId}','${p.sub.replace(/'/g,"\\'")}','${p.catName.replace(/'/g,"\\'")}',this)" title="AI Rádce navrhne oddíl">🤖</button>
           <button class="btn btn-accent btn-sm" onclick="assignSubCoicop('${p.catId}','${p.sub.replace(/'/g,"\\'")}','${selId}')">Přiřadit</button>
+          <span class="ai-coicop-reason" style="flex-basis:100%;font-size:.68rem;color:var(--text3)"></span>
         </div>`;
       }).join('')}
       ${mapped.length?`
       <div style="font-size:.72rem;font-weight:700;color:var(--income);text-transform:uppercase;margin:12px 0 8px">✅ Již domapováno (${mapped.length})</div>
       ${mapped.slice(0,30).map(m=>{
-        const g=COICOP_GROUPS_DEF.find(x=>x.id===m.num)||{};
+        const g=m.num===0?{name:'mimo COICOP',color:'#7e84a0'}:(COICOP_GROUPS_DEF.find(x=>x.id===m.num)||{});
         return `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--surface2);border-radius:8px;margin-bottom:4px;font-size:.78rem">
           <span>${m.cat.icon||'📦'}</span><span style="color:#a8aec8">${m.cat.name}</span><span style="flex:1">↳ ${m.sub}</span>
           <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${g.color||'#aaa'};color:#000;font-size:.6rem;font-weight:800">${m.num}</span>
@@ -2838,6 +2860,48 @@ async function loadCustomSubsNoCoicop() {
     </div>`;
   } catch(e) {
     el.innerHTML = `<div class="card-body" style="color:var(--expense);font-size:.8rem">Chyba: ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  S12.1: AI RÁDCE PRO COICOP MAPOVÁNÍ (admin)
+//  Navrhne oddíl 0-13 přes Claude proxy worker, předvyplní
+//  select a zobrazí zdůvodnění. Admin jen potvrdí Přiřadit.
+// ══════════════════════════════════════════════════════
+async function aiSuggestCoicopAdmin(selId, name, parentName, btn){
+  const sel = document.getElementById(selId); if(!sel) return;
+  const reasonEl = sel.parentElement?.querySelector('.ai-coicop-reason');
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.textContent='⏳'; btn.disabled=true; }
+  try {
+    const token = await window._currentUser?.getIdToken?.();
+    if(!token) throw new Error('Nepřihlášen');
+    const workerUrl = (typeof WORKER_URL !== 'undefined') ? WORKER_URL : 'https://misty-limit-0523.bc-milda.workers.dev';
+    const prompt = `Zařaď položku rodinného rozpočtu do klasifikace CZ-COICOP 2024 (oddíly 1–13).
+Položka: "${name}"${parentName?` (podkategorie kategorie "${parentName}")`:''}
+Oddíly: 1 Potraviny a nealko nápoje, 2 Alkohol a tabák, 3 Odívání a obuv, 4 Bydlení, voda, energie, 5 Vybavení a zařízení domácnosti, 6 Zdraví, 7 Doprava, 8 Informace a telekomunikace, 9 Rekreace, sport a kultura, 10 Vzdělávání, 11 Stravovací a ubytovací služby, 12 Pojištění a finanční služby, 13 Osobní péče a ostatní zboží a služby.
+Pokud položka NENÍ spotřební výdaj (příjem, vnitřní převod, spoření/investice), vrať 0.
+Odpověz POUZE JSON bez dalšího textu: {"oddil": <0-13>, "duvod": "<max 12 slov česky>"}`;
+    const res = await fetch(workerUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({ type:'chat', payload:{ messages:[{role:'user', content: prompt}] } })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    let raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
+    const i0 = raw.indexOf('{');
+    if(i0 >= 0) raw = raw.slice(i0, raw.lastIndexOf('}')+1);
+    const j = JSON.parse(raw);
+    const num = parseInt(j.oddil);
+    if(!(num >= 0 && num <= 13)) throw new Error('AI vrátilo neplatný oddíl');
+    sel.value = String(num);
+    const g = num === 0 ? {name:'mimo COICOP'} : (COICOP_GROUPS_DEF.find(x=>x.id===num)||{});
+    if(reasonEl) reasonEl.textContent = `🤖 ${num} – ${g.name||''}: ${j.duvod||''}`;
+  } catch(e) {
+    if(reasonEl) reasonEl.textContent = '🤖 Chyba: '+e.message;
+  } finally {
+    if(btn){ btn.textContent = orig || '🤖'; btn.disabled = false; }
   }
 }
 
@@ -2871,7 +2935,7 @@ async function assignSubCoicop(catId, sub, selId) {
       updated++;
     });
     await Promise.all(patches);
-    const g = COICOP_GROUPS_DEF.find(x=>x.id===num)||{};
+    const g = num===0 ? {name:'mimo COICOP'} : (COICOP_GROUPS_DEF.find(x=>x.id===num)||{});
     alert(`✅ Podkategorie „${sub}" → COICOP ${num} (${g.name||''}). Aktualizováno ${updated} uživatelů.`);
     loadCustomSubsNoCoicop();
   } catch(e) {

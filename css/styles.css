@@ -499,3 +499,22 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 .goal-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.18); }
 .nakup-tab { font-family: 'Instrument Sans', sans-serif; letter-spacing: 0; }
 .nakup-tab.active { font-weight: 700; }
+
+/* ══════════════════════════════════════════════════════
+   S12.1: MOBILNÍ AUDIT PŘETÉKÁNÍ – globální pojistky
+   Řeší 80 % případů přetékajícího textu naráz:
+   1) min-width:0 – flex/grid děti smí být užší než obsah
+   2) overflow-wrap – dlouhá slova se zalomí místo přetečení
+   3) clamp() – číselné hodnoty se zmenší, než by přetekly
+   ══════════════════════════════════════════════════════ */
+.card, .card-body, .card-header, .stat-card, .settings-item, .fg,
+.radar-stat-grid > *, [style*="display:flex"] > *, [style*="display:grid"] > * { min-width: 0; }
+.card-body, .stat-sub, .settings-item-sub, .empty, .et { overflow-wrap: anywhere; }
+img, svg, canvas { max-width: 100%; }
+@media (max-width: 480px) {
+  .stat-value { font-size: clamp(.92rem, 5.2vw, 1.35rem); }
+  .stat-card { padding: 10px 8px; }
+  .stat-label { font-size: clamp(.58rem, 2.8vw, .68rem); }
+  .card-title { font-size: clamp(.84rem, 4vw, .95rem); overflow-wrap: anywhere; }
+  .radar-stat-grid { gap: 6px !important; }
+}

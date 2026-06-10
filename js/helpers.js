@@ -261,10 +261,10 @@ function computeCoicopAggregates(txs, D) {
     }
     // FIX (S12.1): overridy přiřazené adminem/uživatelem (uložené ve Firebase) mají přednost
     const userCat = (D?.categories||[]).find(c=>c.id===catId);
-    if(userCat?.coicopOverrides && tx.subcat && userCat.coicopOverrides[tx.subcat]) {
-      coicop = userCat.coicopOverrides[tx.subcat];
+    if(userCat?.coicopOverrides && tx.subcat && userCat.coicopOverrides[tx.subcat] !== undefined && userCat.coicopOverrides[tx.subcat] !== null) {
+      coicop = userCat.coicopOverrides[tx.subcat]; // i 0 = mimo COICOP (vyřadí se níže)
     }
-    if(!coicop && userCat?.coicop) coicop = userCat.coicop;
+    else if(!coicop && userCat?.coicop) coicop = userCat.coicop;
     if(coicop && coicop >= 1 && coicop <= 13) {
       result[coicop] = (result[coicop]||0) + amt;
     } else {
