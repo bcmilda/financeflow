@@ -13,3 +13,9 @@
 **6) Frequent items** — prochází **všechny položky** ze všech účtenek (`allItems`), normalizuje názvy na lowercase, sčítá výskyty. Zobrazí položky s `count >= 2` — věci, které kupuješ opakovaně (jogurt, rohlíky, pivo…). Ukládá i průměrnou cenu a ze kterých obchodů.
 
 **Podstatné omezení:** DNA funguje jen z **ručně naskenovaných účtenek** — nemapuje se na transakce zadané jinak (import výpisu, ručně). Takže čím víc účtenek naskenuješ, tím přesnější obraz. Frequent items navíc teď skvěle ladí s novou **produktovou DB** (product-groups.json) — každá položka dostane tag automaticky, takže DNA může brzy pracovat i s COICOP skupinami, ne jen kategoriemi účtenek. To by bylo rozšíření do TODO.
+
+Hotovo — **v7.78**, 4 dotčené soubory + Playwright kit. TODO o COICOP rozšíření DNA mám zapamatované ✅.
+
+**🏪 Obchody v měsíci (tabulka)** — pro vybraný měsíc: obchod s barevným badge, počet návštěv, celková útrata, **Ø útrata na nákup** a **typický den nákupu** (nejčastější den v týdnu u daného obchodu). Top 8 dle útraty.
+
+**📈 Trend útrat dle obchodů (spojnicový graf)** — top 4 obchody za posledních 6 měsíců. K logům: skutečná loga řetězců nemáme (autorská práva + assety), tak jsem udělal **barevné badge s iniciálou ve firemní barvě** — Lidl modrý, Kaufland červený, Albert zelený, Billa žlutá… (20 známých CZ řetězců namapováno, neznámé dostanou stabilní barvu z hashe názvu). Graf má vše dle tvých pravidel: osy s Kč popisky, mřížku, legendu pod grafem, tooltip fungující myší i prstem (`attachChartTouch`), a `requestAnimationFrame` + fallback pro skrytý tab (clientWidth=0).

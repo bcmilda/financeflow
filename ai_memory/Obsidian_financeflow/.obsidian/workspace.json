@@ -51,12 +51,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Admin panel/Admin Audity.md",
+                "file": "Admin panel/Nákupní DNA.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Admin Audity"
+              "title": "Nákupní DNA"
             }
           }
         ],
@@ -224,8 +224,8 @@
   },
   "active": "887217997ec6f326",
   "lastOpenFiles": [
-    "Admin panel/Nákupní DNA.md",
     "Admin panel/Admin Audity.md",
+    "Admin panel/Nákupní DNA.md",
     "Radar/Runway.md",
     "Admin panel",
     "architecture.md",

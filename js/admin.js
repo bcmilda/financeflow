@@ -289,6 +289,31 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v7.79',
+    datum: '2026-06-11',
+    zmeny: [
+      '✅ NEW (S12.1e): app.html + firebase.js – Email + heslo přihlášení: přepínač Přihlásit/Registrovat, validace, chybové hlášky v češtině (22 kódů), reset hesla emailem, zobrazit/skrýt heslo. Nový provider neovlivňuje Google OAuth ani local mód.',
+      '🔒 SEC (S12.1e): firebase.json – bezpečnostní HTTP hlavičky (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection) + rozšířen ignore: database_rules.json, *.yml, staré dev HTML (bubble-*.html, chart-preview-*.html, ff-grafy-*.html, propojeni-*.html, landing_v4.html, lepsi-uver.html), _gitignore.',
+      '🐛 FIX (S12.1e): database_rules.json – admin_coicop_overrides validate: coicop >= 0 (bylo >= 1, blokoval přiřazení COICOP 0 = mimo COICOP); přidáno pravidlo pro /subs uzel (assignSubCoicop).',
+    ]
+  },
+  {
+    verze: 'v7.78',
+    datum: '2026-06-11',
+    zmeny: [
+      '✅ NEW (S12.1d): receipts.js – Nákupní DNA: tabulka „🏪 Obchody v měsíci" (návštěvy, celkem, Ø útrata, typický den nákupu – pro vybraný měsíc) + spojnicový graf „📈 Trend útrat dle obchodů" (top 4 obchody, 6 měsíců, osy + mřížka + Kč popisky, tooltip myš i dotyk, legenda s barevnými badgi – známé CZ řetězce mají firemní barvu: Lidl, Kaufland, Albert, Billa…).',
+      '🧪 NEW (S12.1d): playwright-kit.zip – starter testy: landing smoke, app shell bez chyb, validní manifest, KONZISTENCE VERZÍ (title=sidebar=sw.js – hlídá chybu v7.55), existence všech hashovaných JS, integrita product-groups.json. README-TESTING.md s návodem.',
+    ]
+  },
+  {
+    verze: 'v7.77',
+    datum: '2026-06-10',
+    zmeny: [
+      '⚡ PERF (S12.1c, TODO-122 Krok 1): admin.js – COICOP audity a propisování už nestahují CELOU users.json (vč. všech transakcí!). Nový helper adminFetchUserCategories(): shallow seznam UID + per-uid jen data/categories (pool 8). Přepsáno: loadCustomCatsNoCoicop, loadCustomSubsNoCoicop, assignCoicop, assignSubCoicop. Krok 2 (agregační index pro users-list a adopci) = ADR-061.',
+      '📊 DATA (S12.1c): data/scoring-config.json – bodovací tabulky Dashboardu z dashboard_body.xlsx 1:1 (S1 76 řádků, DTI 60, DSTI 41, S3 50, S4 31, bonus 13). Opraven překlep řady S1 (0.100–0.125 → 1.00–1.25), maxima dle tabulek = 290 b. Engine = ADR-060 (další session).',
+    ]
+  },
+  {
     verze: 'v7.76',
     datum: '2026-06-10',
     zmeny: [
@@ -2653,28 +2678,48 @@ async function loadCategoryAdoption() {
 }
 
 // ── TODO-081: Vlastní kategorie bez COICOP – admin přiřazení ──
+// ══════════════════════════════════════════════════════
+//  S12.1c: VÝKON ADMIN AUDITŮ – Krok 1 (TODO-122)
+//  Místo stažení CELÉ users.json (vč. všech transakcí všech
+//  uživatelů!) se stáhne shallow seznam UID a pak per-uid
+//  jen users/{uid}/data/categories (pár kB). Pool 8 souběžně.
+//  Krok 2 (agregační index uzel) = ADR-061.
+// ══════════════════════════════════════════════════════
+const ADMIN_DB_BASE = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app';
+
+async function adminFetchUserCategories(idToken){
+  const sh = await fetch(`${ADMIN_DB_BASE}/users.json?auth=${idToken}&shallow=true`);
+  if(!sh.ok) throw new Error('HTTP '+sh.status+(sh.status===403?' – chybí Firebase pravidlo pro admin čtení':''));
+  const uids = Object.keys(await sh.json() || {});
+  const out = {}; const POOL = 8;
+  for(let i = 0; i < uids.length; i += POOL){
+    await Promise.all(uids.slice(i, i+POOL).map(async uid => {
+      try {
+        const r = await fetch(`${ADMIN_DB_BASE}/users/${uid}/data/categories.json?auth=${idToken}`);
+        if(r.ok){
+          const c = await r.json();
+          if(c) out[uid] = (Array.isArray(c) ? c : Object.values(c)).filter(Boolean);
+        }
+      } catch(e) { /* uživatel bez dat – přeskočit */ }
+    }));
+  }
+  return out;
+}
+
 async function loadCustomCatsNoCoicop() {
   const el = document.getElementById('adminCustomCats'); if(!el) return;
   el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>';
   try {
     const idToken = await window._currentUser?.getIdToken?.();
     if(!idToken) throw new Error('Nejste přihlášeni');
-    const res = await fetch('https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users.json?auth='+idToken);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    if(!data) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
+    const catsByUid = await adminFetchUserCategories(idToken); // S12.1c: shallow místo celé DB
+    if(!Object.keys(catsByUid).length) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
 
     const defIds = new Set(DEFAULT_CATEGORIES.map(d=>d.id));
     const customMap = {};
     let totalUserCats = 0;
 
-    Object.entries(data).forEach(([uid, udata]) => {
-      // Kategorie mohou být pole nebo objekt s číselnými klíči
-      let cats = udata?.data?.categories;
-      if(!cats) return;
-      if(Array.isArray(cats)) cats = cats.filter(Boolean);
-      else cats = Object.values(cats).filter(Boolean);
-
+    Object.entries(catsByUid).forEach(([uid, cats]) => {
       totalUserCats += cats.length;
       cats.forEach(c => {
         if(!c || !c.id || !c.name) return; // přeskočit prázdné záznamy
@@ -2752,20 +2797,13 @@ async function assignCoicop(catId, catName) {
       {method:'PUT', body:JSON.stringify({coicop:coicopNum, name:catName, assignedAt:Date.now()})}
     );
 
-    // 2. Načti všechny uživatele a propsat COICOP do jejich kategorie
-    const usersRes = await fetch(
-      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users.json?auth=${idToken}`
-    );
-    if(!usersRes.ok) throw new Error('Nelze načíst uživatele: HTTP '+usersRes.status);
-    const usersData = await usersRes.json();
-    if(!usersData) throw new Error('Žádná uživatelská data');
+    // 2. Propsat COICOP všem uživatelům s kategorií (S12.1c: shallow + per-uid categories)
+    const catsByUid = await adminFetchUserCategories(idToken);
 
     let updatedCount = 0;
     const patches = [];
 
-    Object.entries(usersData).forEach(([uid, udata]) => {
-      const cats = Array.isArray(udata?.data?.categories)
-        ? udata.data.categories : Object.values(udata?.data?.categories||{});
+    Object.entries(catsByUid).forEach(([uid, cats]) => {
       const catIdx = cats.findIndex(c=>c.id===catId);
       if(catIdx === -1) return; // tento uživatel kategorii nemá
 
@@ -2804,19 +2842,15 @@ async function loadCustomSubsNoCoicop() {
   try {
     const idToken = await window._currentUser?.getIdToken?.();
     if(!idToken) throw new Error('Nejste přihlášeni');
-    const res = await fetch('https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users.json?auth='+idToken);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    if(!data) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
+    const catsByUid = await adminFetchUserCategories(idToken); // S12.1c: shallow místo celé DB
+    if(!Object.keys(catsByUid).length) { el.innerHTML = '<div class="card-body">Žádná data</div>'; return; }
 
     const defMap = Object.fromEntries(DEFAULT_CATEGORIES.map(d=>[d.id,d]));
     const pending = {}; // key = catId+'|'+sub
     const mapped = [];
     let skippedBadKey = 0;
 
-    Object.entries(data).forEach(([uid, udata]) => {
-      let cats = udata?.data?.categories; if(!cats) return;
-      cats = (Array.isArray(cats)?cats:Object.values(cats)).filter(Boolean);
+    Object.entries(catsByUid).forEach(([uid, cats]) => {
       cats.forEach(c => {
         if(!c || !c.id || !c.name || !Array.isArray(c.subs)) return;
         if(c.type === 'income') return; // S12.1: příjmy do COICOP (spotřeba) nepatří
@@ -2938,14 +2972,10 @@ async function assignSubCoicop(catId, sub, selId) {
     await fetch(`${base}/admin_coicop_overrides/subs/${catId}__${encodeURIComponent(sub).replace(/%/g,'_')}.json?auth=${idToken}`,
       {method:'PUT', body:JSON.stringify({catId, sub, coicop:num, assignedAt:Date.now()})});
 
-    // 2) Propsat override všem uživatelům s touto kategorií+podkategorií
-    const usersRes = await fetch(`${base}/users.json?auth=${idToken}`);
-    if(!usersRes.ok) throw new Error('HTTP '+usersRes.status);
-    const usersData = await usersRes.json() || {};
+    // 2) Propsat override všem uživatelům s touto kategorií+podkategorií (S12.1c: shallow)
+    const catsByUid = await adminFetchUserCategories(idToken);
     let updated = 0; const patches = [];
-    Object.entries(usersData).forEach(([uid, udata]) => {
-      const cats = Array.isArray(udata?.data?.categories)
-        ? udata.data.categories : Object.values(udata?.data?.categories||{});
+    Object.entries(catsByUid).forEach(([uid, cats]) => {
       const idx = cats.findIndex(c=>c && c.id===catId && Array.isArray(c.subs) && c.subs.includes(sub));
       if(idx === -1) return;
       patches.push(fetch(`${base}/users/${uid}/data/categories/${idx}/coicopOverrides/${sub}.json?auth=${idToken}`,
