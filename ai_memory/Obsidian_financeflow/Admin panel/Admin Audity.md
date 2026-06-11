@@ -1,0 +1,4 @@
+**K výkonu admin auditů — můj pohled:** Souhlasím, že teď je to pohoda, ale chci být transparentní o trajektorii: každý refresh auditu stahuje **kompletní DB včetně všech transakcí všech uživatelů** — při 100 uživatelích s historií to budou desítky MB na jedno kliknutí (pomalé + platíš Firebase egress). Rozsah opravy je naštěstí malý a **čistě admin-side, klientů se nedotkne**:
+
+- _Krok 1 (levný, ~hodina práce):_ `users.json?shallow=true` → seznam UID, pak per-uid stáhnout jen `users/{uid}/data/categories.json` (pár kB). Přepsat 4 loadery (users, adopce, custom cats, subs audit) + Promise.all s limitem souběhu. Žádné změny pravidel ani klientů.
+- _Krok 2 (až bude potřeba):_ `.indexOn` do database_rules.json + agregační uzel `/index/catSummary/{uid}`, který si klient zapíše při save() — admin pak čte jediný malý uzel.
