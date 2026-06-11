@@ -124,7 +124,11 @@
       ".read": "auth != null",
       ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$catId": {
-        ".validate": "newData.hasChildren(['coicop','name','assignedAt']) && newData.child('coicop').isNumber() && newData.child('coicop').val() >= 1 && newData.child('coicop').val() <= 13"
+        ".validate": "newData.hasChildren(['coicop','name','assignedAt']) && newData.child('coicop').isNumber() && newData.child('coicop').val() >= 0 && newData.child('coicop').val() <= 13"
+      },
+      "subs": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       }
     },
     "admins": {
