@@ -1453,7 +1453,60 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   });
   html += '</div></div></div>';
 
-  
+  // ── S12.1d: MĚSÍČNÍ PŘEHLED OBCHODŮ – tabulka (aktuální měsíc) ──
+  const CZ_M2 = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+  const monthReceipts = receipts.filter(r=>{
+    if(!r.date) return false;
+    const d = new Date(r.date+'T12:00:00');
+    return d.getMonth()===S.curMonth && d.getFullYear()===S.curYear;
+  });
+  if(monthReceipts.length){
+    const storeM = {};
+    monthReceipts.forEach(r=>{
+      const s = r.store||'?';
+      if(!storeM[s]) storeM[s] = {visits:0, total:0, days:{}};
+      storeM[s].visits++;
+      storeM[s].total += (r.total||0);
+      const wd = new Date(r.date+'T12:00:00').getDay();
+      storeM[s].days[wd] = (storeM[s].days[wd]||0)+1;
+    });
+    const storeRows = Object.entries(storeM).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+    html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">🏪 Obchody v měsíci</span>'
+      + '<span style="font-size:.68rem;color:var(--text3)">'+CZ_M2[S.curMonth]+' '+S.curYear+'</span></div><div class="card-body">'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:380px">'
+      + '<thead><tr style="color:#a8aec8;text-align:left">'
+      + '<th style="padding:5px 6px">Obchod</th>'
+      + '<th style="padding:5px 6px;text-align:right">Návštěv</th>'
+      + '<th style="padding:5px 6px;text-align:right">Celkem</th>'
+      + '<th style="padding:5px 6px;text-align:right">Ø útrata</th>'
+      + '<th style="padding:5px 6px;text-align:right">Typický den</th>'
+      + '</tr></thead><tbody>';
+    storeRows.forEach(([s,v])=>{
+      const topD = Object.entries(v.days).sort((a,b)=>b[1]-a[1])[0];
+      const dayName = topD ? CZ_D2[parseInt(topD[0])] : '–';
+      html += '<tr style="border-top:1px solid var(--border)">'
+        + '<td style="padding:6px;font-weight:600;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+storeBadgeHTML(s)+s+'</td>'
+        + '<td style="padding:6px;text-align:right">'+v.visits+'×</td>'
+        + '<td style="padding:6px;text-align:right;font-weight:700">'+fmt(Math.round(v.total))+' Kč</td>'
+        + '<td style="padding:6px;text-align:right;color:#a8aec8">'+fmt(Math.round(v.total/v.visits))+' Kč</td>'
+        + '<td style="padding:6px;text-align:right;color:#a8aec8">'+dayName+'</td></tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+  }
+
+  // ── S12.1d: TREND OBCHODŮ – spojnicový graf útrat po měsících (top 4) ──
+  const storeTrend = buildStoreTrendData(receipts);
+  if(storeTrend.series.length){
+    html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">📈 Trend útrat dle obchodů</span>'
+      + '<span style="font-size:.68rem;color:var(--text3)">posledních 6 měsíců</span></div><div class="card-body">'
+      + '<canvas id="storeTrendChart" style="width:100%;max-width:100%;height:190px"></canvas>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:8px">'
+      + storeTrend.series.map(s=>'<span style="display:flex;align-items:center;gap:5px;font-size:.72rem;color:#c2c7da">'
+          + storeBadgeHTML(s.store, s.color) + s.store + '</span>').join('')
+      + '</div></div></div>';
+    setTimeout(()=>drawStoreTrendChart('storeTrendChart', storeTrend), 60);
+  }
+
   // Pravidelné položky – co kupuješ opakovaně
   if(frequentItems.length) {
     html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">🔄 Pravidelně nakupuješ</span></div><div class="card-body">';
@@ -2670,6 +2723,128 @@ function addReceiptAsTx(receipt) {
   if(histEl && histEl.style.display!=='none') renderUctenky();
   return savePromise;
 }
+
+// ══════════════════════════════════════════════════════
+//  S12.1d: TREND OBCHODŮ (Nákupní DNA)
+//  „Logo" obchodu = barevný badge s iniciálou; známé CZ
+//  řetězce mají firemní barvu. Spojnicový graf top 4
+//  obchodů za 6 měsíců – osy, mřížka, legenda, touch tooltip.
+// ══════════════════════════════════════════════════════
+const STORE_BRAND_COLORS = {
+  'lidl':'#0050aa','kaufland':'#e10915','albert':'#00963f','billa':'#fdd900',
+  'tesco':'#00539f','penny':'#cd1414','globus':'#f77f00','coop':'#f58220',
+  'dm':'#1a3c8b','rossmann':'#c8102e','teta':'#e6007e','ikea':'#0058a3',
+  'alza':'#11a44c','datart':'#e2001a','lekarna':'#2e8b57','benzina':'#00b050',
+  'orlen':'#e30613','shell':'#fbce07','omv':'#003a7d','mol':'#e30613',
+};
+function storeBrandColor(store){
+  const n = String(store||'').toLowerCase();
+  for(const k in STORE_BRAND_COLORS){ if(n.includes(k)) return STORE_BRAND_COLORS[k]; }
+  let h = 0; for(let i=0;i<n.length;i++) h = (h*31 + n.charCodeAt(i)) >>> 0;
+  return ['#60a5fa','#fbbf24','#a78bfa','#34d399','#fb923c','#f87171','#4ade80'][h % 7];
+}
+function storeBadgeHTML(store, color){
+  const c = color || storeBrandColor(store);
+  const ini = String(store||'?').trim().charAt(0).toUpperCase() || '?';
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+c+';color:#fff;font-size:.58rem;font-weight:800;margin-right:5px;flex-shrink:0;vertical-align:-3px">'+ini+'</span>';
+}
+
+// Top 4 obchody dle celkové útraty → série útrat za posledních 6 měsíců
+function buildStoreTrendData(receipts){
+  const now = new Date();
+  const months = [];
+  for(let i=5;i>=0;i--){
+    let m = now.getMonth()-i, y = now.getFullYear(); while(m<0){m+=12;y--;}
+    months.push({m, y, label: (m+1)+'/'+String(y).slice(2)});
+  }
+  const totals = {};
+  receipts.forEach(r=>{ const s=r.store||'?'; totals[s]=(totals[s]||0)+(r.total||0); });
+  const topStores = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([s])=>s);
+  const series = topStores.map(store=>{
+    const values = months.map(({m,y})=>{
+      let sum = 0;
+      receipts.forEach(r=>{
+        if((r.store||'?')!==store || !r.date) return;
+        const d = new Date(r.date+'T12:00:00');
+        if(d.getMonth()===m && d.getFullYear()===y) sum += (r.total||0);
+      });
+      return Math.round(sum);
+    });
+    return {store, color: storeBrandColor(store), values};
+  }).filter(s=>s.values.some(v=>v>0));
+  return {months, series};
+}
+
+function drawStoreTrendChart(id, data){
+  const canvas = document.getElementById(id); if(!canvas) return;
+  const draw = ()=>{
+    const cw = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
+    if(!cw){ requestAnimationFrame(draw); return; } // skrytý tab má clientWidth=0
+    const dpr = window.devicePixelRatio||1, H = 190;
+    canvas.width = cw*dpr; canvas.height = H*dpr;
+    const ctx = canvas.getContext('2d'); ctx.scale(dpr,dpr);
+    const pad = {l:52, r:10, t:12, b:24};
+    const W = cw, n = data.months.length;
+    const maxV = Math.max(...data.series.flatMap(s=>s.values), 1);
+    const x = i => pad.l + (n<=1?0:(W-pad.l-pad.r)*i/(n-1));
+    const y = v => pad.t + (H-pad.t-pad.b)*(1 - v/maxV);
+    ctx.clearRect(0,0,W,H);
+    // mřížka + Y popisky (Kč)
+    ctx.font = '9.5px Instrument Sans'; ctx.fillStyle = '#a8aec8'; ctx.textAlign = 'right';
+    for(let g=0; g<=3; g++){
+      const v = Math.round(maxV*g/3), yy = y(v);
+      ctx.strokeStyle = 'rgba(168,174,200,.14)'; ctx.beginPath();
+      ctx.moveTo(pad.l, yy); ctx.lineTo(W-pad.r, yy); ctx.stroke();
+      ctx.fillText(fmt(v), pad.l-7, yy+3);
+    }
+    // X popisky (měsíce)
+    ctx.textAlign = 'center';
+    data.months.forEach((mo,i)=>ctx.fillText(mo.label, x(i), H-7));
+    // čáry + body
+    data.series.forEach(s=>{
+      ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath();
+      s.values.forEach((v,i)=>{ i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v)); });
+      ctx.stroke();
+      ctx.fillStyle = s.color;
+      s.values.forEach((v,i)=>{ ctx.beginPath(); ctx.arc(x(i),y(v),3,0,Math.PI*2); ctx.fill(); });
+    });
+    // tooltip (myš + dotyk přes attachChartTouch)
+    canvas.onmousemove = function(e){
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX-rect.left;
+      let idx = 0, best = 1e9;
+      for(let i=0;i<n;i++){ const d=Math.abs(mx-x(i)); if(d<best){best=d; idx=i;} }
+      draw();
+      requestAnimationFrame(()=>{
+        const ctx2 = canvas.getContext('2d');
+        ctx2.save(); ctx2.scale(dpr,dpr);
+        ctx2.strokeStyle = 'rgba(232,234,242,.45)'; ctx2.setLineDash([3,3]);
+        ctx2.beginPath(); ctx2.moveTo(x(idx), pad.t); ctx2.lineTo(x(idx), H-pad.b); ctx2.stroke(); ctx2.setLineDash([]);
+        const lines = data.series.map(s=>({t:s.store.slice(0,14)+': '+fmt(s.values[idx])+' Kč', c:s.color, v:s.values[idx]}))
+          .filter(l=>l.v>0);
+        if(!lines.length){ ctx2.restore(); return; }
+        const bw = 152, bh = 18+lines.length*14;
+        let bx = x(idx)+10; if(bx+bw > W-pad.r) bx = x(idx)-bw-10;
+        ctx2.fillStyle = 'rgba(20,23,38,.95)'; ctx2.strokeStyle = 'rgba(168,174,200,.3)';
+        ctx2.beginPath();
+        (ctx2.roundRect ? ctx2.roundRect(bx, pad.t, bw, bh, 7) : ctx2.rect(bx, pad.t, bw, bh));
+        ctx2.fill(); ctx2.stroke();
+        ctx2.textAlign = 'left'; ctx2.font = '10px Instrument Sans';
+        ctx2.fillStyle = '#e8eaf2'; ctx2.fillText(data.months[idx].label, bx+9, pad.t+13);
+        lines.forEach((l,li)=>{
+          ctx2.fillStyle = l.c; ctx2.fillRect(bx+9, pad.t+20+li*14, 8, 8);
+          ctx2.fillStyle = '#c2c7da'; ctx2.fillText(l.t, bx+22, pad.t+28+li*14);
+        });
+        ctx2.restore();
+      });
+    };
+    canvas.onmouseleave = function(){ draw(); };
+    if(typeof attachChartTouch === 'function') attachChartTouch(canvas); // mobil
+  };
+  requestAnimationFrame(draw);
+}
+
+// ══════════════════════════════════════════════════════
 
 // Otevři konkrétní účtenku v Historii podle data+obchodu (z transakce s 📷)
 function openReceiptInHistory(date, store) {
