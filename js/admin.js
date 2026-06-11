@@ -289,15 +289,6 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
-    verze: 'v7.79',
-    datum: '2026-06-11',
-    zmeny: [
-      '✅ NEW (S12.1e): app.html + firebase.js – Email + heslo přihlášení: přepínač Přihlásit/Registrovat, validace, chybové hlášky v češtině (22 kódů), reset hesla emailem, zobrazit/skrýt heslo. Nový provider neovlivňuje Google OAuth ani local mód.',
-      '🔒 SEC (S12.1e): firebase.json – bezpečnostní HTTP hlavičky (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection) + rozšířen ignore: database_rules.json, *.yml, staré dev HTML (bubble-*.html, chart-preview-*.html, ff-grafy-*.html, propojeni-*.html, landing_v4.html, lepsi-uver.html), _gitignore.',
-      '🐛 FIX (S12.1e): database_rules.json – admin_coicop_overrides validate: coicop >= 0 (bylo >= 1, blokoval přiřazení COICOP 0 = mimo COICOP); přidáno pravidlo pro /subs uzel (assignSubCoicop).',
-    ]
-  },
-  {
     verze: 'v7.78',
     datum: '2026-06-11',
     zmeny: [
