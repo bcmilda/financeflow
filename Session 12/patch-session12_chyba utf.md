@@ -26,7 +26,7 @@ localStorage ff_predHideEmptySubs — stav přepínače se neukládal.
 attachChartTouch — dotykové tooltipy na grafech nefungovaly.
 
 ### FIX-135 · statCard čitelnost na tmavém pozadí **(v7.75)**
-Přechod na třídy .stat-value-h/.stat-label-h (var(--text3) byl nečitelný).
+P�echod na třídy .stat-value-h/.stat-label-h (var(--text3) byl nečitelný).
 
 ### FIX-136 · database_rules validate blokoval COICOP 0 **(v7.79)**
 admin_coicop_overrides validate vyžadoval coicop>=1; volba „0 – mimo COICOP" selhala. Opraveno >=0 + pravidlo pro /subs.
@@ -178,7 +178,7 @@ Treemap tooltipy + 3 vrstvy; Tempo verdikt pod grafem; predikční tabulka nowra
 ## 📄 explanations.md
 
 ### Proč přesuny nejsou výdaj/příjem **(v7.83)**
-Pevod z běžného na spořicí účet je pohyb mezi vlastními peněženkami – jmění se nemění. Proto je vyloučen ze statistik (incSum/expSum) i z detekce výplaty/Runway, ale započítán do zůstatků peněženek (computeWalletBalance) a do likvidní/investiční vrstvy aktiv.
+P�evod z běžného na spořicí účet je pohyb mezi vlastními peněženkami – jmění se nemění. Proto je vyloučen ze statistik (incSum/expSum) i z detekce výplaty/Runway, ale započítán do zůstatků peněženek (computeWalletBalance) a do likvidní/investiční vrstvy aktiv.
 
 ### Logika Radar „Kam směřuju" **(v7.94)**
 Cashflow = Příjem − Plánovaný výdej − Budoucí platby. Plánovaný výdej = už utracené + odhad zbytku měsíce z denního tempa (ne slepý průměr). Budoucí platby = jen známé naplánované. Sloupce jsou disjunktní → prosté odečtení. Tečkovaná čára = skutečný stav teď (je výš, měsíc neskončil).
