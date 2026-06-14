@@ -51,12 +51,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Admin panel/Nákupní DNA.md",
+                "file": "AI Rate Limiting/Bez názvu.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Nákupní DNA"
+              "title": "Bez názvu"
             }
           }
         ],
@@ -224,9 +224,11 @@
   },
   "active": "887217997ec6f326",
   "lastOpenFiles": [
-    "Admin panel/Admin Audity.md",
     "Admin panel/Nákupní DNA.md",
+    "AI Rate Limiting/Bez názvu.md",
     "Radar/Runway.md",
+    "AI Rate Limiting",
+    "Admin panel/Admin Audity.md",
     "Admin panel",
     "architecture.md",
     "Radar",
