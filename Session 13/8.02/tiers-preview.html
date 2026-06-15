@@ -1,157 +1,284 @@
-<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceFlow – Tiery náhled v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;--border:#2e3347;--border2:#3a4158;--text:#e8eaf2;--text2:#a8aec8;--text3:#7e84a0;--income:#4ade80;--premium:#f59e0b}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;
+  --border:#2e3347;--border2:#3a4158;
+  --text:#e8eaf2;--text2:#a8aec8;--text3:#7e84a0;--income:#4ade80;
+  --free:#60a5fa;--premium:#f59e0b;--pro:#a855f7;--donate:#f5b50a;--tokens:#22d3ee;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;padding:60px 24px}
-.tiers-root{max-width:1020px;margin:0 auto}
-/* ===== TIER KARTY 3D (Session 13, v8.02) ===== */
-.tiers-root{--free:#60a5fa;--pro:#a855f7;--donate:#f5b50a;--tokens:#22d3ee}
-.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch;margin-bottom:22px;perspective:none}
+body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;min-height:100vh;padding:44px 20px}
+.wrap{max-width:1020px;margin:0 auto}
+.head{text-align:center;margin-bottom:40px}
+.head h1{font-family:'Syne',sans-serif;font-size:1.9rem;font-weight:800;letter-spacing:-.03em;margin-bottom:9px}
+.brand .f{color:#fff}.brand .fl{color:var(--income)}
+.head p{color:var(--text2);font-size:.92rem}
 
-/* Karta jako 3D panel: vrstvený stín, jemný vnitřní gradient, svítící rám */
+.tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:center;perspective:1800px}
+@media(max-width:840px){.tier-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto;perspective:none}}
+
+/* 3D panel – Gemini styl: glossy, hluboký, svítící rám */
 .tier{
   position:relative;display:flex;flex-direction:column;border-radius:22px;padding:30px 26px;
-  background:
-    linear-gradient(180deg,color-mix(in srgb,var(--c) 7%,var(--surface)),var(--surface) 55%),
-    var(--surface);
-  border:1px solid color-mix(in srgb,var(--c) 22%,var(--border));
+  background:linear-gradient(160deg,color-mix(in srgb,var(--c) 9%,var(--surface2)),var(--surface));
+  border:1px solid color-mix(in srgb,var(--c) 30%,var(--border));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,var(--c) 22%,transparent),
-    inset 0 0 28px -18px color-mix(in srgb,var(--c) 60%,transparent),
-    0 20px 45px -28px rgba(0,0,0,.9);
+    inset 0 1px 0 color-mix(in srgb,var(--c) 30%,transparent),
+    inset 0 0 30px -16px color-mix(in srgb,var(--c) 70%,transparent),
+    0 24px 50px -28px rgba(0,0,0,.95);
+  transform-style:preserve-3d;
 }
-/* svítící horní rám */
-.tier::before{content:'';position:absolute;top:0;left:18px;right:18px;height:2px;border-radius:2px;
+/* svítící neonový horní rám */
+.tier::before{content:'';position:absolute;top:0;left:16px;right:16px;height:2px;border-radius:2px;
   background:linear-gradient(90deg,transparent,var(--c),transparent);
-  box-shadow:0 0 14px 1px color-mix(in srgb,var(--c) 70%,transparent)}
-/* jemný spodní odlesk */
-.tier::after{content:'';position:absolute;bottom:0;left:30%;right:30%;height:60px;border-radius:50%;
-  background:radial-gradient(ellipse,color-mix(in srgb,var(--c) 16%,transparent),transparent 70%);
-  filter:blur(12px);pointer-events:none}
+  box-shadow:0 0 16px 2px color-mix(in srgb,var(--c) 80%,transparent)}
 
 .tier-free{--c:var(--free)}
 .tier-premium{--c:var(--premium)}
 .tier-pro{--c:var(--pro)}
 
-/* Premium = doporučená, silnější glow rám + nadzvednutí */
+/* boční karty natočené ke středu (jemný Gemini tilt) */
+.tier-free{transform:rotateY(7deg) translateZ(-30px)}
+.tier-pro{transform:rotateY(-7deg) translateZ(-30px)}
 .tier-premium{
-  border-color:color-mix(in srgb,var(--premium) 55%,transparent);
-  transform:translateY(-10px) scale(1.02);
+  transform:translateZ(20px) scale(1.04);z-index:2;
+  border-color:color-mix(in srgb,var(--premium) 60%,transparent);
+  background:linear-gradient(160deg,rgba(245,158,11,.16),var(--surface) 60%);
   box-shadow:
-    inset 0 1px 0 rgba(245,158,11,.4),
-    inset 0 0 40px -20px rgba(245,158,11,.8),
-    0 0 0 1px rgba(245,158,11,.35),
-    0 0 40px -8px rgba(245,158,11,.45),
-    0 28px 60px -30px rgba(0,0,0,.95);
+    inset 0 1px 0 rgba(245,158,11,.5),
+    inset 0 0 44px -18px rgba(245,158,11,.85),
+    0 0 0 1px rgba(245,158,11,.4),
+    0 0 50px -6px rgba(245,158,11,.5),
+    0 30px 64px -28px rgba(0,0,0,.95);
 }
-.tier-ribbon{position:absolute;top:16px;right:-36px;transform:rotate(45deg);
-  background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1200;
-  font-size:.58rem;font-weight:800;letter-spacing:.1em;padding:6px 42px;
-  box-shadow:0 4px 14px rgba(245,158,11,.5)}
 
-.tier-top{display:flex;align-items:center;gap:13px;margin-bottom:20px}
-/* 3D ikonový odznak: vypouklý, s vnitřním leskem */
+/* corner stuha (Gemini styl – obtáčí roh) */
+.ribbon{position:absolute;top:0;right:0;width:96px;height:96px;overflow:hidden;border-top-right-radius:22px;z-index:3}
+.ribbon span{position:absolute;top:18px;right:-26px;transform:rotate(45deg);display:block;width:140px;text-align:center;
+  background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1200;
+  font-size:.56rem;font-weight:800;letter-spacing:.12em;padding:5px 0;
+  box-shadow:0 3px 10px rgba(0,0,0,.5)}
+
+.tier-top{display:flex;align-items:center;gap:13px;margin-bottom:8px}
+/* vypouklá 3D ikona */
 .tier-mark{width:50px;height:50px;border-radius:15px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;font-size:1.5rem;
-  background:linear-gradient(145deg,color-mix(in srgb,var(--c) 30%,var(--surface3)),var(--surface2));
-  border:1px solid color-mix(in srgb,var(--c) 40%,transparent);
-  box-shadow:inset 0 1px 1px color-mix(in srgb,var(--c) 50%,transparent),inset 0 -3px 8px -4px rgba(0,0,0,.7),0 4px 12px -6px color-mix(in srgb,var(--c) 60%,transparent)}
-.tier-name{font-family:'Syne',sans-serif;font-size:1.22rem;font-weight:800;line-height:1}
-.tier-name small{display:block;font-family:'Instrument Sans',sans-serif;font-size:.7rem;font-weight:500;color:var(--text3);margin-top:6px}
+  background:linear-gradient(145deg,color-mix(in srgb,var(--c) 32%,var(--surface3)),var(--surface2));
+  border:1px solid color-mix(in srgb,var(--c) 42%,transparent);
+  box-shadow:inset 0 1px 2px color-mix(in srgb,var(--c) 55%,transparent),inset 0 -3px 9px -4px rgba(0,0,0,.8),0 5px 14px -7px color-mix(in srgb,var(--c) 70%,transparent)}
+.tier-name{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;line-height:1}
+
+/* popisek tieru (heading + text) */
+.tier-tagline{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--text);margin:6px 0 4px}
+.tier-desc{font-size:.78rem;color:var(--text3);line-height:1.45;margin-bottom:18px;min-height:36px}
 
 .tier-price{display:flex;align-items:baseline;gap:7px;margin-bottom:6px}
-.tier-price .amt{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--c);letter-spacing:-.02em;line-height:1;text-shadow:0 0 24px color-mix(in srgb,var(--c) 45%,transparent)}
+.tier-price .amt{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--c);letter-spacing:-.02em;line-height:1;text-shadow:0 0 26px color-mix(in srgb,var(--c) 50%,transparent)}
 .tier-price .per{font-size:.82rem;color:var(--text3);font-weight:500}
 .tier-note{font-size:.72rem;color:var(--text3);margin-bottom:22px;min-height:14px}
 .tier-div{height:1px;background:linear-gradient(90deg,transparent,var(--border2),transparent);margin-bottom:18px}
-
-.tier-feats{list-style:none;display:flex;flex-direction:column;gap:13px;margin-bottom:24px;flex:1;padding:0}
+.tier-feats{list-style:none;display:flex;flex-direction:column;gap:13px;margin-bottom:24px;flex:1}
 .tier-feats li{display:flex;align-items:flex-start;gap:11px;font-size:.84rem;line-height:1.35;color:var(--text2)}
 .tier-feats li .fi{flex-shrink:0;font-size:1.05rem;width:22px;text-align:center;margin-top:-1px}
 .tier-feats li.off{color:var(--text3);opacity:.55}
 .tier-feats li.head-feat{color:var(--text);font-weight:600}
-
-.tier-cta{width:100%;padding:15px;border:none;border-radius:13px;font-weight:800;font-size:.92rem;cursor:pointer;font-family:inherit;transition:filter .15s,transform .15s}
+.tier-cta{width:100%;padding:15px;border:none;border-radius:13px;font-weight:800;font-size:.92rem;cursor:pointer;font-family:inherit}
 .tier-cta.primary{background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1200;box-shadow:0 8px 22px -8px rgba(245,158,11,.6),inset 0 1px 0 rgba(255,255,255,.3)}
-.tier-cta.primary:hover{filter:brightness(1.08)}
 .tier-cta.outline{background:color-mix(in srgb,var(--c) 8%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 35%,transparent)}
 .tier-cta.soon{background:var(--surface3);color:var(--text3);border:1px dashed var(--border2);cursor:default}
+/* fajfka pod Premium tlačítkem */
+.cta-sub{text-align:center;font-size:.76rem;color:var(--income);font-weight:600;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px}
 
-/* Bezpečnostní lišta pod kartami (inspirace ChatGPT) */
-.trust-bar{display:flex;justify-content:center;gap:30px;flex-wrap:wrap;border-radius:16px;padding:18px 24px;background:var(--surface);border:1px solid var(--border);margin-top:4px}
-.trust-item{display:flex;align-items:center;gap:10px;font-size:.78rem}
-.trust-item .ti-ic{font-size:1.1rem}
-.trust-item b{display:block;color:var(--text);font-weight:700;font-size:.8rem}
-.trust-item span{color:var(--text3)}
-@media(max-width:840px){.tier-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto 22px}.tier-premium{transform:none}.trust-bar{gap:16px}}
-</style></head><body><div class="tiers-root">
-<div class="tier-grid">
-      <div class="tier tier-free">
-        <div class="tier-top">
-          <div class="tier-mark">🌱</div>
-          <div class="tier-name">Free<small>Základ navždy zdarma</small></div>
-        </div>
-        <div class="tier-price"><span class="amt">0 Kč</span><span class="per">/ měsíc</span></div>
-        <div class="tier-note">Bez platební karty</div>
-        <div class="tier-div"></div>
-        <ul class="tier-feats">
-          <li><span class="fi">📒</span> Transakce, rozpočty a souhrny</li>
-          <li><span class="fi">📥</span> Import CSV / Excel výpisů</li>
-          <li><span class="fi">📊</span> Základní grafy a tagy</li>
-          <li class="off"><span class="fi">🤖</span> AI Rádce a analýzy</li>
-          <li class="off"><span class="fi">🧾</span> Sken účtenek a PDF import</li>
-          <li class="off"><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem</li>
-        </ul>
-        <button class="tier-cta outline" onclick="closePaywall()">Aktuální plán</button>
+/* ChatGPT trust bar */
+.trust-bar{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;border-radius:16px;padding:20px 28px;background:var(--surface);border:1px solid var(--border);margin-top:30px}
+.trust-item{display:flex;align-items:center;gap:11px;font-size:.78rem;flex:1;min-width:200px}
+.trust-item .ti-ic{font-size:1.2rem;color:var(--income)}
+.trust-item b{display:block;color:var(--text);font-weight:700;font-size:.82rem;margin-bottom:1px}
+.trust-item span{color:var(--text3);font-size:.74rem}
+@media(max-width:840px){.tier-free,.tier-pro,.tier-premium{transform:none}.trust-bar{flex-direction:column;gap:14px}}
+
+/* DONATE full width */
+.donate-bar{position:relative;border-radius:16px;padding:24px 26px;margin-top:22px;background:var(--surface);border:1px solid var(--border);overflow:hidden;--c:var(--donate)}
+.donate-bar::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--c),transparent)}
+.donate-bar .dt{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px;color:var(--c)}
+.donate-bar p{font-size:.82rem;color:var(--text2);line-height:1.55;margin-bottom:16px;max-width:760px}
+.donate-bar .db{padding:12px 22px;border:none;border-radius:11px;font-weight:700;font-size:.86rem;cursor:pointer;font-family:inherit;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);border:1px solid color-mix(in srgb,var(--c) 38%,transparent)}
+
+/* CREDITS – Alocan styl */
+.credits{margin-top:34px}
+.credits-head{position:relative;display:flex;align-items:flex-start;gap:16px;border-radius:16px;padding:22px 24px;background:var(--surface2);border:1px solid var(--border);margin-bottom:18px}
+.credits-head .ch-icon{width:46px;height:46px;border-radius:13px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.32);color:var(--tokens)}
+.credits-head .ch-lbl{font-size:.74rem;color:var(--text3);margin-bottom:3px}
+.credits-head .ch-bal{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:7px}
+.credits-head .ch-desc{font-size:.78rem;color:var(--text2);line-height:1.5;max-width:560px}
+.credits-head .ch-stats{margin-left:auto;text-align:right;font-size:.74rem;color:var(--text3);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;white-space:nowrap}
+.credits-head .ch-stats b{color:var(--text2)}
+@media(max-width:680px){.credits-head{flex-wrap:wrap}.credits-head .ch-stats{margin-left:0;width:100%;text-align:left}}
+
+.pack-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:18px}
+@media(max-width:840px){.pack-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto 18px}}
+.pack{position:relative;border-radius:16px;padding:24px 22px;background:var(--surface);border:1px solid var(--border)}
+.pack.best{border-color:rgba(34,211,238,.5);box-shadow:0 0 0 1px rgba(34,211,238,.18)}
+.pack-name{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:9px}
+.pack-best-tag{font-size:.6rem;font-weight:800;letter-spacing:.05em;color:var(--tokens);background:rgba(34,211,238,.14);border:1px solid rgba(34,211,238,.35);padding:3px 9px;border-radius:20px}
+.pack-desc{font-size:.78rem;color:var(--text3);line-height:1.45;margin-bottom:18px;min-height:50px}
+.pack-amt{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--tokens);line-height:1}
+.pack-amt-lbl{font-size:.74rem;color:var(--text3);margin:3px 0 18px}
+.pack-price-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
+.pack-price{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--text)}
+.pack-unit{font-size:.74rem;color:var(--text3)}
+.pack-btn{width:100%;padding:13px;border:none;border-radius:11px;font-weight:800;font-size:.86rem;cursor:pointer;font-family:inherit;background:rgba(34,211,238,.16);color:var(--tokens);border:1px solid rgba(34,211,238,.4)}
+.pack.best .pack-btn{background:linear-gradient(135deg,#22d3ee,#0891b2);color:#04232b;border:none}
+
+.credits-info{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:680px){.credits-info{grid-template-columns:1fr}}
+.cinfo{border-radius:14px;padding:20px 22px;background:var(--surface);border:1px solid var(--border)}
+.cinfo h4{font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;margin-bottom:8px}
+.cinfo p{font-size:.78rem;color:var(--text2);line-height:1.55}
+
+.foot{text-align:center;margin-top:30px;color:var(--text3);font-size:.75rem;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Vyber si plán <span class="brand"><span class="f">Finance</span><span class="fl">Flow</span></span></h1>
+    <p>Začni zdarma. Premium vyzkoušej 30 dní bez závazků a bez karty.</p>
+  </div>
+
+  <div class="tier-grid">
+    <div class="tier tier-free">
+      <div class="tier-top">
+        <div class="tier-mark">🌱</div>
+        <div class="tier-name">Free</div>
       </div>
+      <div class="tier-tagline">Začni zdarma</div>
+      <div class="tier-desc">Všechny základní funkce pro správu financí.</div>
+      <div class="tier-price"><span class="amt">0 Kč</span><span class="per">/ měsíc</span></div>
+      <div class="tier-note">Bez platební karty</div>
+      <div class="tier-div"></div>
+      <ul class="tier-feats">
+        <li><span class="fi">📒</span> Transakce, rozpočty a souhrny</li>
+        <li><span class="fi">📥</span> Import CSV / Excel výpisů</li>
+        <li><span class="fi">📊</span> Základní grafy a tagy</li>
+        <li class="off"><span class="fi">🤖</span> AI Rádce a analýzy</li>
+        <li class="off"><span class="fi">🧾</span> Sken účtenek a PDF import</li>
+        <li class="off"><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem</li>
+      </ul>
+      <button class="tier-cta outline">Aktuální plán</button>
+    </div>
 
-      <div class="tier tier-premium">
-        <div class="tier-ribbon">TOP VOLBA</div>
-        <div class="tier-top">
-          <div class="tier-mark">💎</div>
-          <div class="tier-name">Premium<small>Plná síla AI</small></div>
-        </div>
-        <div class="tier-price"><span class="amt">149 Kč</span><span class="per">/ měsíc</span></div>
-        <div class="tier-note">Zrušit lze kdykoliv</div>
-        <div class="tier-div"></div>
-        <ul class="tier-feats">
-          <li class="head-feat"><span class="fi">✨</span> Vše z Free, plus:</li>
-          <li><span class="fi">🤖</span> AI Rádce + měsíční report</li>
-          <li><span class="fi">🧾</span> Sken účtenek + PDF import</li>
-          <li><span class="fi">🔮</span> Predikce, projekty, dluhy</li>
-          <li><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem a rodinou</li>
-          <li><span class="fi">🛒</span> Nákupní seznam a hlídač cen</li>
-        </ul>
-        <button class="tier-cta primary" onclick="startTrial()">🎁 Vyzkoušet 30 dní zdarma</button>
+    <div class="tier tier-premium">
+      <div class="ribbon"><span>TOP VOLBA</span></div>
+      <div class="tier-top">
+        <div class="tier-mark">💎</div>
+        <div class="tier-name">Premium</div>
       </div>
+      <div class="tier-tagline">Chytré finance</div>
+      <div class="tier-desc">Pokročilé nástroje s AI, které šetří čas i peníze.</div>
+      <div class="tier-price"><span class="amt">149 Kč</span><span class="per">/ měsíc</span></div>
+      <div class="tier-note">Zrušit lze kdykoliv</div>
+      <div class="tier-div"></div>
+      <ul class="tier-feats">
+        <li class="head-feat"><span class="fi">✨</span> Vše z Free, plus:</li>
+        <li><span class="fi">🤖</span> AI Rádce + měsíční report</li>
+        <li><span class="fi">🧾</span> Sken účtenek + PDF import</li>
+        <li><span class="fi">🔮</span> Predikce, projekty, dluhy</li>
+        <li><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem a rodinou</li>
+        <li><span class="fi">🛒</span> Nákupní seznam a hlídač cen</li>
+      </ul>
+      <button class="tier-cta primary">Vyzkoušet Premium</button>
+      <div class="cta-sub">✓ 30 dní zdarma</div>
+    </div>
 
-      <div class="tier tier-pro">
-        <div class="tier-top">
-          <div class="tier-mark">🚀</div>
-          <div class="tier-name">Pro<small>Pro náročné</small></div>
-        </div>
-        <div class="tier-price"><span class="amt">299 Kč</span><span class="per">/ měsíc</span></div>
-        <div class="tier-note">Zrušit lze kdykoliv</div>
-        <div class="tier-div"></div>
-        <ul class="tier-feats">
-          <li class="head-feat"><span class="fi">✨</span> Vše z Premium, plus:</li>
-          <li><span class="fi">⚡</span> 4× vyšší AI limity</li>
-          <li><span class="fi">🏎️</span> Prioritní AI fronta</li>
-          <li><span class="fi">🎧</span> Přednostní podpora</li>
-          <li><span class="fi">📤</span> Brzy: pokročilé exporty</li>
-        </ul>
-        <button class="tier-cta soon" onclick="alert('Plán Pro brzy zpřístupníme. Zatím vyzkoušej Premium na 30 dní zdarma.')">Brzy dostupné</button>
+    <div class="tier tier-pro">
+      <div class="tier-top">
+        <div class="tier-mark">🚀</div>
+        <div class="tier-name">Pro</div>
+      </div>
+      <div class="tier-tagline">Finance bez limitů</div>
+      <div class="tier-desc">Pro rodiny a náročné uživatele, kteří chtějí to nejlepší.</div>
+      <div class="tier-price"><span class="amt">299 Kč</span><span class="per">/ měsíc</span></div>
+      <div class="tier-note">Zrušit lze kdykoliv</div>
+      <div class="tier-div"></div>
+      <ul class="tier-feats">
+        <li class="head-feat"><span class="fi">✨</span> Vše z Premium, plus:</li>
+        <li><span class="fi">⚡</span> 4× vyšší AI limity</li>
+        <li><span class="fi">🏎️</span> Prioritní AI fronta</li>
+        <li><span class="fi">🎧</span> Přednostní podpora</li>
+        <li><span class="fi">📤</span> Brzy: pokročilé exporty</li>
+      </ul>
+      <button class="tier-cta soon">Brzy dostupné</button>
+    </div>
+  </div>
+
+  <div class="trust-bar">
+    <div class="trust-item"><span class="ti-ic">🔒</span><div><b>Bezpečí na prvním místě</b><span>Bankovní úroveň zabezpečení</span></div></div>
+    <div class="trust-item"><span class="ti-ic">🛡️</span><div><b>Vaše data jsou vaše</b><span>Nikdy neprodáváme data</span></div></div>
+    <div class="trust-item"><span class="ti-ic">☁️</span><div><b>Synchronizace v cloudu</b><span>Přístup odkudkoliv</span></div></div>
+    <div class="trust-item"><span class="ti-ic">↺</span><div><b>Zrušení kdykoliv</b><span>Žádné závazky</span></div></div>
+  </div>
+
+  <div class="donate-bar">
+    <div class="dt">❤️ DONATE</div>
+    <p>Pokud se ti líbí aplikace FinanceFlow a přináší ti užitek v každodenním používání a chtěl bys podpořit tento projekt, můžeš poslat malý příspěvek. Poslouží na budoucí vývoj a rozvoj nových funkcí.</p>
+    <button class="db">Přispět libovolnou částkou</button>
+  </div>
+
+  <div class="credits">
+    <div class="credits-head">
+      <div class="ch-icon">⚡</div>
+      <div>
+        <div class="ch-lbl">Aktuální dokoupené tokeny</div>
+        <div class="ch-bal">0 tokenů</div>
+        <div class="ch-desc">1 token = 1 AI akce (sken účtenky, dotaz na rádce, PDF import). Tokeny se použijí až po vyčerpání měsíčního limitu tarifu a nepropadají s měsíční obnovou.</div>
+      </div>
+      <div class="ch-stats">Nakoupeno: <b>0</b><br>Vyčerpáno: <b>0</b></div>
+    </div>
+
+    <div class="pack-grid" style="grid-template-columns:repeat(2,1fr);max-width:660px;margin:0 auto 18px">
+      <div class="pack">
+        <div class="pack-name">Malý balíček</div>
+        <div class="pack-desc">Pár AI akcí navíc, když ti dojde měsíční limit.</div>
+        <div class="pack-amt">10</div>
+        <div class="pack-amt-lbl">tokenů</div>
+        <div class="pack-price-row"><span class="pack-price">39 Kč</span><span class="pack-unit">3,90 Kč/token</span></div>
+        <button class="pack-btn">Dokoupit tokeny</button>
+      </div>
+      <div class="pack best">
+        <div class="pack-name">Větší balíček <span class="pack-best-tag">lepší cena</span></div>
+        <div class="pack-desc">Pro aktivnější používání AI asistenta.</div>
+        <div class="pack-amt">20</div>
+        <div class="pack-amt-lbl">tokenů</div>
+        <div class="pack-price-row"><span class="pack-price">69 Kč</span><span class="pack-unit">3,45 Kč/token</span></div>
+        <button class="pack-btn">Dokoupit tokeny</button>
       </div>
     </div>
 
-    <div class="trust-bar">
-      <div class="trust-item"><span class="ti-ic">🔒</span><div><b>Bezpečí na prvním místě</b><span>Šifrovaná data</span></div></div>
-      <div class="trust-item"><span class="ti-ic">🛡️</span><div><b>Tvoje data jsou tvoje</b><span>Nikdy je neprodáváme</span></div></div>
-      <div class="trust-item"><span class="ti-ic">☁️</span><div><b>Synchronizace v cloudu</b><span>Přístup odkudkoliv</span></div></div>
-      <div class="trust-item"><span class="ti-ic">✓</span><div><b>Zrušení kdykoliv</b><span>Žádné závazky</span></div></div>
+    <div class="credits-info">
+      <div class="cinfo">
+        <h4>Jak tokeny fungují</h4>
+        <p>1 token = 1 AI akce. Použijí se automaticky až ve chvíli, kdy vyčerpáš měsíční limit svého tarifu. Přehled spotřeby uvidíš v historii využití.</p>
+      </div>
+      <div class="cinfo">
+        <h4>Kontrola nákladů</h4>
+        <p>Před nákupem vždy uvidíš cenu i počet tokenů. Dokoupené tokeny nepropadají s měsíční obnovou tarifu – zůstanou ti, dokud je nevyužiješ.</p>
+      </div>
     </div>
+  </div>
 
-    
-</div></body></html>
+  <div class="foot">
+    Platby zpracujeme přes zabezpečenou bránu Stripe · Zrušit lze kdykoliv<br>
+    Free plán zůstává navždy zdarma
+  </div>
+</div>
+</body>
+</html>
