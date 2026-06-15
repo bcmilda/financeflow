@@ -863,9 +863,15 @@ function setSyncStatus(status) {
 }
 
 function updateSidebarUser(user) {
-  const name = window._userProfile?.displayName || user.displayName || user.email;
-  const email = user.email;
-  document.getElementById('sidebarName').textContent = name;
+  const email = user.email || '';
+  // Jméno: profil > displayName > část e-mailu před @ (ne celý e-mail 2×)
+  let name = window._userProfile?.displayName || user.displayName;
+  if (!name && email) {
+    const local = email.split('@')[0];
+    // Pokus o hezčí jméno z e-mailu: jan.havran -> Jan Havran
+    name = local.split(/[._-]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  }
+  document.getElementById('sidebarName').textContent = name || email;
   document.getElementById('sidebarEmail').textContent = email;
   const av = document.getElementById('sidebarAvatar');
   const photo = window._userProfile?.photoURL || user.photoURL;

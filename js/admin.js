@@ -314,6 +314,17 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v8.02',
+    datum: '2026-06-15',
+    zmeny: [
+      '🎨 NEW (S13): Tier karty PREDELANY na 3D panely - vrstvene stiny, svitici ram, vypoukle ikony, Premium nadzvednuta + glow. Pridana bezpecnostni lista pod kartami (Bezpeci/Data/Sync/Zruseni).',
+      '🐛 FIX (S13): Donate tlacitko - paywall se uz nezavira (modalDonate ma z-index 8500 nad paywallem 8000). Stranka uz nepada na Dashboard.',
+      '🐛 FIX (S13): Sidebar logo - zruseno overflow:hidden ktere rezalo Flow na vysku. Font 1.15rem, line-height 1.3.',
+      '🐛 FIX (S13): app.js updateSidebarUser - jmeno se odvozuje z e-mailu (jan.havran -> Jan Havran) kdyz chybi displayName, misto 2x e-mail.',
+      '🔒 FIX (S13): Pridany zamky k Analyza uctenek + Nakupni seznam (showPagePremium + navlock + PREMIUM_PAGES).',
+    ]
+  },
+  {
     verze: 'v8.01',
     datum: '2026-06-15',
     zmeny: [
