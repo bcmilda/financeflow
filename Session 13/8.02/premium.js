@@ -1,6 +1,6 @@
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
-const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni'];
+const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup'];
 const TRIAL_DAYS = 30;
 
 // ══════════════════════════════════════════════════════

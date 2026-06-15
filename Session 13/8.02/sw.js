@@ -16,7 +16,7 @@
 //  ať se starý shell zahodí. Statika má navíc ?v=hash, takže se invaliduje sama.
 // ══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'ff-shell-v8.01';
+const CACHE_NAME = 'ff-shell-v8.02';
 const SHELL = ['./', './index.html', './manifest.json'];
 
 // Statické CDN, které smíme cachovat pro offline (NE Firebase data/auth)

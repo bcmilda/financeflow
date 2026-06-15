@@ -14,7 +14,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v8.01</title>
+<title>FinanceFlow v8.02</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -24,7 +24,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=a66038515be15b64">
+<link rel="stylesheet" href="css/styles.css?v=346bba54aa937ed0">
 
 <style>
 .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
@@ -129,10 +129,17 @@
       </div>
     </div>
 
+    <div class="trust-bar">
+      <div class="trust-item"><span class="ti-ic">🔒</span><div><b>Bezpečí na prvním místě</b><span>Šifrovaná data</span></div></div>
+      <div class="trust-item"><span class="ti-ic">🛡️</span><div><b>Tvoje data jsou tvoje</b><span>Nikdy je neprodáváme</span></div></div>
+      <div class="trust-item"><span class="ti-ic">☁️</span><div><b>Synchronizace v cloudu</b><span>Přístup odkudkoliv</span></div></div>
+      <div class="trust-item"><span class="ti-ic">✓</span><div><b>Zrušení kdykoliv</b><span>Žádné závazky</span></div></div>
+    </div>
+
     <div class="donate-bar">
       <div class="dt">❤️ DONATE</div>
       <p>Pokud se ti líbí aplikace FinanceFlow a přináší ti užitek v každodenním používání a chtěl bys podpořit tento projekt, můžeš poslat malý příspěvek. Poslouží na budoucí vývoj a rozvoj nových funkcí.</p>
-      <button class="db" onclick="closePaywall();setTimeout(function(){if(typeof openDonateModal==='function')openDonateModal();else alert('Donate brzy zpřístupníme.');},200)">Přispět libovolnou částkou</button>
+      <button class="db" onclick="if(typeof openDonateModal==='function')openDonateModal();else alert('Donate brzy zpřístupníme.')">Přispět libovolnou částkou</button>
     </div>
 
     <div class="credits">
@@ -243,7 +250,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.01 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.02 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -301,7 +308,7 @@
     <div class="nav-item" onclick="showPage('aktiva',this)"><span class="nav-icon">💎</span> Finanční aktiva</div>
     <div class="nav-item" onclick="showPage('projekty',this)"><span class="nav-icon">📁</span> Projekty</div>
     <div class="nav-item" onclick="showPagePremium('narozeniny',this)"><span class="nav-icon">🎂</span> Narozeniny & přání <span id="navlock-narozeniny" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
-    <div class="nav-item" onclick="showPage('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam</div>
+    <div class="nav-item" onclick="showPagePremium('nakup',this)"><span class="nav-icon">🛒</span> Nákupní seznam <span id="navlock-nakup" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
     <div class="nav-item" onclick="showPage('budouci',this)"><span class="nav-icon">🗓️</span> Budoucí platby</div>
     <div class="nav-item" onclick="showPage('kalendar',this)"><span class="nav-icon">📅</span> Kalendář</div>
   </div>
@@ -310,7 +317,7 @@
   <div class="nav-group">
     <div class="nav-label">AI Asistent</div>
     <div class="nav-item" onclick="showPagePremium('ai',this)"><span class="nav-icon">🤖</span> AI Rádce <span id="navlock-ai" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
-    <div class="nav-item" onclick="showPage('uctenky',this)"><span class="nav-icon">📸</span> Analýza účtenek <span style="margin-left:auto;font-size:.6rem;background:rgba(251,191,36,.2);color:var(--debt);padding:1px 5px;border-radius:4px">BETA</span></div>
+    <div class="nav-item" onclick="showPagePremium('uctenky',this)"><span class="nav-icon">📸</span> Analýza účtenek <span style="font-size:.6rem;background:rgba(251,191,36,.2);color:var(--debt);padding:1px 5px;border-radius:4px;margin-left:6px">BETA</span> <span id="navlock-uctenky" class="premium-badge" style="margin-left:auto;display:none">💎</span></div>
   </div>
 
   <!-- RODINA -->
@@ -941,7 +948,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.01</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.02</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1841,7 +1848,7 @@
   </div>
 </div>
 
-<script src="js/app.js?v=7692fc7fa67ccdb4"></script>
+<script src="js/app.js?v=df97171470b5f7b3"></script>
 <script src="js/helpers.js?v=f9fc951c835c1773"></script>
 <script src="js/ui.js?v=9e9173d3f7fb64f1"></script>
 <script src="js/transactions.js?v=7f71f09ad82adb2f"></script>
@@ -1849,7 +1856,7 @@
 <script src="js/stats.js?v=3de36c1d7c815e56"></script>
 <script src="js/debts.js?v=9bd1b3ebdc883b28"></script>
 <script src="js/ai.js?v=8563194b234668e8"></script>
-<script src="js/premium.js?v=c8ab16978844d345"></script>
+<script src="js/premium.js?v=ac93decc66dc69a8"></script>
 <script src="js/projects.js?v=8c8974fd3735fc6c"></script>
 <script src="js/receipts.js?v=edeb609e3e5a0e97"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
@@ -1865,7 +1872,7 @@
 <script src="js/kalendar.js?v=f8a30924b2c984a6"></script>
 <script src="js/donate.js?v=cdd38092"></script>
 <script src="js/announcements.js?v=6d9e10febe343f5d"></script>
-<script src="js/admin.js?v=35f68fe08a826096"></script>
+<script src="js/admin.js?v=3d7f152d57e1e2e9"></script>
 <script src="js/import.js?v=eaa07f0fae7b24db"></script>
 <script src="js/push.js?v=ddd5da690b0adebf"></script>
 <script type="module" src="js/firebase.js?v=4aea108d6f2b39d0"></script>
