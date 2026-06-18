@@ -16,3 +16,11 @@ Dvě věci jsem nestihl, protože vyžadují `ui.js`, který nemám v aktuální
 2. **Reverz při smazání transfer transakce přímo v Transakcích** (deleteTx je v ui.js)
 
 Pošli mi prosím aktuální `ui.js` a v dalším kole to dodělám + dokončím verzování a deploy. Hashe a VERZE_LOG pro v8.10 jsou připravené; chybí jen finální `present_files`, který udělám hned v příští zprávě spolu s ui.js změnami.
+
+Přání a cíle:
+původní koncept - pasivní - bez investic a spoření pouze čumenda
+
+Cíle (aktivní)
+spoření, pravidelné vklady
+
+Editací se dá změnit Přání X Cíl
