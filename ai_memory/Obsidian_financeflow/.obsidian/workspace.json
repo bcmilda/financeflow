@@ -51,12 +51,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Radar/Kam směřuju.md",
+                "file": "Přání a cíle/Narozeniny a přání.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Kam směřuju"
+              "title": "Narozeniny a přání"
             }
           }
         ],
@@ -224,12 +224,17 @@
   },
   "active": "887217997ec6f326",
   "lastOpenFiles": [
-    "Radar/Runway.md",
+    "Admin panel/Admin Audity.md",
+    "Přání a cíle/Narozeniny a přání.md",
+    "Přání a cíle/Bez názvu.base",
+    "Bez názvu.md",
+    "Bez názvu 1.md",
+    "Přání a cíle",
     "Radar/Kam směřuju.md",
+    "Radar/Runway.md",
     "AI Rate Limiting/Bez názvu.md",
     "Admin panel/Nákupní DNA.md",
     "AI Rate Limiting",
-    "Admin panel/Admin Audity.md",
     "Admin panel",
     "architecture.md",
     "Radar",
