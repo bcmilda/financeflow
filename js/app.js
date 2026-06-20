@@ -721,15 +721,18 @@ function renderPartnerSection(partnerUids) {
 
 function switchToPartner(uid) {
   viewingUid = uid;
-  document.getElementById('viewingBanner').classList.add('show');
-  document.getElementById('readonlyNotice').classList.add('show');
+  // Null-safe (mobil může mít některé prvky jinde/skryté – nesmí to shodit přepnutí dat)
+  const _vb = document.getElementById('viewingBanner'); if(_vb) _vb.classList.add('show');
+  const _rn = document.getElementById('readonlyNotice'); if(_rn) _rn.classList.add('show');
   const name = partnerData[uid]?.profile?.displayName || 'Partner';
-  document.getElementById('viewingChip').textContent = `👁 ${name}`;
-  document.getElementById('viewingChip').classList.add('show');
-  document.getElementById('mainFab').style.display = 'none';
-  renderPartnerSection(Object.keys(partnerData));
+  const _vc = document.getElementById('viewingChip'); if(_vc){ _vc.textContent = `👁 ${name}`; _vc.classList.add('show'); }
+  const _fab = document.getElementById('mainFab'); if(_fab) _fab.style.display = 'none';
+  // Zavři případně otevřené menu/sidebar na mobilu, ať je vidět přepnutý obsah
+  try { if (typeof closeSidebar === 'function') closeSidebar(); } catch(_) {}
+  try { renderPartnerSection(Object.keys(partnerData)); } catch(_) {}
   renderPage();
   updateReadonlyUI();
+  if (typeof showToast === 'function') showToast(`👁 Prohlížíš data: ${name}`);
 }
 
 function switchToOwnData() {

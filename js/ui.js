@@ -1175,6 +1175,8 @@ function buildTxRow(t, D, ro, dupMap={}) {
       <div class="tx-table-cell tx-col-subcat" style="font-size:.74rem;color:var(--text3)">${t.subcat||'–'}</div>
       <div class="tx-table-cell"><span style="font-size:.78rem;color:var(--text2)">${t.name||''}</span></div>
       <div class="tx-table-cell tx-col-project"></div>
+      <div class="tx-table-cell tx-col-paytype"></div>
+      <div class="tx-table-cell tx-col-wallet"></div>
       <div class="tx-table-cell" style="text-align:right;font-weight:700;color:${amtColor};font-size:.82rem">${amtSign}${fmtP(amt)} ${curLabel}</div>
       <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end">
         ${!ro?`<button class="btn btn-danger btn-icon btn-sm" onclick="deleteSplitChild('${t.id}')">✕</button>`:''}
@@ -1255,6 +1257,12 @@ function buildTxRow(t, D, ro, dupMap={}) {
     </div>
     <div class="tx-table-cell tx-col-project">
       ${project?`<span onclick="event.stopPropagation();openProjectDetail('${project.id}')" style="font-size:.74rem;background:var(--project-bg);color:var(--project);padding:2px 7px;border-radius:6px;border:1px solid var(--project-border);cursor:pointer" title="Otevřít projekt">📁 ${project.name}</span>`:`<span style="color:var(--text3);font-size:.76rem">–</span>`}
+    </div>
+    <div class="tx-table-cell tx-col-paytype" style="font-size:.74rem;color:var(--text3)">
+      ${(()=>{ if(!t.payType) return '–'; const _pts=(typeof getPayTypes==='function')?getPayTypes(D):(D.payTypes||[]); const _pt=_pts.find(p=>p.id===t.payType); return _pt?`${_pt.icon||'💳'} ${_pt.name}`:'–'; })()}
+    </div>
+    <div class="tx-table-cell tx-col-wallet" style="font-size:.74rem;color:var(--text3)">
+      ${(()=>{ if(!t.wallet) return '–'; const _w=(D.wallets||[]).find(w=>w.id===t.wallet); return _w?`${_w.icon||'👛'} ${_w.name}`:'–'; })()}
     </div>
     <div class="tx-table-cell" style="text-align:right">
       <div style="font-weight:700;color:${amtColor}">${amtSign}${fmtP(amt)} ${curLabel}</div>

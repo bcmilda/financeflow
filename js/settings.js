@@ -23,7 +23,23 @@ function applyTheme(mode, save = true) {
   _themeMode = mode;
   const root = document.documentElement;
 
-  if (mode === 'light') {
+  if (mode === 'sepia') {
+    // Béžové / sépiové téma – teplý tón, šetrné k očím (mezi tmavým a světlým)
+    root.style.setProperty('--bg',       '#ece3d4');
+    root.style.setProperty('--surface',  '#f6efe2');
+    root.style.setProperty('--surface2', '#efe6d5');
+    root.style.setProperty('--surface3', '#e3d7c2');
+    root.style.setProperty('--text',     '#3a3026');
+    root.style.setProperty('--text2',    '#5c4f3e');
+    root.style.setProperty('--text3',    '#8a7a64');
+    root.style.setProperty('--border',   'rgba(90,70,45,.16)');
+    root.style.setProperty('--border2',  'rgba(90,70,45,.26)');
+    root.style.setProperty('--income-bg',  'rgba(22,130,74,.12)');
+    root.style.setProperty('--expense-bg', 'rgba(200,50,38,.1)');
+    root.style.setProperty('--debt-bg',    'rgba(190,110,6,.12)');
+    root.style.setProperty('--bank-bg',    'rgba(37,90,180,.1)');
+    root.setAttribute('data-theme', 'sepia');
+  } else if (mode === 'light') {
     root.style.setProperty('--bg',       '#f0f2f7');
     root.style.setProperty('--surface',  '#ffffff');
     root.style.setProperty('--surface2', '#f5f7fc');
@@ -84,7 +100,7 @@ function applyTheme(mode, save = true) {
 }
 
 function updateThemeUI() {
-  ['dark','light','auto'].forEach(m => {
+  ['dark','sepia','light','auto'].forEach(m => {
     const btn = document.getElementById('theme-btn-' + m);
     if (btn) {
       btn.classList.toggle('sel', _themeMode === m || (m === 'dark' && !_themeMode));
@@ -418,10 +434,14 @@ function renderSettingsPage() {
             <div class="settings-item-title">Barevné téma</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding-left:38px">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding-left:38px">
           <button class="btn ${_themeMode==='dark'?'sel':''}" id="theme-btn-dark"
             onclick="applyTheme('dark')" style="font-size:.8rem;padding:8px;text-align:center">
             🌙 Tmavé
+          </button>
+          <button class="btn ${_themeMode==='sepia'?'sel':''}" id="theme-btn-sepia"
+            onclick="applyTheme('sepia')" style="font-size:.8rem;padding:8px;text-align:center">
+            📜 Béžové
           </button>
           <button class="btn ${_themeMode==='light'?'sel':''}" id="theme-btn-light"
             onclick="applyTheme('light')" style="font-size:.8rem;padding:8px;text-align:center">

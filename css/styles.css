@@ -362,8 +362,8 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 .tt.sel-transfer{border-color:var(--bank);background:var(--bank-bg);color:var(--bank)}
 /* ── TX TABLE LAYOUT ── */
 .tx-table{width:100%;border-collapse:collapse}
-.tx-table-head{display:grid;grid-template-columns:70px 140px 110px 1fr 100px 90px 60px;gap:0;padding:6px 12px;background:var(--surface3);border-radius:8px 8px 0 0;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);align-items:center}
-.tx-table-row{display:grid;grid-template-columns:70px 140px 110px 1fr 100px 90px 60px;gap:0;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center;transition:background .1s}
+.tx-table-head{display:grid;grid-template-columns:70px 140px 110px 1fr 100px 95px 95px 90px 60px;gap:0;padding:6px 12px;background:var(--surface3);border-radius:8px 8px 0 0;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);align-items:center}
+.tx-table-row{display:grid;grid-template-columns:70px 140px 110px 1fr 100px 95px 95px 90px 60px;gap:0;padding:9px 12px;border-bottom:1px solid var(--border);align-items:center;transition:background .1s}
 .tx-table-row:last-child{border-bottom:none}
 .tx-table-row:hover{background:var(--surface2)}
 .tx-table-cell{font-size:.82rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
@@ -376,7 +376,7 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
   /* S12.1o: mobil používá karty (tx-mob-row), tabulkový header je zbytečný */
   .tx-table-head{display:none}
   .tx-table-row{grid-template-columns:52px 1fr 80px 40px}
-  .tx-col-subcat,.tx-col-note,.tx-col-project{display:none}
+  .tx-col-subcat,.tx-col-note,.tx-col-project,.tx-col-paytype,.tx-col-wallet{display:none}
 }
 .tx-filter-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
 .tx-filter-row{display:flex;gap:6px;flex-wrap:wrap}
