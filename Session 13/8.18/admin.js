@@ -316,6 +316,16 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v8.18',
+    datum: '2026-06-18',
+    zmeny: [
+      '👥 FIX (S13): Prepnuti na partnera (mobil i PC) - switchToPartner odolny vuci chybejicim prvkum (null-safe), zavre sidebar, prida toast. Driv mohl spadnout pred renderPage kdyz nektery prvek hlavicky chybel/byl jinde -> nepreplo to data.',
+      '📜 NEW (S13): Bezove (sepia) tema - teply ton setrny k ocim, mezi tmavym a svetlym. 4. moznost v Nastaveni -> Barevne tema (2x2 mrizka).',
+      '📊 NEW (S13): Skore aktivity uzivatele v admin detailu - bar Neaktivni/Prumerny/Aktivni z poctu transakci + cerstvosti posledni aktivity. Zadny novy sber dat (telemetrie), jen existujici udaje.',
+      '🖥️ NEW (S13): Tabulka transakci (jen web/desktop) - pridany sloupce Typ platby a Penezenka. Na mobilu skryte (filtry jsou v rozsirenem filtru). Split radky doplneny o prazdne bunky.',
+    ]
+  },
+  {
     verze: 'v8.17',
     datum: '2026-06-18',
     zmeny: [
@@ -2387,6 +2397,33 @@ function openUserDetail(uid) {
             <div><div style="color:var(--text3);font-size:.7rem">Transakce</div><div style="font-weight:600">${u.transactionsCount}</div></div>
             <div><div style="color:var(--text3);font-size:.7rem">Poslední aktivita</div><div style="font-weight:600;font-size:.78rem">${fmtDate(u.lastActivity)}</div></div>
           </div>
+          ${(()=>{
+            // Jednoduché skóre aktivity z dostupných dat (bez sběru telemetrie):
+            // objem transakcí + čerstvost poslední aktivity.
+            const txCnt = u.transactionsCount || 0;
+            const days = u.lastActivity ? Math.floor((Date.now() - u.lastActivity) / 86400000) : 999;
+            // Objemová složka (0-60): 50+ transakcí = plný počet
+            const volScore = Math.min(60, Math.round(txCnt / 50 * 60));
+            // Čerstvost (0-40): dnes=40, 30+ dní=0
+            const freshScore = days <= 1 ? 40 : days >= 30 ? 0 : Math.round((1 - days/30) * 40);
+            const score = Math.max(0, Math.min(100, volScore + freshScore));
+            const label = score >= 66 ? 'Aktivní' : score >= 33 ? 'Průměrný' : 'Neaktivní';
+            const color = score >= 66 ? 'var(--income)' : score >= 33 ? '#f5b942' : 'var(--text3)';
+            return `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:5px">
+                <span style="color:var(--text3)">Aktivita uživatele</span>
+                <strong style="color:${color}">${label} · ${score}/100</strong>
+              </div>
+              <div style="position:relative;height:10px;background:linear-gradient(90deg,#6b7280 0%,#f5b942 50%,#4ade80 100%);opacity:.35;border-radius:5px"></div>
+              <div style="position:relative;height:0">
+                <div style="position:absolute;top:-13px;left:calc(${score}% - 6px);width:12px;height:12px;border-radius:50%;background:${color};border:2px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--text3);margin-top:4px">
+                <span>Neaktivní</span><span>Průměrný</span><span>Aktivní</span>
+              </div>
+              <div style="font-size:.64rem;color:var(--text3);margin-top:6px;line-height:1.4">Skóre z počtu transakcí (${txCnt}) a poslední aktivity (${days>=999?'nikdy':'před '+days+' dny'}).</div>
+            </div>`;
+          })()}
         </div>
 
         <!-- Nebezpečná zóna -->

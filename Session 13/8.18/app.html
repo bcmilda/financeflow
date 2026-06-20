@@ -14,7 +14,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v8.17</title>
+<title>FinanceFlow v8.18</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -24,7 +24,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=c5e167182935dd12">
+<link rel="stylesheet" href="css/styles.css?v=16bc785e400dda3e">
 
 <style>
 .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
@@ -257,7 +257,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.17 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.18 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -485,6 +485,8 @@
         <div class="tx-col-subcat tx-sort-btn" id="sort-sub" onclick="setTxSort('sub')">Podkategorie</div>
         <div class="tx-sort-btn" id="sort-name" onclick="setTxSort('name')">Název / Poznámka</div>
         <div class="tx-col-project tx-sort-btn" id="sort-project" onclick="setTxSort('project')">Projekt</div>
+        <div class="tx-col-paytype">Typ platby</div>
+        <div class="tx-col-wallet">Peněženka</div>
         <div class="tx-sort-btn" id="sort-amt" onclick="setTxSort('amt')" style="text-align:right">Částka</div>
         <div></div>
       </div>
@@ -958,7 +960,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.17</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.18</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1874,9 +1876,9 @@
   </div>
 </div>
 
-<script src="js/app.js?v=79a1a0f9452094f3"></script>
+<script src="js/app.js?v=310abd4fb0d4b4dd"></script>
 <script src="js/helpers.js?v=f9fc951c835c1773"></script>
-<script src="js/ui.js?v=c2cc19d7a4f5cec7"></script>
+<script src="js/ui.js?v=af87061442fd62f1"></script>
 <script src="js/transactions.js?v=7f71f09ad82adb2f"></script>
 <script src="js/charts.js?v=e99b3a3a0f780df8"></script>
 <script src="js/stats.js?v=9f85df75dbaa4f9e"></script>
@@ -1886,7 +1888,7 @@
 <script src="js/projects.js?v=8c8974fd3735fc6c"></script>
 <script src="js/receipts.js?v=edeb609e3e5a0e97"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
-<script src="js/settings.js?v=b0067411784265a9"></script>
+<script src="js/settings.js?v=0ae2e638ec079806"></script>
 <script src="js/share.js?v=07f4b0d9ea4ba5f5"></script>
 <script src="js/sms-import.js?v=5f52ec1a31440a61"></script>
 <script src="js/duplicates.js?v=new637"></script>
@@ -1898,7 +1900,7 @@
 <script src="js/kalendar.js?v=f8a30924b2c984a6"></script>
 <script src="js/donate.js?v=cdd38092"></script>
 <script src="js/announcements.js?v=5ebbdf749eecaa87"></script>
-<script src="js/admin.js?v=69b1b3d77df784a5"></script>
+<script src="js/admin.js?v=52e2bb1beda75ac4"></script>
 <script src="js/import.js?v=eaa07f0fae7b24db"></script>
 <script src="js/push.js?v=ddd5da690b0adebf"></script>
 <script type="module" src="js/firebase.js?v=aeeedc7fc2c332c4"></script>
