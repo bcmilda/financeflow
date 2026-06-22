@@ -1,5 +1,5 @@
 /**
- * FinanceFlow – Cloudflare Worker v6 (v7.94)
+ * FinanceFlow · Cloudflare Worker · v8.24 · 2026-06-20
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *

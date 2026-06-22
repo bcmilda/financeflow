@@ -58,9 +58,23 @@
               "icon": "lucide-file",
               "title": "Narozeniny a přání Plány a cíle"
             }
+          },
+          {
+            "id": "dcc415989e47114e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Nezapomenout.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Nezapomenout"
+            }
           }
         ],
-        "currentTab": 3
+        "currentTab": 4
       }
     ],
     "direction": "vertical"
@@ -222,12 +236,12 @@
       "bases:Vytvořit novou základnu": false
     }
   },
-  "active": "887217997ec6f326",
+  "active": "dcc415989e47114e",
   "lastOpenFiles": [
-    "Admin panel/Admin Audity.md",
     "Přání a cíle/Narozeniny a přání Plány a cíle.md",
+    "Nezapomenout.md",
+    "Admin panel/Admin Audity.md",
     "Přání a cíle/Bez názvu.base",
-    "Bez názvu.md",
     "Bez názvu 1.md",
     "Přání a cíle",
     "Radar/Kam směřuju.md",
