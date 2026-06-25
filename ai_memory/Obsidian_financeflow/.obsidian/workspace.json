@@ -72,9 +72,23 @@
               "icon": "lucide-file",
               "title": "Nezapomenout"
             }
+          },
+          {
+            "id": "5addc8d7602390ba",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Verze 8.34 informace.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Verze 8.34 informace"
+            }
           }
         ],
-        "currentTab": 4
+        "currentTab": 5
       }
     ],
     "direction": "vertical"
@@ -236,10 +250,11 @@
       "bases:Vytvořit novou základnu": false
     }
   },
-  "active": "dcc415989e47114e",
+  "active": "5addc8d7602390ba",
   "lastOpenFiles": [
-    "Přání a cíle/Narozeniny a přání Plány a cíle.md",
     "Nezapomenout.md",
+    "Verze 8.34 informace.md",
+    "Přání a cíle/Narozeniny a přání Plány a cíle.md",
     "Admin panel/Admin Audity.md",
     "Přání a cíle/Bez názvu.base",
     "Bez názvu 1.md",
