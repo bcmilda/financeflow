@@ -79,12 +79,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Verze 8.34 informace.md",
+                "file": "Nezapomenout.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Verze 8.34 informace"
+              "title": "Nezapomenout"
             }
           }
         ],
@@ -252,8 +252,8 @@
   },
   "active": "5addc8d7602390ba",
   "lastOpenFiles": [
-    "Nezapomenout.md",
     "Verze 8.34 informace.md",
+    "Nezapomenout.md",
     "Přání a cíle/Narozeniny a přání Plány a cíle.md",
     "Admin panel/Admin Audity.md",
     "Přání a cíle/Bez názvu.base",
