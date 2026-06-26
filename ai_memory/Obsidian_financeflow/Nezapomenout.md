@@ -36,5 +36,5 @@ zkontroluj (4 a 6 by mělo být a 5 snad také)
 
 ### 2 drobnosti, které jsem viděl v Analýze (Image 2) — vyřešíme spolu s tím
 
-- **Názvy položek se ořezávají** („ROHLÍK 4…", „KRÉMKA …") — zalomit/rozšířit sloupec.
+- ~~**Názvy položek se ořezávají** („ROHLÍK 4…", „KRÉMKA …") — zalomit/rozšířit sloupec.~~
 - **Špatné zařazení** „SLADKÝ … → Maso" — některé klíčové slovo trefuje špatný kód (nejspíš kolize „sladký"). Doladíme slovník/pořadí v `product-groups.json`.
