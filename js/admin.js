@@ -1,4 +1,4 @@
-// FinanceFlow · v8.43 · admin.js · 2026-06-26
+// FinanceFlow · v8.41 · admin.js · 2026-06-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -72,7 +72,6 @@ async function renderAdmin() {
     <!-- Záložky admin panelu -->
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       <button class="tx-filt-btn active" id="atab-users"   onclick="switchAdminTab('users',this)">👥 Uživatelé</button>
-      <button class="tx-filt-btn"        id="atab-rust"    onclick="switchAdminTab('rust',this)">📈 Růst</button>
       <button class="tx-filt-btn"        id="atab-keywords" onclick="switchAdminTab('keywords',this)">🔑 Keyword engine</button>
       <button class="tx-filt-btn"        id="atab-corrections" onclick="switchAdminTab('corrections',this)">✏️ User corrections</button>
       <button class="tx-filt-btn"        id="atab-lowconf"  onclick="switchAdminTab('lowconf',this)">⚠️ Low confidence</button>
@@ -141,17 +140,6 @@ async function renderAdmin() {
           </div>
           <div id="adminUsersList"><div class="empty"><div class="et">⏳ Klikni na 🔄 pro načtení seznamu</div></div></div>
         </div>
-      </div>
-    </div>
-
-    <!-- RŮST UŽIVATELŮ -->
-    <div id="atab-rust-content" style="display:none">
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header">
-          <span class="card-title">📈 Růst uživatelů</span>
-          <button class="btn btn-ghost btn-sm" onclick="renderGrowthTab()">🔄 Načíst</button>
-        </div>
-        <div id="growthTabContent"><div class="empty"><div class="et">⏳ Klikni na 🔄 pro načtení</div></div></div>
       </div>
     </div>
 
@@ -400,20 +388,6 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v8.43',
-    datum: '2026-06-26',
-    zmeny: [
-      '📈 NEW (S14): Admin panel → nova zalozka „📈 Rust". Zobrazuje: 6 souhrnych karet (Celkem/Premium/Trial/Free/Vyprselo/Za 30 dni), sloupcovy graf registraci po mesicich (poslednich 12), tabulku novych registraci za poslednich 30 dni + tabulku vyprselych predplatnych. Data z _cachedUsers (loadUsersList), bez nove Firebase cesty.',
-    ]
-  },
-  {
-    verze: 'v8.42',
-    datum: '2026-06-26',
-    zmeny: [
-      '🔄 NEW (S14): Banner „Nova verze FinanceFlow je pripravena [Aktualizovat]" — zobrazi se automaticky kdyz SW detekuje novy shell (controllerchange event). Uzivatel klikne Aktualizovat → reload. Nebo banner zavre a pouziva starou verzi dal. Banner se zobrazi nad spodnim navigacnim panelem, s animaci ffSlideUp. Zadny tvrdy refresh, zadna intervence uzivatel nevi o nasazeni nove verze, app si to vyresi sama.',
-    ]
-  },
   {
     verze: 'v8.41',
     datum: '2026-06-26',
@@ -4972,164 +4946,3 @@ function getTxForSummary(txs) {
 }
 
 // ══════════════════════════════════════════════════════
-
-// ═══ 📈 Záložka RŮST — registrace, předplatná, odhlášení ═══
-async function renderGrowthTab() {
-  const el = document.getElementById('growthTabContent');
-  if (!el) return;
-  el.innerHTML = '<div class="empty"><div class="et">⏳ Načítám data uživatelů...</div></div>';
-  try {
-    // Znovupoužijeme _cachedUsers pokud existují, jinak načteme
-    if (!window._cachedUsers || !window._cachedUsers.length) await loadUsersList();
-    const users = window._cachedUsers || [];
-    if (!users.length) { el.innerHTML = '<div class="empty"><div class="et">Žádní uživatelé</div></div>'; return; }
-    el.innerHTML = _buildGrowthHTML(users);
-  } catch(e) {
-    el.innerHTML = `<div style="padding:10px;font-size:.78rem;color:var(--text3)">⚠️ Chyba: ${e.message}</div>`;
-  }
-}
-
-function _buildGrowthHTML(users) {
-  const now = Date.now();
-  const CZ_M_SHORT = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro'];
-
-  // ── Agregace po měsících ──
-  const byMonth = {}; // 'YYYY-MM' → { reg:0, premStarted:0, premExpired:0 }
-  const ensure = ym => { if (!byMonth[ym]) byMonth[ym] = { reg:0, premStarted:0, premExpired:0 }; };
-
-  users.forEach(u => {
-    const ca = u.premium.createdAt;
-    if (ca && ca > 0) {
-      const d = new Date(ca); const ym = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      ensure(ym); byMonth[ym].reg++;
-    }
-    const pt = u.premium.premiumUntil;
-    if (pt && pt > 0) {
-      const ds = new Date(pt); const ym = ds.getFullYear()+'-'+String(ds.getMonth()+1).padStart(2,'0');
-      ensure(ym);
-      if (pt < now) byMonth[ym].premExpired++;
-      else byMonth[ym].premStarted++;
-    }
-  });
-
-  const months = Object.keys(byMonth).sort();
-  const last12 = months.slice(-12);
-
-  // ── Souhrné karty ──
-  const totalUsers = users.length;
-  const premiumNow = users.filter(u => u.premium.type === 'premium' && (u.premium.premiumUntil||0) > now).length;
-  const trialNow   = users.filter(u => u.premium.type === 'trial'   && (u.premium.trialUntil||0)   > now).length;
-  const freeUsers  = totalUsers - premiumNow - trialNow;
-  const expiredPrem = users.filter(u => (u.premium.premiumUntil||0) > 0 && (u.premium.premiumUntil||0) < now).length;
-
-  // ── Registrace: posledních 30 dní ──
-  const d30ago = now - 30*864e5;
-  const newLast30 = users.filter(u => (u.premium.createdAt||0) > d30ago)
-    .sort((a,b) => b.premium.createdAt - a.premium.createdAt);
-
-  // ── SVG bar chart ──
-  const maxReg = Math.max(1, ...last12.map(m => byMonth[m].reg));
-  const barW = 28, gap = 8, svgW = last12.length * (barW + gap) + gap;
-  const svgH = 120, pad = 16;
-  const bars = last12.map((ym, i) => {
-    const v = byMonth[ym].reg;
-    const bh = Math.max(2, Math.round((v / maxReg) * (svgH - pad - 20)));
-    const x = gap + i * (barW + gap);
-    const y = svgH - pad - bh;
-    const [yr, mo] = ym.split('-');
-    const label = CZ_M_SHORT[parseInt(mo,10)-1] + (yr !== String(new Date().getFullYear()) ? ' '+yr.slice(2) : '');
-    return `<g>
-      <rect x="${x}" y="${y}" width="${barW}" height="${bh}" rx="4" fill="var(--income)" opacity=".85"/>
-      <text x="${x+barW/2}" y="${y-4}" text-anchor="middle" font-size="9" fill="#a7f3d0" font-weight="700">${v > 0 ? v : ''}</text>
-      <text x="${x+barW/2}" y="${svgH-2}" text-anchor="middle" font-size="8" fill="var(--text3)">${label}</text>
-    </g>`;
-  }).join('');
-
-  const svg = `<svg viewBox="0 0 ${svgW} ${svgH}" width="100%" style="max-width:520px;display:block;margin:0 auto 4px" preserveAspectRatio="xMidYMid meet">
-    <text x="4" y="10" font-size="8" fill="var(--text3)">Registrací</text>
-    ${bars}
-  </svg>`;
-
-  // ── Tabulka posledních 30 dní ──
-  const recentRows = newLast30.slice(0,10).map(u => {
-    const d = new Date(u.premium.createdAt);
-    const dateStr = d.toLocaleDateString('cs-CZ',{day:'2-digit',month:'2-digit',year:'numeric'});
-    const tier = u.premium.type==='premium' ? '<span style="color:var(--income);font-weight:700">💎 Premium</span>'
-               : u.premium.type==='trial'   ? '<span style="color:#fbbf24;font-weight:700">⏳ Trial</span>'
-               : '<span style="color:var(--text3)">Free</span>';
-    const name = u.displayName || u.email?.split('@')[0] || u.uid.slice(0,8);
-    return `<tr>
-      <td style="padding:7px 8px;font-size:.76rem;color:var(--text2)">${dateStr}</td>
-      <td style="padding:7px 8px;font-size:.76rem;color:var(--text)">${name}</td>
-      <td style="padding:7px 8px;font-size:.76rem">${tier}</td>
-      <td style="padding:7px 8px;font-size:.74rem;color:var(--text3);text-align:right">${u.transactionsCount} tx</td>
-    </tr>`;
-  }).join('');
-
-  // ── Tabulka vypršelých předplatných ──
-  const expiredRows = users.filter(u => (u.premium.premiumUntil||0) > 0 && (u.premium.premiumUntil||0) < now)
-    .sort((a,b) => b.premium.premiumUntil - a.premium.premiumUntil)
-    .slice(0,10).map(u => {
-      const d = new Date(u.premium.premiumUntil);
-      const dateStr = d.toLocaleDateString('cs-CZ',{day:'2-digit',month:'2-digit',year:'numeric'});
-      const daysAgo = Math.round((now - u.premium.premiumUntil)/864e5);
-      const name = u.displayName || u.email?.split('@')[0] || u.uid.slice(0,8);
-      return `<tr>
-        <td style="padding:7px 8px;font-size:.76rem;color:var(--expense)">${dateStr}</td>
-        <td style="padding:7px 8px;font-size:.76rem;color:var(--text)">${name}</td>
-        <td style="padding:7px 8px;font-size:.74rem;color:var(--text3)">${daysAgo} dní zpět</td>
-        <td style="padding:7px 8px;font-size:.74rem;color:var(--text3);text-align:right">${u.transactionsCount} tx</td>
-      </tr>`;
-    }).join('');
-
-  const thStyle = 'padding:6px 8px;font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap';
-
-  return `
-    <!-- Souhrné karty -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:18px">
-      ${[
-        ['👥','Celkem',totalUsers,'var(--text)'],
-        ['💎','Premium',premiumNow,'var(--income)'],
-        ['⏳','Trial',trialNow,'#fbbf24'],
-        ['🆓','Free',freeUsers,'var(--text3)'],
-        ['❌','Vypršelo',expiredPrem,'var(--expense)'],
-        ['🆕','Za 30 dní',newLast30.length,'#60a5fa'],
-      ].map(([icon,label,val,color])=>`<div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center">
-        <div style="font-size:1.2rem">${icon}</div>
-        <div style="font-size:1.5rem;font-weight:800;color:${color}">${val}</div>
-        <div style="font-size:.68rem;color:var(--text3);margin-top:2px">${label}</div>
-      </div>`).join('')}
-    </div>
-
-    <!-- Graf registrací -->
-    <div style="margin-bottom:18px">
-      <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:8px">📊 Registrace po měsících (posledních 12)</div>
-      ${last12.length ? svg : '<div style="color:var(--text3);font-size:.78rem">Žádná data o datu registrace</div>'}
-    </div>
-
-    <!-- Noví uživatelé (posledních 30 dní) -->
-    ${newLast30.length ? `<div style="margin-bottom:18px">
-      <div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:8px">🆕 Nové registrace (posledních 30 dní) — ${newLast30.length} uživatelů</div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-        <thead><tr>
-          <th style="${thStyle}">Datum</th><th style="${thStyle}">Uživatel</th>
-          <th style="${thStyle}">Tier</th><th style="${thStyle};text-align:right">Aktivita</th>
-        </tr></thead>
-        <tbody>${recentRows}</tbody>
-      </table></div>
-    </div>` : ''}
-
-    <!-- Vypršelá předplatná -->
-    ${expiredPrem ? `<div>
-      <div style="font-size:.78rem;font-weight:700;color:var(--expense);margin-bottom:8px">❌ Vypršelá předplatná (posledních 10)</div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-        <thead><tr>
-          <th style="${thStyle}">Vypršelo</th><th style="${thStyle}">Uživatel</th>
-          <th style="${thStyle}">Čas zpět</th><th style="${thStyle};text-align:right">Aktivita</th>
-        </tr></thead>
-        <tbody>${expiredRows}</tbody>
-      </table></div>
-    </div>` : '<div style="font-size:.78rem;color:var(--text3)">✅ Žádná vypršelá předplatná</div>'}
-  `;
-}
-window.renderGrowthTab = renderGrowthTab;
