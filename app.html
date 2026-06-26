@@ -14,7 +14,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v8.41</title>
+<title>FinanceFlow v8.42</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -257,7 +257,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.41 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.42 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -987,7 +987,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.41</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.42</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1974,7 +1974,7 @@
 <script src="js/kalendar.js?v=f8a30924b2c984a6"></script>
 <script src="js/donate.js?v=cdd38092"></script>
 <script src="js/announcements.js?v=3cfc9cd595975c01"></script>
-<script src="js/admin.js?v=1b8d7b1ee2b9ed3e"></script>
+<script src="js/admin.js?v=e6f780a1c37cbd27"></script>
 <script src="js/import.js?v=eaa07f0fae7b24db"></script>
 <script src="js/push.js?v=ddd5da690b0adebf"></script>
 <script src="js/kurzy.js?v=28e180939e049582"></script>
@@ -2345,6 +2345,27 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
 </script>
 <!-- ══ konec Sentry ══ -->
 
+<!-- ══ Banner: nová verze SW ══ -->
+<div id="ffUpdateBanner" style="
+  display:none;position:fixed;bottom:72px;left:50%;transform:translateX(-50%);
+  z-index:9999;background:var(--card-bg,#1e2235);border:1px solid var(--income,#4ade80);
+  border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.45);
+  padding:12px 18px;display:none;align-items:center;gap:12px;
+  max-width:calc(100vw - 32px);white-space:nowrap;animation:ffSlideUp .3s ease">
+  <span style="font-size:.85rem;color:var(--text,#e8f4fd)">🔄 Nová verze FinanceFlow je připravena</span>
+  <button onclick="window.location.reload()" style="
+    background:var(--income,#4ade80);color:#0a0e1a;border:none;border-radius:8px;
+    padding:6px 14px;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap">
+    Aktualizovat
+  </button>
+  <button onclick="document.getElementById('ffUpdateBanner').style.display='none'" style="
+    background:none;border:none;color:var(--text3,#8b90a8);font-size:1.1rem;
+    cursor:pointer;padding:0 2px;line-height:1" title="Zavřít">✕</button>
+</div>
+<style>
+@keyframes ffSlideUp{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+</style>
+
 <!-- ══ Service Worker – offline běh app shellu (Session 11, v7.37) ══ -->
 <script>
 if ('serviceWorker' in navigator) {
@@ -2360,6 +2381,11 @@ if ('serviceWorker' in navigator) {
               nw.postMessage('skipWaiting');
             }
           });
+        });
+        // Když nový SW převezme kontrolu → zobraz banner
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          var b = document.getElementById('ffUpdateBanner');
+          if (b) b.style.display = 'flex';
         });
       })
       .catch(function (e) { console.log('SW registrace selhala:', e); });

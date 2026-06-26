@@ -1,4 +1,4 @@
-// FinanceFlow · v8.41 · admin.js · 2026-06-26
+// FinanceFlow · v8.42 · admin.js · 2026-06-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -388,6 +388,13 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v8.42',
+    datum: '2026-06-26',
+    zmeny: [
+      '🔄 NEW (S14): Banner „Nova verze FinanceFlow je pripravena [Aktualizovat]" — zobrazi se automaticky kdyz SW detekuje novy shell (controllerchange event). Uzivatel klikne Aktualizovat → reload. Nebo banner zavre a pouziva starou verzi dal. Banner se zobrazi nad spodnim navigacnim panelem, s animaci ffSlideUp. Zadny tvrdy refresh, zadna intervence uzivatel nevi o nasazeni nove verze, app si to vyresi sama.',
+    ]
+  },
   {
     verze: 'v8.41',
     datum: '2026-06-26',
