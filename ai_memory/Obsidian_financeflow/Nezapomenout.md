@@ -33,3 +33,8 @@ zkontroluj (4 a 6 by mělo být a 5 snad také)
 **5. Cena/kg a cena/l tracking (TODO-084) + Shrinkflation detektor (TODO-085)** – tohle je tvoje **konkurenční výhoda**. Skenuješ účtenky, takže můžeš sledovat že "máslo zdražilo z 45 na 52 Kč" nebo "balení se zmenšilo z 500 na 450 g". To jiné české finanční appky nemají.
 
 **6. Inflace životního stylu (TODO-089)** – upozornění když výdaje rostou rychleji než příjmy. Užitečné varování.
+
+### 2 drobnosti, které jsem viděl v Analýze (Image 2) — vyřešíme spolu s tím
+
+- **Názvy položek se ořezávají** („ROHLÍK 4…", „KRÉMKA …") — zalomit/rozšířit sloupec.
+- **Špatné zařazení** „SLADKÝ … → Maso" — některé klíčové slovo trefuje špatný kód (nejspíš kolize „sladký"). Doladíme slovník/pořadí v `product-groups.json`.
