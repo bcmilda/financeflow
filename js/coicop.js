@@ -1,4 +1,4 @@
-// FinanceFlow · v8.39 · coicop.js · 2026-06-26
+// FinanceFlow · v8.46 · coicop.js · 2026-06-27
 // COICOP agregace – COMPUTE oddělený od renderu. Roll-up SKUTEČNÝCH výdajů uživatele
 // z položek účtenek na jemné COICOP úrovně (podtřída 01.1, třída 01.11, kód 01.113)
 // přes productGroupLookup z produktové DB.
@@ -9,7 +9,7 @@
 // Cena řádku položky = price × qty (staré záznamy: price = cena/ks → fallback × qty||1).
 function _coicopLineTotal(it){ return (parseFloat(it && it.price) || 0) * (parseFloat(it && it.qty) || 1); }
 function _coicopSub(code){ const m = String(code||'').match(/^(\d{2})\.(\d)/);  return m ? (m[1]+'.'+m[2]) : ''; }   // 01.113 → 01.1
-function _coicopClass(code){ const m = String(code||'').match(/^(\d{2})\.(\d{2})/); return m ? (m[1]+'.'+m[2]) : ''; } // 01.113 → 01.11
+function _coicopClass(code){ const m = String(code||'').match(/^(\d{2})\.(\d)(\d)/); return m ? (m[1]+'.'+m[2]+'.'+m[3]) : ''; } // 01.113 → 01.1.1 (formát ČSÚ tabulky)
 
 // Jádro: roll-up nad polem položek. Vrací sumy po úrovních + matched/unmatched.
 function _coicopRollupItems(items){

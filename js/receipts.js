@@ -1,4 +1,4 @@
-// FinanceFlow · v8.44 · receipts.js · 2026-06-26
+// FinanceFlow · v8.46 · receipts.js · 2026-06-27
 //  ANALÝZA ÚČTENEK
 // ══════════════════════════════════════════════════════
 // ── lineAmt helper: bezpečný výpočet celkové ceny položky ──
@@ -182,7 +182,19 @@ function renderUctenky() {
 
     // Extrahuj hmotnost/objem z názvu → spočítej cenu za kg nebo litr
     const unitInfo = extractUnit(it.name||'');
-    const pricePerUnit = unitInfo ? parseFloat((unitPrice / (unitInfo.value * qty)).toFixed(2)) : null;
+    // Cena za kg/l:
+    //  • vážená položka (unit kg/l): price je UŽ cena/kg → bereme přímo
+    //  • kusová položka s hmotností v názvu (Rohlík 43g): cena/ks ÷ hmotnost 1 KS (NE × qty!)
+    const _isWeighed = (it.unit === 'kg' || it.unit === 'l');
+    let pricePerUnit = null, perUnitLabel = null, pkgWeight = null;
+    if (_isWeighed) {
+      pricePerUnit = unitPrice;
+      perUnitLabel = 'Kč/' + it.unit;
+    } else if (unitInfo) {
+      pricePerUnit = parseFloat((unitPrice / unitInfo.value).toFixed(2));
+      perUnitLabel = 'Kč/' + unitInfo.unit;
+      pkgWeight = unitInfo.value; // velikost balení (shrinkflation jen u kusových)
+    }
 
     if(!itemPrices[key]) itemPrices[key] = [];
     itemPrices[key].push({
@@ -194,8 +206,8 @@ function renderUctenky() {
       // Nová pole pro cenu/kg a cenu/l
       unitInfo,
       pricePerUnit,           // Kč/kg nebo Kč/l
-      unitLabel: unitInfo ? `Kč/${unitInfo.unit}` : null,
-      originalWeight: unitInfo ? unitInfo.value : null,
+      unitLabel: perUnitLabel,
+      originalWeight: pkgWeight,
     });
   });
 

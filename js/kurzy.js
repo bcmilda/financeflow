@@ -1,4 +1,4 @@
-// FinanceFlow · v8.36 · kurzy.js · 2026-06-26
+// FinanceFlow · v8.46 · kurzy.js · 2026-06-27
 // Kurzy měn (denní kurzovní lístek ČNB) + možnost připnout oblíbené měny pro rychlý přehled.
 // Data: proxy přes Cloudflare Worker (endpoint /cnb, cache 1×/den + CORS).
 // Fallback: poslední načtené kurzy v paměti → uložené orientační průměry (_FX_RATES z debts.js).
@@ -22,15 +22,16 @@ const FX_INFO = {
   XDR:['Zvláštní práva čerpání (MMF)','🏦']
 };
 
-function getPinnedFx(){ return (window.S && Array.isArray(S.pinnedFx)) ? S.pinnedFx : []; }
+function getPinnedFx(){
+  try { return JSON.parse(localStorage.getItem('ff_pinnedFx') || '[]'); } catch(e){ return []; }
+}
 
 function togglePinFx(code){
-  if (viewingUid) return;
-  if (!Array.isArray(S.pinnedFx)) S.pinnedFx = [];
-  const i = S.pinnedFx.indexOf(code);
-  if (i >= 0) S.pinnedFx.splice(i, 1); else S.pinnedFx.push(code);
-  save();
-  renderKurzy();
+  const list = getPinnedFx();
+  const i = list.indexOf(code);
+  if (i >= 0) list.splice(i, 1); else list.push(code);
+  try { localStorage.setItem('ff_pinnedFx', JSON.stringify(list)); } catch(e){}
+  renderKurzy(); // vizuál hned, nezávisle na Firebase
 }
 window.togglePinFx = togglePinFx;
 
@@ -84,12 +85,11 @@ async function renderKurzy(){
     : (isFallback ? '⚠️ ČNB nedostupné – zobrazeny orientační průměry' : 'Kurzy měn');
 
   let html = '';
-  // hlavička + obnovit
-  html += '<div class="card" style="margin-bottom:14px"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'
-    + '<div><div style="font-weight:800;font-size:1.1rem">💱 Kurzy měn</div>'
+  // hlavička (ČNB se aktualizuje 1×/den – ruční obnovení je zbytečné)
+  html += '<div class="card" style="margin-bottom:14px"><div class="card-body">'
+    + '<div style="font-weight:800;font-size:1.1rem">💱 Kurzy měn</div>'
     + '<div style="font-size:.78rem;color:' + (isFallback ? '#fbbf24' : '#a8aec8') + ';margin-top:2px">' + statusTxt + '</div>'
-    + '<div style="font-size:.72rem;color:#a8aec8;margin-top:3px">Kolik Kč stojí 1 jednotka měny. Hvězdičkou připneš měnu nahoru.</div></div>'
-    + '<button class="btn btn-sm" onclick="(async()=>{await fetchFxRates(true);renderKurzy();})()">🔄 Obnovit</button>'
+    + '<div style="font-size:.72rem;color:#a8aec8;margin-top:3px">Kolik Kč stojí 1 jednotka měny. Hvězdičkou připneš měnu nahoru. Kurzy ČNB se aktualizují jednou denně.</div>'
     + '</div></div>';
 
   // připnuté
