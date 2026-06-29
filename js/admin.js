@@ -1,4 +1,4 @@
-// FinanceFlow · v8.49 · admin.js · 2026-06-27
+// FinanceFlow · v8.51 · admin.js · 2026-06-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -400,6 +400,23 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v8.51',
+    datum: '2026-06-29',
+    zmeny: [
+      '🫳 (S14, ADR-075): Landscape (sirka) – akcni tlacitka ✂✎✕📷 v tabulce transakci SKRYTA (snadny preklik na mobilu). Nyni stejne jako na vysku: ucentkova transakce = SWIPE doleva → „Upravit" (otevre naskenovanou uctenku), normalni transakce = TAP otevre editaci. Mazani normalni transakce pres edit okno. Sticky hlavicka zustava.',
+    ]
+  },
+  {
+    verze: 'v8.50',
+    datum: '2026-06-29',
+    zmeny: [
+      '🐛 FIX (S14): Swipe „Upravit" u uctenkove transakce nyni otevre KONKRETNI naskenovanou uctenku v Historii (openReceiptInHistory) – jak to fungovalo driv. Driv (v8.48) omylem otviral obecnou editaci transakce / rozbaloval polozky (dve funkce). Nyni jedna jasna akce.',
+      '🐛 FIX (S14): Kurzy men – zmizela zaseklost. Klient ted nacita vzdy cerstve (cache:no-store), Worker /cnb vraci Cache-Control:no-cache a edge cache snizen na 30 min. Pozn.: o vikendu a v pracovni den pred ~14:30 CNB drzi kurz z predchoziho dne (to je spravne, ne chyba).',
+      '🎨 FIX (S14): Zelene tagy u transakci jsou citelnejsi (svetlejsi text #bff7d6, vyssi kontrast, vetsi).',
+      '📌 (S14): Landscape – hlavicka tabulky transakci (Datum/Kategorie/…) je nyni prichycena (sticky) pri scrollovani.',
+    ]
+  },
   {
     verze: 'v8.49',
     datum: '2026-06-27',

@@ -1,4 +1,4 @@
-// FinanceFlow · v8.48 · ui.js · 2026-06-27
+// FinanceFlow · v8.51 · ui.js · 2026-06-29
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1427,7 +1427,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
         : (!ro && !isVirtualTransfer ? `onclick="editTx('${t.id}')"` : '');
     const tagsHtmlM =
       (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
-      : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
+      : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.2);border:1px solid rgba(74,222,128,.45);color:#bff7d6;padding:2px 8px;border-radius:9px;font-size:.66rem;font-weight:700">🏷️ ${tag}</span>`).join('')}</div>`
       : '';
     const badgeM = isSplitParent ? ` <span style="font-size:.6rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
                 : hasReceiptItems ? ` <span style="font-size:.6rem;color:var(--text3)">📷 ${t.receiptItems.length} ▾</span>` : '';
@@ -1453,7 +1453,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     const _mobOut = (!ro && hasReceiptItems)
       ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden">
           <div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6)">
-            <button onclick="event.stopPropagation();editTx('${t.id}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
+            <button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
           </div>
           ${_mobCard}
         </div>`
@@ -1463,8 +1463,14 @@ function buildTxRow(t, D, ro, dupMap={}) {
     ${childRows}`;
   }
 
-  const mobileTapAttr = '';
-  return `<div class="${rowClass}" ${isSplitParent?`onclick="toggleSplitChildren('${t.splitId}')" style="cursor:pointer"`:(rcptExpandAttr||mobileTapAttr)}>
+  const _swipeRow = !ro && hasReceiptItems;            // účtenka → swipe na „Upravit"
+  const _normalEditable = !ro && !isSplitParent && !isVirtualTransfer && !hasReceiptItems; // normální → tap edituje
+  const _expandJs = (hasReceiptItems && !isSplitParent) ? `event.stopPropagation();const el=document.getElementById('rcpt-items-${t.id}');if(el)el.style.display=el.style.display==='none'?'block':'none'` : '';
+  const _rowAttrs = isSplitParent ? `onclick="toggleSplitChildren('${t.splitId}')" style="cursor:pointer"`
+    : _swipeRow ? `onclick="${_expandJs}" style="cursor:pointer;background:var(--surface);position:relative;z-index:1"`
+    : _normalEditable ? `onclick="editTx('${t.id}')" style="cursor:pointer"`
+    : '';
+  const _rowHTML = `<div class="${rowClass}${_swipeRow?' tx-swipe-fg':''}"${_swipeRow?' data-swipe="1"':''} ${_rowAttrs}>
     <div class="tx-table-cell" style="color:var(--text3);font-size:.76rem">
       <div style="font-weight:600;color:var(--text2)">${d.getDate()}. ${CZ_M[d.getMonth()].slice(0,3)}</div>
       <div style="font-size:.68rem">${CZ_D[d.getDay()]}</div>
@@ -1500,13 +1506,14 @@ function buildTxRow(t, D, ro, dupMap={}) {
       ${isSplitParent?`<span class="split-badge" style="margin-left:0;margin-top:3px;display:inline-block">✂️ SPLIT · ${splitChildren.length}×</span>`:''}
       ${hasReceiptItems?`<span style="font-size:.62rem;color:var(--text3);display:block;margin-top:2px">📷 ${t.receiptItems.length} pol. ▾</span>`:''}
     </div>
-    <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end">
-      ${isVirtualTransfer?`<span style="font-size:.66rem;color:var(--text3);align-self:center" title="Spravuj v sekci Cíle">🎯 cíl</span>`:`
-      ${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}
-      ${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}
-      ${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`}
+    <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
+      ${isVirtualTransfer?`<span style="font-size:.66rem;color:var(--text3)" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_swipeRow?`<span style="font-size:.6rem;color:var(--text3)" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')}
     </div>
-  </div>
+  </div>`;
+  const _wrapped = _swipeRow
+    ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden"><div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6);z-index:0"><button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.1rem">✎</span>Upravit</button></div>${_rowHTML}</div>`
+    : _rowHTML;
+  return `${_wrapped}
   ${receiptItemsHtml}
   ${childRows}`;
 }
