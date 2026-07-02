@@ -1,4 +1,4 @@
-// FinanceFlow · v8.62 · ui.js · 2026-07-02
+// FinanceFlow · v8.61 · ui.js · 2026-07-02
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1582,15 +1582,6 @@ function editTx(id){
   _czkTouched = (t.amtCZK!=null);
   { const _cf=document.getElementById('txAmtCZK'); if(_cf) _cf.value=(t.amtCZK!=null)?t.amtCZK:''; }
   if(typeof updateTxCzkField==='function') updateTxCzkField();
-  // v8.62 (TODO-150): tx BEZ peněženky + základní měna ≠ CZK → částka se edituje v základní měně,
-  // pole „Skutečně v Kč" nese přesnou uloženou Kč hodnotu (žádný kurzovní drift při přeuložení)
-  if(!t.wallet && typeof baseCur==='function' && baseCur()!=='CZK' && t.type!=='transfer'){
-    const _a=t.amount||t.amt||0;
-    const _af=document.getElementById('txAmt'); if(_af) _af.value=Math.round(czkToBase(_a)*100)/100;
-    const _cf2=document.getElementById('txAmtCZK'); if(_cf2) _cf2.value=_a;
-    _czkTouched=true;
-    if(typeof updateTxCzkField==='function') updateTxCzkField();
-  }
   // S12.1i: akční tlačítka v editaci (mobil i PC) – Smazat vždy, Rozdělit jen kde dává smysl
   const _bd=document.getElementById('btnTxDelete');
   if(_bd) _bd.style.display='inline-flex';

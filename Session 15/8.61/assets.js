@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.62 · assets.js · 2026-07-02
+//  FinanceFlow · v8.61 · assets.js · 2026-07-02
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -366,14 +366,11 @@ function assetBuildLiquiditySections(D){
         const cur = w.currency||'CZK';
         const balCZK = (typeof toCZK==='function') ? toCZK(bal, cur) : bal;
         const isForeign = cur !== 'CZK';
-        // v8.62 (FIX): responsivní řádek – pevné min-width 120+160px bralo názvu veškeré místo na mobilu („E…“)
         return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:1.05rem;flex-shrink:0">${w.icon||'👛'}</span>
-          <span style="flex:1;font-size:.82rem;font-weight:600;min-width:0;overflow:hidden;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${w.name}</span>
-          <span style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:1px">
-            <span style="font-weight:600;font-variant-numeric:tabular-nums;color:${balCZK>=0?'#60a5fa':'var(--expense)'};white-space:nowrap">${fmtBP(balCZK)}</span>
-            ${isForeign?`<span style="font-size:.68rem;color:#a8aec8;white-space:nowrap">${fmtP(bal)} ${cur}</span>`:''}
-          </span>
+          <span style="font-size:1.05rem">${w.icon||'👛'}</span>
+          <span style="flex:1;font-size:.82rem;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.name}</span>
+          <span style="font-size:.74rem;color:var(--text3);white-space:nowrap;text-align:right;min-width:120px;flex-shrink:0">${isForeign?fmtP(bal)+' '+cur:''}</span>
+          <span style="font-weight:600;font-variant-numeric:tabular-nums;color:${balCZK>=0?'#60a5fa':'var(--expense)'};white-space:nowrap;min-width:160px;text-align:right;flex-shrink:0">${fmtBP(balCZK)}</span>
         </div>`;
       }).join('') || '<div style="font-size:.72rem;color:var(--text3);padding:6px 2px">Žádné peněženky – přidej v Nastavení</div>';
     } else {

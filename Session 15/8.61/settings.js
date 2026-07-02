@@ -1,4 +1,4 @@
-// FinanceFlow · v8.62 · settings.js · 2026-07-02
+// FinanceFlow · v8.61 · settings.js · 2026-07-02
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -465,7 +465,7 @@ function renderSettingsPage() {
           <span class="settings-icon">🌍</span>
           <div class="settings-item-body"><div class="settings-item-title">Jazyk</div></div>
         </div>
-        <select class="fs" id="settingLang" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
+        <select class="fs" id="settingLang" style="margin-left:38px"
           onchange="settingChanged()">
           <option value="cs" ${(_settings?.lang||'cs')==='cs'?'selected':''}>🇨🇿 Čeština</option>
           <option value="sk" ${_settings?.lang==='sk'?'selected':''}>🇸🇰 Slovenčina</option>
@@ -478,7 +478,7 @@ function renderSettingsPage() {
           <span class="settings-icon">💱</span>
           <div class="settings-item-body"><div class="settings-item-title">Výchozí měna</div></div>
         </div>
-        <select class="fs" id="settingCurrency" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
+        <select class="fs" id="settingCurrency" style="margin-left:38px"
           onchange="settingChanged()">
           <option value="CZK" ${(_settings?.currency||'CZK')==='CZK'?'selected':''}>🇨🇿 CZK – Koruna</option>
           <option value="EUR" ${_settings?.currency==='EUR'?'selected':''}>🇪🇺 EUR – Euro</option>
@@ -494,7 +494,7 @@ function renderSettingsPage() {
           <span class="settings-icon">📅</span>
           <div class="settings-item-body"><div class="settings-item-title">Formát data</div></div>
         </div>
-        <select class="fs" id="settingDateFmt" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
+        <select class="fs" id="settingDateFmt" style="margin-left:38px"
           onchange="settingChanged()">
           <option value="cs"  ${(_settings?.dateFmt||'cs')==='cs'?'selected':''}>DD.MM.YYYY (česky)</option>
           <option value="iso" ${_settings?.dateFmt==='iso'?'selected':''}>YYYY-MM-DD (ISO)</option>
@@ -510,7 +510,7 @@ function renderSettingsPage() {
             <div class="settings-item-sub">Začátek finančního cyklu – Runway do výplaty</div>
           </div>
         </div>
-        <select class="fs" id="settingFirstDay" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
+        <select class="fs" id="settingFirstDay" style="margin-left:38px"
           onchange="settingChanged()">
           <option value="0" ${!(_settings?.firstDay>0)?'selected':''}>🤖 Automaticky (z transakcí)</option>
           ${Array.from({length:28},(_,i)=>i+1).map(d =>
@@ -524,7 +524,7 @@ function renderSettingsPage() {
             <div class="settings-item-sub">Jak často chodí hlavní příjem – ovlivňuje cyklus Runway</div>
           </div>
         </div>
-        <select class="fs" id="settingPayFreq" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
+        <select class="fs" id="settingPayFreq" style="margin-left:38px"
           onchange="settingChanged()">
           <option value="monthly"   ${(!_settings?.payFreq||_settings?.payFreq==='monthly')?'selected':''}>📅 Měsíčně (1× za měsíc)</option>
           <option value="biweekly"  ${_settings?.payFreq==='biweekly'?'selected':''}>📆 Každých 14 dní</option>

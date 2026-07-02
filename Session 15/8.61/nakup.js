@@ -1,4 +1,4 @@
-// FinanceFlow · v8.62 · nakup.js · 2026-07-02
+// FinanceFlow · v8.61 · nakup.js · 2026-07-02
 // ══════════════════════════════════════════════════════
 //  NÁKUPNÍ SEZNAM + HLÍDAČ CEN + PLÁNY A CÍLE – FinanceFlow v6.49
 // ══════════════════════════════════════════════════════
@@ -177,8 +177,6 @@ function nakupBuildList() {
   let items = [..._nakupItems];
   if (_nakupFilter === 'alert')     items = items.filter(i => i.alertPct > 0);
   if (_nakupFilter === 'triggered') items = items.filter(i => nakupIsTriggered(i));
-  // v8.62: klasický zaškrtávací seznam – nakoupené (v košíku) řadíme dolů
-  items.sort((a,b)=>(a.inCart?1:0)-(b.inCart?1:0));
 
   if (!items.length) {
     return `<div class="empty" style="padding:32px">
@@ -187,12 +185,7 @@ function nakupBuildList() {
       ${_nakupFilter === 'all' && !viewingUid ? '<div style="margin-top:8px"><button class="btn btn-accent btn-sm" onclick="openNakupModal()">+ Přidat první položku</button></div>' : ''}
     </div>`;
   }
-  const inCartN = _nakupItems.filter(i=>i.inCart).length;
-  const cartBar = inCartN ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:10px;padding:7px 12px">
-      <span style="font-size:.78rem;color:var(--income);font-weight:600">🛒 V košíku ${inCartN} z ${total}</span>
-      ${!viewingUid?`<button class="btn btn-ghost btn-sm" onclick="nakupClearCart()" style="font-size:.72rem">Vysypat košík</button>`:''}
-    </div>` : '';
-  return `${cartBar}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;align-items:stretch">
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px;align-items:stretch">
     ${items.map(item => nakupBuildRow(item)).join('')}
   </div>`;
 }
@@ -229,18 +222,13 @@ function nakupBuildRow(item) {
     ? `<div style="font-size:.64rem;color:var(--text3);margin-top:auto;padding-top:4px">Ref.: ${fmtBP(item.refPrice)}${item.alertPct?` · alert ${fmtBP(item.refPrice*(1-item.alertPct/100))}`:''}</div>`
     : '';
 
-  const inCart = !!item.inCart; // v8.62: zaškrtávací nákupní seznam
-  return `<div style="background:var(--surface2);border:1px solid ${inCart?'rgba(74,222,128,.35)':triggered?'rgba(74,222,128,.4)':'var(--border)'};${triggered&&!inCart?'box-shadow:0 0 14px rgba(74,222,128,.12);':''}border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:150px;position:relative;${inCart?'opacity:.55;':''}">
-
-    ${!ro?`<button onclick="nakupToggleCart('${item.id}')" title="${inCart?'Vrátit do seznamu':'Mám v košíku'}"
-      style="position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;
-      border:2px solid ${inCart?'#4ade80':'rgba(168,174,200,.5)'};background:${inCart?'rgba(74,222,128,.2)':'transparent'};color:#4ade80;padding:0">${inCart?'✓':''}</button>`:''}
+  return `<div style="background:var(--surface2);border:1px solid ${triggered?'rgba(74,222,128,.4)':'var(--border)'};${triggered?'box-shadow:0 0 14px rgba(74,222,128,.12);':''}border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:150px;position:relative">
 
     <!-- Ikona v jemném kolečku -->
     <div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${item.icon||'🛒'}</div>
 
     <!-- Název -->
-    <div style="font-weight:700;font-size:.86rem;line-height:1.25;color:var(--text);word-break:break-word;${inCart?'text-decoration:line-through;color:var(--text3);':''}padding-right:26px">
+    <div style="font-weight:700;font-size:.86rem;line-height:1.25;color:var(--text);word-break:break-word">
       ${item.name}${item.qty>1?` <span style="font-size:.72rem;color:var(--text3);font-weight:500">×${item.qty}</span>`:''}
     </div>
 
@@ -890,22 +878,6 @@ function nakupDelete(id) {
   if (viewingUid) return;
   if (!confirm('Odebrat ze seznamu?')) return;
   S.nakupList = (S.nakupList || []).filter(i => i.id !== id);
-  save();
-  renderNakupSeznam();
-}
-
-// v8.62: zaškrtávací nákupní seznam – „mám v košíku"
-function nakupToggleCart(id) {
-  if (viewingUid) return;
-  const it = (S.nakupList || []).find(i => i.id === id); if (!it) return;
-  it.inCart = !it.inCart;
-  save();
-  renderNakupSeznam();
-}
-function nakupClearCart() {
-  if (viewingUid) return;
-  if (!confirm('Vysypat košík? Všechny zaškrtnuté položky se vrátí do seznamu.')) return;
-  (S.nakupList || []).forEach(i => { if (i.inCart) i.inCart = false; });
   save();
   renderNakupSeznam();
 }

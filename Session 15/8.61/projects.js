@@ -1,4 +1,4 @@
-// FinanceFlow · v8.62 · projects.js · 2026-07-02
+// FinanceFlow · v8.61 · projects.js · 2026-07-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2929,21 +2929,17 @@ function runSimulace() {
 }
 
 function drawSimulaceChart(age, retireAge, startSavings, surplus, monthlyInvest, r, debtPayment, debt, inflation) {
-  // v8.62 (FIX): kompletní přepis – canvas neumí CSS proměnné (graf byl „bez barev"),
-  // legenda se křížila s popisky osy X, chybělo DPR škálování (rozmazané na mobilu).
   setTimeout(()=>{
     const canvas = document.getElementById('simulaceChart'); if(!canvas) return;
-    const W = canvas.parentElement?.clientWidth||500, H = 260;
-    const dpr = window.devicePixelRatio||1;
-    canvas.width=W*dpr; canvas.height=H*dpr;
-    canvas.style.width=W+'px'; canvas.style.height=H+'px';
-    const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
-    ctx.clearRect(0,0,W,H);
+    const W = canvas.parentElement?.clientWidth||500;
+    canvas.width=W; canvas.height=200;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,W,200);
     const years = retireAge-age;
     const pts = Math.min(years, 50);
     const stepYears = years/pts;
 
-    // Výpočet 3 scénářů
+    // Build 3 series
     const serA=[], serB=[], serC=[];
     let a=startSavings, b=startSavings, c=startSavings, cDebt=debt;
     for(let i=0;i<=pts;i++){
@@ -2961,72 +2957,45 @@ function drawSimulaceChart(age, retireAge, startSavings, surplus, monthlyInvest,
     }
 
     const maxVal = Math.max(...serA,...serB,...serC,1);
-    const pad={l:58,r:12,t:30,b:44}; // t: legenda nahoře · b: popisky X + název osy (nekryjí se)
-    const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+    const pad={l:55,r:10,t:10,b:30};
+    const cW=W-pad.l-pad.r, cH=200-pad.t-pad.b;
     const x=i=>pad.l+(i/pts)*cW;
     const y=v=>pad.t+cH-(v/maxVal)*cH;
-    const COLS={A:'#8b90a8', B:'#4ade80', C:'#60a5fa'}; // hex – CSS var() v canvas nefunguje
 
-    // Mřížka + ticky osy Y (v základní měně)
-    ctx.strokeStyle='rgba(96,102,130,.35)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
-    ctx.fillStyle='#a8aec8';ctx.font='10px Instrument Sans';ctx.textAlign='right';
-    [0,0.25,0.5,0.75,1].forEach(f=>{
-      const yy=pad.t+cH*(1-f);
-      ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();
-      const v=czkToBase(maxVal*f);
-      ctx.fillText(v>=1000000?(Math.round(v/100000)/10)+'M':v>=1000?Math.round(v/1000)+'k':Math.round(v), pad.l-6, yy+3.5);
-    });
+    // Grid
+    ctx.strokeStyle='rgba(46,51,71,.5)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    [0,0.25,0.5,0.75,1].forEach(f=>{ctx.beginPath();ctx.moveTo(pad.l,pad.t+cH*(1-f));ctx.lineTo(W-pad.r,pad.t+cH*(1-f));ctx.stroke();});
     ctx.setLineDash([]);
-    // Osy
-    ctx.strokeStyle='rgba(168,174,200,.5)';
-    ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+cH);ctx.lineTo(W-pad.r,pad.t+cH);ctx.stroke();
 
-    // Čáry scénářů
-    const lines=[{data:serA,color:COLS.A,dash:[]},{data:serB,color:COLS.B,dash:[]},{data:serC,color:COLS.C,dash:[6,4]}];
+    const lines = [
+      {data:serA, color:'rgba(139,144,168,.7)', dash:[]},
+      {data:serB, color:'var(--income)', dash:[]},
+      {data:serC, color:'var(--bank)', dash:[5,3]},
+    ];
     lines.forEach(l=>{
       ctx.beginPath();
       l.data.forEach((v,i)=>i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v)));
-      ctx.strokeStyle=l.color;ctx.lineWidth=2.5;ctx.setLineDash(l.dash);ctx.stroke();
+      ctx.strokeStyle=l.color;ctx.lineWidth=2;ctx.setLineDash(l.dash);ctx.stroke();
     });
     ctx.setLineDash([]);
 
-    // Popisky osy X (věk) + názvy os
-    ctx.fillStyle='#a8aec8';ctx.font='10px Instrument Sans';ctx.textAlign='center';
+    // Y labels
+    ctx.fillStyle='rgba(139,144,168,.7)';ctx.font='10px Instrument Sans';ctx.textAlign='right';
+    [0,0.25,0.5,0.75,1].forEach(f=>ctx.fillText(fmt(Math.round(czkToBase(maxVal*f))),pad.l-3,y(maxVal*f)+4));
+
+    // X labels
+    ctx.textAlign='center';
     [0,Math.floor(pts/4),Math.floor(pts/2),Math.floor(pts*3/4),pts].forEach(i=>{
-      ctx.fillText(age+Math.round(i*years/pts)+' let',x(i),pad.t+cH+15);
-    });
-    ctx.font='9px Instrument Sans';
-    ctx.fillText('Věk',pad.l+cW/2,H-4);
-    ctx.save();ctx.translate(11,pad.t+cH/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';
-    ctx.fillText('Majetek ('+curSym()+')',0,0);ctx.restore();
-
-    // Legenda NAHOŘE (nekryje se s osou X)
-    ctx.textAlign='left';ctx.font='10.5px Instrument Sans';
-    let lx=pad.l;
-    [{c:COLS.A,l:'A: Stejné tempo'},{c:COLS.B,l:'B: Investuji'},{c:COLS.C,l:'C: Splatím dluh'}].forEach(it=>{
-      ctx.fillStyle=it.c;ctx.fillRect(lx,9,14,3.5);
-      ctx.fillStyle='#c9cede';ctx.fillText(it.l,lx+18,14);
-      lx += 18 + ctx.measureText(it.l).width + 16;
+      ctx.fillText(age+Math.round(i*years/pts)+'r',x(i),200-4);
     });
 
-    // Tooltip (myš i dotyk)
-    canvas.onmousemove = canvas.ontouchstart = function(ev){
-      const e = ev.touches?ev.touches[0]:ev;
-      const rect=canvas.getBoundingClientRect();
-      const mx=e.clientX-rect.left;
-      const i=Math.max(0,Math.min(pts,Math.round((mx-pad.l)/cW*pts)));
-      let tt=document.getElementById('simulaceTip');
-      if(!tt){ tt=document.createElement('div'); tt.id='simulaceTip'; tt.style.cssText='position:fixed;z-index:9999;background:#1a1d27;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px 11px;font-size:.72rem;color:#e8eaf2;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.4);line-height:1.6'; document.body.appendChild(tt); }
-      tt.style.display='block';
-      tt.style.left=Math.min(e.clientX+12, window.innerWidth-190)+'px';
-      tt.style.top=Math.max(8, e.clientY-70)+'px';
-      tt.innerHTML=`<b>${age+Math.round(i*years/pts)} let</b>`
-        +`<br><span style="color:${COLS.A}">●</span> Stejné tempo: ${fmtB(serA[i])}`
-        +`<br><span style="color:${COLS.B}">●</span> Investuji: ${fmtB(serB[i])}`
-        +`<br><span style="color:${COLS.C}">●</span> Splatím dluh: ${fmtB(serC[i])}`;
-      if(ev.touches) setTimeout(()=>{ if(tt) tt.style.display='none'; }, 2500);
-    };
-    canvas.onmouseleave=function(){ const tt=document.getElementById('simulaceTip'); if(tt) tt.style.display='none'; };
+    // Legend
+    ctx.textAlign='left';ctx.font='10px Instrument Sans';
+    [{c:'rgba(139,144,168,.7)',l:'A: Stejné tempo'},{c:'var(--income)',l:'B: Investuji'},{c:'var(--bank)',l:'C: Splatím dluh'}].forEach((it,i)=>{
+      const lx = pad.l+(i*120);
+      ctx.fillStyle=it.c;ctx.fillRect(lx,192,12,3);
+      ctx.fillStyle='rgba(139,144,168,.7)';ctx.fillText(it.l,lx+15,198);
+    });
   },50);
 }
 

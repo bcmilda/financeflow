@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.62 · debts.js · 2026-07-02
+//  FinanceFlow · v8.61 · debts.js · 2026-07-02
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -70,9 +70,8 @@ function updateTxCurrency() {
   const wallet = (S.wallets||[]).find(w=>w.id===sel.value);
   const curSel = document.getElementById('txConverterCur');
   if(curSel){
-    const ec=(typeof _txEntryCur==='function')?_txEntryCur():'CZK'; // v8.62
-    if(ec!=='CZK') curSel.value = 'CZK';                              // zadávám v cizí/základní měně → ukaž kolik je to v Kč
-    else if(typeof baseCur==='function' && baseCur()!=='CZK') curSel.value = baseCur(); // zadávám v Kč + základní ≠ CZK → ukaž základní
+    if(wallet?.currency && wallet.currency !== 'CZK') curSel.value = 'CZK';        // v8.61: platím v cizí měně → ukaž kolik je to v Kč
+    else if(typeof baseCur==='function' && baseCur()!=='CZK') curSel.value = baseCur(); // v8.61: CZK peněženka + základní měna ≠ CZK → ukaž základní
     updateTxConverter();
   }
   updateTxCzkField(); // v8.58 (TODO-144)
@@ -94,7 +93,7 @@ function _txSelWalletCur(){
 }
 function updateTxCzkField(){
   const row=document.getElementById('txCzkRow'); if(!row) return;
-  const cur=_txEntryCur(); // v8.62: měna zadávání (peněženka, nebo základní měna u výchozí)
+  const cur=_txSelWalletCur();
   const curEl=document.getElementById('txAmtCur'); if(curEl) curEl.textContent = (cur==='CZK'?'KČ':cur);
   if(cur==='CZK'){ row.style.display='none'; return; }
   row.style.display='block';
@@ -105,13 +104,7 @@ function updateTxCzkField(){
     if(f) f.value = amt>0 ? String(Math.round(amt*rate*100)/100) : '';
   }
   const h=document.getElementById('txCzkHint');
-  if(h){
-    const isAsset=(typeof curTxType!=='undefined'&&curTxType==='transfer'&&typeof _transferMode!=='undefined'&&_transferMode==='assets');
-    const wid=isAsset?(document.getElementById('txAssetFrom')?.value||''):(document.getElementById('txWalletId')?.value||'');
-    h.textContent = wid
-      ? `Předvyplněno kurzem ČNB (1 ${cur} = ${rate} Kč) – uprav podle skutečně stržené částky z výpisu banky. Kurz se zafixuje.`
-      : `Částku zadáváš v ${cur} (základní měna). Uloží se přepočet v Kč kurzem ČNB (1 ${cur} = ${rate} Kč) – můžeš ho upravit.`;
-  }
+  if(h) h.textContent=`Předvyplněno kurzem ČNB (1 ${cur} = ${rate} Kč) – uprav podle skutečně stržené částky z výpisu banky. Kurz se zafixuje, už se nepřepočítává.`;
 }
 // Přečte pole „Skutečně v Kč“ při uložení. CZK peněženka → null (klíč se smaže).
 function _readTxCzk(walletId, amt){
@@ -122,28 +115,6 @@ function _readTxCzk(walletId, amt){
   const rate=_FX_RATES[cur]||1;
   const out=(isFinite(v)&&v>0)?v:amt*rate;
   return Math.round(out*100)/100;
-}
-
-// v8.62 (TODO-150): MĚNA ZADÁVÁNÍ ČÁSTKY. Peněženka s měnou → měna peněženky;
-// BEZ peněženky (výchozí) → ZÁKLADNÍ měna uživatele (např. EUR). Částka zadaná
-// v základní měně se při uložení převede do Kč (kurz ČNB, editovatelné v poli Skutečně v Kč).
-function _txEntryCur(){
-  const isTransfer=(typeof curTxType!=='undefined'&&curTxType==='transfer');
-  const isAsset=isTransfer&&typeof _transferMode!=='undefined'&&_transferMode==='assets';
-  if(isTransfer&&!isAsset) return 'CZK';
-  const id=isAsset?(document.getElementById('txAssetFrom')?.value||''):(document.getElementById('txWalletId')?.value||'');
-  if(!id) return (typeof baseCur==='function')?baseCur():'CZK';
-  const w=(S.wallets||[]).find(x=>x.id===id);
-  return (w&&w.currency)?w.currency:'CZK';
-}
-// Bez peněženky + základní měna ≠ CZK → vrátí Kč hodnotu k uložení do amount; jinak null
-function _entryAmtCZK(walletId, amt){
-  if(walletId) return null;
-  const bc=(typeof baseCur==='function')?baseCur():'CZK';
-  if(bc==='CZK') return null;
-  const v=parseFloat(document.getElementById('txAmtCZK')?.value);
-  const czk=(isFinite(v)&&v>0)?v:amt*_fxToCzk(bc);
-  return Math.round(czk*100)/100;
 }
 
 // v8.59 (TODO-149): PŘESUN MEZI PENĚŽENKAMI S RŮZNOU MĚNOU.
@@ -159,8 +130,6 @@ function updateTransferConv(){
   const from=document.getElementById('txTransferFrom')?.value||'';
   const to=document.getElementById('txTransferTo')?.value||'';
   const curF=_walletCur(from), curT=_walletCur(to);
-  // v8.62: label ČÁSTKA u přesunu ukazuje měnu ZDROJOVÉ peněženky
-  if(isWalletTransfer){ const cl=document.getElementById('txAmtCur'); if(cl) cl.textContent=(curF==='CZK'?'KČ':curF); }
   if(!isWalletTransfer||!from||!to||curF===curT){ row.style.display='none'; return; }
   row.style.display='block';
   const curEl=document.getElementById('txTransferConvCur'); if(curEl) curEl.textContent=(curT==='CZK'?'KČ':curT);
@@ -182,7 +151,7 @@ const _FX_RATES = {EUR:25.3, USD:23.1, PLN:5.7, GBP:29.5, CHF:26.8, HUF:0.062, S
 function updateTxConverter() {
   const amt = parseFloat(document.getElementById('txAmt')?.value)||0;
   const target = document.getElementById('txConverterCur')?.value||'EUR';
-  const srcCur = (typeof _txEntryCur==='function') ? _txEntryCur() : 'CZK'; // v8.62: měna zadávání
+  const srcCur = (typeof _txSelWalletCur==='function') ? _txSelWalletCur() : 'CZK';
   const czk = amt * _fxToCzk(srcCur);
   const converted = amt > 0 ? (czk/_fxToCzk(target)).toFixed(2) : '0';
   const el = document.getElementById('txConverterAmt');
@@ -338,9 +307,7 @@ function saveTx(){
       const aObj={type:'expense',name:aName,amount:amt,amt,catId:_assetCatId,category:_assetCatId,date,note};
       if(aSub){aObj.subcat=aSub;ensureSubcat(_assetCatId,aSub);}
       if(aFrom)aObj.wallet=aFrom;
-      const _aCzk=_entryAmtCZK(aFrom,amt); // v8.62
-      if(_aCzk!=null){ aObj.amount=_aCzk; aObj.amt=_aCzk; aObj.amtCZK=null; }
-      else aObj.amtCZK=_readTxCzk(aFrom,amt); // v8.58 (TODO-144/148): zafixovaný kurz vkladu
+      aObj.amtCZK=_readTxCzk(aFrom,amt); // v8.58 (TODO-144/148): zafixovaný kurz vkladu
       const _aPay=document.getElementById('txTransferPayType')?.value||''; if(_aPay)aObj.payType=_aPay;
       if(projectId)aObj.projectId=projectId;
       const aTagsRaw=document.getElementById('txTags')?.value||'';aObj.tags=parseTags(aTagsRaw);
@@ -390,9 +357,7 @@ function saveTx(){
     const txObj = {type:'expense', name:txName, amount:amt, amt, catId, category:catId, date, note, debtId:debtId||null};
     if(_debtSub) txObj.subcat = _debtSub;
     const _dWal=document.getElementById('txWalletId')?.value||''; if(_dWal) txObj.wallet=_dWal;
-    const _dCzk=_entryAmtCZK(_dWal,amt); // v8.62
-    if(_dCzk!=null){ txObj.amount=_dCzk; txObj.amt=_dCzk; txObj.amtCZK=null; }
-    else txObj.amtCZK=_readTxCzk(_dWal,amt); // v8.58 (TODO-144)
+    txObj.amtCZK=_readTxCzk(_dWal,amt); // v8.58 (TODO-144)
     const _dPay=document.getElementById('txPayTypeId')?.value||''; if(_dPay) txObj.payType=_dPay;
     if(projectId) txObj.projectId = projectId;
     if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
@@ -430,9 +395,7 @@ function saveTx(){
   const payTypeId = document.getElementById('txPayTypeId')?.value||'';
   if(walletId) txObj.wallet = walletId;
   if(payTypeId) txObj.payType = payTypeId;
-  const _eCzk=_entryAmtCZK(walletId,amt); // v8.62: výchozí peněženka + základní měna ≠ CZK → zadáno v základní měně
-  if(_eCzk!=null){ txObj.amount=_eCzk; txObj.amt=_eCzk; txObj.amtCZK=null; }
-  else txObj.amtCZK=_readTxCzk(walletId,amt); // v8.58 (TODO-144): zafixovaná částka v Kč
+  txObj.amtCZK=_readTxCzk(walletId,amt); // v8.58 (TODO-144): zafixovaná částka v Kč (null u CZK → Firebase klíč smaže)
   // Tagy
   const tagsRaw = document.getElementById('txTags')?.value || '';
   const tags = parseTags(tagsRaw);
