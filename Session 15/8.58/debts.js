@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.59 · debts.js · 2026-07-02
+//  FinanceFlow · v8.58 · debts.js · 2026-07-02
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -11,8 +11,6 @@ function openAddTx(){
   { const tg=document.getElementById('txTags'); if(tg){ tg.value=''; if(typeof updateTagsPreview==='function') updateTagsPreview(); } }
   // v8.58 (TODO-144): reset pole „Skutečně v Kč“ (zafixovaný kurz)
   _czkTouched=false; { const cf=document.getElementById('txAmtCZK'); if(cf) cf.value=''; }
-  // v8.59 (TODO-149): reset přepočtu přesunu mezi měnami
-  _transferConvTouched=false; { const tf=document.getElementById('txTransferConvAmt'); if(tf) tf.value=''; }
   document.getElementById('modalAddTitle').textContent='Přidat transakci';
   _transferMode='wallets';_assetCatId='';_assetSub='';_debtSub='';
   const _dr=document.getElementById('debtRecurring'); if(_dr)_dr.checked=false;
@@ -24,7 +22,6 @@ function openAddTx(){
   populateTxPayTypeSelect();
   updateTxConverter();
   updateTxCzkField();
-  updateTransferConv();
   // Reset kalkulačka
   _calcVal=''; _calcOp=''; _calcPrev='';
   const cd=document.getElementById('txCalcDisplay'); if(cd) cd.value='0';
@@ -113,32 +110,6 @@ function _readTxCzk(walletId, amt){
   const rate=_FX_RATES[cur]||1;
   const out=(isFinite(v)&&v>0)?v:amt*rate;
   return Math.round(out*100)/100;
-}
-
-// v8.59 (TODO-149): PŘESUN MEZI PENĚŽENKAMI S RŮZNOU MĚNOU.
-// Dříve se do cílové peněženky připsala surová částka (100 EUR → 100 Kč). Nyní se při
-// rozdílných měnách ukáže pole „Připsat do cílové peněženky“ – předvyplněné křížovým
-// kurzem ČNB (přes CZK), ale volně editovatelné (kurz banky). Kurz se ZAFIXUJE uložením.
-let _transferConvTouched=false;
-function _walletCur(id){ const w=(S.wallets||[]).find(x=>x.id===id); return (w&&w.currency)?w.currency:'CZK'; }
-function _fxToCzk(cur){ return cur==='CZK'?1:(_FX_RATES[cur]||1); }
-function updateTransferConv(){
-  const row=document.getElementById('txTransferConvRow'); if(!row) return;
-  const isWalletTransfer=(typeof curTxType!=='undefined'&&curTxType==='transfer'&&typeof _transferMode!=='undefined'&&_transferMode==='wallets');
-  const from=document.getElementById('txTransferFrom')?.value||'';
-  const to=document.getElementById('txTransferTo')?.value||'';
-  const curF=_walletCur(from), curT=_walletCur(to);
-  if(!isWalletTransfer||!from||!to||curF===curT){ row.style.display='none'; return; }
-  row.style.display='block';
-  const curEl=document.getElementById('txTransferConvCur'); if(curEl) curEl.textContent=(curT==='CZK'?'KČ':curT);
-  const amt=parseFloat(document.getElementById('txAmt')?.value)||0;
-  const cross=_fxToCzk(curF)/_fxToCzk(curT); // křížový kurz přes CZK
-  if(!_transferConvTouched){
-    const f=document.getElementById('txTransferConvAmt');
-    if(f) f.value = amt>0 ? String(Math.round(amt*cross*100)/100) : '';
-  }
-  const h=document.getElementById('txTransferConvHint');
-  if(h) h.textContent=`Předvyplněno kurzem ČNB (1 ${curF} ≈ ${Math.round(cross*10000)/10000} ${curT}) – uprav podle skutečně připsané částky. Kurz se zafixuje.`;
 }
 
 // Orientační kurzy CZK (aktualizovat ručně nebo z API)
@@ -231,7 +202,6 @@ function setTxType(type){
   // S14: po přepnutí na Přesun nastav pod-režim (výchozí mezi peněženkami)
   if(type==='transfer'&&typeof setTransferMode==='function')setTransferMode(_transferMode||'wallets');
   if(typeof updateTxCzkField==='function') updateTxCzkField(); // v8.58 (TODO-144)
-  if(typeof updateTransferConv==='function') updateTransferConv(); // v8.59 (TODO-149)
 }
 // S14: ── PŘESUN → INVESTICE & SPOŘENÍ ──────────────────────────────
 // Pod-režim tlačítka „Přesun": 'wallets' = klasický převod mezi peněženkami,
@@ -246,7 +216,6 @@ function setTransferMode(mode){
   const ab=document.getElementById('transferAssetsBlock');  if(ab)ab.style.display=mode==='assets'?'block':'none';
   if(mode==='assets'){ populateAssetFrom(); renderAssetCatPicker(); }
   if(typeof updateTxCzkField==='function') updateTxCzkField(); // v8.58 (TODO-144)
-  if(typeof updateTransferConv==='function') updateTransferConv(); // v8.59 (TODO-149)
 }
 function populateAssetFrom(){
   const sel=document.getElementById('txAssetFrom'); if(!sel) return;
@@ -318,19 +287,8 @@ function saveTx(){
     const transferId=uid();
     const txName=name||(wFrom&&wTo?`Převod: ${wFrom.name} → ${wTo.name}`:'Převod');
     const _tPay=document.getElementById('txTransferPayType')?.value||'';
-    // v8.59 (TODO-149): různé měny → cílová noha v měně cílové peněženky (pole / křížový kurz ČNB)
-    const curF=(wFrom&&wFrom.currency)?wFrom.currency:'CZK';
-    const curT=(wTo&&wTo.currency)?wTo.currency:'CZK';
-    let inAmt=amt;
-    if(curF!==curT){
-      const v=parseFloat(document.getElementById('txTransferConvAmt')?.value);
-      const cross=_fxToCzk(curF)/_fxToCzk(curT);
-      inAmt=Math.round(((isFinite(v)&&v>0)?v:amt*cross)*100)/100;
-    }
-    // zafixovaná hodnota přesunu v Kč (pro ≈ Kč popisek; přesuny jsou mimo statistiky)
-    const _tCzk=(curF!=='CZK'||curT!=='CZK')?Math.round(amt*_fxToCzk(curF)*100)/100:null;
-    const txOut={id:uid(),name:txName,amount:amt,amt,type:'expense',date,wallet:from,note:note||'Přesun',transferId,category:'transfer',catId:'transfer',payType:_tPay||undefined,projectId:projectId||undefined,amtCZK:_tCzk};
-    const txIn={id:uid(),name:txName,amount:inAmt,amt:inAmt,type:'income',date,wallet:to,note:note||'Přesun',transferId,category:'transfer',catId:'transfer',payType:_tPay||undefined,projectId:projectId||undefined,amtCZK:_tCzk};
+    const txOut={id:uid(),name:txName,amount:amt,amt,type:'expense',date,wallet:from,note:note||'Přesun',transferId,category:'transfer',catId:'transfer',payType:_tPay||undefined,projectId:projectId||undefined};
+    const txIn={id:uid(),name:txName,amount:amt,amt,type:'income',date,wallet:to,note:note||'Přesun',transferId,category:'transfer',catId:'transfer',payType:_tPay||undefined,projectId:projectId||undefined};
     if(!S.transactions)S.transactions=[];
     S.transactions.push(txOut,txIn);
     save();closeModal('modalAdd');{ const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }

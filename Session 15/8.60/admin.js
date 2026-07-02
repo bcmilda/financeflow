@@ -1,4 +1,4 @@
-// FinanceFlow · v8.59 · admin.js · 2026-07-02
+// FinanceFlow · v8.60 · admin.js · 2026-07-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -400,6 +400,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v8.60',
+    datum: '2026-07-02',
+    zmeny: [
+      '🌍 NEW (S16, TODO-150): ZAKLADNI MENA UZIVATELE (faze 1). Nastaveni → Lokalizace → Vychozi mena (CZK/EUR/USD/GBP/PLN) nyni skutecne funguje: dashboard karty (Prijmy/Vydaje/Zustatek/Uspory/Dluh), transakce (denni hlavicky, badge, ≈ poznamky), bublinove grafy kategorii, donut Statistik, mesicni souhrny a tabulky v Grafech se prepocitavaji zivym kurzem CNB do zvolene meny se spravnym symbolem (Kc/€/$/£/zł). Interni data zustavaji v CZK (zadna migrace). Zmena meny se projevi hned po ulozeni nastaveni.',
+      'ℹ️ Pozn.: castky transakci a prubezne zustatky zustavaji v mene penezenky (zamer); canvas grafy (radar/pace), uctenkove polozky, dluhy a projekty prijdou ve fazi 2 (TODO-151).',
+    ]
+  },
   {
     verze: 'v8.59',
     datum: '2026-07-02',

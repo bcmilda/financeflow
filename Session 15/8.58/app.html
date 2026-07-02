@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v8.59</title>
+<title>FinanceFlow v8.60</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -260,7 +260,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.59 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v8.60 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -990,7 +990,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.59</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 8.60</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1357,14 +1357,8 @@
           Aby přesun fungoval, musíte mít vytvořené <strong>peněženky</strong>. Jděte do sekce <strong>Peněženky</strong> v menu → přidejte si účty (Běžný účet, Spořicí účet, Investice...) a pak přesun bude fungovat.
         </div>
         <div class="frow" style="margin-bottom:8px">
-          <div class="fg"><label>Z peněženky</label><select class="fi" id="txTransferFrom" onchange="updateTransferConv()"></select></div>
-          <div class="fg"><label>Do peněženky</label><select class="fi" id="txTransferTo" onchange="updateTransferConv()"></select></div>
-        </div>
-        <!-- v8.59 (TODO-149): přesun mezi peněženkami s různou měnou – editovatelná cílová částka -->
-        <div id="txTransferConvRow" style="display:none;margin-top:8px;background:var(--surface2);border:1px solid rgba(96,165,250,.35);border-radius:10px;padding:9px 12px">
-          <label style="color:var(--bank);font-weight:700;font-size:.74rem;letter-spacing:.04em;display:block;margin-bottom:4px">PŘIPSAT DO CÍLOVÉ PENĚŽENKY (<span id="txTransferConvCur">–</span>)</label>
-          <input class="fi" id="txTransferConvAmt" type="number" placeholder="0" min="0" oninput="_transferConvTouched=true">
-          <div style="font-size:.68rem;color:#a8aec8;margin-top:4px;line-height:1.4" id="txTransferConvHint">Předvyplněno kurzem ČNB – uprav podle skutečně připsané částky.</div>
+          <div class="fg"><label>Z peněženky</label><select class="fi" id="txTransferFrom"></select></div>
+          <div class="fg"><label>Do peněženky</label><select class="fi" id="txTransferTo"></select></div>
         </div>
         </div><!-- /transferWalletsBlock -->
         <!-- S14: Přesun do investic & spoření -->
@@ -1387,7 +1381,7 @@
           <label style="color:var(--bank);font-weight:700;font-size:.78rem;letter-spacing:.04em">ČÁSTKA (<span id="txAmtCur">KČ</span>)
             <button onclick="toggleTxCalc()" style="background:none;border:none;cursor:pointer;padding:0 0 0 6px;font-size:.9rem;vertical-align:middle" title="Kalkulačka">🧮</button>
           </label>
-          <input class="fi" id="txAmt" type="number" placeholder="0" min="0" oninput="updateTxConverter();updateTxCzkField();updateTransferConv()">
+          <input class="fi" id="txAmt" type="number" placeholder="0" min="0" oninput="updateTxConverter();updateTxCzkField()">
           <!-- Kalkulačka -->
           <div id="txCalcPanel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:6px">
             <div style="font-size:.72rem;color:var(--text3);margin-bottom:6px;font-weight:600">🧮 Kalkulačka</div>
@@ -1982,16 +1976,16 @@
 <script src="js/transactions.js?v=25aded9ff2cef515"></script>
 <script src="js/charts.js?v=07031c4468034d23"></script>
 <script src="js/stats.js?v=972a9f9ca42ce135"></script>
-<script src="js/debts.js?v=b8400c871b10a6dd"></script>
+<script src="js/debts.js?v=e7098cf828253105"></script>
 <script src="js/ai.js?v=8563194b234668e8"></script>
 <script src="js/premium.js?v=28f3ade4ddfa980c"></script>
 <script src="js/projects.js?v=a92afbd2bb5d57d4"></script>
-<script src="js/receipts.js?v=db8058fdbbc00b9e"></script>
+<script src="js/receipts.js?v=47145ee4f7c9eaac"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
 <script src="js/settings.js?v=d3a5591124a476b6"></script>
 <script src="js/share.js?v=3ef8a0787fad25c1"></script>
 <script src="js/sms-import.js?v=5f52ec1a31440a61"></script>
-<script src="js/duplicates.js?v=a3d330b013e0fd3d"></script>
+<script src="js/duplicates.js?v=107a91de6d37f311"></script>
 <script src="js/nakup.js?v=64d440b746ae311d"></script>
 <script src="js/product-db.js?v=cf05ed32d6fc3ee2"></script>
 <script src="js/coicop.js?v=b03e554c69610ebb"></script>
@@ -2001,7 +1995,7 @@
 <script src="js/kalendar.js?v=f8a30924b2c984a6"></script>
 <script src="js/donate.js?v=cdd38092"></script>
 <script src="js/announcements.js?v=3cfc9cd595975c01"></script>
-<script src="js/admin.js?v=3d95c7f01101449b"></script>
+<script src="js/admin.js?v=cc12e1c65625a471"></script>
 <script src="js/import.js?v=eaa07f0fae7b24db"></script>
 <script src="js/push.js?v=98eefa39ee805fc2"></script>
 <script src="js/kurzy.js?v=6383a2082c08a2af"></script>

@@ -1,4 +1,4 @@
-// FinanceFlow · v8.58 · receipts.js · 2026-07-02
+// FinanceFlow · v8.60 · receipts.js · 2026-07-02
 //  ANALÝZA ÚČTENEK
 // ══════════════════════════════════════════════════════
 // ── lineAmt helper: bezpečný výpočet celkové ceny položky ──
@@ -1118,13 +1118,13 @@ function buildPricesTab(priceChanges) {
       html += `<div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 8px">📊 Cenové změny (${stdItems.length})</div>`;
       stdItems.forEach((p,i) => { html += renderItem(p, i+200, false); });
     }
-    // v8.58 (TODO-147): interaktivní graf vývoje cen pod tabulkou Zdražování
+    // v8.60 (TODO-147): interaktivní graf vývoje cen pod tabulkou Zdražování
     html += buildPricesTrendChart(priceChanges);
   }
   return html + '</div>';
 }
 
-// ── v8.58 (TODO-147): Graf vývoje cen (SVG, osy + legenda + tooltip) ──
+// ── v8.60 (TODO-147): Graf vývoje cen (SVG, osy + legenda + tooltip) ──
 // Compute: vybere top 5 položek s největší |změnou| a připraví body (datum→x, cena→y).
 function pricesTrendChartData(priceChanges){
   const items = (priceChanges||[])

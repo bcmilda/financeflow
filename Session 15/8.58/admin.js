@@ -1,4 +1,4 @@
-// FinanceFlow · v8.59 · admin.js · 2026-07-02
+// FinanceFlow · v8.60 · admin.js · 2026-07-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -401,22 +401,27 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v8.60',
+    datum: '2026-07-02',
+    zmeny: [
+      '\ud83d\udcc8 NEW (S15, TODO-147): Graf vyvoje cen pod tabulkou Zdrazovani (Analyza uctenek \u2192 Zdrazovani). Top 5 polozek s nejvetsi zmenou, osy s popisky (Kc/ks, datum), legenda s procenty zmeny, tooltip na bod (datum, cena, obchod). SVG s pevnym viewBox \u2013 kresli se korektne i po prepnuti zalozky.',
+    ]
+  },
+  {
     verze: 'v8.59',
     datum: '2026-07-02',
     zmeny: [
-      '💱 FIX (S15, TODO-149): Presun mezi penezenkami s RUZNOU MENOU uz nepripisuje surovou castku (100 EUR se pripsalo jako 100 Kc). Pri rozdilnych menach se v modalu Presunu ukaze pole „Pripsat do cilove penezenky“ – predvyplnene krizovym kurzem CNB (pres CZK), ale volne editovatelne (kurz banky). Cilova noha prevodu se ulozi v mene cilove penezenky, kurz se zafixuje. Obe nohy prevodu nesou zafixovanou hodnotu v Kc (amtCZK) pro ≈ Kc popisek.',
+      '\ud83d\udd0d FIX (S15, TODO-145): Detekce duplicit porovnava castky v ZAKLADNI MENE (Kc pres txCZK), ne surova cisla. 900 Kc a 900 GBP uz nejsou oznaceny jako duplikat \u2013 900 GBP se porovnava jako ~26 500 Kc. Tolerance 1 Kc (zivy kurz u starych nezafixovanych transakci muze mirne kolisat).',
     ]
   },
   {
     verze: 'v8.58',
     datum: '2026-07-02',
     zmeny: [
-      '💱 NEW (S15, TODO-144): ZAFIXOVANY KURZ u transakci v cizi mene. Pri vyberu cizimenove penezenky se pod Castkou ukaze pole „Skutecne v Kc“ – predvyplnene kurzem CNB, ale volne editovatelne (kazda banka ma jiny kurz). Hodnota se ulozi do transakce (amtCZK) a UZ SE NIKDY neprepocitava zivym kurzem. Label Castka ukazuje menu penezenky (CASTKA (EUR)). Stare cizimenove transakce se zafixuji pri prvni editaci (pole se predvyplni, rucne upravis, ulozenim fixne).',
-      '💱 NEW (S15, TODO-146): Vsechny soucty pocitaji v zakladni mene (Kc): denni hlavicky v Transakcich, souhrnny badge, incSum/expSum/getActual (statistiky, rozpocty, banka). Cizi penezenky se uz nescitaji 1:1 jako Kc – 900 GBP v dennim souctu = ~26 500 Kc. U cizomenove transakce se v seznamu ukazuje ≈ hodnota v Kc (zafixovana, u starych orientacne).',
-      '💱 NEW (S15, TODO-148): Vklady do aktiv (Presun → Investice) pouzivaji ZAFIXOVANY kurz z okamziku vkladu (amtCZK) misto aktualniho kurzu CNB – v syncInvestmentAssets i v historii hodnoty aktiva. Stare vklady bez fixace zustavaji na zivem kurzu (fallback).',
-      '🔍 FIX (S15, TODO-145): Detekce duplicit porovnava castky v ZAKLADNI MENE (Kc pres txCZK), ne surova cisla. 900 Kc a 900 GBP uz nejsou oznaceny jako duplikat. Tolerance 1 Kc (zivy kurz u starych nezafixovanych transakci muze mirne kolisat).',
-      '📈 NEW (S15, TODO-147): Graf vyvoje cen pod tabulkou Zdrazovani (Analyza uctenek → Zdrazovani). Top 5 polozek s nejvetsi zmenou, osy s popisky (Kc/ks, datum), legenda s procenty zmeny, tooltip na bod (datum, cena, obchod). SVG s pevnym viewBox – kresli se korektne i po prepnuti zalozky.',
-      '🔧 FIX (S15): Editace transakce nyni vyplni i PENEZENKU a TYP PLATBY do modalu – drive selecty zustaly na „– vychozi –“ a vybrana penezenka nebyla videt.',
+      '\ud83d\udcb1 NEW (S15, TODO-144): ZAFIXOVANY KURZ u transakci v cizi mene. Pri vyberu cizimenove penezenky se pod Castkou ukaze pole \u201eSkutecne v Kc\u201c \u2013 predvyplnene kurzem CNB, ale volne editovatelne (kazda banka ma jiny kurz). Hodnota se ulozi do transakce (amtCZK) a UZ SE NIKDY neprepocitava zivym kurzem. Label Castka ukazuje menu penezenky (CASTKA (EUR)).',
+      '\ud83d\udcb1 NEW (S15, TODO-146): Vsechny soucty pocitaji v zakladni mene (Kc): denni hlavicky v Transakcich, souhrnny badge, incSum/expSum/getActual (statistiky, rozpocty, banka). Cizi penezenky se uz nescitaji 1:1 jako Kc \u2013 900 GBP v dennim souctu = ~26 500 Kc. U cizomenove transakce se v seznamu ukazuje \u2248 hodnota v Kc (zafixovana, u starych orientacne).',
+      '\ud83d\udcb1 NEW (S15, TODO-148): Vklady do aktiv (Presun \u2192 Investice) pouzivaji ZAFIXOVANY kurz z okamziku vkladu (amtCZK) misto aktualniho kurzu CNB \u2013 v syncInvestmentAssets i v historii hodnoty aktiva. Stare vklady bez fixace zustavaji na zivem kurzu (fallback).',
+      '\ud83d\udd27 FIX (S15): Editace transakce nyni vyplni i PENEZENKU a TYP PLATBY do modalu \u2013 drive selecty zustaly na \u201e\u2013 vychozi \u2013\u201c a vybrana penezenka nebyla videt.',
     ]
   },
   {

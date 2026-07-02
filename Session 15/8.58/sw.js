@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════
-//  FinanceFlow · Service Worker · v8.59 · 2026-07-02
+//  FinanceFlow · Service Worker · v8.60 · 2026-07-02
 //  Cíl: aby se aplikace načetla a fungovala i OFFLINE
 //  (app shell – HTML/JS/CSS – z cache). Přepínání stránek
 //  je čistě klientské, takže po nacachování shellu funguje
@@ -16,7 +16,7 @@
 //  ať se starý shell zahodí. Statika má navíc ?v=hash, takže se invaliduje sama.
 // ══════════════════════════════════════════════════════
 
-const CACHE_NAME = 'ff-shell-v8.59';
+const CACHE_NAME = 'ff-shell-v8.60';
 const SHELL = ['./', './index.html', './manifest.json'];
 
 // Statické CDN, které smíme cachovat pro offline (NE Firebase data/auth)

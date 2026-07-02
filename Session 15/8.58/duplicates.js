@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.58 · duplicates.js · 2026-07-02
+//  FinanceFlow · v8.59 · duplicates.js · 2026-07-02
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -81,7 +81,7 @@ function detectDuplicates(transactions) {
   for (let i = 0; i < txs.length; i++) {
     for (let j = i + 1; j < txs.length; j++) {
       const a = txs[i], b = txs[j];
-      // v8.58 (TODO-145): porovnání v ZÁKLADNÍ MĚNĚ (txCZK) – 900 Kč vs 900 GBP už není „stejná částka“.
+      // v8.59 (TODO-145): porovnání v ZÁKLADNÍ MĚNĚ (txCZK) – 900 Kč vs 900 GBP už není „stejná částka“.
       // Tolerance 1 Kč (živý kurz u nezafixovaných tx může mírně kolísat).
       const amtA = (typeof txCZK==='function') ? txCZK(a) : (a.amount || a.amt || 0);
       const amtB = (typeof txCZK==='function') ? txCZK(b) : (b.amount || b.amt || 0);
