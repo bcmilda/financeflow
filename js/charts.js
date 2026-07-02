@@ -1,3 +1,4 @@
+// FinanceFlow · v8.60 · charts.js · 2026-07-02
 //  GRAFY (simplified)
 // ══════════════════════════════════════════════════════
 function renderGrafy(){
@@ -722,7 +723,7 @@ function renderMesicniGraf() {
         <span style="display:inline-block;width:18px;height:2.5px;background:#4ade80;border-radius:2px"></span>Kumulace
       </span>
       ${medVal>0?`<span style="display:flex;align-items:center;gap:5px;font-size:.82rem;color:#f87171">
-        <span style="display:inline-block;width:18px;height:0;border-top:2px dashed #f87171"></span>Medián ${fmt(medVal)} Kč
+        <span style="display:inline-block;width:18px;height:0;border-top:2px dashed #f87171"></span>Medián ${fmtB(medVal)}
       </span>`:''}`;
   }
 
@@ -738,9 +739,9 @@ function renderMesicniGraf() {
   const statsEl = document.getElementById('mesicniStats');
   if(statsEl) statsEl.innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Výdaje</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--expense)">${fmt(Math.round(total))} Kč</div></div>
-      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Příjmy</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--income)">${fmt(Math.round(income))} Kč</div></div>
-      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Saldo</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:${income-total>=0?'var(--income)':'var(--expense)'}">${fmt(Math.round(income-total))} Kč</div></div>
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Výdaje</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--expense)">${fmtB(Math.round(total))}</div></div>
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Příjmy</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:var(--income)">${fmtB(Math.round(income))}</div></div>
+      <div style="text-align:center"><div style="font-size:.72rem;color:var(--text3)">Saldo</div><div style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:${income-total>=0?'var(--income)':'var(--expense)'}">${fmtB(Math.round(income-total))}</div></div>
     </div>`;
   renderKumulChart(days, cumul, medVal);
 }
@@ -780,7 +781,7 @@ function renderRocniGraf() {
       const color = v>avg*1.3 ? 'rgba(248,113,113,.4)' : v>avg*0.8 ? 'rgba(251,191,36,.3)' : v>0 ? 'rgba(74,222,128,.25)' : 'transparent';
       return `<tr>
         <td style="padding:5px 8px;color:var(--text2);font-size:.8rem;white-space:nowrap">${CZ_M[m]}</td>
-        <td style="padding:5px 8px;text-align:right;font-family:'Syne',sans-serif;font-weight:600;background:${color};border-radius:4px">${v>0?fmt(Math.round(v))+' Kč':'–'}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'Syne',sans-serif;font-weight:600;background:${color};border-radius:4px">${v>0?fmtB(Math.round(v)):'–'}</td>
         <td style="padding:5px 8px;width:120px">
           <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden">
             <div style="height:100%;width:${Math.round(pct*100)}%;background:${v>avg*1.3?'var(--expense)':v>avg*0.8?'var(--debt)':'var(--income)'};border-radius:4px"></div>
@@ -801,9 +802,9 @@ function renderRocniGraf() {
         <tbody>${rows}</tbody>
         <tfoot><tr style="border-top:2px solid var(--border)">
           <td style="padding:8px;font-weight:700;font-size:.82rem">Celkem</td>
-          <td style="padding:8px;text-align:right;font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(total))} Kč</td>
+          <td style="padding:8px;text-align:right;font-weight:700;font-family:'Syne',sans-serif">${fmtB(Math.round(total))}</td>
           <td></td>
-          <td style="padding:8px;text-align:right;font-size:.72rem;color:var(--text3)">Ø ${fmt(avg)} Kč/měs</td>
+          <td style="padding:8px;text-align:right;font-size:.72rem;color:var(--text3)">Ø ${fmtB(avg)}/měs</td>
         </tr></tfoot>
       </table>`;
   }
@@ -881,10 +882,10 @@ function renderRocniGraf() {
     const std = nonZero.length > 1 ? Math.sqrt(nonZero.reduce((a,v)=>a+(v-avg)**2,0)/nonZero.length) : 0;
     statsEl.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
-        <div><div style="font-size:.7rem;color:var(--text3)">Celkem</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(total))} Kč</div></div>
-        <div><div style="font-size:.7rem;color:var(--text3)">Průměr/měs</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(avg)} Kč</div></div>
-        <div><div style="font-size:.7rem;color:var(--text3)">Maximum</div><div style="font-weight:700;color:var(--expense);font-family:'Syne',sans-serif">${fmt(Math.round(Math.max(...months)))} Kč</div></div>
-        <div><div style="font-size:.7rem;color:var(--text3)">Sm. odchylka</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmt(Math.round(std))} Kč</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Celkem</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmtB(Math.round(total))}</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Průměr/měs</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmtB(avg)}</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Maximum</div><div style="font-weight:700;color:var(--expense);font-family:'Syne',sans-serif">${fmtB(Math.round(Math.max(...months)))}</div></div>
+        <div><div style="font-size:.7rem;color:var(--text3)">Sm. odchylka</div><div style="font-weight:700;font-family:'Syne',sans-serif">${fmtB(Math.round(std))}</div></div>
       </div>`;
   }
 }

@@ -1,4 +1,4 @@
-// FinanceFlow · v8.58 · ui.js · 2026-07-02
+// FinanceFlow · v8.60 · ui.js · 2026-07-02
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -209,7 +209,7 @@ function showNotificationPanel(items) {
       <span style="font-size:1.3rem">${urgentCount > 0 ? '🚨' : '🗓️'}</span>
       <div style="flex:1">
         <div style="font-weight:700;font-size:.88rem;color:var(--text)">${urgentCount > 0 ? 'Platby do 24 hodin!' : 'Nadcházející platby'}</div>
-        <div style="font-size:.72rem;color:var(--text2)">${items.length} plateb · celkem ${fmt(Math.round(totalAmt))} Kč</div>
+        <div style="font-size:.72rem;color:var(--text2)">${items.length} plateb · celkem ${fmtB(Math.round(totalAmt))}</div>
       </div>
       <button onclick="document.getElementById('notifPanel').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.1rem;padding:0;line-height:1">✕</button>
     </div>
@@ -223,7 +223,7 @@ function showNotificationPanel(items) {
             <div style="font-size:.82rem;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.name}</div>
             <div style="font-size:.7rem;color:${urgColor}">${dayLabel}</div>
           </div>
-          <span style="font-weight:700;font-size:.85rem;color:var(--expense);flex-shrink:0">${fmt(item.amount)} Kč</span>
+          <span style="font-weight:700;font-size:.85rem;color:var(--expense);flex-shrink:0">${fmtB(item.amount)}</span>
         </div>`;
       }).join('')}
       ${items.length > 5 ? `<div style="font-size:.72rem;color:var(--text3);text-align:center;padding-top:6px">+${items.length-5} dalších</div>` : ''}
@@ -287,11 +287,11 @@ function renderSummaryCards(){
     }
   }
   el.innerHTML=`
-    <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(inc)}</div><div class="stat-sub">${prevInc?fmt(prevInc)+' minulý m.':''}</div></div>
-    <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(exp)}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}% vs minulý m.</span>`:''}</div></div>
-    <div class="stat-card balance"><div class="stat-label">Zůstatek</div><div class="stat-value ${bal>=0?'up':'down'}">${fmt(bal)}</div><div class="stat-sub">${bal>=0?'přebytek':'schodek'}</div></div>
-    <div class="stat-card bank"><div class="stat-label">Úspory (Bank)</div><div class="stat-value bankc">${fmt(bankBal)}</div><div class="stat-sub">kumulované</div></div>
-    <div class="stat-card debt"><div class="stat-label">Celkový dluh</div><div class="stat-value warn">${fmt(totalDebt)}</div><div class="stat-sub">${(D.debts||[]).length} závazků</div></div>`;
+    <div class="stat-card income"><div class="stat-label">Příjmy</div><div class="stat-value up">${fmt(czkToBase(inc))}</div><div class="stat-sub">${prevInc?fmt(czkToBase(prevInc))+' minulý m.':''}</div></div>
+    <div class="stat-card expense"><div class="stat-label">Výdaje</div><div class="stat-value down">${fmt(czkToBase(exp))}</div><div class="stat-sub">${expDiff!==null?`<span style="color:${expDiff>0?'var(--expense)':'var(--income)'}">${expDiff>0?'↑':'↓'}${Math.abs(expDiff)}% vs minulý m.</span>`:''}</div></div>
+    <div class="stat-card balance"><div class="stat-label">Zůstatek</div><div class="stat-value ${bal>=0?'up':'down'}">${fmt(czkToBase(bal))}</div><div class="stat-sub">${bal>=0?'přebytek':'schodek'}</div></div>
+    <div class="stat-card bank"><div class="stat-label">Úspory (Bank)</div><div class="stat-value bankc">${fmt(czkToBase(bankBal))}</div><div class="stat-sub">kumulované</div></div>
+    <div class="stat-card debt"><div class="stat-label">Celkový dluh</div><div class="stat-value warn">${fmt(czkToBase(totalDebt))}</div><div class="stat-sub">${(D.debts||[]).length} závazků</div></div>`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -418,7 +418,8 @@ function renderTransferOverview(D){
   const active = T.perCat.filter(p=>Math.abs(p.total)>0.01 || Math.abs(p.month)>0.01);
   if(!active.length){ el.innerHTML=''; return; }  // nic nasměrováno → kartu neukazuj
 
-  const fmtK = v => (typeof fmt==='function'?fmt(Math.round(v)):Math.round(v));
+  const fmtK = v => (typeof fmt==='function'?fmt(Math.round(czkToBase(v))):Math.round(v)); // v8.60 (TODO-150): v základní měně
+  const _CS = curSym();
   // Skupinové součty (investice vs rezerva/spoření)
   const inv = T.byGroup.investment, sav = T.byGroup.savings;
 
@@ -429,10 +430,10 @@ function renderTransferOverview(D){
       <span style="font-size:1.1rem;width:26px;text-align:center">${p.icon}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:.86rem;font-weight:600;color:var(--text)">${p.name}</div>
-        ${Math.abs(p.month)>0.01?`<div style="font-size:.66rem;color:#a8aec8">tento měsíc ${p.month>=0?'+':''}${fmtK(p.month)} Kč</div>`:''}
+        ${Math.abs(p.month)>0.01?`<div style="font-size:.66rem;color:#a8aec8">tento měsíc ${p.month>=0?'+':''}${fmtK(p.month)}${_CS}</div>`:''}
       </div>
       <div style="text-align:right">
-        <div style="font-size:.95rem;font-weight:700;color:${isOut?'#fbbf24':p.color}">${fmtK(p.total)} Kč</div>
+        <div style="font-size:.95rem;font-weight:700;color:${isOut?'#fbbf24':p.color}">${fmtK(p.total)}${_CS}</div>
       </div>
     </div>`;
   }).join('');
@@ -447,12 +448,12 @@ function renderTransferOverview(D){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:11px;padding:12px;text-align:center">
           <div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">📈 Investice</div>
-          <div style="font-size:1.25rem;font-weight:800;color:#34d399;font-family:Syne">${fmtK(inv.total)} Kč</div>
+          <div style="font-size:1.25rem;font-weight:800;color:#34d399;font-family:Syne">${fmtK(inv.total)}${_CS}</div>
           ${Math.abs(inv.month)>0.01?`<div style="font-size:.62rem;color:#86efac">tento měsíc +${fmtK(inv.month)}</div>`:''}
         </div>
         <div style="background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.3);border-radius:11px;padding:12px;text-align:center">
           <div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">🛟 Rezerva &amp; spoření</div>
-          <div style="font-size:1.25rem;font-weight:800;color:#22d3ee;font-family:Syne">${fmtK(sav.total)} Kč</div>
+          <div style="font-size:1.25rem;font-weight:800;color:#22d3ee;font-family:Syne">${fmtK(sav.total)}${_CS}</div>
           ${Math.abs(sav.month)>0.01?`<div style="font-size:.62rem;color:#67e8f9">tento měsíc +${fmtK(sav.month)}</div>`:''}
         </div>
       </div>
@@ -526,7 +527,7 @@ function renderDashTreemap(D){
   const cell=(cat,minH)=>{
     const pct=Math.round(cat.total/totalAll*100);
     const pctExact=(cat.total/totalAll*100).toFixed(1);
-    const tip=`${cat.icon} ${cat.name}: ${fmt(cat.total)} Kč (${pctExact} % výdajů měsíce)`;
+    const tip=`${cat.icon} ${cat.name}: ${fmtB(cat.total)} (${pctExact} % výdajů měsíce)`;
     return `<div title="${tip.replace(/"/g,'&quot;')}"
       onclick="event.stopPropagation();showTreemapTip('${cat.id}','${(cat.icon+' '+cat.name).replace(/'/g,'')}',${cat.total},'${pctExact}','${cat.color}')"
       style="flex:${Math.max(1,Math.round(cat.total/totalAll*100))};min-width:${minH>60?64:44}px;min-height:${minH}px;
@@ -556,7 +557,7 @@ function showTreemapTip(id, label, total, pct, color){
   el.style.borderColor=color+'66';
   el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
     <span style="font-weight:700;color:${color}">${label}</span>
-    <span style="font-weight:800;font-family:Syne,sans-serif">${fmt(total)} Kč</span>
+    <span style="font-weight:800;font-family:Syne,sans-serif">${fmtB(total)}</span>
   </div>
   <div style="font-size:.7rem;color:#a8aec8;margin-top:3px">${pct} % výdajů tohoto měsíce · klikni na jinou dlaždici pro detail</div>`;
 }
@@ -698,7 +699,7 @@ function bCluster(cats,totalAll,SHARED,W,body){
     const cr=Math.max(34,Math.min(60,Math.round(34+(cat.total/maxV)*26)));
     const maxSub=Math.max(...cat.subs.map(s=>s.val),1);
     const hasShared=cat.subs.some(s=>SHARED.has(s.name));
-    const catTip=`<b>${cat.icon||''} ${cat.name}</b><br>${fmt(cat.total)} Kč<br><span style='color:${cat.color}'>${Math.round(cat.total/totalAll*100)} % výdajů</span>${hasShared?'<br>📎 obsahuje sdílený prvek':''}`;
+    const catTip=`<b>${cat.icon||''} ${cat.name}</b><br>${fmtB(cat.total)}<br><span style='color:${cat.color}'>${Math.round(cat.total/totalAll*100)} % výdajů</span>${hasShared?'<br>📎 obsahuje sdílený prvek':''}`;
     track(cx,cy,cr+8);
 
     cat.subs.forEach((sub,j)=>{
@@ -708,7 +709,7 @@ function bCluster(cats,totalAll,SHARED,W,body){
       const sx=Math.round(cx+Math.cos(a)*dist), sy=Math.round(cy+Math.sin(a)*dist);
       const isS=SHARED.has(sub.name);
       track(sx,sy,sr+4);
-      const subTip=`<b>${sub.name}</b><br>${fmt(sub.val)} Kč<br><span style='color:${cat.color}'>${cat.name}</span>${isS?' · 🔗 sdílené':''}`;
+      const subTip=`<b>${sub.name}</b><br>${fmtB(sub.val)}<br><span style='color:${cat.color}'>${cat.name}</span>${isS?' · 🔗 sdílené':''}`;
       lines+=`<line x1="${Math.round(cx+Math.cos(a)*cr)}" y1="${Math.round(cy+Math.sin(a)*cr)}" x2="${Math.round(sx-Math.cos(a)*sr)}" y2="${Math.round(sy-Math.sin(a)*sr)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".3"/>`;
       circles+=`<circle cx="${sx}" cy="${sy}" r="${sr}" fill="${bRgba(isS?'#8b9bc0':cat.color,.18)}" stroke="${isS?'#8b9bc0':cat.color}" stroke-width="${isS?2:1.2}" ${isS?'stroke-dasharray="4,2"':''} style="cursor:pointer" onmouseenter="bTip(this,'${bEsc(subTip)}')" onmouseleave="bTip(this,'')"/>`;
       if(isS) circles+=`<text x="${sx}" y="${sy-sr-2}" text-anchor="middle" font-size="12" pointer-events="none">📎</text>`;
@@ -741,7 +742,7 @@ function bDrillL1(cats,W,body){
   cats.forEach((cat,i)=>{
     const R=Math.round(28+(cat.total/maxV)*40);
     const px=Math.round((POS[i]||{x:.5,y:.5}).x*W), py=Math.round((POS[i]||{x:.5,y:.5}).y*H);
-    const tipTxt=`<b>${cat.icon||''} ${cat.name}</b><br>${fmt(cat.total)} Kč<br><span style='color:var(--text3)'>Klikni pro detail</span>`;
+    const tipTxt=`<b>${cat.icon||''} ${cat.name}</b><br>${fmtB(cat.total)}<br><span style='color:var(--text3)'>Klikni pro detail</span>`;
     html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(cat.color,.14)}" stroke="${cat.color}" stroke-width="2" style="cursor:pointer;transition:fill .15s" onclick="bubbleDrillL2('${cat.id}')" onmouseover="this.style.fill='${bRgba(cat.color,.3)}';bTip(this,'${bEsc(tipTxt)}')" onmouseout="this.style.fill='${bRgba(cat.color,.14)}';bTip(this,'')"/>`;
     html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${cat.color}" font-size="${Math.max(9,Math.round(R*.22))}" font-weight="700" pointer-events="none">${cat.name}</text>`;
     html+=`<text x="${px}" y="${py+9}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="${Math.max(8,Math.round(R*.18))}" pointer-events="none">${(cat.total/1000).toFixed(1)}k</text>`;
@@ -763,7 +764,7 @@ function bDrillL2(cats,SHARED,W,body){
     const sx=Math.round(cx+Math.cos(a)*dist), sy=Math.round(cy+Math.sin(a)*dist);
     const isS=SHARED.has(sub.name);
     const pct=Math.round(sub.val/cat.total*100);
-    const tipTxt=`<b>${sub.name}</b><br>${fmt(sub.val)} Kč · ${pct} %<br><span style='color:${cat.color}'>${cat.name}</span>${isS?'<br>🔗 sdílená s více kat.':''}`;
+    const tipTxt=`<b>${sub.name}</b><br>${fmtB(sub.val)} · ${pct} %<br><span style='color:${cat.color}'>${cat.name}</span>${isS?'<br>🔗 sdílená s více kat.':''}`;
     html+=`<line x1="${Math.round(cx+Math.cos(a)*R)}" y1="${Math.round(cy+Math.sin(a)*R)}" x2="${Math.round(sx-Math.cos(a)*subR*.6)}" y2="${Math.round(sy-Math.sin(a)*subR*.6)}" stroke="${cat.color}" stroke-width="1" stroke-dasharray="3 2" opacity=".4"/>`;
     if(isS){
       html+=`<circle cx="${sx}" cy="${sy}" r="${subR}" fill="${bRgba(cat.color,.2)}" stroke="${cat.color}" stroke-width="2" stroke-dasharray="4 2" style="cursor:pointer" onclick="bubbleDrillL3('${sub.name.replace(/'/g,"\\'")}','${cat.id}')" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
@@ -777,7 +778,7 @@ function bDrillL2(cats,SHARED,W,body){
   if(!cat.subs.length) html+=`<text x="${cx}" y="${cy+R+24}" text-anchor="middle" fill="rgba(255,255,255,.3)" font-size="9">Žádné podkategorie</text>`;
   html+=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${bRgba(cat.color,.18)}" stroke="${cat.color}" stroke-width="2.5"/>`;
   html+=`<text x="${cx}" y="${cy-8}" text-anchor="middle" fill="${cat.color}" font-size="13" font-weight="700" pointer-events="none">${cat.name}</text>`;
-  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="10" pointer-events="none">${fmt(cat.total)} Kč</text>`;
+  html+=`<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="${bRgba(cat.color,.8)}" font-size="10" pointer-events="none">${fmtB(cat.total)}</text>`;
   const hint=cat.subs.some(s=>SHARED.has(s.name))?'<div style="font-size:.65rem;color:var(--text3);margin-top:6px">🔗 přerušovaný okraj = sdílená, klikni pro detail</div>':'';
   body.innerHTML=`<div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">📍 <span style="color:var(--bank);cursor:pointer" onclick="bubbleBack(0)">Kategorie</span> › <b style="color:${cat.color}">${cat.name}</b></div>
     <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%">${html}</svg>${hint}`;
@@ -795,11 +796,11 @@ function bDrillL3(cats,W,body){
   entries.forEach((e,ci)=>{
     const a=(ci/entries.length)*Math.PI*2-Math.PI/2, dist=110, R=36;
     const px=Math.round(cx+Math.cos(a)*dist), py=Math.round(cy+Math.sin(a)*dist);
-    const tipTxt=`<b>${e.cat.icon||''} ${e.cat.name}</b><br>${fmt(e.val)} Kč v této kat.<br><span style='color:var(--text3)'>Klikni pro detail</span>`;
+    const tipTxt=`<b>${e.cat.icon||''} ${e.cat.name}</b><br>${fmtB(e.val)} v této kat.<br><span style='color:var(--text3)'>Klikni pro detail</span>`;
     html+=`<line x1="${Math.round(cx+Math.cos(a)*42)}" y1="${Math.round(cy+Math.sin(a)*42)}" x2="${Math.round(px-Math.cos(a)*R*.7)}" y2="${Math.round(py-Math.sin(a)*R*.7)}" stroke="${e.cat.color}" stroke-width="1.5" stroke-dasharray="5 3" opacity=".45"/>`;
     html+=`<circle cx="${px}" cy="${py}" r="${R}" fill="${bRgba(e.cat.color,.18)}" stroke="${e.cat.color}" stroke-width="2" style="cursor:pointer" onclick="bubbleDrillL2('${e.cat.id}')" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
     html+=`<text x="${px}" y="${py-5}" text-anchor="middle" fill="${e.cat.color}" font-size="10" font-weight="700" pointer-events="none">${e.cat.name}</text>`;
-    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${bRgba(e.cat.color,.7)}" font-size="8" pointer-events="none">${fmt(e.val)} Kč</text>`;
+    html+=`<text x="${px}" y="${py+8}" text-anchor="middle" fill="${bRgba(e.cat.color,.7)}" font-size="8" pointer-events="none">${fmtB(e.val)}</text>`;
   });
   html+=`<circle cx="${cx}" cy="${cy}" r="40" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.25)" stroke-width="2"/>`;
   html+=`<text x="${cx}" y="${cy-6}" text-anchor="middle" fill="white" font-size="11" font-weight="700" pointer-events="none">🔗 ${subName}</text>`;
@@ -827,7 +828,7 @@ function bGradient(cats,totalAll,subMap,W,body){
     defs+='</defs>';
     let html=defs;
     catPos.forEach((cp,i)=>{
-      const tipTxt=`<b>${cp.cat.icon||''} ${cp.cat.name}</b><br>${fmt(cp.cat.total)} Kč<br><span style='color:${cp.cat.color}'>${Math.round(cp.cat.total/totalAll*100)} %</span>`;
+      const tipTxt=`<b>${cp.cat.icon||''} ${cp.cat.name}</b><br>${fmtB(cp.cat.total)}<br><span style='color:${cp.cat.color}'>${Math.round(cp.cat.total/totalAll*100)} %</span>`;
       html+=`<circle cx="${cp.x}" cy="${cp.y}" r="36" fill="url(#gg${i})" stroke="${cp.cat.color}" stroke-width="2.5" style="cursor:pointer" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
       html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" pointer-events="none">${cp.cat.name}</text>`;
       html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
@@ -886,7 +887,7 @@ function bGradient(cats,totalAll,subMap,W,body){
   const sharedNamesSet=new Set(sharedArr.map(([name])=>name));
   catPos.forEach((cp,i)=>{
     const hasShared=cp.cat.subs.some(s=>sharedNamesSet.has(s.name));
-    const tipTxt=`<b>${cp.cat.icon||''} ${cp.cat.name}</b><br>${fmt(cp.cat.total)} Kč<br><span style='color:${cp.cat.color}'>${Math.round(cp.cat.total/totalAll*100)} %</span>${hasShared?'<br>📎 obsahuje sdílenou podkat.':''}`;
+    const tipTxt=`<b>${cp.cat.icon||''} ${cp.cat.name}</b><br>${fmtB(cp.cat.total)}<br><span style='color:${cp.cat.color}'>${Math.round(cp.cat.total/totalAll*100)} %</span>${hasShared?'<br>📎 obsahuje sdílenou podkat.':''}`;
     html+=`<circle cx="${cp.x}" cy="${cp.y}" r="${CR}" fill="url(#gg${i})" stroke="${cp.cat.color}" stroke-width="2.5" style="cursor:pointer" onmouseenter="bTip(this,'${bEsc(tipTxt)}')" onmouseleave="bTip(this,'')"/>`;
     html+=`<text x="${cp.x}" y="${cp.y-6}" text-anchor="middle" fill="${cp.cat.color}" font-size="11" font-weight="700" pointer-events="none">${cp.cat.name}</text>`;
     html+=`<text x="${cp.x}" y="${cp.y+8}" text-anchor="middle" fill="${bRgba(cp.cat.color,.8)}" font-size="9" pointer-events="none">${(cp.cat.total/1000).toFixed(1)}k</text>`;
@@ -896,7 +897,7 @@ function bGradient(cats,totalAll,subMap,W,body){
   // Sdílené bubliny na ose
   shPos.forEach(sp=>{
     const SR=20;
-    const tipTxt=`<b>🔗 ${sp.name}</b><br>${fmt(sp.total)} Kč<br><span style='color:var(--text3)'>${sp.arr.map(a=>a.catName).join(' + ')}</span>`;
+    const tipTxt=`<b>🔗 ${sp.name}</b><br>${fmtB(sp.total)}<br><span style='color:var(--text3)'>${sp.arr.map(a=>a.catName).join(' + ')}</span>`;
     html+=`<circle cx="${sp.x-SR}" cy="${sp.y}" r="3.5" fill="url(#sg${sp.i})" opacity=".8"/>`;
     html+=`<circle cx="${sp.x+SR}" cy="${sp.y}" r="3.5" fill="url(#sg${sp.i})" opacity=".8"/>`;
     html+=`<circle cx="${sp.x}" cy="${sp.y}" r="${SR+12}" fill="url(#sgg${sp.i})" pointer-events="none"/>`;
@@ -1287,7 +1288,7 @@ function renderTx(){
   const totalExp = txs.filter(t=>t.type==='expense').reduce((a,t)=>a+txCZK(t,D),0);
   const badge = document.getElementById('txSummaryBadge');
   if(badge) badge.innerHTML = txs.length ?
-    `<span style="color:var(--income)">+${fmt(totalInc)} Kč</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmt(totalExp)} Kč</span> <span style="color:var(--text3)">· ${txs.length} záznamů</span>` : '';
+    `<span style="color:var(--income)">+${fmtB(totalInc)}</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmtB(totalExp)}</span> <span style="color:var(--text3)">· ${txs.length} záznamů</span>` : '';
 
   if(!txs.length){
     el.innerHTML='<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Žádné transakce</div></div>';
@@ -1328,7 +1329,7 @@ function renderTx(){
       const dayExp = dayTxs.filter(t=>t.type==='expense').reduce((a,t)=>a+txCZK(t,D),0);
       const daySaldo = dayInc - dayExp;
       html += `<div class="tx-day-group">${CZ_D[d.getDay()]} ${d.getDate()}. ${CZ_M[d.getMonth()]}
-        <span style="color:${daySaldo>=0?'var(--income)':'var(--expense)'};font-size:.76rem">${daySaldo>=0?'+':''}${fmt(daySaldo)} Kč</span>
+        <span style="color:${daySaldo>=0?'var(--income)':'var(--expense)'};font-size:.76rem">${daySaldo>=0?'+':''}${fmtB(daySaldo)}</span>
       </div>`;
       // Split children se zobrazují uvnitř parent řádku – nezobrazuj je samostatně
       dayTxs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
@@ -1362,8 +1363,8 @@ function buildTxRow(t, D, ro, dupMap={}) {
   const _txWallet = t.wallet ? (D.wallets||[]).find(w=>w.id===t.wallet) : null;
   const txCur = _txWallet?.currency || 'CZK';
   const curLabel = txCur==='CZK' ? 'Kč' : txCur;
-  // v8.58 (TODO-144): u cizí měny ukaž zafixovanou hodnotu v Kč (t.amtCZK); bez fixace orientačně živým kurzem
-  const czkNote = txCur!=='CZK' ? `<div style="font-size:.64rem;color:#a8aec8;white-space:nowrap">≈ ${fmtP(txCZK(t,D))} Kč${t.amtCZK!=null?'':' (orient.)'}</div>` : '';
+  // v8.58 (TODO-144) + v8.60 (TODO-150): u měny odlišné od základní ukaž hodnotu v ZÁKLADNÍ měně (z t.amtCZK; bez fixace orientačně živým kurzem)
+  const czkNote = txCur!==baseCur() ? `<div style="font-size:.64rem;color:#a8aec8;white-space:nowrap">≈ ${fmtBP(txCZK(t,D))}${(t.amtCZK!=null||txCur==='CZK')?'':' (orient.)'}</div>` : '';
   const amtColor = isTransfer?'var(--bank)':t.type==='income'?'var(--income)':'var(--expense)';
   const amtSign = isTransfer?'↔':t.type==='income'?'+':'−';
   const project = t.projectId ? (D.projects||[]).find(p=>p.id===t.projectId) : null;

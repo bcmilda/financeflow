@@ -1,4 +1,4 @@
-// FinanceFlow · v8.54 · stats.js · 2026-06-29
+// FinanceFlow · v8.60 · stats.js · 2026-07-02
 //  STATISTIKY
 // ══════════════════════════════════════════════════════
 // Session 10: TOP 30 kategorií s přepínačem měsíc / rok / všechny roky.
@@ -138,7 +138,7 @@ function renderStats(){
       _statCatMode==='year' ? `rok ${_statCatYear||S.curYear}` : 'všechny roky';
 
     const header = items.length ? `<div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text3);margin-bottom:8px">
-      <span>${items.length} kategorií · ${periodTxt}</span><span>Celkem ${fmt(total)} Kč</span></div>` : '';
+      <span>${items.length} kategorií · ${periodTxt}</span><span>Celkem ${fmtB(total)}</span></div>` : '';
 
     catEl.innerHTML = header + (items.map((d,idx)=>`
       <div style="margin-bottom:12px">
@@ -298,7 +298,7 @@ function renderChordDiagram() {
       `A${Rout.toFixed(1)},${Rout.toFixed(1)} 0 ${lf} 0 ${ox1.toFixed(1)},${oy1.toFixed(1)}Z`,
     ].join(' ');
     svg += `<path d="${d}" fill="${s.color}" opacity="0.92">
-      <title>${s.name}: ${typeof fmt==='function'?fmt(s.amount):s.amount} Kč (${Math.round(s.amount/total*100)}%)</title></path>`;
+      <title>${s.name}: ${typeof fmtB==='function'?fmtB(s.amount):s.amount} (${Math.round(s.amount/total*100)}%)</title></path>`;
   }
 
   // ── 3) Popisky ──────────────────────────────────────
@@ -328,8 +328,8 @@ function renderChordDiagram() {
 
   // ── 4) Střed: celková suma ──────────────────────────
   svg += `<text x="${cx}" y="${cy - 8}" text-anchor="middle" style="font-size:${W*0.038}px;fill:#c2c7da;font-family:sans-serif">Celkem</text>
-    <text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:${W*0.048}px;fill:var(--text);font-weight:700;font-family:sans-serif">${typeof fmt==='function'?fmt(total):'—'}</text>
-    <text x="${cx}" y="${cy + 14 + W*0.042}" text-anchor="middle" style="font-size:${W*0.03}px;fill:#a8aec8;font-family:sans-serif">Kč</text>`;
+    <text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:${W*0.048}px;fill:var(--text);font-weight:700;font-family:sans-serif">${typeof czkToBase==='function'?fmt(czkToBase(total)):(typeof fmt==='function'?fmt(total):'—')}</text>
+    <text x="${cx}" y="${cy + 14 + W*0.042}" text-anchor="middle" style="font-size:${W*0.03}px;fill:#a8aec8;font-family:sans-serif">${typeof curSym==='function'?curSym():'Kč'}</text>`;
 
   const pad = W * 0.18;
   el.innerHTML = `<svg viewBox="${-pad} ${-pad} ${W+2*pad} ${W+2*pad}" width="100%"

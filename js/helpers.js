@@ -1,4 +1,4 @@
-// FinanceFlow · v8.58 · helpers.js · 2026-07-02
+// FinanceFlow · v8.60 · helpers.js · 2026-07-02
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -167,6 +167,18 @@ const txCZK=(t,data)=>{
   return (typeof toCZK==='function')?toCZK(amt,cur):amt;
 };
 window.txCZK=txCZK;
+// v8.60 (TODO-150, ADR-080): ZÁKLADNÍ MĚNA UŽIVATELE (CZK/EUR/USD/GBP/PLN).
+// Interní kanonická měna zůstává CZK (amtCZK, rozpočty, cíle – žádná migrace dat).
+// Základní měna je ZOBRAZOVACÍ vrstva: CZK hodnoty se před zobrazením převedou
+// živým kurzem ČNB (_FX_RATES) a dostanou symbol měny. Nastavení: _settings.currency.
+const CUR_SYMS={CZK:'Kč',EUR:'€',USD:'$',GBP:'£',PLN:'zł'};
+const baseCur=()=> (typeof _settings!=='undefined'&&_settings&&_settings.currency)||'CZK';
+const baseRate=()=>{const c=baseCur();if(c==='CZK')return 1;const r=(typeof _FX_RATES!=='undefined'&&_FX_RATES[c]);return (r&&isFinite(r)&&r>0)?r:1;}; // Kč za 1 jednotku základní měny
+const czkToBase=v=>(v||0)/baseRate();
+const curSym=c=>CUR_SYMS[c||baseCur()]||(c||baseCur());
+const fmtB=v=>`${fmt(czkToBase(v))} ${curSym()}`;   // CZK hodnota → „1 234 €" v základní měně (celá čísla)
+const fmtBP=v=>`${fmtP(czkToBase(v))} ${curSym()}`; // přesná varianta (desetiny)
+window.baseCur=baseCur;window.baseRate=baseRate;window.czkToBase=czkToBase;window.curSym=curSym;window.fmtB=fmtB;window.fmtBP=fmtBP;
 // v8.58 (TODO-144/146): součty v základní měně (CZK) přes txCZK – cizí peněženky se už nesčítají 1:1 jako Kč.
 const incSum=(txs,data)=>txs.filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)).reduce((a,t)=>a+txCZK(t,data),0);
 const expSum=(txs,data)=>txs.filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)).reduce((a,t)=>a+txCZK(t,data),0);

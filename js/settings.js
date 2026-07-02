@@ -1,4 +1,4 @@
-// FinanceFlow · v8.32 · settings.js · 2026-06-24
+// FinanceFlow · v8.60 · settings.js · 2026-07-02
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -486,6 +486,7 @@ function renderSettingsPage() {
           <option value="GBP" ${_settings?.currency==='GBP'?'selected':''}>🇬🇧 GBP – Libra</option>
           <option value="PLN" ${_settings?.currency==='PLN'?'selected':''}>🇵🇱 PLN – Zlotý</option>
         </select>
+        <div style="margin-left:38px;font-size:.7rem;color:#a8aec8;line-height:1.45">Základní měna pro součty, přehledy a grafy (přepočet kurzem ČNB). Částky transakcí zůstávají v měně peněženky.</div>
       </div>
 
       <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:6px">

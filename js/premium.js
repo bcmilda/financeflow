@@ -1,4 +1,4 @@
-// FinanceFlow · v8.26 · premium.js · 2026-06-20
+// FinanceFlow · v8.60 · premium.js · 2026-07-02
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup'];
@@ -785,6 +785,8 @@ function saveSettingsBtn() {
   if(typeof showToast === 'function') {
     showToast(_settings.lang==='en'?'✅ Settings saved!':_settings.lang==='sk'?'✅ Nastavenia uložené!':'✅ Nastavení uloženo!');
   }
+  // v8.60 (TODO-150): změna základní měny se projeví hned (překreslit aktuální stránku)
+  if(typeof renderPage === 'function') { try { renderPage(); } catch(_){} }
 }
 
 const TRANSLATIONS = {
