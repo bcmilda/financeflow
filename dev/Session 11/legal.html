@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceFlow – Zásady ochrany údajů & Podmínky</title>
+<meta name="description" content="Zásady ochrany osobních údajů, podmínky používání a zpracování dat (GDPR) aplikace FinanceFlow.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Mulish:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1117; --bg2:#151a23; --surface:#1a212c; --border:#262e3b;
+    --text:#e8ecf3; --text2:#aab2c2; --text3:#6b7486;
+    --green:#7dd34f; --green-d:#5fb236; --link:#8fdc63;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:84px}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Mulish',-apple-system,sans-serif;line-height:1.7;font-size:16px;
+    background-image:radial-gradient(900px 500px at 80% -10%, rgba(125,211,79,.07), transparent 60%);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+
+  /* Top bar */
+  header.bar{
+    position:sticky;top:0;z-index:50;background:rgba(14,17,23,.85);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+  }
+  .bar-in{display:flex;align-items:center;gap:14px;height:62px;max-width:860px;margin:0 auto;padding:0 22px}
+  .logo{display:flex;align-items:center;gap:9px;font-family:'Fraunces',serif;font-weight:600;font-size:1.3rem;letter-spacing:-.01em}
+  .logo .heart{font-size:1.25rem}
+  .logo .fin{color:var(--text)} .logo .flow{color:var(--green)}
+  nav.tabs{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+  nav.tabs a{
+    color:var(--text2);text-decoration:none;font-size:.82rem;font-weight:700;
+    padding:7px 12px;border-radius:9px;transition:.15s;white-space:nowrap;
+  }
+  nav.tabs a:hover{color:var(--text);background:var(--surface)}
+
+  /* Hero */
+  .hero{padding:64px 0 34px;text-align:center}
+  .hero .kick{color:var(--green);font-weight:700;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase}
+  .hero h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(2rem,5vw,3rem);line-height:1.1;margin:14px 0 12px;letter-spacing:-.02em}
+  .hero p{color:var(--text2);max-width:560px;margin:0 auto;font-size:1.04rem}
+  .updated{display:inline-block;margin-top:20px;font-size:.8rem;color:var(--text3);border:1px solid var(--border);border-radius:999px;padding:5px 14px}
+
+  /* Sections */
+  section{padding:40px 0;border-top:1px solid var(--border)}
+  section h2{
+    font-family:'Fraunces',serif;font-weight:600;font-size:1.7rem;letter-spacing:-.01em;
+    margin-bottom:6px;display:flex;align-items:center;gap:11px;
+  }
+  section h2 .ic{
+    display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
+    background:linear-gradient(135deg,rgba(125,211,79,.18),rgba(125,211,79,.06));
+    border:1px solid rgba(125,211,79,.25);border-radius:11px;font-size:1.1rem;flex-shrink:0;
+  }
+  section h2 + .lead{color:var(--text2);margin-bottom:18px}
+  h3{font-size:1.06rem;font-weight:700;margin:24px 0 8px;color:var(--text)}
+  p{margin-bottom:13px;color:var(--text2)}
+  p strong{color:var(--text);font-weight:700}
+  a{color:var(--link)}
+  ul{margin:6px 0 16px;padding-left:4px;list-style:none}
+  li{position:relative;padding-left:24px;margin-bottom:9px;color:var(--text2)}
+  li::before{content:"";position:absolute;left:4px;top:11px;width:7px;height:7px;border-radius:2px;background:var(--green);opacity:.8}
+  li strong{color:var(--text)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .note{background:rgba(125,211,79,.06);border:1px solid rgba(125,211,79,.2);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:.92rem;color:var(--text2)}
+  .warn{background:rgba(240,180,60,.07);border:1px solid rgba(240,180,60,.25);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:.92rem;color:#e7c989}
+  .fill{color:#e7a14a;font-style:italic;font-weight:700}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.9rem}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--text);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  td{color:var(--text2)}
+
+  footer{border-top:1px solid var(--border);padding:34px 0 60px;text-align:center;color:var(--text3);font-size:.85rem}
+  footer a{color:var(--text2)}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="logo"><span class="heart">💚</span><span><span class="fin">Finance</span><span class="flow">Flow</span></span></div>
+    <nav class="tabs">
+      <a href="#privacy">Soukromí</a>
+      <a href="#gdpr">GDPR</a>
+      <a href="#terms">Podmínky</a>
+      <a href="#cookies">Cookies</a>
+      <a href="#kontakt">Kontakt</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kick">Právní informace</div>
+    <h1>Tvá data, tvá pravidla.</h1>
+    <p>FinanceFlow je osobní finanční aplikace. Bereme soukromí vážně — tady najdeš, jaká data zpracováváme, proč, a jaká máš práva.</p>
+    <div class="updated">Poslední aktualizace: 5. června 2026</div>
+  </div>
+
+  <!-- ZÁSADY OCHRANY -->
+  <section id="privacy">
+    <h2><span class="ic">🔒</span> Zásady ochrany osobních údajů</h2>
+    <p class="lead">Jak FinanceFlow nakládá s tvými údaji.</p>
+
+    <h3>1. Kdo zpracovává tvá data (správce)</h3>
+    <p>Provozovatelem aplikace FinanceFlow a správcem osobních údajů je <span class="fill">[DOPLŇ: jméno / název, případně IČO a sídlo]</span>. Kontakt: <a href="mailto:info@financeflow.cz">info@financeflow.cz</a>.</p>
+
+    <h3>2. Jaká data zpracováváme</h3>
+    <ul>
+      <li><strong>Údaje o účtu:</strong> e-mailová adresa, zobrazované jméno a případně profilová fotka (při přihlášení přes Google).</li>
+      <li><strong>Finanční data, která zadáš:</strong> transakce, částky, kategorie, rozpočty, dluhy, aktiva, nákupní seznamy a finanční cíle.</li>
+      <li><strong>Účtenky a výpisy:</strong> fotografie účtenek a bankovní výpisy, které nahraješ k automatickému zpracování (OCR / analýza).</li>
+      <li><strong>Zabezpečení:</strong> PIN ukládáme výhradně v <strong>zašifrované (hashované)</strong> podobě, nikdy ne v čitelné formě.</li>
+      <li><strong>Notifikace:</strong> technický identifikátor zařízení pro doručování push notifikací (pokud je zapneš).</li>
+      <li><strong>Technické údaje:</strong> anonymizované informace o chybách aplikace (pro stabilitu).</li>
+    </ul>
+    <div class="note">FinanceFlow <strong>nesbírá</strong> reklamní identifikátory, neprodává data třetím stranám a nezobrazuje reklamu.</div>
+
+    <h3>2.1 Co nezpracováváme & věk</h3>
+    <p>Nezpracováváme žádné <strong>zvláštní kategorie údajů</strong> (citlivá data) — tedy údaje o rasovém či etnickém původu, politických názorech, náboženství, zdravotním stavu, sexuální orientaci ani biometrické údaje pro identifikaci osob.</p>
+    <p>Aplikace je určena osobám <strong>starším 15 let</strong>. Pokud je ti méně, aplikaci nepoužívej.</p>
+
+    <h3>3. Proč data zpracováváme a na základě čeho</h3>
+    <ul>
+      <li><strong>Poskytování služby</strong> (vedení účtu, ukládání a zobrazení tvých financí) — právní základ: <strong>plnění smlouvy</strong>.</li>
+      <li><strong>Analýza účtenek a výpisů</strong> pomocí umělé inteligence — na základě tvého <strong>souhlasu</strong> (sám rozhoduješ, co nahraješ).</li>
+      <li><strong>Komunitní srovnání</strong> (porovnání tvých výdajů s průměrem ČR) — zpracováváno v <strong>agregované, anonymizované</strong> podobě.</li>
+      <li><strong>Zlepšování a stabilita</strong> aplikace — na základě <strong>oprávněného zájmu</strong>.</li>
+    </ul>
+
+    <h3>4. Komu data předáváme (zpracovatelé)</h3>
+    <p>Tvá data zpracováváme s pomocí důvěryhodných poskytovatelů. S každým máme smluvně ošetřeno zpracování dle GDPR:</p>
+    <table>
+      <tr><th>Poskytovatel</th><th>Účel</th><th>Umístění dat</th></tr>
+      <tr><td>Google Firebase</td><td>Přihlášení, databáze, hosting</td><td>EU (europe-west1)</td></tr>
+      <tr><td>Cloudflare</td><td>Bezpečné API (proxy)</td><td>EU / globální CDN</td></tr>
+      <tr><td>Anthropic (Claude)</td><td>Analýza účtenek a výpisů (AI)</td><td>USA*</td></tr>
+      <tr><td>Sentry</td><td>Hlášení chyb (anonymní)</td><td>EU</td></tr>
+      <tr><td>Resend</td><td>Odesílání e-mailů</td><td>EU / USA*</td></tr>
+    </table>
+    <p style="font-size:.85rem;color:var(--text3)">* Předání mimo EU probíhá na základě standardních smluvních doložek (SCC) schválených Evropskou komisí.</p>
+
+    <h3>5. Jak dlouho data uchováváme</h3>
+    <p>Data uchováváme po dobu, kdy máš aktivní účet. Po smazání účtu jsou tvá data trvale odstraněna z produkčních serverů (zpravidla do 30 dnů). Data můžeš kdykoli smazat i sám přímo v aplikaci. U dlouhodobě neaktivního účtu (bez přihlášení déle než 12 měsíců) si vyhrazujeme právo účet deaktivovat a data smazat. Z bezpečnostních důvodů mohou tvá data po nezbytnou dobu zůstat v šifrovaných zálohách, které se cyklicky přepisují.</p>
+
+    <h3>6. Umělá inteligence a účtenky</h3>
+    <p>Pokud použiješ skenování účtenek nebo import výpisů, zpracováváme je pomocí AI (model Claude od Anthropic) pro rozpoznání částky, obchodu a položek. Ujišťujeme tě, že:</p>
+    <ul>
+      <li><strong>Žádné trénování modelů:</strong> data, která pošleš k analýze (fotky účtenek, výpisy), se <strong>nepoužívají k trénování</strong> AI modelů.</li>
+      <li><strong>Účelové omezení:</strong> data se zpracují výhradně za účelem získání informací pro tebe v aplikaci.</li>
+      <li><strong>Šifrovaný přenos:</strong> komunikace probíhá zabezpečeně (HTTPS).</li>
+    </ul>
+
+    <h3>7. Oprávnění aplikace</h3>
+    <p>Aplikace si vyžádá jen oprávnění nutná pro konkrétní funkce. Všechna jsou dobrovolná (opt-in) a můžeš je kdykoli změnit v nastavení zařízení:</p>
+    <ul>
+      <li><strong>Fotoaparát / fotky:</strong> pro vyfocení nebo nahrání účtenky.</li>
+      <li><strong>Oznámení (notifikace):</strong> pro push upozornění (cenové alerty, splátky), pokud je zapneš.</li>
+      <li><strong>Úložiště:</strong> pro offline fungování a uložení tvých dat ve tvém zařízení.</li>
+    </ul>
+
+    <h3>8. Zabezpečení</h3>
+    <p>Komunikace probíhá šifrovaně (HTTPS). API klíče nikdy nejsou v aplikaci. PIN ukládáme pouze hashovaný. Přístup k databázi je chráněn přístupovými pravidly — ke svým datům máš přístup jen ty (a partner, kterého si sám přidáš).</p>
+  </section>
+
+  <!-- GDPR -->
+  <section id="gdpr">
+    <h2><span class="ic">⚖️</span> Tvá práva (GDPR)</h2>
+    <p class="lead">Podle nařízení EU 2016/679 máš následující práva.</p>
+    <ul>
+      <li><strong>Právo na přístup</strong> — zjistit, jaká data o tobě zpracováváme.</li>
+      <li><strong>Právo na opravu</strong> — nechat opravit nepřesné údaje.</li>
+      <li><strong>Právo na výmaz</strong> („být zapomenut") — smazat účet i všechna data, kdykoli, přímo v aplikaci nebo na vyžádání.</li>
+      <li><strong>Právo na přenositelnost</strong> — získat svá data ve strojově čitelném formátu (export).</li>
+      <li><strong>Právo vznést námitku</strong> a <strong>odvolat souhlas</strong> — kdykoli, bez vlivu na zákonnost předchozího zpracování.</li>
+      <li><strong>Právo na omezení zpracování.</strong></li>
+    </ul>
+    <div class="card">
+      <p style="margin-bottom:6px"><strong>Jak práva uplatnit?</strong></p>
+      <p style="margin-bottom:0">Většinu zvládneš přímo v aplikaci (Nastavení → Osobní údaje a soukromí). Cokoli dalšího vyřídíme na <a href="mailto:info@financeflow.cz">info@financeflow.cz</a> — zpravidla do 30 dnů.</p>
+    </div>
+    <div class="warn">Pokud máš za to, že zpracováním tvých údajů porušujeme předpisy, máš právo podat stížnost u dozorového úřadu — <strong>Úřad pro ochranu osobních údajů</strong> (ÚOOÚ), Pplk. Sochora 27, Praha 7, <a href="https://uoou.gov.cz" target="_blank" rel="noopener">uoou.gov.cz</a>.</p>
+  </section>
+
+  <!-- PODMÍNKY -->
+  <section id="terms">
+    <h2><span class="ic">📋</span> Podmínky používání</h2>
+    <p class="lead">Pravidla pro užívání aplikace FinanceFlow.</p>
+
+    <h3>1. O službě</h3>
+    <p>FinanceFlow je nástroj pro osobní správu financí — sledování transakcí, rozpočty, dluhy, předpovědi a přehledy. Aplikace je poskytována „tak, jak je".</p>
+
+    <h3>2. Účet</h3>
+    <p>Pro používání je potřeba účet. Odpovídáš za bezpečnost svých přihlašovacích údajů a za aktivitu na svém účtu. Účet je určen pro tvé osobní, nekomerční použití.</p>
+
+    <h3>3. Přijatelné použití</h3>
+    <ul>
+      <li>Nepoužívej aplikaci k nezákonným účelům.</li>
+      <li>Nesnaž se narušit zabezpečení, přetížit servery nebo získat přístup k cizím datům.</li>
+      <li>Nenahrávej obsah, ke kterému nemáš práva.</li>
+    </ul>
+
+    <h3>4. Předplatné a platby (Premium)</h3>
+    <p>Některé funkce jsou součástí placeného Premium. Podmínky, cena a způsob platby jsou uvedeny v aplikaci v okamžiku nákupu. <span class="fill">[DOPLŇ: pravidla vrácení peněz a délka předplatného, až bude platební brána aktivní.]</span></p>
+
+    <div class="warn"><strong>Důležité — nejsme finanční poradce.</strong> FinanceFlow poskytuje nástroje a přehledy pro tvou vlastní informaci. Předpovědi, srovnání a doporučení nejsou investičním, daňovým ani právním poradenstvím. Finanční rozhodnutí činíš na vlastní odpovědnost.</p>
+
+    <h3>5. Omezení odpovědnosti</h3>
+    <p>Snažíme se o správnost a dostupnost, ale neručíme za nepřerušovaný provoz ani za bezchybnost dat (zejména u automaticky rozpoznaných účtenek a výpisů — vždy si je zkontroluj). V rozsahu povoleném zákonem neodpovídáme za nepřímé škody vzniklé používáním aplikace.</p>
+
+    <h3>6. Ukončení</h3>
+    <p>Účet můžeš kdykoli smazat. Můžeme pozastavit účet, který porušuje tyto podmínky.</p>
+
+    <h3>7. Změny podmínek</h3>
+    <p>Podmínky můžeme aktualizovat. O podstatných změnách budeme informovat v aplikaci. Pokračováním v používání vyjadřuješ souhlas s aktuální verzí.</p>
+  </section>
+
+  <!-- COOKIES -->
+  <section id="cookies">
+    <h2><span class="ic">🍪</span> Cookies a úložiště</h2>
+    <p class="lead">FinanceFlow je webová aplikace (PWA) a ukládá data ve tvém zařízení.</p>
+    <ul>
+      <li><strong>Nezbytné úložiště:</strong> používáme <code>localStorage</code> a <code>IndexedDB</code> pro fungování aplikace offline a pro tvé nastavení. Bez nich by aplikace nefungovala.</li>
+      <li><strong>Přihlášení:</strong> Firebase ukládá relaci, abys nemusel/a se přihlašovat opakovaně.</li>
+      <li><strong>Žádné reklamní ani sledovací cookies třetích stran.</strong></li>
+    </ul>
+    <p>Úložiště můžeš kdykoli vymazat v nastavení svého prohlížeče (tím se ale odhlásíš a smažeš lokální cache).</p>
+  </section>
+
+  <!-- KONTAKT -->
+  <section id="kontakt">
+    <h2><span class="ic">✉️</span> Kontakt</h2>
+    <p class="lead">Otázky k soukromí, datům nebo podmínkám?</p>
+    <div class="card">
+      <p style="margin-bottom:4px"><strong>FinanceFlow</strong></p>
+      <p style="margin-bottom:4px">Provozovatel: <span class="fill">[DOPLŇ: jméno / IČO]</span></p>
+      <p style="margin-bottom:0">E-mail: <a href="mailto:info@financeflow.cz">info@financeflow.cz</a></p>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>© 2026 FinanceFlow · <a href="#privacy">Soukromí</a> · <a href="#terms">Podmínky</a> · <a href="#gdpr">GDPR</a></p>
+    <p style="margin-top:8px;color:var(--text3)">Vytvořeno s 💚 v Česku</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,71 @@
+<svg width="1024" height="500" viewBox="0 0 1024 500" xmlns="http://www.w3.org/2000/svg" font-family="'Sora','Segoe UI',system-ui,sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1117"/>
+      <stop offset="1" stop-color="#161d28"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.25" r="0.6">
+      <stop offset="0" stop-color="#7dd34f" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#7dd34f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#5fb236"/>
+      <stop offset="1" stop-color="#9af06a"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dd34f" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#7dd34f" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="heart" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9af06a"/>
+      <stop offset="1" stop-color="#5fb236"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+
+  <!-- faint grid -->
+  <g stroke="#2a3340" stroke-width="1" opacity="0.35">
+    <line x1="0" y1="125" x2="1024" y2="125"/>
+    <line x1="0" y1="250" x2="1024" y2="250"/>
+    <line x1="0" y1="375" x2="1024" y2="375"/>
+  </g>
+
+  <!-- cashflow area + line (right half) -->
+  <path d="M540,400 L600,360 L660,375 L720,300 L780,320 L840,230 L900,250 L960,150 L1024,170 L1024,500 L540,500 Z" fill="url(#area)"/>
+  <path d="M540,400 L600,360 L660,375 L720,300 L780,320 L840,230 L900,250 L960,150 L1024,170"
+        fill="none" stroke="url(#line)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- data dots -->
+  <g fill="#9af06a">
+    <circle cx="600" cy="360" r="5"/><circle cx="720" cy="300" r="5"/>
+    <circle cx="840" cy="230" r="5"/><circle cx="960" cy="150" r="6"/>
+  </g>
+
+  <!-- heart at the peak -->
+  <g transform="translate(905,70) scale(1.7)">
+    <path filter="url(#soft)" opacity="0.6" d="M24 42 C24 42 6 30 6 17 C6 10 11 6 17 6 C20.5 6 23 8 24 10 C25 8 27.5 6 31 6 C37 6 42 10 42 17 C42 30 24 42 24 42 Z" fill="#7dd34f"/>
+    <path d="M24 42 C24 42 6 30 6 17 C6 10 11 6 17 6 C20.5 6 23 8 24 10 C25 8 27.5 6 31 6 C37 6 42 10 42 17 C42 30 24 42 24 42 Z" fill="url(#heart)"/>
+  </g>
+
+  <!-- text block (left) -->
+  <text x="80" y="175" fill="#7dd34f" font-size="22" font-weight="700" letter-spacing="6">OSOBNÍ FINANCE · AI</text>
+  <text x="76" y="270" font-size="92" font-weight="800" letter-spacing="-2">
+    <tspan fill="#e8ecf3">Finance</tspan><tspan fill="#7dd34f">Flow</tspan>
+  </text>
+  <text x="80" y="330" fill="#aab2c2" font-size="30" font-weight="500">Chytré finance s AI ve tvé kapse.</text>
+
+  <!-- little chips -->
+  <g font-size="19" font-weight="700">
+    <rect x="80" y="372" width="186" height="44" rx="22" fill="#1a212c" stroke="#2a3340"/>
+    <text x="173" y="400" fill="#cfd6e2" text-anchor="middle">📸 Skener účtenek</text>
+    <rect x="280" y="372" width="158" height="44" rx="22" fill="#1a212c" stroke="#2a3340"/>
+    <text x="359" y="400" fill="#cfd6e2" text-anchor="middle">📊 Přehledy</text>
+    <rect x="452" y="372" width="150" height="44" rx="22" fill="#1a212c" stroke="#2a3340"/>
+    <text x="527" y="400" fill="#cfd6e2" text-anchor="middle">🇨🇿 Srovnání</text>
+  </g>
+</svg>

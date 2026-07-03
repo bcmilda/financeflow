@@ -4,69 +4,6 @@
     "type": "split",
     "children": [
       {
-        "id": "e3d4633e2143d820",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "9360228ab8fd8419",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "ToDo.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "ToDo"
-            }
-          },
-          {
-            "id": "76c2bfdf296ce3e6",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "architecture.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "architecture"
-            }
-          },
-          {
-            "id": "db022098a1ad4418",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "decisions.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "decisions"
-            }
-          },
-          {
-            "id": "61872d6235529424",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "decisions.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "decisions"
-            }
-          }
-        ],
-        "currentTab": 3
-      },
-      {
         "id": "b95a1c90b8e56d54",
         "type": "tabs",
         "children": [
@@ -112,14 +49,46 @@
             "id": "887217997ec6f326",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graf"
+              "type": "markdown",
+              "state": {
+                "file": "Přání a cíle/Narozeniny a přání Plány a cíle.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Narozeniny a přání Plány a cíle"
+            }
+          },
+          {
+            "id": "dcc415989e47114e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Nezapomenout.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Nezapomenout"
+            }
+          },
+          {
+            "id": "5addc8d7602390ba",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Nezapomenout.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Nezapomenout"
             }
           }
         ],
-        "currentTab": 3
+        "currentTab": 5
       }
     ],
     "direction": "vertical"
@@ -281,12 +250,26 @@
       "bases:Vytvořit novou základnu": false
     }
   },
-  "active": "887217997ec6f326",
+  "active": "5addc8d7602390ba",
   "lastOpenFiles": [
+    "Verze 8.34 informace.md",
+    "Nezapomenout.md",
+    "Přání a cíle/Narozeniny a přání Plány a cíle.md",
+    "Admin panel/Admin Audity.md",
+    "Přání a cíle/Bez názvu.base",
+    "Bez názvu 1.md",
+    "Přání a cíle",
+    "Radar/Kam směřuju.md",
+    "Radar/Runway.md",
+    "AI Rate Limiting/Bez názvu.md",
+    "Admin panel/Nákupní DNA.md",
+    "AI Rate Limiting",
+    "Admin panel",
+    "architecture.md",
+    "Radar",
     "Bugs.md",
     "decisions.md",
     "features.md",
-    "architecture.md",
     "ToDo.md",
     "Vítejte.md",
     "context.md",
