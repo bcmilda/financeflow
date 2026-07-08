@@ -1,4 +1,4 @@
-// FinanceFlow · v8.75 · admin.js · 2026-07-07
+// FinanceFlow · v8.76 · admin.js · 2026-07-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -400,6 +400,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v8.76',
+    datum: '2026-07-07',
+    zmeny: [
+      '🗓️ NEW (S16, TODO-161): KALENDAR – prepinac Financni | Pracovni. Financni rezim: POZNAMKY ke dnum (modry puntik vpravo dole, editor v detailu dne, flag pro notifikaci pripraveny na pozdejsi push). Kliknout lze na KAZDY den (i bez transakci).',
+      '📊 NEW (S16): Kalendar – pod mrizku pridan TYDENNI a VIKENDOVY prehled: vsedni dny vs vikend (prijmy/vydaje/saldo + pocet transakci), rozpad po tydnech, celkovy soucet za mesic.',
+      '💼 NEW (S16): PRACOVNI KALENDAR – zadavani smen/dovolene/nemoci/volna na jednotlive dny, nastaveni uvazku (hodin/smena, dni dovolene/rok). Sumar: pocet smen, odpracovane hodiny, prescasy (nad hodinovym uvazkem), dovolena, nemoc, zustatek dovolene za rok.',
+    ]
+  },
   {
     verze: 'v8.75',
     datum: '2026-07-07',
