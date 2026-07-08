@@ -1,4 +1,4 @@
-// FinanceFlow · v8.56 · app.js · 2026-06-29
+// FinanceFlow · v8.76 · app.js · 2026-07-07
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -304,6 +304,7 @@ async function saveSnapshot() {
       sablony:       S.sablony       || [], projects:   S.projects     || [],
       receipts:      S.receipts      || [], nakupList:  S.nakupList    || [],
       assets:        S.assets        || [], shareSettings: S.shareSettings || {},
+      calNotes:      S.calNotes      || {}, workCal:    S.workCal      || {},
       _savedAt: Date.now(),
     };
     const db = await _openSnapDB();
@@ -322,7 +323,7 @@ async function saveSnapshot() {
                  bank:S.bank||{startBalance:0},birthdays:S.birthdays||[],wishes:S.wishes||[],
                  wallets:S.wallets||[],payTypes:S.payTypes||[],sablony:S.sablony||[],
                  projects:S.projects||[],receipts:S.receipts||[],nakupList:S.nakupList||[],
-                 assets:S.assets||[],shareSettings:S.shareSettings||{},_savedAt:Date.now()};
+                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},_savedAt:Date.now()};
       localStorage.setItem('ff_snapshot_' + uid, JSON.stringify(s));
     } catch (_) {}
   }
@@ -803,7 +804,9 @@ async function saveToFirebase() {
       assets: ss.assets===false ? [] : S.assets||[],
       noSyncKeys: S.noSyncKeys||[],
       importHistory: S.importHistory||[],
-      shareSettings: S.shareSettings||{}
+      shareSettings: S.shareSettings||{},
+      calNotes: S.calNotes||{},
+      workCal: S.workCal||{}
     };
     await _set(_ref(_db, `users/${window._currentUser.uid}/data`), dataToSave);
     setSyncStatus('ok');
