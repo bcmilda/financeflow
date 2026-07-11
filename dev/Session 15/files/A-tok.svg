@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+    <stop offset="0%" stop-color="#241a4d"/><stop offset="55%" stop-color="#171233"/><stop offset="100%" stop-color="#0f0d20"/>
+  </radialGradient>
+  <linearGradient id="gb" x1="0%" y1="100%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#60a5fa"/>
+  </linearGradient>
+  <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+    <circle cx="3" cy="3" r="1.4" fill="#ffffff" opacity="0.05"/>
+  </pattern>
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  
+</defs>
+<clipPath id="round"><rect width="512" height="512" rx="115"/></clipPath>
+<g clip-path="url(#round)">
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#dots)"/>
+  
+  <path d="M -30,318 C 110,318 150,208 262,204 S 430,150 545,168" fill="none" stroke="url(#gb)" stroke-width="30" stroke-linecap="round" opacity="0.95"/>
+  <path d="M -30,252 C 100,252 160,158 268,152 S 428,102 545,118" fill="none" stroke="url(#gb)" stroke-width="19" stroke-linecap="round" opacity="0.55"/>
+  <path d="M -30,382 C 120,382 170,268 280,262 S 436,206 545,222" fill="none" stroke="url(#gb)" stroke-width="13" stroke-linecap="round" opacity="0.32"/>
+  <circle cx="392" cy="163" r="17" fill="#f5f5f7" filter="url(#glow)"/>
+  <circle cx="345" cy="118" r="8" fill="#4ade80" opacity="0.85"/>
+  <circle cx="415" cy="228" r="6" fill="#60a5fa" opacity="0.7"/>
+  <text x="256" y="452" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="57"><tspan fill="#f5f5f7">Finance</tspan><tspan fill="#4ade80">Flow</tspan></text>
+</g>
+</svg>
