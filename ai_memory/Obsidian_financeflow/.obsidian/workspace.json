@@ -93,12 +93,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Půjčky/DTI a DSTI.md",
+                "file": "Diff write.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "DTI a DSTI"
+              "title": "Diff write"
             }
           }
         ],
@@ -266,8 +266,9 @@
   },
   "active": "084d8fd464a67408",
   "lastOpenFiles": [
-    "Půjčky.md",
+    "Bugs.md",
     "Půjčky/DTI a DSTI.md",
+    "Půjčky.md",
     "Půjčky",
     "Nezapomenout.md",
     "Verze 8.34 informace.md",
@@ -284,12 +285,11 @@
     "Admin panel",
     "architecture.md",
     "Radar",
-    "Bugs.md",
     "decisions.md",
     "features.md",
     "ToDo.md",
     "Vítejte.md",
-    "context.md",
+    "Diff write.md",
     "vytvořtef odkaz.md"
   ]
 }
