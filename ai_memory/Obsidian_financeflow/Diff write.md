@@ -7,3 +7,5 @@ Hotovo — **v8.88 = S17 diff-write je implementovaná**. A k tvé otázce: **an
 **Ověřeno simulací (7 scénářů):** přidání transakce = zápis 1 klíče, editace = 1 klíč, smazání = 1 klíč, změna kategorie = **transakce se nepřepisují vůbec**, beze změny = žádný zápis, vypnutí sdílení korektně smaže sdílené. Z ~1,5 MB na ~1 KB na uložení.
 
 **Migrace (lazy, s pojistkami):** při tvém **prvním uložení** po nasazení se jednorázově: (1) zazálohuje staré pole do `users/{uid}/dataBackupV1`, (2) zapíše celá data v nové struktuře (`data/transactions/{id}` jako objekt) + `schemaV: 2`. Od té chvíle jedou jen diffy. Čtení zůstává postaru (onValue celého uzlu) — `sanitizeUserData` teď normalizuje objekt→pole, takže `S.transactions` je v paměti pořád pole a nic v aplikaci se nemění. Bonus: při té příležitosti jsem chytil, že onValue handler **minul sanitizaci z v8.86** (patchoval jsem tehdy jinou variantu) — opraveno.
+
+Tím je S16 formálně uzavřená (kód v8.90 + dokumentace). Až večer nasadíš a otestuješ migraci, dej vědět, jak dopadla — a příští session otevřeme **S17→S18** (TODO-177): query čtení, child listenery a `stats` agregáty. Hodně štěstí s nasazením!

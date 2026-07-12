@@ -1,4 +1,4 @@
-// FinanceFlow · v8.86 · ui.js · 2026-07-11
+// FinanceFlow · v8.90 · ui.js · 2026-07-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -169,7 +169,7 @@ function updateNotificationBadge() {
       display:inline-flex;align-items:center;justify-content:center;
       min-width:18px;height:18px;border-radius:9px;
       background:${items3.length > 0 ? 'var(--expense)' : 'var(--debt)'};
-      color:#fff;font-size:.6rem;font-weight:700;
+      color:#fff;font-size:.66rem;font-weight:700;
       padding:0 4px;margin-left:auto;flex-shrink:0;
     `;
     badge.textContent = items7.length;
@@ -541,7 +541,7 @@ function renderDashTreemap(D){
       onmouseout="this.style.background='${cat.color}18';this.style.borderColor='${cat.color}44'">
       <div style="font-size:.68rem;font-weight:600;color:${cat.color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.icon} ${cat.name}</div>
       <div style="font-size:.82rem;font-weight:800;color:${cat.color}">${fmt(cat.total)}</div>
-      <div style="font-size:.6rem;opacity:.6;color:${cat.color}">${pct}%</div>
+      <div style="font-size:.66rem;opacity:.6;color:${cat.color}">${pct}%</div>
     </div>`;
   };
 
@@ -1245,6 +1245,11 @@ function renderTx(){
   const searchFilter = document.getElementById('txSearchFilter')?.value.trim().toLowerCase() || '';
   const searchAllMonths = document.getElementById('txSearchAllMonths')?.checked || false;
 
+  // S16.8: postupné vykreslování – velké seznamy nezamrazí mobil (chunk 120 řádků,
+  // další se přinačtou při doscrollování; při změně měsíce/filtru/řazení se resetuje)
+  const _txKey = [S.curMonth,S.curYear,catFilter,subFilter,projectFilter,walletFilter,payTypeFilter,tagFilter,searchFilter,searchAllMonths,_txTypeFilter,_txSort,_txSortDir,(_txDateFilter&&_txDateFilter.active)?'D':''].join('|');
+  if(window._txChunkKey !== _txKey){ window._txChunkKey = _txKey; window._txShown = 120; }
+
   // Vyhledávání napříč měsíci: pokud je zapnuté A je zadaný text/tag, projdi všechny transakce
   let txs;
   if (_txDateFilter && _txDateFilter.active) {
@@ -1301,6 +1306,10 @@ function renderTx(){
     return;
   }
 
+  const _txAll = txs;
+  const _txMore = _txAll.length > window._txShown;
+  txs = _txMore ? _txAll.slice(0, window._txShown) : _txAll;
+
   const ro = viewingUid !== null;
   const CZ_D = ['Ne','Po','Út','St','Čt','Pá','So'];
 
@@ -1344,7 +1353,20 @@ function renderTx(){
     txs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
   }
 
+  if(_txMore) html += `<div id="txMoreSentinel" style="padding:16px;text-align:center;color:#a8aec8;font-size:.76rem">⏳ Načítám další… (zbývá ${_txAll.length - window._txShown})</div>`;
   el.innerHTML = html;
+  if(_txMore){
+    const sen = document.getElementById('txMoreSentinel');
+    if(sen && 'IntersectionObserver' in window){
+      if(window._txIO) window._txIO.disconnect();
+      window._txIO = new IntersectionObserver((es)=>{
+        if(es.some(x=>x.isIntersecting)){ window._txIO.disconnect(); window._txShown += 120; renderTx(); }
+      }, {rootMargin:'600px'});
+      window._txIO.observe(sen);
+    } else if(sen){
+      sen.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="window._txShown+=120;renderTx()">Načíst dalších 120</button>';
+    }
+  }
 }
 
 // S12.1o: překreslit transakce při překročení mobilního breakpointu (rotace/resize okna)
@@ -1439,15 +1461,15 @@ function buildTxRow(t, D, ro, dupMap={}) {
       (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
       : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
       : '';
-    const badgeM = isSplitParent ? ` <span style="font-size:.6rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
-                : hasReceiptItems ? ` <span style="font-size:.6rem;color:var(--text3)">📷 ${t.receiptItems.length} ▾</span>` : '';
+    const badgeM = isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
+                : hasReceiptItems ? ` <span style="font-size:.66rem;color:var(--text3)">📷 ${t.receiptItems.length} ▾</span>` : '';
     const subM = t.subcat ? `<span style="font-size:.72rem;color:var(--text3)"> · ${t.subcat}</span>` : '';
     const balM = (window._txBalMap&&window._txBalMap[t.id]!==undefined) ? `<div style="font-size:.64rem;color:var(--income);opacity:.85">(${fmtP(window._txBalMap[t.id])} ${curLabel})</div>` : '';
     const descM = customName || t.name || t.note || (t.receiptStore||'') || '–';
     const _mobCard = `<div class="tx-mob-row ${rowClass}${(!ro && hasReceiptItems)?' tx-swipe-fg':''}" ${tapAttr}${(!ro && hasReceiptItems)?' data-swipe="1"':''} style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:${(isSplitParent||hasReceiptItems||!ro)?'pointer':'default'}${(!ro && hasReceiptItems)?';background:var(--surface,#1a1d27);position:relative;z-index:1':''}">
       <div style="flex-shrink:0;width:34px;text-align:center">
         <div style="font-size:1.15rem;line-height:1">${cat.icon}</div>
-        <div style="font-size:.6rem;color:var(--text3);margin-top:2px">${d.getDate()}.${d.getMonth()+1}.</div>
+        <div style="font-size:.66rem;color:var(--text3);margin-top:2px">${d.getDate()}.${d.getMonth()+1}.</div>
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${subM}</div>
@@ -1523,7 +1545,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     </div>
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
       ${isVirtualTransfer?`<span style="font-size:.66rem;color:var(--text3)" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_coarse
-        ? (_swipeRow?`<span style="font-size:.6rem;color:var(--text3)" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')
+        ? (_swipeRow?`<span style="font-size:.66rem;color:var(--text3)" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')
         : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
     </div>
   </div>`;

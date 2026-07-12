@@ -1,4 +1,4 @@
-// FinanceFlow · v8.84 · projects.js · 2026-07-08
+// FinanceFlow · v8.90 · projects.js · 2026-07-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -582,7 +582,7 @@ function renderHealthRingGrid(D) {
     <div style="text-align:center">
       <canvas id="hgrid_${mo.m}_${mo.y}" width="${cellSize}" height="${cellSize}" style="width:${cellSize}px;height:${cellSize}px"></canvas>
       <div style="font-size:.62rem;color:var(--text3);margin-top:2px">${mo.label}</div>
-      <div style="font-size:.58rem;color:${healthColor(mo.score)}">${healthLabel(mo.score).replace(/^.. /,'')}</div>
+      <div style="font-size:.66rem;color:${healthColor(mo.score)}">${healthLabel(mo.score).replace(/^.. /,'')}</div>
     </div>`).join('');
 
   cont.innerHTML = `
@@ -2041,7 +2041,7 @@ function renderRadarPayday(el, D){
     return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px">
       <div style="font-size:.66rem;font-weight:700;color:#c2c7da;font-family:Syne">${w.total>0?fmt(w.total):(w.future?'·':'0')}</div>
       <div style="width:100%;max-width:46px;display:flex;flex-direction:column-reverse;border-radius:6px 6px 0 0;overflow:hidden;min-height:2px">${segs||'<div style="height:2px;background:var(--surface3)"></div>'}</div>
-      <div style="font-size:.6rem;color:#a8aec8;text-align:center;line-height:1.3">${w.label}<br><span style="color:var(--text3)">${w.range}</span></div>
+      <div style="font-size:.66rem;color:#a8aec8;text-align:center;line-height:1.3">${w.label}<br><span style="color:var(--text3)">${w.range}</span></div>
     </div>`;
   }).join('');
 
@@ -2763,7 +2763,7 @@ function renderObraz() {
           }).join('');
           return `<div style="overflow-x:auto;margin-top:10px">
             <table style="width:100%;border-collapse:collapse;font-size:.72rem;min-width:600px">
-              <thead><tr style="color:#a8aec8;text-transform:uppercase;font-size:.6rem;letter-spacing:.04em">
+              <thead><tr style="color:#a8aec8;text-transform:uppercase;font-size:.66rem;letter-spacing:.04em">
                 <th style="text-align:left;padding:5px 6px">Cyklus</th>
                 ${Array.from({length:maxW},(_,i)=>`<th style="text-align:right;padding:5px 6px">${i+1}. týden</th>`).join('')}
                 <th style="text-align:right;padding:5px 6px">Výdaje</th>
@@ -3672,6 +3672,7 @@ function denikSnapshot(){
     debtNow: Math.round(debts.reduce((a,d)=>a+(d.remaining||0),0)),
     wallets: (typeof assetLiqTotals==='function')?Math.round(assetLiqTotals(D).wallets||0):0,
     scoreRaw: sc?sc.rawTotal:null, scoreMax: sc?sc.rawMax:null,
+    stressRaw: (typeof computeStressIndex==='function')?(computeStressIndex(D)||{total:null}).total:null,  // S16.8 (Deník v2.1)
   };
   save();
   renderDenik();
@@ -3770,6 +3771,7 @@ function renderDenik(){
     ${dRow('Dluh (k datu zápisu)', fmtB(snap.debtNow))}
     ${dRow('Hotovost (k datu zápisu)', fmtB(snap.wallets))}
     ${snap.scoreRaw!==null&&snap.scoreRaw!==undefined?dRow('Finanční skóre', `${snap.scoreRaw} / ${snap.scoreMax}`):''}
+    ${snap.stressRaw!==null&&snap.stressRaw!==undefined?dRow('Dluhový stres', `${snap.stressRaw} / 100`):''}
     <div style="text-align:right;margin-top:10px"><button onclick="denikDeleteSnap('${key}')" style="background:none;border:1px solid rgba(140,47,47,.5);border-radius:7px;color:#8c2f2f;font-size:.68rem;padding:4px 9px;cursor:pointer;font-family:Georgia,serif">🗑 Vytrhnout list</button></div>
   ` : `
     <div style="font-size:.84rem;line-height:1.7;color:#5b4636;padding:6px 0 12px;font-style:italic">Tato stránka je zatím prázdná – predikce pro ${CZ_M[m].toLowerCase()} nebyla zapsána.${isCurM?'<br><br>Zapiš ji: snímek je neměnný záznam „co jsme čekali", zatímco skutečnost na protější straně se dopočítává živě z transakcí.':''}</div>
@@ -3784,6 +3786,12 @@ function renderDenik(){
     ${dRow('Zapsaných transakcí', txs.filter(t=>!t.splitParent).length)}
     ${todayD?dRow('Den v měsíci', `${todayD}. / ${days}`):''}
     ${snap&&todayD?dRow('Tempo výdajů vs predikce', (()=>{ const pi=Math.min(todayD,snap.predCurve.length)-1; const pv=snap.predCurve[pi]||0; const av=actExp[Math.min(todayD,days)-1]||0; if(!pv) return '–'; const d2=Math.round((av-pv)/pv*100); return `<span style="color:${d2<=0?'#2e6b3f':'#8c2f2f'}">${d2>=0?'+':''}${d2} %</span>`; })()):''}
+    ${(()=>{ // S16.8 (Deník v2.1): živý stres index vs snímek
+      const st=(typeof computeStressIndex==='function')?computeStressIndex(D):null;
+      if(!st) return '';
+      const d4=(snap&&snap.stressRaw!=null)?st.total-snap.stressRaw:null;
+      return dRow('Dluhový stres (živě)', `${st.total} / 100`+(d4!==null?` <span style="font-size:.68rem;font-weight:700;color:${d4<=0?'#2e6b3f':'#8c2f2f'}">(${d4>=0?'+':''}${d4})</span>`:''), st.total<30?'denik-ink-inc':st.total<60?'':'denik-ink-exp');
+    })()}
   `;
 
   el.innerHTML=`
@@ -3814,6 +3822,31 @@ function renderDenik(){
           <span style="display:flex;align-items:center;gap:5px;color:#8c2f2f"><span style="width:16px;height:2.5px;background:#8c2f2f;display:inline-block"></span>Výdaje (kumul.)</span>
           ${snap?'<span style="display:flex;align-items:center;gap:5px;color:#6b4b8a"><span style="width:16px;height:0;border-top:2px dashed #6b4b8a;display:inline-block"></span>Predikce výdajů</span>':'<span style="color:#7a6248;font-style:italic">Predikční křivka se objeví po zápisu snímku.</span>'}
         </div>
+        ${(()=>{ // S16.8 (Deník v2.1): řádek cyklu od výplaty přímo na listu
+          if(!todayD || typeof radarPaydayInfo!=='function') return '';
+          try{
+            const P=radarPaydayInfo(D); if(!P||!P.lastPayday) return '';
+            const start=new Date(P.lastPayday); start.setHours(0,0,0,0);
+            const now=new Date();
+            const txs2=getTxByRange(start, now, D);
+            const exp2=Math.round(expSum(txs2,D));
+            const days2=Math.max(1,Math.round((now-start)/86400000)+1);
+            const next=new Date(start); next.setDate(next.getDate()+(P.cycleDays||30));
+            const toNext=Math.max(0,Math.round((next-now)/86400000));
+            const weeks2=[];
+            for(let w=0;w*7<days2;w++){
+              const ws=new Date(start); ws.setDate(ws.getDate()+w*7);
+              let we=new Date(ws); we.setDate(we.getDate()+6); if(we>now) we=new Date(now);
+              const wtx=txs2.filter(t=>{const d3=new Date(t.date);d3.setHours(0,0,0,0);return d3>=ws&&d3<=we;});
+              weeks2.push(Math.round(expSum(wtx,D)));
+            }
+            return `<div style="border-top:1px solid rgba(90,60,30,.35);margin-top:12px;padding-top:10px;font-size:.8rem;color:#5b4636;line-height:1.6">
+              <strong>💶 Od výplaty k výplatě:</strong> ${start.getDate()}.${start.getMonth()+1}. – dnes (${days2}. den cyklu) ·
+              výdaje <span class="denik-ink-exp" style="font-weight:700">${fmtB(exp2)}</span> ·
+              týdny: ${weeks2.map(w=>fmt(w)).join(' / ')} ·
+              do výplaty ~${toNext} dní</div>`;
+          }catch(e){ return ''; }
+        })()}
       </div>
     </div>`;
 }

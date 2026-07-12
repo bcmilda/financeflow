@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.87 · debts.js · 2026-07-11
+//  FinanceFlow · v8.90 · debts.js · 2026-07-12
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -1135,10 +1135,12 @@ const _STRESS_CFG = {
   bands: { stable: 30, risk: 60 }   // <30 stabilní · <60 rizikové · jinak spirála
 };
 
-function renderDebtStressWidget(D) {
-  const el = document.getElementById('debtStressWidget'); if(!el) return;
+// ══ S16.8: VÝPOČET ODDĚLEN OD RENDERU (S11 princip) ══
+//   computeStressIndex(D) → {total, level, color, label, bg, border, factors, incomeTrend}
+//   Používá: render widgetu, Deník v2.1 (snímek stresu) i smoke-testy (tests/smoke.js).
+function computeStressIndex(D) {
   const debts = D.debts || [];
-  if(!debts.length) { el.innerHTML=''; return; }
+  if(!debts.length) return null;
 
   // ══ S16 (TODO-162): 10 metrik, váhy dle Milana (součet 100 b). Každá metrika → STRES 0..váha
   //    (0 = zdravé, váha = maximální stres). Vyšší součet = horší. Prahy v _STRESS_CFG (viz Excel).
@@ -1232,6 +1234,18 @@ function renderDebtStressWidget(D) {
     { label: 'Trend splácení', val: monthlyPrincipal > 0 ? 'jistina klesá' : 'jistina neklesá', score: trendStress, max: W.trend, note: _note(trendStress, W.trend) },
     { label: 'Rychlost splácení', val: isFinite(payoffMonths) ? Math.round(payoffMonths / 12) + ' let' : '∞', score: velStress, max: W.velocity, note: _note(velStress, W.velocity) },
   ];
+
+  return { total: totalScore, level: stressLevel, color: stressColor, label: stressLabel,
+           bg: stressBg, border: stressBorder, factors, incomeTrend,
+           inputs: { dsti, dti, emMonths, liqMonths, wAvgRate, payoffMonths, totalDebt, monthlyPayments } };
+}
+
+function renderDebtStressWidget(D) {
+  const el = document.getElementById('debtStressWidget'); if(!el) return;
+  const R = computeStressIndex(D);
+  if(!R) { el.innerHTML=''; return; }
+  const { total: totalScore, level: stressLevel, color: stressColor, label: stressLabel,
+          bg: stressBg, border: stressBorder, factors, incomeTrend } = R;
 
   el.innerHTML=`<div class="stress-card" style="background:${stressBg};border-color:${stressBorder}">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -1890,7 +1904,7 @@ function renderDebtFreedomWidget(D) {
     <!-- Vizuální kalendář -->
     <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:8px">
       ${Array.from({length:daysPerMonth},(_,i)=>`
-        <div title="${i<daysForDebt?'Pro banky':'Pro tebe'}" style="width:24px;height:24px;border-radius:4px;background:${i<daysForDebt?barColor:'var(--income)'};opacity:${i<daysForDebt?'.8':'.75'};display:flex;align-items:center;justify-content:center;font-size:.58rem;color:white;font-weight:700">${i+1}</div>
+        <div title="${i<daysForDebt?'Pro banky':'Pro tebe'}" style="width:24px;height:24px;border-radius:4px;background:${i<daysForDebt?barColor:'var(--income)'};opacity:${i<daysForDebt?'.8':'.75'};display:flex;align-items:center;justify-content:center;font-size:.66rem;color:white;font-weight:700">${i+1}</div>
       `).join('')}
     </div>
     <div style="font-size:.68rem;color:var(--text3);margin-bottom:14px">
