@@ -1,4 +1,4 @@
-// FinanceFlow · v8.88 · helpers.js · 2026-07-11
+// FinanceFlow · v8.91 · helpers.js · 2026-07-12
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -250,7 +250,13 @@ function sanitizeUserData(D){
   // S17 (ADR-062): diff-write ukládá transakce jako OBJEKT keyed by id (data/tx/{id}).
   //   Při načtení je znormalizujeme zpět na POLE → 33 modulů pracuje beze změny.
   //   Zpětně kompatibilní: staré pole (v1) projde beze změny.
-  if(D.transactions && !Array.isArray(D.transactions) && typeof D.transactions==='object'){
+  // S16.9 (Milan): RTDB vrací uzel jako POLE, pokud jsou klíče souvislá čísla od 0
+  //   (legacy transakce z doby před genTxId/FIX-056 měly jednoduchá číselná id 0,1,2…).
+  //   Mezera v historii (dřív smazaná transakce) by se pak objevila jako `null` prvek pole.
+  //   Filtrujeme VŽDY, i když už D.transactions přišlo jako pravé pole.
+  if(Array.isArray(D.transactions)){
+    D.transactions = D.transactions.filter(Boolean);
+  } else if(D.transactions && typeof D.transactions==='object'){
     D.transactions = Object.keys(D.transactions).map(k=>D.transactions[k]).filter(Boolean);
   }
   const N=(arr,fields)=>{ (arr||[]).forEach(o=>{ if(o&&typeof o==='object') fields.forEach(f=>{ if(o[f]!=null) o[f]=_stripTags(o[f]); }); }); };

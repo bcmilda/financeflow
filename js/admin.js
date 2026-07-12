@@ -1,4 +1,4 @@
-// FinanceFlow · v8.90 · admin.js · 2026-07-12
+// FinanceFlow · v8.91 · admin.js · 2026-07-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -403,6 +403,13 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v8.91',
+    datum: '2026-07-12',
+    zmeny: [
+      '🛡 FIX (S16.9, Milan): sanitizeUserData – RTDB vraci uzel jako POLE, pokud jsou klice souvisla cisla od 0 (legacy transakce pred genTxId/FIX-056 mely jednoducha cisla 0,1,2…). Pripadna MEZERA v teto stare rade (drive smazana transakce) by se objevila jako null prvek pole a driv se neodfiltrovala, pokud data prisla uz jako pravé pole (jen u object-tvaru se filtrovalo). Nyni se null polozky filtruji VZDY, pri obou tvarech. Preventivni fix – Milan reportoval 0/1/…/177 klice po migraci v8.88, coz je ocekavane chovani RTDB, ne chyba migrace.',
+    ]
+  },
   {
     verze: 'v8.90',
     datum: '2026-07-12',
