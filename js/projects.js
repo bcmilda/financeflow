@@ -1,4 +1,4 @@
-// FinanceFlow · v9.10 · projects.js · 2026-07-23
+// FinanceFlow · v9.13 · projects.js · 2026-07-25
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3154,6 +3154,67 @@ function renderDetektor() {
       severity:'mid'
     });
     totalSavable += Math.round(bankFees*0.8);
+  }
+
+  // 2b. ALKOHOL & TABÁK (S17.13, Milan) – neřestí bývá největší tichý žrout rozpočtu.
+  // Zdroj: názvy transakcí + položky z účtenek (COICOP oddíl 2).
+  {
+    const alcKw = ['alkohol','pivo','víno','vino','rum','vodka','whisky','becherovka','fernet','gin','tequila','likér','liker','prosecco','sekt','cigaret','tabák','tabak','marlboro','camel','lucky strike','nikotin','vape','iqos','heets'];
+    const alcTx = subTxs.filter(t => alcKw.some(kw => (t.name||'').toLowerCase().includes(kw)));
+    let alcTotal = alcTx.reduce((a,t)=>a+(typeof txCZK==='function'?txCZK(t,D):(t.amount||t.amt||0)),0);
+    // + položky z účtenek za aktuální měsíc
+    const ymNow = `${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;
+    let alcItems = 0;
+    (S.receipts||[]).forEach(r => {
+      if(String(r.date||'').slice(0,7) !== ymNow) return;
+      (r.items||[]).forEach(it => {
+        const n=(it.name||'').toLowerCase();
+        if(alcKw.some(kw=>n.includes(kw))) alcItems += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
+      });
+    });
+    alcTotal = Math.round(alcTotal + alcItems);
+    if(alcTotal > 300){
+      suggestions.push({
+        category:'🍺 Alkohol & tabák',
+        item:'Výdaje za neřesti',
+        current:`${fmtB(alcTotal)}/měs`,
+        saving: Math.round(alcTotal*0.5),
+        tip:`Omezení na polovinu ušetří ${fmtB(Math.round(alcTotal*0.5))}/měs (${fmtB(Math.round(alcTotal*6))}/rok). Zdraví bonus zdarma.`,
+        severity: alcTotal>2000 ? 'high' : 'mid'
+      });
+      totalSavable += Math.round(alcTotal*0.5);
+    }
+  }
+
+  // 2c. NEJČASTĚJI NAKUPOVANÉ POLOŽKY (S17.13, Milan) – top 5 z účtenek za 3 měsíce.
+  // Odhalí tiché žrouty typu oříšky, káva, sladkosti – jednotlivě malé, v součtu velké.
+  {
+    const cut = new Date(); cut.setMonth(cut.getMonth()-3);
+    const agg = {};
+    (S.receipts||[]).forEach(r => {
+      const rd = new Date(r.date||''); if(isNaN(rd) || rd < cut) return;
+      (r.items||[]).forEach(it => {
+        const key = (it.name||'').trim().toLowerCase().replace(/\d+\s*(g|kg|ml|l|ks)\b/g,'').replace(/\s+/g,' ').trim().slice(0,25);
+        if(key.length < 3) return;
+        if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
+        agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
+        agg[key].qty += (it.qty||1); agg[key].n++;
+      });
+    });
+    const top = Object.values(agg).filter(x=>x.n>=3 && x.total>=200).sort((a,b)=>b.total-a.total).slice(0,5);
+    top.forEach(x => {
+      const perMonth = Math.round(x.total/3);
+      if(perMonth < 100) return;
+      suggestions.push({
+        category:'🛒 Častý nákup',
+        item: x.name,
+        current:`${fmtB(perMonth)}/měs`,
+        saving: Math.round(perMonth*0.3),
+        tip:`${x.n}× za 3 měsíce (${Math.round(x.qty)} ks, celkem ${fmtB(Math.round(x.total))}). Omezení o třetinu ušetří ${fmtB(Math.round(perMonth*0.3))}/měs.`,
+        severity:'low'
+      });
+      totalSavable += Math.round(perMonth*0.3);
+    });
   }
 
   // 3. Pojištění

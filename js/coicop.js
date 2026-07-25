@@ -1,4 +1,4 @@
-// FinanceFlow · v8.46 · coicop.js · 2026-06-27
+// FinanceFlow · v9.14 · coicop.js · 2026-07-25
 // COICOP agregace – COMPUTE oddělený od renderu. Roll-up SKUTEČNÝCH výdajů uživatele
 // z položek účtenek na jemné COICOP úrovně (podtřída 01.1, třída 01.11, kód 01.113)
 // přes productGroupLookup z produktové DB.
@@ -7,7 +7,12 @@
 //   coicopBreakdownCard(items)       – hotová HTML karta (render, fáze 3)
 
 // Cena řádku položky = price × qty (staré záznamy: price = cena/ks → fallback × qty||1).
-function _coicopLineTotal(it){ return (parseFloat(it && it.price) || 0) * (parseFloat(it && it.qty) || 1); }
+// S17.13 (FIX-211, Milan): preferuj lineTotal (skutečně zaplaceno vč. slev) – dřív se počítalo
+// vždy price×qty, takže slevy se ignorovaly a součty nesouhlasily se zbytkem Analýzy účtenek.
+function _coicopLineTotal(it){
+  if(it && it.lineTotal != null) return parseFloat(it.lineTotal) || 0;
+  return (parseFloat(it && it.price) || 0) * (parseFloat(it && it.qty) || 1);
+}
 function _coicopSub(code){ const m = String(code||'').match(/^(\d{2})\.(\d)/);  return m ? (m[1]+'.'+m[2]) : ''; }   // 01.113 → 01.1
 function _coicopClass(code){ const m = String(code||'').match(/^(\d{2})\.(\d)(\d)/); return m ? (m[1]+'.'+m[2]+'.'+m[3]) : ''; } // 01.113 → 01.1.1 (formát ČSÚ tabulky)
 
@@ -92,9 +97,29 @@ function coicopBreakdownCard(items){
     ? '<div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--text3);border-top:1px solid var(--border);padding-top:8px;margin-top:4px"><span>❓ Nezařazeno (DB netrefila)</span><span>' + fmt(b.unmatched) + ' Kč</span></div>'
     : '';
   return '<div class="card" style="margin-bottom:14px">'
-    + '<div class="card-header"><span class="card-title">🧬 Výdaje podle COICOP skupin</span></div>'
+    + '<div class="card-header"><span class="card-title">🧾 Co nakupuješ – z účtenek</span>'
+      + '<span style="display:flex;gap:4px">'
+      + ['month','all'].map(function(p){
+          var on = (window._coicopPeriod||'all') === p;
+          var lbl = p==='month' ? '📅 Tento měsíc' : '∞ Vše';
+          return '<button onclick="coicopSetPeriod(\''+p+'\')" style="padding:3px 9px;border-radius:7px;font-size:.7rem;font-weight:600;cursor:pointer;border:1px solid '+(on?'rgba(139,124,246,.5)':'var(--border)')+';background:'+(on?'rgba(139,124,246,.14)':'transparent')+';color:'+(on?'#b9aefc':'var(--text3)')+'">'+lbl+'</button>';
+        }).join('')
+      + '</span></div>'
     + '<div class="card-body">'
-    + '<div style="font-size:.72rem;color:var(--text3);margin-bottom:10px">Tvoje naúčtované položky zařazené podle oficiálních skupin ČSÚ. Srovnání s průměrem najdeš v Komunitním přehledu.</div>'
+    + '<div style="font-size:.72rem;color:var(--text3);margin-bottom:10px"><strong>Jen naskenované položky z účtenek</strong>, zařazené podle oficiálních skupin ČSÚ – '
+      + ((window._coicopPeriod||'all')==='month'
+          ? 'jen <strong>' + ((typeof CZ_M!=='undefined'&&typeof S!=='undefined')?(CZ_M[S.curMonth]+' '+S.curYear):'zvolený měsíc') + '</strong>.'
+          : '<strong>celá historie</strong> účtenek (ne jen zvolený měsíc).')
+      + ' Nepokrývá výdaje bez účtenky (nájem, splátky, benzín) – ty najdeš v <strong>Jak utrácíš proti průměru</strong>, která počítá ze všech transakcí jako měsíční průměr. Proto se čísla obou tabulek liší.</div>'
     + rows + unm + '</div></div>';
 }
 window.coicopBreakdownCard = coicopBreakdownCard;
+
+// S17.13 (FIX-211, Milan): přepínač období pro COICOP kartu. Dřív karta ignorovala zvolený
+// měsíc (dostávala vždy VŠECHNY položky), takže přepínání měsíců v hlavičce nic nedělalo.
+function coicopSetPeriod(p){
+  window._coicopPeriod = p;
+  if(typeof renderUctenky === 'function') renderUctenky();
+  else if(typeof renderPage === 'function') renderPage();
+}
+window.coicopSetPeriod = coicopSetPeriod;

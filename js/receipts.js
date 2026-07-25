@@ -1,4 +1,4 @@
-// FinanceFlow · v8.61 · receipts.js · 2026-07-02
+// FinanceFlow · v9.14 · receipts.js · 2026-07-25
 //  ANALÝZA ÚČTENEK
 // ══════════════════════════════════════════════════════
 // ── lineAmt helper: bezpečný výpočet celkové ceny položky ──
@@ -296,12 +296,17 @@ function renderUctenky() {
   // Agreguj transakce do COICOP skupin (průměr + měsíční breakdown)
   const D2 = getData();
   const coicopUserTotals = {};
-  const allMonthTxs = (D2.transactions||[]).filter(t=>t.type==='expense');
+  // S17.13 (FIX-212, Milan): DŘÍV se sčítalo `tx.amount||tx.amt` bez txCZK a bez vyloučení
+  // přesunů/splitů/vyrovnání → cizí měny se počítaly v nominálu a přesuny mezi peněženkami
+  // se tvářily jako výdaj. Srovnání s ČSÚ tak bylo nadhodnocené.
+  const allMonthTxs = (D2.transactions||[]).filter(t =>
+    t.type==='expense' && !t.splitParent && !t.isBalancing &&
+    !(typeof isTransferTx === 'function' && isTransferTx(t)));
   const txMonths = new Set(allMonthTxs.map(t=>(t.date||'').slice(0,7)));
   const numMonths = Math.max(txMonths.size, 1);
   allMonthTxs.forEach(tx => {
     const {coicopId} = mapToCOICOP(tx);
-    coicopUserTotals[coicopId] = (coicopUserTotals[coicopId]||0) + (tx.amount||tx.amt||0);
+    coicopUserTotals[coicopId] = (coicopUserTotals[coicopId]||0) + (typeof txCZK==='function' ? txCZK(tx, D2) : (tx.amount||tx.amt||0));
   });
   Object.keys(coicopUserTotals).forEach(id => {
     coicopUserTotals[id] = Math.round(coicopUserTotals[id] / numMonths);
@@ -320,7 +325,7 @@ function renderUctenky() {
     if(!last6Months.includes(month)) return;
     const {coicopId} = mapToCOICOP(tx);
     if(!coicopMonthly[coicopId]) coicopMonthly[coicopId] = {};
-    coicopMonthly[coicopId][month] = (coicopMonthly[coicopId][month]||0) + (tx.amount||tx.amt||0);
+    coicopMonthly[coicopId][month] = (coicopMonthly[coicopId][month]||0) + (typeof txCZK==='function' ? txCZK(tx, D2) : (tx.amount||tx.amt||0));  // S17.13 FIX-212
   });
 
   // Kontrola kompletnosti se počítá přímo v buildCompareTab
@@ -475,7 +480,10 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
     </div>
 
     <!-- 🧬 Výdaje podle COICOP skupin (fáze 3) -->
-    ${typeof coicopBreakdownCard === 'function' ? coicopBreakdownCard(allItems) : ''}
+    ${typeof coicopBreakdownCard === 'function' ? coicopBreakdownCard(
+        (window._coicopPeriod||'all')==='month'
+          ? allItems.filter(it => String(it.date||'').slice(0,7) === (S.curYear+'-'+String(S.curMonth+1).padStart(2,'0')))
+          : allItems) : ''}
 
     <!-- Top položky (lokální) + tlačítko pro načtení z Firebase -->
     <div class="card" style="margin-bottom:14px">
@@ -497,7 +505,7 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
     <!-- Graf: Název/Tag/Období -->
     <div class="card" style="margin-top:14px">
       <div class="card-header">
-        <span class="card-title">📊 Graf položek / tagů</span>
+        <span class="card-title">📈 Vývoj nákupů v čase</span>
       </div>
       <div class="card-body">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -511,9 +519,9 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
           </select>
           <select id="itemChartPeriod" onchange="renderItemChart()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
             <option value="1M">1 měsíc</option>
-            <option value="3M" selected>3 měsíce</option>
+            <option value="3M">3 měsíce</option>
             <option value="6M">6 měsíců</option>
-            <option value="12M">12 měsíců</option>
+            <option value="12M" selected>12 měsíců</option>
           </select>
         </div>
         <div id="itemChartCanvas" style="min-height:180px;overflow-x:auto"></div>
@@ -533,7 +541,7 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
   return html;
 }
 
-function renderItemChart() {
+function renderItemChart(){
   const el = document.getElementById('itemChartCanvas'); if(!el) return;
   const mode = document.getElementById('itemChartMode')?.value||'name';
   const metric = document.getElementById('itemChartMetric')?.value||'qty';
@@ -541,24 +549,24 @@ function renderItemChart() {
 
   const receipts = S.receipts||[];
   const months = parseInt(period)||3;
-  const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-months);
+  // S17.13: osa X = SOUVISLÁ řada měsíců (dřív se kreslily jen měsíce, kde byl nákup,
+  // takže graf s jedním nákupem ukázal jediný sloupec s popiskem „03" a vypadal rozbitě).
+  const now = new Date();
+  const axisMonths = [];
+  for(let i=months-1;i>=0;i--){
+    const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    axisMonths.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  const cutoff = new Date(now.getFullYear(), now.getMonth()-(months-1), 1);
 
-  // Získej všechny položky z období
   const items = receipts.flatMap(r=>(r.items||[]).map(it=>({...it,date:r.date||''})))
-    .filter(it => {
-      if(!it.date) return false;
-      return new Date(it.date) >= cutoff;
-    });
+    .filter(it => it.date && new Date(it.date) >= cutoff);
 
-  // Seskup dle měsíce a dle klíče (název nebo tag)
-  const monthlyData = {}; // {klíč: {YYYY-MM: {qty, total}}}
-  const allKeys = new Set();
-  const allMonths = new Set();
-
+  // Seskup dle měsíce a klíče (název nebo tag)
+  const monthlyData = {}, allKeys = new Set();
   items.forEach(it => {
     const month = (it.date||'').slice(0,7);
-    if(!month) return;
-    allMonths.add(month);
+    if(!month || !axisMonths.includes(month)) return;
     const rawKeys = mode==='tag'
       ? (it.tag||'').split(/[\s,]+/).filter(Boolean)
       : [it.name?.trim().toLowerCase().slice(0,20)].filter(Boolean);
@@ -572,64 +580,83 @@ function renderItemChart() {
     });
   });
 
-  const sortedMonths = [...allMonths].sort();
-  // Top 6 klíčů dle sumy/qty
-  const sortedKeys = [...allKeys].sort((a,b)=>{
-    const aSum = Object.values(monthlyData[a]||{}).reduce((s,v)=>s+(metric==='qty'?v.qty:v.total),0);
-    const bSum = Object.values(monthlyData[b]||{}).reduce((s,v)=>s+(metric==='qty'?v.qty:v.total),0);
-    return bSum-aSum;
-  }).slice(0,6);
+  const sumOf = k => Object.values(monthlyData[k]||{}).reduce((s,v)=>s+(metric==='qty'?v.qty:v.total),0);
+  const ranked = [...allKeys].sort((a,b)=>sumOf(b)-sumOf(a));
+  // S17.13 (Milan): uživatelský výběr sledovaných položek – bez něj se ukáže top 5
+  if(!Array.isArray(window._itemChartPick)) window._itemChartPick = [];
+  const picked = window._itemChartPick.filter(k=>allKeys.has(k));
+  const keys = picked.length ? picked.slice(0,8) : ranked.slice(0,5);
 
-  if(!sortedKeys.length||!sortedMonths.length) {
-    el.innerHTML='<div style="color:var(--text3);font-size:.76rem;padding:20px;text-align:center">Žádná data pro zvolené parametry</div>';
+  // ── filtr položek (chipy) ──
+  const chips = ranked.slice(0,40).map(k=>{
+    const on = picked.includes(k);
+    return `<button onclick="itemChartToggle('${k.replace(/'/g,"\\'")}')" style="padding:3px 9px;border-radius:12px;font-size:.68rem;cursor:pointer;white-space:nowrap;border:1px solid ${on?'var(--income)':'var(--border)'};background:${on?'rgba(74,222,128,.16)':'transparent'};color:${on?'var(--income)':'var(--text2)'}">${k.slice(0,18)}</button>`;
+  }).join('');
+  const filterBar = `<div style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-size:.7rem;color:var(--text3)">${picked.length?`Sleduješ ${picked.length} položek`:'Bez výběru = top 5 dle objemu'}</span>
+      ${picked.length?`<button onclick="itemChartClear()" style="padding:2px 8px;border-radius:8px;font-size:.66rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3)">✕ zrušit výběr</button>`:''}
+    </div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;max-height:88px;overflow-y:auto">${chips||'<span style="font-size:.7rem;color:var(--text3)">Žádné položky</span>'}</div>
+  </div>`;
+
+  if(!keys.length){
+    el.innerHTML = filterBar + '<div style="color:var(--text3);font-size:.76rem;padding:20px;text-align:center">Žádná data pro zvolené parametry</div>';
     return;
   }
 
-  const COLORS=['#60a5fa','#4ade80','#f87171','#fbbf24','#a78bfa','#34d399'];
-  const BAR_W=32, GAP=6, GROUP_GAP=16;
-  const groupW = sortedKeys.length*(BAR_W+GAP)-GAP+GROUP_GAP;
-  const svgW = sortedMonths.length*groupW+60;
-  const svgH = 180;
-  const maxVal = Math.max(...sortedKeys.flatMap(k=>sortedMonths.map(m=>monthlyData[k]?.[m]?.[metric]||0)),1);
+  // ── ČÁROVÝ GRAF (Milan): sledování počtu kusů / útraty po měsících ──
+  const COLORS=['#60a5fa','#4ade80','#f87171','#fbbf24','#a78bfa','#34d399','#f472b6','#facc15'];
+  const W=680,H=250,pad={l:52,r:14,t:14,b:42};
+  const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  const maxVal = Math.max(...keys.flatMap(k=>axisMonths.map(m=>monthlyData[k]?.[m]?.[metric]||0)),1);
+  const niceMax = Math.ceil(maxVal*1.15/5)*5 || 5;
+  const x = i => pad.l + (axisMonths.length>1 ? cW*i/(axisMonths.length-1) : cW/2);
+  const y = v => pad.t + cH*(1 - v/niceMax);
+  const CZM=['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
+  const mLabel = ym => { const [yy,mm]=ym.split('-'); return CZM[parseInt(mm)-1]+' '+yy.slice(2); };
 
-  let bars='', lines='', legend='', xLabels='';
-  sortedMonths.forEach((month,mi)=>{
-    const xBase=60+mi*groupW;
-    xLabels+=`<text x="${xBase+groupW/2-GROUP_GAP/2}" y="${svgH-4}" font-size="9" text-anchor="middle" fill="var(--text3)">${month.slice(5)}</text>`;
-    sortedKeys.forEach((k,ki)=>{
-      const val=monthlyData[k]?.[month]?.[metric]||0;
-      const barH=Math.max(2,Math.round(val/maxVal*(svgH-40)));
-      const x=xBase+ki*(BAR_W+GAP);
-      const y=svgH-20-barH;
-      bars+=`<rect x="${x}" y="${y}" width="${BAR_W}" height="${barH}" fill="${COLORS[ki%6]}" rx="3" opacity=".85">
-        <title>${k}: ${metric==='qty'?val+'ks':fmt(Math.round(val))+' Kč'}</title>
-      </rect>`;
-      if(val>0) bars+=`<text x="${x+BAR_W/2}" y="${y-3}" font-size="8" text-anchor="middle" fill="var(--text2)">${metric==='qty'?val:''}</text>`;
+  let g='';
+  // mřížka + osa Y (s jednotkou)
+  for(let i=0;i<=4;i++){
+    const v=niceMax*i/4, yy=y(v);
+    g+=`<line x1="${pad.l}" y1="${yy}" x2="${W-pad.r}" y2="${yy}" stroke="rgba(255,255,255,.07)" stroke-width="1"${i?' stroke-dasharray="3,3"':''}/>`;
+    g+=`<text x="${pad.l-7}" y="${yy+3.5}" font-size="10" text-anchor="end" fill="#a8aec8">${metric==='qty'?(Math.round(v*10)/10):fmt(Math.round(v))}</text>`;
+  }
+  g+=`<text x="12" y="${pad.t+cH/2}" font-size="10" fill="#a8aec8" transform="rotate(-90,12,${pad.t+cH/2})" text-anchor="middle">${metric==='qty'?'počet ks':'Kč'}</text>`;
+  // osa X – čitelné popisky měsíců (dřív jen „03")
+  const step = axisMonths.length>8 ? Math.ceil(axisMonths.length/6) : 1;
+  axisMonths.forEach((m,i)=>{
+    if(i%step===0 || i===axisMonths.length-1)
+      g+=`<text x="${x(i)}" y="${H-pad.b+18}" font-size="10" text-anchor="middle" fill="#a8aec8">${mLabel(m)}</text>`;
+  });
+  g+=`<line x1="${pad.l}" y1="${pad.t+cH}" x2="${W-pad.r}" y2="${pad.t+cH}" stroke="var(--border)" stroke-width="1"/>`;
+
+  // čáry + body s tooltipem
+  keys.forEach((k,ki)=>{
+    const col=COLORS[ki%COLORS.length];
+    const pts=axisMonths.map((m,i)=>({x:x(i), y:y(monthlyData[k]?.[m]?.[metric]||0), v:monthlyData[k]?.[m]?.[metric]||0, m}));
+    g+=`<polyline points="${pts.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    pts.forEach(p=>{
+      g+=`<circle cx="${p.x}" cy="${p.y}" r="${p.v>0?3.4:2}" fill="${p.v>0?col:'#2a2f42'}" stroke="${col}" stroke-width="1.4">
+        <title>${k} · ${mLabel(p.m)}: ${metric==='qty'?((Math.round(p.v*10)/10)+' ks'):(fmt(Math.round(p.v))+' Kč')}</title></circle>`;
     });
   });
 
-  // Čárový graf – kumulativní součet pro každý klíč
-  sortedKeys.forEach((k,ki)=>{
-    let cum=0;
-    const pts=sortedMonths.map((month,mi)=>{
-      cum+=(monthlyData[k]?.[month]?.[metric]||0);
-      const xBase=60+mi*groupW;
-      const x=xBase+ki*(BAR_W+GAP)+BAR_W/2;
-      const y=svgH-20-Math.round(cum/Math.max(maxVal*sortedMonths.length,1)*(svgH-40));
-      return `${x},${y}`;
-    });
-    if(sortedMonths.length>1) lines+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${COLORS[ki%6]}" stroke-width="1.5" stroke-dasharray="4,2" opacity=".6"/>`;
-    legend+=`<span style="display:inline-flex;align-items:center;gap:3px;font-size:.65rem;color:var(--text2)"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${COLORS[ki%6]}"></span>${k.slice(0,12)}</span>`;
-  });
+  const legend = keys.map((k,ki)=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:.68rem;color:#c9cede"><span style="display:inline-block;width:12px;height:3px;border-radius:2px;background:${COLORS[ki%COLORS.length]}"></span>${k.slice(0,16)}</span>`).join('');
 
-  el.innerHTML=`
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${legend}</div>
-    <svg width="${svgW}" height="${svgH}" style="overflow:visible">
-      <line x1="55" y1="${svgH-20}" x2="${svgW}" y2="${svgH-20}" stroke="var(--border)" stroke-width="1"/>
-      ${bars}${lines}${xLabels}
-      <text x="10" y="${svgH/2}" font-size="9" fill="var(--text3)" transform="rotate(-90,10,${svgH/2})">${metric==='qty'?'ks':'Kč'}</text>
-    </svg>`;
+  el.innerHTML = filterBar
+    + `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px">${legend}</div>
+       <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:${W}px;height:auto;display:block">${g}</svg>
+       <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">Každá čára = jedna ${mode==='tag'?'značka':'položka'}; bod = ${metric==='qty'?'počet kusů':'útrata'} v daném měsíci (najetím zobrazíš hodnotu). Měsíce bez nákupu jsou nulové – proto čára klesne na osu. Vyber si konkrétní položky nahoře a sleduj, jestli jich kupuješ víc, nebo jestli zdražují.</div>`;
 }
+function itemChartToggle(k){
+  if(!Array.isArray(window._itemChartPick)) window._itemChartPick=[];
+  const i=window._itemChartPick.indexOf(k);
+  if(i>=0) window._itemChartPick.splice(i,1); else window._itemChartPick.push(k);
+  renderItemChart();
+}
+function itemChartClear(){ window._itemChartPick=[]; renderItemChart(); }
 
 let _itemStatsPeriod = '3M';
 let _itemStatsTag = '';
@@ -713,8 +740,9 @@ function renderItemStatsList(topItems, allItems, D, period) {
         <div style="font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:var(--text2)">${totalQty}</div>
         <div style="font-size:.58rem;color:var(--text3)">ks</div>
       </div>
-      <div style="text-align:right;padding-right:4px">
-        <div style="font-family:Syne,sans-serif;font-size:.95rem;font-weight:800;color:var(--expense)">${fmt(Math.round(v.total))}&nbsp;Kč</div>
+      <div style="text-align:right;padding-right:4px;min-width:0">
+        <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3.4vw,.95rem);font-weight:800;color:var(--expense);line-height:1.1;white-space:nowrap">${fmt(Math.round(v.total))}</div>
+        <div style="font-size:.58rem;color:var(--text3)">Kč</div>
       </div>
       <div style="text-align:right">
         <div style="font-size:.82rem;font-weight:600;color:var(--text2)">ø&nbsp;${fmt(avgPrice)}</div>
@@ -1002,9 +1030,29 @@ function buildPricesTab(priceChanges) {
     </div></div></div>`;
   } else {
     // Rozdělení na kategorie
-    const shrinkItems = priceChanges.filter(p=>p.shrinkflation);
-    const kgItems = priceChanges.filter(p=>!p.shrinkflation && p.perUnitData);
-    const stdItems = priceChanges.filter(p=>!p.shrinkflation && !p.perUnitData);
+    // S17.13 (Milan): multifiltr sledovaných položek – při desítkách položek byl výpis nepřehledný
+    if(!Array.isArray(window._pricePick)) window._pricePick = [];
+    const _allNames = priceChanges.map(p=>p.name);
+    const _pick = window._pricePick.filter(n=>_allNames.includes(n));
+    const _filtered = _pick.length ? priceChanges.filter(p=>_pick.includes(p.name)) : priceChanges;
+
+    html += `<div class="card" style="margin-bottom:12px"><div class="card-body">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px">
+        <span style="font-size:.72rem;color:var(--text3)">🔍 Sledované položky ${_pick.length?`<strong style="color:var(--income)">(${_pick.length} vybráno)</strong>`:'<span style="opacity:.75">(bez výběru = všechny)</span>'}</span>
+        ${_pick.length?`<button onclick="pricePickClear()" style="padding:2px 9px;border-radius:8px;font-size:.68rem;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3)">✕ zrušit</button>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;max-height:104px;overflow-y:auto">
+        ${priceChanges.map(p=>{
+          const on=_pick.includes(p.name);
+          const up=(p.change||0)>0;
+          return `<button onclick="pricePickToggle('${String(p.name).replace(/'/g,"\\'")}')" style="padding:3px 9px;border-radius:12px;font-size:.68rem;cursor:pointer;white-space:nowrap;border:1px solid ${on?'var(--income)':'var(--border)'};background:${on?'rgba(74,222,128,.16)':'transparent'};color:${on?'var(--income)':'var(--text2)'}">${String(p.displayName||p.name).slice(0,20)} <span style="color:${up?'var(--expense)':'var(--income)'}">${up?'↑':'↓'}${Math.abs(Math.round(p.change||0))}%</span></button>`;
+        }).join('')}
+      </div>
+    </div></div>`;
+
+    const shrinkItems = _filtered.filter(p=>p.shrinkflation);
+    const kgItems = _filtered.filter(p=>!p.shrinkflation && p.perUnitData);
+    const stdItems = _filtered.filter(p=>!p.shrinkflation && !p.perUnitData);
 
     html += `<div style="background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;color:var(--text2);border:1px solid var(--border)">
       📊 Vývoj cen · <strong>${priceChanges.length} položek</strong> ·
@@ -3109,3 +3157,17 @@ function syncReceiptToTransactions(r) {
   });
 }
 window.syncReceiptToTransactions = syncReceiptToTransactions;
+
+// S17.13 (Milan): multifiltr položek v záložce Zdražování
+function pricePickToggle(n){
+  if(!Array.isArray(window._pricePick)) window._pricePick=[];
+  const i=window._pricePick.indexOf(n);
+  if(i>=0) window._pricePick.splice(i,1); else window._pricePick.push(n);
+  if(typeof renderUctenky==='function') renderUctenky();
+  const t=document.getElementById('utab-prices'); if(t && typeof switchUctenkyTab==='function') switchUctenkyTab('prices',t);
+}
+function pricePickClear(){
+  window._pricePick=[];
+  if(typeof renderUctenky==='function') renderUctenky();
+  const t=document.getElementById('utab-prices'); if(t && typeof switchUctenkyTab==='function') switchUctenkyTab('prices',t);
+}
