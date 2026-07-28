@@ -1,4 +1,4 @@
-// FinanceFlow · v9.23 · projects.js · 2026-07-26
+// FinanceFlow · v9.22 · projects.js · 2026-07-26
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2482,14 +2482,14 @@ function _obrazProjChart(proj){
                 reserve:proj.wallets, bud:0, isNow:true};
   const all=[nowRow,...rows];
 
-  const W=900,H=330,pad={l:64,r:18,t:40,b:52};
+  const W=680,H=250,pad={l:58,r:14,t:34,b:44};
   const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
   const incOf=r=>r.isNow?r.inc:proj.avgInc;
   const vMax=Math.max(...all.map(r=>Math.max(incOf(r),r.exp,r.bud||0)),1);
   const vMin=Math.min(0,...all.map(r=>Math.min(r.cash, r.reserve||0)));
   const span=Math.max(1,vMax-vMin);
   const y=v=>pad.t+cH*(1-(v-vMin)/span);
-  const slot=cW/all.length, bw=Math.min(24,slot/4.4);
+  const slot=cW/all.length, bw=Math.min(15,slot/4.8);
   let g='';
 
   // mřížka + osa Y
@@ -2533,7 +2533,7 @@ function _obrazProjChart(proj){
   });
 
   const leg=[['#4ade80','Příjem'],['#f87171','Výdaje (predikce)'],['#a78bfa','Známé platby'],['#60a5fa','Cashflow'],['#fbbf24','Rezerva (kumul.)']];
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:100%;height:auto;display:block">${g}</svg>
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:${W}px;height:auto;display:block">${g}</svg>
     <div style="display:flex;gap:11px;flex-wrap:wrap;justify-content:center;margin-top:6px;font-size:.68rem;color:#c9cede">
       ${leg.map(([c,l])=>`<span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:11px;height:3px;border-radius:2px;background:${c}"></span>${l}</span>`).join('')}
     </div>`;
@@ -2633,15 +2633,7 @@ function radarPastCycles(D, nWant){
       const wtx=txs.filter(t=>{const d=new Date(t.date); d.setHours(0,0,0,0); return d>=ws&&d<=we;});
       weeks.push(Math.round(expSum(wtx,D)));
     }
-    // S17.23 (Milan): denní rozpad – pro graf „po dnech" a pro zelenou křivku zbývajících peněz
-    const daily=[], dailyInc=[];
-    for(let d0=0; d0<days; d0++){
-      const ds=new Date(start); ds.setDate(ds.getDate()+d0); ds.setHours(0,0,0,0);
-      const dtx=txs.filter(t=>{const d=new Date(t.date); d.setHours(0,0,0,0); return d.getTime()===ds.getTime();});
-      daily.push(Math.round(expSum(dtx,D)));
-      dailyInc.push(Math.round(incSum(dtx,D)));
-    }
-    if(inc>0||exp>0) cycles.unshift({start,end:new Date(last),inc,exp,weeks,days,daily,dailyInc});
+    if(inc>0||exp>0) cycles.unshift({start,end:new Date(last),inc,exp,weeks,days});
     end=start;
   }
   return cycles;
@@ -2652,118 +2644,75 @@ function radarPastCycles(D, nWant){
 // Nově čárový graf profilu utrácení: osa X = 1.–5. TÝDEN od výplaty, každá slabá čára = jeden
 // cyklus, silná modrá = MEDIÁN týdne (odolnější než průměr vůči jednomu extrémnímu cyklu).
 // Cíl: vidět STYL utrácení – jestli po výplatě „rozhazuješ" a ke konci cyklu šetříš.
-// S17.23 (Milan): PŘEPRACOVÁNO PODRUHÉ. Dva režimy nad stejnými daty:
-//   „Po týdnech" = velké SLOUPCE = medián útraty v daném týdnu cyklu (dřív modrá čára),
-//                  přes ně slabé čáry jednotlivých cyklů (max/min/průběhy), popsané měsícem;
-//   „Po dnech"   = 1 sloupec = 1 den cyklu (Ø útrata napříč cykly) – detailní profil.
-// V obou režimech ZELENÁ křivka = kolik z výplaty ještě zbývá (klesá s utrácením,
-// vyskočí nahoru, když během cyklu přijde další příjem).
-let _cycMode = 'week';
-function cycSetMode(m){ _cycMode = m; if(typeof renderObraz==='function') renderObraz(); }
-
 function _obrazCyclesChart(cycles){
   if(!cycles||cycles.length<2) return '';
-  const byWeek = _cycMode !== 'day';
-  const MCZ=['led','úno','bře','dub','kvě','čer','čvc','srp','zář','říj','lis','pro'];
-  const lbl=c=>{ try{ return MCZ[c.start.getMonth()]; }catch(e){ return ''; } };
+  const maxW=Math.min(5,Math.max(...cycles.map(c=>(c.weeks||[]).length),1));
+  if(maxW<2) return '';
+  const W=680,H=250,pad={l:58,r:16,t:18,b:44};
+  const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  const vals=cycles.flatMap(c=>(c.weeks||[]).slice(0,maxW)).filter(v=>v!==undefined&&isFinite(v));
+  const vMax=Math.max(...vals,1);
+  const niceMax=Math.ceil(vMax*1.12/1000)*1000||1000;
+  const x=i=>pad.l+(maxW>1?cW*i/(maxW-1):cW/2);
+  const y=v=>pad.t+cH*(1-v/niceMax);
   const med=a=>{ const s=a.filter(v=>v!==undefined&&isFinite(v)).sort((p,q)=>p-q); if(!s.length) return 0;
     const m=s.length>>1; return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); };
+  const medians=Array.from({length:maxW},(_,i)=>med(cycles.map(c=>(c.weeks||[])[i])));
 
-  // ── příprava sérií ──
-  const nSlots = byWeek
-    ? Math.min(5, Math.max(...cycles.map(c=>(c.weeks||[]).length),1))
-    : Math.min(35, Math.max(...cycles.map(c=>(c.daily||[]).length),1));
-  if(nSlots<2) return '';
-  const serie = c => byWeek ? (c.weeks||[]) : (c.daily||[]);
-  const bars = Array.from({length:nSlots},(_,i)=>med(cycles.map(c=>serie(c)[i])));
-
-  // zelená křivka: kolik z příjmu zbývá (příjmy − kumulované výdaje), medián napříč cykly
-  const remainOf = c => {
-    const ex=c.daily||[], inc=c.dailyInc||[]; if(!ex.length) return [];
-    const out=[]; let bal=0;
-    for(let d=0; d<ex.length; d++){ bal += (inc[d]||0) - (ex[d]||0); out.push(bal); }
-    if(byWeek){ const w=[]; for(let i=0;i<nSlots;i++){ const idx=Math.min(out.length-1,(i+1)*7-1); w.push(out[idx]); } return w; }
-    return out.slice(0,nSlots);
-  };
-  const remains = cycles.map(remainOf).filter(a=>a.length);
-  const remainMed = remains.length ? Array.from({length:nSlots},(_,i)=>med(remains.map(a=>a[i]))) : [];
-
-  // ── plátno ──
-  const W=900,H=340,pad={l:66,r:20,t:24,b:56};
-  const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
-  const allVals=[...cycles.flatMap(c=>serie(c).slice(0,nSlots)),...bars,...remainMed].filter(v=>isFinite(v));
-  const vMax=Math.max(...allVals,1), vMin=Math.min(0,...allVals);
-  const span=Math.max(1,vMax-vMin);
-  const y=v=>pad.t+cH*(1-(v-vMin)/span);
-  const slot=cW/nSlots, cx=i=>pad.l+slot*i+slot/2;
-  const bw=Math.min(byWeek?66:15, slot*0.62);
   let g='';
-
   // mřížka + osa Y
-  const ticks=[vMax, vMax*0.5, 0]; if(vMin<0) ticks.push(vMin);
-  ticks.forEach(v=>{
-    g+=`<line x1="${pad.l}" y1="${y(v).toFixed(1)}" x2="${W-pad.r}" y2="${y(v).toFixed(1)}" stroke="rgba(168,174,200,${v===0?'.5':'.15'})" stroke-width="1" ${v!==0?'stroke-dasharray="3,3"':''}/>`;
-    g+=`<text x="${pad.l-7}" y="${(y(v)+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="#a8aec8">${_obrazK(v)}</text>`;
-  });
-  g+=`<text x="14" y="${pad.t+cH/2}" font-size="10" fill="#a8aec8" transform="rotate(-90,14,${pad.t+cH/2})" text-anchor="middle">Kč</text>`;
+  for(let i=0;i<=4;i++){
+    const v=niceMax*i/4, yy=y(v);
+    g+=`<line x1="${pad.l}" y1="${yy.toFixed(1)}" x2="${W-pad.r}" y2="${yy.toFixed(1)}" stroke="rgba(168,174,200,${i?'.15':'.5'})" stroke-width="1" ${i?'stroke-dasharray="3,3"':''}/>`;
+    g+=`<text x="${pad.l-6}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="#a8aec8">${_obrazK(v)}</text>`;
+  }
+  g+=`<text x="13" y="${pad.t+cH/2}" font-size="9.5" fill="#a8aec8" transform="rotate(-90,13,${pad.t+cH/2})" text-anchor="middle">Výdaje v týdnu (Kč)</text>`;
+  // osa X = týdny od výplaty
+  for(let i=0;i<maxW;i++){
+    g+=`<text x="${x(i).toFixed(1)}" y="${H-pad.b+16}" text-anchor="middle" font-size="9.8" fill="#c9cede" font-weight="600">${i+1}. týden</text>`;
+  }
+  g+=`<text x="${(pad.l+cW/2).toFixed(1)}" y="${H-pad.b+33}" text-anchor="middle" font-size="8.6" fill="#a8aec8">týdny od výplaty</text>`;
 
-  // sloupce = medián slotu
-  bars.forEach((v,i)=>{
-    if(!(v>0)) return;
-    const yy=y(v), hh=Math.max(y(0)-yy,1.5);
-    g+=`<rect x="${(cx(i)-bw/2).toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="3" fill="#60a5fa" opacity=".78">
-      <title>Medián ${byWeek?(i+1)+'. týdne':(i+1)+'. dne'}: ${fmt(v)} Kč</title></rect>`;
-    if(byWeek||i%5===0) g+=`<text x="${cx(i).toFixed(1)}" y="${(yy-5).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#93c5fd" font-weight="800">${_obrazK(v)}</text>`;
-  });
-
-  // slabé čáry jednotlivých cyklů (max/min/průběhy)
-  const COLS=['#f87171','#fbbf24','#a78bfa','#34d399','#f472b6','#38bdf8'];
+  // slabé čáry jednotlivých cyklů (nejnovější o něco výraznější)
   cycles.forEach((c,ci)=>{
-    const arr=serie(c); const pts=[];
-    for(let i=0;i<nSlots;i++){ const v=arr[i]; if(v===undefined||!isFinite(v)) continue; pts.push({x:cx(i),y:y(v),v,i}); }
+    const w=c.weeks||[]; const pts=[];
+    for(let i=0;i<maxW;i++){ const v=w[i]; if(v===undefined||!isFinite(v)) continue; pts.push({x:x(i),y:y(v),v,i}); }
     if(pts.length<2) return;
-    const col=COLS[ci%COLS.length], fresh=ci===cycles.length-1;
-    g+=`<polyline points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="${col}"
-      stroke-width="${fresh?1.9:1.2}" opacity="${fresh?'.9':'.45'}" stroke-linejoin="round"/>`;
-    pts.forEach(p=>g+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${fresh?2.6:1.8}" fill="${col}" opacity="${fresh?'.95':'.5'}">
-      <title>${lbl(c)} · ${byWeek?(p.i+1)+'. týden':(p.i+1)+'. den'}: ${fmt(p.v)} Kč</title></circle>`);
+    const fresh=ci===cycles.length-1;
+    const op=fresh?0.75:0.28+0.06*ci;
+    g+=`<polyline points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none"
+      stroke="${fresh?'#f0a5a5':'#f87171'}" stroke-width="${fresh?1.9:1.1}" opacity="${op.toFixed(2)}" stroke-linejoin="round"/>`;
+    pts.forEach(p=>g+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${fresh?2.6:1.7}" fill="#f87171" opacity="${op.toFixed(2)}">
+      <title>${_cycLbl(c)} · ${p.i+1}. týden: ${fmt(p.v)} Kč</title></circle>`);
   });
 
-  // zelená křivka zbývajících peněz
-  if(remainMed.length){
-    const rp=remainMed.map((v,i)=>({x:cx(i),y:y(v),v}));
-    g+=`<polyline points="${rp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#4ade80" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
-    rp.forEach((p,i)=>g+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.6" fill="#4ade80" stroke="#0c101c" stroke-width="1.3">
-      <title>Zbývá po ${byWeek?(i+1)+'. týdnu':(i+1)+'. dni'}: ${fmt(p.v)} Kč</title></circle>`);
-  }
+  // mediánová křivka
+  const mp=medians.map((v,i)=>({x:x(i),y:y(v),v}));
+  g+=`<polyline points="${mp.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#60a5fa" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  mp.forEach((p,i)=>{
+    g+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.2" fill="#60a5fa" stroke="#0c101c" stroke-width="1.4"><title>Medián ${i+1}. týdne: ${fmt(p.v)} Kč</title></circle>`;
+    const txt=_obrazK(p.v), bwid=txt.length*5+8;
+    g+=`<g><rect x="${(p.x-bwid/2).toFixed(1)}" y="${(p.y-19).toFixed(1)}" width="${bwid.toFixed(1)}" height="12.5" rx="3" fill="rgba(12,16,28,.92)" stroke="rgba(96,165,250,.6)" stroke-width=".8"/>
+      <text x="${p.x.toFixed(1)}" y="${(p.y-10).toFixed(1)}" text-anchor="middle" font-size="8.4" fill="#93c5fd" font-weight="800">${txt}</text></g>`;
+  });
 
-  // osa X
-  for(let i=0;i<nSlots;i++){
-    if(!byWeek && nSlots>14 && i%3!==0 && i!==nSlots-1) continue;
-    g+=`<text x="${cx(i).toFixed(1)}" y="${H-pad.b+17}" text-anchor="middle" font-size="${byWeek?10.5:9}" fill="#c9cede" font-weight="${byWeek?'600':'400'}">${byWeek?(i+1)+'. týden':(i+1)+'.'}</text>`;
-  }
-  g+=`<text x="${(pad.l+cW/2).toFixed(1)}" y="${H-pad.b+35}" text-anchor="middle" font-size="9" fill="#a8aec8">${byWeek?'týdny od výplaty':'dny od výplaty'}</text>`;
-
-  // slovní vyhodnocení
-  const peak=bars.indexOf(Math.max(...bars)), tot=bars.reduce((a,b)=>a+b,0)||1;
-  const firstShare=Math.round((bars.slice(0,byWeek?2:7).reduce((a,b)=>a+b,0))/tot*100);
+  // slovní vyhodnocení profilu
+  const peak=medians.indexOf(Math.max(...medians));
+  const tot=medians.reduce((a,b)=>a+b,0)||1;
+  const firstShare=Math.round((medians[0]+(medians[1]||0))/tot*100);
   let verdict;
-  if(peak<=(byWeek?1:6)&&firstShare>=55) verdict=`Nejvíc utrácíš hned po výplatě – v prvních ${byWeek?'dvou týdnech':'sedmi dnech'} padne <strong>${firstShare} %</strong> cyklu. Odlož si část stranou hned, ať na konci nešetříš z nouze.`;
-  else if(peak>=nSlots-2) verdict=`Utrácení ti roste ke konci cyklu (vrchol v <strong>${peak+1}. ${byWeek?'týdnu':'dni'}</strong>) – typicky dobíhající platby nebo nákupy na poslední chvíli.`;
-  else verdict=`Utrácíš poměrně rovnoměrně, vrchol máš ve <strong>${peak+1}. ${byWeek?'týdnu':'dni'}</strong>. Zdravý profil bez povýplatních horeček.`;
+  if(peak<=1&&firstShare>=55) verdict=`Nejvíc utrácíš hned po výplatě – v prvních dvou týdnech padne <strong>${firstShare} %</strong> cyklu. Zkus si hned po výplatě odložit část stranou, ať na konci cyklu nešetříš z nouze.`;
+  else if(peak>=maxW-2) verdict=`Utrácení ti roste ke konci cyklu (vrchol v <strong>${peak+1}. týdnu</strong>) – typicky když dobíhají platby nebo nákupy na poslední chvíli.`;
+  else verdict=`Utrácíš poměrně rovnoměrně, vrchol máš ve <strong>${peak+1}. týdnu</strong>. To je zdravý profil – žádné povýplatní horečky.`;
 
-  const btn=(m,t)=>`<button onclick="cycSetMode('${m}')" style="padding:4px 11px;border-radius:8px;font-size:.73rem;font-weight:600;cursor:pointer;border:1px solid ${_cycMode===m?'rgba(96,165,250,.55)':'var(--border)'};background:${_cycMode===m?'rgba(96,165,250,.16)':'transparent'};color:${_cycMode===m?'#93c5fd':'#a8aec8'}">${t}</button>`;
-
-  return `<div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px">${btn('week','📊 Po týdnech')}${btn('day','📅 Po dnech')}</div>
-    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:100%;height:auto;display:block">${g}</svg>
-    <div style="display:flex;gap:11px;flex-wrap:wrap;justify-content:center;margin-top:7px;font-size:.68rem;color:#c9cede">
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:13px;height:8px;border-radius:2px;background:#60a5fa;opacity:.78"></span>Medián ${byWeek?'týdne':'dne'}</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:#4ade80"></span>Zbývá z výplaty</span>
-      ${cycles.map((c,ci)=>`<span style="display:inline-flex;align-items:center;gap:4px;opacity:${ci===cycles.length-1?1:.65}"><span style="display:inline-block;width:12px;height:2px;border-radius:2px;background:${COLS[ci%COLS.length]}"></span>${lbl(c)}</span>`).join('')}
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:${W}px;height:auto;display:block">${g}</svg>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px;font-size:.68rem;color:#c9cede">
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:3px;border-radius:2px;background:#60a5fa"></span>Medián týdne</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;border-radius:2px;background:#f87171;opacity:.5"></span>Jednotlivé cykly (${cycles.length})</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="display:inline-block;width:14px;height:2px;border-radius:2px;background:#f0a5a5"></span>Poslední cyklus</span>
     </div>
     <div style="font-size:.72rem;color:#a8aec8;margin-top:8px;line-height:1.55;padding:7px 9px;background:var(--surface3);border-radius:7px">📊 ${verdict}</div>`;
 }
-
 function _cycLbl(c){ try{ return `${c.start.getDate()}.${c.start.getMonth()+1}.`; }catch(e){ return 'cyklus'; } }
 
 function renderObraz() {
@@ -4113,7 +4062,7 @@ function _denikDayChart(days, actExp, actInc, pred, todayD){
     g+=`<rect x="${(pad.l+i*(cW/days)).toFixed(1)}" y="${pad.t}" width="${(cW/days).toFixed(1)}" height="${cH}" fill="transparent" style="cursor:pointer"
       onmouseenter="_obrazTip(event,'${tip}')" onmouseleave="_obrazTipHide()" ontouchstart="_obrazTip(event,'${tip}')"></rect>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:100%;height:auto;display:block">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:${W}px;height:auto;display:block">${g}</svg>`;
 }
 
 // S16.11 (Milan): přepínač grafu v Deníku – kumulativní vs denní nákupy
@@ -4156,7 +4105,7 @@ function _denikDailyChart(days, dailyExp, todayD){
       onmouseenter="_obrazTip(event,'${tip}')" onmouseleave="_obrazTipHide()" ontouchstart="_obrazTip(event,'${tip}')"></rect>`;
   }
   const zero=vals.filter(v=>v===0).length;
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:100%;height:auto;display:block">${g}</svg>
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:${W}px;height:auto;display:block">${g}</svg>
     <div style="text-align:center;font-size:.78rem;color:#5b4636;font-family:Georgia,serif;margin-top:4px">
       Dnů bez utrácení: <strong>${zero}</strong> z ${lastIdx} · nejdražší den: <strong>${fmtB(vMax)}</strong>
     </div>`;

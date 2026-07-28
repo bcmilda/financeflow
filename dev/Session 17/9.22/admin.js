@@ -1,4 +1,4 @@
-// FinanceFlow · v9.23 · admin.js · 2026-07-26
+// FinanceFlow · v9.22 · admin.js · 2026-07-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -406,15 +406,6 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v9.23',
-    datum: '2026-07-26',
-    zmeny: [
-      '🧠 REDESIGN (S17.23, Milan): DLUHOVY STRES INDEX – gauge prevzat ze stylu Financniho obrazu (jednoduchy barevny pruh s bilym ukazatelem misto puvodni „desive" skaly). Faktory uz nejsou dlouhy seznam pres celou sirku, ale KOMPAKTNI KARTY v mrizce: nahore vyhodnoceni („Kriticke"), pod nim nazev metriky, velka hodnota (126 %) a barevny bar se skore 20/20.',
-      '📈 S17.23 (Milan): oba grafy ve Financnim obrazu ZVETSENY (680×250 → 900×330/340) a plne responzivni (max-width:100 % misto pevneho stropu) – na mobilu se roztahnou pres celou sirku.',
-      '📊 REDESIGN (S17.23, Milan): graf „OD VYPLATY K VYPLATE" ma nyni DVA REZIMY: „📊 Po tydnech" (velke sloupce = MEDIAN utraty v tydnu cyklu, drive modra cara) a „📅 Po dnech" (1 sloupec = 1 den cyklu). Pres sloupce jsou slabe cary jednotlivych cyklu barevne odlisene a POPSANE MESICEM (leg/uno/bre…) – videt maximum, minimum i prubehy. Nove take ZELENA KRIVKA „zbyva z vyplaty" = prijmy minus kumulovane vydaje; klesa behem cyklu a vyskoci nahoru, kdyz prijde dalsi prijem. radarPastCycles doplnen o denni rozpad (daily/dailyInc).',
-    ]
-  },
   {
     verze: 'v9.22',
     datum: '2026-07-26',
