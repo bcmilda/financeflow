@@ -1,4 +1,4 @@
-// FinanceFlow · v9.36 · admin.js · 2026-08-01
+// FinanceFlow · v9.35 · admin.js · 2026-08-01
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -423,15 +423,6 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v9.36',
-    datum: '2026-08-01',
-    zmeny: [
-      '🚨 FIX-220 (S17.36, Milan – KRITICKE, blokovalo ziskavani uzivatelu): TLACITKO „Vyzkouset Premium" HLASILO „Nepodarilo se aktivovat trial" a NIKOMU trial nesel spustit. Pricina: startTrial zapisuje deduplikacni uzel trialsUsed/{emailKey} (aby si nikdo nevzal trial dvakrat na ruzne ucty), ale tenhle uzel NEMEL ZADNA PRAVIDLA v database_rules.json – a ve Firebase plati, ze co neni vyslovne povoleno, je zakazano. Zapis skoncil na PERMISSION_DENIED a shodil celou aktivaci, prestoze zapis do users/{uid}/premium sam o sobe probehl v poradku. Doplnena pravidla: cist smi prihlaseny uzivatel, zapsat jen JEDNOU (!data.exists()) a jen zaznam s vlastnim uid – nikdo tedy nemuze cizi e-mail „zablokovat" ani svuj zaznam smazat a vzit si trial znovu.',
-      '🛡️ S17.36: startTrial ZPEVNEN – zapis i cteni deduplikacniho uzlu jsou nyni obalene vlastnim try/catch. Deduplikace je BONUS, ne podminka: kdyz selze, trial se presto aktivuje (je zapsany v users/{uid}/premium). Drive jedina chyba v postrannim uzlu shodila celou funkci.',
-      '💬 S17.36: chybova hlaska u trialu rozlisuje pricinu – chyba opravneni („chyba nastaveni na nasi strane, napis nam"), vypadek site („nejsi online") a ostatni. Puvodni „Zkus to znovu" bylo u chyby na nasi strane zavadejici a uzivatel klikal donekonecna.',
-    ]
-  },
   {
     verze: 'v9.35',
     datum: '2026-08-01',
