@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v9.36 · 2026-08-01 (S17.33: číslování sjednoceno s appkou. S17.27: BEZPEČNOSTNÍ FIX – validace users/$uid/premium brání self-upgradu; aiUsage monotónní. S17.29: admin write na premium + uzel banned. S17.26/28: stripeCustomers, premiumLog, stats/founderCount)
+// FinanceFlow · database rules · v9.39 · 2026-08-01 (S17.33: číslování sjednoceno s appkou. S17.27: BEZPEČNOSTNÍ FIX – validace users/$uid/premium brání self-upgradu; aiUsage monotónní. S17.29: admin write na premium + uzel banned. S17.26/28: stripeCustomers, premiumLog, stats/founderCount)
 {
   "rules": {
     "users": {
