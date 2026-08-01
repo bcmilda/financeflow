@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v8.36 · 2026-07-27
+ * FinanceFlow · Cloudflare Worker · v8.39 · 2026-07-31
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -667,6 +667,18 @@ function planFromPriceId(priceId, env) {
   return 'premium'; // default – premium měsíční/roční
 }
 
+// S17.28 (Milan): NEMĚNNÝ AUDIT LOG plateb. Zapisuje POUZE webhook (přes Database Secret),
+// klient do něj nemá zápis ani čtení. Slouží jako serverový zdroj pravdy pro kontrolu,
+// jestli Premium v users/{uid}/premium skutečně vzniklo zaplacením.
+async function logPremiumEvent(uid, entry, env) {
+  try {
+    await fetch(`${FIREBASE_DB_URL}/premiumLog/${uid}.json?auth=${env.FIREBASE_DB_SECRET}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...entry, at: Date.now() }),
+    });
+  } catch (e) { console.error('audit log fail', e); }
+}
+
 async function writePremium(uid, data, env) {
   const res = await fetch(`${FIREBASE_DB_URL}/users/${uid}/premium.json?auth=${env.FIREBASE_DB_SECRET}`, {
     method: 'PATCH', // PATCH = merge, nesmaže trialUsed/createdAt
@@ -688,6 +700,14 @@ async function lookupUidByCustomer(customerId, env) {
   const res = await fetch(`${FIREBASE_DB_URL}/stripeCustomers/${customerId}.json?auth=${env.FIREBASE_DB_SECRET}`);
   if (!res.ok) return null;
   return res.json(); // string uid, nebo null
+}
+
+// S17.27: atomický-ish inkrement počítadla zakládajících míst. Firebase RTDB nemá přes REST
+// transakce, ale webhook běží jen na serveru a platby chodí řídce – read-modify-write stačí.
+async function bumpFounderCount(env) {
+  const url = `${FIREBASE_DB_URL}/stats/founderCount.json?auth=${env.FIREBASE_DB_SECRET}`;
+  const cur = await (await fetch(url)).json() || 0;
+  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur + 1) });
 }
 
 async function handleStripeWebhook(request, env, cors) {
@@ -720,6 +740,14 @@ async function handleStripeWebhook(request, env, cors) {
           updatedAt: Date.now(),
         }, env);
         if (obj.customer) await saveCustomerUidMap(obj.customer, uid, env);
+        await logPremiumEvent(uid, { event: 'checkout', priceId, amount: obj.amount_total,
+          currency: obj.currency, customer: obj.customer, subscription: obj.subscription }, env);
+        // S17.27 (Milan): zakládající cena – navýšit počítadlo obsazených míst.
+        // Rozpozná se podle price ID (Milan vloží STRIPE_PRICE_FOUNDER do Worker Secrets).
+        // S17.30: zakládající místo obsadí měsíční (99) i roční (990) varianta
+        if (priceId && (priceId === env.STRIPE_PRICE_FOUNDER || priceId === env.STRIPE_PRICE_FOUNDER_YEARLY)) {
+          await bumpFounderCount(env);
+        }
       } else {
         // one-time platba (donate) – nesahá na premium
       }
@@ -735,6 +763,8 @@ async function handleStripeWebhook(request, env, cors) {
           premiumUntil: sub.current_period_end * 1000,
           updatedAt: Date.now(),
         }, env);
+        await logPremiumEvent(uid, { event: 'renewal', priceId, amount: obj.amount_paid,
+          currency: obj.currency, customer: obj.customer, invoice: obj.id }, env);
       }
     }
 
@@ -742,6 +772,7 @@ async function handleStripeWebhook(request, env, cors) {
       const uid = await lookupUidByCustomer(obj.customer, env);
       if (uid) {
         await writePremium(uid, { type: 'free', premiumUntil: 0, canceledAt: Date.now() }, env);
+        await logPremiumEvent(uid, { event: 'canceled', customer: obj.customer }, env);
       }
     }
 
