@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v8.88 · 2026-07-11 (S16.5 + S17/ADR-062: leads/affiliate create-only; data/transactions/$txId validace délek name/note = obrana XSS/cost-abuse, tolerantní k migraci)
+// FinanceFlow · database rules · v9.36 · 2026-08-01 (S17.33: číslování sjednoceno s appkou. S17.27: BEZPEČNOSTNÍ FIX – validace users/$uid/premium brání self-upgradu; aiUsage monotónní. S17.29: admin write na premium + uzel banned. S17.26/28: stripeCustomers, premiumLog, stats/founderCount)
 {
   "rules": {
     "users": {
@@ -19,7 +19,20 @@
           ".read": "auth != null"
         },
         "premium": {
-          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "type": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() === 'trial' || newData.val() === 'free'"
+          },
+          "premiumUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now"
+          },
+          "trialUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now + 2764800000"
+          },
+          "trialUsed": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || data.val() !== true || newData.val() === true"
+          }
         },
         "settings": {
           ".read": "auth.uid === $uid"
@@ -42,7 +55,12 @@
           }
         },
         "aiUsage": {
-          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "$month": {
+            "$type": {
+              ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || newData.val() >= data.val()"
+            }
+          }
         }
       }
     },
@@ -57,6 +75,37 @@
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$affId": {
         ".write": "auth != null && !data.exists()"
+      }
+    },
+    "trialsUsed": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$emailKey": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid",
+        ".validate": "newData.hasChildren(['uid','at'])"
+      }
+    },
+    "banned": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "premiumLog": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": false
+    },
+    "stats": {
+      "founderCount": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "stripeCustomers": {
+      "$customerId": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": false
       }
     },
     "community": {

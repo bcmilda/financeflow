@@ -1,7 +1,7 @@
-// FinanceFlow · v8.89 · premium.js · 2026-07-12
+// FinanceFlow · v9.38 · premium.js · 2026-07-31
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
-const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup'];
+const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup','report2','inflace'];
 const TRIAL_DAYS = 30;
 
 // ══════════════════════════════════════════════════════
@@ -60,7 +60,33 @@ function gateFeature(key, label) {
 
 let _premiumStatus = null; // null=loading, {type:'free'|'trial'|'premium', daysLeft, until}
 
+// S17.29 (Milan): kontrola zablokovaného účtu. Čte se top-level banned/{uid} (uživatel má
+// právo číst jen svůj vlastní záznam a nemůže do něj zapisovat). Při zablokování se překryje
+// celá aplikace – data zůstávají v Firebase nedotčená, jen se k nim uživatel nedostane.
+async function checkBanned(uid) {
+  try {
+    const snap = await _get(_ref(_db, `banned/${uid}`));
+    if (!snap.exists() || !snap.val()) return false;
+    const b = snap.val();
+    const el = document.createElement('div');
+    el.id = 'bannedOverlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg,#0c101c);display:flex;align-items:center;justify-content:center;padding:24px;text-align:center';
+    el.innerHTML = `<div style="max-width:420px">
+      <div style="font-size:3rem;margin-bottom:14px">🚫</div>
+      <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:#e8eaf2;margin-bottom:10px">Účet je zablokovaný</div>
+      <div style="font-size:.86rem;color:#a8aec8;line-height:1.6;margin-bottom:18px">${b.reason || 'Porušení podmínek použití'}</div>
+      <div style="font-size:.76rem;color:#a8aec8;line-height:1.6">Tvoje data zůstávají uložená. Pokud jde o omyl, napiš na
+        <a href="mailto:info@financeflow.cz" style="color:var(--bank)">info@financeflow.cz</a>.</div>
+      <button onclick="window.signOut&&window.signOut()" style="margin-top:18px;padding:9px 18px;border-radius:9px;border:1px solid var(--border);background:transparent;color:#c9cede;cursor:pointer;font-size:.82rem">Odhlásit se</button>
+    </div>`;
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+    return true;
+  } catch (e) { return false; }  // chyba čtení nesmí uzamknout legitimní uživatele
+}
+
 async function loadPremiumStatus(uid) {
+  if (await checkBanned(uid)) { _premiumStatus = { type: 'free', daysLeft: 0, until: 0 }; return; }
   try {
     const snap = await _get(_ref(_db, `users/${uid}/premium`));
     const now = Date.now();
@@ -70,27 +96,28 @@ async function loadPremiumStatus(uid) {
         type: 'free',
         createdAt: now
       });
-      _premiumStatus = { type: 'free', daysLeft: 0, until: 0 };
+      _premiumStatus = { type: 'free', daysLeft: 0, until: 0, trialUsed: false };
     } else {
       const p = snap.val();
+      const _tu = !!p.trialUsed;   // S17.37: rozliší nováčka od vyčerpaného trialu
       if (p.type === 'premium' || p.type === 'pro') {
         const until = p.premiumUntil || 0;
         if (until > now) {
-          _premiumStatus = { type: p.type, daysLeft: null, until };
+          _premiumStatus = { type: p.type, daysLeft: null, until, trialUsed: _tu };
         } else {
-          _premiumStatus = { type: 'free', daysLeft: 0, until: 0 };
+          _premiumStatus = { type: 'free', daysLeft: 0, until: 0, trialUsed: _tu };
         }
       } else if (p.type === 'trial') {
         const daysLeft = Math.max(0, Math.ceil((p.trialUntil - now) / (24*60*60*1000)));
         if (daysLeft > 0) {
-          _premiumStatus = { type: 'trial', daysLeft, until: p.trialUntil };
+          _premiumStatus = { type: 'trial', daysLeft, until: p.trialUntil, trialUsed: true };
         } else {
           // Trial vypršel – přechod na FREE (žádné automatické prodlužování)
           await _update(_ref(_db, `users/${uid}/premium`), { type: 'free' });
-          _premiumStatus = { type: 'free', daysLeft: 0, until: 0 };
+          _premiumStatus = { type: 'free', daysLeft: 0, until: 0, trialUsed: true };
         }
       } else {
-        _premiumStatus = { type: 'free', daysLeft: 0, until: 0 };
+        _premiumStatus = { type: 'free', daysLeft: 0, until: 0, trialUsed: _tu };
       }
     }
   } catch(e) {
@@ -127,7 +154,7 @@ function updatePremiumUI() {
       banner.innerHTML = `<div style="display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--premium-bg);border:1px solid var(--premium-border);border-radius:10px;cursor:pointer" onclick="showPaywall()">
         <span style="font-size:1rem">💎</span>
         <div style="flex:1"><div style="font-size:.75rem;font-weight:700;color:var(--premium)">PREMIUM AKTIVNÍ</div>
-        <div style="font-size:.65rem;color:var(--text3)">Platné do ${new Date(_premiumStatus.until).toLocaleDateString('cs-CZ')}</div></div>
+        <div style="font-size:.65rem;color:#a8aec8">Platné do ${new Date(_premiumStatus.until).toLocaleDateString('cs-CZ')}</div></div>
       </div>`;
     }
     locks.forEach(l => l.style.display = 'none');
@@ -138,18 +165,26 @@ function updatePremiumUI() {
       banner.innerHTML = `<div class="trial-banner" onclick="showPaywall()">
         <div class="trial-banner-days">${_premiumStatus.daysLeft}</div>
         <div style="flex:1"><div style="font-size:.76rem;font-weight:700;color:${urgent?'#f87171':'#60a5fa'}">${urgent?'⚠️ Trial brzy vyprší!':'🎁 Trial zdarma'}</div>
-        <div style="font-size:.67rem;color:var(--text3)">dní zbývá · klikni pro upgrade</div></div>
+        <div style="font-size:.67rem;color:#a8aec8">dní zbývá · klikni pro upgrade</div></div>
         <span style="font-size:.7rem;color:var(--text3)">→</span>
       </div>`;
     }
     locks.forEach(l => l.style.display = 'none');
   } else {
     // Free – zobraz zámky
+    // S17.37 (FIX-221, Milan): DŘÍV tu svítilo „Trial vypršel" VŠEM Free uživatelům – tedy
+    // i nováčkům, kteří trial nikdy neměli. Odrazovalo to od vyzkoušení („už jsem o to přišel").
+    // Nově se rozlišuje, jestli uživatel trial už vyčerpal (trialUsed), nebo ho teprve může vzít.
     if (banner) {
+      const used = !!(_premiumStatus && _premiumStatus.trialUsed);
       banner.style.display = 'block';
-      banner.innerHTML = `<div style="padding:8px 12px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);border-radius:10px;cursor:pointer;font-size:.76rem;color:var(--text2);text-align:center" onclick="showPaywall()">
-        🔒 Trial vypršel · <strong style="color:var(--premium)">Upgradovat na Premium</strong>
-      </div>`;
+      banner.innerHTML = used
+        ? `<div style="padding:8px 12px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);border-radius:10px;cursor:pointer;font-size:.76rem;color:var(--text2);text-align:center" onclick="showPaywall()">
+            🔒 Trial vypršel · <strong style="color:var(--premium)">Upgradovat na Premium</strong>
+          </div>`
+        : `<div style="padding:8px 12px;background:rgba(139,124,246,.12);border:1px solid rgba(139,124,246,.35);border-radius:10px;cursor:pointer;font-size:.76rem;color:var(--text2);text-align:center" onclick="showPaywall()">
+            ✨ <strong style="color:var(--premium)">30 dní Premium zdarma</strong> · bez karty
+          </div>`;
     }
     locks.forEach(l => l.style.display = 'inline-flex');
   }
@@ -212,11 +247,15 @@ async function startTrial() {
       return;
     }
     if (eKey) {
-      const esnap = await _get(_ref(_db, `trialsUsed/${eKey}`));
-      if (esnap.exists()) {
-        alert('⚠️ Trial už byl využit pro tento e-mail. Pro další přístup si předplať Premium.');
-        return;
-      }
+      // S17.36 (FIX-220): čtení dedup uzlu obalené – dřív při chybějícím oprávnění vyhodilo
+      // výjimku a uživatel dostal jen „Nepodařilo se aktivovat trial" bez vysvětlení.
+      try {
+        const esnap = await _get(_ref(_db, `trialsUsed/${eKey}`));
+        if (esnap.exists()) {
+          alert('⚠️ Trial už byl využit pro tento e-mail. Pro další přístup si předplať Premium.');
+          return;
+        }
+      } catch(e2) { console.warn('trialsUsed čtení selhalo, pokračuji:', e2); }
     }
     const now = Date.now();
     const trialUntil = now + TRIAL_DAYS * 24 * 60 * 60 * 1000;
@@ -226,8 +265,11 @@ async function startTrial() {
       trialUsed: true,
       createdAt: (psnap.exists() && psnap.val().createdAt) || now
     });
+    // S17.36 (FIX-220): zápis do trialsUsed je jen DEDUPLIKACE napříč účty. Když selže
+    // (pravidla, offline), NESMÍ shodit celou aktivaci – trial už je zapsaný v users/{uid}.
     if (eKey) {
-      await _set(_ref(_db, `trialsUsed/${eKey}`), { uid, at: now });
+      try { await _set(_ref(_db, `trialsUsed/${eKey}`), { uid, at: now }); }
+      catch(e2) { console.warn('trialsUsed zápis selhal (trial přesto aktivní):', e2); }
     }
     _premiumStatus = { type: 'trial', daysLeft: TRIAL_DAYS, until: trialUntil };
     updatePremiumUI();
@@ -235,13 +277,43 @@ async function startTrial() {
     alert('🎉 Trial aktivován! Máš 30 dní plného přístupu ke všem Premium funkcím zdarma.');
   } catch(e) {
     console.error('startTrial error:', e);
-    alert('Nepodařilo se aktivovat trial. Zkus to znovu.');
+    // S17.36 (FIX-220, Milan): rozlišit příčinu – „zkus to znovu" u chyby oprávnění nepomůže
+    // a uživatel klikal donekonečna. PERMISSION_DENIED = chyba na naší straně, ne uživatele.
+    const msg = String(e && (e.code || e.message) || '');
+    if (/permission|PERMISSION_DENIED/i.test(msg)) {
+      alert('⚠️ Trial se nepodařilo aktivovat kvůli chybě nastavení na naší straně.\n\nNapiš prosím na info@financeflow.cz – opravíme to a přístup ti aktivujeme ručně.');
+    } else if (/network|offline|unavailable/i.test(msg)) {
+      alert('📡 Nejsi připojený k internetu. Zkus to znovu, až budeš online.');
+    } else {
+      alert('Nepodařilo se aktivovat trial. Zkus to prosím znovu, nebo napiš na info@financeflow.cz.');
+    }
   }
 }
 
-function goPremium() {
-  // Placeholder – bude nahrazen Stripe integrací (čeká na živnost)
-  alert('💳 Platební brána bude brzy dostupná!\n\nZatím můžeš vyzkoušet Premium na 30 dní zdarma přes tlačítko trial.');
+async function goPremium() {
+  // S17.26 (TODO-153): Stripe je nasazený – nabídni volbu a otevři checkout.
+  // startPremiumSubscription (donate.js) samo ošetří chybějící Payment Link URL.
+  if (typeof startPremiumSubscription !== 'function') {
+    alert('💳 Platební brána bude brzy dostupná!\n\nZatím můžeš vyzkoušet Premium na 30 dní zdarma přes tlačítko trial.');
+    return;
+  }
+  // S17.27/S17.30 (Milan): dokud jsou volná zakládající místa, nabídni 99 Kč/měs (nebo 990/rok) napořád.
+  let left = null;
+  if (typeof getFounderSlotsLeft === 'function') { try { left = await getFounderSlotsLeft(); } catch(e){} }
+  if (left !== null && left > 0) {
+    const takeFounder = confirm(
+      `🎉 Zakládající cena je ještě k dispozici!\n\n` +
+      `99 Kč/měsíc nebo 990 Kč/rok – NAPOŘÁD\n(běžná cena 149 Kč/měs, 1490 Kč/rok)\n` +
+      `Zbývá posledních ${left} míst ze 100.\n\n` +
+      `OK = vzít zakládající cenu\nStorno = běžné ceny`);
+    if (takeFounder) {
+      const fy = confirm('Zakládající cena – jak chceš platit?\n\nOK = ročně 990 Kč (ušetříš 198 Kč)\nStorno = měsíčně 99 Kč');
+      startPremiumSubscription(fy ? 'founder_yearly' : 'founder');
+      return;
+    }
+  }
+  const yearly = confirm('Chceš roční členství?\n\nOK = ročně 1490 Kč (ušetříš 298 Kč)\nStorno = měsíčně 149 Kč');
+  startPremiumSubscription(yearly ? 'yearly' : 'monthly');
 }
 
 // Dokup AI tokenů – placeholder dokud není Stripe (ADR-053). 1 token = 1 AI akce.
@@ -561,15 +633,30 @@ function setSablonaType(t) {
   // S12.1i: typ Přesun – skrýt kategorii, zobrazit cílovou peněženku
   const stTr=document.getElementById('stt-transfer');
   if(stTr) stTr.className = t==='transfer' ? 'tt sel-transfer' : 'tt';
+  // S17.7 (Milan): typ Dluh/Splátka – místo kategorie výběr konkrétního dluhu
+  const isDebt = t==='debt';
   const catSec=document.getElementById('sablonaCatSection');
-  if(catSec) catSec.style.display = t==='transfer' ? 'none' : 'block';
+  if(catSec) catSec.style.display = (t==='transfer'||isDebt) ? 'none' : 'block';
   const toSec=document.getElementById('sablonaWalletToSection');
   if(toSec) toSec.style.display = t==='transfer' ? 'block' : 'none';
+  const debtSec=document.getElementById('sablonaDebtSection');
+  if(debtSec) debtSec.style.display = isDebt ? 'block' : 'none';
+  if(isDebt && typeof renderSablonaDebts==='function') renderSablonaDebts();
   const wl=document.getElementById('sablonaWalletLabel');
   if(wl) wl.textContent = t==='transfer' ? 'Z peněženky' : 'Peněženka';
   if(t==='transfer' && typeof renderSablonaWalletTo==='function') renderSablonaWalletTo();
   document.getElementById('stt-income').className='tt'+(t==='income'?' sel-income':'');
   document.getElementById('stt-expense').className='tt'+(t==='expense'?' sel-expense':'');
+  const stDebt=document.getElementById('stt-debt');
+  if(stDebt) stDebt.className='tt'+(isDebt?' sel-expense':'');
+}
+// S17.7: naplnit select dluhů v šablonovém modalu
+function renderSablonaDebts() {
+  const sel=document.getElementById('sablonaDebtId'); if(!sel) return;
+  const debts=(S.debts||[]).filter(d=>(d.remaining||0)>0);
+  sel.innerHTML = debts.length
+    ? debts.map(d=>`<option value="${d.id}">${d.name} (zbývá ${fmt(Math.round(d.remaining||0))} Kč)</option>`).join('')
+    : '<option value="">– žádný aktivní dluh –</option>';
 }
 function renderSablonaList() {
   const D=getData(); const ro=viewingUid!==null;
@@ -646,7 +733,8 @@ function openSablonaModal(prefill) {
 }
 function editSablona(id) {
   const s=(S.sablony||[]).find(x=>x.id===id); if(!s) return;
-  setSablonaType(s.type||'expense');
+  // S17.7: šablona s debtId je Dluh/Splátka (uložená jako type:expense + debtId)
+  setSablonaType(s.debtId ? 'debt' : (s.type||'expense'));
   document.getElementById('editSablonaId').value=id;
   document.getElementById('sablonaName').value=s.name;
   document.getElementById('sablonaAmt').value=s.amount;
@@ -660,6 +748,7 @@ function editSablona(id) {
   renderSablonaWallets();
   document.getElementById('sablonaWallet').value=s.wallet||'';
   if(document.getElementById('sablonaWalletTo')) document.getElementById('sablonaWalletTo').value=s.walletTo||'';
+  if(s.debtId){ renderSablonaDebts(); const ds=document.getElementById('sablonaDebtId'); if(ds) ds.value=s.debtId; }  // S17.7
   document.getElementById('sablonaModalTitle').textContent='Upravit šablonu';
   document.getElementById('modalSablona').classList.add('open');
 }
@@ -674,6 +763,12 @@ function saveSablona() {
     if(!s.wallet||!s.walletTo){alert('U přesunu vyber obě peněženky');return;}
     if(s.wallet===s.walletTo){alert('Peněženky musí být různé');return;}
     s.catId='transfer';
+  }
+  // S17.7 (Milan): typ Dluh/Splátka – ukládá se debtId, transakce se sváže s dluhem
+  if(_sablonaType==='debt'){
+    const did=document.getElementById('sablonaDebtId')?.value||'';
+    if(!did){alert('Vyber dluh, který se splácí');return;}
+    s.debtId=did; s.type='expense'; s.catId='';   // splátka = výdaj vázaný na debtId
   }
   if(!S.sablony)S.sablony=[];
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
@@ -712,31 +807,46 @@ function useSablonaNow() {
   if(last)useSablonaId(last.id);
 }
 // Auto-process templates on login
+// S17.8 (FIX-210 v2, Milan): žádné dohánění na 35 dní zpět. Jediné pravidlo: když je den
+// splatnosti v TOMTO měsíci a už nastal (≤ dnes), a transakce ještě není, doplň ji. Pokrývá
+// přesně případ „přidám opakování s datem před dneškem → zapiš i na aktuální měsíc".
 function processAutoSablony() {
   if(!S.sablony)return;
-  const today=new Date();
-  const todayStr=today.toISOString().slice(0,10);
+  if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
+  const today=new Date(); today.setHours(0,0,0,0);
+  const iso=d=>d.toISOString().slice(0,10);
+  S.transactions=S.transactions||[];
   let added=0;
+
   S.sablony.filter(s=>s.auto).forEach(s=>{
-    if(s.endDate && s.endDate < todayStr)return;
-    const den=s.den||1;
-    if(today.getDate()!==den)return;
-    // Check if already added today
-    const alreadyToday=(S.transactions||[]).some(t=>t.date===todayStr&&t.name===s.name&&t.note&&t.note.includes('Auto-šablona'));
-    if(alreadyToday)return;
-    S.transactions=S.transactions||[];
+    // jen měsíční šablony mají „den v měsíci" – u týdenních/dalších řeší výskyty Budoucí platby
+    const freq=s.freq||'monthly';
+    if(freq!=='monthly') return;
+    const den=Math.min(31, Math.max(1, s.den||1));
+    const dueDay=Math.min(den, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate()); // ošetři krátké měsíce
+    const due=new Date(today.getFullYear(), today.getMonth(), dueDay); due.setHours(0,0,0,0);
+    // S17.9 (FIX-210 v4, Milan): NE ZPĚTNĚ. Výskyt tohoto měsíce se doplní jen když den splatnosti
+    // ještě NENASTAL (due >= dnes) – proaktivně, ať je vidět. Když den už BYL (šablona přidaná
+    // pozdě), nepropisuje se zpětně, jen se přenese na další měsíc (řeší projekce v Budoucích platbách).
+    if(due<today) return;
+    const dateStr=iso(due);
+    if(s.endDate && s.endDate < dateStr) return;
+    // idempotence: existuje už auto-transakce téže šablony k tomuto datu?
+    if(S.transactions.some(t=>t.date===dateStr && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) return;
     if(s.type==='transfer'){
       const transferId=uid();
       S.transactions.push(
-        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:todayStr,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'},
-        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:todayStr,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'}
+        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:dateStr,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'},
+        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:dateStr,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'}
       );
     } else {
-      S.transactions.push({id:uid(),name:s.name,amount:s.amount,type:s.type,date:todayStr,category:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null});
+      const tx={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+      if(s.debtId) tx.debtId=s.debtId;
+      S.transactions.push(tx);
     }
     added++;
   });
-  if(added>0){save();renderPage();}
+  if(added>0){ save(); if(typeof renderPage==='function') renderPage(); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -756,6 +866,9 @@ function saveSettingsBtn() {
   _settings.lang = document.getElementById('settingLang')?.value || 'cs';
   _settings.currency = document.getElementById('settingCurrency')?.value || 'CZK';
   _settings.convCur = document.getElementById('settingConvCur')?.value || ''; // v8.72: preferovaná převodní měna
+  // S17.5 (Milan): výchozí peněženka + typ platby pro novou transakci
+  _settings.defWallet = document.getElementById('settingDefWallet')?.value || '';
+  _settings.defPayType = document.getElementById('settingDefPayType')?.value || '';
   _settings.dateFmt = document.getElementById('settingDateFmt')?.value || 'cs';
   _settings.household_adults = parseInt(document.getElementById('settingAdults')?.value) || 2;
   _settings.household_ch013 = parseInt(document.getElementById('settingChildren013')?.value) || 0;
@@ -1409,3 +1522,50 @@ function renderNetWorth() {
 }
 
 // ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════
+//  S17.38 (Milan): PŘIPOMENUTÍ KONCE TRIALU
+//  Trial bez karty se sám nepřeklopí na placený – uživatel se musí aktivně vrátit.
+//  Proto v posledním týdnu upozorňujeme přímo na Dashboardu (banner v sidebaru je snadné
+//  přehlédnout). Naléhavost roste, jak se blíží konec. Text mluví o tom, CO UŽIVATEL ZTRATÍ,
+//  ne o tom, že má zaplatit – nabídka, ne výhrůžka.
+// ══════════════════════════════════════════════════════
+function renderTrialReminder() {
+  const host = document.getElementById('trialReminderCard');
+  if (!host) return;
+  const st = _premiumStatus;
+  if (!st || st.type !== 'trial' || st.daysLeft == null || st.daysLeft > 7) { host.innerHTML = ''; return; }
+  // uživatel si smí připomínku na daný den odložit
+  const key = 'ff_trialRemHide_' + new Date().toDateString();
+  try { if (localStorage.getItem(key)) { host.innerHTML = ''; return; } } catch(e) {}
+
+  const d = st.daysLeft;
+  const last = d <= 2;
+  const col = last ? 'var(--expense)' : d <= 4 ? 'var(--debt)' : 'var(--bank)';
+  const bg  = last ? 'var(--expense-bg)' : d <= 4 ? 'var(--debt-bg)' : 'rgba(96,165,250,.1)';
+  const head = d === 0 ? 'Trial dnes končí'
+             : d === 1 ? 'Trial končí zítra'
+             : `Trial končí za ${d} dní`;
+
+  host.innerHTML = `
+    <div class="card" style="margin-bottom:14px;background:${bg};border-color:${col}55">
+      <div class="card-body" style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div style="font-family:Syne,sans-serif;font-size:1.9rem;font-weight:800;color:${col};line-height:1;min-width:38px;text-align:center">${d}</div>
+        <div style="flex:1;min-width:190px">
+          <div style="font-family:Syne,sans-serif;font-size:.98rem;font-weight:800;color:#e8eaf2;margin-bottom:4px">${head}</div>
+          <div style="font-size:.78rem;color:#c9cede;line-height:1.55">
+            Pak se ti zamkne <strong>AI Rádce, analýza účtenek, predikce, pokročilé grafy</strong> a sdílení s partnerem.
+            Tvoje data zůstanou, jen se k některým přehledům nedostaneš.
+          </div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">
+            <button onclick="showPaywall()" style="padding:7px 15px;border-radius:9px;border:none;background:${col};color:#fff;font-weight:700;font-size:.8rem;cursor:pointer">Zachovat Premium</button>
+            <button onclick="hideTrialReminder()" style="padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:transparent;color:#a8aec8;font-size:.78rem;cursor:pointer">Připomenout zítra</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+function hideTrialReminder() {
+  try { localStorage.setItem('ff_trialRemHide_' + new Date().toDateString(), '1'); } catch(e) {}
+  const h = document.getElementById('trialReminderCard'); if (h) h.innerHTML = '';
+}
