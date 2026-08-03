@@ -65,7 +65,6 @@ section{padding:84px 24px}
 nav{position:sticky;top:0;z-index:100;background:rgba(8,12,18,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
 .nav-in{max-width:var(--max);margin:0 auto;padding:0 24px;height:68px;display:flex;align-items:center;gap:24px}
 .logo{display:flex;align-items:center;gap:9px;font-family:'Syne',sans-serif;font-weight:800;font-size:1.22rem;letter-spacing:-.02em;white-space:nowrap}
-.logo-tx{white-space:nowrap}
 .logo b{color:var(--green)}
 .nav-badge{font-size:.68rem;font-weight:700;background:rgba(245,200,66,.12);color:var(--yellow);border:1px solid rgba(245,200,66,.3);border-radius:999px;padding:3px 10px;letter-spacing:.04em;white-space:nowrap}
 .nav-links{display:flex;gap:2px;margin-left:auto}
@@ -112,11 +111,9 @@ h1 s{text-decoration-color:var(--red);text-decoration-thickness:3px;color:var(--
 .enemy-strip h2{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,2.5vw,2.1rem);font-weight:800;letter-spacing:-.025em;margin-bottom:10px}
 .enemy-strip p{font-size:1rem;color:var(--text2);max-width:640px;margin:0 auto 28px}
 .enemy-stats{display:flex;justify-content:center;gap:48px;flex-wrap:wrap}
-.estat{text-align:center;max-width:190px}
+.estat{text-align:center}
 .estat-num{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--red)}
-.estat-lbl{font-size:.78rem;color:#ffe066;font-weight:600;margin-top:2px;line-height:1.4}
-.estat-tag{font-size:.74rem;color:var(--text3);font-style:italic;margin-top:6px}
-.source-banner{margin-top:22px;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid var(--border2);border-radius:999px;padding:7px 18px;font-size:.74rem;color:var(--text3)}
+.estat-lbl{font-size:.78rem;color:var(--text3);margin-top:2px}
 
 /* ── JOURNEY ── */
 .journey-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0;position:relative;margin-top:48px}
@@ -261,7 +258,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
 <!-- ─── NAV ─────────────────────────────────── -->
 <nav>
   <div class="nav-in">
-    <a href="/" class="logo" aria-label="FinanceFlow – domů"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></a>
+    <a href="/" class="logo" aria-label="FinanceFlow – domů">💚 Finance<b>Flow</b></a>
     <span class="nav-badge">⚡ Zakládající členové — 99 Kč/měs</span>
     <div class="nav-links">
       <a href="#journey">Jak to funguje</a>
@@ -356,12 +353,9 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
     <div class="estat"><div class="estat-num">3 157 Kč</div><div class="estat-lbl">měsíčně utratí průměrný Čech za potraviny</div></div>
     <div class="estat"><div class="estat-num">62 %</div><div class="estat-lbl">Čechů sleduje výdaje přes appku, přesto jim peníze unikají</div></div>
     <div class="estat"><div class="estat-num">70 %</div><div class="estat-lbl">domácností si tvoří rezervu, ne všechny ji ale mají dost velkou</div></div>
-    <div class="estat"><div class="estat-num">45 %</div><div class="estat-lbl">Čechů si sestavuje domácí rozpočet</div><div class="estat-tag">A ty?</div></div>
-    <div class="estat"><div class="estat-num">23 %</div><div class="estat-lbl">domácností by zvládlo výpadek hlavního příjmu déle než půl roku</div><div class="estat-tag">Jak dlouho vydržíš bez hlavního příjmu?</div></div>
-    <div class="estat"><div class="estat-num">77 %</div><div class="estat-lbl">Čechů zvládne neočekávaný výdaj 14 000 Kč z vlastních zdrojů</div><div class="estat-tag">Jak si na tom ty?</div></div>
   </div>
   <p style="margin-top:14px;opacity:.85;font-size:.95em">Zapomenutá předplatná · impulzivní nákupy, které se sčítají nenápadně · hotovost ležící na účtu bez zhodnocení. FinanceFlow tyhle peníze najde.</p>
-  <div class="source-banner">📊 Zdroj: Ministerstvo financí ČR – Měření finanční gramotnosti 2025; ČSÚ – Spotřební výdaje domácností 2024</div>
+  <p style="margin-top:10px;opacity:.55;font-size:.76em">Vlastní odhad na základě: ČSÚ, Statistika rodinných účtů 2024; Ministerstvo financí ČR, Měření finanční gramotnosti 2025; Revolut/Kupi.cz, průzkum nevyužitých předplatných 2025.</p>
 </div>
 
 <!-- ─── JOURNEY ──────────────────────────────── -->
@@ -717,7 +711,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
   <div class="footer-in">
     <div class="footer-top">
       <div class="footer-brand">
-        <div class="logo"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></div>
+        <div class="logo">💚 Finance<b>Flow</b></div>
         <p>Váš osobní finanční radar.<br>Česky, bez reklam, s AI.</p>
       </div>
       <div class="footer-links">
