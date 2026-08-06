@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Náhled – obloukový ukazatel skóre v9.43</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;--border:#2e3347;
+--text:#e8eaf2;--text2:#a8aec8;--text3:#7e84a0;--income:#4ade80;--expense:#f87171;--debt:#fbbf24;--radius:14px}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;padding:20px;margin:0}
+h1{font-family:Syne,sans-serif;font-size:1.2rem;margin:0 0 4px}
+.note{color:#a8aec8;font-size:.82rem;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.fscore-card{border-radius:var(--radius);padding:18px;border:1px solid}
+.cap{font-size:.75rem;color:#a8aec8;margin-bottom:8px;font-weight:700}
+/* v9.43: obloukový ukazatel skóre (nahradil prsten) */
+.fscore-gauge{flex-shrink:0;width:100%;max-width:270px;margin:0 auto}
+.fscore-zones{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 10px;margin-top:6px}
+.fscore-zones span{display:inline-flex;align-items:center;gap:4px;font-size:.66rem;white-space:nowrap}
+.fscore-zones i{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0}
+</style></head><body>
+<h1>Obloukový ukazatel finančního skóre — v9.43</h1>
+<div class="note">Šest scénářů napříč celou škálou 0–310. Ručička, barevná pásma podle hranic známek, číselné rysky, legenda a řádek „kolik chybí do lepší známky".</div>
+<div class="grid" id="g"></div>
+<script>
+const _FSCORE_ZONES = [
+  [0,   .30, '#f87171', 'Kritické'],
+  [.30, .45, '#fb923c', 'Rizikové'],
+  [.45, .60, '#fbbf24', 'Průměrné'],
+  [.60, .75, '#a78bfa', 'Dobré'],
+  [.75, .90, '#60a5fa', 'Velmi dobré'],
+  [.90, 1,   '#4ade80', 'Výborné'],
+];
+
+function _scoreArcGauge(rawTotal, rawMax, gradeColor) {
+  const CX = 145, CY = 142, R = 104, SW = 18;
+  // bod na oblouku: f=0 vlevo (180°), f=1 vpravo (0°)
+  const pt = (f, r) => { const a = (180 - f*180) * Math.PI/180; return [CX + r*Math.cos(a), CY - r*Math.sin(a)]; };
+  const arc = (f1, f2, r) => {
+    const [x1,y1] = pt(f1,r), [x2,y2] = pt(f2,r);
+    return `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 0 1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
+  };
+
+  const bands = _FSCORE_ZONES.map(([a,b,c,lbl]) =>
+    `<path d="${arc(a,b,R)}" fill="none" stroke="${c}" stroke-width="${SW}" opacity=".92">`
+    + `<title>${lbl}: ${Math.round(rawMax*a)}–${Math.round(rawMax*b)} bodů</title></path>`).join('');
+
+  let ticks = '';
+  for (let i = 0; i <= 5; i++) {
+    const f = i/5, v = Math.round(rawMax*f);
+    const [x1,y1] = pt(f, R+10), [x2,y2] = pt(f, R+15), [tx,ty] = pt(f, R+27);
+    ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#7e84a0" stroke-width="1.5"/>`;
+    ticks += `<text x="${tx.toFixed(1)}" y="${(ty+4).toFixed(1)}" text-anchor="middle" font-size="11" fill="#a8aec8" font-weight="600">${v}</text>`;
+  }
+
+  const fv  = Math.max(0, Math.min(1, rawMax>0 ? rawTotal/rawMax : 0));
+  const deg = (fv*180 - 90).toFixed(2); // ručička kreslena vzhůru, rotace -90°…+90°
+
+  return `<svg viewBox="0 0 290 200" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+    ${bands}${ticks}
+    <g transform="rotate(${deg} ${CX} ${CY})" style="transition:transform .8s cubic-bezier(.34,1.56,.64,1)">
+      <line x1="${CX}" y1="${CY}" x2="${CX}" y2="${CY-88}" stroke="#e8eaf2" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <circle cx="${CX}" cy="${CY}" r="8" fill="var(--surface3)" stroke="${gradeColor}" stroke-width="3"/>
+    <text x="${CX}" y="176" text-anchor="middle"><tspan font-size="32" font-weight="800" font-family="Syne,sans-serif" fill="${gradeColor}">${rawTotal}</tspan><tspan font-size="13" fill="#a8aec8"> / ${rawMax}</tspan></text>
+  </svg>`;
+}
+
+// Kolik bodů chybí do nejbližší lepší známky (null = už v nejvyšším pásmu)
+function _scoreNextGrade(rawTotal, rawMax) {
+  const NEXT = [[.30,'⚠️ Rizikové'],[.45,'📊 Průměrné'],[.60,'👍 Dobré'],[.75,'⭐ Velmi dobré'],[.90,'🏆 Výborné']];
+  for (const [t,label] of NEXT) {
+    const need = Math.round(rawMax*t) - rawTotal;
+    if (need > 0) return {need, label};
+  }
+  return null;
+}
+
+
+const GRADES=[[.90,'Výborné','🏆','#4ade80'],[.75,'Velmi dobré','⭐','#60a5fa'],[.60,'Dobré','👍','#a78bfa'],[.45,'Průměrné','📊','#fbbf24'],[.30,'Rizikové','⚠️','#fb923c'],[0,'Kritické','🚨','#f87171']];
+function gradeOf(v,m){for(const[g,l,e,c]of GRADES)if(v>=Math.round(m*g))return{label:l,emoji:e,color:c};}
+const M=310;
+[18,95,150,200,250,300].forEach(v=>{
+  const g=gradeOf(v,M), nx=_scoreNextGrade(v,M);
+  const d=document.createElement('div');
+  d.className='fscore-card';
+  d.style.background='linear-gradient(135deg,'+g.color+'0d,var(--surface))';
+  d.style.borderColor=g.color+'44';
+  d.innerHTML='<div class="cap">'+v+' / '+M+' bodů</div>'
+   +'<div class="fscore-gauge">'+_scoreArcGauge(v,M,g.color)
+   +'<div class="fscore-zones">'+_FSCORE_ZONES.map(function(z){var on=z[3]===g.label;
+       return '<span style="color:'+(on?z[2]:'#a8aec8')+';font-weight:'+(on?'800':'600')+'"><i style="background:'+z[2]+'"></i>'+z[3]+'</span>';}).join('')
+   +'</div></div>'
+   +'<div style="text-align:center;margin-top:10px"><div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800;color:'+g.color+'">'+g.emoji+' '+g.label+'</div>'
+   +'<div style="font-size:.74rem;margin-top:5px;color:#c9cede">'+(nx?'Do známky <b style="color:#e8eaf2">'+nx.label+'</b> chybí <b style="color:#e8eaf2">'+nx.need+'</b> bodů':'<span style="color:#4ade80">🏆 Jsi v nejvyšším pásmu hodnocení</span>')+'</div></div>';
+  document.getElementById('g').appendChild(d);
+});
+</script></body></html>
