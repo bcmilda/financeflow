@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinanceFlow – leták A5 oboustranný</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@page{size:A5;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#4a4f5e;font-family:'Plus Jakarta Sans',system-ui,sans-serif;padding:16px}
+.sheet{display:flex;flex-direction:column;align-items:center;gap:16px}
+.lbl{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#c9cede}
+.page{width:148mm;height:210mm;background:#0f1117;color:#e8eaf2;padding:11mm 10mm;
+  display:flex;flex-direction:column;position:relative;overflow:hidden}
+.page::before{content:'';position:absolute;width:150mm;height:150mm;pointer-events:none;
+  background:radial-gradient(circle,rgba(74,222,128,.13),transparent 62%)}
+.p1::before{top:-70mm;right:-55mm}
+.p2::before{bottom:-80mm;left:-60mm}
+.in{position:relative;z-index:1;display:flex;flex-direction:column;flex:1}
+.logo{font-family:Syne,sans-serif;font-weight:800;font-size:15pt;letter-spacing:-.02em;white-space:nowrap}
+.logo b{color:#4ade80}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7mm}
+.badge{font-size:6pt;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#4ade80;
+  border:1px solid rgba(74,222,128,.4);border-radius:99px;padding:2.5px 8px}
+h1{font-family:Syne,sans-serif;font-size:19pt;line-height:1.12;letter-spacing:-.03em;margin-bottom:3.5mm}
+h1 em{font-style:normal;color:#4ade80}
+.sub{font-size:9pt;color:#a8aec8;line-height:1.55;margin-bottom:6mm}
+.hero{background:#1a1d27;border:1px solid #2e3347;border-left:3px solid #f87171;border-radius:9px;padding:4mm 4.5mm;margin-bottom:6mm}
+.hero .n{font-family:Syne,sans-serif;font-size:14pt;font-weight:800;color:#f87171;line-height:1.15}
+.hero .t{font-size:8pt;color:#c9cede;line-height:1.5;margin-top:1.5mm}
+.h2{font-family:Syne,sans-serif;font-size:10.5pt;font-weight:800;margin-bottom:3mm}
+.li{display:flex;gap:3mm;align-items:flex-start;margin-bottom:3mm}
+.li-ic{font-size:11pt;flex-shrink:0;line-height:1.2}
+.li-t{font-size:8.8pt;font-weight:800;line-height:1.3}
+.li-d{font-size:7.6pt;color:#a8aec8;line-height:1.45;margin-top:.6mm}
+.strip{display:flex;gap:2.5mm;margin-bottom:5mm}
+.st{flex:1;background:#1a1d27;border:1px solid #2e3347;border-radius:8px;padding:2.8mm 2mm;text-align:center}
+.st-n{font-family:Syne,sans-serif;font-size:11pt;font-weight:800;color:#f87171}
+.st-l{font-size:5.8pt;color:#ffe066;font-weight:600;line-height:1.3;margin-top:.8mm}
+.cmp{width:100%;border-collapse:collapse;font-size:7.6pt;margin-bottom:5mm}
+.cmp th,.cmp td{padding:2mm 1.2mm;border-bottom:1px solid #2e3347;text-align:center}
+.cmp th{font-size:6pt;text-transform:uppercase;letter-spacing:.04em;color:#7e84a0;font-weight:800}
+.cmp td:first-child,.cmp th:first-child{text-align:left;font-weight:600}
+.y{color:#4ade80;font-weight:800}.n{color:#5a6070}
+.steps{counter-reset:s;margin-bottom:5mm}
+.step{display:flex;gap:3mm;align-items:flex-start;margin-bottom:2.8mm}
+.step-n{width:5.5mm;height:5.5mm;border-radius:50%;background:rgba(74,222,128,.15);color:#4ade80;
+  font-family:Syne,sans-serif;font-weight:800;font-size:7.5pt;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-t{font-size:8pt;line-height:1.45}
+.step-t b{font-size:8.6pt}
+.cta{margin-top:auto;background:linear-gradient(135deg,#4ade80,#22c55e);color:#0b1a10;border-radius:10px;
+  padding:4mm 5mm;text-align:center}
+.cta .w{font-family:Syne,sans-serif;font-weight:800;font-size:13pt;line-height:1.1}
+.cta .s{font-size:7.4pt;font-weight:700;margin-top:1mm;opacity:.85}
+.terms{font-size:6.6pt;color:#7e84a0;line-height:1.5;margin-top:3mm}
+.terms b{color:#c9cede}
+.src{font-size:5.4pt;color:#5a6070;line-height:1.4;margin-top:2mm}
+@media print{body{background:#fff;padding:0}.sheet{gap:0}.lbl{display:none}.page{page-break-after:always}}
+</style></head><body><div class="sheet">
+
+<div class="lbl">Přední strana</div>
+<div class="page p1"><div class="in">
+  <div class="top">
+    <div class="logo">💚 Finance<b>Flow</b></div>
+    <div class="badge">Česká appka · bez reklam</div>
+  </div>
+
+  <h1>Vaše banka ví, že jste utratili 847 Kč.<br><em>My víme za co.</em></h1>
+  <div class="sub">FinanceFlow přečte vaši účtenku až na jednotlivé položky. Uvidíte nejen kolik utrácíte, ale za co — a jak se ceny věcí, které opravdu kupujete, mění v čase.</div>
+
+  <div class="hero">
+    <div class="n">20 000–35 000 Kč ročně</div>
+    <div class="t">Tolik může běžnou domácnost stát finanční slepota — zapomenutá předplatná, nákupy, které se nenápadně sčítají, a peníze ležící bez zhodnocení.</div>
+  </div>
+
+  <div class="h2">Jak si stojíte vy?</div>
+  <div class="strip">
+    <div class="st"><div class="st-n">3 157 Kč</div><div class="st-l">měsíčně utratí průměrný Čech za potraviny</div></div>
+    <div class="st"><div class="st-n">45 %</div><div class="st-l">Čechů si sestavuje domácí rozpočet</div></div>
+    <div class="st"><div class="st-n">23 %</div><div class="st-l">domácností zvládne výpadek příjmu déle než půl roku</div></div>
+  </div>
+
+  <div class="h2">Za 30 dní budete vědět</div>
+  <div class="steps">
+    <div class="step"><div class="step-n">1</div><div class="step-t"><b>Kam peníze skutečně odcházejí.</b> Nahrajete jeden výpis a AI z něj vytáhne a roztřídí transakce.</div></div>
+    <div class="step"><div class="step-n">2</div><div class="step-t"><b>Za co konkrétně.</b> Vyfotíte účtenky a uvidíte nákupy až na jednotlivé produkty.</div></div>
+    <div class="step"><div class="step-n">3</div><div class="step-t"><b>Jestli se to zlepšuje.</b> Finanční skóre, vývoj v čase a srovnání s průměrem ČR.</div></div>
+  </div>
+
+  <div class="cta">
+    <div class="w">financeflow.cz</div>
+    <div class="s">30 dní zdarma · bez zadávání karty</div>
+  </div>
+</div></div>
+
+<div class="lbl">Zadní strana</div>
+<div class="page p2"><div class="in">
+  <div class="h2" style="font-size:12pt;margin-bottom:4mm">Co umí jen FinanceFlow</div>
+
+  <div class="li"><div class="li-ic">🧾</div><div>
+    <div class="li-t">Účtenky až na jednotlivé položky</div>
+    <div class="li-d">AI přečte každý řádek — název produktu, množství, cenu i slevu. Z „Lidl 847 Kč" bude seznam toho, co jste si skutečně koupili.</div></div></div>
+
+  <div class="li"><div class="li-ic">📈</div><div>
+    <div class="li-t">Vaše vlastní inflace</div>
+    <div class="li-d">Ne průměr za republiku. Spočítáme, jak zdražil právě váš nákupní košík — z vašich účtenek.</div></div></div>
+
+  <div class="li"><div class="li-ic">📉</div><div>
+    <div class="li-t">Detekce shrinkflace</div>
+    <div class="li-d">Balení se zmenšilo, cena zůstala? U zboží na váhu hlídáme cenu za kilogram a upozorníme vás.</div></div></div>
+
+  <div class="li"><div class="li-ic">🇨🇿</div><div>
+    <div class="li-t">Srovnání s daty ČSÚ</div>
+    <div class="li-d">Vaše výdaje zařazené podle klasifikace COICOP a porovnané se skutečnou statistikou českých domácností.</div></div></div>
+
+  <div class="li"><div class="li-ic">🎯</div><div>
+    <div class="li-t">Finanční skóre 0–310</div>
+    <div class="li-d">Cash flow, zadluženost, rezerva, spoření a rozpočet v jednom čísle — s návodem, co ho zlepší.</div></div></div>
+
+  <div class="li" style="margin-bottom:5mm"><div class="li-ic">💳</div><div>
+    <div class="li-t">Dluhy a strategie splácení</div>
+    <div class="li-d">Dluhový stres index a simulace dvou strategií vedle sebe — kolik ušetříte na úrocích.</div></div></div>
+
+  <table class="cmp">
+    <tr><th>Funkce</th><th>Banka</th><th>Excel</th><th>FinanceFlow</th></tr>
+    <tr><td>Zůstatek a transakce</td><td class="y">✓</td><td class="n">ručně</td><td class="y">✓</td></tr>
+    <tr><td>Účtenky po položkách</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+    <tr><td>Vlastní inflace z nákupů</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+    <tr><td>Srovnání cen mezi obchody</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+    <tr><td>Hodnocení „stálo to za to?"</td><td class="n">—</td><td class="n">—</td><td class="y">✓</td></tr>
+  </table>
+
+  <div class="cta">
+    <div class="w">financeflow.cz</div>
+    <div class="s">Stačí prohlížeč — žádná instalace</div>
+  </div>
+
+  <div class="terms"><b>30 dní zdarma, bez zadávání karty.</b> Nabídku platby uvidíte až po skončení zkušební doby.
+  Zakládající cena <b style="color:#4ade80">99 Kč měsíčně</b> pro prvních 100 uživatelů — zamknutá napořád.<br>
+  Data uložena v EU · žádné napojení na váš bankovní účet · žádné reklamy.</div>
+  <div class="src">Zdroje statistik: ČSÚ – Spotřební výdaje domácností 2024; Ministerstvo financí ČR – Měření finanční gramotnosti 2025. Částka 20–35 tis. Kč je vlastní odhad na základě uvedených zdrojů a průzkumu Revolut/Kupi.cz 2025.</div>
+</div></div>
+
+</div></body></html>
