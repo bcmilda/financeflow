@@ -424,6 +424,28 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v9.45',
+    datum: '2026-08-03',
+    zmeny: [
+      '\u2728 TODO-203 (S18.3, Milan): ZIVOTNI MAPA V DENIKU. Uzivatel si na casovou osu znaci zlomove zivotni udalosti (zmena prace, hypoteka, narozeni ditete, stehovani, ztrata prijmu\u2026) \u2013 12 prednastavenych typu + vlastni nazev, datum a poznamka. DUVOD: dlouhe horizonty (12M+) nemeri navyky, ale zivotni udalosti. Bez kontextu vypada takovy zlom jako selhani \u2013 oznacena udalost ho VYSVETLI misto aby ho penalizovala. Diky tomu davaji delsi horizonty vubec smysl.',
+      '\u2699 UDALOSTI ZAMERNE NEOVLIVNUJI BODOVANI (Milanovo rozhodnuti). Kdyby udalost menila skore, appka by rozhodovala, ktere zivotni volby jsou omluvitelne \u2013 to ji neprislusi. Navic by slo zneuzit: oznacit kazdy drahy mesic jako „stehovani\". Kontext ano, vymluva ne. Prazdny stav to uzivateli rovnou rika.',
+      '\u2699 Novy uzel users/{uid}/data/milestones registrovan na VSECH ctyrech mistech v app.js: _DW_META (bez nej by se TICHE nesynchronizoval), _dwMetaVals, a oba lokalni snapshoty. Firebase pravidla: zapis je uz kryty kaskadou .write z users/$uid, takze nove pravidlo NETREBA \u2013 pridana pouze .validate na delku label/note/icon (stejny vzor jako u transakci).',
+      '\u2699 Osetreni: HTML escapovani label/note/icon (XSS), neplatne datum nevypise „Invalid Date\", prazdny nazev odmitnut, editace nezaklada duplikat, razeni od nejnovejsi udalosti. 12 runtime testu.',
+    ]
+  },
+  {
+    verze: 'v9.44',
+    datum: '2026-08-03',
+    zmeny: [
+      '\u2728 TODO-202 (S18.2, Milan): FINANCNI OBRAZ MA PREPINAC OKNA A PODMETRIKY. Ctyri hlavni metriky (Prijmy, Vydaje, Momentum, Dluhy) maji nove ZANORENOU podmetriku, ktera pridava RELACI, jakou samotna uroven nenese: Income Momentum (tempo prijmu), Expense Control (tempo vydaju VUCI prijmum), Income Capture / Income Resilience a Debt Momentum. DUVOD: 8 metrik vedle sebe by budilo dojem 8 nezavislych informaci, pritom spolu algebraicky souvisi. Zanoreni ten vztah zviditelni misto aby ho skrylo. Kazda podmetrika ma rozbalovaci vysvetlivku „Co to je\" (nezobrazuje se natrvalo, zdvojnasobila by vysku karet).',
+      '\u2728 PREPINAC OKNA 6M / 12M / Celkove nad Financnim obrazem. JEDNO PRAVIDLO pro vsechna okna: okno se rozpuli a 2. polovina se porovna s 1. (6M = 3vs3, 12M = 6vs6). Datova narocnost = delka okna, takze novy uzivatel s kratsi historii nepotrebuje zvlastni vetev v kodu. Volba se pamatuje (localStorage ff_obraz_win). „Celkove\" ma strop 120 mesicu, aby render nezdivocel na dlouhe historii.',
+      '\u2728 KARTA „Inflace zivotniho stylu\" PREJMENOVANA NA „Rust zivotniho stylu\" + pridano EXPENSE RATIO. Dva duvody: (1) appka uz ma osobni inflaci z uctenek (inflace.js) \u2013 dve ruzne „inflace\" o necem jinem matou, slovo inflace zustava vyhrazene cenam; (2) karta dosud MENILA NAZEV podle stavu, takze si ji uzivatel nemohl zapamatovat ani o ni mluvit. Nyni ma stabilni nazev a promenny verdikt. Expense Ratio (kolik % prijmu spotrebuje zivotni styl) se NEPOCITA ZNOVU \u2013 bere se stejna definice jako expRatio ve slozce S1 skore 0\u2013310, aby obe obrazovky neukazaly rozporna cisla.',
+      '\u2699 ZAMERNA FAZE, NE NEDODELEK: podmetriky se zatim NEPROMITAJI do skore 0\u2013100 a skore zustava ukotvene na 6M. Prahy pro bodovani nelze poctive odvodit driv, nez bude videt rozptyl na realnych datech (je Income Capture 40 % dobry vysledek? dnes to nevi nikdo). Skore se take nesmi menit pouhym prepnutim okna \u2013 uzivatel by si myslel, ze se neco pokazilo.',
+      '\u2699 Vypocet ODDELEN od vykresleni: nova funkce computeObrazSubmetrics(series) vraci hodnoty a nesaha na globalni S (architektonicka zasada c. 2). Pripraveno pro sdileni s Denikem, aby stejny vypocet nevznikl podruhe.',
+      '\u2699 Osetreni: prah stability 2 000 Kc (bez nej by zmena prijmu o 200 Kc dala nesmyslnych 300 %), Income Capture jen pri RUSTU a Income Resilience jen pri POKLESU prijmu (pri obou zapornych delta by stejnych 50 % znamenalo jednou zisk a podruhe ztratu), Debt Momentum v Kc/mes misto % (\u221210 % z 5 000 Kc a z 500 000 Kc je jina situace), deleni nulou pri nulovem prijmu. 24 runtime testu.',
+    ]
+  },
+  {
     verze: 'v9.43',
     datum: '2026-08-03',
     zmeny: [

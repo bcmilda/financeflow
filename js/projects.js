@@ -1,4 +1,4 @@
-// FinanceFlow · v9.35 · projects.js · 2026-08-01
+// FinanceFlow · v9.45 · projects.js · 2026-08-03
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2792,12 +2792,90 @@ function _obrazCyclesChart(cycles){
 
 function _cycLbl(c){ try{ return `${c.start.getDate()}.${c.start.getMonth()+1}.`; }catch(e){ return 'cyklus'; } }
 
+// ══════════════════════════════════════════════════════
+//  v9.44 (S18): PŘEPÍNAČ OKNA + PODMETRIKY FINANČNÍHO OBRAZU
+//
+//  JEDNO PRAVIDLO pro všechna okna: okno se rozpůlí a 2. polovina
+//  se porovná s 1. Datová náročnost = délka okna, žádná zvláštní
+//  větev pro nové uživatele (kratší historie = kratší okno).
+//    6M  → 3 vs 3 · 12M → 6 vs 6 · Celkově → půlka historie
+//
+//  ⚠️ ZÁMĚRNÁ FÁZE, NE NEDODĚLEK: podmetriky se zatím NEPROMÍTAJÍ
+//  do skóre 0–100. Prahy pro bodování nelze odvodit dřív, než bude
+//  vidět rozptyl na reálných datech (je Income Capture 40 % dobrý
+//  výsledek? dnes to neví nikdo). Skóre zůstává ukotvené na 6M,
+//  aby se uživateli nezměnilo jen přepnutím okna.
+// ══════════════════════════════════════════════════════
+let _obrazWin = (()=>{ try{ return localStorage.getItem('ff_obraz_win')||'6'; }catch(e){ return '6'; } })();
+function obrazSetWin(w){
+  _obrazWin = w;
+  try{ localStorage.setItem('ff_obraz_win', w); }catch(e){}
+  if(typeof renderObraz==='function') renderObraz();
+}
+
+// Kolik měsíců zpět načítat podle zvoleného okna.
+// 'all' → od nejstarší transakce (strop 120 měs., ať render nezdivočí na dlouhé historii).
+function _obrazWinMonths(D){
+  if(_obrazWin==='12') return 12;
+  if(_obrazWin==='all'){
+    const ts=(D.transactions||[]).map(t=>new Date(t.date).getTime()).filter(x=>!isNaN(x));
+    if(!ts.length) return 6;
+    const oldest=new Date(Math.min(...ts));
+    const n=(S.curYear-oldest.getFullYear())*12 + (S.curMonth-oldest.getMonth()) + 1;
+    return Math.max(2, Math.min(120, n));
+  }
+  return 6;
+}
+
+// ── Výpočet podmetrik ODDĚLENĚ od vykreslení (architektonická zásada č. 2). ──
+// Vrací hodnoty, nesahá na globální S. Připraveno pro sdílení s Deníkem,
+// aby stejný výpočet nevznikl podruhé (SKILL 17).
+function computeObrazSubmetrics(series){
+  const av = x => x.length ? x.reduce((s,v)=>s+v,0)/x.length : 0;
+  const halves = vals => { const h=Math.floor(vals.length/2);
+    return { a: av(vals.slice(0, vals.length-h)), b: av(vals.slice(vals.length-h)) }; };
+
+  const I = halves(series.map(x=>x.inc));
+  const E = halves(series.map(x=>x.exp));
+  const Sv= halves(series.map(x=>x.savings));
+  const Dt= halves(series.map(x=>x.debt));
+
+  const dI = I.b-I.a, dE = E.b-E.a, dS = Sv.b-Sv.a, dD = Dt.b-Dt.a;
+  const incG = I.a>0 ? (dI/I.a*100) : null;
+  const expG = E.a>0 ? (dE/E.a*100) : null;
+
+  // Práh stability: pod ním by drobná změna dala nesmyslné procento
+  // (ΔP 200 Kč, ΔV 600 Kč → MPC 300 %).
+  const MIN = 2000;
+  const grew = dI >= MIN, fell = dI <= -MIN;
+
+  return {
+    win: _obrazWin, months: series.length,
+    baseInc:I.a, curInc:I.b, baseExp:E.a, curExp:E.b,
+    dI, dE, dS, dD, incG, expG,
+    // Expense Ratio – POMĚR ÚROVNÍ (ne tempo). Definice shodná s expRatio
+    // ve složce S1 skóre 0–310, aby obě obrazovky neukázaly rozporná čísla.
+    expRatioNow: I.b>0 ? E.b/I.b : null,
+    expRatioBase: I.a>0 ? E.a/I.a : null,
+    // Expense Control: výdaje VŮČI příjmům, ne samy o sobě
+    control: (incG===null||expG===null) ? null : (expG<=incG),
+    // Capture jen při RŮSTU, Resilience jen při POKLESU – nikdy obojí.
+    // ΔS/ΔP dá při obou záporných kladné číslo, takže 50 % by znamenalo
+    // „získal jsem 4 000\" i „přišel jsem o 5 000\".
+    capture:    grew ? (dS/dI*100) : null,
+    resilience: fell ? (dE/dI*100) : null,
+    captureNA:  (!grew && !fell),
+    // Dluhy v Kč/měs, ne v %: −10 % z 5 000 Kč a z 500 000 Kč je jiná situace
+    debtPerMonth: series.length>1 ? dD/Math.max(1,Math.floor(series.length/2)) : 0,
+  };
+}
+
 function renderObraz() {
   const el = document.getElementById('obrazContent'); if(!el) return;
   const D = getData();
 
-  // Sbírej data za 6 měsíců
-  const months = 6;
+  // v9.44: délka okna podle přepínače (dřív natvrdo 6)
+  const months = _obrazWinMonths(D);
   const series = [];
   for(let i=months-1;i>=0;i--){
     let m=S.curMonth-i, y=S.curYear;
@@ -2866,12 +2944,67 @@ function renderObraz() {
     return {txt:`${p2>0?'↑ ':p2<0?'↓ ':'↔ '}${p2>=0?'+':''}${p2} %`, dir:p2}; };
   const trInc=_pctTxt(series.map(x=>x.inc)), trExp=_pctTxt(series.map(x=>x.exp));
   const trMom=_pctTxt(series.map(x=>x.savings)), trDebt=_pctTxt(series.map(x=>x.debt));
+
+  // v9.44: podmetriky (výpočet je oddělený, tady se jen čte)
+  const sm = computeObrazSubmetrics(series);
+  const _halfN = Math.max(1, Math.floor(series.length/2));
+  const _winTxt = `Ø posl. ${_halfN} vs předch. ${series.length-_halfN} měs.`;
+  const _p1 = v => (v>=0?'+':'')+v.toFixed(1).replace('.',',')+' %';
+  // Vysvětlivka „Co to je" – rozbalovací, ne natrvalo viditelná (zdvojnásobila by výšku karet)
+  const _why = txt => `<details style="margin-top:6px"><summary style="font-size:.63rem;color:#8b93ad;cursor:pointer;list-style:none">ⓘ Co to je?</summary><div style="font-size:.66rem;color:#a8aec8;line-height:1.5;margin-top:4px">${txt}</div></details>`;
+  const _sub = (title,val,desc,color,why) => `
+    <div style="margin-top:8px;padding:7px 9px;background:var(--surface2);border-left:2px solid ${color};border-radius:0 8px 8px 0">
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:baseline">
+        <span style="font-size:.62rem;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:.05em">${title}</span>
+        <span style="font-size:.6rem;color:var(--text3)">${_winTxt}</span>
+      </div>
+      <div style="font-family:Syne,sans-serif;font-size:.95rem;font-weight:800;margin:1px 0">${val}</div>
+      <div style="font-size:.67rem;color:#a8aec8;line-height:1.45">${desc}</div>
+      ${_why(why)}
+    </div>`;
+
+  const C_OK='var(--income)', C_WARN='var(--debt)', C_NA='var(--text3)', C_B='#60a5fa';
+
+  const smIncome = _sub('Income Momentum',
+    sm.incG===null ? '—' : _p1(sm.incG),
+    sm.incG===null ? 'Bez příjmu nelze určit směr.' : (sm.incG>=0?'Příjem roste.':'Příjem klesá.'),
+    sm.incG===null ? C_NA : (sm.incG>=0?C_OK:C_WARN),
+    'Tempo změny příjmu. Odpovídá jen na otázku „vydělávám víc než dřív?" – neříká nic o tom, jestli si z toho něco necháváš.');
+
+  const smExpense = _sub('Expense Control',
+    sm.control===null ? '—' : (sm.control?'Drží krok':'Zaostává'),
+    sm.control===null ? 'Chybí příjem pro porovnání.' : `Výdaje ${_p1(sm.expG)} vs. příjmy ${_p1(sm.incG)}.`,
+    sm.control===null ? C_NA : (sm.control?C_OK:C_WARN),
+    'Porovnává tempo výdajů <b>vůči tempu příjmů</b>. Samotný růst výdajů není problém – problém je, když roste rychleji než příjem.');
+
+  const smCapture = sm.capture!==null
+    ? _sub('Income Capture', Math.round(sm.capture)+' %',
+        sm.capture<=5
+          ? `Z nárůstu příjmu o ${fmtB(sm.dI)} se do úspor promítlo ${fmtB(sm.dS)}. Celý přírůstek se rozpustil ve výdajích.`
+          : `Z nárůstu příjmu o ${fmtB(sm.dI)} se do úspor promítlo ${fmtB(sm.dS)}.`,
+        sm.capture<=5?'var(--expense)':sm.capture<50?C_WARN:C_OK,
+        'Kolik z <b>dodatečného</b> příjmu sis skutečně udržel. 0 % = celý přírůstek se rozpustil ve výdajích, 100 % = celý skončil v úsporách. Zobrazuje se jen při růstu příjmu.')
+    : sm.resilience!==null
+    ? _sub('Income Resilience', Math.round(sm.resilience)+' %',
+        `Příjem klesl o ${fmtB(-sm.dI)}, výdaje o ${fmtB(-sm.dE)}. Tolik z propadu pokrylo přizpůsobení výdajů.`,
+        sm.resilience>=70?C_OK:sm.resilience>=40?C_WARN:'var(--expense)',
+        'Jak dobře se výdaje přizpůsobily poklesu příjmu. Nahrazuje Income Capture, protože při poklesu by stejné procento znamenalo opačnou situaci.')
+    : _sub('Income Capture', '—',
+        'Příjem se nezměnil dost na to, aby šlo poměr spočítat.',
+        C_NA,
+        'Potřebuje změnu příjmu aspoň 2 000 Kč. Bez prahu by drobný výkyv dal nesmyslné procento (např. 300 %).');
+
+  const smDebt = _sub('Debt Momentum',
+    (sm.debtPerMonth>=0?'+':'')+fmtB(sm.debtPerMonth)+'/měs',
+    sm.debtPerMonth<0 ? 'Zadlužení klesá.' : sm.debtPerMonth>0 ? 'Zadlužení roste.' : 'Zadlužení se nemění.',
+    sm.debtPerMonth<=0?C_OK:C_WARN,
+    'Rychlost změny zadlužení <b>v korunách za měsíc</b>, ne v procentech. U dluhů procenta klamou: −10 % z 5 000 Kč a z 500 000 Kč je úplně jiná situace.');
   // S16 (TODO-171): Úspory (saldo aktuálního měsíce) nahrazeny Wealth Momentum (Ø saldo 6 měs.)
   const metrics = [
-    {label:'💰 Příjmy',   val:fmtB(last.inc),  trendTxt:trInc.txt,  good:trInc.dir>=0},
-    {label:'💸 Výdaje',   val:fmtB(last.exp),  trendTxt:trExp.txt,  good:trExp.dir<=0},
-    {label:'🚀 Momentum', val:`${momentum.perMonth>=0?'+':''}${fmtB(momentum.perMonth)}/měs`, sub:`tento měsíc ${last.savings>=0?'+':''}${fmtB(last.savings)}`, trendTxt:trMom.txt, good:trMom.dir>=0},
-    {label:'🏦 Dluhy',    val:fmtB(last.debt), trendTxt:trDebt.txt, good:trDebt.dir<=0},
+    {label:'💰 Příjmy',   val:fmtB(last.inc),  trendTxt:trInc.txt,  good:trInc.dir>=0, subm:smIncome},
+    {label:'💸 Výdaje',   val:fmtB(last.exp),  trendTxt:trExp.txt,  good:trExp.dir<=0, subm:smExpense},
+    {label:'🚀 Momentum', val:`${momentum.perMonth>=0?'+':''}${fmtB(momentum.perMonth)}/měs`, sub:`tento měsíc ${last.savings>=0?'+':''}${fmtB(last.savings)}`, trendTxt:trMom.txt, good:trMom.dir>=0, subm:smCapture},
+    {label:'🏦 Dluhy',    val:fmtB(last.debt), trendTxt:trDebt.txt, good:trDebt.dir<=0, subm:smDebt},
   ];
 
   // ── HTML pokročilých metrik ──
@@ -2895,28 +3028,39 @@ function renderObraz() {
   const _lsG = v => `${v>=0?'+':''}${v}%`;
   const lsChart = _obrazDivergingChart(series); // v8.66: zrcadlový graf příjmy ◀ | ▶ výdaje
   const _lsSub = `průměr 2. vs 1. poloviny okna: příjmy ${lifestyle.incG!==null?_lsG(lifestyle.incG):'–'} · výdaje ${lifestyle.expG!==null?_lsG(lifestyle.expG):'–'}`;
-  const lifestyleCard = lifestyle.state==='inflation' ? `
-    <div class="card" style="margin-bottom:12px;border-color:rgba(248,113,113,.35)">
+  // ── v9.44: přejmenováno „Inflace životního stylu" → „Růst životního stylu" ──
+  //  Důvod: appka už má osobní inflaci z účtenek (inflace.js). Dvě různé „inflace"
+  //  o něčem jiném = zmatek. Slovo inflace zůstává vyhrazené cenám.
+  //  Karta má nově STABILNÍ NÁZEV a proměnný verdikt (dřív měnila název podle stavu,
+  //  takže si ji uživatel nemohl zapamatovat ani o ní mluvit).
+  const _lsVerdict =
+    lifestyle.state==='inflation' ? {ic:'⚠️', txt:'Výdaje rostou rychleji než příjmy', col:'var(--expense)', bd:'rgba(248,113,113,.35)',
+      note:'Část navýšeného příjmu raději odkládej, ať růst životního stylu nesní celý nárůst.'} :
+    lifestyle.state==='squeeze' ? {ic:'🟡', txt:'Příjmy klesají rychleji než výdaje', col:'#fbbf24', bd:'rgba(251,191,36,.35)',
+      note:'Výdaje se poklesu příjmů nepřizpůsobily – zkontroluj, kde jde ubrat, než se prokousáš do rezervy.'} :
+    lifestyle.state==='ok' ? {ic:'✅', txt:'Výdaje drží krok s příjmy', col:'var(--income)', bd:'rgba(74,222,128,.25)',
+      note:'Výdaje nerostou rychleji než příjmy a drží krok s jejich vývojem.'} : null;
+
+  //  Expense Ratio = ÚROVEŇ (kolik z příjmu spotřebuju), zatímco verdikt výše je TEMPO.
+  //  Nepřekrývají se: ratio funguje od 1. měsíce, tempo potřebuje 6+ měsíců.
+  //  ⚠️ Nezobrazovat vedle míry úspor – jsou komplementární (ER = 100 % − SR).
+  const _erNow = sm.expRatioNow, _erBase = sm.expRatioBase;
+  const _erTxt = _erNow===null ? null : `
+      <div style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:${_erNow<=.7?'var(--income)':_erNow<=.9?'#fbbf24':'var(--expense)'}">${Math.round(_erNow*100)} % příjmu</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-top:2px">spotřebuje tvůj životní styl${_erBase!==null&&Math.abs(_erNow-_erBase)>=.005?` · dřív ${Math.round(_erBase*100)} %`:''}</div>`;
+
+  const lifestyleCard = !_lsVerdict ? '' : `
+    <div class="card" style="margin-bottom:12px;border-color:${_lsVerdict.bd}">
       <div class="card-body" style="padding:14px">
-        <div style="font-size:.82rem;font-weight:700;color:var(--expense);margin-bottom:4px">⚠️ Inflace životního stylu</div>
-        <div style="font-size:.76rem;color:var(--text2);line-height:1.5">Tvé výdaje rostou rychleji než příjmy (${_lsSub}). Část navýšeného příjmu raději odkládej, ať růst životního stylu nesní celý nárůst.</div>
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">📊 Růst životního stylu</div>
+        ${_erTxt||'<div style="font-size:.72rem;color:#a8aec8">Bez příjmu nelze poměr spočítat. Jakmile zadáš první příjem, ukážeme, kolik z něj tvůj životní styl spotřebuje.</div>'}
+        <div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--border)">
+          <div style="font-size:.78rem;font-weight:700;color:${_lsVerdict.col};margin-bottom:3px">${_lsVerdict.ic} ${_lsVerdict.txt}</div>
+          <div style="font-size:.74rem;color:var(--text2);line-height:1.55">${_lsSub}. ${_lsVerdict.note}</div>
+        </div>
         ${lsChart}
       </div>
-    </div>` : lifestyle.state==='squeeze' ? `
-    <div class="card" style="margin-bottom:12px;border-color:rgba(251,191,36,.35)">
-      <div class="card-body" style="padding:14px">
-        <div style="font-size:.82rem;font-weight:700;color:#fbbf24;margin-bottom:4px">🟡 Příjmy klesají rychleji než výdaje</div>
-        <div style="font-size:.76rem;color:var(--text2);line-height:1.5">${_lsSub}. Výdaje se poklesu příjmů nepřizpůsobily – zkontroluj, kde jde ubrat, než se prokousáš do rezervy.</div>
-        ${lsChart}
-      </div>
-    </div>` : lifestyle.state==='ok' ? `
-    <div class="card" style="margin-bottom:12px;border-color:rgba(74,222,128,.25)">
-      <div class="card-body" style="padding:14px">
-        <div style="font-size:.82rem;font-weight:700;color:var(--income);margin-bottom:4px">✅ Životní styl pod kontrolou</div>
-        <div style="font-size:.76rem;color:var(--text2)">${_lsSub}. Výdaje nerostou rychleji než příjmy a drží krok s jejich vývojem.</div>
-        ${lsChart}
-      </div>
-    </div>` : '';
+    </div>`;
 
   const divBars = diversification.sources.slice(0,5).map(s=>{
     const pct = Math.round(s.val/diversification.total*100);
@@ -3034,7 +3178,12 @@ function renderObraz() {
     + `
     <!-- Celkový trend -->
     <div style="background:linear-gradient(135deg,${trend==='improving'?'rgba(74,222,128,.08)':trend==='stable'?'rgba(251,191,36,.05)':'rgba(248,113,113,.06)'},transparent);border:1px solid ${trendColor}33;border-radius:var(--radius);padding:18px;margin-bottom:16px;text-align:center">
-      <div style="font-size:.72rem;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Váš finanční trend – posledních 6 měsíců</div>
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Váš finanční trend – ${series.length===1?'1 měsíc':series.length<5?series.length+' měsíce':series.length+' měsíců'}</div>
+      <!-- v9.44: přepínač okna. Volba se pamatuje (localStorage ff_obraz_win). -->
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap">
+        ${[['6','6M'],['12','12M'],['all','Celkově']].map(([k,t])=>`
+          <button onclick="obrazSetWin('${k}')" style="padding:4px 11px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;border:1px solid ${_obrazWin===k?'rgba(96,165,250,.55)':'var(--border)'};background:${_obrazWin===k?'rgba(96,165,250,.16)':'transparent'};color:${_obrazWin===k?'#93c5fd':'#a8aec8'}">${t}</button>`).join('')}
+      </div>
       <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${trendColor}">${trendLabel}</div>
       <div style="margin:12px auto;width:200px;height:12px;background:linear-gradient(90deg,var(--expense),var(--debt),var(--income));border-radius:6px;position:relative">
         <div style="position:absolute;top:-4px;left:${score}%;transform:translateX(-50%);width:8px;height:20px;background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:left .8s"></div>
@@ -3051,9 +3200,10 @@ function renderObraz() {
             <div style="font-family:Syne,sans-serif;font-size:1.2rem;font-weight:800">${m.val}</div>
             ${m.sub?`<div style="font-size:.68rem;color:#a8aec8;margin-top:1px">${m.sub}</div>`:''}
             <div style="font-size:.76rem;margin-top:4px;color:${m.good?'var(--income)':'var(--expense)'}">
-              ${m.trendTxt} <span style="font-size:.66rem;color:#a8aec8">(Ø posl. 3 vs předch. 3 měs.)</span>
+              ${m.trendTxt} <span style="font-size:.66rem;color:#a8aec8">(${_winTxt})</span>
               ${m.good?'✅':'⚠️'}
             </div>
+            ${m.subm||''}
           </div>
         </div>
       `).join('')}
@@ -4214,6 +4364,72 @@ function _denikDailyChart(days, dailyExp, todayD){
     </div>`;
 }
 
+// ══════════════════════════════════════════════════════
+//  v9.45 (TODO-203): ŽIVOTNÍ MAPA
+//
+//  Uživatel si na časovou osu značí zlomové životní události.
+//  DŮVOD: dlouhé horizonty (12M+) neměří návyky, ale životní události –
+//  stěhování, dítě, hypotéka. Bez kontextu vypadá takový zlom jako selhání.
+//  Označená událost ho VYSVĚTLÍ místo aby ho penalizovala.
+//
+//  ⚠️ ZÁMĚRNĚ NEOVLIVŇUJE BODOVÁNÍ (Milanovo rozhodnutí). Kdyby událost
+//  měnila skóre, appka by rozhodovala, které životní volby jsou omluvitelné –
+//  to jí nepřísluší (SKILL 22). Navíc by šlo zneužít: označit každý drahý
+//  měsíc jako „stěhování". Kontext ano, výmluva ne.
+// ══════════════════════════════════════════════════════
+const MS_PRESETS = [
+  ['💼','Změna práce'], ['📈','Zvýšení platu'], ['📉','Ztráta příjmu'],
+  ['👶','Narození dítěte'], ['💍','Svatba'], ['💔','Rozvod'],
+  ['🏠','Hypotéka'], ['📦','Stěhování'], ['🚗','Koupě auta'],
+  ['🎓','Studium'], ['🏥','Nemoc'], ['🎁','Dědictví'],
+];
+let _msForm = null;   // null = zavřeno, {} = nová, {id..} = editace
+
+function msOpen(id){
+  const list = S.milestones||[];
+  _msForm = id ? Object.assign({}, list.find(x=>x.id===id)) : {
+    date: new Date().toISOString().slice(0,10), icon:'💼', label:'', note:''
+  };
+  renderDenik();
+}
+function msCancel(){ _msForm=null; renderDenik(); }
+function msPick(icon,label){
+  if(!_msForm) return;
+  _msForm.icon=icon;
+  if(!_msForm.label || MS_PRESETS.some(p=>p[1]===_msForm.label)) _msForm.label=label;
+  renderDenik();
+}
+function msSave(){
+  if(!_msForm) return;
+  const date=(document.getElementById('msDate')||{}).value || _msForm.date;
+  const label=((document.getElementById('msLabel')||{}).value||'').trim();
+  const note=((document.getElementById('msNote')||{}).value||'').trim();
+  if(!label){ if(typeof toast==='function') toast('Zadej název události'); return; }
+  if(!date){ if(typeof toast==='function') toast('Zadej datum'); return; }
+  S.milestones = S.milestones||[];
+  if(_msForm.id){
+    const it=S.milestones.find(x=>x.id===_msForm.id);
+    if(it){ it.date=date; it.label=label.slice(0,120); it.note=note.slice(0,500); it.icon=_msForm.icon; }
+  } else {
+    S.milestones.push({ id:'ms_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      date, icon:_msForm.icon||'📌', label:label.slice(0,120), note:note.slice(0,500) });
+  }
+  _msForm=null;
+  if(typeof save==='function') save();
+  renderDenik();
+}
+function msDelete(id){
+  if(!confirm('Opravdu smazat tuto událost ze životní mapy?')) return;
+  S.milestones=(S.milestones||[]).filter(x=>x.id!==id);
+  if(typeof save==='function') save();
+  renderDenik();
+}
+// Události v daném měsíci – pro značky v grafu
+function msInMonth(m,y){
+  return (S.milestones||[]).filter(x=>{ const d=new Date(x.date);
+    return !isNaN(d) && d.getMonth()===m && d.getFullYear()===y; });
+}
+
 function renderDenik(){
   const el=document.getElementById('denikContent'); if(!el) return;
   if(typeof isAdmin==='function' && !isAdmin()){ el.innerHTML='<div class="empty"><div class="et">📖 Deník je zatím dostupný jen pro administrátora.</div></div>'; return; }
@@ -4333,6 +4549,70 @@ function renderDenik(){
               do výplaty ~${toNext} dní</div>`;
           }catch(e){ return ''; }
         })()}
+      </div>
+    </div>
+    ${_zivotniMapaHTML(m,y)}`;
+}
+
+// ── Životní mapa: chronologická osa událostí + formulář ──
+function _zivotniMapaHTML(m,y){
+  const esc = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const all=(S.milestones||[]).slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const f=_msForm;
+  const BTN='padding:5px 12px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.76rem;font-weight:700;border:1px solid #8a6a3e';
+  const INP='padding:6px 8px;border-radius:7px;border:1px solid #8a6a3e;background:rgba(255,255,255,.06);color:#f3ead2;font-family:Georgia,serif;font-size:.78rem';
+
+  const form = !f ? '' : `
+    <div style="background:rgba(255,255,255,.05);border:1px solid #8a6a3e;border-radius:10px;padding:12px;margin-bottom:12px">
+      <div class="denik-h" style="margin-bottom:8px">${f.id?'Upravit událost':'Nová událost'}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
+        ${MS_PRESETS.map(([ic,lb])=>`<button onclick="msPick('${ic}','${lb.replace(/'/g,"\\'")}')" style="padding:4px 9px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.7rem;border:1px solid #8a6a3e;background:${f.icon===ic?'linear-gradient(180deg,#7a5a30,#5e4423)':'transparent'};color:${f.icon===ic?'#f3ead2':'#6b5741'}">${ic} ${lb}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px">
+        <input id="msDate" type="date" value="${esc(f.date)}" style="flex:0 0 148px;${INP}">
+        <input id="msLabel" type="text" maxlength="120" placeholder="Název události" value="${esc(f.label)}" style="flex:1 1 180px;${INP}">
+      </div>
+      <textarea id="msNote" maxlength="500" rows="2" placeholder="Poznámka (nepovinné) – co to pro tvoje finance znamenalo" style="width:100%;resize:vertical;${INP}">${esc(f.note)}</textarea>
+      <div style="display:flex;gap:7px;margin-top:8px">
+        <button onclick="msSave()" style="${BTN};background:linear-gradient(180deg,#7a5a30,#5e4423);color:#f3ead2">Uložit</button>
+        <button onclick="msCancel()" style="${BTN};font-weight:400;background:transparent;color:#6b5741">Zrušit</button>
+      </div>
+    </div>`;
+
+  // Prázdný stav VYSVĚTLÍ, k čemu to je – nemlčí (SKILL 22)
+  const body = all.length ? `
+    <div style="position:relative;padding-left:20px">
+      <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(138,106,62,.45)"></div>
+      ${all.map(x=>{
+        const d=new Date(x.date); const inThis=(d.getMonth()===m&&d.getFullYear()===y);
+        return `<div style="position:relative;margin-bottom:11px">
+          <div style="position:absolute;left:-19px;top:4px;width:12px;height:12px;border-radius:50%;background:${inThis?'#7a5a30':'#5e4423'};border:2px solid ${inThis?'#d9c49a':'#8a6a3e'}"></div>
+          <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">
+            <span style="font-size:.95rem">${esc(x.icon)||'\u{1F4CC}'}</span>
+            <span class="denik-h" style="font-size:.84rem">${esc(x.label)}</span>
+            <span style="font-size:.7rem;color:#8a7a5e">${isNaN(d)?'':d.toLocaleDateString('cs-CZ')}</span>
+            <button onclick="msOpen('${x.id}')" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#8a6a3e;font-size:.72rem;font-family:Georgia,serif">upravit</button>
+            <button onclick="msDelete('${x.id}')" style="background:none;border:0;cursor:pointer;color:#8c2f2f;font-size:.72rem;font-family:Georgia,serif">smazat</button>
+          </div>
+          ${x.note?`<div style="font-size:.74rem;color:#6b5741;line-height:1.5;margin-top:2px">${esc(x.note)}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>` : `
+    <div style="font-size:.78rem;color:#6b5741;line-height:1.6">
+      Zatím sis nezaznamenal žádnou událost. Označ zlomy jako změna práce, hypotéka nebo narození dítěte &mdash;
+      až se budeš dívat na dlouhodobý vývoj, uvidíš, <b>proč</b> se čísla v daném období změnila.
+      <br><span style="font-size:.72rem">Události slouží jen jako kontext. Nijak neovlivňují tvoje skóre.</span>
+    </div>`;
+
+  return `
+    <div class="denik-book" style="margin-top:14px">
+      <div style="padding:16px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <div class="denik-h" style="font-size:.95rem">\u{1F5FA}\uFE0F Životní mapa</div>
+          ${f?'':`<button onclick="msOpen()" style="${BTN};background:linear-gradient(180deg,#7a5a30,#5e4423);color:#f3ead2">+ Přidat událost</button>`}
+        </div>
+        ${form}
+        ${body}
       </div>
     </div>`;
 }
