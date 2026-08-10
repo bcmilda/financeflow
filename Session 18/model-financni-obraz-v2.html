@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Model – Finanční obraz v2 (S18)</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;--border:#2e3347;
+--text:#e8eaf2;--text2:#a8aec8;--text3:#7e84a0;--income:#4ade80;--expense:#f87171;--debt:#fbbf24;
+--blue:#60a5fa;--purple:#a78bfa;--radius:14px}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;padding:14px;line-height:1.55;font-size:15px}
+.wrap{max-width:900px;margin:0 auto}
+.pagetitle{font-family:Syne,sans-serif;font-size:1.25rem;font-weight:800;margin:0 0 3px}
+.pagelead{color:var(--text2);font-size:.82rem;margin-bottom:8px}
+.newtag{display:inline-block;background:rgba(96,165,250,.15);color:var(--blue);font-size:.6rem;font-weight:800;
+padding:2px 7px;border-radius:99px;letter-spacing:.04em;vertical-align:middle;margin-left:6px}
+.info{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.info-t{font-size:.8rem;font-weight:800;color:var(--blue);margin-bottom:4px}
+.info-b{font-size:.78rem;color:#bcc3d8;line-height:1.6}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px;margin-bottom:12px}
+.card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.card-title{font-size:.84rem;font-weight:800;display:flex;align-items:center;gap:7px}
+.seclabel{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin:22px 0 10px}
+.rowlabel{font-size:.74rem;font-weight:800;color:var(--purple);letter-spacing:.04em;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.rowlabel::after{content:'';flex:1;height:1px;background:var(--border)}
+/* trend hero */
+.hero{background:linear-gradient(135deg,#1c2030,var(--surface));border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:12px}
+.hero-lbl{font-size:.7rem;font-weight:800;letter-spacing:.09em;color:var(--text3);text-transform:uppercase}
+.hero-val{font-family:Syne,sans-serif;font-size:2.1rem;font-weight:800;margin:6px 0}
+.hero-bar{height:9px;border-radius:99px;background:linear-gradient(90deg,#f87171,#fbbf24,#4ade80);position:relative;max-width:340px;margin:10px auto 6px}
+.hero-dot{position:absolute;top:-4px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5);transform:translateX(-50%)}
+/* journey */
+.jrn{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:6px 0 14px}
+.jrn-p{text-align:center;min-width:78px}
+.jrn-n{font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800}
+.jrn-d{font-size:.66rem;color:var(--text3);margin-top:1px}
+.jrn-a{font-size:1.2rem;color:var(--text3)}
+.jrn-delta{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.3);border-radius:11px;padding:7px 14px;text-align:center}
+.wf{margin-top:6px}
+.wf-row{display:grid;grid-template-columns:118px 1fr 54px;gap:9px;align-items:center;padding:5px 0}
+.wf-lbl{font-size:.75rem;color:#c9cede;font-weight:600}
+.wf-track{height:15px;background:var(--surface3);border-radius:5px;position:relative;overflow:hidden}
+.wf-mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border)}
+.wf-fill{position:absolute;top:0;bottom:0;border-radius:4px}
+.wf-val{font-family:Syne,sans-serif;font-size:.85rem;font-weight:800;text-align:right}
+/* metric cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:11px}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.mtop{font-size:.77rem;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:6px}
+.mval{font-family:Syne,sans-serif;font-size:1.35rem;font-weight:800;margin:3px 0;letter-spacing:-.01em}
+.mdelta{font-size:.71rem}
+.subm{margin-top:10px;padding:9px 11px;background:var(--surface2);border-left:2px solid var(--blue);border-radius:0 9px 9px 0}
+.subm-h{font-size:.65rem;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between;gap:8px}
+.subm-h em{font-style:normal;color:var(--text3);font-weight:600;text-transform:none;letter-spacing:0}
+.subm-v{font-family:Syne,sans-serif;font-size:1.02rem;font-weight:800;margin:2px 0}
+.subm-d{font-size:.7rem;color:#a8aec8;line-height:1.5}
+.subm-w{font-size:.68rem;color:var(--text3);line-height:1.5;margin-top:5px;padding-top:5px;border-top:1px dashed var(--border)}
+.warn{border-left-color:var(--debt);background:rgba(251,191,36,.07)}
+.warn .subm-h{color:var(--debt)}
+.ok{border-left-color:var(--income)}.ok .subm-h{color:var(--income)}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);font-weight:800}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0;font-weight:800;background:var(--surface2)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.big{font-family:Syne,sans-serif;font-size:1.7rem;font-weight:800}
+.sub{font-size:.76rem;color:#a8aec8;margin-top:3px}
+.sent{font-size:.8rem;color:#c9cede;line-height:1.65;margin-top:9px;padding-top:9px;border-top:1px solid var(--border)}
+.g{color:var(--income)}.r{color:var(--expense)}.y{color:var(--debt)}.b{color:var(--blue)}.p{color:var(--purple)}.m{color:var(--text3)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:7px}
+.spark i{flex:1;background:var(--blue);border-radius:2px 2px 0 0;opacity:.75;display:block}
+.note{font-size:.72rem;color:var(--text3);line-height:1.6}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.68rem;color:#a8aec8;margin-top:8px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+</style></head><body><div class="wrap">
+
+<div class="pagetitle">📊 Finanční obraz <span class="newtag">MODEL v2 · demo data</span></div>
+<div class="pagelead">Model rozšířeného Finančního obrazu. Modře odlišené bloky jsou nové. Data jsou vymyšlená.</div>
+
+<div class="info">
+  <div class="info-t">📊 Finanční obraz</div>
+  <div class="info-b">Dlouhodobý pohled na celkové směřování. Zatímco report řeší jednotlivé měsíce, obraz ukazuje trendy za 6 měsíců a pokročilé metriky. Slouží ke strategickému rozhodování — kam tvé finance dlouhodobě míří.</div>
+</div>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="hero-lbl">Váš finanční trend — posledních 6 měsíců</div>
+  <div class="hero-val g">📈 Zlepšuji se</div>
+  <div class="hero-bar"><div class="hero-dot" style="left:82%"></div></div>
+  <div style="font-size:.8rem;color:#a8aec8">Skóre <b class="g">82/100</b></div>
+</div>
+
+<!-- ══ NOVÉ: FINANCIAL HEALTH JOURNEY ══ -->
+<div class="card" style="border-color:rgba(96,165,250,.35)">
+  <div class="card-header"><span class="card-title">🧭 Cesta finančního zdraví <span class="newtag">nové</span></span>
+    <span class="note">6M vs baseline</span></div>
+
+  <div class="jrn">
+    <div class="jrn-p"><div class="jrn-n m">64</div><div class="jrn-d">před 6 měsíci</div></div>
+    <div class="jrn-a">→</div>
+    <div class="jrn-p"><div class="jrn-n g">82</div><div class="jrn-d">dnes</div></div>
+    <div class="jrn-delta"><div class="jrn-n g" style="font-size:1.15rem">+18 bodů</div><div class="jrn-d">za 6 měsíců</div></div>
+  </div>
+
+  <div class="note" style="margin-bottom:8px"><b style="color:#c9cede">Co těch 18 bodů způsobilo:</b></div>
+  <div class="wf">
+    <div class="wf-row"><div class="wf-lbl">💰 Cash flow</div>
+      <div class="wf-track"><div class="wf-mid"></div><div class="wf-fill" style="left:50%;width:19.4%;background:var(--income)"></div></div>
+      <div class="wf-val g">+7</div></div>
+    <div class="wf-row"><div class="wf-lbl">🛡 Rezerva</div>
+      <div class="wf-track"><div class="wf-mid"></div><div class="wf-fill" style="left:50%;width:13.9%;background:var(--income)"></div></div>
+      <div class="wf-val g">+5</div></div>
+    <div class="wf-row"><div class="wf-lbl">💳 Zadluženost</div>
+      <div class="wf-track"><div class="wf-mid"></div><div class="wf-fill" style="left:50%;width:11.1%;background:var(--income)"></div></div>
+      <div class="wf-val g">+4</div></div>
+    <div class="wf-row"><div class="wf-lbl">🏦 Spoření</div>
+      <div class="wf-track"><div class="wf-mid"></div><div class="wf-fill" style="left:50%;width:8.3%;background:var(--income)"></div></div>
+      <div class="wf-val g">+3</div></div>
+    <div class="wf-row"><div class="wf-lbl">📋 Rozpočet</div>
+      <div class="wf-track"><div class="wf-mid"></div><div class="wf-fill" style="right:50%;width:2.8%;background:var(--expense)"></div></div>
+      <div class="wf-val r">−1</div></div>
+  </div>
+  <div class="sent">Největší díl zlepšení přinesl <b>cash flow</b> — výdaje spotřebují 76 % příjmu místo dřívějších 84 %. Jediná složka, která se zhoršila, je <b>dodržování rozpočtu</b>: překročil jsi limit ve 2 kategoriích ze 7.</div>
+
+  <div class="subm" style="margin-top:12px">
+    <div class="subm-h"><span>Monthly Score</span><em>tento měsíc vs baseline</em></div>
+    <div class="subm-v g">84 <span class="m" style="font-size:.8rem">(+2 vs Ø 6M)</span></div>
+    <div class="subm-d">Skóre za aktuální měsíc. Kolísá — jeden měsíc nic neznamená.</div>
+    <div class="subm-w"><b>Co to je:</b> ukazuje, jak dopadl <b>tento konkrétní měsíc</b> proti tvému šestiměsíčnímu průměru. Slouží jako rychlá zpětná vazba, ne jako hodnocení celkové situace.</div>
+  </div>
+
+  <div class="subm ok" style="margin-top:8px">
+    <div class="subm-h"><span>6M Momentum Score</span><em>trend 6 měsíců</em></div>
+    <div class="subm-v g">+18 bodů · stabilní růst</div>
+    <div class="subm-d">5 z 6 měsíců meziměsíčně nahoru. Zlepšení není náhoda jednoho měsíce.</div>
+    <div class="subm-w"><b>Co to je:</b> měří <b>směr a stálost</b> pohybu skóre, ne jeho úroveň. Vysoké momentum při nízkém skóre znamená, že se rychle zlepšuješ. Nízké momentum při vysokém skóre znamená, že si dobrou pozici držíš.</div>
+  </div>
+  <div class="spark">
+    <i style="height:38%"></i><i style="height:44%"></i><i style="height:52%"></i><i style="height:49%"></i><i style="height:68%"></i><i style="height:82%;opacity:1"></i>
+  </div>
+  <div class="note" style="text-align:center;margin-top:4px">bře · dub · kvě · čvn · čvc · srp &nbsp;·&nbsp; skóre 0–100</div>
+</div>
+
+<!-- ══ 4 METRIKY S PODMETRIKAMI ══ -->
+<div class="seclabel">📈 Hlavní metriky a jejich podmetriky</div>
+<div class="grid">
+
+  <div class="mcard"><div class="mtop">💰 Příjmy</div>
+    <div class="mval">42 300 Kč</div>
+    <div class="mdelta g">+18,2 % <span class="m">(Ø posl. 3 vs předch. 3 měs.)</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Income Momentum</span><em>3M vs 3M</em></div>
+      <div class="subm-v g">+18,2 %</div>
+      <div class="subm-d">Příjem roste, tempo se drží třetí měsíc.</div>
+      <div class="subm-w"><b>Co to je:</b> tempo změny příjmu. Odpovídá na otázku <i>„vydělávám víc než dřív?"</i> — nic víc. Neříká nic o tom, jestli si z toho něco necháváš.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">🛒 Výdaje</div>
+    <div class="mval">32 100 Kč</div>
+    <div class="mdelta y">+9,4 % <span class="m">(Ø posl. 3 vs předch. 3 měs.)</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Expense Control</span><em>3M vs 3M</em></div>
+      <div class="subm-v g">Drží krok</div>
+      <div class="subm-d">Výdaje +9,4 % vs. příjmy +18,2 %.</div>
+      <div class="subm-w"><b>Co to je:</b> porovnává tempo výdajů <b>vůči tempu příjmů</b>. Samotný růst výdajů není problém — problém je, když roste rychleji než příjem. Právě to tahle podmetrika hlídá.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">🚀 Momentum</div>
+    <div class="mval g">+10 200 Kč/měs</div>
+    <div class="mdelta g">+3 700 Kč <span class="m">vs baseline</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Income Capture</span><em>6M vs baseline</em></div>
+      <div class="subm-v g">57 %</div>
+      <div class="subm-d">Z nárůstu příjmu o 6 500 Kč se do úspor promítlo 3 700 Kč.</div>
+      <div class="subm-w"><b>Co to je:</b> kolik z <b>dodatečného</b> příjmu sis skutečně udržel. 0 % znamená, že se celý přírůstek rozpustil ve výdajích, 100 % že celý skončil v úsporách. Zobrazuje se jen při růstu příjmu — při poklesu ji nahradí <b>Income Resilience</b>, protože stejné procento by tam znamenalo něco úplně jiného.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">💳 Dluhy</div>
+    <div class="mval">318 400 Kč</div>
+    <div class="mdelta g">−12,6 % <span class="m">(Ø posl. 3 vs předch. 3 měs.)</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Debt Momentum</span><em>3M vs 3M</em></div>
+      <div class="subm-v g">−4 850 Kč/měs</div>
+      <div class="subm-d">Zadlužení klesá stabilním tempem. Při zachování tempa splaceno za 5,5 roku.</div>
+      <div class="subm-w"><b>Co to je:</b> rychlost, jakou zadlužení klesá nebo roste — v korunách za měsíc, ne v procentech. Procenta u dluhů klamou: −10 % z 5 000 Kč a −10 % z 500 000 Kč je úplně jiná situace. Mimořádné splátky jsou z tempa vyloučené, aby jednorázová platba nezkreslila trend.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ POKROČILÉ METRIKY ══ -->
+<div class="seclabel">📐 Pokročilé metriky</div>
+
+<!-- ŘÁDEK LIFESTYLE -->
+<div class="rowlabel">🏠 Lifestyle</div>
+
+<div class="card">
+  <div class="card-header"><span class="card-title">📊 Růst životního stylu</span>
+    <span class="note">6M · dřív „Inflace životního stylu"</span></div>
+  <div class="big y">76 % příjmu</div>
+  <div class="sub">spotřebuje tvůj životní styl · dřív to bylo 84 %</div>
+  <div class="sent">Průměr 2. vs 1. poloviny okna: příjmy <b class="g">+18,2 %</b> · výdaje <b class="y">+9,4 %</b>. Výdaje nerostou rychleji než příjmy a drží krok s jejich vývojem.</div>
+
+  <div class="scroll" style="margin-top:12px">
+  <table>
+    <thead><tr><th>Ukazatel</th><th>Baseline<br>(bře–kvě)</th><th>Aktuální<br>(čvn–srp)</th><th>Změna</th></tr></thead>
+    <tbody>
+      <tr><td>Příjmy Ø/měs</td><td>35 800</td><td>42 300</td><td class="g">+18,2 %</td></tr>
+      <tr><td>Výdaje Ø/měs</td><td>29 350</td><td>32 100</td><td class="y">+9,4 %</td></tr>
+      <tr><td>Expense Ratio</td><td>82 %</td><td>76 %</td><td class="g">−6 b.</td></tr>
+      <tr><td>Úspora Ø/měs</td><td>6 450</td><td>10 200</td><td class="g">+3 750</td></tr>
+      <tr><td>Z toho trvalé závazky</td><td>14 200</td><td>15 100</td><td class="y">+900</td></tr>
+      <tr><td><b>Income Capture</b></td><td>—</td><td><b>57 %</b></td><td class="g">zdravé</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="subm" style="margin-top:11px">
+    <div class="subm-h"><span>Kam růst přistál</span><em>6M vs baseline</em></div>
+    <div class="subm-v y">900 Kč do trvalých závazků</div>
+    <div class="subm-d">Z nárůstu výdajů o 2 750 Kč skončilo 900 Kč v pravidelných měsíčních platbách, zbytek byly jednorázové výdaje.</div>
+    <div class="subm-w"><b>Co to je:</b> rozlišuje, jestli vyšší výdaje skončily v <b>opakovaných závazcích</b> (nájem, leasing, předplatné), nebo v jednorázových nákupech. Trvalé závazky při poklesu příjmu nezmizí — proto je tenhle rozdíl důležitější než celková částka.</div>
+  </div>
+
+  <div class="subm ok" style="margin-top:8px">
+    <div class="subm-h"><span>Reálný růst příjmu</span><em>očištěno o tvoji inflaci</em></div>
+    <div class="subm-v g">+9,7 %</div>
+    <div class="subm-d">Příjem +18,2 %, tvoje osobní inflace z účtenek 8,5 %.</div>
+    <div class="subm-w"><b>Co to je:</b> růst příjmu očištěný o to, jak zdražily věci, které <b>skutečně kupuješ</b> — ne o průměrnou inflaci ČSÚ. Vychází z tvých účtenek. Ukazuje, jestli sis polepšil doopravdy, nebo jen dorovnal zdražení.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><span class="card-title">🛡 Rezerva vydrží</span><span class="note">aktuální stav</span></div>
+  <div class="big g">4,6 měsíce</div>
+  <div class="sub">rezerva 148 000 Kč ÷ výdaje 32 100 Kč/měs · dřív 5,0 měsíce</div>
+  <div class="subm warn" style="margin-top:10px">
+    <div class="subm-h"><span>Dopad životního stylu</span><em>aktuální</em></div>
+    <div class="subm-v y">−0,4 měsíce</div>
+    <div class="subm-d">Rezerva vzrostla, ale výdaje taky — čistý efekt je kratší doba pokrytí.</div>
+    <div class="subm-w"><b>Co to je:</b> jak dlouho by tě rezerva uživila při současných výdajích. Nejhmatatelnější důsledek dražšího životního stylu: i když našetříš víc, vyšší výdaje ti dobu pokrytí zkrátí.</div>
+  </div>
+</div>
+
+<!-- ŘÁDEK NEZÁVISLOST -->
+<div class="rowlabel">🏖️ Nezávislost a stabilita</div>
+
+<div class="grid">
+  <div class="mcard"><div class="mtop">🏖️ Financial Freedom Ratio</div>
+    <div class="mval b">12,4 %</div>
+    <div class="mdelta g">+3,1 b. <span class="m">vs baseline 6M</span></div>
+    <div class="subm">
+      <div class="subm-h"><span>FFR Momentum</span><em>6M vs baseline</em></div>
+      <div class="subm-v g">+3,1 bodu</div>
+      <div class="subm-d">Pasivní příjem 3 980 Kč pokryje 12,4 % výdajů. Při tomto tempu 100 % za ~14 let.</div>
+      <div class="subm-w"><b>Co to je:</b> jaká část tvých výdajů je krytá pasivním příjmem (dividendy, nájem, úroky). 100 % znamená finanční nezávislost. Sleduje se <b>proti baseline</b>, ne půlením okna — je to pomalá metrika, kde má smysl srovnávat s výchozím bodem, ne měsíc po měsíci.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">💧 Likvidita</div>
+    <div class="mval g">148 000 Kč</div>
+    <div class="mdelta g">+22 400 Kč <span class="m">vs baseline 6M</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Liquidity Momentum</span><em>6M vs baseline</em></div>
+      <div class="subm-v g">+3 730 Kč/měs</div>
+      <div class="subm-d">Okamžitě dostupné prostředky rostou stabilně.</div>
+      <div class="subm-w"><b>Co to je:</b> peníze, ke kterým se dostaneš okamžitě — bez prodeje investic či majetku. Stejně jako FFR se porovnává <b>proti baseline</b>, protože jde o pomalu se měnící zásobu, ne o měsíční tok.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">🧩 Diverzifikace příjmů</div>
+    <div class="mval y">2 zdroje</div>
+    <div class="mdelta m">HHI 0,68 · beze změny</div>
+    <div class="subm warn">
+      <div class="subm-h"><span>Koncentrační riziko</span><em>aktuální</em></div>
+      <div class="subm-v y">82 % z jednoho zdroje</div>
+      <div class="subm-d">Výpadek hlavního příjmu by pokryl jen 18 % současných výdajů.</div>
+      <div class="subm-w"><b>Co to je:</b> jak moc závisíš na jediném zdroji příjmu. Není to výtka — u zaměstnance je to normální. Slouží k tomu, abys věděl, jak velký nárazník potřebuješ.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ŘÁDEK MAJETEK -->
+<div class="rowlabel">💎 Majetek</div>
+
+<div class="grid">
+  <div class="mcard"><div class="mtop">🚀 Wealth Momentum</div>
+    <div class="mval g">+10 200 Kč/měs</div>
+    <div class="mdelta g">Ø saldo 6 měsíců</div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Stálost</span><em>6M</em></div>
+      <div class="subm-v g">6 z 6 měsíců kladné</div>
+      <div class="subm-d">Ani jeden měsíc v mínusu.</div>
+      <div class="subm-w"><b>Co to je:</b> průměrné měsíční saldo za 6 měsíců. Měří <b>tok</b> — kolik měsíčně přibývá. Nezaměňovat s čistým jměním, které měří <b>stav</b>.</div>
+    </div>
+  </div>
+
+  <div class="mcard"><div class="mtop">💎 Čisté jmění <span class="newtag">nové</span></div>
+    <div class="mval g">1 284 000 Kč</div>
+    <div class="mdelta g">+94 300 Kč <span class="m">za 6 měsíců</span></div>
+    <div class="subm ok">
+      <div class="subm-h"><span>Net Worth Momentum</span><em>6M vs baseline</em></div>
+      <div class="subm-v g">+7,9 %</div>
+      <div class="subm-d">Z toho 61 200 Kč vlastním spořením, 33 100 Kč růstem hodnoty majetku.</div>
+      <div class="subm-w"><b>Co to je:</b> majetek minus dluhy. Rozděluje růst na část, <b>kterou jsi vytvořil sám</b> (spoření, splátky), a část, která vznikla <b>změnou tržní hodnoty</b> (nemovitost, investice). To první je tvoje zásluha, to druhé trh.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MĚSÍC PO MĚSÍCI ══ -->
+<div class="seclabel">📅 Měsíc po měsíci</div>
+<div class="card">
+  <div class="scroll"><table>
+    <thead><tr><th>Měsíc</th><th>Příjmy</th><th>Výdaje</th><th>Saldo</th><th>Exp. Ratio</th><th>Skóre</th></tr></thead>
+    <tbody>
+      <tr><td>Březen</td><td>34 900</td><td>29 800</td><td class="g">+5 100</td><td class="y">85 %</td><td>64</td></tr>
+      <tr><td>Duben</td><td>36 200</td><td>29 100</td><td class="g">+7 100</td><td class="y">80 %</td><td>67</td></tr>
+      <tr><td>Květen</td><td>36 300</td><td>29 150</td><td class="g">+7 150</td><td class="y">80 %</td><td>71</td></tr>
+      <tr><td>Červen</td><td>41 100</td><td>33 400</td><td class="g">+7 700</td><td class="y">81 %</td><td>69</td></tr>
+      <tr><td>Červenec</td><td>42 500</td><td>31 600</td><td class="g">+10 900</td><td class="g">74 %</td><td>76</td></tr>
+      <tr><td>Srpen</td><td>43 300</td><td>31 300</td><td class="g">+12 000</td><td class="g">72 %</td><td>82</td></tr>
+      <tr><td>Ø 6 měsíců</td><td>39 050</td><td>30 725</td><td class="g">+8 325</td><td>79 %</td><td>72</td></tr>
+    </tbody>
+  </table></div>
+  <div class="legend">
+    <span><i style="background:var(--income)"></i>zlepšení</span>
+    <span><i style="background:var(--debt)"></i>pozor</span>
+    <span><i style="background:var(--expense)"></i>zhoršení</span>
+    <span class="m">Exp. Ratio = výdaje ÷ příjmy · Skóre 0–100</span>
+  </div>
+</div>
+
+<div class="card" style="background:var(--surface2)">
+  <div class="note"><b style="color:#c9cede">Poznámky k modelu:</b><br>
+  · Každá podmetrika má vysvětlivku „Co to je" — v appce jako rozbalovací text nebo ⓘ tooltip, ne natrvalo viditelný.<br>
+  · <b>Expense Ratio</b> se nepočítá znovu, bere se <code>expRatio</code> ze složky S1 skóre 0–310.<br>
+  · <b>FFR a Likvidita</b> se porovnávají proti baseline, ne půlením okna — jsou to pomalé zásoby, ne měsíční toky.<br>
+  · <b>Income Capture</b> jen při růstu příjmu, <b>Income Resilience</b> jen při poklesu. Nikdy obojí.<br>
+  · <b>Debt Momentum</b> v korunách, ne v procentech — procenta u dluhů klamou.<br>
+  · Chybí rozhodnutí: <b>Expense Ratio vs. Saving Rate</b> (jsou komplementární, jen jedno) a <b>vzorec skóre 0–100</b>.</div>
+</div>
+
+</div></body></html>
