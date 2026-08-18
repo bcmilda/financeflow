@@ -1,4 +1,4 @@
-// FinanceFlow · v9.75 · admin.js · 2026-08-01
+// FinanceFlow · v9.79 · admin.js · 2026-08-17
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -476,6 +476,22 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v9.79',
+    datum: '2026-08-17',
+    zmeny: [
+      '\u2728 TODO-211 (S19.1, zadala Milanova zena): NOVA KARTA „PRISTI MESIC\" (Planovani \u2192 Pristi mesic, tarif FREE). Odpovida na otazku, kterou appka dosud neumela: „vyjdu do 15., nez prijde vyplata?\" Dve tabulky s konkretnimi daty (Prijmy, Vydaje) a pod nimi PRUBEZNY ZUSTATEK den po dni. Novy samostatny modul js/pristi.js (38. modul), horizont zamerne JEN pristi mesic \u2013 delsi vyhled resi „Kam smeruju\".',
+      '\u2728 PREDIKCE PRIJMU \u2013 dosud v aplikaci vubec nebyla (predictCat umi natvrdo jen vydaje, budouci.js prijmove sablony preskakuje). Prijmy se nyni beru ze dvou zdroju: opakovanych sablon typu Prijem (presne datum) a z historie prijmovych kategorii za 6 mesicu.',
+      '\u2728 TRI UROVNE JISTOTY: zelena = sablona nebo splatka s datem \u00b7 zluta = pravidelny prijem podle historie (stabilityWeight >= 0,7, ADR-044) \u00b7 bila = nepravidelny prijem. NEJISTE PRIJMY SE DO PLANU NEPOCITAJI \u2013 zobrazuji se zvlast s poznamkou „kdyby vsechno vyslo\". Bez toho by matka na materske videla optimisticky prumer vcetne lonske brigady.',
+      '\u2728 RUCNI UPRAVA KTEREHOKOLI RADKU: tlacitko upravit prepise castku, krizek radek z vypoctu vyradi. Uzivatel casto vi vic nez historie („pristi mesic brigada nebude\"). Ulozeno v S.pristiCfg podle mesice, synchronizuje se mezi zarizenimi. Tlacitko „Zrusit rucni upravy\" vrati vse zpet na automaticky odhad.',
+      '\u2728 PREPINAC KALENDARNI MESIC / OD VYPLATY K VYPLATE \u2013 kalendarni mesic a financni cyklus nejsou totez. Den vyplaty se NEPOCITA ZNOVU, prebira se z radarPaydayInfo() ve Financnim obrazu (SKILL 17).',
+      '\u2699 OSETRENO DVOJI POCITANI (nejvetsi riziko cele funkce): dopocet prijmu z historie se snizuje o castku, kterou uz pokryva sablona; odhad beznych vydaju = predikce vsech kategorii MINUS zname platby s datem \u2013 jinak by najem a splatka vesly do souctu dvakrat. Oba vzorce jsou uzivateli primo vypsane pod tabulkou, ne schovane.',
+      '\u2699 Spoření a presuny mezi penezenkami maji vlastni kartu a do „zbude odhadem\" se NEPOCITAJI \u2013 penize neodchazi, jen se presouvaji. Agregace pouzivaji txCZK() a vylucuji splitParent / isBalancing / isTransferTx (SKILL 20).',
+      '\u2699 KALIBRACE: kdyz se prepne na jiz probehly mesic, karta ukaze odhad vedle skutecnosti a odchylku v procentech \u2013 uzivatel sam pozna, jestli se na predikci da spolehnout.',
+      '\u2699 ROLLBACK: v js/pristi.js je na prvnim radku prepinac PRISTI_ENABLED. Nastavenim na false zmizi polozka v menu i obsah stranky, nic dalsiho se mazat nemusi. Uplne odstraneni je popsane v patch-session19.md.',
+      '\u2699 Novy uzel users/{uid}/data/pristiCfg registrovan na vsech 4 mistech v app.js (_DW_META, _dwMetaVals, oba snapshoty) \u2013 bez toho by se TICHE nesynchronizoval. Firebase pravidla netreba, kaskada .write z users/$uid ho kryje. 44 runtime smoke testu (oba rezimy, prazdna i plna data, prelom roku, minuly mesic, prohlizeni partnera) + kontrola TDZ.',
+    ]
+  },
   {
     verze: 'v9.78',
     datum: '2026-08-03',

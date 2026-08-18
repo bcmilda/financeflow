@@ -1,4 +1,4 @@
-// FinanceFlow · v9.73 · ui.js · 2026-08-03
+// FinanceFlow · v9.79 · ui.js · 2026-08-17
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -53,6 +53,7 @@ function renderPage(){
   if(curPage==='uctenky')renderUctenky();
   if(curPage==='nakup')renderNakup();
   if(curPage==='budouci')renderBudouci();
+  if(curPage==='pristi'&&typeof renderPristiPage==='function')renderPristiPage();  // v9.79 TODO-211
   if(curPage==='aktiva')renderAssets();
   if(curPage==='smsimport')renderSmsImport();
   if(curPage==='admin')renderAdmin();
