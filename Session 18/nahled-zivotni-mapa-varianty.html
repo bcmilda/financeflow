@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="cs"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Náhled – Životní mapa: dvě varianty</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;--border:#2e3347;
+--text:#e8eaf2;--text2:#a8aec8;--income:#4ade80;--expense:#f87171;--debt:#fbbf24;--blue:#60a5fa;--purple:#a78bfa}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;padding:16px;line-height:1.55}
+.wrap{max-width:960px;margin:0 auto}
+h1{font-family:Syne,sans-serif;font-size:1.2rem;margin:0 0 4px}
+.lead{color:var(--text2);font-size:.84rem;margin-bottom:20px}
+.sec{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text2);margin:26px 0 10px;display:flex;align-items:center;gap:9px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px}
+.why{background:rgba(96,165,250,.07);border-left:2px solid var(--blue);border-radius:0 8px 8px 0;padding:9px 11px;margin-top:11px;font-size:.73rem;color:#bcc3d8;line-height:1.55}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.7rem;color:var(--text2);margin-top:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.tag{display:inline-block;font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:99px;background:rgba(96,165,250,.15);color:var(--blue);letter-spacing:.04em;margin-left:6px}
+</style></head><body><div class="wrap">
+
+<h1>🗺️ Životní mapa — dvě varianty zobrazení</h1>
+<div class="lead">Obojí staví na stejných datech (milníky a etapy z Deníku), jen je ukazuje jinak. Data jsou vymyšlená.</div>
+
+<!-- ══ A ══ -->
+<div class="sec">Varianta A · Značky přímo v grafu <span class="tag">propojení s čísly</span></div>
+<div class="card">
+  <div style="font-size:.82rem;font-weight:700;margin-bottom:10px">📈 Vývoj finančního skóre — s milníky</div>
+  <svg viewBox="0 0 860 240" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg">
+    <!-- mřížka -->
+    <line x1="52" y1="30" x2="840" y2="30" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <line x1="52" y1="90" x2="840" y2="90" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <line x1="52" y1="150" x2="840" y2="150" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <text x="44" y="34" text-anchor="end" font-size="11" fill="#a8aec8">100</text>
+    <text x="44" y="94" text-anchor="end" font-size="11" fill="#a8aec8">65</text>
+    <text x="44" y="154" text-anchor="end" font-size="11" fill="#a8aec8">30</text>
+
+    <!-- svislé značky milníků -->
+    <line x1="248" y1="20" x2="248" y2="186" stroke="#60a5fa" stroke-width="2" stroke-dasharray="4 3" opacity=".85"/>
+    <circle cx="248" cy="20" r="11" fill="#1a1d27" stroke="#60a5fa" stroke-width="2"/>
+    <text x="248" y="25" text-anchor="middle" font-size="12">🏠</text>
+
+    <line x1="576" y1="20" x2="576" y2="186" stroke="#a78bfa" stroke-width="2" stroke-dasharray="4 3" opacity=".85"/>
+    <circle cx="576" cy="20" r="11" fill="#1a1d27" stroke="#a78bfa" stroke-width="2"/>
+    <text x="576" y="25" text-anchor="middle" font-size="12">👶</text>
+
+    <!-- křivka skóre -->
+    <polyline points="80,120 190,102 248,108 330,150 440,138 576,120 690,160 820,142"
+      fill="none" stroke="#4ade80" stroke-width="2.6" stroke-linejoin="round"/>
+    <g fill="#4ade80">
+      <circle cx="80" cy="120" r="4"/><circle cx="190" cy="102" r="4"/><circle cx="248" cy="108" r="4"/>
+      <circle cx="330" cy="150" r="4"/><circle cx="440" cy="138" r="4"/><circle cx="576" cy="120" r="4"/>
+      <circle cx="690" cy="160" r="4"/><circle cx="820" cy="142" r="4"/>
+    </g>
+    <!-- popisky osy -->
+    <g font-size="11" fill="#a8aec8" text-anchor="middle">
+      <text x="80" y="208">bře</text><text x="190" y="208">dub</text><text x="248" y="208">kvě</text>
+      <text x="330" y="208">čvn</text><text x="440" y="208">čvc</text><text x="576" y="208">srp</text>
+      <text x="690" y="208">zář</text><text x="820" y="208">říj</text>
+    </g>
+    <text x="248" y="228" text-anchor="middle" font-size="10" fill="#60a5fa" font-weight="700">Hypotéka</text>
+    <text x="576" y="228" text-anchor="middle" font-size="10" fill="#a78bfa" font-weight="700">Narození dítěte</text>
+  </svg>
+  <div class="why">ⓘ <b>Co to řeší:</b> propad skóre v červnu vypadá bez kontextu jako selhání. Se značkou je hned vidět, že měsíc předtím přibyla hypotéka. Značka se dá dát do libovolného grafu — Vývoj skóre, Měsíc po měsíci, Od výplaty k výplatě.</div>
+</div>
+
+<!-- ══ B ══ -->
+<div class="sec">Varianta B · Vodorovná osa života <span class="tag">tvůj návrh</span></div>
+<div class="card">
+  <div style="font-size:.82rem;font-weight:700;margin-bottom:12px">🗺️ Osa života nad finančními křivkami</div>
+  <svg viewBox="0 0 860 400" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg">
+    <!-- ETAPY: zelené pruhy pod osou -->
+    <rect x="60" y="34" width="300" height="20" rx="5" fill="rgba(74,222,128,.18)" stroke="#4ade80" stroke-width="1"/>
+    <text x="210" y="48" text-anchor="middle" font-size="11" fill="#4ade80" font-weight="700">🧍 Svobodný</text>
+    <rect x="364" y="34" width="236" height="20" rx="5" fill="rgba(74,222,128,.28)" stroke="#4ade80" stroke-width="1"/>
+    <text x="482" y="48" text-anchor="middle" font-size="11" fill="#4ade80" font-weight="700">💑 Pár</text>
+    <rect x="604" y="34" width="236" height="20" rx="5" fill="rgba(74,222,128,.4)" stroke="#4ade80" stroke-width="1.4"/>
+    <text x="722" y="48" text-anchor="middle" font-size="11" fill="#4ade80" font-weight="700">👨‍👩‍👦 Rodina</text>
+
+    <!-- HLAVNÍ MODRÁ OSA -->
+    <line x1="52" y1="22" x2="840" y2="22" stroke="#60a5fa" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- UDÁLOSTI: modré sloupce shora dolů -->
+    <line x1="248" y1="22" x2="248" y2="330" stroke="#60a5fa" stroke-width="2.5" opacity=".55"/>
+    <circle cx="248" cy="22" r="10" fill="#0f1117" stroke="#60a5fa" stroke-width="2.5"/>
+    <text x="248" y="26" text-anchor="middle" font-size="11">🏠</text>
+    <text x="248" y="14" text-anchor="middle" font-size="9.5" fill="#60a5fa" font-weight="700">Hypotéka</text>
+
+    <line x1="576" y1="22" x2="576" y2="330" stroke="#60a5fa" stroke-width="2.5" opacity=".55"/>
+    <circle cx="576" cy="22" r="10" fill="#0f1117" stroke="#60a5fa" stroke-width="2.5"/>
+    <text x="576" y="26" text-anchor="middle" font-size="11">👶</text>
+    <text x="576" y="14" text-anchor="middle" font-size="9.5" fill="#60a5fa" font-weight="700">Dítě</text>
+
+    <line x1="700" y1="22" x2="700" y2="330" stroke="#60a5fa" stroke-width="2" opacity=".4" stroke-dasharray="3 3"/>
+    <circle cx="700" cy="22" r="9" fill="#0f1117" stroke="#60a5fa" stroke-width="2"/>
+    <text x="700" y="26" text-anchor="middle" font-size="10">🚗</text>
+
+    <!-- mřížka grafu -->
+    <line x1="52" y1="110" x2="840" y2="110" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <line x1="52" y1="200" x2="840" y2="200" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <line x1="52" y1="290" x2="840" y2="290" stroke="#2e3347" stroke-dasharray="3 4"/>
+    <text x="44" y="114" text-anchor="end" font-size="10" fill="#a8aec8">60k</text>
+    <text x="44" y="204" text-anchor="end" font-size="10" fill="#a8aec8">30k</text>
+    <text x="44" y="294" text-anchor="end" font-size="10" fill="#a8aec8">0</text>
+
+    <!-- PŘÍJMY zeleně -->
+    <polyline points="80,180 190,172 248,168 330,190 440,186 576,150 700,144 820,140"
+      fill="none" stroke="#4ade80" stroke-width="2.4"/>
+    <!-- VÝDAJE červeně -->
+    <polyline points="80,240 190,232 248,196 330,200 440,204 576,178 700,170 820,176"
+      fill="none" stroke="#f87171" stroke-width="2.4"/>
+    <!-- BANKA žlutě -->
+    <polyline points="80,262 190,250 248,258 330,272 440,264 576,250 700,238 820,230"
+      fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="5 3"/>
+    <!-- NET WORTH fialově -->
+    <polyline points="80,286 190,278 248,268 330,262 440,252 576,236 700,222 820,206"
+      fill="none" stroke="#a78bfa" stroke-width="2.6"/>
+
+    <g font-size="10.5" fill="#a8aec8" text-anchor="middle">
+      <text x="80" y="322">2023</text><text x="248" y="322">2024</text>
+      <text x="440" y="322">2025</text><text x="700" y="322">2026</text>
+    </g>
+    <!-- legenda -->
+    <g font-size="10.5">
+      <rect x="60" y="348" width="12" height="3" rx="1.5" fill="#4ade80"/><text x="78" y="353" fill="#a8aec8">Příjmy</text>
+      <rect x="140" y="348" width="12" height="3" rx="1.5" fill="#f87171"/><text x="158" y="353" fill="#a8aec8">Výdaje</text>
+      <rect x="220" y="348" width="12" height="3" rx="1.5" fill="#fbbf24"/><text x="238" y="353" fill="#a8aec8">Banka</text>
+      <rect x="296" y="348" width="12" height="3" rx="1.5" fill="#a78bfa"/><text x="314" y="353" fill="#a8aec8">Čisté jmění</text>
+      <rect x="400" y="348" width="12" height="3" rx="1.5" fill="#60a5fa"/><text x="418" y="353" fill="#a8aec8">Události</text>
+      <rect x="486" y="345" width="12" height="9" rx="2" fill="rgba(74,222,128,.3)" stroke="#4ade80"/><text x="504" y="353" fill="#a8aec8">Etapy</text>
+    </g>
+  </svg>
+  <div class="why">ⓘ <b>Přesně tvůj popis:</b> vodorovná modrá osa nahoře, z ní dolů modré sloupce pro události, zelené pruhy pro etapy a pod tím čtyři finanční křivky. Výhoda oproti A: vidíš celou historii najednou a etapy jako <b>období</b>, ne body. Nevýhoda: potřebuje víc svislého místa a na mobilu bude nutný vodorovný posuv.</div>
+</div>
+
+<!-- ══ srovnání ══ -->
+<div class="sec">Co bych doporučil</div>
+<div class="card">
+  <div style="font-size:.84rem;line-height:1.7;color:#c9cede">
+    <b style="color:var(--blue)">Varianta A</b> je levnější na implementaci (svislá čára do existujícího grafu) a hodí se všude — do Vývoje skóre, do Měsíc po měsíci, do Od výplaty k výplatě. Odpovídá na „proč se tohle číslo změnilo".<br><br>
+    <b style="color:var(--income)">Varianta B</b> je samostatná obrazovka, která odpovídá na jinou otázku: „jak vypadal můj finanční život celkově". Je působivější, ale je to nová komponenta, ne úprava existující.<br><br>
+    <b style="color:#fff">Nejsou to konkurenti.</b> A je rozšíření grafů, B je nová sekce v Deníku. Dávalo by smysl udělat nejdřív A (rychlé, okamžitý přínos) a B přidat, až bude mít člověk aspoň rok dat — na půl roce by osa života vypadala prázdně.
+  </div>
+</div>
+
+</div></body></html>

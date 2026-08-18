@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-F2Z8DK4RR0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', { 'analytics_storage': 'denied' });
+  try { if (localStorage.getItem('ff_cookie_analytics') === '1') gtag('consent', 'update', { 'analytics_storage': 'granted' }); } catch(e){}
+  gtag('js', new Date());
+  gtag('config', 'G-F2Z8DK4RR0', { anonymize_ip: true });
+</script>
+<title>Zabezpečení a soukromí — FinanceFlow</title>
+<meta name="description" content="Data v EU, žádné napojení na banku, platby přes Stripe, export i smazání kdykoli. Bez reklam a bez prodeje dat.">
+<link rel="canonical" href="https://financeflow.cz/zabezpeceni">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://financeflow.cz/zabezpeceni">
+<meta property="og:title" content="Zabezpečení a soukromí — FinanceFlow">
+<meta property="og:description" content="Data v EU, žádné napojení na banku, platby přes Stripe, export i smazání kdykoli. Bez reklam a bez prodeje dat.">
+<meta property="og:image" content="https://financeflow.cz/img/og.jpg">
+<meta property="og:locale" content="cs_CZ">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/landing.css?v=s18">
+<style>
+.nav-links a.is-active{color:var(--green)}
+.page-head{padding:120px 0 44px;text-align:center}
+.page-head .h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5.4vw,3.1rem);font-weight:800;line-height:1.12;letter-spacing:-.03em;margin-bottom:16px}
+.page-head p{color:var(--text2);font-size:1.05rem;max-width:660px;margin:0 auto;line-height:1.65}
+.crumb{font-size:.78rem;color:var(--text3);margin-bottom:18px}
+.crumb a{color:var(--text2);text-decoration:none}
+.crumb a:hover{color:var(--green)}
+.sec{padding:34px 0}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+.narrow{max-width:780px;margin:0 auto}
+.fcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:16px}
+.fcard h3{font-family:'Syne',sans-serif;font-size:1.18rem;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.fcard p{color:var(--text2);line-height:1.7;font-size:.95rem}
+.fcard ul{margin:12px 0 0 0;list-style:none}
+.fcard li{color:#a8b4c8;font-size:.9rem;padding:4px 0 4px 20px;position:relative}
+.fcard li::before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.uniq{border-left:3px solid var(--green)}
+.cmp{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:18px}
+.cmp th,.cmp td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.cmp th{font-family:'Syne',sans-serif;font-weight:800;font-size:.82rem;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.cmp td:first-child{color:var(--text);font-weight:600}
+.cmp .y{color:var(--green);font-weight:700}
+.cmp .n{color:var(--text3)}
+.faq{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;padding:15px 0;font-weight:700;font-size:.98rem;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:'+';color:var(--green);font-weight:800;margin-right:10px}
+.faq[open] summary::before{content:'−'}
+.faq-body{padding:0 0 16px 22px;color:var(--text2);font-size:.93rem;line-height:1.7}
+.cta-end{text-align:center;padding:52px 0 76px}
+.note{font-size:.82rem;color:var(--text3);line-height:1.6}
+.cost-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--border)}
+.cost-row:last-child{border-bottom:0}
+.cost-ic{font-size:1.3rem;flex-shrink:0;width:30px;text-align:center}
+.cost-name{font-weight:700;font-size:.94rem}
+.cost-desc{color:var(--text2);font-size:.84rem;line-height:1.5;margin-top:2px}
+@media(max-width:640px){.page-head{padding:96px 0 32px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-in">
+    <a href="/" class="logo" aria-label="FinanceFlow – domů"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></a>
+    <div class="nav-links"><a href="/funkce">Funkce</a><a href="/jak-to-funguje">Jak to funguje</a><a href="/proc-my">Proč my</a><a href="/cenik">Ceník</a></div>
+    <div class="nav-cta" style="margin-left:auto">
+      <a href="/app" class="btn btn-sm btn-ghost">Přihlásit se</a>
+      <a href="/cenik" class="btn btn-sm btn-primary">Začít zdarma →</a>
+    </div>
+  </div>
+</nav>
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="/">Domů</a> › Zabezpečení</div>
+    <h1 class="h1">Zabezpečení a soukromí</h1>
+    <p>Kde jsou vaše data, kdo se k nim dostane a co s nimi neděláme. Bez marketingových frází.</p>
+  </div>
+</header>
+<div class="sec"><div class="wrap narrow">
+<div class="grid2" style="grid-template-columns:1fr">
+<div class="fcard"><h3>🔑 Nikdy se nepřipojujeme k vaší bance</h3>
+  <p>FinanceFlow nemá a nechce přístup k vašemu bankovnímu účtu. Nezadáváte u nás přihlašovací údaje do banky a nepoužíváme žádného zprostředkovatele bankovních dat. Pracujeme výhradně s výpisy, které nám sami nahrajete.</p></div>
+
+<div class="fcard"><h3>🇪🇺 Data uložená v Evropské unii</h3>
+  <p>Vaše data leží v databázi Google Firebase v regionu <b>europe-west1</b>, tedy na území EU, a spadají pod GDPR. Přenos probíhá výhradně přes šifrované HTTPS spojení.</p></div>
+
+<div class="fcard"><h3>🔒 Ke svým datům se dostanete jen vy</h3>
+  <p>Přístup k databázi řídí serverová pravidla, ne kód v prohlížeči. Každý uživatel může číst a zapisovat pouze do své vlastní části databáze — i kdyby se někdo pokusil poslat požadavek na cizí data, server ho odmítne.</p>
+  <ul><li>Přihlášení přes Google (Firebase Auth)</li><li>Volitelný PIN zámek aplikace</li><li>Sdílení s partnerem jen na váš výslovný pokyn</li></ul></div>
+
+<div class="fcard"><h3>💳 Platební údaje u nás nikdy nejsou</h3>
+  <p>Platby zpracovává <b>Stripe</b>. Číslo vaší karty se nikdy nedostane na naše servery ani je nevidíme — Stripe nám pouze potvrdí, že platba proběhla.</p></div>
+
+<div class="fcard"><h3>🗝️ Klíče a citlivé údaje mimo prohlížeč</h3>
+  <p>Komunikace s AI probíhá přes náš server na Cloudflare, kde jsou uložené všechny přístupové klíče. Do prohlížeče se nikdy nedostanou. Každý požadavek se ověřuje proti vašemu přihlášení.</p></div>
+
+<div class="fcard"><h3>🛡️ Zabezpečení webu</h3>
+  <p>Aplikace běží na Firebase Hosting s vynuceným HTTPS a bezpečnostními hlavičkami proti vkládání cizího obsahu a zneužití v rámečku (<span class="note">X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy</span>). Přístup ke kameře, mikrofonu a poloze je na úrovni serveru zakázaný — kromě fotoaparátu pro účtenky, který si vyžádá váš prohlížeč a vy ho musíte schválit.</p></div>
+
+<div class="fcard"><h3>📤 Data jsou vaše a můžete si je vzít</h3>
+  <p>V Nastavení si kdykoli stáhnete kompletní zálohu ve formátu JSON. Stejně tak můžete smazat všechna data — nevratně, ze serveru i ze zařízení.</p></div>
+
+<div class="fcard"><h3>🚫 Žádné reklamy, žádný prodej dat</h3>
+  <p>FinanceFlow nemá reklamy a vaše finanční data nikomu neprodáváme ani nepředáváme. Nedává to smysl ani obchodně — příjem tvoří předplatné, ne data.</p>
+  <p style="margin-top:10px">Jediné, co opouští váš účet, jsou <b>anonymní souhrny</b> pro komunitní srovnání (například průměrný výdaj za potraviny), a to bez jakékoli vazby na vaši osobu.</p></div>
+</div>
+
+<div class="fcard" style="margin-top:22px;background:var(--surface2)">
+  <h3>⚠️ Co vám naopak slíbit nemůžeme</h3>
+  <p>FinanceFlow vyvíjí jeden člověk. Nemáme certifikaci ISO ani SOC 2 a neprošli jsme externím bezpečnostním auditem. Stavíme na infrastruktuře Google a Cloudflare, které certifikované jsou, ale sami tvrdit něco, co jsme nedoložili, nebudeme.</p>
+  <p style="margin-top:10px">Pokud najdete bezpečnostní problém, napište prosím na <a href="mailto:info@financeflow.cz" style="color:var(--green)">info@financeflow.cz</a>. Ozveme se.</p></div>
+</div></div><div class="cta-end"><div class="wrap">
+  <a href="/cenik" class="btn btn-primary">Vyzkoušet 30 dní zdarma →</a>
+  <p class="note" style="margin-top:14px">Bez karty. Bez závazků. Data zůstávají tvoje i po skončení zkušební doby.</p>
+</div></div>
+<footer>
+  <div class="footer-in">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></div>
+        <p>Váš osobní finanční radar.<br>Česky, bez reklam, s AI.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Produkt</h4>
+          <a href="/funkce">Funkce</a>
+          <a href="/jak-to-funguje">Jak to funguje</a>
+          <a href="/proc-my">Proč my</a>
+          <a href="/cenik">Ceník</a>
+          <a href="/app">Otevřít aplikaci</a>
+        </div>
+        <div class="footer-col">
+          <h4>Společnost</h4>
+          <a href="/o-zakladateli">O zakladateli</a>
+          <a href="/zabezpeceni">Zabezpečení</a>
+          <a href="/napoveda.html">Nápověda</a>
+        </div>
+        <div class="footer-col">
+          <h4>Právní</h4>
+          <a href="/legal.html">Ochrana soukromí</a>
+          <a href="/legal.html#terms">Podmínky použití</a>
+          <a href="/legal.html#gdpr">GDPR práva</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontakt</h4>
+          <a href="mailto:info@financeflow.cz">info@financeflow.cz</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 FinanceFlow · Vytvořeno s 💚 v Česku</div>
+      <div class="footer-legal">
+        <a href="/legal.html">Soukromí</a>
+        <a href="/legal.html#terms">Podmínky</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

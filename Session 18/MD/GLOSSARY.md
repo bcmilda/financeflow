@@ -1,0 +1,285 @@
+# FinanceFlow – Glossary (Slovníček)
+
+> Abecední přehled termínů, zkratek a interních pojmů používaných v projektu FinanceFlow.
+> Cíl: Claude i autor okamžitě najdou definici bez hledání v kódu nebo jiných .md souborech.
+> Poslední aktualizace: 2026-04-16.
+
+---
+
+## A
+
+**`admin.js`** – JS modul pro admin panel (jen Admin UID). Obsahuje changelog, keyword engine, leady, support zprávy, statistiky mapování.
+
+**Admin UID** – Unikátní identifikátor admina ve Firebase: `LNEC8VNB2QPwIv6WWQ9lqgR4O5v1`. Používá se ve Firebase Security Rules pro omezení přístupu.
+
+**ADR** – Architecture Decision Record. Formální záznam architektonického rozhodnutí (viz `decisions.md`). Číslování: ADR-001 až ADR-015.
+
+**`amt`** – Starší alias pro `amount` v transakcích. Vždy čti `t.amount || t.amt || 0` kvůli zpětné kompatibilitě. Viz `decisions.md` „Ukládat obojí amount + amt".
+
+**Annuitní splátka** – Konstantní měsíční splátka dluhu. Vzorec: `payment = principal × [r(1+r)^n] / [(1+r)^n - 1]`. Viz `formulas.md` sekce 3.
+
+## B
+
+**`baseIncome`** – Průměr stabilních příjmů za poslední 3 měsíce. Funkce `computeBaseIncome(D)` v `projects.js`. Fallback (v6.40): průměr všech příjmů pokud žádná `stable` kategorie neexistuje.
+
+**Blend 80/20** – Vzorec pro sezónní predikci: `personalSeason[m] × 0.8 + SEASON[m].mult × 0.2`. 80 % vlastní historie + 20 % globální ČR průměr. Viz `formulas.md` sekce 4.5.
+
+**Box plot** – Krabicový graf (Q1, medián, Q3, min, max). Aktuálně ve špatné záložce grafů — viz `todo.md` TODO-009.
+
+## C
+
+**Cache busting** – Technika proti browser cache: za každý `<script src>` se přidává `?v=XXXXXXXX` (prvních 8 znaků SHA256 hashe souboru). Po každé změně JS souboru nutno přepočítat.
+
+**`calcOECD(a, c013, c14)`** – Funkce v `admin.js` pro výpočet OECD spotřebních jednotek. Viz sekce OECD.
+
+**COICOP** – Classification of Individual Consumption by Purpose. Evropský standard klasifikace výdajů domácností. FinanceFlow používá CZ-COICOP 2024 s 13 skupinami. Viz `formulas.md` sekce 5.
+
+**Completeness score** – Přesnost srovnání s ČR: `počet COICOP skupin s výdaji > 0 / 13 × 100`. 🟢≥80 % / 🟡≥50 % / 🔴<50 %.
+
+**`computePersonalSeason()`** – Funkce v `helpers.js` pro výpočet personalizovaných sezónních koeficientů. Vyžaduje min. 2 roky dat. Viz `formulas.md` sekce 4.2.
+
+**`confidence`** – Úroveň jistoty COICOP mapování: 70 (keyword), 50 (kategorie), 30 (podkategorie), 0 (fallback).
+
+**`curPage`** – Globální proměnná uchovávající název aktuální stránky (např. `'prehled'`, `'transakce'`, `'grafy'`).
+
+**ČNB** – Česká národní banka. Stanovuje limity pro DTI (<700 %) a DSTI (<35 %). Viz `formulas.md` sekce 2.
+
+**ČSÚ** – Český statistický úřad. Zdroj průměrných výdajů domácností per COICOP skupina. Data z roku 2024.
+
+## D
+
+**`_db`** – Globální reference na Firebase Realtime Database instanci. Nastavuje se v `firebase.js` jako `window._db = db`.
+
+**`detectTrend()`** – Funkce v `helpers.js` pro detekci trendu výdajů. Min. 4 měsíce dat, outlier removal >3× medián. Výstup: `'up'` / `'down'` / `'stable'`.
+
+**DSTI** – Debt-Service-To-Income ratio. `měsíční_splátky / měsíční_příjem × 100`. ČNB limit: max 50 % (od 2023). Bezpečné: <35 %.
+
+**DTI** – Debt-To-Income ratio. `celkový_dluh / roční_příjem × 100`. ČNB doporučení: max 900 %. Bezpečné: <700 %.
+
+**DVI** – Debt vs. Investment analýza. Simulace: co kdyby peníze na splácení šly místo toho do investic.
+
+## E
+
+**EmailJS** – Alternativní email provider (emailjs.com). Free 200/měsíc, nevyžaduje vlastní doménu. Kandidát na náhradu Resend. Viz `explanations.md` sekce 2.
+
+## F
+
+**`firebase.js`** – Poslední JS modul v pořadí načítání (`type="module"`). Inicializuje Firebase SDK, `onAuthStateChanged`. **Musí být vždy poslední** — viz `decisions.md` ADR-010.
+
+**Firebase Realtime Database** – NoSQL databáze (europe-west1). Ukládá data uživatelů pod `/users/{uid}/data/`. Viz `architecture.md` sekce 4.
+
+**`fmt(n)`** – Utility funkce pro formátování čísla s mezerami: `1234567 → "1 234 567"`.
+
+## G
+
+**`getData()`** – Vrací `S` (vlastní data) nebo `partnerData[viewingUid].data` (partnerova data).
+
+**`getHistAvg()`** – Historický průměr výdajů kategorie ze všech minulých měsíců. Viz `formulas.md` sekce 4.1.
+
+**GoPay** – Český platební provider. Kandidát pro monetizaci (alternativa: Stripe/Paddle). Rozhodnutí otevřené — viz `todo.md` TODO-022.
+
+## H
+
+**`healthPct` / `healthAmt`** – Limit kategorie: % z baseIncome nebo absolutní částka. Používá se v detektoru úspor a rozpočtovém zdraví.
+
+**`helpers.js`** – JS modul s utility funkcemi: `showPage()`, `renderPage()`, predikce, formátování, `computePersonalSeason`, `detectTrend`, `computeYearForecast`.
+
+## I
+
+**IndexedDB** – Klient-side databáze (bez limitu localStorage). Používá se pro offline účtenky (`offline-sync.js`). Tři tabulky: `pending_receipts`, `pending_tx`, `sync_log`.
+
+**IQR** – Mezikvartilové rozpětí (Q3 − Q1). Používá se v box plot grafech.
+
+## J
+
+**Jaro-Winkler** – Algoritmus pro porovnávání řetězců (prefix weighting). Implementace v `duplicates.js`. Práh: ≥0.92 = přesný duplikát, ≥0.80 = podobný. Viz `formulas.md` sekce 10.3.
+
+## K
+
+**KB** – Komerční banka. CSV export: kódování `windows-1250`, header na řádku 16 (přeskočí metadata).
+
+**Keyword engine** – COICOP mapovací engine: název transakce → klíčové slovo → COICOP skupina. Viz `formulas.md` sekce 5.
+
+## L
+
+**`localStorage`** – Úložiště v prohlížeči pro lokální režim (bez Google účtu) a PIN hash.
+
+## M
+
+**`mapToCOICOP(tx)`** – Hlavní funkce COICOP mapování. Vrací `{coicopId: number, confidence: 0|30|50|70}`.
+
+**Memory Rules** – Pravidla uložená v Claude Code pro automatickou aktualizaci verze (4 povinné kroky). Viz `architecture.md` sekce 11.
+
+## N
+
+**Net Worth** – Čistý majetek: `suma(peněženky) - suma(dluhy)`. Funkce `computeNetWorth(D)` v `premium.js`.
+
+## O
+
+**OECD** – Organization for Economic Co-operation and Development. FinanceFlow používá OECD-modified scale pro spotřební jednotky: `1.dospělý=1.0, další=0.5, dítě 14+=0.5, dítě 0–13=0.3`.
+
+**`OfflineSync`** – Globální objekt (`window.OfflineSync`) z `offline-sync.js`. API: `init()`, `saveReceiptOffline()`, `saveTxOffline()`, `runSync()`, `isOnline()`, `showOfflineQueue()`.
+
+**`onUserSignedIn(user)`** – Callback v `app.js` volaný z `firebase.js` po úspěšném přihlášení. Načítá profil, partnery, renderuje stránku.
+
+**Outlier removal** – Odstranění extrémních hodnot (>3× medián) z dat před výpočtem trendu. Ochrana proti jednorázovým výdajům (servis auta za 19 342 Kč).
+
+## P
+
+**`predictCat()`** – Hlavní predikční funkce: `baseAvg × seasMult × trendMult + bdayBoost`. Viz `formulas.md` sekce 4.5.
+
+**PSD2** – Payment Services Directive 2. EU regulace pro Open Banking (automatický import transakcí). Vyžaduje licenci — viz `todo.md` TODO-026.
+
+**PWA** – Progressive Web App. FinanceFlow má `manifest.json` a ikony, ale Service Worker pro plný offline chybí (viz `todo.md` TODO-019).
+
+## R
+
+**`rAF`** – `requestAnimationFrame`. Používá se pro delay před renderováním grafů (CSS `display:none → block` jinak vrací `clientWidth = 0`). Viz `explanations.md` sekce 6 (plánováno).
+
+**Resend** – Email provider používaný pro kontaktní formulář. Free tier omezení: `from` jen `onboarding@resend.dev`, `to` jen registrovaný email. Viz `explanations.md` sekce 2.
+
+**RPSN** – Roční procentní sazba nákladů. Newton-Raphson iterace (200×, clamp against divergence). Viz `formulas.md` sekce 3.
+
+## S
+
+**`S`** – Globální in-memory stav aplikace. Objekt obsahující `transactions`, `debts`, `categories`, `bank`, `wallets`, `projects`, `receipts`, atd. Viz `architecture.md` sekce 4.
+
+**`save()`** – Hlavní ukládací funkce: `setTimeout(1200ms) → saveToFirebase()` nebo `saveLocal()`.
+
+**`saveTx()`** – Funkce v `debts.js` pro uložení transakce. Ukládá obojí `{amount: amt, amt}` kvůli kompatibilitě.
+
+**SEASON** – Globální objekt sezónních koeficientů (0–11 → multiplikátor). Leden 0.85, Prosinec 1.35. Viz `formulas.md` sekce 4.3.
+
+**`showPage(name)`** – Navigační funkce v `helpers.js`. Přepíná CSS třídu `active` na stránkách a volá `renderPage()` s `rAF` delay.
+
+**Smart month detection** – Auto-přechod na poslední měsíc s daty (max 3 měsíce zpět). Viz `formulas.md` sekce 20.
+
+**SPA** – Single Page Application. FinanceFlow je SPA s CSS class `active` routingem místo URL hash routeru. Viz `decisions.md`.
+
+**`splitId` / `splitParent`** – Pole pro split transakce. `splitParent: true` = hlavní, `false` = podtransakce. Anti double-counting filtr: `!t.splitId || t.splitParent`.
+
+**`stable`** – Vlastnost kategorie (`stable: true`). Označuje stabilní příjem (výplata). Používá se pro výpočet `baseIncome`.
+
+## T
+
+**TWA** – Trusted Web Activity. Wrapper pro zabalení PWA do nativní Android aplikace (Google Play). Viz `todo.md` TODO-027.
+
+## U
+
+**UID** – User Identifier. Firebase Auth generuje unikátní UID pro každého uživatele.
+
+## V
+
+**`viewingUid`** – Globální proměnná. `null` = vlastní data, `uid` = prohlížení partnerových dat.
+
+## W
+
+**Worker** – Cloudflare Worker (`misty-limit-0523`). Proxy pro Claude API (chat, receipt, bank_statement, wish_url, price_alert, contact_form). Ověřuje Firebase token, rate limiting 60 req/hod. Viz `architecture.md` sekce 7.
+
+---
+
+## Dodatky Session 10 (abecedně)
+
+**`calcOECD`** – Funkce přepočtu velikosti domácnosti na OECD ekvivalent: `1,0 + (dospělí−1)×0,5 + děti14+×0,5 + děti0–13×0,3`. Použito v komunitním srovnání (režim domácnost). Viz ADR-049.
+
+**CZ-COICOP 2024** – Oficiální klasifikace spotřeby ČSÚ, **13 oddílů**. V appce tříúrovňový strom oddíl→skupina→třída. `COICOP_GROUPS_DEF` (helpers.js + receipts.js kopie). Viz ADR-050.
+
+**Denní graf (radar)** – Graf „Měsíc den po dni" ve Finančním radaru: bílá kumulativní výdaje, zelená příjem, žlutá ideální tempo, oranžová predikce zbytku, modré denní sloupce. `renderRadarDailyChart`/`drawRadarDaily`.
+
+**eomLeft** – End-of-month left. Odhad zůstatku na konci měsíce: `příjem − výdaje − známé budoucí platby do konce měsíce`.
+
+**FFR (Financial Freedom Ratio)** – Poměr pasivního příjmu k měsíčním výdajům × 100. `computeFFR()`. Viz Finanční obraz.
+
+**Ideální tempo (idealPace)** – Rovnoměrné rozložení příjmu přes měsíc: `příjem × (den / počet dní)`. Žlutá referenční čára v denním grafu – nad ní = utrácíš rychleji než rovnoměrně.
+
+**Kam směřuju** – Sekce radaru se 4 sloupci (Příjem / Plánovaný výdej / Budoucí platby / Cashflow) + predikce 3 měsíců.
+
+**OECD ekvivalent** – viz `calcOECD`.
+
+**Rodinný souhrn** – Součet výdajů partnerů v režimu Domácnost (přes `partnerData`). Sdílení read-only. Viz ADR-051.
+
+**Spending Pace (tempo utrácení)** – Porovnání aktuálních kumulativních výdajů s historickým průměrem ke stejnému dni v měsíci (6 měs). Verdikt „utrácíš o X % rychleji/pomaleji než obvykle". Záložka v Predikci. `renderPaceChart`/`drawPaceChart`.
+
+**Volné peníze** – Kolik lze ještě utratit do konce měsíce po rezervě na budoucí platby: `příjem − utraceno − budoucí platby`. Při záporu „chybí na pokrytí závazků".
+
+**Výdaje po týdnech od výplaty** – Trend utrácení: referenční bod = den výplaty, průměr Kč/den za každý týden cyklu. `renderPaydayWeeksTable`.
+
+**Wealth Momentum** – Průměrný měsíční přírůstek čistého jmění. Finanční obraz.
+
+---
+
+*Vytvořeno: 2026-04-16 | Autor: Milan Migdal | Doplněno Session 10: 2026-06-01*
+
+
+---
+
+## Session 11 – nové pojmy
+
+### lineTotal
+Pole na položce účtenky – skutečně zaplacená cena za daný řádek (celková, po slevě). Zdroj pravdy pro výpočty. Odlišné od `price` (cena za jednotku). Přidáno v ADR-059. Viz `explanations.md` – Receipt lineTotal model.
+- **Hodnota:** číslo v Kč (vždy kladné)
+- **Příklad:** Meloun 6,445 kg × 29,90 Kč/kg, sleva −64,45 → `lineTotal: 128.26`
+
+### discount
+Pole na položce účtenky – ušetřená částka (sleva věrnostní, akční cena). Vždy kladné číslo i když na účtence záporné. 0 pokud žádná sleva. Přidáno v S11.
+- **Příklad:** Meloun SLEVA VĚRNOSTI −64,45 Kč → `discount: 64.45`
+
+### lineAmt(it)
+Helper funkce v `receipts.js`. Vrátí skutečnou cenu položky: `it.lineTotal ?? (it.price * (it.qty || 1))`. Zpětně kompatibilní – staré záznamy bez lineTotal použijí původní výpočet.
+
+### _receiptEditorOpen
+Globální flag v `window`. Nastaven na `true` při otevření inline editoru účtenky v Historii. `renderUctenky()` přeskočí re-render dokud je `true` (chrání editor před Firebase sync). Vyčištěn při zavření nebo uložení.
+
+### pairPartners(ownerUid, myUid)
+Funkce v `share.js`. Bidirektivně spáruje dva uživatele jako partnery, udělí +50 bodů (PARTNER_BONUS_PTS) majiteli odkazu. Dedup přes `partner_bonus/{owner}_{me}`.
+
+### _renderForce
+Globální boolean v `ui.js`. Pokud `true`, renderPage() provede plný re-render bez kontroly `_dataSig`. Nastavuje ho `save()` před každým uložením. Reset po re-renderu.
+
+### _dataSig()
+Funkce v `ui.js`. Vrátí hash/kontrolní součet aktuálního stavu dat. Pokud se signature nezmění od posledního renderu a `_renderForce` je false, renderPage() přeskočí re-render (anti-flicker).
+Sleduje: počty (tx, debts, wallets, assets, categories), sumy (tx amounts, asset values, debt remaining, wallet balances, goals, tagy+subcat).
+
+### receiptDate / receiptStore
+Pole na transakci vytvořené z účtenky (`addReceiptAsTx`). Slouží k propojení transakce s původní účtenkou v Historii (`openReceiptInHistory`). Přidáno v v7.67.
+
+---
+
+*Aktualizace Session 11: 2026-06-09*
+
+---
+
+# SESSION 12.1 (v7.70 -> v7.94)
+
+- **isTransferTx(t)** – detekce přesunu mezi peněženkami (transferId / catId 'transfer'). Vyloučen ze statistik, započítán do zůstatků.
+- **getUserTier() / hasTier(min) / canUseFeature(key) / gateFeature(key)** – tier brána (free/premium/pro).
+- **FEATURE_TIERS** – mapa funkce → minimální tier ('premium'|'admin').
+- **TIER_PRICES** – {premium:149, pro:299} Kč/měs.
+- **LIQ_GROUPS** – skupiny aktiv dle likvidity (liquid/invest/fixed).
+- **assetLiqTotals(D)** – součty aktiv dle likvidity (peněženky = liquid přes computeWalletBalance).
+- **a.valuations[{d,v}]** – track record hodnoty aktiva v čase; a.invested = vloženo celkem.
+- **receiptSavings(rec)** – součet slev na účtence (z it.discount).
+- **welcomeMessage** – Firebase uzel uvítací hlášky; ff_welcome_seen drží poslední viděnou verzi.
+- **_txBalMap** – mapa id→průběžný zůstatek peněženky.
+
+---
+
+---
+
+*Aktualizace Session 12.1: 2026-06-14 | v7.70 → v7.94 | FIX-129-146, TODO-122-136, ADR-060-064*
+
+---
+
+## Doplnění Session 18 (2026-08-03)
+
+- **Milník (milestone)** – bodová událost v Životní mapě (Deník): datum, ikona, poznámka. Neovlivňuje bodování skóre, jen dodává kontext ke skokům v číslech.
+- **Etapa (era)** – rozšíření milníku o interval (začátek–konec), umožňuje srovnat průměrné výdaje mezi životními obdobími.
+- **Monthly Score** – skóre Finančního obrazu za aktuální (poslední) měsíc okna, proti průměru celého okna. Kolísá, jeden měsíc nic neznamená sám o sobě.
+- **N-měsíční Momentum Score** – měří SMĚR a STÁLOST pohybu skóre v čase, ne jeho úroveň. Vysoké momentum při nízkém skóre = rychlé zlepšování; nízké při vysokém = udržování dobré pozice.
+- **Exp. Ratio (Expense Ratio)** – podíl výdajů na příjmech (výdaje ÷ příjmy) za dané období; sloupec v tabulce Měsíc po měsíci.
+- **Baseline** – první polovina zvoleného okna, proti které se porovnává druhá polovina („aktuální"). Používá se napříč Finančním obrazem (Lifestyle, FFR, Likvidita).
+- **check_tdz** – vývojářský nástroj (`tools/check_tdz.js`), kontroluje proměnné použité před svou platnou deklarací pomocí JS parseru (acorn). Spouští se před každou dodávkou, nenasazuje se s appkou.
+- **TDZ (Temporal Dead Zone)** – stav proměnné `const`/`let` mezi začátkem bloku a řádkem její deklarace; použití v této zóně způsobí `ReferenceError`. Odtud název kontrolního skriptu.
+- **reviews/{uid}** – Firebase uzel s hodnocením aplikace (hvězdičky + text), mimo `users/{uid}`.
+
+*Aktualizace Session 18: 2026-08-03 | v9.42 → v9.78 | FIX-220–251 · ADR-098–103*
