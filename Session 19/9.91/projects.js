@@ -1,4 +1,4 @@
-// FinanceFlow · v9.92 · projects.js · 2026-08-19
+// FinanceFlow · v9.91 · projects.js · 2026-08-19
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5802,8 +5802,6 @@ function renderDenik(){
     </div>
     ${_denikCestaHTML()}
     ${_zivotniMapaHTML(m,y)}
-    ${typeof revDenikHTML==='function'?revDenikHTML(m,y):''}
-    ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}
     ${_osaZivotaHTML()}`;
 }
 

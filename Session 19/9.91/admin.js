@@ -1,4 +1,4 @@
-// FinanceFlow · v9.92 · admin.js · 2026-08-19
+// FinanceFlow · v9.91 · admin.js · 2026-08-19
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -481,20 +481,6 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v9.92',
-    datum: '2026-08-19',
-    zmeny: [
-      '\u2728 TODO-198 FAZE 2: SOUHRN HODNOCENI V DENIKU. Faze 1 (v9.34) hodnoceni sbirala, ale uzivatel nikde nevidel, co z toho plyne. Nyni: kolik Kc pripada na utraty hodnocene 1\u20132, kolik na 4\u20135, sest mesicu vyvoje ve sloupcich, nejcasteji vahane a nejlepe hodnocene skupiny.',
-      '\u26A0\uFE0F FAZE 2 \u2013 TON JE SOUCAST ZADANI, NE KOSMETIKA. Misto „utratil jsi 4 200 Kc za veci, ktere ti nic nedaly\" karta rika „kdybys polovinu poslal jinam, mas za rok X navic \u2013 ne proto, ze by ty vydaje byly spatne, ale protoze jsi u nich sam vahal\". Stejna data, opacny pocit: prvni je obvineni, druhe nabidka. Test to hlida a pri obvinujici formulaci NEPROJDE.',
-      '\u2699 Prumery jsou VAZENE CASTKOU, ne poctem \u2013 jedna draha utrata musi vazit vic nez pet drobnych. Pod 15 % ohodnocenych vydaju karta vypise, ze cisla mluvi jen o te casti.',
-      '\u2728 TODO-198 FAZE 3: VZORCE. Hleda souvislost mezi tim, KDY a JAK uzivatel plati, a tim, jak to pak hodnoti \u2013 den v tydnu, zpusob platby, druh nakupu, velikost utraty. Vzorec se ukaze jen pri 5+ ohodnocenych utratach v kosi a rozdilu 0,6+ bodu; jinak jde o sum a karta rekne, ze se nic vyrazne neopakuje.',
-      '\u26A0\uFE0F FAZE 3 \u2013 DENNI DOBA V APLIKACI NEEXISTUJE. Plan slibuje „nakupy po 22:00 hodnotis 2,1\", jenze transakce nesou POUZE datum YYYY-MM-DD. Cas neuklada rucni zapis, import z banky ani parser uctenek \u2013 proslo cele uloziste. Dopocitat ho nelze a pouzit cas ZAPISU by bylo zavadejici: kdo zadava davkove vecer, vyrobil by si vzorec „vecer utracim spatne\", ktery v realite neexistuje.',
-      '\u2699 Reseni: od v9.92 se uklada t.enteredAt (cas zapisu) a vzorec denni doby se zapne az pri 20+ zaznamech zapsanych V DEN NAKUPU \u2013 tam je cas zapisu rozumnou nahradou casu nakupu. Do te doby karta OTEVRENE RIKA, ze udaj chybi a kolik zaznamu jeste schazi, misto aby to zamlcela.',
-      '\u2699 Cas se uklada PRED rozvetvenim podle meny \u2013 pri prvnim pokusu skoncil uvnitr jedne vetve a transakcim zadanym v zakladni mene bez penezenky by chybel.',
-      '\u2699 15 testu vcetne kontroly tonu, vazeneho prumeru a toho, ze vyrovnane hodnoceni NEVYROBI vzorec z nahody.',
-    ]
-  },
   {
     verze: 'v9.91',
     datum: '2026-08-19',

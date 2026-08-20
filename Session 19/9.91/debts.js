@@ -1,4 +1,4 @@
-//  FinanceFlow · v9.92 · debts.js · 2026-08-19
+//  FinanceFlow · v9.91 · debts.js · 2026-08-19
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -564,12 +564,6 @@ function saveTx(){
   const payTypeId = document.getElementById('txPayTypeId')?.value||'';
   if(walletId) txObj.wallet = walletId;
   if(payTypeId) txObj.payType = payTypeId;
-  // TODO-198 fáze 3: čas zápisu. Použije se JEN u transakcí zapsaných v den nákupu –
-  //   u dávkového zadávání by vyrobil neexistující vzorec „večer utrácím špatně".
-  //   Zapisuje se jen u nových záznamů, editace staré transakce čas nepřerazí.
-  //   ⚠️ MUSÍ být před rozvětvením podle měny – jinak by chyběl u transakcí
-  //   zadaných v základní měně bez peněženky (větev _eCzk != null).
-  if(!eid && !txObj.enteredAt) txObj.enteredAt = Date.now();
   const _eCzk=_entryAmtCZK(walletId,amt); // v8.62: výchozí peněženka + základní měna ≠ CZK → zadáno v základní měně
   if(_eCzk!=null){ txObj.amount=_eCzk; txObj.amt=_eCzk; txObj.amtCZK=null; txObj.currency=null; }
   else {
