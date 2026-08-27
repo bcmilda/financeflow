@@ -51,8 +51,14 @@
 'Authorization': `Bearer ${env.RESEND_API_KEY}`,
 
 // ❌ Špatně:
-'Authorization': 'Bearer re_9jY2risE_PHnkUvHmqPfgSH9vQp1j9zLC',
+'Authorization': 'Bearer re_XXXXXXXX_ZDE_NIKDY_NENI_KLIC',
 ```
+
+> ⚠️ **Ani v „špatném příkladu" nepiš klíč, který vypadá jako pravý.**
+> Na tomhle řádku byl realisticky vypadající Resend klíč a **GitHub Secret
+> Scanning kvůli němu zablokoval push** (Session 19). Skener nerozlišuje ukázku
+> od úniku — a má pravdu, protože v historii commitů vypadá obojí stejně.
+> Používej `re_XXXX…`, `sk_live_XXXX…`, `whsec_XXXX…`.
 
 ### Doporučená struktura `.gitignore`
 ```
