@@ -1575,8 +1575,27 @@ z `/mnt/project`:
 - `smoke_review.js` — extrahuje `revTimePatternReady`, které ve zdroji, z něhož
   test čte, není deklarované vůbec.
 
-**Riziko:** dokud se testy nespustí ručně (nejsou v CI), o selhání nikdo neví —
-tichý blind spot pokrývající Detektor úspor a měsíční review. Nutno buď opravit
-extrakci v testu podle aktuální struktury kódu, nebo pokud testovaná logika
-už v této podobě neexistuje, test formálně zrušit místo tichého ignorování.
+### ✅ FIX-272 · `smoke_detektor.js` a `smoke_review.js` opraveny (vyřešeno v S20)
+Dvě nezávislé příčiny, obě opraveny stejný den, kdy byly objeveny:
+
+**`smoke_detektor.js`** — skutečný test drift. Regex předpokládal, že `const subTxs`
+je hned na dalším řádku po `const detTxs`. Od FIX-270 (S19, „detektory se navzájem
+nevylučovaly") mezi ně přibyly komentáře a `_claimed`/`_free`/`_claim` — `match()`
+vracel `null` a test spadl dřív, než se vůbec spustil. Opraveno: obě deklarace
+se teď hledají nezávisle na pořadí a mezerách mezi nimi.
+
+**`smoke_review.js`** — nebyl to drift, ale test **záměrně zrušené funkce**.
+`revTimePatternReady` a sběr `t.enteredAt` byly zavedeny ve v9.92 a o verzi
+později zrušeny (viz `decisions.md` ADR-104, SKILL 28) — Milan sám zapisuje
+transakce i druhý den, takže čas zápisu by neodpovídal času nákupu a vzorec
+„večer utrácím špatně" by byl vymyšlený. Test testoval kód, který podle
+rozhodnutí neexistuje. Odstraněny 2 zastaralé kontroly (denní doba) +
+1 kontrola textu „Denní doba zatím chybí" (ta hláška v HTML už taky není).
+Zbylých 10 kontrol (souhrn v Deníku, vzorce den/platba/velikost) beze změny.
+
+**Poučení:** ne každé selhání testu je test drift ve smyslu „kód se pohnul,
+test ne" — někdy je to test, který přežil vlastní funkci. Než se regex opravuje,
+stojí za to ověřit v `decisions.md`/`ADR`, jestli testovaná věc ještě má existovat.
+
+---
 
