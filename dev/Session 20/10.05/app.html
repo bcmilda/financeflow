@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v10.06</title>
+<title>FinanceFlow v10.05</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -261,7 +261,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.06 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.05 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <div class="sidebar-user">
@@ -1049,7 +1049,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.06</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.05</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1144,91 +1144,6 @@
 
 <!-- FAB -->
 <button class="fab" id="mainFab" onclick="openAddTx()">+</button>
-
-<!-- MODAL: Onboarding krok 1 (TODO-234) – jednorázové uvítací nastavení pro nové uživatele.
-     Záměrně JEDNA stránka: rozdělení do kroků zvyšuje počet lidí, kteří odpadnou uprostřed.
-     Vše má rozumnou výchozí hodnotu, takže „Nastavit později" je plnohodnotná volba. -->
-<div class="overlay" id="modalOnboard">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-head"><h3>👋 Vítej ve FinanceFlow</h3></div>
-    <div class="modal-body">
-      <div style="font-size:.82rem;color:#a8aec8;line-height:1.5;margin-bottom:14px">
-        Pár údajů, aby ti aplikace počítala správně. Všechno jde kdykoliv změnit v Nastavení.
-      </div>
-
-      <div class="frow">
-        <div class="fg"><label>Jazyk</label>
-          <select class="fi" id="obLang">
-            <option value="cs">🇨🇿 Čeština</option>
-            <option value="sk">🇸🇰 Slovenčina</option>
-            <option value="en">🇬🇧 English</option>
-          </select>
-        </div>
-        <div class="fg"><label>Základní měna</label>
-          <select class="fi" id="obCurrency">
-            <option value="CZK">🇨🇿 CZK – Koruna</option>
-            <option value="EUR">🇪🇺 EUR – Euro</option>
-            <option value="USD">🇺🇸 USD – Dolar</option>
-            <option value="GBP">🇬🇧 GBP – Libra</option>
-            <option value="PLN">🇵🇱 PLN – Zlotý</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="fg"><label>Formát data</label>
-        <select class="fi" id="obDateFmt">
-          <option value="cs">DD.MM.YYYY (česky)</option>
-          <option value="iso">YYYY-MM-DD (ISO)</option>
-          <option value="us">MM/DD/YYYY (US)</option>
-        </select>
-      </div>
-
-      <div class="fg"><label>Kam si zapisuješ peníze</label>
-        <input class="fi" id="obWalletName" placeholder="Můj účet" maxlength="40">
-        <div style="font-size:.7rem;color:#a8aec8;margin-top:4px;line-height:1.45">Peněženka = účet nebo hotovost, ze které platíš. Další můžeš přidat později.</div>
-      </div>
-
-      <div class="fg"><label>Jak nejčastěji platíš</label>
-        <select class="fi" id="obPayType">
-          <option value="Karta">💳 Kartou</option>
-          <option value="Hotovost">💵 Hotově</option>
-          <option value="Převod">🏦 Převodem</option>
-          <option value="">– nevybírat –</option>
-        </select>
-      </div>
-
-      <div class="frow">
-        <div class="fg"><label>Jak často ti chodí příjem</label>
-          <select class="fi" id="obPayFreq" onchange="obToggleFirstDay()">
-            <option value="monthly">📅 Měsíčně</option>
-            <option value="biweekly">📆 Každých 14 dní</option>
-            <option value="weekly">🗓️ Týdně</option>
-            <option value="semimonthly">🔂 2× měsíčně</option>
-            <option value="irregular">🎲 Nepravidelně (OSVČ)</option>
-          </select>
-        </div>
-        <div class="fg" id="obFirstDayWrap"><label>Který den v měsíci</label>
-          <select class="fi" id="obFirstDay"></select>
-        </div>
-      </div>
-
-      <div class="fg" style="background:var(--surface2);border-radius:10px;padding:10px 12px">
-        <label style="display:block;margin-bottom:6px">Máš půjčku nebo hypotéku?</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" class="btn btn-ghost" id="obDebtYes" onclick="obSetDebts(true)" style="flex:1">Ano</button>
-          <button type="button" class="btn btn-ghost" id="obDebtNo" onclick="obSetDebts(false)" style="flex:1">Ne</button>
-        </div>
-        <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.45">
-          Bez odpovědi appka nepozná rozdíl mezi „nemám dluh" a „ještě jsem ho nezadal" — a část Finančního skóre se ti nezapočítá.
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="skipOnboarding()">Nastavit později</button>
-      <button class="btn btn-accent" onclick="saveOnboarding()">Uložit a začít</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL: Projekt -->
 <div class="overlay" id="modalProject">
@@ -2155,7 +2070,7 @@
   </div>
 </div>
 
-<script src="js/app.js?v=dd7980d2aa7e9bba"></script>
+<script src="js/app.js?v=d02df537029f4d03"></script>
 <script src="js/helpers.js?v=1369381d2cb4efa8"></script>
 <script src="js/ui.js?v=0baad73598f38144"></script>
 <script src="js/transactions.js?v=b321af6434cb16ab"></script>
@@ -2167,7 +2082,6 @@
 <script src="js/debts.js?v=2b46923bf86928a9"></script>
 <script src="js/ai.js?v=b1f55e8134f89bcb"></script>
 <script src="js/premium.js?v=afaaa172ed8bc0da"></script>
-<script src="js/onboarding.js?v=2b5b32a2cdb08ddf"></script>
 <script src="js/projects.js?v=584b4d9ccceca513"></script>
 <script src="js/receipts.js?v=01dbbf659564a4bd"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
@@ -2185,7 +2099,7 @@
 <script src="js/kalendar.js?v=3382e36893ecd91f"></script>
 <script src="js/donate.js?v=2b13b228092cfc98"></script>
 <script src="js/announcements.js?v=5ebbdf749eecaa87"></script>
-<script src="js/admin.js?v=a183688aa842ed0c"></script>
+<script src="js/admin.js?v=ad6341b1ce49da64"></script>
 <script src="js/import.js?v=eaa07f0fae7b24db"></script>
 <script src="js/push.js?v=98eefa39ee805fc2"></script>
 <script src="js/kurzy.js?v=2ceb4280cc2dd99e"></script>
@@ -2531,21 +2445,6 @@ document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='f
     </div>
   </div>
 </div>
-
-<!-- TODO-234: Onboarding krok 1 – nový uživatel, jedna stránka otázek -->
-<div class="overlay" id="modalOnboarding">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>👋 Vítej ve FinanceFlow</h3>
-    </div>
-    <div class="modal-body" style="max-height:78vh;overflow-y:auto" id="modalOnboardingBody"></div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="onboardingSkip()">Přeskočit, nastavím později</button>
-      <button class="btn btn-accent" onclick="onboardingSave()">Uložit a začít</button>
-    </div>
-  </div>
-</div>
-
 <style>
   .donate-amt-btn { padding:10px 8px; font-weight:600; transition:transform .1s, background .15s; }
   .donate-amt-btn:hover { transform: translateY(-1px); }

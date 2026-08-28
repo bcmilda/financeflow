@@ -1,4 +1,4 @@
-// FinanceFlow · v10.06 · admin.js · 2026-08-28
+// FinanceFlow · v10.05 · admin.js · 2026-08-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -482,16 +482,6 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v10.06',
-    datum: '2026-08-28',
-    zmeny: [
-      '👋 TODO-234: ONBOARDING KROK 1 – nový modul onboarding.js (39.). Jedna stránka pro nového uživatele: jazyk, výchozí měna, typ prvního účtu, výchozí typ platby, formát data, frekvence výplaty + den, dotaz na půjčku/hypotéku. Vše volitelné, "Přeskočit" nastaví jen příznak dokončení.',
-      '⚙ TODO-234 – SPOUŠTÍ SE JEN pro opravdu nového uživatele (stejná podmínka, která už spouští seedData() v app.js), NIKDY podle chybějícího _settings.onboardingDone samotného (SKILL 31 – absence dat není informace). Existující účty dostanou příznak potichu doplněný na pozadí bez vyskočení dialogu.',
-      '🔓 TODO-234 – dotaz na půjčku/hypotéku zapisuje _settings.hasDebts (true/false). Toto pole už od TODO-227 (S19) čte computeFinancialScore() v premium.js pro odemčení S2 (zadluženost) – onboarding jen doplňuje UI, které chybělo. "Zatím nevím" pole záměrně NEVYPLNÍ, appka nesmí předstírat, že zná odpověď.',
-      '⚙ Nový test tools/smoke_onboarding.js (8 kontrol): nový vs. existující uživatel, prohlížení dat partnera, uložení/skip, "zatím nevím" nezapisuje odpověď, opakované volání neotevře modal podruhé.',
-    ]
-  },
   {
     verze: 'v10.05',
     datum: '2026-08-28',
