@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-F2Z8DK4RR0"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', { 'analytics_storage': 'denied' });
+  try { if (localStorage.getItem('ff_cookie_analytics') === '1') gtag('consent', 'update', { 'analytics_storage': 'granted' }); } catch(e){}
+  gtag('js', new Date());
+  gtag('config', 'G-F2Z8DK4RR0', { anonymize_ip: true });
+</script>
+<title>Funkce — FinanceFlow</title>
+<meta name="description" content="Účtenky po položkách, vlastní inflace, detekce shrinkflace, srovnání s ČSÚ, finanční skóre a predikce. Funkce, které bankovní aplikace nemá.">
+<link rel="canonical" href="https://financeflow.cz/funkce">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://financeflow.cz/funkce">
+<meta property="og:title" content="Funkce — FinanceFlow">
+<meta property="og:description" content="Účtenky po položkách, vlastní inflace, detekce shrinkflace, srovnání s ČSÚ, finanční skóre a predikce. Funkce, které bankovní aplikace nemá.">
+<meta property="og:image" content="https://financeflow.cz/img/og.jpg">
+<meta property="og:locale" content="cs_CZ">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/landing.css?v=s18">
+<style>
+.nav-links a.is-active{color:var(--green)}
+.page-head{padding:120px 0 44px;text-align:center}
+.page-head .h1{font-family:'Syne',sans-serif;font-size:clamp(2rem,5.4vw,3.1rem);font-weight:800;line-height:1.12;letter-spacing:-.03em;margin-bottom:16px}
+.page-head p{color:var(--text2);font-size:1.05rem;max-width:660px;margin:0 auto;line-height:1.65}
+.crumb{font-size:.78rem;color:var(--text3);margin-bottom:18px}
+.crumb a{color:var(--text2);text-decoration:none}
+.crumb a:hover{color:var(--green)}
+.sec{padding:34px 0}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 22px}
+.narrow{max-width:780px;margin:0 auto}
+.fcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:26px;margin-bottom:16px}
+.fcard h3{font-family:'Syne',sans-serif;font-size:1.18rem;font-weight:800;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.fcard p{color:var(--text2);line-height:1.7;font-size:.95rem}
+.fcard ul{margin:12px 0 0 0;list-style:none}
+.fcard li{color:#a8b4c8;font-size:.9rem;padding:4px 0 4px 20px;position:relative}
+.fcard li::before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.uniq{border-left:3px solid var(--green)}
+.cmp{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:18px}
+.cmp th,.cmp td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.cmp th{font-family:'Syne',sans-serif;font-weight:800;font-size:.82rem;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.cmp td:first-child{color:var(--text);font-weight:600}
+.cmp .y{color:var(--green);font-weight:700}
+.cmp .n{color:var(--text3)}
+.faq{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0 18px;margin-bottom:10px}
+.faq summary{cursor:pointer;padding:15px 0;font-weight:700;font-size:.98rem;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::before{content:'+';color:var(--green);font-weight:800;margin-right:10px}
+.faq[open] summary::before{content:'−'}
+.faq-body{padding:0 0 16px 22px;color:var(--text2);font-size:.93rem;line-height:1.7}
+.cta-end{text-align:center;padding:52px 0 76px}
+.note{font-size:.82rem;color:var(--text3);line-height:1.6}
+.cost-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--border)}
+.cost-row:last-child{border-bottom:0}
+.cost-ic{font-size:1.3rem;flex-shrink:0;width:30px;text-align:center}
+.cost-name{font-weight:700;font-size:.94rem}
+.cost-desc{color:var(--text2);font-size:.84rem;line-height:1.5;margin-top:2px}
+@media(max-width:640px){.page-head{padding:96px 0 32px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-in">
+    <a href="/" class="logo" aria-label="FinanceFlow – domů"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></a>
+    <div class="nav-links"><a href="/funkce" class='is-active'>Funkce</a><a href="/jak-to-funguje">Jak to funguje</a><a href="/proc-my">Proč my</a><a href="/cenik">Ceník</a></div>
+    <div class="nav-cta" style="margin-left:auto">
+      <a href="/app" class="btn btn-sm btn-ghost">Přihlásit se</a>
+      <a href="/cenik" class="btn btn-sm btn-primary">Začít zdarma →</a>
+    </div>
+  </div>
+</nav>
+<header class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="/">Domů</a> › Funkce</div>
+    <h1 class="h1">Všechno, co FinanceFlow umí</h1>
+    <p>Od účtenek rozebraných na jednotlivé položky po predikci na půl roku dopředu. Tohle není další tabulka příjmů a výdajů.</p>
+  </div>
+</header>
+<div class="sec"><div class="wrap">
+<h2 class="h2" style="text-align:center;margin-bottom:8px">Co FinanceFlow umí</h2>
+<p class="sub" style="text-align:center;margin-bottom:32px">Funkce označené <span style="color:var(--green)">zeleným pruhem</span> nenajdete v bankovní ani v běžné rozpočtové aplikaci.</p>
+
+<div class="grid2">
+  <div class="fcard uniq"><h3>🧾 Účtenky až na jednotlivé položky</h3>
+    <p>Vyfotíte účtenku a AI z ní vytáhne každý řádek — název produktu, množství, jednotkovou cenu i slevu. Nevíte jen, že jste v obchodě nechali 847 Kč. Víte, za co konkrétně.</p>
+    <ul><li>Rozpad nákupu po produktech</li><li>Rozpoznání slev a akcí</li><li>Hromadné zpracování více účtenek</li></ul></div>
+
+  <div class="fcard uniq"><h3>📈 Vaše vlastní inflace</h3>
+    <p>Z vašich účtenek spočítáme, jak se mění ceny věcí, které skutečně kupujete. Ne průměr za celou republiku — váš nákupní košík.</p>
+    <ul><li>Meziroční srovnání cen</li><li>Vývoj od první po poslední nákup</li><li>Porovnání mezi obchody</li></ul></div>
+
+  <div class="fcard uniq"><h3>📉 Detekce shrinkflace</h3>
+    <p>Balení se zmenšilo, cena zůstala. U zboží prodávaného na váhu hlídáme cenu za kilogram a upozorníme, když se poměr zhorší.</p>
+    <ul><li>Kč/kg a Kč/l u váženého zboží</li><li>Historie velikosti balení</li></ul></div>
+
+  <div class="fcard uniq"><h3>🇨🇿 Srovnání s daty ČSÚ</h3>
+    <p>Vaše výdaje zařazené podle mezinárodní klasifikace COICOP a porovnané se skutečnou statistikou českých domácností.</p>
+    <ul><li>Klasifikace COICOP</li><li>Srovnání s průměrem ČR</li><li>Anonymní komunitní průměry</li></ul></div>
+
+  <div class="fcard uniq"><h3>🙂 Měsíční hodnocení útrat</h3>
+    <p>Některé výdaje z dat poznat nejdou. Večeře s rodinou za 2 000 Kč a impulzivní nákup vypadají v transakcích stejně. Proto si na konci měsíce sami ohodnotíte, co za to stálo.</p>
+    <ul><li>Hodnocení 1–5 „Stálo to za to?"</li><li>Aplikace nikdy neoznačí útratu za zbytečnou sama</li><li>Souhrny mluví o budoucnosti, ne o výčitkách</li></ul></div>
+
+  <div class="fcard uniq"><h3>🎯 Finanční skóre 0–310</h3>
+    <p>Pět vážených složek — cash flow, zadluženost, rezerva, spoření a rozpočet — složených do jednoho čísla s vysvětlením, co ho zlepší.</p>
+    <ul><li>Rozpad na jednotlivé složky</li><li>Vývoj v čase</li><li>Kolik bodů chybí do lepší známky</li></ul></div>
+
+  <div class="fcard"><h3>🏦 Import bankovních výpisů</h3>
+    <p>Nahrajete PDF, CSV nebo Excel výpis a AI z něj vytáhne transakce, zařadí je do kategorií a zapamatuje si vaše opravy.</p>
+    <ul><li>PDF s dělením velkých souborů</li><li>Učení kategorií z vašich oprav</li><li>Detekce duplicit při importu</li></ul></div>
+
+  <div class="fcard"><h3>💳 Dluhy a splátky</h3>
+    <p>Dluhový stres index z deseti metrik, DTI a DSTI, plus simulace dvou strategií splácení vedle sebe.</p>
+    <ul><li>Avalanche vs. Sněhová koule</li><li>Graf ušetřených úroků</li><li>Horizont 5–30 let</li></ul></div>
+
+  <div class="fcard"><h3>🔮 Predikce a plánování</h3>
+    <p>Šestiměsíční výhled, budoucí platby, opakované šablony a měření, jak přesné předchozí predikce byly.</p>
+    <ul><li>Predikce po kategoriích</li><li>Tempo výdajů v měsíci</li><li>Sezónnost výdajů</li></ul></div>
+
+  <div class="fcard"><h3>💎 Majetek a čisté jmění</h3>
+    <p>Nemovitosti, investice, vozidla a spoření na jednom místě, propojené s transakcemi.</p>
+    <ul><li>Automatické napojení vkladů</li><li>Přepočet cizích měn přes ČNB</li><li>Ušlý zisk z peněz ležících bez úroku</li></ul></div>
+
+  <div class="fcard"><h3>📅 Pracovní kalendář</h3>
+    <p>Směny, přesčasy a hodinová mzda s rozpoznáním českých svátků — propojené s příjmy.</p>
+    <ul><li>Ranní, odpolední, noční, přesčas</li><li>Kopírování vzoru směn</li></ul></div>
+
+  <div class="fcard"><h3>👨‍👩‍👧 Rodina a sdílení</h3>
+    <p>Sdílený přehled pro partnera, společné projekty a nákupní seznam.</p>
+    <ul><li>Sdílení s partnerem</li><li>Projekty s vlastním rozpočtem</li><li>Nákupní seznam</li></ul></div>
+</div>
+</div></div><div class="cta-end"><div class="wrap">
+  <a href="/cenik" class="btn btn-primary">Vyzkoušet 30 dní zdarma →</a>
+  <p class="note" style="margin-top:14px">Bez karty. Bez závazků. Data zůstávají tvoje i po skončení zkušební doby.</p>
+</div></div>
+<footer>
+  <div class="footer-in">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo"><span class="logo-ic">💚</span><span class="logo-tx">Finance<b>Flow</b></span></div>
+        <p>Váš osobní finanční radar.<br>Česky, bez reklam, s AI.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Produkt</h4>
+          <a href="/funkce">Funkce</a>
+          <a href="/jak-to-funguje">Jak to funguje</a>
+          <a href="/proc-my">Proč my</a>
+          <a href="/cenik">Ceník</a>
+          <a href="/app">Otevřít aplikaci</a>
+        </div>
+        <div class="footer-col">
+          <h4>Společnost</h4>
+          <a href="/o-zakladateli">O zakladateli</a>
+          <a href="/zabezpeceni">Zabezpečení</a>
+          <a href="/napoveda.html">Nápověda</a>
+        </div>
+        <div class="footer-col">
+          <h4>Právní</h4>
+          <a href="/legal.html">Ochrana soukromí</a>
+          <a href="/legal.html#terms">Podmínky použití</a>
+          <a href="/legal.html#gdpr">GDPR práva</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontakt</h4>
+          <a href="mailto:info@financeflow.cz">info@financeflow.cz</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 FinanceFlow · Vytvořeno s 💚 v Česku</div>
+      <div class="footer-legal">
+        <a href="/legal.html">Soukromí</a>
+        <a href="/legal.html#terms">Podmínky</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
