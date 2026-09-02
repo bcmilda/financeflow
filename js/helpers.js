@@ -1,4 +1,4 @@
-// FinanceFlow · v10.21 · helpers.js · 2026-08-28
+// FinanceFlow · v10.30 · helpers.js · 2026-09-02
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -664,6 +664,50 @@ function computeCoicopAggregates(txs, D) {
   return {cats: result, unassigned: Math.round(unassigned)};
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  KOMUNITNÍ PSEUDONYM (FIX-307, S21)
+//  Záznamy v community/{měsíc}/users byly klíčované `uid`. Od v10.24 je sice
+//  čte jen vlastník a admin, ale klíč sám je pořád přímý identifikátor –
+//  a uid appka vybízí sdílet (partnerský odkaz ?partnerOf={uid}). Kdo ho zná,
+//  ví, který záznam čí je; stačilo by jediné povolení navíc v pravidlech.
+//  Nově se publikuje pod náhodným pseudonymem, uloženým v users/{uid}/communityId.
+//  Vazba pseudonym→uid tak existuje jen uvnitř uživatelova vlastního podstromu,
+//  kam nikdo jiný nevidí. Worker při agregaci klíče vůbec nezkoumá.
+// ══════════════════════════════════════════════════════════════════════
+let _communityIdCache = null;
+async function getCommunityId() {
+  if (_communityIdCache) return _communityIdCache;
+  if (!window._currentUser || !window._db) return null;
+  const uid = window._currentUser.uid;
+  try {
+    const snap = await _get(_ref(_db, `users/${uid}/communityId`));
+    if (snap.exists() && typeof snap.val() === 'string' && snap.val().length >= 8) {
+      _communityIdCache = snap.val();
+      return _communityIdCache;
+    }
+    // SKILL 31: chybějící uzel neznamená „smazáno\", ale „ještě nevznikl\".
+    const novy = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2))
+      .replace(/-/g, '');
+    await _set(_ref(_db, `users/${uid}/communityId`), novy);
+    _communityIdCache = novy;
+    return novy;
+  } catch (e) {
+    console.warn('[community] pseudonym:', e?.message);
+    return null;
+  }
+}
+window.getCommunityId = getCommunityId;
+
+// Starý záznam klíčovaný uid se při prvním pseudonymním zápisu odstraní.
+// Bez toho by v databázi zůstal identifikovatelný otisk i po přechodu.
+async function dropLegacyCommunityRecord(monthKey) {
+  try {
+    if (!window._currentUser || !window._db) return;
+    await _set(_ref(_db, `community/${monthKey}/users/${window._currentUser.uid}`), null);
+  } catch (e) { /* pravidla to nemusí povolit u cizího klíče – není to chyba */ }
+}
+window.dropLegacyCommunityRecord = dropLegacyCommunityRecord;
+
 async function uploadCoicopToFirebase(month, year, D) {
   try {
     if(!window._currentUser || !window._db) return;
@@ -673,18 +717,20 @@ async function uploadCoicopToFirebase(month, year, D) {
     //   volá se z save() throttlovaně každých 5 minut. Bez tohohle řádku by
     //   vypnutý přepínač nic neřešil: jedna cesta by mlčela, druhá publikovala dál.
     if (typeof _settings === 'undefined' || !_settings || _settings.community !== true) return;
-    const uid = window._currentUser.uid;
+    const pid = await getCommunityId();          // FIX-307: pseudonym místo uid
+    if (!pid) return;
     const txs = getTx(month, year, D);
     const income = incSum(txs, D);   // FIX-280: přes D, jinak se cizí měna sečte v nominále
     const exp = expSum(txs, D);
     if(exp <= 0) return;
     const {cats, unassigned} = computeCoicopAggregates(txs, D);
     const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-    await _set(_ref(_db, `community/${monthKey}/users/${uid}`), {
+    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), {
       totalExp: Math.round(exp), income: Math.round(income),
       savingRate: income > 0 ? Math.round((income-exp)/income*100) : 0,
       cats, unassigned, updatedAt: Date.now(),
     });
+    await dropLegacyCommunityRecord(monthKey);   // FIX-307: úklid uid-klíčovaného záznamu
   } catch(e) { console.warn('uploadCoicop failed:', e?.message); }
 }
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.23 · premium.js · 2026-08-28
+// FinanceFlow · v10.30 · premium.js · 2026-09-02
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup','report2','inflace'];
@@ -310,6 +310,16 @@ async function preloadFounderSlots() {
 }
 
 function goPremium() {
+  // FIX-305 (S21): nenabízet výběr tarifu někomu, kdo Premium už má – druhá platba
+  //   by založila druhé předplatné. Kontrola je i v startPremiumSubscription()
+  //   (poslední záchrana), tady jde o to, aby se modal vůbec neotevřel.
+  if (_premiumStatus && (_premiumStatus.type === 'premium' || _premiumStatus.type === 'pro')
+      && _premiumStatus.until > Date.now()) {
+    if (typeof showToast === 'function') {
+      showToast('💎 Předplatné je aktivní do ' + new Date(_premiumStatus.until).toLocaleDateString('cs-CZ'));
+    }
+    return;
+  }
   if (typeof startPremiumSubscription !== 'function') {
     alert('💳 Platební brána bude brzy dostupná!\n\nZatím můžeš vyzkoušet Premium na 30 dní zdarma.');
     return;

@@ -1,4 +1,4 @@
-//  FinanceFlow · v10.24 · assets.js · 2026-08-28
+//  FinanceFlow · v10.30 · assets.js · 2026-09-02
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -34,8 +34,14 @@ function assetCatLiq(catId){
   if (cc.liq === 'reserve' || cc.liq === 'mid' || cc.liq === 'long') return cc.liq; // ruční nastavení
   const n = (cc.name || '').toLowerCase(); // odvození podle názvu (výchozí)
   if (/virtuáln|virtualn/.test(n)) return 'virtual';   // FIX-285: cíle nejsou investice
-  if (/rezerv|spoř|spor|stavebn|termín|termin|vkladn/.test(n)) return 'reserve';
+  // FIX-303 (S21): POŘADÍ TESTŮ ROZHODUJE. Vzor 'spoř' je podřetězcem názvů jako
+  //   „Penzijní spoření" nebo „Doplňkové penzijní spoření" – když se testoval dřív,
+  //   skončily peníze vázané do 60 let v LIKVIDNÍ REZERVĚ. Emergency fund
+  //   („kolik měsíců přežiju bez příjmu") tím nadhodnocoval bezpečnostní polštář
+  //   o částku, ke které se uživatel bez sankce nedostane. Dlouhodobé vzory
+  //   proto musí jít PRVNÍ – jsou specifičtější.
   if (/penzij|důchod|duchod|dlouhodob/.test(n)) return 'long';
+  if (/rezerv|spoř|spor|stavebn|termín|termin|vkladn/.test(n)) return 'reserve';
   return 'mid';
 }
 // Do které sekce aktivum patří: 'reserve' | 'mid' | 'fixed'

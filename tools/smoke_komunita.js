@@ -36,6 +36,10 @@ function mkSandbox(settings){
   sb.showToast=()=>{};
   sb.getData=()=>({transactions:[]});
   sb.document={getElementById:()=>null};   // element settingCommunity NEEXISTUJE
+  // FIX-307 (S21): publikuje se pod pseudonymem z users/{uid}/communityId.
+  //   V testu stačí stabilní náhrada – ověřujeme souhlas, ne generování id.
+  sb.getCommunityId=()=>Promise.resolve('pseudo-me');
+  sb.dropLegacyCommunityRecord=()=>Promise.resolve();
   vm.createContext(sb);
   vm.runInContext([
     "const COMMUNITY_MONTH_KEY=(m,y)=>`${y!==undefined?y:S.curYear}-${String((m!==undefined?m:S.curMonth)+1).padStart(2,'0')}`;",
@@ -82,7 +86,9 @@ await check('SE souhlasem se odešle správný obsah',async()=>{
   await sb.publishCommunityStats(TXS);
   assert(sb._writes.length===1,'nic se neodeslalo');
   const w=sb._writes[0];
-  assert(String(w.ref).includes('community/2026-08/users/me'),'špatná cesta: '+w.ref);
+  // FIX-307: klíčem je PSEUDONYM, ne uid – uid se v cestě nesmí objevit vůbec
+  assert(String(w.ref).includes('community/2026-08/users/pseudo-me'),'špatná cesta: '+w.ref);
+  assert(!/users\/me$/.test(String(w.ref)),'publikuje se pořád pod uid!');
   assert(w.val.income===40000,'income: '+w.val.income);
   assert(w.val.totalExp===3500,'totalExp: '+w.val.totalExp);
   assert(typeof w.val.savingRate==='number','chybí savingRate');
@@ -111,10 +117,13 @@ await check('vypnutí smaže i to, co už bylo odesláno',async()=>{
   assert(sb._updates.length>=1,'nic se nemazalo');
   const del=sb._updates[sb._updates.length-1];
   const keys=Object.keys(del);
-  assert(keys.length===36,'čekal jsem 36 měsíců zpětně, je '+keys.length);
+  // FIX-307: mazat se musí OBOJÍ – nový pseudonym i starý uid-klíčovaný záznam,
+  //   jinak by po vypnutí sdílení zůstala v databázi právě ta identifikovatelná verze.
+  assert(keys.length===72,'čekal jsem 36 měsíců × 2 klíče, je '+keys.length);
   assert(keys.every(k=>del[k]===null),'mazání nezapisuje null');
-  assert(keys.some(k=>k==='community/2026-08/users/me'),'chybí aktuální měsíc: '+keys[0]);
-  assert(keys.every(k=>k.endsWith('/users/me')),'maže i cizí záznamy!');
+  assert(keys.includes('community/2026-08/users/me'),'chybí starý uid klíč aktuálního měsíce');
+  assert(keys.includes('community/2026-08/users/pseudo-me'),'chybí pseudonym aktuálního měsíce');
+  assert(keys.every(k=>k.endsWith('/users/me')||k.endsWith('/users/pseudo-me')),'maže i cizí záznamy!');
 });
 
 await check('souhlas se ukládá HNED, ne až přes save bar',async()=>{

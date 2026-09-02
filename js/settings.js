@@ -1,4 +1,4 @@
-// FinanceFlow · v10.28 · settings.js · 2026-09-02
+// FinanceFlow · v10.30 · settings.js · 2026-09-02
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -549,8 +549,8 @@ function renderSettingsPage() {
         <select class="fs" id="settingFirstDay" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
           onchange="settingChanged()">
           <option value="0" ${!(_settings?.firstDay>0)?'selected':''}>🤖 Automaticky (z transakcí)</option>
-          ${Array.from({length:28},(_,i)=>i+1).map(d =>
-            `<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci</option>`
+          ${Array.from({length:31},(_,i)=>i+1).map(d =>
+            `<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci${d>28?' (v kratším měsíci poslední)':''}</option>`
           ).join('')}
         </select>
         <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
@@ -843,12 +843,17 @@ async function setCommunityShare(on) {
 async function purgeMyCommunityData() {
   if (!window._currentUser || (typeof _isLocalMode !== 'undefined' && _isLocalMode)) return;
   const uid = window._currentUser.uid;
+  // FIX-307 (S21): od v10.30 se publikuje pod pseudonymem. Mazat se ale musí OBOJÍ –
+  //   nový pseudonymní záznam i případný starý klíčovaný uid, jinak by po vypnutí
+  //   sdílení zůstala v databázi právě ta identifikovatelná verze.
+  const pid = (typeof getCommunityId === 'function') ? await getCommunityId() : null;
   const now = new Date();
   const updates = {};
   for (let i = 0; i < 36; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     updates[`community/${key}/users/${uid}`] = null;
+    if (pid && pid !== uid) updates[`community/${key}/users/${pid}`] = null;
   }
   await _update(_ref(_db), updates);
 }

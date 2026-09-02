@@ -29,6 +29,11 @@ function mkSandbox(opts){
   sb._set=(ref,val)=>{sb._writes.push({ref,val});return Promise.resolve();};
   sb._ref=(db,p)=>p; sb._db={};
   sb.computeCoicopAggregates=()=>({cats:{},unassigned:0});
+  // FIX-307 (S21): uploadCoicopToFirebase publikuje pod PSEUDONYMEM z
+  //   users/{uid}/communityId, ne pod uid. V testu stačí stabilní náhrada –
+  //   ověřujeme obsah zápisu, ne generování identifikátoru.
+  sb.getCommunityId=()=>Promise.resolve('pseudo-me');
+  sb.dropLegacyCommunityRecord=()=>Promise.resolve();
   vm.createContext(sb);
   vm.runInContext([
     pick('txCZK'),
@@ -118,7 +123,9 @@ await check('SE souhlasem odešle',async()=>{
   const sb=mkSandbox({settings:{community:true}});
   await sb.uploadCoicopToFirebase(7,2026,MYDATA);
   assert(sb._writes.length===1,'neodeslalo se nic');
-  assert(String(sb._writes[0].ref).includes('community/2026-08/users/me'),'špatná cesta');
+  // FIX-307: klíčem je pseudonym – uid se v cestě nesmí objevit
+  assert(String(sb._writes[0].ref).includes('community/2026-08/users/pseudo-me'),'špatná cesta: '+sb._writes[0].ref);
+  assert(!/users\/me$/.test(String(sb._writes[0].ref)),'publikuje se pořád pod uid!');
   assert(sb._writes[0].val.income===40000,'income: '+sb._writes[0].val.income);
 });
 

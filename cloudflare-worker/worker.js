@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.24 · 2026-08-28  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.30 · 2026-09-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -729,12 +729,58 @@ async function lookupUidByCustomer(customerId, env) {
   return res.json(); // string uid, nebo null
 }
 
-// S17.27: atomický-ish inkrement počítadla zakládajících míst. Firebase RTDB nemá přes REST
-// transakce, ale webhook běží jen na serveru a platby chodí řídce – read-modify-write stačí.
+// FIX-306 (S21): SKUTEČNĚ ATOMICKÝ inkrement počítadla zakládajících míst.
+//   Původní verze dělala read → +1 → write bez jakékoli ochrany. Komentář se
+//   hájil tím, že „webhook běží jen na serveru a platby chodí řídce" – jenže
+//   Stripe výslovně dokumentuje, že TÝŽ event může doručit vícekrát, a dva
+//   souběžné běhy workeru přečtou stejnou hodnotu a oba zapíšou tutéž +1.
+//   Firebase RTDB přes REST transakce nemá, ale UMÍ compare-and-set přes ETag:
+//   čtení s hlavičkou X-Firebase-ETag vrátí ETag, zápis s `if-match` projde jen
+//   tehdy, když se hodnota mezitím nezměnila (jinak 412 a zkusíme znovu).
 async function bumpFounderCount(env) {
   const url = `${FIREBASE_DB_URL}/stats/founderCount.json?auth=${env.FIREBASE_DB_SECRET}`;
-  const cur = await (await fetch(url)).json() || 0;
-  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cur + 1) });
+  for (let pokus = 0; pokus < 5; pokus++) {
+    const r = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' } });
+    if (!r.ok) throw new Error(`founderCount read → ${r.status}`);
+    const etag = r.headers.get('ETag');
+    const cur = (await r.json()) || 0;
+    const w = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'if-match': etag },
+      body: JSON.stringify(cur + 1),
+    });
+    if (w.ok) return cur + 1;
+    if (w.status !== 412) throw new Error(`founderCount write → ${w.status}`);
+    // 412 = někdo nás předběhl, přečti znovu
+  }
+  throw new Error('founderCount: 5× kolize při zápisu');
+}
+
+// FIX-306 (S21): ZABRÁNÍ DVOJÍMU ZPRACOVÁNÍ TÉHOŽ EVENTU.
+//   Stripe doručuje at-least-once. `writePremium()` je idempotentní (PATCH stejných
+//   dat nic nerozbije), ale `bumpFounderCount()` a `logPremiumEvent()` nejsou –
+//   jedna platba by obsadila dvě zakládající místa a zapsala dva řádky do auditu.
+//   Zamluvení je atomické: `if-match: null_etag` projde jen tehdy, když uzel
+//   ještě neexistuje. Druhé doručení dostane 412 a event se přeskočí.
+async function claimStripeEvent(eventId, env) {
+  const url = `${FIREBASE_DB_URL}/stripeEvents/${eventId}.json?auth=${env.FIREBASE_DB_SECRET}`;
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'if-match': 'null_etag' },
+    body: JSON.stringify({ at: Date.now() }),
+  });
+  if (r.status === 412) return false;     // už zpracováno dřív
+  if (!r.ok) throw new Error(`claim → ${r.status}`);
+  return true;
+}
+
+// Když zpracování selže, zámek se musí uvolnit – jinak by Stripe při opakovaném
+// pokusu narazil na „už hotovo" a platba by se nikdy nedokončila.
+async function releaseStripeEvent(eventId, env) {
+  try {
+    await fetch(`${FIREBASE_DB_URL}/stripeEvents/${eventId}.json?auth=${env.FIREBASE_DB_SECRET}`,
+      { method: 'DELETE' });
+  } catch (e) { console.error('release claim fail', e); }
 }
 
 async function handleStripeWebhook(request, env, cors) {
@@ -748,6 +794,20 @@ async function handleStripeWebhook(request, env, cors) {
 
   let event;
   try { event = JSON.parse(payload); } catch { return json({ error: 'Špatný JSON' }, 400, cors); }
+
+  // FIX-306: zamluvit event dřív, než se cokoli zapíše. Stripe doručuje at-least-once.
+  const eventId = String(event.id || '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (eventId) {
+    let prvni;
+    try { prvni = await claimStripeEvent(eventId, env); }
+    catch (e) {
+      // Zámek nešel založit – radši vrátit chybu a nechat Stripe zopakovat,
+      // než zpracovat event bez ochrany proti duplicitě.
+      console.error('claim fail', e);
+      return json({ error: 'Nelze zamluvit event' }, 500, cors);
+    }
+    if (!prvni) return json({ received: true, note: 'duplicitní doručení, přeskočeno' }, 200, cors);
+  }
 
   try {
     const obj = event.data && event.data.object;
@@ -806,6 +866,8 @@ async function handleStripeWebhook(request, env, cors) {
     return json({ received: true }, 200, cors);
   } catch (e) {
     console.error('Stripe webhook error:', e);
+    // FIX-306: uvolnit zámek, ať Stripe může doručení zopakovat
+    if (eventId) await releaseStripeEvent(eventId, env);
     return json({ error: String(e) }, 500, cors);
   }
 }

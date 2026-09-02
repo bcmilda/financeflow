@@ -1,4 +1,4 @@
-// FinanceFlow · v10.29 · admin.js · 2026-09-02
+// FinanceFlow · v10.30 · admin.js · 2026-09-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,22 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.30',
+    datum: '2026-09-02',
+    zmeny: [
+      '🛟 FIX-303: PENZIJKO SE POČÍTALO JAKO LIKVIDNÍ REZERVA. V assetCatLiq() se vzor „spoř" testoval DŘÍV než „penzij" – a protože „Penzijní spoření" obsahuje obojí, vyhrál obecnější vzor. Peníze vázané do 60 let tak nafukovaly Emergency Fund („kolik měsíců přežiju bez příjmu") o částku, ke které se uživatel bez sankce nedostane. Dlouhodobé vzory jdou nyní první. Týká se jen kategorií, u nichž není Likvidita vyplněná ručně – tam má ruční nastavení dál přednost.',
+      '📆 FIX-304: DEN VÝPLATY ŠEL ZADAT JEN DO 28. Kdo bere výplatu 30., si ji nemohl nastavit vůbec. Nabídka je nově 1–31 a u dnů nad 28 stojí vysvětlivka „(v kratším měsíci poslední)" – kotva se ořízne na skutečnou délku daného měsíce, takže 31. je v únoru 28. (v přestupném roce 29.) a v dubnu 30. Ve dvou dalších režimech (týdenní/14denní a 2× měsíčně) byl navíc natvrdo strop 28, který posouval cyklus i lidem s výplatou 29.–31.',
+      '💳 FIX-305: NIC NEBRÁNILO DRUHÉ PLATBĚ. Kdo už Premium měl, mohl znovu kliknout na platební odkaz a založit DRUHÉ nezávislé Stripe předplatné – appka by o něm nevěděla (webhook jen přepíše stav podle poslední dokončené platby), ale Stripe by účtoval obě. Kontrola je na dvou místech: goPremium() neotevře výběr tarifu a startPremiumSubscription() je poslední záchranou. Obojí synchronně, před window.open (SKILL 15).',
+      '🔁 FIX-306: STRIPE WEBHOOK NEBYL ODOLNÝ PROTI OPAKOVANÉMU DORUČENÍ. Stripe doručuje at-least-once a výslovně dokumentuje, že týž event může přijít vícekrát. writePremium() to snese (PATCH stejných dat), ale bumpFounderCount() dělal read→+1→write bez ochrany: jedna platba mohla obsadit dvě zakládající místa ze sta. Nově se každý event nejdřív ZAMLUVÍ v uzlu stripeEvents přes if-match: null_etag (atomické, projde jen poprvé); druhé doručení se přeskočí s 200.',
+      '🔢 FIX-306: samotné počítadlo používá compare-and-set přes Firebase ETag – zápis projde jen tehdy, když se hodnota mezitím nezměnila, jinak se čtení opakuje (max 5×). Když zpracování selže, zámek se uvolní, aby Stripe mohl doručení zopakovat – jinak by platba zůstala nedokončená navždy.',
+      '🕵️ FIX-307: KOMUNITNÍ ZÁZNAMY BYLY KLÍČOVANÉ uid. Od v10.24 je sice čte jen vlastník a admin, ale klíč sám je přímý identifikátor – a uid appka vybízí sdílet (partnerský odkaz ?partnerOf={uid}). Stačilo by jediné povolení navíc v pravidlech a finanční údaje by měly jméno. Nově se publikuje pod NÁHODNÝM PSEUDONYMEM, uloženým v users/{uid}/communityId, kam nikdo jiný nevidí.',
+      '🗑️ FIX-307: při prvním pseudonymním zápisu se starý uid-klíčovaný záznam smaže (jinak by identifikovatelný otisk v databázi zůstal) a purge při vypnutí sdílení maže OBOJÍ. Ošetřeny obě zapisující cesty – publishCommunityStats() i uploadCoicopToFirebase() (druhá cesta z FIX-279). Bez pseudonymu se nepublikuje vůbec, nikdy se nespadne zpátky na uid.',
+      '⚙ database_rules.json v10.30: community/$monthKey/users/$pid váže zápis na vlastnictví pseudonymu; u starého uid-klíče je povolené výhradně SMAZÁNÍ (migrace). NASAZUJE SE ZVLÁŠŤ do Firebase Console.',
+      '⚙ worker.js v10.30 – NASAZUJE SE ZVLÁŠŤ do Cloudflare. Agregace komunity klíče nezkoumá, takže pseudonymizace se jí nedotkla.',
+      '⚙ Nový test tools/smoke_s21.js (35 kontrol) – u FIX-303 a FIX-304 včetně kontrol proti falešným poplachům (spořicí účet, stavební spoření a ETF musí zůstat tam, kde byly).',
+    ]
+  },
   {
     verze: 'v10.29',
     datum: '2026-09-02',
@@ -6203,7 +6219,10 @@ async function publishCommunityStats(D) {
   if(!baseIncome || txs.length < 3) return; // nedostatek dat
 
   const monthKey = COMMUNITY_MONTH_KEY();
-  const uid = window._currentUser.uid;
+  // FIX-307 (S21): publikuje se pod PSEUDONYMEM, ne pod uid. Vazba pseudonym→uid
+  //   žije jen v users/{uid}/communityId, kam nikdo jiný nevidí.
+  const pid = (typeof getCommunityId === 'function') ? await getCommunityId() : null;
+  if (!pid) return;
 
   // Spočítej výdaje dle COICOP oddílů
   // S17.14 (FIX-213, Milan): DŘÍV se posílaly NÁZVY KATEGORIÍ ("Jídlo & Pití"), zatímco čtecí
@@ -6241,13 +6260,15 @@ async function publishCommunityStats(D) {
         });
       } catch (e) { console.warn('[community] agregace:', e); }
     };
-    await _set(_ref(_db, `community/${monthKey}/users/${uid}`), {
+    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), {
       cats: catStats,
       income: Math.round(baseIncome),
       totalExp: Math.round(totalExp),
       savingRate,
       updatedAt: Date.now()
     });
+    // FIX-307: odstranit starý záznam klíčovaný uid, pokud po migraci zbyl
+    if (typeof dropLegacyCommunityRecord === 'function') await dropLegacyCommunityRecord(monthKey);
     await _requestAgg();   // S20 (TODO-235): přepočet agregátu na serveru
   } catch(e) {
     console.log('Community publish skipped:', e.message);

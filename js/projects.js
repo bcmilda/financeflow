@@ -1,4 +1,4 @@
-// FinanceFlow · v10.29 · projects.js · 2026-09-02
+// FinanceFlow · v10.30 · projects.js · 2026-09-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2728,7 +2728,10 @@ function radarPaydayInfo(D){
     // referenční bod: poslední reálný příjem, jinak anchor den v tomto měsíci
     const incomes=(D.transactions||[]).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t))
       .map(t=>{const d=new Date(t.date);d.setHours(0,0,0,0);return d;}).filter(d=>d<=today).sort((a,b)=>a-b);
-    let ref = incomes.length ? incomes[incomes.length-1] : radarAdjustWeekend(new Date(today.getFullYear(),today.getMonth(),Math.min(anchor,28)));
+    // FIX-304 (S21): strop 28 byl zbytečný a nesprávný – kotva se má oříznout na
+    //   DÉLKU KONKRÉTNÍHO MĚSÍCE, ne na nejkratší možný. Kdo bere výplatu 30., měl
+    //   cyklus posunutý o dva dny v každém měsíci kromě února.
+    let ref = incomes.length ? incomes[incomes.length-1] : radarAdjustWeekend(new Date(today.getFullYear(),today.getMonth(),Math.min(anchor,new Date(today.getFullYear(),today.getMonth()+1,0).getDate())));
     // posuň ref na poslední výplatu <= dnes
     let lastPayday=new Date(ref);
     while(lastPayday>today){ lastPayday.setDate(lastPayday.getDate()-stepDays); }
@@ -2742,7 +2745,7 @@ function radarPaydayInfo(D){
 
   // 2× měsíčně: výplaty kolem anchor a anchor+15 (resp. 1. a 15.)
   if(freq==='semimonthly'){
-    const a1=Math.min(anchor||1,28);
+    const a1=anchor||1;   // FIX-304: mkOn si délku měsíce ošetří sám
     const a2=Math.min((a1+15)>28?(a1-15>0?a1-15:15):a1+15,28);
     const days=[Math.min(a1,a2),Math.max(a1,a2)];
     const mkOn=(y,m,dd)=>radarAdjustWeekend(new Date(y,m,Math.min(dd,new Date(y,m+1,0).getDate())));

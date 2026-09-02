@@ -55,12 +55,13 @@ check('ETF a spoření zůstávají tam, kde byly (žádná regrese)',()=>{
   const lt=sb.assetLiqTotals();
   assert(lt.mid===126110&&lt.reserve===6322,JSON.stringify(lt));
 });
-check('penzijko: chování beze změny (viz nález o pořadí vzorů)',()=>{
+check('penzijko patří mezi dlouhodobá aktiva, ne do rezervy (FIX-303)',()=>{
   const sb=mkSandbox([]);
-  // POZOR: „Penzijní spoření" obsahuje „spoř", a vzor pro reserve se testuje
-  // DŘÍV než vzor pro long → vyjde 'reserve'. Je to PRE-EXISTING chování,
-  // ověřené i na nedotčeném originále, ne regrese FIX-285. Zapsáno v bugs.md.
-  assert(sb.assetTier({id:'x',value:0,linkedCatId:'cPen'})==='reserve','změnilo se chování penzijka');
+  // Do S21 tady stálo očekávání 'reserve' – test tím POTVRZOVAL chybu jako
+  // správné chování. „Penzijní spoření" obsahuje „spoř", a vzor pro reserve
+  // se testoval dřív než vzor pro long, takže peníze vázané do 60 let padaly
+  // do likvidní rezervy a nafukovaly Emergency Fund. FIX-303 prohodil pořadí.
+  assert(sb.assetTier({id:'x',value:0,linkedCatId:'cPen'})==='fixed','penzijní spoření má být dlouhodobé');
   sb.S.categories=[{id:'cP2',name:'Penzijko'}];
   assert(sb.assetTier({id:'x2',value:0,linkedCatId:'cP2'})==='fixed','„Penzijko" bez slova spoření má být dlouhodobé');
 });

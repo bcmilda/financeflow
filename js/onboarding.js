@@ -1,4 +1,4 @@
-// FinanceFlow · v10.07 · onboarding.js · 2026-08-28
+// FinanceFlow · v10.30 · onboarding.js · 2026-09-02
 //  TODO-234: ONBOARDING KROK 1
 // ══════════════════════════════════════════════════════
 // Jediná stránka pro nového uživatele: jazyk, výchozí měna, typ peněženky
@@ -111,7 +111,7 @@ function renderOnboardingModal() {
       <div class="fg"><label>📆 Den výplaty</label>
         <select class="fs" id="onbFirstDay">
           <option value="0" ${!(_settings?.firstDay>0)?'selected':''}>🤖 Automaticky</option>
-          ${Array.from({length:28},(_,i)=>i+1).map(d=>`<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci</option>`).join('')}
+          ${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci${d>28?' (v kratším měsíci poslední)':''}</option>`).join('')}
         </select>
       </div>
     </div>
