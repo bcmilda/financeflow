@@ -1,4 +1,4 @@
-//  FinanceFlow · v10.23 · assets.js · 2026-08-28
+//  FinanceFlow · v10.24 · assets.js · 2026-08-28
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -233,16 +233,24 @@ function renderAssets() {
             <div style="font-size:.72rem;color:${cd.color};font-weight:700;margin-top:3px">${cd.label}</div>
           </div>`).join('')}
         </div>
-        ${virt!==0?`<div style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--border)">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:#c084fc;font-weight:700">
-            <span>📋 Z toho virtuální přesuny</span><span>${fmtBP(virt)}</span>
-          </div>
-          ${virtRows.map(a=>`<div style="display:flex;justify-content:space-between;font-size:.74rem;color:#a8aec8;margin-top:4px;padding-left:18px">
+        ${virt!==0?`<div style="margin-top:0;padding-top:0;position:relative">
+          <!-- FIX-290 (Milan): šipka VEDE OD DLAŽDICE „PENĚŽENKY" (první v mřížce) –
+               odtud ty peníze odešly. Bez ní řádek vypadal jako další nezávislá
+               položka a nebylo poznat, proč mají Peněženky záporné číslo. -->
+          <div style="display:flex;align-items:flex-start;gap:6px;padding-left:10px;margin-top:2px">
+            <span style="color:#c084fc;font-size:1rem;line-height:1;margin-top:-2px">⤷</span>
+            <div style="flex:1;border-left:2px solid #c084fc;padding-left:10px;margin-top:4px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:#c084fc;font-weight:700">
+                <span>📋 Z toho virtuální přesuny</span><span>${fmtBP(virt)}</span>
+              </div>
+              ${virtRows.map(a=>`<div style="display:flex;justify-content:space-between;font-size:.74rem;color:#a8aec8;margin-top:4px">
             <span>${a.icon||'📋'} ${escHtml(a.name||'')}</span><span>${fmtBP(a.value||0)}</span>
           </div>`).join('')}
-          <div style="font-size:.7rem;color:#8b91a8;margin-top:6px;padding-left:18px;line-height:1.45">
-            Peníze odložené na cíle. Odešly z peněženky, ale z majetku ne – proto je
-            u Peněženek záporné číslo. Nejde o investici.
+              <div style="font-size:.7rem;color:#8b91a8;margin-top:6px;line-height:1.45">
+                Peníze odložené na cíle. Odešly z peněženky, ale z majetku ne – proto je
+                u Peněženek záporné číslo. Nejde o investici.
+              </div>
+            </div>
           </div>
         </div>`:''}`; })()}
     </div>

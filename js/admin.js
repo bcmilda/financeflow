@@ -1,4 +1,4 @@
-// FinanceFlow · v10.23 · admin.js · 2026-08-28
+// FinanceFlow · v10.25 · admin.js · 2026-08-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -482,6 +482,30 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.25',
+    datum: '2026-08-28',
+    zmeny: [
+      '🎂 FIX-291: V DEN NAROZENIN SE PŘIPOMÍNKA NEUKÁZALA. daysUntilBday() porovnávala PŮLNOC cílového dne s AKTUÁLNÍM časem – půlnoc dneška je vždy menší než „teď", takže se datum posunulo o rok: dnešní narozeniny hlásily „za 364 dní" a spadly na konec seřazeného seznamu. Přesně v den, kdy má připomínka smysl, ji appka nedala.',
+      '⚙ FIX-291 – zároveň zítřejší narozeniny vycházely na 0 dní (9 hodin → Math.round(0.375) = 0), takže texty „DNES!" a „ZÍTRA!" v renderBdayUpcoming se zobrazovaly o den dřív. Ty texty tam přitom byly už dávno – jen se kvůli posunu nikdy netrefily.',
+      '⚙ FIX-291 – stejná třída chyby jako FIX-276 (prošlý termín cíle) a stejná oprava: obě data se normalizují na půlnoc. Ověřeno pro 0:00, 7:00, 15:00 i 23:00 – výsledek už nezávisí na denní době.',
+      '⚙ Seznam narozenin nově ukazuje „DNES 🎉" a „ZÍTRA" místo „za 0 dní", se správným skloňováním (1 den · 3 dny · 8 dní).',
+      '📋 Rešerše karet 27–29 (Kalendář · Narozeniny & přání · Grafy) v RESERSE-funkcni-celky-6.md. Odtud pochází FIX-291.',
+    ]
+  },
+  {
+    verze: 'v10.24',
+    datum: '2026-08-28',
+    zmeny: [
+      '🔐 TODO-235: SERVEROVÁ AGREGACE KOMUNITNÍCH DAT. Dřív klient četl community/{měsíc}/users přímo a průměry si počítal sám – jenže ten uzel byl klíčovaný uid a čitelný pro KAŽDÉHO přihlášeného. uid přitom appka sama vybízí sdílet (partnerský odkaz ?partnerOf={uid}), takže kdokoli, komu jsi poslal pozvánku, si mohl najít tvůj příjem, výdaje i míru úspor. Nově počítá statistiky worker přes Database Secret a klient čte jen hotový agregát – bez uid.',
+      '⚙ worker.js: nový endpoint POST /community-agg (vyžaduje Firebase idToken, throttle 10 min přes Cache API). Počítá medián i průměr příjmů/výdajů, míru úspor a průměry po COICOP oddílech, zapisuje do community/{měsíc}/aggregate.',
+      '⚙ database_rules.json v10.24: community/$monthKey/users už NENÍ veřejně čitelný (jen vlastník + admin), nový uzel aggregate má read pro přihlášené a write:false – zapisuje ho výhradně worker přes DB Secret.',
+      '⚙ Práh COMMUNITY_MIN_N = 1 – respektuje Milanovo rozhodnutí z TODO-225 („1 uživatel nebo 1000, je to ok"). V kódu je poznámka o trade-offu: při k=1 je „průměr komunity" přímo hodnota toho člověka, při k=2 si druhý může to první dopočítat. Až uživatelů přibude, stačí zvednout konstantu.',
+      '⚙ publishCommunityStats po zápisu požádá worker o přepočet (side-effect ve vlastním try/catch – když worker nejede, vlastní zápis to neshodí). Stará klientská agregace zůstává za přepínačem COMMUNITY_LEGACY_READ=false do ověření v provozu.',
+      '↳ FIX-290 (Milan): šipka u „Z toho virtuální přesuny" vede od dlaždice PENĚŽENKY (první v mřížce), ne od nadpisu sekce v seznamu níž – tam jsem ji minule umístil špatně.',
+      '⚠️ NASAZENÍ: worker.js do Cloudflare Dashboardu a database_rules.json do Firebase Console – OBOJE, jinak Komunitní přehled zůstane prázdný (klient už syrová data číst nesmí).',
+    ]
+  },
   {
     verze: 'v10.23',
     datum: '2026-08-28',
@@ -6071,6 +6095,8 @@ async function deleteLead(id) {
 // ══════════════════════════════════════════════════════
 //  KOMUNITNÍ PŘEHLED
 // ══════════════════════════════════════════════════════
+// S20 (TODO-235): přepínač staré klientské agregace. Po ověření workeru smažat i s blokem.
+const COMMUNITY_LEGACY_READ = false;
 const COMMUNITY_MONTH_KEY = (month, year) => {
   // Pokud zadán měsíc/rok, použij je; jinak aktuální
   const m = (month !== undefined) ? month : (typeof S !== 'undefined' ? S.curMonth : new Date().getMonth());
@@ -6121,6 +6147,22 @@ async function publishCommunityStats(D) {
 
   try {
     // Ulož příspěvek uživatele (přepíše předchozí – žádná duplikace)
+    // S20 (TODO-235): po zápisu vlastních dat požádáme worker o přepočet agregátu.
+    //   Bez toho by se číslo v Komunitním přehledu nehnulo, dokud ho nespustí
+    //   někdo jiný. Worker si drží vlastní throttle (10 min), takže to nevadí volání
+    //   po každém uložení. Side-effect ve vlastním try/catch – když worker nejede,
+    //   vlastní zápis se tím nesmí shodit.
+    const _requestAgg = async () => {
+      try {
+        const tok = window._idTokenCache || (window._currentUser && await window._currentUser.getIdToken());
+        if (!tok) return;
+        await fetch('https://misty-limit-0523.bc-milda.workers.dev/community-agg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ month: monthKey })
+        });
+      } catch (e) { console.warn('[community] agregace:', e); }
+    };
     await _set(_ref(_db, `community/${monthKey}/users/${uid}`), {
       cats: catStats,
       income: Math.round(baseIncome),
@@ -6128,6 +6170,7 @@ async function publishCommunityStats(D) {
       savingRate,
       updatedAt: Date.now()
     });
+    await _requestAgg();   // S20 (TODO-235): přepočet agregátu na serveru
   } catch(e) {
     console.log('Community publish skipped:', e.message);
   }
@@ -6265,9 +6308,35 @@ async function _renderKomunitaImpl(el) {
   let communityData = null;
   try {
     const monthKey = COMMUNITY_MONTH_KEY(S.curMonth, S.curYear); // ← zohledňuje zvolený měsíc
-    const snap = await _get(_ref(_db, `community/${monthKey}/users`));
-    if(snap.exists()) {
-      const allUsers = Object.values(snap.val());
+    // S20 (TODO-235): Čteme HOTOVÝ AGREGÁT od workeru, ne syrové záznamy.
+    //   Uzel community/{měsíc}/users je nově čitelný jen pro vlastníka – dokud
+    //   ho četl kdokoli přihlášený, dal se přes uid (které appka sama vybízí
+    //   sdílet partnerským odkazem) dohledat cizí příjem.
+    //   Agregát nese jen statistiky a počet lidí, žádná uid.
+    const aggSnap = await _get(_ref(_db, `community/${monthKey}/aggregate`));
+    if (aggSnap.exists() && aggSnap.val() && aggSnap.val().enough !== false) {
+      const A = aggSnap.val();
+      communityData = {
+        count: A.k || 0,
+        avgExp: A.expenseMedian || 0,
+        avgIncome: A.incomeMedian || 0,
+        avgSaving: A.savingRateMedian || 0,
+        statLabel: 'medián',
+        cats: Object.entries(A.cats || {}).map(([coicopId, o]) => {
+          if(!/^\d+$/.test(String(coicopId))) return null;
+          const _grp = (window.COICOP_GROUPS_DEF||[]).find(g=>String(g.id)===String(coicopId));
+          return {
+            cat: _grp ? `${_grp.icon||''} ${_grp.name}` : `COICOP ${coicopId}`,
+            coicopId: Number(coicopId),
+            avg: o.avg || 0, count: o.n || 0
+          };
+        }).filter(Boolean).sort((a,b)=>b.avg-a.avg)
+      };
+    // Stará cesta (klient si počítal medián sám ze syrových záznamů) je VYPNUTÁ.
+    // Pravidla už ten uzel stejně nedá přečíst, takže by jen spadla do catch.
+    // Nechávám ji tu do doby, než se agregace ověří v provozu – pak smažat.
+    } else if (COMMUNITY_LEGACY_READ) {
+      const allUsers = [];
       // S19 (TODO-225, Milan): MEDIÁN místo průměru.
       //   Jeden uživatel s hypotékou 40 000 posunul „průměrné bydlení" všem
       //   ostatním. U příjmů a výdajů, kde je rozdělení silně zešikmené, ukazuje

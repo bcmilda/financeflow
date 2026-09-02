@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v9.97 · 2026-08-19  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.24 · 2026-08-28  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -239,6 +239,17 @@ export default {
     // POST větví níže, která vyžaduje Authorization header s Firebase idToken.
     if (request.method === 'POST' && new URL(request.url).pathname === '/stripe-webhook') {
       return handleStripeWebhook(request, env, corsHeaders);
+    }
+
+    // S20 (TODO-235): SERVEROVÁ AGREGACE KOMUNITNÍCH DAT.
+    //   Dřív četl klient přímo community/{měsíc}/users a průměry si počítal sám –
+    //   jenže ten uzel byl klíčovaný uid a čitelný pro KAŽDÉHO přihlášeného.
+    //   uid přitom appka sama vybízí sdílet (partnerský odkaz ?partnerOf={uid}),
+    //   takže kdokoli, komu jsi poslal pozvánku, si mohl najít tvůj příjem.
+    //   Nyní počítá průměry worker přes Database Secret a klient čte už jen
+    //   hotový agregát bez uid. Syrové záznamy nevidí nikdo kromě serveru.
+    if (request.method === 'POST' && new URL(request.url).pathname === '/community-agg') {
+      return handleCommunityAgg(request, env, corsHeaders);
     }
 
     if (request.method !== 'POST') {
@@ -804,4 +815,128 @@ function json(data, status = 200, headers = {}) {
     status,
     headers: { ...headers, 'Content-Type': 'application/json' }
   });
+}
+
+// ════════════════════════════════════════════════════
+//  KOMUNITNÍ AGREGACE (S20, TODO-235)
+// ════════════════════════════════════════════════════
+// Přečte community/{month}/users (jen server, přes DB Secret), spočítá statistiky
+// a zapíše je do community/{month}/aggregate. Žádné uid se do agregátu nedostane.
+//
+// MEDIÁN místo průměru u částek: jeden člověk s extrémním měsícem by průměr
+// posunul tak, že by se s ním ostatní neměli jak srovnávat. Průměr pošleme taky,
+// ať si klient může vybrat.
+//
+// K počtu přispěvatelů (k): Milan v TODO-225 výslovně rozhodl „1 uživatel nebo
+// 1000, je to ok" – respektujeme, proto 1. Agregát vždy nese `k`, takže klient
+// může říct, z kolika lidí to je.
+//
+// TRADE-OFF, který stojí za vědomí: při k=1 je „průměr komunity" přímo hodnota
+// toho jednoho člověka; při k=2 si druhý může svoje číslo odečíst a dopočítat
+// to první. Anonymita tedy začíná fungovat až od několika lidí. Až uživatelů
+// přibude, stačí zvednout tuhle konstantu – zbytek kódu už s tím počítá.
+const COMMUNITY_MIN_N = 1;
+
+function _median(arr) {
+  if (!arr.length) return 0;
+  const a = arr.slice().sort((x, y) => x - y);
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
+}
+
+async function handleCommunityAgg(request, env, corsHeaders) {
+  try {
+    if (!env.FIREBASE_DB_SECRET) {
+      return json({ error: 'FIREBASE_DB_SECRET není nastaven' }, 500, corsHeaders);
+    }
+    // Ověření voláno stejně jako u AI endpointů – endpoint smí spustit jen
+    // přihlášený uživatel, ne kdokoli z internetu.
+    const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+    if (!idToken) return json({ error: 'Chybí Authorization header' }, 401, corsHeaders);
+    const vr = await fetch(
+      'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+    );
+    if (!vr.ok) return json({ error: 'Neplatný Firebase token' }, 401, corsHeaders);
+    const vd = await vr.json();
+    if (!vd.users?.[0]) return json({ error: 'Uživatel nenalezen' }, 401, corsHeaders);
+
+    let month = '';
+    try { month = (await request.json()).month || ''; } catch (e) {}
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      const d = new Date();
+      month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
+
+    // Throttle: přepočítáváme nejvýš 1× za 10 minut. Bez toho by každé uložení
+    // každého uživatele spustilo čtení celého uzlu.
+    const cacheKey = new Request(`https://ff-comm-agg/${month}`);
+    try {
+      const cached = await caches.default.match(cacheKey);
+      if (cached) return json({ ok: true, skipped: 'throttled', month }, 200, corsHeaders);
+    } catch (e) {}
+
+    const url = `${FIREBASE_DB_URL}/community/${month}/users.json?auth=${env.FIREBASE_DB_SECRET}`;
+    const res = await fetch(url);
+    if (!res.ok) return json({ error: 'Nelze načíst komunitní data' }, 502, corsHeaders);
+    const users = (await res.json()) || {};
+
+    const incomes = [], expenses = [], rates = [];
+    const catSums = {}, catCounts = {};
+    let k = 0;
+    for (const uid of Object.keys(users)) {
+      const u = users[uid] || {};
+      if (typeof u.income !== 'number' || u.income <= 0) continue;
+      k++;
+      incomes.push(u.income);
+      if (typeof u.totalExp === 'number') expenses.push(u.totalExp);
+      if (typeof u.savingRate === 'number') rates.push(u.savingRate);
+      const cats = u.cats || {};
+      for (const c of Object.keys(cats)) {
+        const v = cats[c];
+        if (typeof v !== 'number' || !isFinite(v)) continue;
+        catSums[c] = (catSums[c] || 0) + v;
+        catCounts[c] = (catCounts[c] || 0) + 1;
+      }
+    }
+
+    if (k < COMMUNITY_MIN_N) {
+      // Nezveřejňovat. Ať nezůstane viset starší agregát z doby, kdy lidí bylo dost.
+      await fetch(`${FIREBASE_DB_URL}/community/${month}/aggregate.json?auth=${env.FIREBASE_DB_SECRET}`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ k, enough: false, minN: COMMUNITY_MIN_N, updatedAt: Date.now() }) });
+      return json({ ok: true, k, enough: false, month }, 200, corsHeaders);
+    }
+
+    const cats = {};
+    for (const c of Object.keys(catSums)) {
+      cats[c] = { avg: Math.round(catSums[c] / catCounts[c]), n: catCounts[c] };
+    }
+
+    const aggregate = {
+      k,                                   // počet přispěvatelů – bez uid
+      enough: true,
+      minN: COMMUNITY_MIN_N,
+      incomeMedian:  _median(incomes),
+      incomeAvg:     Math.round(incomes.reduce((a, b) => a + b, 0) / incomes.length),
+      expenseMedian: _median(expenses),
+      expenseAvg:    expenses.length ? Math.round(expenses.reduce((a, b) => a + b, 0) / expenses.length) : 0,
+      savingRateMedian: _median(rates),
+      cats,
+      updatedAt: Date.now()
+    };
+
+    const put = await fetch(`${FIREBASE_DB_URL}/community/${month}/aggregate.json?auth=${env.FIREBASE_DB_SECRET}`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(aggregate) });
+    if (!put.ok) return json({ error: 'Zápis agregátu selhal' }, 502, corsHeaders);
+
+    try {
+      await caches.default.put(cacheKey,
+        new Response('1', { headers: { 'Cache-Control': 'max-age=600' } }));
+    } catch (e) {}
+
+    return json({ ok: true, k, month, updatedAt: aggregate.updatedAt }, 200, corsHeaders);
+  } catch (e) {
+    return json({ error: 'Agregace selhala: ' + e.message }, 500, corsHeaders);
+  }
 }
