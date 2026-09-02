@@ -16,7 +16,12 @@ const body=src.slice(i,end);
 
 function render(income, payment){
   const els={};
-  const sb={console,Date,Math,Array,Object,String,Number,isFinite,
+  // Zmrazený „dnešek" (15. 8. 2026 = 31denní měsíc). Bez toho test závisí na
+  // reálném datu a sám od sebe začne selhávat, až se změní délka měsíce –
+  // což se během session 20 skutečně stalo (kontejner přeskočil na 1. září).
+  const FIXED=new Date(2026,7,15,12,0,0);
+  const FrozenDate=class extends Date{constructor(...a){ if(!a.length) super(FIXED.getTime()); else super(...a); }};
+  const sb={console,Date:FrozenDate,Math,Array,Object,String,Number,isFinite,
     document:{getElementById(id){if(!els[id])els[id]={innerHTML:''};return els[id];}},
     getData:()=>({debts:[{id:'d1',remaining:200000,payment,freq:'monthly',interest:5,startDate:'2026-01-15'}]}),
     computeBaseIncome:()=>income,
@@ -57,7 +62,7 @@ check('žádná opacity na dnech ani legendě (nečitelnost)',()=>{
 });
 check('bar má popisky ve DNECH podle délky měsíce, ne pevných 21',()=>{
   assert(safeHtml.indexOf('21 dní</span>')<0,'pořád tam je pevných 21 dní');
-  assert(/2[89] dní<\/span>|3[01] dní<\/span>/.test(safeHtml),'chybí popisek podle délky měsíce');
+  assert(/31 dní<\/span>/.test(safeHtml),'chybí popisek podle délky měsíce (srpen = 31)');
 });
 check('výplň baru odpovídá dnům, ne procentu příjmu',()=>{
   // 2500/28620 = 8,7 % → 3 dny z 31 = 9,7 %. Kdyby se použilo pct, bylo by 9 %.
@@ -71,7 +76,7 @@ check('výplň baru odpovídá dnům, ne procentu příjmu',()=>{
 });
 check('skloňování v legendě (1 den · 3 dny · 28 dní)',()=>{
   assert(/3 dny pro banky/.test(safeHtml),'špatné skloňování dnů pro banky');
-  assert(/2[89] dní pro tebe|3[01] dní pro tebe/.test(safeHtml),'špatné skloňování dnů pro tebe');
+  assert(/28 dní pro tebe/.test(safeHtml),'špatné skloňování dnů pro tebe');
 });
 
 console.log('\n── vysoké zatížení ──');
