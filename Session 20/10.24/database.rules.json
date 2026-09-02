@@ -1,0 +1,292 @@
+// FinanceFlow · database rules · v10.24 · 2026-08-28 (S20 TODO-235: community/$monthKey/users uz NENI verejne citelny – cte jen vlastnik; novy uzel aggregate (read: prihlaseni, write: jen worker pres DB Secret). KROK 0 – FÁZE 1: novy uzel users/$uid/shared = vydejni okenko pro partnery. users/$uid/data je od ted ULOZISTE uzivatele a filtr shareSettings uz na nej nesaha (driv vypnuti prepinace ve Sdileni MAZALO data z cloudu). !!! FAZE 2 (za par dnu, az maji aktivni ucty zapsany shared): ODEBRAT z uzlu 'data' cast "|| root.child('users').child($uid).child('partners').child(auth.uid).exists()" - pak budou partneri cist VYHRADNE shared. Do te doby je povoleno oboji, aby nikomu nezmizel partner z appky.) (uzel reviews: zapis jen na vlastni uid, validace hvezdicek 1-5 a delky textu) (S18.3: validace delky u milestones – zapis je uz kryty kaskadou .write z users/$uid, nove pravidlo netreba. S17.33: číslování sjednoceno s appkou. S17.27: BEZPEČNOSTNÍ FIX – validace users/$uid/premium brání self-upgradu; aiUsage monotónní. S17.29: admin write na premium + uzel banned. S17.26/28: stripeCustomers, premiumLog, stats/founderCount)
+{
+  "rules": {
+    "users": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === $uid",
+        "data": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
+            "$txId": {
+              "name": {
+                ".validate": "!newData.isString() || newData.val().length < 300"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 1000"
+              }
+            }
+          },
+          "milestones": {
+            "$msId": {
+              "label": {
+                ".validate": "!newData.isString() || newData.val().length < 200"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 600"
+              },
+              "icon": {
+                ".validate": "!newData.isString() || newData.val().length < 16"
+              }
+            }
+          }
+        },
+        "profile": {
+          ".read": "auth != null"
+        },
+        "premium": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "type": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() === 'trial' || newData.val() === 'free'"
+          },
+          "premiumUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now"
+          },
+          "trialUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now + 2764800000"
+          },
+          "trialUsed": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || data.val() !== true || newData.val() === true"
+          }
+        },
+        "shared": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "transactions": {
+            "$txId": {
+              "name": {
+                ".validate": "!newData.isString() || newData.val().length < 300"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 1000"
+              }
+            }
+          }
+        },
+        "settings": {
+          ".read": "auth.uid === $uid"
+        },
+        "partners": {
+          ".read": "auth.uid === $uid"
+        },
+        "categoryMappings": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$key": {
+            ".validate": "newData.hasChildren([\"catId\",\"updatedAt\"]) && newData.child(\"catId\").isString() && newData.child(\"catId\").val().length > 0"
+          }
+        },
+        "itemStats": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$itemKey": {
+            ".validate": "newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"updatedAt\"]) || newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"lastDate\"])"
+          }
+        },
+        "aiUsage": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "$month": {
+            "$type": {
+              ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || newData.val() >= data.val()"
+            }
+          }
+        }
+      }
+    },
+    "leads": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$leadId": {
+        ".write": "auth != null && !data.exists()",
+        ".validate": "(newData.hasChildren(['name']) || newData.hasChildren(['email']) || newData.hasChildren(['phone'])) && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length < 200)) && (!newData.child('email').exists() || (newData.child('email').isString() && newData.child('email').val().length < 200)) && (!newData.child('phone').exists() || (newData.child('phone').isString() && newData.child('phone').val().length < 50))"
+      }
+    },
+    "affiliate": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$affId": {
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+    "trialsUsed": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$emailKey": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid",
+        ".validate": "newData.hasChildren(['uid','at'])"
+      }
+    },
+    "banned": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "premiumLog": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": false
+    },
+    "stats": {
+      "founderCount": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "stripeCustomers": {
+      "$customerId": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": false
+      }
+    },
+    "community": {
+      "$monthKey": {
+        "users": {
+          "$uid": {
+            ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.hasChildren(['updatedAt'])"
+          }
+        },
+        "aggregate": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      },
+      "itemTags": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          "$tag": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
+      "itemTagValidation": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      },
+      "suggestionOverrides": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth != null"
+      }
+    },
+    "catalog": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$item": {
+        ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 60"
+      },
+      "prices": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$product": {
+          "$record": {
+            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
+          }
+        }
+      },
+      "items": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          ".validate": "newData.hasChildren(['name'])"
+        }
+      }
+    },
+    "referrals": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$refCode": {
+        ".validate": "newData.hasChildren(['uid','createdAt'])"
+      }
+    },
+    "referral_clicks": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null"
+    },
+    "keyword_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "coicop_corrections": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admin_coicop_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$catId": {
+        ".validate": "newData.hasChildren(['coicop','name','assignedAt']) && newData.child('coicop').isNumber() && newData.child('coicop').val() >= 0 && newData.child('coicop').val() <= 13"
+      },
+      "subs": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "support": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$entry": {
+        ".validate": "newData.hasChildren(['email','message','date'])"
+      }
+    },
+    "welcomeMessage": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "announcements": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$id": {
+        ".validate": "newData.hasChildren(['title','type','createdAt'])"
+      }
+    },
+    "poll_votes": {
+      ".read": "auth != null",
+      "$pollId": {
+        "$uid": {
+          ".write": "auth.uid === $uid",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "push_subs": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$key": {
+        ".write": "auth != null",
+        ".validate": "newData.child('uid').val() === auth.uid"
+      }
+    },
+    "reviews": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['stars','at'])",
+        "stars": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5"
+        },
+        "text": {
+          ".validate": "!newData.isString() || newData.val().length <= 600"
+        },
+        "name": {
+          ".validate": "!newData.isString() || newData.val().length <= 80"
+        },
+        "ver": {
+          ".validate": "!newData.isString() || newData.val().length <= 20"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}
