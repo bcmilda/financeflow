@@ -88,7 +88,9 @@ ok('FIX-299 · nesplacený dluh nehlásí číslo', simDoba(null) === 'nesplacen
 
 // FIX-300: titulek nejlepšího scénáře odpovídá číslu pod ním
 ok('FIX-300 · zdroj vybírá titulek ze všech tří scénářů',
-   /best === scenC \? 'C[\s\S]{0,120}best === scenB \? 'B/.test(src));
+   src.includes('best === scenT ? treti.nazev') && src.includes("best === scenB ? 'B – Investování'"));
+ok('FIX-300 · renta v souhrnu patří k vítěznému scénáři',
+   src.includes('best === scenT ? monthlyT : best === scenB ? monthlyB : monthlyA'));
 
 // FIX-301: graf i karty čtou z téhož výpočtu
 ok('FIX-301 · graf dostává `sim`, ne vlastní parametry modelu',
@@ -116,6 +118,29 @@ ok('uvolněná splátka se po splacení investuje',
 ok('FIX-302 · karta B ukazuje částku, ne cílové procento',
    src.includes("'Scénář B<br>Investuji', scenB") &&
    src.includes("sim.investPoSplaceni))}/měs při ${investReturn}"));
+
+// ── TODO-237 · podmíněný třetí scénář ────────────────────────────
+const bezDluhu2 = simCompute({...P, debt:0, debtPayment:0, income:40000, expenses:28000});
+ok('TODO-237 · bez dluhu se scénář C nahradí (cSmysl=false)', bezDluhu2.cSmysl === false);
+ok('TODO-237 · náhradní scénář je odchod o 5 let dřív', bezDluhu2.D5 && bezDluhu2.D5.letDriv === 5);
+ok('TODO-237 · dřívější odchod dá MÉNĚ než plná doba (jinak by rada byla nesmysl)',
+   bezDluhu2.D5.final < bezDluhu2.B.final && bezDluhu2.D5.final > 0);
+ok('TODO-237 · Milanův triviální dluh (5 000 při splátce 3 000) taky nahradí C',
+   s.cSmysl === false && s.D5 !== null);
+const skutecnyDluh = simCompute({...P, debt:400000, debtPayment:6000, debtRate:6.5,
+                                 income:40000, expenses:28000});
+ok('TODO-237 · u skutečného dluhu scénář C zůstává', skutecnyDluh.cSmysl === true && skutecnyDluh.D5 === null);
+ok('TODO-237 · výpočet nezacyklí (vnitřní běh má _bezD5)',
+   simCompute({...P, debt:0, debtPayment:0, _bezD5:true}).D5 === null);
+ok('TODO-237 · řada D5 je kratší o 60 měsíců', bezDluhu2.D5.nw.length === bezDluhu2.B.nw.length - 60);
+ok('TODO-237 · graf kreslí TUTÉŽ třetí křivku jako dlaždice',
+   src.includes('const tretiNw = sim.cSmysl ? sim.C.nw') &&
+   src.includes("vzorek(tretiNw, sim.A.nw.length)"));
+ok('TODO-237 · legenda i tooltip mění popisek podle scénáře',
+   src.includes("sim.cSmysl ? 'C: Splatím dluh dřív' : 'C: Odejdu dřív'") &&
+   src.includes("${sim.cSmysl?'Splatím dluh dřív':'Odejdu dřív'}"));
+ok('TODO-237 · nejlepší scénář se vybírá z třetí DLAŽDICE, ne natvrdo z C',
+   src.includes('const best = Math.max(scenA, scenB, scenT);'));
 
 console.log(`\n${pass} OK, ${fail} chyb`);
 process.exit(fail?1:0);

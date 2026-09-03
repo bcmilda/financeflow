@@ -103,5 +103,37 @@ console.log('smoke_s21.js');
      /if \(!pid\) return;/.test(a) && /if \(!pid\) return;/.test(h));
 }
 
+// ── TODO-236 · onboarding → checklist ─────────────────────────────
+{
+  const onb=R('onboarding.js'), ui=R('ui.js'), pre=R('premium.js');
+  ok('TODO-236 · přeskočení nastaví onboardingSkipped', /onboardingSkipped = true/.test(onb));
+  ok('TODO-236 · vyplnění příznak zase shodí', /onboardingSkipped = false/.test(onb));
+  ok('TODO-236 · modal jde otevřít z checklistu', /window\.openOnboardingModal = openOnboardingModal/.test(onb));
+  ok('TODO-236 · checklist má krok „Dokonči úvodní nastavení“',
+     /Dokonči úvodní nastavení[\s\S]{0,200}openOnboardingModal\(\)/.test(ui));
+  ok('TODO-236 · kdo onboardingem neprošel, krok má rovnou hotový (undefined !== true)',
+     /done: st\.onboardingSkipped !== true/.test(ui));
+  ok('TODO-236 · checklist má krok na dotaz po půjčce', /Řekni, jestli máš půjčku/.test(ui));
+  // Checklist a skóre musí stát na TÉŽE podmínce, jinak si budou protiřečit
+  ok('TODO-236 · podmínka je shodná s _debtsKnown v premium.js',
+     /done: \(D\.debts\|\|\[\]\)\.length > 0 \|\| st\.hasDebts === false \|\| st\.hasDebts === true/.test(ui) &&
+     /debts\.length>0[\s\S]{0,120}_settings\.hasDebts === false/.test(pre));
+  ok('TODO-236 · přeskočení překreslí stránku, ať se krok objeví hned',
+     /onboardingSkip[\s\S]{0,600}renderPage\(\)/.test(onb));
+}
+
+// ── Automatická likvidita je nově vidět ve správě kategorií ───────
+{
+  const as=R('assets.js'), st=R('stats.js'), html=R('app.html');
+  ok('odhad podle názvu je sdílený helper, ne kopie', /function assetLiqFromName\(name\)/.test(as) &&
+     /return assetLiqFromName\(cc\.name\);/.test(as));
+  ok('nápověda ukazuje, co odhad vybral', /function catLiqHint\(\)/.test(st) &&
+     /assetLiqFromName\(nazev\)/.test(st));
+  ok('nápověda se přepočítá při psaní názvu i změně výběru',
+     /id="catName" oninput="typeof catLiqHint/.test(html) && /id="catLiq" onchange="typeof catLiqHint/.test(html));
+  ok('ruční volba nápovědu o odhadu neukazuje (nemátla by)',
+     /if \(!sel \|\| sel\.value\) \{ el\.innerHTML = zaklad; return; \}/.test(st));
+}
+
 console.log(`\n${pass} OK, ${fail} chyb`);
 process.exit(fail?1:0);

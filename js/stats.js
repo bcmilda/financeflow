@@ -1,4 +1,4 @@
-// FinanceFlow · v10.26 · stats.js · 2026-08-28
+// FinanceFlow · v10.31 · stats.js · 2026-09-02
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -935,7 +935,7 @@ function openCatModal(){
   document.getElementById('catIcon').value='📋';
   document.getElementById('catColor').value='#4ade80';
   document.getElementById('catType').value='expense';
-  { const lq=document.getElementById('catLiq'); if(lq) lq.value=''; }
+  { const lq=document.getElementById('catLiq'); if(lq) lq.value=''; catLiqHint(); }
   document.getElementById('catHealthPct').value='';
   document.getElementById('catHealthAmt').value='';
   document.getElementById('catIsSaving').checked=false;
@@ -960,7 +960,7 @@ function editCat(id){
   document.getElementById('catIcon').value=c.icon;
   document.getElementById('catColor').value=c.color;
   document.getElementById('catType').value=c.type;
-  { const lq=document.getElementById('catLiq'); if(lq) lq.value=c.liq||''; }
+  { const lq=document.getElementById('catLiq'); if(lq) lq.value=c.liq||''; catLiqHint(); }
   document.getElementById('catHealthPct').value=c.healthPct||'';
   document.getElementById('catHealthAmt').value=c.healthAmt||'';
   document.getElementById('catIsSaving').checked=!!c.isSaving;
@@ -1345,3 +1345,28 @@ async function removePartner(partnerUid){
 }
 
 // ══════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  S21 (Milan): AUTOMATICKÁ LIKVIDITA BYLA NEVIDITELNÁ
+//  Ruční přepínač „Likvidita aktiva" existuje od ADR-076b, ale výchozí je
+//  „🤖 Automaticky (podle názvu)" – a uživatel neměl jak zjistit, co z toho
+//  odhad udělal. Právě tam žila chyba FIX-303 (penzijní SPOŘENÍ padalo do
+//  rezervy). Nápověda teď rovnou ukáže výsledek odhadu, takže se dá opravit
+//  dřív, než začne kazit Emergency Fund.
+// ══════════════════════════════════════════════════════════════════════
+function catLiqHint() {
+  const el = document.getElementById('catLiqHint'); if (!el) return;
+  const sel = document.getElementById('catLiq');
+  const zaklad = 'Určuje, do které sekce Finančních aktiv se přesun zařadí.';
+  if (!sel || sel.value) { el.innerHTML = zaklad; return; }
+  const nazev = document.getElementById('catName')?.value || '';
+  if (!nazev.trim()) { el.innerHTML = zaklad; return; }
+  const t = (typeof assetLiqFromName === 'function') ? assetLiqFromName(nazev) : null;
+  const popis = { reserve: '🛟 likvidní rezervu', mid: '📈 střednědobá / investiční',
+                  long: '🏠 dlouhodobá / fyzická', virtual: '📋 virtuální přesuny' };
+  el.innerHTML = t && popis[t]
+    ? `${zaklad}<br>Podle názvu appka odhaduje <strong style="color:#c9cede">${popis[t]}</strong>. Nesedí-li to, vyber ručně.`
+    : zaklad;
+}
+window.catLiqHint = catLiqHint;

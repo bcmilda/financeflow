@@ -1,4 +1,4 @@
-// FinanceFlow · v10.21 · ui.js · 2026-08-28
+// FinanceFlow · v10.31 · ui.js · 2026-09-02
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -450,6 +450,18 @@ function renderOnboardingCard(D){
       go:"openAutoLimitsModal()" },
     { icon:'👨‍👩‍👧', label:'Vyplň složení domácnosti', sub:'pro srovnání s průměry ČSÚ',
       done: (parseInt(st.household_adults)||0) > 0, go:"showPage('nastaveni')" },
+    // TODO-236 (S21, Milan): co se v onboardingu přeskočí, má skončit tady.
+    //   Pro uživatele, kteří onboardingem nikdy neprošli, je `onboardingSkipped`
+    //   undefined → krok je rovnou hotový a nikoho neotravuje (SKILL 31:
+    //   chybějící příznak neznamená „přeskočeno").
+    { icon:'👋', label:'Dokonči úvodní nastavení', sub:'jazyk, měna, formát data, frekvence výplaty',
+      done: st.onboardingSkipped !== true, go:"openOnboardingModal()" },
+    // Odpověď na otázku po půjčce odemyká S2 (zadluženost) ve Finančním skóre.
+    //   Podmínka je ZÁMĚRNĚ stejná jako `_debtsKnown` v premium.js – checklist
+    //   nesmí tvrdit něco jiného než skóre, které na tomtéž stojí.
+    { icon:'🏦', label:'Řekni, jestli máš půjčku nebo hypotéku', sub:'bez toho skóre nezná zadluženost a vynechá ji',
+      done: (D.debts||[]).length > 0 || st.hasDebts === false || st.hasDebts === true,
+      go:"openOnboardingModal()" },
   ];
   const doneCount = steps.filter(s=>s.done).length;
   if(doneCount === steps.length){ el.innerHTML=''; return; }

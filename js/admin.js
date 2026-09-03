@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · admin.js · 2026-09-02
+// FinanceFlow · v10.31 · admin.js · 2026-09-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.31',
+    datum: '2026-09-02',
+    zmeny: [
+      '⏳ TODO-237: TŘETÍ SCÉNÁŘ SIMULACE JE NOVĚ PODMÍNĚNÝ. „Splatím dluh dřív" nemá bez dluhu co měřit – vycházel číslo od čísla stejně jako scénář B a dvě totožné dlaždice vedle sebe vypadají jako rozbitá appka. Když dluh není (nebo se splatí stejně rychle i bez snahy navíc), ukáže se místo něj ODCHOD DO DŮCHODU O 5 LET DŘÍV: jiný čas místo jiného způsobu spoření, nejsilnější páka dlouhodobé simulace a bez nového vstupního pole.',
+      '⚙ TODO-237: graf, legenda i tooltip se přepínají spolu s dlaždicí – kdyby kreslil graf pořád scénář C, protiřečil by kartě nad sebou. Kratší řada se na časové ose dokresluje vodorovně (po odchodu se už nespoří). Souhrn „nejlepší scénář" se vybírá z toho, co je na dlaždici, ne natvrdo z C.',
+      '👋 TODO-236 (Milan): CO SE V ONBOARDINGU PŘESKOČÍ, SKONČÍ V CHECKLISTU. Přeskočení dosud jen zavřelo okno a nastavení zmizelo beze stopy – modal se totiž záměrně už nikdy sám neukáže. Nově se rozlišují dvě různé otázky dvěma příznaky: onboardingDone („už jsem se ptal") a onboardingSkipped („uživatel neodpověděl"). Druhý drží krok „Dokonči úvodní nastavení" v průvodci na Přehledu, odkud se tentýž modal otevře.',
+      '🏦 TODO-236: druhý nový krok – dotaz na půjčku/hypotéku, který odemyká S2 (zadluženost) ve Finančním skóre. Podmínka splnění je ZÁMĚRNĚ shodná s _debtsKnown v premium.js, aby checklist netvrdil něco jiného než skóre, které na tomtéž stojí. Kdo onboardingem nikdy neprošel, má oba kroky rovnou hotové a nic ho neotravuje (SKILL 31).',
+      '🛟 Automatická likvidita kategorie je nově VIDĚT. Ruční přepínač existuje od ADR-076b, ale výchozí „🤖 Automaticky (podle názvu)" nešlo nijak zkontrolovat – a právě tam žila chyba FIX-303, kdy penzijní SPOŘENÍ padalo do likvidní rezervy. Nápověda pod výběrem teď rovnou ukáže, co odhad vybral, takže se dá opravit dřív, než to zkreslí Emergency Fund. Odhad podle názvu vytažen do sdíleného assetLiqFromName(), ne zkopírován (SKILL 17).',
+      '⚙ Testy: tools/smoke_simulace.js 41 kontrol, tools/smoke_s21.js 47 kontrol.',
+    ]
+  },
   {
     verze: 'v10.30',
     datum: '2026-09-02',

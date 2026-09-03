@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · projects.js · 2026-09-02
+// FinanceFlow · v10.31 · projects.js · 2026-09-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5480,11 +5480,30 @@ function simCompute(p) {
   };
 
   const A = run('A'), B = run('B'), C = run('C');
+
+  // TODO-237 (S21, Milan): scénář C („splatím dluh dřív") nemá bez dluhu co
+  //   měřit – vycházel identicky jako B a dvě dlaždice se stejným číslem
+  //   vypadají jako rozbitá appka. Bezdlužnému uživateli proto ukážeme něco,
+  //   co pro něj smysl má: kolik by měl, kdyby šel do důchodu o 5 let dřív.
+  //   Není to jiný způsob spoření, ale jiný ČAS – u dlouhodobé simulace
+  //   nejsilnější páka, a nepotřebuje to žádný nový vstup.
+  const cSmysl = p.debt > 0 && C.freeMonth !== A.freeMonth;
+  let D5 = null;
+  // `_bezD5` zastaví rekurzi: vnitřní běh je taky bezdlužný a chtěl by si
+  // spočítat vlastní D5, a tak pořád dokola (bez toho RangeError hned na první
+  // simulaci bez dluhu).
+  if (!cSmysl && !p._bezD5) {
+    const kratsi = Math.max(12, months - 60);   // o 5 let dřív, ale aspoň rok simulace
+    D5 = { ...simCompute({ ...p, months: kratsi, _bezD5: true }).B,
+           letDriv: Math.round((months - kratsi) / 12) };
+  }
   // Splátka nepokrývá ani úrok → dluh roste donekonečna a scénáře nedávají smysl
   const uroky1 = p.debt * rDebt;
   const nesplatitelny = p.debt > 0 && p.debtPayment <= uroky1 + 0.01;
   return {
     A, B, C, months, nesplatitelny,
+    cSmysl,            // má scénář „splatím dluh dřív" v této situaci co říct?
+    D5,                // náhradní třetí scénář pro bezdlužné (dřívější důchod)
     urokMesicne: Math.round(uroky1),
     prebytek: p.income - p.expenses - p.debtPayment,   // dokud dluh trvá
     prebytekPoSplaceni: p.income - p.expenses,
@@ -5538,13 +5557,27 @@ function runSimulace() {
   // Hrubý odhad státního důchodu (~40 % hrubé mzdy, čistý příjem ≈ 70 % hrubé)
   const stateDuchodEst = Math.round(income * 0.4 * 0.7);
 
-  const best = Math.max(scenA, scenB, scenC);
+  // TODO-237: třetí dlaždice je podmíněná. Když dluh není (nebo se splatí
+  //   stejně rychle i bez snahy navíc), scénář „splatím dluh dřív" vyjde
+  //   identicky jako B – dvě stejná čísla vedle sebe nic neříkají. Místo něj
+  //   se ukáže „odejdu o 5 let dřív", což bezdlužnému člověku poví, co ho
+  //   ten čas stojí.
+  const treti = sim.cSmysl
+    ? { val: scenC, ico: '💳', nadpis: 'Scénář C<br>Splatím dluh dřív',
+        podtitul: `dluh splacen ${simDoba(sim.C.freeMonth)}`, klic: 'C', nazev: 'C – Splacení dluhu' }
+    : { val: sim.D5 ? sim.D5.final : scenB, ico: '⏳', nadpis: 'Scénář C<br>Odejdu dřív',
+        podtitul: `v ${retireAge - (sim.D5 ? sim.D5.letDriv : 5)} letech místo ${retireAge}`,
+        klic: 'D', nazev: `C – Odchod v ${retireAge - (sim.D5 ? sim.D5.letDriv : 5)}` };
+  const scenT = treti.val;
+  const monthlyT = Math.round(Math.max(0, scenT) * 0.04 / 12);
+
+  const best = Math.max(scenA, scenB, scenT);
   // FIX-300: titulek se dřív rozhodoval jen mezi B a C, číslo pod ním bylo max ze VŠECH tří
-  const bestLabel = best === scenC ? 'C – Splacení dluhu'
+  const bestLabel = best === scenT ? treti.nazev
                   : best === scenB ? 'B – Investování'
                   : 'A – Stejné tempo';
-  const bestRenta = best === scenC ? monthlyC : best === scenB ? monthlyB : monthlyA;
-  const winA = best === scenA, winB = best === scenB, winC = best === scenC;
+  const bestRenta = best === scenT ? monthlyT : best === scenB ? monthlyB : monthlyA;
+  const winA = best === scenA, winB = best === scenB, winC = best === scenT;
   const bx = w => w ? 'rgba(74,222,128,.08)' : 'var(--surface2)';
   const bb = w => w ? 'rgba(74,222,128,.3)'  : 'var(--border)';
   const fc = v => v < 0 ? 'var(--expense)' : 'var(--text)';
@@ -5564,8 +5597,7 @@ function runSimulace() {
               `dluh splacen ${simDoba(sim.A.freeMonth)}`, monthlyA, winA, fc(scenA))}
       ${karta('📈','Scénář B<br>Investuji', scenB,
               `${fmtB(Math.round(sim.investPoSplaceni))}/měs při ${investReturn} % p.a.`, monthlyB, winB, winB?'var(--income)':fc(scenB))}
-      ${karta('💳','Scénář C<br>Splatím dluh dřív', scenC,
-              `dluh splacen ${simDoba(sim.C.freeMonth)}`, monthlyC, winC, winC?'var(--income)':fc(scenC))}
+      ${karta(treti.ico, treti.nadpis, scenT, treti.podtitul, monthlyT, winC, winC?'var(--income)':fc(scenT))}
     </div>
 
     <!-- Insight -->
@@ -5610,18 +5642,23 @@ function runSimulace() {
 
         <div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">
            Dnes zbývá na investice <strong>${fmtB(Math.round(monthlyInvest))}/měs</strong>${debt > 0
-             ? `. Po splacení dluhu se uvolní splátka ${fmtB(debtPayment)} a scénáře B i C počítají s <strong>${fmtB(Math.round(sim.investPoSplaceni))}/měs</strong> — peníze, které dnes odcházejí na dluh, zůstanou vyčleněné.`
+             ? `. Po splacení dluhu se uvolní splátka ${fmtB(debtPayment)} a scénáře počítají s <strong>${fmtB(Math.round(sim.investPoSplaceni))}/měs</strong> — peníze, které dnes odcházejí na dluh, zůstanou vyčleněné.`
              : '.'}</div></div>
 
-        ${debt > 0 ? `<div class="insight-item ${debtRate > investReturn ? 'warn' : 'good'}"><div class="insight-icon">💳</div><div class="insight-text">
+        ${sim.cSmysl ? `<div class="insight-item ${debtRate > investReturn ? 'warn' : 'good'}"><div class="insight-icon">💳</div><div class="insight-text">
            Dluh ${fmtB(debt)} má ${debtRate} % p.a., investice počítáš na ${investReturn} % p.a. —
            ${debtRate > investReturn
              ? `každá koruna navíc na splátku vydělá víc než ta samá koruna v investici. Proto vychází líp scénář C (rozdíl ${fmtB(Math.abs(scenC-scenB))}).`
              : `investice vydělává víc, než dluh stojí. Splácet nad rámec splátky se nevyplatí (rozdíl ${fmtB(Math.abs(scenB-scenC))} ve prospěch B).`}
            </div></div>` : ''}
 
-        ${debt === 0 && scenB !== scenC ? `<div class="insight-item good"><div class="insight-icon">🎉</div><div class="insight-text">
-           Bez dluhu jsou scénáře B a C totéž — není co splácet dřív.</div></div>` : ''}
+        ${!sim.cSmysl && sim.D5 ? `<div class="insight-item ${sim.D5.final < scenB ? 'warn' : 'good'}"><div class="insight-icon">⏳</div><div class="insight-text">
+           ${debt > 0
+             ? `Dluh ${fmtB(debt)} se při splátce ${fmtB(debtPayment)} umoří ${simDoba(sim.A.freeMonth)} sám od sebe — splácet ho „dřív\" nedává smysl, a tak třetí scénář ukazuje něco jiného: `
+             : 'Dluh nemáš, takže „splatit dřív\" nemá co měřit. Třetí scénář proto ukazuje '}
+           odchod do důchodu o <strong>${sim.D5.letDriv} let dřív</strong>. Stojí to
+           <strong>${fmtB(Math.max(0, scenB - sim.D5.final))}</strong> — tolik by ti těch pět let navíc přineslo,
+           kdybys je odpracoval.</div></div>` : ''}
 
         <div class="insight-item good"><div class="insight-icon">🎯</div><div class="insight-text">
            Pro finanční nezávislost je potřeba <strong>${fmtB(Math.round(expenses*12/0.04))}</strong> (25× roční výdaje).</div></div>
@@ -5649,12 +5686,23 @@ function drawSimulaceChart(age, retireAge, sim) {
     const pts = Math.min(years, 50);
 
     // Vzorkování měsíčních řad na `pts` bodů (index 0 = dnes)
-    const vzorek = (nw) => {
+    //   `delka` umožní vzorkovat kratší řadu na TÉŽE časové ose – index se počítá
+    //   proti plné délce, a co za koncem řady, to se drží na poslední hodnotě.
+    const vzorek = (nw, delka) => {
+      const N = (delka || nw.length) - 1;
       const out=[];
-      for(let i=0;i<=pts;i++) out.push(Math.round(nw[Math.min(nw.length-1, Math.round(i/pts*(nw.length-1)))]));
+      for(let i=0;i<=pts;i++){
+        const idx = Math.round(i/pts*N);
+        out.push(Math.round(nw[Math.min(nw.length-1, idx)]));
+      }
       return out;
     };
-    const serA=vzorek(sim.A.nw), serB=vzorek(sim.B.nw), serC=vzorek(sim.C.nw);
+    // TODO-237: třetí křivka musí odpovídat třetí DLAŽDICE. U bezdlužného
+    //   uživatele je to „odejdu o 5 let dřív" – kratší řada, kterou dokreslíme
+    //   vodorovně do konce, protože po odchodu se už dál nespoří (majetek jen
+    //   leží). Bez toho by graf ukazoval jiný scénář než karta nad ním.
+    const tretiNw = sim.cSmysl ? sim.C.nw : (sim.D5 ? sim.D5.nw : sim.B.nw);
+    const serA=vzorek(sim.A.nw), serB=vzorek(sim.B.nw), serC=vzorek(tretiNw, sim.A.nw.length);
 
     // S21: čisté jmění může být ZÁPORNÉ (nesplacený dluh), takže osa Y už nesmí
     //   začínat natvrdo nulou – jinak by se křivka schovala pod okraj plochy.
@@ -5710,7 +5758,8 @@ function drawSimulaceChart(age, retireAge, sim) {
     // Legenda NAHOŘE (nekryje se s osou X)
     ctx.textAlign='left';ctx.font='10.5px Instrument Sans';
     let lx=pad.l;
-    [{c:COLS.A,l:'A: Neinvestuji'},{c:COLS.B,l:'B: Investuji'},{c:COLS.C,l:'C: Splatím dluh dřív'}].forEach(it=>{
+    const popisC = sim.cSmysl ? 'C: Splatím dluh dřív' : 'C: Odejdu dřív';
+    [{c:COLS.A,l:'A: Neinvestuji'},{c:COLS.B,l:'B: Investuji'},{c:COLS.C,l:popisC}].forEach(it=>{
       ctx.fillStyle=it.c;ctx.fillRect(lx,9,14,3.5);
       ctx.fillStyle='#c9cede';ctx.fillText(it.l,lx+18,14);
       lx += 18 + ctx.measureText(it.l).width + 16;
@@ -5730,7 +5779,7 @@ function drawSimulaceChart(age, retireAge, sim) {
       tt.innerHTML=`<b>${age+Math.round(i*years/pts)} let</b>`
         +`<br><span style="color:${COLS.A}">●</span> Neinvestuji: ${fmtB(serA[i])}`
         +`<br><span style="color:${COLS.B}">●</span> Investuji: ${fmtB(serB[i])}`
-        +`<br><span style="color:${COLS.C}">●</span> Splatím dluh dřív: ${fmtB(serC[i])}`;
+        +`<br><span style="color:${COLS.C}">●</span> ${sim.cSmysl?'Splatím dluh dřív':'Odejdu dřív'}: ${fmtB(serC[i])}`;
       if(ev.touches) setTimeout(()=>{ if(tt) tt.style.display='none'; }, 2500);
     };
     canvas.onmouseleave=function(){ const tt=document.getElementById('simulaceTip'); if(tt) tt.style.display='none'; };

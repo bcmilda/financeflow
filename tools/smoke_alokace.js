@@ -20,7 +20,7 @@ function render(assets,walletBal){
   sb.computeWalletBalance=sb.walletBalanceCZK;
   sb.fmtBP=v=>Math.round(v)+' Kč';
   vm.createContext(sb);
-  vm.runInContext([gc('LIQ_GROUPS'),pick('assetCatLiq'),pick('assetTier'),pick('assetLiqTotals'),
+  vm.runInContext([gc('LIQ_GROUPS'),pick('assetCatLiq'),pick('assetLiqFromName'),pick('assetTier'),pick('assetLiqTotals'),
                    pick('renderAssetAllocation'),pick('allocFocus')].join('\n'),sb);
   vm.runInContext('renderAssetAllocation()',sb);
   return {html:els['assetAllocationCard'].innerHTML, els, sb};

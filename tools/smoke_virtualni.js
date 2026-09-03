@@ -24,7 +24,9 @@ function mkSandbox(assets,wallets){
   sb.walletBalanceCZK=(id,D)=>((D.wallets||[]).find(w=>w.id===id)||{}).balance||0;
   sb.computeWalletBalance=sb.walletBalanceCZK;
   vm.createContext(sb);
-  vm.runInContext([grabConst('LIQ_GROUPS'),pick('assetCatLiq'),pick('assetTier'),pick('assetLiqTotals')].join('\n'),sb);
+  // S21: odhad podle názvu je nově samostatný helper (assetLiqFromName) – testy
+  //   ho musí vytáhnout taky, jinak assetCatLiq spadne na ReferenceError.
+  vm.runInContext([grabConst('LIQ_GROUPS'),pick('assetCatLiq'),pick('assetLiqFromName'),pick('assetTier'),pick('assetLiqTotals')].join('\n'),sb);
   return sb;
 }
 

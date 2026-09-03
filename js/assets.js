@@ -1,4 +1,4 @@
-//  FinanceFlow · v10.30 · assets.js · 2026-09-02
+//  FinanceFlow · v10.31 · assets.js · 2026-09-02
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -32,7 +32,15 @@ function assetCatLiq(catId){
   const cc = ((typeof S!=='undefined' && S.categories) || []).find(x => x.id === catId);
   if (!cc) return null;
   if (cc.liq === 'reserve' || cc.liq === 'mid' || cc.liq === 'long') return cc.liq; // ruční nastavení
-  const n = (cc.name || '').toLowerCase(); // odvození podle názvu (výchozí)
+  return assetLiqFromName(cc.name);
+}
+
+// S21 (Milan): odhad podle NÁZVU vytažen zvlášť, aby ho mohla použít i nápověda
+//   ve správě kategorií (dřív šel odhad vidět až ve Finančních aktivech, takže
+//   se špatné zařazení odhalilo pozdě – viz FIX-303).
+function assetLiqFromName(name){
+  const n = (name || '').toLowerCase();
+  if (!n) return null;
   if (/virtuáln|virtualn/.test(n)) return 'virtual';   // FIX-285: cíle nejsou investice
   // FIX-303 (S21): POŘADÍ TESTŮ ROZHODUJE. Vzor 'spoř' je podřetězcem názvů jako
   //   „Penzijní spoření" nebo „Doplňkové penzijní spoření" – když se testoval dřív,
