@@ -1,4 +1,4 @@
-// FinanceFlow · v10.37 · app.js · 2026-09-03
+// FinanceFlow · v10.38 · app.js · 2026-09-03
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -904,6 +904,7 @@ async function loadPartners(user) {
     return;
   }
   const partnerUids = Object.keys(snap.val());
+  _cekajiciPartneri.length = 0;   // FIX-316: kdo mě ještě nepřidal zpět
   // FIX-311: tenhle uzel znamená „kdo smí číst mě" – proto z něj plní `_myGrants`,
   //   podle kterých se rozhoduje, jestli má vzniknout výdejní okénko `shared`.
   _myGrants.clear(); partnerUids.forEach(u=>_myGrants.add(u));
@@ -951,7 +952,19 @@ async function loadPartners(user) {
           }
         });
       }
-    } catch(e) { console.log('Partner load error:', e); }
+    } catch(e) {
+      // FIX-316 (S21): „Permission denied" tady NENÍ chyba appky, ale normální
+      //   stav: druhá strana mě zatím nepřidala, takže její data číst nesmím.
+      //   Vypisovat to jako Error mátlo při ladění – vypadalo to, že je rozbité
+      //   sdílení, přitom chybělo jen protějškovo potvrzení.
+      const odepreno = /permission/i.test(e?.message || '');
+      if (odepreno) {
+        _cekajiciPartneri.push(uid);
+        console.info(`[sdílení] ${uid.slice(0,8)}… mě zatím nepřidal, jeho data proto nevidím.`);
+      } else {
+        console.warn('[sdílení] partnera se nepodařilo načíst:', uid.slice(0,8)+'…', e?.message || e);
+      }
+    }
   }
   renderPartnerSection(loaded);
 }
@@ -1210,7 +1223,46 @@ function _dwEnsureIds(){
 //    users/{uid}/shared  → _shMetaVals/_shTxObj … výřez, tohle čtou partneři
 //  Filtr tak nemá jak sáhnout na úložiště. Viz PLAN-oprava-sdileni.md.
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-315 (S21): NEPLATNÉ KLÍČE SHODILY CELÝ ZÁPIS DO FIREBASE
+//  Firebase v klíči nesnese  .  #  $  /  [  ]  a při jediném takovém klíči
+//  odmítne CELÝ `set` – ne jen tu jednu hodnotu. Stačilo, aby se do
+//  `coicopOverrides` dostala podkategorie „Školka/škola\", a výřez `shared`
+//  se nezapsal vůbec: partner neměl co číst a Rodinný souhrn zůstal prázdný.
+//
+//  Ta samá chyba tu už jednou byla (S9) a opravila se u zdroje – v
+//  renderCatPage(), aby merge nemutoval S.categories. Vrátila se jinudy.
+//  Proto ji tentokrát chytáme i NA HRANICI ZÁPISU: ať ji zavleče kterýkoli
+//  kód, k Firebase se nedostane. Oprava u zdroje tím nezaniká, tohle je
+//  druhá obrana, ne náhrada.
+//
+//  Klíč se nezahazuje, jen se v něm zakázané znaky nahradí pomlčkou –
+//  „Školka/škola\" → „Školka-škola\". Data se tak neztratí a název zůstane
+//  čitelný. (Zahodit klíč by znamenalo tiše přijít o COICOP zařazení.)
+// ══════════════════════════════════════════════════════════════════════
+const _FB_ZAKAZANE = /[.#$/\[\]]/g;
+function _fbSafeKeys(v){
+  if (Array.isArray(v)) return v.map(_fbSafeKeys);
+  if (v && typeof v === 'object'){
+    const out = {};
+    for (const k of Object.keys(v)){
+      const bezpecny = String(k).replace(_FB_ZAKAZANE, '-');
+      if (!bezpecny) continue;                 // prázdný klíč Firebase taky nebere
+      if (bezpecny !== k) {
+        console.warn('[firebase] klíč upraven:', JSON.stringify(k), '→', JSON.stringify(bezpecny));
+      }
+      out[bezpecny] = _fbSafeKeys(v[k]);
+    }
+    return out;
+  }
+  return v;
+}
+window._fbSafeKeys = _fbSafeKeys;
+
 function _dwMetaVals(){
+  // FIX-315: sanitace i tady – úložiště `data` je na neplatný klíč stejně
+  //   citlivé jako výřez. Kdyby spadl tenhle zápis, uživatel přijde o data,
+  //   ne „jen" o sdílení. Volá se přes _fbSafeKeys až v _dwWrite/_shMetaVals.
   return {
     debts: S.debts||[],
     categories: S.categories||[],
@@ -1245,7 +1297,7 @@ function _dwTxObj(){
 //    ale zapisuje se do users/{uid}/shared, ne do úložiště. ──
 function _shMetaVals(){
   const ss=S.shareSettings||{};
-  const mv=_dwMetaVals();
+  const mv=_fbSafeKeys(_dwMetaVals());   // FIX-315
   return {
     debts: ss.debts===false?[]:mv.debts,
     categories: ss.categories===false?[]:mv.categories,
@@ -1296,6 +1348,8 @@ let _sh = { ready:false, metaSig:{}, txSig:null };
 //   měl `partnerData` prázdné, `_shWrite` se nikdy nespustil a druhá strana neměla
 //   co číst. Sdílení se tak nerozjelo ani po správném přidání.
 let _myGrants = new Set();          // komu jsem udělil přístup ke svým datům
+let _cekajiciPartneri = [];         // FIX-316: komu jsem dal přístup, ale on mně ještě ne
+window._cekajiciPartneri = _cekajiciPartneri;
 function _hasPartners(){
   try {
     if (_myGrants && _myGrants.size) return true;
@@ -1350,7 +1404,7 @@ async function saveToFirebase() {
           localStorage.setItem(bkey,'1');
         }
       }catch(e){ console.warn('[diff-write] záloha v1 přeskočena:', e); }
-      const full = Object.assign({}, _dwMetaVals(), { transactions: _dwTxObj(), schemaV: 2 });
+      const full = _fbSafeKeys(Object.assign({}, _dwMetaVals(), { transactions: _dwTxObj(), schemaV: 2 }));   // FIX-315
       await _set(dataRef, full);
       S.schemaV = 2;
       _dwSeed();
@@ -1365,7 +1419,7 @@ async function saveToFirebase() {
 
     // ── Diff zápis ──
     const updates = {};
-    const mv = _dwMetaVals();
+    const mv = _fbSafeKeys(_dwMetaVals());   // FIX-315
     _DW_META.forEach(k=>{ let sig; try{ sig=JSON.stringify(mv[k]); }catch(e){ sig=''; } if(sig!==_dw.metaSig[k]){ updates[k]=mv[k]; _dw.metaSig[k]=sig; } });
     const to = _dwTxObj(); const seen=new Set();
     Object.keys(to).forEach(id=>{ seen.add(id); let sig; try{ sig=JSON.stringify(to[id]); }catch(e){ sig=''; } if(sig!==_dw.txSig.get(id)){ updates['transactions/'+id]=to[id]; _dw.txSig.set(id,sig); } });

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.37 · stats.js · 2026-09-03
+// FinanceFlow · v10.38 · stats.js · 2026-09-03
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1068,7 +1068,15 @@ function renderFamilySummary(){
   }
 
   if(!partners.length){
-    el.innerHTML=`<div class="insight-item info"><div class="insight-icon">🔗</div><div class="insight-text">Zatím nemáš nikoho ve sdílení. Jdi do sekce <strong>Sdílení &amp; Partneři</strong> a přidej člena domácnosti – uvidíte společné příjmy, výdaje a saldo. Domácnost může mít až ${FAMILY_MAX_MEMBERS} členů.</div></div>`;
+    // FIX-316: rozlišit „nikoho nemám" od „přidal jsem, ale on mě ještě ne".
+    //   Dosud obojí vypadalo stejně a uživatel netušil, na čem to stojí.
+    const ceka = (typeof _cekajiciPartneri!=='undefined' && _cekajiciPartneri.length) ? _cekajiciPartneri : [];
+    el.innerHTML = ceka.length
+      ? `<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">
+           Čeká se na druhou stranu. ${ceka.length===1?'Jednomu člověku jsi':'Několika lidem jsi'} zpřístupnil svá data,
+           ale ${ceka.length===1?'on tebe':'oni tebe'} zatím ${ceka.length===1?'nepřidal':'nepřidali'} – proto ${ceka.length===1?'jeho':'jejich'} čísla nevidíš.
+           <br><br>Nejrychlejší cesta: pošli <strong>pozvánku</strong> ze sekce Sdílení &amp; Partneři. Ta propojí obě strany najednou.</div></div>`
+      : `<div class="insight-item info"><div class="insight-icon">🔗</div><div class="insight-text">Zatím nemáš nikoho ve sdílení. Jdi do sekce <strong>Sdílení &amp; Partneři</strong> a pošli pozvánku členovi domácnosti – uvidíte společné příjmy, výdaje a saldo. Domácnost může mít až ${FAMILY_MAX_MEMBERS} členů.</div></div>`;
     return;
   }
   

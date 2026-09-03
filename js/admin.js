@@ -1,4 +1,4 @@
-// FinanceFlow · v10.37 · admin.js · 2026-09-03
+// FinanceFlow · v10.38 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.38',
+    datum: '2026-09-03',
+    zmeny: [
+      '🔑 FIX-315: JEDEN NEPLATNÝ KLÍČ SHODIL CELÝ ZÁPIS. Podkategorie „Školka/škola" se dostala do coicopOverrides – a Firebase v klíči nesnese . # $ / [ ] a při jediném takovém odmítne CELÝ set, ne jen tu hodnotu. Výřez `shared` se proto na jednom účtu nezapsal vůbec, partner neměl co číst a Rodinný souhrn zůstal prázdný. Stejná chyba tu byla v S9 a opravila se u zdroje (merge v renderCatPage mutoval S.categories); vrátila se jinou cestou.',
+      '🛡 FIX-315: nově se sanituje NA HRANICI ZÁPISU – ať klíč zavleče kterýkoli kód, k Firebase se nedostane. Zakázané znaky se nahradí pomlčkou („Školka/škola" → „Školka-škola"), takže se nic neztratí a název zůstane čitelný; zahodit klíč by znamenalo tiše přijít o COICOP zařazení. Chrání OBĚ cesty – i úložiště `data`, kde by pád znamenal ztrátu dat, ne „jen" sdílení.',
+      '⏳ FIX-316: hláška „Partner load error: Permission denied" mátla – vypadala jako rozbité sdílení, přitom je to normální stav: druhá strana mě zatím nepřidala, takže její data číst nesmím. Odepření se nově loguje jako informace, skutečné chyby zůstávají varováním. Rodinný souhrn navíc rozliší „nikoho nemám" od „čeká se na druhou stranu" a poradí poslat pozvánku, která propojí obě strany najednou.',
+      '⚙ Nový test tools/smoke_klice.js (15 kontrol) – včetně přesně toho případu z produkce a kontroly, že po sanitaci je celý strom pro Firebase platný.',
+    ]
+  },
   {
     verze: 'v10.37',
     datum: '2026-09-03',

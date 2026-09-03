@@ -71,7 +71,11 @@ check('bez partnerů se seznam vůbec nevykreslí (žádná chyba)',()=>{
   vm.runInContext(body,sb);
   sb.renderFamilySummary.call(sb, {});
   // partnerData prázdné -> funkce skončí na "Zatím nemáš partnery" hlášce
-  assert(sb.document.getElementById('familyContent').innerHTML.includes('člena domácnosti'),'chybí hláška prázdného stavu');
+  // FIX-316: prázdný stav má dvě podoby – „nikoho nemám" a „čeká se na druhou
+  //   stranu". Tady je _cekajiciPartneri prázdné, takže musí padnout ta první.
+  const h=sb.document.getElementById('familyContent').innerHTML;
+  assert(h.includes('členovi domácnosti')||h.includes('člena domácnosti'),'chybí hláška prázdného stavu');
+  assert(!h.includes('Čeká se na druhou stranu'),'plete si prázdný stav s čekáním na protějšek');
 });
 
 check('kombinovaný seznam obsahuje transakce OBOU členů, seřazené podle částky',()=>{

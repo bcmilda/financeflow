@@ -22,6 +22,9 @@ function mkSandbox(shareSettings){
   sb.window=sb; vm.createContext(sb);
   vm.runInContext([
     "const _DW_META=['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','diary','idleCfg','milestones','reportSectors','pristiCfg'];",
+    // S21/FIX-315: _shMetaVals i _dwMetaVals nově prochází sanitátorem klíčů,
+    //   takže se musí vytáhnout taky – jinak ReferenceError.
+    (src.match(/const _FB_ZAKAZANE[\s\S]*?\n\}/)||[''])[0], pick('_fbSafeKeys'),
     pick('_dwMetaVals'), pick('_dwTxObj'), pick('_shMetaVals'), pick('_shTxObj')
   ].join('\n'), sb);
   return sb;
