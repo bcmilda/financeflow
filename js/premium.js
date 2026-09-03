@@ -1,4 +1,4 @@
-// FinanceFlow · v10.34 · premium.js · 2026-09-03
+// FinanceFlow · v10.35 · premium.js · 2026-09-03
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -205,7 +205,13 @@ function showPagePremium(name, el) {
     alert('📱 Sdílení s partnerem není dostupné v režimu "Bez účtu".\n\nPro sdílení se přihlaste přes Google účet v Nastavení.');
     return;
   }
-  if (hasPremiumAccess()) {
+  // FIX-310 (S21): tahle funkce se jmenuje showPagePremium, ale PREMIUM_PAGES
+  //   nikdy NEČETLA – zamykala všechno, co přes ni prošlo. Vyndat stránku ze
+  //   seznamu (v10.34) proto nestačilo: diamant ze sidebaru zmizel, ale po
+  //   kliknutí pořád vyskočil paywall a stránka byla nepoužitelná.
+  //   Seznam je od téhle chvíle jediný zdroj pravdy o tom, co je placené.
+  const jePlacena = Array.isArray(PREMIUM_PAGES) ? PREMIUM_PAGES.includes(name) : true;
+  if (!jePlacena || hasPremiumAccess()) {
     showPage(name, el);
   } else {
     showPaywall();

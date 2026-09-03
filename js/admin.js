@@ -1,4 +1,4 @@
-// FinanceFlow · v10.34 · admin.js · 2026-09-03
+// FinanceFlow · v10.35 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.35',
+    datum: '2026-09-03',
+    zmeny: [
+      '🚑 FIX-310: SDÍLENÍ A RODINNÝ SOUHRN BYLY PO v10.34 NEPOUŽITELNÉ. Diamanty ze sidebaru zmizely, ale po kliknutí pořád vyskočil paywall. Příčina: funkce showPagePremium() se sice tak jmenuje, ale seznam PREMIUM_PAGES NIKDY NEČETLA – volala rovnou hasPremiumAccess() a zamykala všechno, co přes ni prošlo. Vyndat stránku ze seznamu proto nemělo žádný účinek. Seznam je nově jediný zdroj pravdy o tom, co je placené.',
+      '⚙ Test se ptá na CHOVÁNÍ, ne na tvar kódu: pustí Free uživatele na jednotlivé stránky a ověří, kam se dostane. Přesně tohle v v10.34 chybělo – kontrolovalo se jen, že jméno stránky zmizelo ze seznamu, ne že se na ni dá po kliknutí opravdu dostat. Ověřeno i opačně: placené stránky Free pořád nepustí a Premium projde všude.',
+    ]
+  },
   {
     verze: 'v10.34',
     datum: '2026-09-03',

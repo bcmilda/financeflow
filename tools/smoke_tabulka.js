@@ -71,6 +71,28 @@ ok('tlačítko Tabulka i kontejner jsou v app.html',
   ok('rodina a sdileni už nejsou v PREMIUM_PAGES',
      /const PREMIUM_PAGES = \['predikce','grafy','ai','narozeniny','uctenky','nakup','report2','inflace'\];/.test(pr));
   ok('showPagePremium už je zvlášť nezamyká', !/name==='sdileni'\|\|name==='rodina'\) && !canUseFeature/.test(pr));
+  ok('FIX-310 · showPagePremium ČTE PREMIUM_PAGES (jinak zamyká všechno)',
+     /PREMIUM_PAGES\.includes\(name\)/.test(pr) && /!jePlacena \|\| hasPremiumAccess\(\)/.test(pr));
+
+  // Chování, ne tvar: pustit Free uživatele na stránky a koukat, kam se dostane.
+  //   Právě tenhle test v10.34 chyběl – kontrolovalo se jen, že jméno stránky
+  //   zmizelo ze seznamu, ne že se na ni dá po kliknutí opravdu dostat.
+  const c=vm.createContext({console}); c.window=c;
+  vm.runInContext(pr.match(/const PREMIUM_PAGES = \[[^\]]*\];/)[0], c);
+  vm.runInContext('let _isLocalMode=false; let _premiumStatus={type:"free"}; window.kam=null;'
+    +'function showPage(n){window.kam="OK";} function showPaywall(){window.kam="ZAMCENO";}', c);
+  const telo=n=>{const i=pr.indexOf('function '+n+'(');let d=0,j=pr.indexOf('{',i);
+    for(let k=j;k<pr.length;k++){if(pr[k]==='{')d++;else if(pr[k]==='}'){d--;if(!d)return pr.slice(i,k+1);}}};
+  vm.runInContext(telo('hasPremiumAccess'), c);
+  vm.runInContext(telo('showPagePremium'), c);
+  const zkus=p=>{ c.kam=null; c.showPagePremium(p,null); return c.kam; };
+  ok('FIX-310 · Free se DOSTANE na Sdílení', zkus('sdileni')==='OK');
+  ok('FIX-310 · Free se DOSTANE na Rodinný souhrn', zkus('rodina')==='OK');
+  ok('FIX-310 · placené stránky Free pořád nepustí',
+     zkus('uctenky')==='ZAMCENO' && zkus('ai')==='ZAMCENO' && zkus('grafy')==='ZAMCENO');
+  // Premium musí projít všude
+  vm.runInContext('_premiumStatus={type:"premium"};', c);
+  ok('FIX-310 · Premium projde i na placené stránky', zkus('uctenky')==='OK' && zkus('ai')==='OK');
   ok('režim „bez účtu“ je pořád blokovaný (to není o tieru)',
      /_isLocalMode && \(name==='sdileni'\|\|name==='rodina'\)/.test(pr));
   ok('diamanty zmizely ze sidebaru', !/navlock-rodina/.test(html) && !/navlock-sdileni/.test(html));
