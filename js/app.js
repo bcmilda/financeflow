@@ -1,4 +1,4 @@
-// FinanceFlow · v10.36 · app.js · 2026-09-03
+// FinanceFlow · v10.37 · app.js · 2026-09-03
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -965,7 +965,7 @@ function renderPartnerSection(partnerUids) {
   const myName = window._userProfile?.displayName || me?.displayName || 'Já';
   
   let html = `<div class="partner-btn ${viewingUid===null?'active-user':''}" onclick="switchToOwnData()">
-    <div class="partner-avatar">${me?.photoURL?`<img src="${me.photoURL}" style="width:24px;height:24px;border-radius:50%">` : (window._userProfile?.avatar || '👤')}</div>
+    <div class="partner-avatar">${window._userProfile?.avatar ? window._userProfile.avatar : (me?.photoURL?`<img src="${me.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤')}</div>
     <span class="partner-pname">${myName}</span>
     <span class="partner-badge badge-me">${viewingUid===null?'Aktivní':''}</span>
   </div>`;
@@ -974,7 +974,7 @@ function renderPartnerSection(partnerUids) {
     const p = partnerData[uid];
     const name = p?.profile?.displayName || 'Partner';
     html += `<div class="partner-btn ${viewingUid===uid?'active-partner':''}" onclick="switchToPartner('${uid}')">
-      <div class="partner-avatar">${p?.profile?.photoURL?`<img src="${p.profile.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤'}</div>
+      <div class="partner-avatar">${p?.profile?.avatar ? p.profile.avatar : (p?.profile?.photoURL?`<img src="${p.profile.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤')}</div>
       <span class="partner-pname">${name}</span>
       <span class="partner-badge badge-view">${viewingUid===uid?'Prohlíží':'→'}</span>
     </div>`;
@@ -1497,10 +1497,15 @@ function updateSidebarUser(user) {
   const av = document.getElementById('sidebarAvatar');
   const photo = window._userProfile?.photoURL || user.photoURL;
   if(av){
-    if(photo) {
-      av.outerHTML = `<img src="${photo}" class="user-avatar" id="sidebarAvatar" onerror="this.outerHTML='<div class=user-avatar-placeholder id=sidebarAvatar>👤</div>'">`;
-    } else if(window._userProfile?.avatar) {
+    // FIX-314 (S21, Milan): VÝBĚR AVATARA NEDĚLAL NIC. Fotka z Google účtu se
+    //   testovala PRVNÍ – a tu má po přihlášení přes Google skoro každý, takže
+    //   emoji avatar nemohl nikdy vyhrát. Uživatel si ho vybral, uložil se do
+    //   profilu, ale v sidebaru se nic nezměnilo. Vědomá volba musí přebít
+    //   výchozí hodnotu, ne naopak.
+    if(window._userProfile?.avatar) {
       av.outerHTML = `<div class="user-avatar-placeholder" id="sidebarAvatar">${window._userProfile.avatar}</div>`;
+    } else if(photo) {
+      av.outerHTML = `<img src="${photo}" class="user-avatar" id="sidebarAvatar" onerror="this.outerHTML='<div class=user-avatar-placeholder id=sidebarAvatar>👤</div>'">`;
     } else {
       av.outerHTML = `<div class="user-avatar-placeholder" id="sidebarAvatar">👤</div>`;
     }
@@ -1543,6 +1548,7 @@ async function saveProfile() {
   updateSidebarUser(window._currentUser);
   renderPartnerSection(Object.keys(partnerData));
   closeModal('modalProfile');
+  if(typeof showToast==='function') showToast('✅ Profil uložen');
 }
 
 // ══════════════════════════════════════════════════════

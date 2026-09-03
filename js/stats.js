@@ -1,4 +1,4 @@
-// FinanceFlow · v10.36 · stats.js · 2026-09-03
+// FinanceFlow · v10.37 · stats.js · 2026-09-03
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1256,11 +1256,18 @@ function renderSdileni(){
         <div style="font-size:.82rem;color:var(--text2);margin-bottom:10px">Pošli partnerovi <strong>pozvánku</strong>. Jedním kliknutím se propojíte <strong>oboustranně</strong> – uvidíte na sebe navzájem, nikdo nemusí nic přidávat podruhé.</div>
         <button class="btn btn-accent" onclick="createInviteLink()">🔗 Vytvořit pozvánku</button>
         <div id="inviteBox" style="margin-top:10px"></div>
-        <details style="margin-top:12px">
-          <summary style="font-size:.74rem;color:#a8aec8;cursor:pointer">Nebo ručně přes ID (propojí jen jednu stranu)</summary>
-          <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.78rem;word-break:break-all;color:var(--bank);font-family:monospace;margin-top:8px">${myUid}</div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:7px" onclick="navigator.clipboard.writeText('${myUid}').then(()=>alert('Zkopírováno!'))">📋 Kopírovat ID</button>
-        </details>
+
+        <!-- FIX-313 (S21, Milan): moje UID musí zůstat VIDĚT. Schoval jsem ho pod
+             rozbalovátko a tím vzniklo kolečko: bez uživatelského panelu ho nebylo
+             kde jinde vzít, takže ruční propojení nešlo vůbec použít. -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:#a8aec8;margin-bottom:7px">Moje ID uživatele</div>
+          <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.78rem;word-break:break-all;color:var(--bank);font-family:monospace">${myUid}</div>
+          <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="copyText('${myUid}','ID zkopírováno')">📋 Kopírovat ID</button>
+          </div>
+          <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Přes ID se propojí jen <strong>jedna strana</strong> – zpřístupníš svá data, ale partnera neuvidíš, dokud tě nepřidá taky. Pozvánka výš to udělá obojí najednou.</div>
+        </div>
       </div>
 
       <!-- Slider nastavení -->
@@ -1337,6 +1344,37 @@ function updateShareSetting(key, value) {
 //  pravidlo si ho ověří serverově. Jedno kliknutí, obě strany propojené.
 //  Token smažu → odkaz přestane platit. Přístup odeberu → druhý přestane vidět.
 // ══════════════════════════════════════════════════════════════════════
+// FIX-313: kopírování na jednom místě. `navigator.clipboard` neexistuje na
+//   http a ve starších prohlížečích – bez zálohy by tlačítko tiše nedělalo nic.
+function copyText(text, hlaska){
+  const hotovo = () => { if(typeof showToast==='function') showToast('📋 '+(hlaska||'Zkopírováno')); else alert(hlaska||'Zkopírováno'); };
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(text).then(hotovo).catch(()=>zaloha());
+  } else zaloha();
+  function zaloha(){
+    try{
+      const t=document.createElement('textarea');
+      t.value=text; t.style.position='fixed'; t.style.opacity='0';
+      document.body.appendChild(t); t.select(); document.execCommand('copy');
+      document.body.removeChild(t); hotovo();
+    }catch(e){ prompt('Zkopíruj ručně:', text); }
+  }
+}
+window.copyText=copyText;
+
+// TODO-239 (Milan): odeslat pozvánku rovnou do WhatsAppu/Signalu/Messengeru.
+//   Web Share API otevře systémové menu sdílení; kde není (desktopové prohlížeče),
+//   tlačítko se vůbec nenabídne, ať uživatel neklikne na něco, co nic neudělá.
+function shareInvite(url){
+  if(!navigator.share){ copyText(url,'Odkaz zkopírován'); return; }
+  navigator.share({
+    title: 'FinanceFlow – pozvánka',
+    text: 'Propojme si FinanceFlow, ať vidíme na společné finance:',
+    url
+  }).catch(()=>{});
+}
+window.shareInvite=shareInvite;
+
 async function createInviteLink(){
   const box=document.getElementById('inviteBox');
   if(!window._currentUser || (typeof _isLocalMode!=='undefined' && _isLocalMode)){
@@ -1355,7 +1393,8 @@ async function createInviteLink(){
   if(box) box.innerHTML=`
     <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.72rem;word-break:break-all;color:var(--bank);font-family:monospace">${url}</div>
     <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
-      <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>alert('Odkaz zkopírován!'))">📋 Kopírovat odkaz</button>
+      <button class="btn btn-accent btn-sm" onclick="copyText('${url}','Odkaz zkopírován')">📋 Kopírovat odkaz</button>
+      ${navigator.share ? `<button class="btn btn-primary btn-sm" onclick="shareInvite('${url}')">📤 Odeslat…</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="revokeInvite('${token}')">🗑️ Zneplatnit</button>
     </div>
     <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Odkaz platí, dokud ho nezneplatníš. Po použití partnerem ho klidně zruš.</div>`;

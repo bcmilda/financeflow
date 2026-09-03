@@ -46,8 +46,9 @@ console.log('smoke_pozvanka.js');
      /Propojeno – uvidíte na sebe navzájem/.test(sh) && /ať ti pošle pozvánku/.test(sh));
   ok('FIX-312 · token je náhodný a jde zneplatnit',
      /crypto\?\.randomUUID/.test(st) && /function revokeInvite\(token\)/.test(st));
+  // FIX-313: formulace se změnila spolu s tím, že UID vylezlo zpátky na světlo
   ok('FIX-312 · ruční ID zůstává, ale označené jako jednostranné',
-     /propojí jen jednu stranu/.test(st));
+     /Moje ID uživatele/.test(st) && /propojí jen <strong>jedna strana<\/strong>/.test(st));
 }
 
 // ── FIX-312 · pravidla ────────────────────────────────────────────

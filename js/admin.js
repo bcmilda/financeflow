@@ -1,4 +1,4 @@
-// FinanceFlow · v10.36 · admin.js · 2026-09-03
+// FinanceFlow · v10.37 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.37',
+    datum: '2026-09-03',
+    zmeny: [
+      '🆔 FIX-313 (Milan): MOJE UID ZMIZELO Z DOHLEDU. Ve v10.36 jsem ho schoval pod rozbalovátko a tím vzniklo kolečko – bez uživatelského panelu ho nebylo kde jinde vzít, takže ruční propojení přes ID nešlo použít vůbec. UID má nově vlastní sekci s nadpisem, tlačítkem Kopírovat a poctivou poznámkou, že propojí jen jednu stranu.',
+      '📋 FIX-313: kopírování je nově na jednom místě (copyText) a má zálohu. navigator.clipboard neexistuje na http ani ve starších prohlížečích – dosud by tlačítko tiše neudělalo nic. Když selže i záloha, vyskočí prompt s textem k ručnímu zkopírování; uživatel nikdy nezůstane bez odezvy.',
+      '📤 TODO-239 (Milan): pozvánku jde odeslat rovnou do WhatsAppu, Signalu nebo Messengeru přes systémové menu sdílení (Web Share API). Kde prohlížeč sdílení neumí, tlačítko se vůbec nenabídne – nemá smysl nabízet něco, co po kliknutí nic neudělá.',
+      '🦊 FIX-314 (Milan): VÝBĚR AVATARA NEDĚLAL NIC. V updateSidebarUser se fotka z Google účtu testovala PRVNÍ – a tu má po přihlášení přes Google skoro každý, takže emoji avatar nemohl nikdy vyhrát. Uživatel si ho vybral, uložil se do profilu, ale v sidebaru se nezměnilo nic. Vědomá volba nyní přebíjí výchozí hodnotu, ne naopak.',
+      '⚙ FIX-314: stejná záměna byla i v seznamu partnerů (u sebe i u partnera) – opraveno na obou místech, aby se avatar choval všude stejně. Uložení profilu navíc potvrdí hláškou.',
+      '⚙ Nový test tools/smoke_profil.js (19 kontrol) včetně chování copyText v prostředí bez clipboard API.',
+    ]
+  },
   {
     verze: 'v10.36',
     datum: '2026-09-03',
