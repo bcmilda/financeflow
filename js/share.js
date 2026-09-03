@@ -1,4 +1,4 @@
-// FinanceFlow · v10.33 · share.js · 2026-09-03
+// FinanceFlow · v10.36 · share.js · 2026-09-03
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -336,6 +336,7 @@ window.copyPartnerLink = copyPartnerLink;
 async function checkIncomingPartner() {
   const params = new URLSearchParams(window.location.search);
   const partnerOfUid = params.get('partnerOf');
+  const inviteToken = params.get('t');   // FIX-312: token z pozvánky
   if(!partnerOfUid || !window._currentUser || !window._db) return;
   if(partnerOfUid === window._currentUser.uid) return; // nesmí přidat sám sebe
 
@@ -354,6 +355,22 @@ async function checkIncomingPartner() {
     //   Zapsat můžu jen SVOU stranu: „tenhle člověk smí číst moje data".
     await _set(_ref(_db, `users/${myUid}/partners/${partnerOfUid}`),
                { addedAt: new Date().toISOString(), via: 'partnerLink' });
+
+    // FIX-312: s platným tokenem smím zapsat i do zvoucího seznamu – pravidlo
+    //   si token ověří serverově. Tím je propojení OBOUSTRANNÉ po jednom kliknutí.
+    //   Bez tokenu (starý odkaz) zůstane jednosměrné jako dřív, jen o tom řekneme.
+    let oboustranne = false;
+    if(inviteToken){
+      try {
+        await _set(_ref(_db, `users/${partnerOfUid}/partners/${myUid}`),
+                   { addedAt: new Date().toISOString(), via: 'invite', token: inviteToken });
+        oboustranne = true;
+      } catch(e){ console.warn('[pozvánka] token neprošel:', e?.message); }
+    }
+    if(typeof showToast === 'function'){
+      showToast(oboustranne ? '🤝 Propojeno – uvidíte na sebe navzájem'
+                            : '🔗 Zpřístupnil jsi svá data. Aby ses viděl i ty, ať ti pošle pozvánku.');
+    }
 
     // Credit bonus bodů majiteli odkazu
     const earnedRef = _ref(_db, `users/${partnerOfUid}/referral/earned`);

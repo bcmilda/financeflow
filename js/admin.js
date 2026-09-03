@@ -1,4 +1,4 @@
-// FinanceFlow · v10.35 · admin.js · 2026-09-03
+// FinanceFlow · v10.36 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.36',
+    datum: '2026-09-03',
+    zmeny: [
+      '🚨 FIX-311: UZEL `shared` NIKDY NEVZNIKL, TAKŽE PARTNER NEMĚL CO ČÍST. Podmínka _hasPartners() se ptala na `partnerData` – což je seznam lidí, JEJICHŽ data umím přečíst. Jenže výdejní okénko se má psát tehdy, když někdo může číst MĚ, a to je jiný seznam: users/{já}/partners. Kdo přístup udělil, ale sám ještě nic číst nesměl, měl partnerData prázdné, _shWrite se nespustil a druhá strana neměla co číst. Sdílení se proto nerozjelo ani po správném přidání.',
+      '⚙ FIX-311: nový `_myGrants` se plní z users/{já}/partners a výřez vzniká už po přihlášení, ne až po prvním uložení dat. Side-write ve vlastním try/catch – výřez je bonus, ne podmínka uložení.',
+      '🤝 FIX-312: POZVÁNKA, KTERÁ PROPOJÍ OBĚ STRANY JEDNÍM KLIKNUTÍM. Dosud znamenalo „přidat partnera" jen „zpřístupnit mu svoje data" a dokud to neudělali OBA, nevidel nikdo nic. Zapsat druhému do jeho podstromu přitom nejde, pravidla to správně zakazují. Řešení: zvoucí si vygeneruje jednorázový token do users/{já}/invites; pozvaný pak smí zapsat sám sebe i do mého seznamu, když token předloží – pravidlo si ho ověří serverově.',
+      '🔗 FIX-312: v Sdílení přibylo tlačítko „Vytvořit pozvánku" s odkazem ke zkopírování a možností zneplatnit. Ruční přidání přes ID zůstává, ale je schované pod rozbalovátkem a poctivě označené jako propojení jen jedné strany. Po otevření odkazu appka řekne, jestli je propojení oboustranné, nebo co ještě chybí.',
+      '⚠️ NASAZENÍ: database_rules.json do Firebase Console PŘED nasazením kódu – bez nového pravidla token neprojde a pozvánka propojí jen jednu stranu.',
+      '⚙ Nový test tools/smoke_pozvanka.js (22 kontrol) včetně chování _hasPartners a kontroly, že cizí zápis nesmí přepsat existující záznam.',
+    ]
+  },
   {
     verze: 'v10.35',
     datum: '2026-09-03',

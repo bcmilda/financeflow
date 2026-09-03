@@ -1,4 +1,4 @@
-// FinanceFlow · v10.34 · stats.js · 2026-09-03
+// FinanceFlow · v10.36 · stats.js · 2026-09-03
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1253,9 +1253,14 @@ function renderSdileni(){
 
     sharingEl.innerHTML=`
       <div style="margin-bottom:14px">
-        <div style="font-size:.82rem;color:var(--text2);margin-bottom:10px">Sdílejte toto <strong>ID</strong> s partnerem. On ho vloží do své aplikace a uvidí vaše data (pouze čtení).</div>
-        <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.78rem;word-break:break-all;color:var(--bank);font-family:monospace">${myUid}</div>
-        <button class="btn btn-ghost btn-sm" style="margin-top:7px" onclick="navigator.clipboard.writeText('${myUid}').then(()=>alert('Zkopírováno!'))">📋 Kopírovat ID</button>
+        <div style="font-size:.82rem;color:var(--text2);margin-bottom:10px">Pošli partnerovi <strong>pozvánku</strong>. Jedním kliknutím se propojíte <strong>oboustranně</strong> – uvidíte na sebe navzájem, nikdo nemusí nic přidávat podruhé.</div>
+        <button class="btn btn-accent" onclick="createInviteLink()">🔗 Vytvořit pozvánku</button>
+        <div id="inviteBox" style="margin-top:10px"></div>
+        <details style="margin-top:12px">
+          <summary style="font-size:.74rem;color:#a8aec8;cursor:pointer">Nebo ručně přes ID (propojí jen jednu stranu)</summary>
+          <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.78rem;word-break:break-all;color:var(--bank);font-family:monospace;margin-top:8px">${myUid}</div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:7px" onclick="navigator.clipboard.writeText('${myUid}').then(()=>alert('Zkopírováno!'))">📋 Kopírovat ID</button>
+        </details>
       </div>
 
       <!-- Slider nastavení -->
@@ -1320,6 +1325,50 @@ function updateShareSetting(key, value) {
   // Přerenduj slider (aktualizuj barvy)
   renderSdileni();
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-312 (S21, Milan): POZVÁNKA, KTERÁ PROPOJÍ OBĚ STRANY NAJEDNOU
+//  Uzel `users/{X}/partners` znamená „kdo smí číst X\". Ruční přidání proto
+//  vždycky nastavilo jen JEDNU stranu a dokud to neudělali oba, nevidel nikdo
+//  nic – přesně to, na co Milan narazil. Zapsat druhému do jeho podstromu
+//  přitom nejde, pravidla to (správně) zakazují.
+//  Řešení: zvoucí si vygeneruje jednorázový token do `users/{já}/invites`.
+//  Pozvaný pak smí zapsat sám sebe i do MÉHO seznamu, když token předloží –
+//  pravidlo si ho ověří serverově. Jedno kliknutí, obě strany propojené.
+//  Token smažu → odkaz přestane platit. Přístup odeberu → druhý přestane vidět.
+// ══════════════════════════════════════════════════════════════════════
+async function createInviteLink(){
+  const box=document.getElementById('inviteBox');
+  if(!window._currentUser || (typeof _isLocalMode!=='undefined' && _isLocalMode)){
+    if(box) box.innerHTML='<div class="insight-item warn"><div class="insight-icon">📱</div><div class="insight-text">Pozvánky fungují jen s přihlášeným účtem.</div></div>';
+    return;
+  }
+  const myUid=window._currentUser.uid;
+  const token=(crypto?.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2)).replace(/-/g,'').slice(0,32);
+  try{
+    await _set(_ref(_db,`users/${myUid}/invites/${token}`), true);
+  }catch(e){
+    if(box) box.innerHTML=`<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Pozvánku se nepodařilo vytvořit: ${e.message}</div></div>`;
+    return;
+  }
+  const url=`${location.origin}${location.pathname}?partnerOf=${myUid}&t=${token}`;
+  if(box) box.innerHTML=`
+    <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.72rem;word-break:break-all;color:var(--bank);font-family:monospace">${url}</div>
+    <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
+      <button class="btn btn-accent btn-sm" onclick="navigator.clipboard.writeText('${url}').then(()=>alert('Odkaz zkopírován!'))">📋 Kopírovat odkaz</button>
+      <button class="btn btn-ghost btn-sm" onclick="revokeInvite('${token}')">🗑️ Zneplatnit</button>
+    </div>
+    <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Odkaz platí, dokud ho nezneplatníš. Po použití partnerem ho klidně zruš.</div>`;
+}
+async function revokeInvite(token){
+  try{
+    await _set(_ref(_db,`users/${window._currentUser.uid}/invites/${token}`), null);
+    const box=document.getElementById('inviteBox');
+    if(box) box.innerHTML='<div style="font-size:.74rem;color:#a8aec8">Pozvánka zneplatněna.</div>';
+  }catch(e){ alert('Nepodařilo se zneplatnit: '+e.message); }
+}
+window.createInviteLink=createInviteLink;
+window.revokeInvite=revokeInvite;
 
 async function addPartner(){
   const input=document.getElementById('addPartnerInput');

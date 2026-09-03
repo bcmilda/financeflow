@@ -1,4 +1,4 @@
-// FinanceFlow · v10.11 · app.js · 2026-08-28
+// FinanceFlow · v10.36 · app.js · 2026-09-03
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -899,10 +899,18 @@ async function loadPartners(user) {
   const partnersRef = _ref(_db, `users/${user.uid}/partners`);
   const snap = await _get(partnersRef);
   if(!snap.exists()) {
+    _myGrants.clear();
     renderPartnerSection([]);
     return;
   }
   const partnerUids = Object.keys(snap.val());
+  // FIX-311: tenhle uzel znamená „kdo smí číst mě" – proto z něj plní `_myGrants`,
+  //   podle kterých se rozhoduje, jestli má vzniknout výdejní okénko `shared`.
+  _myGrants.clear(); partnerUids.forEach(u=>_myGrants.add(u));
+  // Když už někomu přístup udělený je, výřez musí existovat hned po přihlášení,
+  //   ne až po prvním uložení dat. Side-write ve vlastním try/catch.
+  try { if(typeof _shWrite==='function') await _shWrite(user.uid); }
+  catch(e){ console.warn('[shared] výřez při startu:', e?.message); }
   const loaded = [];
   
   for(const uid of partnerUids) {
@@ -1281,9 +1289,20 @@ let _sh = { ready:false, metaSig:{}, txSig:null };
 
 // Kdo nikoho nemá ve sdílení, výdejní okénko nepotřebuje – ušetří polovinu zápisů.
 // Seznam partnerů je načtený při přihlášení (loadPartners → partnerData).
+// FIX-311 (S21): TENHLE TEST SE PTAL NA ŠPATNOU VĚC A `shared` KVŮLI TOMU NEVZNIKL.
+//   `partnerData` je seznam lidí, JEJICHŽ data umím přečíst. Jenže výdejní okénko
+//   `shared` se má psát tehdy, když někdo může číst MĚ – a to je úplně jiný seznam:
+//   `users/{já}/partners`. Kdo někomu udělil přístup, ale sám ještě nic číst nesměl,
+//   měl `partnerData` prázdné, `_shWrite` se nikdy nespustil a druhá strana neměla
+//   co číst. Sdílení se tak nerozjelo ani po správném přidání.
+let _myGrants = new Set();          // komu jsem udělil přístup ke svým datům
 function _hasPartners(){
-  try { return !!(partnerData && Object.keys(partnerData).length); } catch(e){ return false; }
+  try {
+    if (_myGrants && _myGrants.size) return true;
+    return !!(partnerData && Object.keys(partnerData).length);
+  } catch(e){ return false; }
 }
+window._myGrants = _myGrants;
 
 async function _shWrite(uid){
   const sharedRef = _ref(_db, `users/${uid}/shared`);

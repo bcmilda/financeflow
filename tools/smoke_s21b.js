@@ -29,8 +29,13 @@ console.log('smoke_s21b.js');
 // ── FIX-308 · odkaz nepíše do cizího podstromu ────────────────────
 {
   const sh=R('share.js');
-  ok('FIX-308 · párovací odkaz nezapisuje do users/{cizí}/partners',
-     !/users\/\$\{partnerOfUid\}\/partners\/\$\{myUid\}/.test(sh));
+  // S21/FIX-312: zápis do cizího podstromu je nově POVOLENÝ, ale jen s tokenem
+  //   a jen pod ochranou pravidla. Původní „nikdy tam nesahej" už tedy neplatí –
+  //   platí „nesahej tam bez tokenu a nikdy tím neshoď vlastní zápis".
+  ok('FIX-308/312 · zápis do cizího seznamu jen pod podmínkou tokenu',
+     /if\(inviteToken\)\{[\s\S]{0,400}users\/\$\{partnerOfUid\}\/partners\/\$\{myUid\}/.test(sh));
+  ok('FIX-308 · nepoužívá se atomický update, který by shodil i vlastní zápis',
+     !/_update\(_ref\(_db\), \{[\s\S]{0,200}partnerOfUid\}\/partners/.test(sh));
   ok('FIX-308 · zapisuje se jen vlastní strana',
      /_set\(_ref\(_db, `users\/\$\{myUid\}\/partners\/\$\{partnerOfUid\}`\)/.test(sh));
   // Pravidla to potvrzují: do cizího podstromu se psát nesmí
