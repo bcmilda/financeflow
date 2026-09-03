@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · premium.js · 2026-09-02
+// FinanceFlow · v10.33 · premium.js · 2026-09-03
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup','report2','inflace'];
@@ -1683,7 +1683,9 @@ function computeFinancialScore(D, _m, _y) {
     availMax, coverage, missing,        // TODO-227: z čeho je skóre podložené
     components: [
       {label:'💰 Cash flow',   score:score1, max:s1max, detail:s1label, avail:s1avail, hint:'Zapiš příjem a výdaje za tenhle měsíc.'},
-      {label:'🏦 Zadluženost', score:score2, max:s2max, detail:s2label, avail:s2avail, hint:'Přidej půjčku, nebo v nastavení potvrď, že žádnou nemáš.',
+      // FIX-309: „Ano, mám půjčku" bez zadané půjčky nechávalo uživatele bez kudy dál.
+      {label:'🏦 Zadluženost', score:score2, max:s2max, detail:s2label, avail:s2avail,
+       hint:'Appka ví, že dluh máš, ale nezná ho.', action:"showPage('dluhy');", actionLabel:'Zadat půjčku →',
        sub:[{label:'DTI',score:scoreDTI,max:_SCORING.max.DTI},{label:'DSTI',score:scoreDSTI,max:_SCORING.max.DSTI}]},
       {label:'🐷 Rezerva',     score:score3, max:s3max, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
       {label:'💎 Spoření',     score:score4, max:s4max, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
@@ -1767,7 +1769,7 @@ function renderFinancialScore(D) {
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <!-- v9.43: obloukový ukazatel s pásmy známek -->
       <div class="fscore-gauge">
-        ${_scoreArcGauge(sc.rawTotal, sc.rawMax, grade.color)}
+        ${_scoreArcGauge(sc.rawTotal, sc.availMax || sc.rawMax, grade.color)}
         <div class="fscore-zones">
           ${_FSCORE_ZONES.map(([a,b,c,lbl])=>{
             const on = lbl===grade.label;
@@ -1780,15 +1782,28 @@ function renderFinancialScore(D) {
         <div style="font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Finanční skóre</div>
         <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:${grade.color}">${grade.emoji} ${grade.label}</div>
         <div style="font-size:.74rem;color:#a8aec8;margin-top:4px">Celkové hodnocení vaší finanční situace</div>
-        ${(()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.rawMax);
+        ${(()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.availMax || sc.rawMax);
           return nx ? `<div style="font-size:.72rem;margin-top:5px;color:#c9cede">Do známky <b style="color:var(--text)">${nx.label}</b> chybí <b style="color:var(--text)">${nx.need}</b> ${nx.need===1?'bod':nx.need<5?'body':'bodů'}</div>`
                     : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení</div>`; })()}
         ${consistencyBonus>0?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
+        ${(sc.availMax && sc.availMax < sc.rawMax) ? `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+           Škála je ${sc.availMax} místo ${sc.rawMax} bodů — ${sc.missing.length===1?'jedna složka se':'některé složky se'} zatím
+           nedá${sc.missing.length===1?'':'jí'} změřit, tak ${sc.missing.length===1?'ji':'je'} appka do hodnocení nepočítá.
+           Doplň, co chybí, a škála se zase natáhne.</div>` : ''}
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:.72rem" onclick="showPage('obraz',null)">📈 Podrobná analýza →</button>
       </div>
       <!-- 4 složky -->
       <div style="flex:2;min-width:200px">
-        ${components.map(c => `
+        ${components.map(c => c.avail === false ? `
+          <div class="fscore-row" style="opacity:.75">
+            <div style="font-size:.74rem;color:var(--text2);min-width:130px">${c.label}</div>
+            <div class="fscore-bar"><div class="fscore-bar-fill" style="width:0"></div></div>
+            <div style="font-size:.72rem;font-weight:700;min-width:36px;text-align:right;color:#a8aec8">—</div>
+          </div>
+          <div style="font-size:.7rem;color:#a8aec8;padding:0 0 8px 16px;line-height:1.5">
+            Zatím nezměřeno${c.hint?` · ${c.hint}`:''}${c.action?` <a href="#" onclick="${c.action}return false" style="color:#7dd34f;font-weight:700">${c.actionLabel}</a>`:''}
+          </div>
+        ` : `
           <div class="fscore-row">
             <div style="font-size:.74rem;color:var(--text2);min-width:130px">${c.label}</div>
             <div class="fscore-bar">

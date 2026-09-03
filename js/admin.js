@@ -1,4 +1,4 @@
-// FinanceFlow · v10.32 · admin.js · 2026-09-02
+// FinanceFlow · v10.33 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.33',
+    datum: '2026-09-03',
+    zmeny: [
+      '🤝 FIX-308 (Milan): PŘIDÁNÍ PARTNERA SPADLO NA „Permission denied" A NEUDĚLALO NIC. Funkce addPartner() četla partnerova data JAKO PRVNÍ – jenže pravidla dovolí číst users/{X}/shared jen tomu, koho X už má ve svém seznamu partners. U prvního člověka z dvojice to tedy nemohlo projít NIKDY: chtěl číst dřív, než mu kdokoli přístup dal, a spadl ještě před zápisem. Pořadí je obrácené – nejdřív udělím přístup já jemu (zápis do MÉHO podstromu, ten smím vždycky), teprve pak zkusím číst jeho.',
+      '🔗 FIX-308: párovací odkaz (?partnerOf=) byl odsouzený k neúspěchu taky. Zapisoval jedním update i do users/{cizí}/partners, kam podle pravidel psát nesmím – a protože Firebase update je všechno-nebo-nic, spadla s cizí cestou i ta vlastní. Párování přes odkaz tak neudělalo vůbec nic, ale bonus se přesto pokoušel připsat. Nově se zapisuje jen vlastní strana.',
+      '💬 FIX-308: „Permission denied" se už neukáže a nehlásí se ani „Uživatel nenalezen" (což byla lež – uživatel existoval, jen mi nedal přístup). Místo toho appka řekne pravdu: tvoje data jsou pro něj zpřístupněná, jeho uvidíš, až tě přidá i on, a rovnou vypíše tvoje ID k odeslání. Popisek nad polem už neslibuje přístup k cizím datům.',
+      '📊 FIX-309 (Milan): SKÓRE UKAZOVALO 50/310, I KDYŽ SE ZE 310 BODŮ DALO ZÍSKAT JEN 210. Od TODO-227 se neměřitelné složky z hodnocení vyřazují a maximum se krátí – jenže půlkruh měl jmenovatele natvrdo z plné škály. Odpověď „ano, mám půjčku" (bez zadané půjčky) tak vypadala jako propad skóre o 100 bodů, přestože se jen zúžila škála. Měří se nově proti dosažitelnému maximu, stejně jako už dřív počítaly známky.',
+      '🏦 FIX-309: nezměřená složka se ukáže jako „—" a vysvětlením, ne jako červená nula 0/100 (to vypadalo jako nejhorší možný výsledek). U Zadluženosti navíc přibyl proklik „Zadat půjčku →" – po odpovědi „ano" v onboardingu nebylo kudy dál. Pod skóre se vypíše, proč je škála kratší a co ji zase natáhne.',
+      '⚙ Nový test tools/smoke_s21b.js (17 kontrol) – kontroluje i to, že pravidla zápis do cizího podstromu skutečně zakazují, aby test nestál jen na tvaru kódu.',
+    ]
+  },
   {
     verze: 'v10.32',
     datum: '2026-09-02',

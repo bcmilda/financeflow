@@ -1,4 +1,4 @@
-// FinanceFlow · v10.31 · stats.js · 2026-09-02
+// FinanceFlow · v10.33 · stats.js · 2026-09-03
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1273,7 +1273,7 @@ function renderSdileni(){
   if(partnersEl){
     const pUids=Object.keys(partnerData);
     let html=`<div style="margin-bottom:12px">
-      <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px">Zadejte ID uživatele partnera pro přístup k jeho datům:</div>
+      <div style="font-size:.8rem;color:var(--text2);margin-bottom:8px">Zadej ID partnera. <strong>Zpřístupníš mu svá data</strong> — jeho uvidíš, až tě přidá i on u sebe.</div>
       <div style="display:flex;gap:7px">
         <input class="fi" id="addPartnerInput" placeholder="ID uživatele (uid)..." style="flex:1;font-size:.78rem;font-family:monospace">
         <button class="btn btn-accent" onclick="addPartner()">Přidat</button>
@@ -1310,24 +1310,42 @@ async function addPartner(){
   if(!partnerUid){alert('Zadej ID uživatele');return;}
   if(partnerUid===window._currentUser.uid){alert('Nemůžeš přidat sám sebe');return;}
   try{
+    // FIX-308 (S21): PŘIDÁNÍ PARTNERA SPADLO NA „Permission denied" DŘÍV, NEŽ COKOLI UDĚLALO.
+    //   Pravidla dovolí číst `users/{X}/shared` jen tomu, koho X má ve svém seznamu
+    //   `partners`. Funkce ale četla partnerova data JAKO PRVNÍ – tedy dřív, než jí
+    //   kdokoli přístup dal. U prvního člověka z dvojice to tak nemohlo projít nikdy.
+    //   Pořadí je nově obrácené: nejdřív udělím přístup já jemu (což smím vždycky,
+    //   je to zápis do MÉHO podstromu), teprve pak zkusím číst jeho.
+    const myUid=window._currentUser.uid;
+    await _set(_ref(_db,`users/${myUid}/partners/${partnerUid}`),true);
+    // Můj výřez musí vzniknout hned, jinak partner neuvidí nic, dokud si něco neuložím.
+    try{ if(typeof _shWrite==='function') await _shWrite(myUid); }
+    catch(e){ console.warn('[shared] první zápis výřezu selhal:', e); }
+
     // S20 (Krok 0): čteme výdejní okénko /shared, s fallbackem na /data po dobu
     // fáze 1 nasazení (partner, který se od updatu ještě neuložil, výřez nemá).
-    let src='shared';
-    let [dataSnap,profileSnap]=await Promise.all([_get(_ref(_db,`users/${partnerUid}/shared`)),_get(_ref(_db,`users/${partnerUid}/profile`))]);
-    if(!dataSnap.exists()){
-      try{ const legacy=await _get(_ref(_db,`users/${partnerUid}/data`)); if(legacy.exists()){dataSnap=legacy;src='data';} }catch(e){}
+    let src='shared', dataSnap=null, profileSnap=null, odepreno=false;
+    try{
+      [dataSnap,profileSnap]=await Promise.all([_get(_ref(_db,`users/${partnerUid}/shared`)),_get(_ref(_db,`users/${partnerUid}/profile`))]);
+    }catch(e){ odepreno=true; }
+    if(!odepreno && dataSnap && !dataSnap.exists()){
+      try{ const legacy=await _get(_ref(_db,`users/${partnerUid}/data`)); if(legacy.exists()){dataSnap=legacy;src='data';} }
+      catch(e){ odepreno=true; }
     }
-    if(!dataSnap.exists()){alert('Uživatel nenalezen. Zkontroluj ID.');return;}
-    // Save partner to my list
-    await _set(_ref(_db,`users/${window._currentUser.uid}/partners/${partnerUid}`),true);
-    partnerData[partnerUid]={data:sanitizeUserData(dataSnap.val()),profile:profileSnap.exists()?profileSnap.val():{displayName:'Partner',photoURL:null}};
+    if(odepreno || !dataSnap || !dataSnap.exists()){
+      // Není to chyba – druhá strana mě zatím nepřidala. Půlka propojení stojí.
+      input.value='';
+      renderPartnerSection(Object.keys(partnerData));
+      renderSdileni();
+      alert('✅ Zpřístupnil jsi svá data tomuhle uživateli.\n\n'
+          + 'Jeho data zatím nevidíš — musí tě přidat i on u sebe. '
+          + 'Pošli mu svoje ID:\n' + myUid);
+      return;
+    }
+    partnerData[partnerUid]={data:sanitizeUserData(dataSnap.val()),profile:profileSnap&&profileSnap.exists()?profileSnap.val():{displayName:'Partner',photoURL:null}};
     // Live listener (sanitizace i tady – partnerova data jsou hlavní XSS vektor, S16.5)
     const pRef=_ref(_db,`users/${partnerUid}/${src}`);
     _partnerListeners[partnerUid]=_onValue(pRef,(s)=>{if(s.exists()){partnerData[partnerUid].data=sanitizeUserData(s.val());if(viewingUid===partnerUid)renderPage();if(curPage==='rodina')renderFamilySummary();}});
-    // Teď už partnera mám → musí vzniknout MŮJ výřez, jinak on neuvidí nic,
-    // dokud si náhodou něco neuložím. Side-write ve vlastním try/catch.
-    try{ if(typeof _shWrite==='function') await _shWrite(window._currentUser.uid); }
-    catch(e){ console.warn('[shared] první zápis výřezu selhal:', e); }
     input.value='';
     renderPartnerSection(Object.keys(partnerData));
     renderSdileni();

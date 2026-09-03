@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.33 · share.js · 2026-06-25
+// FinanceFlow · v10.33 · share.js · 2026-09-03
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -346,11 +346,14 @@ async function checkIncomingPartner() {
     const snap = await _get(_ref(_db, dedupeKey));
     if(snap.exists()) return;
 
-    // Bidirektionální přidání jako partnerů
-    await _update(_ref(_db), {
-      [`users/${partnerOfUid}/partners/${myUid}`]: { addedAt: new Date().toISOString(), via: 'partnerLink' },
-      [`users/${myUid}/partners/${partnerOfUid}`]: { addedAt: new Date().toISOString(), via: 'partnerLink' },
-    });
+    // FIX-308 (S21): tenhle `update` byl ATOMICKY ODSOUZENÝ K NEÚSPĚCHU. Zapisoval
+    //   i do `users/{partnerOfUid}/partners/...`, tedy do CIZÍHO podstromu, kam mám
+    //   podle pravidel (`users/$uid/.write: auth.uid === $uid`) zakázáno psát. Firebase
+    //   `update` je navíc všechno-nebo-nic, takže s cizí cestou spadla i ta moje vlastní
+    //   – párování přes odkaz tedy neudělalo vůbec nic a bonus se přesto pokoušel připsat.
+    //   Zapsat můžu jen SVOU stranu: „tenhle člověk smí číst moje data".
+    await _set(_ref(_db, `users/${myUid}/partners/${partnerOfUid}`),
+               { addedAt: new Date().toISOString(), via: 'partnerLink' });
 
     // Credit bonus bodů majiteli odkazu
     const earnedRef = _ref(_db, `users/${partnerOfUid}/referral/earned`);
