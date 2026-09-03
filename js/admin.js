@@ -1,4 +1,4 @@
-// FinanceFlow · v10.33 · admin.js · 2026-09-03
+// FinanceFlow · v10.34 · admin.js · 2026-09-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.34',
+    datum: '2026-09-03',
+    zmeny: [
+      '🔓 SDÍLENÍ A RODINNÝ SOUHRN JSOU ZDARMA (Milan). Zamykala se celá stránka, takže Free uživatel neviděl ani vlastní sdílecí ID a neměl se jak s kým spojit. Přitom sdílení je čtení z Firebase, ne AI volání – nestojí nás nic. Za diamantem zůstává to, co stojí peníze: AI Rádce, AI sken účtenky, import z PDF a poradce v reportu. Blokace v režimu „bez účtu" zůstává, ta není o tarifu.',
+      '👥 RODINNÝ SOUHRN: POČÍTADLO ČLENŮ 0/6. Strop 6 členů včetně sebe – není to jen o UI, každé čtení dat člena prochází kontrolou členství v pravidlech, takže velká skupina znamená víc práce na každý dotaz. Při plném stavu se odznak zvýrazní a přidání dalšího partnera se odmítne s vysvětlením, ne tichým selháním.',
+      '📊 NOVÁ TABULKA V TRANSAKCÍCH (Milan). Seznam ukazoval vždycky jen jeden měsíc, takže odpověď na „kolik toho vlastně zapisuju a jak to šlo v čase" v appce nebyla nikde. Nové tlačítko 📊 Tabulka zobrazí souhrn měsíc po měsíci napříč VŠEMI daty: počet záznamů, příjmy, výdaje, saldo, plus celkový počet, počet měsíců s daty a průměr na měsíc. Řazení podle data se přepíná kliknutím na hlavičku.',
+      '⚙ Tabulka počítá přes txCZK (cizí měny nesčítá nominálně) a částky vylučují přesuny, rozpady a vyrovnání – stejná pravidla jako souhrn nad seznamem, ať si čísla nesedí jen náhodou. Sloupec „Záznamů" naopak počítá všechno, co uživatel zapsal, protože odpovídá na jinou otázku.',
+      '⚙ Nový test tools/smoke_tabulka.js (22 kontrol).',
+    ]
+  },
   {
     verze: 'v10.33',
     datum: '2026-09-03',

@@ -2,10 +2,13 @@
 // členy domácnosti, ne jen souhrnná čísla za sloupec.
 const fs=require('fs'),vm=require('vm');
 const src=fs.readFileSync('stats.js','utf8');
+// S21: konstanta stropu domácnosti žije MIMO funkci, takže se musí vytáhnout
+//   zvlášť – jinak renderFamilySummary spadne na ReferenceError.
+const maxDecl=(src.match(/const FAMILY_MAX_MEMBERS = \d+;/)||[''])[0];
 const i=src.indexOf('function renderFamilySummary');
 let d=0,j=src.indexOf('{',i),end=0;
 for(let k=j;k<src.length;k++){if(src[k]==='{')d++;else if(src[k]==='}'){d--;if(!d){end=k+1;break}}}
-const body=src.slice(i,end);
+const body=maxDecl+'\n'+src.slice(i,end);
 
 function mkSandbox(){
   const els={};

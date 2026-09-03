@@ -1,7 +1,11 @@
-// FinanceFlow · v10.33 · premium.js · 2026-09-03
+// FinanceFlow · v10.34 · premium.js · 2026-09-03
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
-const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','rodina','sdileni','uctenky','nakup','report2','inflace'];
+// S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
+//   takže Free uživatel neviděl ani vlastní sdílecí ID a nemohl se s nikým spojit
+//   – přitom sdílení je čtení z Firebase, ne AI volání, a nic nás nestojí.
+//   Za diamantem zůstává to, co stojí peníze (AI) nebo je skutečná prémie.
+const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','uctenky','nakup','report2','inflace'];
 const TRIAL_DAYS = 30;
 
 // ══════════════════════════════════════════════════════
@@ -17,7 +21,9 @@ const FEATURE_TIERS = {
   bankImport:     'premium',  // Import z PDF výpisu – Premium (CSV/Excel zdarma)
   receiptAnalyze: 'premium',  // Analýza účtenek (foto → AI)
   shoppingList:   'premium',  // Nákupní seznam
-  sharing:        'premium',  // Sdílení s partnerem / rodinný souhrn
+  // S21: sdílení a rodinný souhrn jsou nově zdarma (viz PREMIUM_PAGES výš).
+  //   Klíč zůstává kvůli případnému limitu počtu partnerů – dnes nic nezamyká.
+  sharing:        'free',     // Sdílení s partnerem / rodinný souhrn
   reportAdvisor:  'premium',  // Poradce v měsíčním reportu
 };
 
@@ -197,11 +203,6 @@ function showPagePremium(name, el) {
   // Block sharing features in local mode
   if(_isLocalMode && (name==='sdileni'||name==='rodina')) {
     alert('📱 Sdílení s partnerem není dostupné v režimu "Bez účtu".\n\nPro sdílení se přihlaste přes Google účet v Nastavení.');
-    return;
-  }
-  // S12.1p: sdílení/rodina jako Premium funkce
-  if ((name==='sdileni'||name==='rodina') && !canUseFeature('sharing')) {
-    if(typeof showPaywall==='function') showPaywall();
     return;
   }
   if (hasPremiumAccess()) {

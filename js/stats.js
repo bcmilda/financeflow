@@ -1,4 +1,4 @@
-// FinanceFlow · v10.33 · stats.js · 2026-09-03
+// FinanceFlow · v10.34 · stats.js · 2026-09-03
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1042,16 +1042,33 @@ let _famMember = null;    // filtr žebříčku: null = všichni, jinak jméno �
 function setFamRange(n){ _famRange = n; renderFamilySummary(); }
 function setFamMember(name){ _famMember = (name === '' ? null : name); renderFamilySummary(); }
 
+// S21 (Milan): strop velikosti domácnosti. Není to jen o UI – každé čtení dat
+//   člena prochází kontrolou členství v pravidlech, takže velká skupina znamená
+//   víc práce na každý dotaz. A „domácnost" o třiceti lidech není domácnost.
+const FAMILY_MAX_MEMBERS = 6;
+
 function renderFamilySummary(){
   document.getElementById('familyMonthLabel').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;
   const el=document.getElementById('familyContent');if(!el)return;
-  
+
   const me=window._currentUser;
   const myName=window._userProfile?.displayName||me?.displayName||'Já';
   const partners=Object.entries(partnerData);
-  
+
+  // Počítadlo členů včetně mě – proto +1. Plný stav se zvýrazní, ať je jasné,
+  // proč případné další přidání neprojde.
+  const pocet=partners.length+1;
+  const cntEl=document.getElementById('familyMemberCount');
+  if(cntEl){
+    const plno=pocet>=FAMILY_MAX_MEMBERS;
+    cntEl.innerHTML=`<span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;`
+      +`background:${plno?'rgba(251,191,36,.18)':'rgba(125,211,79,.15)'};`
+      +`color:${plno?'#fbbf24':'#7dd34f'}">👥 ${pocet}/${FAMILY_MAX_MEMBERS} členů</span>`
+      +(plno?`<span style="font-size:.7rem;color:#a8aec8;margin-left:6px">domácnost je plná</span>`:'');
+  }
+
   if(!partners.length){
-    el.innerHTML=`<div class="insight-item info"><div class="insight-icon">🔗</div><div class="insight-text">Zatím nemáš nikoho ve sdílení. Jdi do sekce <strong>Sdílení &amp; Partneři</strong> a přidej člena domácnosti – uvidíte společné příjmy, výdaje a saldo.</div></div>`;
+    el.innerHTML=`<div class="insight-item info"><div class="insight-icon">🔗</div><div class="insight-text">Zatím nemáš nikoho ve sdílení. Jdi do sekce <strong>Sdílení &amp; Partneři</strong> a přidej člena domácnosti – uvidíte společné příjmy, výdaje a saldo. Domácnost může mít až ${FAMILY_MAX_MEMBERS} členů.</div></div>`;
     return;
   }
   
@@ -1309,6 +1326,12 @@ async function addPartner(){
   const partnerUid=input.value.trim();
   if(!partnerUid){alert('Zadej ID uživatele');return;}
   if(partnerUid===window._currentUser.uid){alert('Nemůžeš přidat sám sebe');return;}
+  // S21: strop 6 členů včetně mě → partnerů může být nejvýš 5
+  const _max=(typeof FAMILY_MAX_MEMBERS==='number')?FAMILY_MAX_MEMBERS:6;
+  if(Object.keys(partnerData).length+1>=_max){
+    alert(`👥 Domácnost je plná (${_max} členů včetně tebe).\n\nAby šel přidat někdo další, musí nejdřív někdo odejít.`);
+    return;
+  }
   try{
     // FIX-308 (S21): PŘIDÁNÍ PARTNERA SPADLO NA „Permission denied" DŘÍV, NEŽ COKOLI UDĚLALO.
     //   Pravidla dovolí číst `users/{X}/shared` jen tomu, koho X má ve svém seznamu

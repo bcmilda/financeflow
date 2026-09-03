@@ -1,4 +1,4 @@
-// FinanceFlow · v10.31 · ui.js · 2026-09-02
+// FinanceFlow · v10.34 · ui.js · 2026-09-03
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1361,10 +1361,140 @@ let _txTypeFilter = 'all';
 let _txSort = 'date';
 let _txSortDir = 'desc';
 
+// ══════════════════════════════════════════════════════════════════════
+//  S21 (Milan): TABULKA – SOUHRN MĚSÍC PO MĚSÍCI
+//  Seznam transakcí ukazuje vždycky jen jeden měsíc, takže odpověď na otázku
+//  „kolik toho vlastně zapisuju a jak to šlo v čase?\" v appce nebyla nikde.
+//  Tabulka jde napříč VŠEMI daty, ne jen aktuálním měsícem.
+//
+//  Počítá se přes txCZK (cizí měny) a bez přesunů, splitů a vyrovnání –
+//  stejná pravidla jako souhrnný odznak nad seznamem, ať si čísla nesedí
+//  jenom náhodou (SKILL: agregace jednou, ne dvakrát různě).
+//  Sloupec „Záznamů\" ale počítá VŠECHNY transakce včetně přesunů, protože
+//  odpovídá na jinou otázku: kolik jsem toho zapsal, ne kolik jsem protočil.
+// ══════════════════════════════════════════════════════════════════════
+let _txTableOpen = false;
+let _txTableDir = 'desc';          // desc = nejnovější měsíc nahoře
+
+function txMonthlySummary(D){
+  const _statTx = t => !isTransferTx(t) && !t.splitParent && !t.isBalancing;
+  const mapa = new Map();
+  (D.transactions||[]).forEach(t=>{
+    if(!t || !t.date) return;
+    const d = new Date(t.date);
+    if(isNaN(d)) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
+    let r = mapa.get(key);
+    if(!r){ r = {y:d.getFullYear(), m:d.getMonth(), n:0, inc:0, exp:0}; mapa.set(key,r); }
+    r.n++;
+    if(!_statTx(t)) return;
+    if(t.type==='income')  r.inc += txCZK(t,D);
+    if(t.type==='expense') r.exp += txCZK(t,D);
+  });
+  return [...mapa.values()];
+}
+
+function toggleTxTable(btn){
+  _txTableOpen = !_txTableOpen;
+  if(btn) btn.classList.toggle('active', _txTableOpen);
+  renderTxMonthTable();
+}
+function setTxTableDir(){
+  _txTableDir = _txTableDir === 'desc' ? 'asc' : 'desc';
+  renderTxMonthTable();
+}
+
+function renderTxMonthTable(){
+  const box = document.getElementById('txMonthTable');
+  const head = document.getElementById('txTableHead');
+  const list = document.getElementById('txList');
+  if(!box) return;
+  box.style.display = _txTableOpen ? 'block' : 'none';
+  if(head) head.style.display = _txTableOpen ? 'none' : '';
+  if(list) list.style.display = _txTableOpen ? 'none' : '';
+  if(!_txTableOpen){ box.innerHTML=''; return; }
+
+  const D = getData();
+  const rows = txMonthlySummary(D);
+  if(!rows.length){
+    box.innerHTML = '<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Zatím žádné transakce</div></div>';
+    return;
+  }
+  rows.sort((a,b)=> _txTableDir==='desc'
+    ? (b.y-a.y) || (b.m-a.m)
+    : (a.y-b.y) || (a.m-b.m));
+
+  const celkemN   = rows.reduce((a,r)=>a+r.n,0);
+  const celkemInc = rows.reduce((a,r)=>a+r.inc,0);
+  const celkemExp = rows.reduce((a,r)=>a+r.exp,0);
+  const prumerN   = Math.round(celkemN/rows.length*10)/10;
+  const maxN      = Math.max(...rows.map(r=>r.n), 1);
+
+  const bunka = (obsah, styl='') =>
+    `<div style="padding:8px 10px;font-size:.78rem;${styl}">${obsah}</div>`;
+
+  box.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Celkem záznamů</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${celkemN}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Měsíců s daty</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${rows.length}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Průměr / měsíc</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${String(prumerN).replace('.',',')}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                background:var(--surface2);border-radius:9px 9px 0 0;border:1px solid var(--border);border-bottom:none;font-weight:700;font-size:.72rem;color:#c9cede">
+      ${bunka(`<span onclick="setTxTableDir()" style="cursor:pointer;user-select:none" title="Přepnout řazení">📅 Měsíc ${_txTableDir==='desc'?'↓':'↑'}</span>`)}
+      ${bunka('Záznamů', 'text-align:right')}
+      ${bunka('Příjmy', 'text-align:right')}
+      ${bunka('Výdaje', 'text-align:right')}
+      ${bunka('Saldo', 'text-align:right')}
+    </div>
+    <div style="border:1px solid var(--border);border-radius:0 0 9px 9px;overflow:hidden">
+      ${rows.map((r,i)=>{
+        const saldo = r.inc - r.exp;
+        const podil = Math.round(r.n/maxN*100);
+        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                     align-items:center;background:${i%2?'transparent':'rgba(255,255,255,.02)'}">
+          ${bunka(`<span style="font-weight:600">${CZ_M[r.m]} ${r.y}</span>`)}
+          ${bunka(`<span style="display:inline-block;min-width:26px;text-align:right;font-weight:700">${r.n}</span>
+                   <span style="display:inline-block;width:${Math.max(3,podil*0.34)}px;height:5px;border-radius:3px;background:#60a5fa;margin-left:6px;vertical-align:middle"
+                         title="${r.n} z nejsilnějšího měsíce (${maxN})"></span>`, 'text-align:right')}
+          ${bunka(`<span style="color:var(--income)">${r.inc?fmtB(r.inc):'—'}</span>`, 'text-align:right')}
+          ${bunka(`<span style="color:var(--expense)">${r.exp?fmtB(r.exp):'—'}</span>`, 'text-align:right')}
+          ${bunka(`<span style="font-weight:700;color:${saldo>=0?'var(--income)':'var(--expense)'}">${fmtB(saldo)}</span>`, 'text-align:right')}
+        </div>`;
+      }).join('')}
+      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                  align-items:center;background:var(--surface2);border-top:1px solid var(--border);font-weight:700">
+        ${bunka('Celkem')}
+        ${bunka(String(celkemN), 'text-align:right')}
+        ${bunka(`<span style="color:var(--income)">${fmtB(celkemInc)}</span>`, 'text-align:right')}
+        ${bunka(`<span style="color:var(--expense)">${fmtB(celkemExp)}</span>`, 'text-align:right')}
+        ${bunka(`<span style="color:${celkemInc-celkemExp>=0?'var(--income)':'var(--expense)'}">${fmtB(celkemInc-celkemExp)}</span>`, 'text-align:right')}
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+      Jde napříč všemi daty, ne jen zobrazeným měsícem. Příjmy a výdaje jsou bez přesunů,
+      rozpadů a vyrovnání; sloupec <strong>Záznamů</strong> naopak počítá všechno, co jsi zapsal.
+    </div>`;
+}
+window.toggleTxTable = toggleTxTable;
+window.setTxTableDir = setTxTableDir;
+window.txMonthlySummary = txMonthlySummary;
+
 function setTxTypeFilter(type, btn) {
   _txTypeFilter = type;
   document.querySelectorAll('.tx-filt-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  if(_txTableOpen){ _txTableOpen = false; renderTxMonthTable(); }   // S21: filtr typu se seznamu, ne tabulky
   renderTx();
 }
 
@@ -1618,6 +1748,8 @@ function renderTx(){
   const badge = document.getElementById('txSummaryBadge');
   if(badge) badge.innerHTML = txs.length ?
     `<span style="color:var(--income)">+${fmtB(totalInc)}</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmtB(totalExp)}</span> <span style="color:var(--text3)">· ${txs.length} záznamů</span>` : '';
+  // S21: tabulka si drží stav i po překreslení seznamu (přepnutí měsíce apod.)
+  if(typeof renderTxMonthTable === 'function' && _txTableOpen) renderTxMonthTable();
 
   if(!txs.length){
     el.innerHTML='<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Žádné transakce</div></div>';
