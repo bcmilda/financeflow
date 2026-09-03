@@ -1,4 +1,4 @@
-// FinanceFlow · v10.31 · admin.js · 2026-09-02
+// FinanceFlow · v10.32 · admin.js · 2026-09-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,13 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.32',
+    datum: '2026-09-02',
+    zmeny: [
+      '🧹 ÚKLID: stará klientská agregace komunity SMAZÁNA. Od v10.24 visela za přepínačem COMMUNITY_LEGACY_READ=false jako „záloha, kdyby worker nejel" – jenže mezitím z ní byl mrtvý kód i uvnitř: pole allUsers se nikdy neplnilo, takže i po zapnutí by spočítala samé nuly. Serverová agregace je ověřená v provozu a od FIX-307 jsou záznamy pseudonymní, takže je klient nesmí číst ani teoreticky. Kód, který vypadá jako záchranná cesta, ale žádná není, je horší než žádný.',
+    ]
+  },
   {
     verze: 'v10.31',
     datum: '2026-09-02',
@@ -6201,8 +6208,6 @@ async function deleteLead(id) {
 // ══════════════════════════════════════════════════════
 //  KOMUNITNÍ PŘEHLED
 // ══════════════════════════════════════════════════════
-// S20 (TODO-235): přepínač staré klientské agregace. Po ověření workeru smažat i s blokem.
-const COMMUNITY_LEGACY_READ = false;
 const COMMUNITY_MONTH_KEY = (month, year) => {
   // Pokud zadán měsíc/rok, použij je; jinak aktuální
   const m = (month !== undefined) ? month : (typeof S !== 'undefined' ? S.curMonth : new Date().getMonth());
@@ -6443,53 +6448,12 @@ async function _renderKomunitaImpl(el) {
           };
         }).filter(Boolean).sort((a,b)=>b.avg-a.avg)
       };
-    // Stará cesta (klient si počítal medián sám ze syrových záznamů) je VYPNUTÁ.
-    // Pravidla už ten uzel stejně nedá přečíst, takže by jen spadla do catch.
-    // Nechávám ji tu do doby, než se agregace ověří v provozu – pak smažat.
-    } else if (COMMUNITY_LEGACY_READ) {
-      const allUsers = [];
-      // S19 (TODO-225, Milan): MEDIÁN místo průměru.
-      //   Jeden uživatel s hypotékou 40 000 posunul „průměrné bydlení" všem
-      //   ostatním. U příjmů a výdajů, kde je rozdělení silně zešikmené, ukazuje
-      //   medián typického člověka, ne aritmetický střed mezi extrémy.
-      //   ⚠️ Milan výslovně NECHCE minimální počet uživatelů: „1 uživatel nebo
-      //   1000, je to ok." Při jediném přispěvateli je medián roven jeho hodnotě.
-      const _med = arr => {
-        const a = arr.filter(x => typeof x === 'number' && isFinite(x)).sort((x,y)=>x-y);
-        if(!a.length) return 0;
-        const m = a.length >> 1;
-        return a.length % 2 ? Math.round(a[m]) : Math.round((a[m-1] + a[m]) / 2);
-      };
-      const catVals = {}, catCounts = {};
-      const expVals = [], incVals = [], savVals = [];
-      allUsers.forEach(u => {
-        expVals.push(u.totalExp||0);
-        incVals.push(u.income||0);
-        savVals.push(u.savingRate||0);
-        Object.entries(u.cats||{}).forEach(([cat,amt])=>{
-          (catVals[cat] = catVals[cat] || []).push(amt);
-          catCounts[cat]=(catCounts[cat]||0)+1;
-        });
-      });
-      communityData = {
-        count: allUsers.length,
-        avgExp: _med(expVals),
-        avgIncome: _med(incVals),
-        avgSaving: _med(savVals),
-          statLabel: 'medián',
-        cats: Object.entries(catVals).map(([coicopId,vals])=>{
-          // Komunita nahrává COICOP klíče (1-13). Namapuj na oficiální název divize.
-          // S17.14 (FIX-213): starší záznamy posílaly NÁZVY kategorií – ty přeskoč, aby
-          // se v přehledu neobjevovalo "COICOP Jídlo & Pití".
-          if(!/^\d+$/.test(String(coicopId))) return null;
-          const _grp = (window.COICOP_GROUPS_DEF||[]).find(g=>String(g.id)===String(coicopId));
-          return {
-            cat: _grp ? `${_grp.icon||''} ${_grp.name}` : `COICOP ${coicopId}`,
-            coicopId: Number(coicopId),
-            avg:_med(vals), count:catCounts[coicopId]
-          };
-        }).filter(Boolean).sort((a,b)=>b.avg-a.avg)
-      };
+    // S21: stará klientská agregace SMAZÁNA. Byla za přepínačem COMMUNITY_LEGACY_READ=false
+    //   od v10.24 a mezitím se z ní stal mrtvý kód i uvnitř: `allUsers` se nikdy neplnilo,
+    //   takže i po zapnutí by spočítala samé nuly. Serverová agregace je ověřená v provozu
+    //   (Admin → Zdraví → dlaždice „Komunitní agregát") a od FIX-307 jsou záznamy navíc
+    //   pseudonymní – klient je číst nesmí ani teoreticky. Ponechat ji by znamenalo držet
+    //   v kódu cestu, která vypadá jako záloha, ale žádná není.
     }
   } catch(e) {}
 
