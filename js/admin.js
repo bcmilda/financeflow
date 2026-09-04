@@ -1,4 +1,4 @@
-// FinanceFlow · v10.38 · admin.js · 2026-09-03
+// FinanceFlow · v10.39 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.39',
+    datum: '2026-09-04',
+    zmeny: [
+      '🔒 FIX-317: PARTNEROVI ODCHÁZEL DENÍK. Výřez `shared` vznikal KOPIÍ celého úložiště, ze které se vypnuté sekce vymazaly – takže do něj propadlo všechno, na co nikdo nemyslel. Bez přepínače a bez zmínky v „Co partner uvidí" se sdílelo 13 uzlů: diary (osobní deník), calNotes a workCal (poznámky v kalendáři), milestones (Životní mapa), idleCfg, pristiCfg, reportSectors, importHistory, nakupList, sablony, noSyncKeys a shareSettings.',
+      '🛡 FIX-317: výřez je nově POVOLOVACÍ SEZNAM – co do něj někdo vědomě nedopsal, se neposílá. Je to táž zásada jako u Firebase pravidel, jen v kódu: co není výslovně povoleno, je zakázáno. Nový uzel v S se do sdílení nedostane sám od sebe. Z 22 klíčů zbylo 10.',
+      '🏷️ FIX-317 (Milanův postřeh): přepínač „Kategorie" zmizel. Sdílel jen SEZNAM kategorií, který má skoro každý stejný – jako ochrana soukromí nechránil nic, zato ho šlo vypnout a rozbít tím zobrazení sdílených transakcí (částky bez názvů). Kategorie se posílají vždy, ale jen jako kostra: id, název, ikona, barva, podkategorie. Rozpočet (limit), ruční COICOP zatřídění ani poznámky NE.',
+      '📈 FIX-317: přibyl chybějící přepínač Majetek – uzel `assets` se filtroval v kódu, ale v „Co partner uvidí" nebyl, takže ho nešlo vypnout. Nad přepínači je nově vysvětleno, že vypnutá sekce se vůbec NEODESÍLÁ (nejde o schování v cizí appce) a co se nesdílí nikdy.',
+      '⚙ Dva starší testy potvrzovaly starou vadu jako správné chování („sekce bez přepínače se sdílejí vždy", „shareSettings se propíše partnerovi") – přepsané na opačné očekávání. Nový test tools/smoke_vyrez.js (28 kontrol) ověřuje, že se deník neobjeví ve výřezu ani zanořený.',
+    ]
+  },
   {
     verze: 'v10.38',
     datum: '2026-09-03',

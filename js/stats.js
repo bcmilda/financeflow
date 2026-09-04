@@ -1,4 +1,4 @@
-// FinanceFlow · v10.38 · stats.js · 2026-09-03
+// FinanceFlow · v10.39 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1247,13 +1247,18 @@ function renderSdileni(){
   };
 
   if(sharingEl){
+    // FIX-317 (S21, Milanův postřeh): přepínač „Kategorie" zmizel. Sdílel jen
+    //   SEZNAM kategorií, který má skoro každý stejný – jako ochrana soukromí
+    //   tedy nechránil nic, zato ho bylo možné vypnout a rozbít tím zobrazení
+    //   sdílených transakcí (částky bez názvů). Kategorie se nově posílají vždy,
+    //   ale jen jako kostra bez rozpočtů a ručního zatřídění (_shCatSkeleton).
     const sections = [
       {key:'transactions', label:'💳 Transakce', desc:'Příjmy a výdaje'},
       {key:'debts', label:'💰 Půjčky', desc:'Dluhy a splátky'},
       {key:'bank', label:'🏦 Zůstatek', desc:'Celkový bankovní zůstatek'},
       {key:'wallets', label:'👛 Peněženky', desc:'Stavy peněženek'},
-      {key:'categories', label:'🏷️ Kategorie', desc:'Kategorie výdajů'},
       {key:'projects', label:'📁 Projekty', desc:'Projekty a jejich náklady'},
+      {key:'assets', label:'📈 Majetek', desc:'Finanční aktiva a rezervy'},
       {key:'wishes', label:'🎁 Přání', desc:'Seznam přání'},
       {key:'birthdays', label:'🎂 Narozeniny', desc:'Narozeniny a dárky'},
       {key:'receipts', label:'📸 Účtenky', desc:'Naskenované účtenky'},
@@ -1279,7 +1284,8 @@ function renderSdileni(){
       </div>
 
       <!-- Slider nastavení -->
-      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:10px">Co partner uvidí</div>
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:#a8aec8;margin-bottom:6px">Co partner uvidí</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:10px;line-height:1.55">Vypnutá sekce se partnerovi <strong style="color:#c9cede">vůbec neodešle</strong> – nejde jen o schování v jeho appce. Co tu není vyjmenované, se nesdílí nikdy: deník, poznámky v kalendáři, Životní mapa ani nákupní seznam.</div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-body" style="padding:10px 14px">
           ${sections.map(s=>`

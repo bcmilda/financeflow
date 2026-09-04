@@ -25,7 +25,7 @@ function mkSandbox(shareSettings){
     // S21/FIX-315: _shMetaVals i _dwMetaVals nově prochází sanitátorem klíčů,
     //   takže se musí vytáhnout taky – jinak ReferenceError.
     (src.match(/const _FB_ZAKAZANE[\s\S]*?\n\}/)||[''])[0], pick('_fbSafeKeys'),
-    pick('_dwMetaVals'), pick('_dwTxObj'), pick('_shMetaVals'), pick('_shTxObj')
+    pick('_dwMetaVals'), pick('_dwTxObj'), pick('_shCatSkeleton'), pick('_shMetaVals'), pick('_shTxObj')
   ].join('\n'), sb);
   return sb;
 }
@@ -70,12 +70,20 @@ check('zapnutá sekce se sdílí i když je jiná vypnutá (filtr netrefí souse
   assert(Object.keys(sb._shTxObj()).length===0,'transakce se přesto sdílejí');
 });
 
-check('sekce bez přepínače (payTypes, nakupList) se sdílejí vždy',()=>{
+check('sdílí se JEN to, co je výslovně povolené (FIX-317)',()=>{
+  // Do S21 tady stálo, že „sekce bez přepínače se sdílejí vždy" – test tím
+  // POTVRZOVAL vadu jako správné chování. Výřez vznikal kopií celého úložiště,
+  // takže partnerovi odcházel i deník, poznámky v kalendáři a Životní mapa.
+  // Nově je to povolovací seznam: co tam nikdo vědomě nedopsal, se neposílá.
   const sb=mkSandbox({transactions:false,debts:false});
   sb.S.payTypes=[{id:'p1'}]; sb.S.nakupList=[{id:'n1'}];
+  sb.S.diary={'2026-09-01':'osobní zápisek'}; sb.S.milestones=[{name:'rozvod'}];
   const meta=sb._shMetaVals();
-  assert(meta.payTypes.length===1,'payTypes zmizely');
-  assert(meta.nakupList.length===1,'nakupList zmizel');
+  assert(meta.payTypes.length===1,'payTypes jsou nutné k vykreslení, musí zůstat');
+  assert(meta.nakupList===undefined,'nákupní seznam se sdílet nemá');
+  assert(meta.diary===undefined,'DENÍK se sdílet nesmí');
+  assert(meta.milestones===undefined,'Životní mapa se sdílet nemá');
+  assert(!JSON.stringify(meta).includes('osobní zápisek'),'deník prosákl jinudy');
 });
 
 check('prázdný shareSettings nic neschovává (výchozí stav = sdílím)',()=>{
@@ -84,9 +92,11 @@ check('prázdný shareSettings nic neschovává (výchozí stav = sdílím)',()=
   assert(sb._shMetaVals().debts.length===1,'prázdné nastavení schovalo dluhy');
 });
 
-check('shareSettings samotné se do výřezu propíše (partner ví, co nevidí)',()=>{
+check('shareSettings se do výřezu NEpropisuje (FIX-317)',()=>{
+  // Taky obrácené očekávání: komu co sdílím je moje věc, ne partnerova.
+  // Dřív mu odcházel celý seznam přepínačů včetně těch vypnutých.
   const sb=mkSandbox({transactions:false});
-  assert(sb._shMetaVals().shareSettings.transactions===false,'shareSettings se nepropsalo');
+  assert(sb._shMetaVals().shareSettings===undefined,'shareSettings pořád odchází partnerovi');
 });
 
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ KROK 0 OVĚŘEN');

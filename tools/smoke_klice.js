@@ -41,10 +41,11 @@ ok('FIX-315 · celý strom je po sanitaci platný pro Firebase', (()=>{
   return zkontroluj(S({'a/b':{'c.d':[{'e#f':{'g$h':1}}]}}));
 })());
 
+// FIX-317: _shMetaVals se přepsal na povolovací seznam, sanitace v něm zůstala
 ok('FIX-315 · sanitace visí na OBOU zápisových cestách (data i shared)',
    /const mv = _fbSafeKeys\(_dwMetaVals\(\)\)/.test(app) &&
    /_fbSafeKeys\(Object\.assign\(\{\}, _dwMetaVals\(\)/.test(app) &&
-   /const mv=_fbSafeKeys\(_dwMetaVals\(\)\)/.test(app));
+   (app.match(/_fbSafeKeys\(_dwMetaVals\(\)\)/g)||[]).length >= 2);
 
 // FIX-316
 ok('FIX-316 · odepření se neloguje jako Error', !/console\.log\('Partner load error:'/.test(app));

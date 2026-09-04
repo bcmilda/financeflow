@@ -1,4 +1,4 @@
-// FinanceFlow · v10.38 · app.js · 2026-09-03
+// FinanceFlow · v10.39 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -1295,34 +1295,65 @@ function _dwTxObj(){
 }
 // ── Výdejní okénko: tady filtr žije. Vrací PRÁZDNO pro vypnuté sekce,
 //    ale zapisuje se do users/{uid}/shared, ne do úložiště. ──
-function _shMetaVals(){
-  const ss=S.shareSettings||{};
-  const mv=_fbSafeKeys(_dwMetaVals());   // FIX-315
-  return {
-    debts: ss.debts===false?[]:mv.debts,
-    categories: ss.categories===false?[]:mv.categories,
-    bank: ss.bank===false?{startBalance:0}:mv.bank,
-    birthdays: ss.birthdays===false?[]:mv.birthdays,
-    wishes: ss.wishes===false?[]:mv.wishes,
-    wallets: ss.wallets===false?[]:mv.wallets,
-    payTypes: mv.payTypes,
-    sablony: mv.sablony,
-    projects: ss.projects===false?[]:mv.projects,
-    receipts: ss.receipts===false?[]:mv.receipts,
-    nakupList: mv.nakupList,
-    assets: ss.assets===false?[]:mv.assets,
-    noSyncKeys: mv.noSyncKeys,
-    importHistory: mv.importHistory,
-    shareSettings: mv.shareSettings,
-    calNotes: mv.calNotes,
-    workCal: mv.workCal,
-    diary: mv.diary,
-    idleCfg: mv.idleCfg,
-    milestones: mv.milestones,
-    reportSectors: mv.reportSectors,
-    pristiCfg: mv.pristiCfg
-  };
+// ══════════════════════════════════════════════════════════════════════
+//  VÝDEJNÍ OKÉNKO – FIX-317 (S21): OD KOPÍROVÁNÍ K POVOLOVACÍMU SEZNAMU
+//  Původní verze vzala CELÉ úložiště a vypnuté sekce z něj vymazala. Do
+//  výřezu tím propadlo všechno, na co nikdo nemyslel: `diary` (osobní deník),
+//  `calNotes`, `workCal`, `milestones` (Životní mapa), `idleCfg`, `pristiCfg`,
+//  `importHistory`, `nakupList`, `sablony`, `noSyncKeys` – bez přepínače,
+//  bez zmínky v „Co partner uvidí\". Třináct uzlů, o kterých uživatel nevěděl.
+//
+//  Je to táž chyba jako u Firebase pravidel, jen v kódu: co není výslovně
+//  povoleno, musí být ZAKÁZÁNO. Nový uzel v S se teď do výřezu nedostane sám
+//  od sebe – někdo ho sem musí vědomě dopsat.
+//
+//  `payTypes`, `wallets` a `categories` zůstávají, protože bez nich by se
+//  sdílené transakce nedaly vykreslit (byly by to částky bez názvů).
+//  U kategorií se ale posílá jen KOSTRA – viz _shCatSkeleton níž.
+// ══════════════════════════════════════════════════════════════════════
+
+// Kategorie jsou u všech uživatelů skoro stejné, takže jako ochrana soukromí
+// nedávaly smysl (Milanův postřeh, S21). Nesou ale i osobní věci: `limit` je
+// rozpočet, `coicopOverrides` prozrazuje ruční zatřídění. Posílá se proto jen
+// to, co je potřeba k vykreslení cizí transakce: co to je a jak se to jmenuje.
+function _shCatSkeleton(cats){
+  return (cats||[]).map(c => ({
+    id: c.id, name: c.name, icon: c.icon || null, color: c.color || null,
+    type: c.type || null, parent: c.parent ?? null,
+    subs: Array.isArray(c.subs) ? c.subs.map(x => (typeof x === 'string' ? x : (x && x.name) || '')) : []
+  }));
 }
+
+function _shMetaVals(){
+  const ss = S.shareSettings || {};
+  const mv = _fbSafeKeys(_dwMetaVals());   // FIX-315
+  const zap = k => ss[k] !== false;        // výchozí stav je „sdílím\"
+
+  const out = {
+    // — nutné k vykreslení, samo o sobě neprozradí útratu —
+    categories: _shCatSkeleton(mv.categories),
+    payTypes:   mv.payTypes || [],
+
+    // — sekce s přepínačem v „Co partner uvidí\" —
+    debts:     zap('debts')     ? mv.debts     : [],
+    bank:      zap('bank')      ? mv.bank      : { startBalance: 0 },
+    birthdays: zap('birthdays') ? mv.birthdays : [],
+    wishes:    zap('wishes')    ? mv.wishes    : [],
+    wallets:   zap('wallets')   ? mv.wallets   : [],
+    projects:  zap('projects')  ? mv.projects  : [],
+    receipts:  zap('receipts')  ? mv.receipts  : [],
+    assets:    zap('assets')    ? mv.assets    : [],
+  };
+
+  // ZÁMĚRNĚ SE NESDÍLÍ (a nedopisovat sem bez rozmyslu):
+  //   diary, calNotes, workCal, milestones  – osobní zápisky a životní události
+  //   idleCfg, reportSectors, pristiCfg     – nastavení mých vlastních pohledů
+  //   importHistory, noSyncKeys             – provozní stopa, partnerovi k ničemu
+  //   nakupList, sablony                    – nákupní seznam a šablony
+  //   shareSettings                         – komu co sdílím není věc partnera
+  return out;
+}
+
 function _shTxObj(){
   const ss=S.shareSettings||{};
   if(ss.transactions===false) return {};
