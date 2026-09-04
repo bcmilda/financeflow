@@ -1,4 +1,4 @@
-// FinanceFlow · v10.41 · stats.js · 2026-09-04
+// FinanceFlow · v10.43 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1264,7 +1264,6 @@ function renderSdileni(){
     //   sdílených transakcí (částky bez názvů). Kategorie se nově posílají vždy,
     //   ale jen jako kostra bez rozpočtů a ručního zatřídění (_shCatSkeleton).
     const sections = [
-      {key:'transactions', label:'💳 Transakce', desc:'Příjmy a výdaje'},
       {key:'debts', label:'💰 Půjčky', desc:'Dluhy a splátky'},
       {key:'bank', label:'🏦 Zůstatek', desc:'Celkový bankovní zůstatek'},
       {key:'wallets', label:'👛 Peněženky', desc:'Stavy peněženek'},
@@ -1298,6 +1297,34 @@ function renderSdileni(){
       <!-- Slider nastavení -->
       <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:#a8aec8;margin-bottom:6px">Co partner uvidí</div>
       <div style="font-size:.72rem;color:#a8aec8;margin-bottom:10px;line-height:1.55">Vypnutá sekce se partnerovi <strong style="color:#c9cede">vůbec neodešle</strong> – nejde jen o schování v jeho appce. Co tu není vyjmenované, se nesdílí nikdy: deník, poznámky v kalendáři, Životní mapa ani nákupní seznam.</div>
+      <!-- TODO-240 (Milan): Transakce mají tři úrovně, ne vypínač. Mezi „všechno"
+           a „nic" je to, co většina domácností opravdu chce: kolik padlo na
+           potraviny, ne co kdo v úterý koupil. -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-body" style="padding:12px 14px">
+          <div style="font-size:.84rem;font-weight:600;margin-bottom:2px">💳 Transakce</div>
+          <div style="font-size:.72rem;color:#a8aec8;margin-bottom:9px">Příjmy a výdaje</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${[
+              {v:'off',  l:'Nesdílím',        d:'Partner neuvidí žádné částky.'},
+              {v:'sums', l:'Souhrny',         d:'Uvidí, kolik padlo na jednotlivé kategorie – ne jednotlivé nákupy.'},
+              {v:'full', l:'Podrobné',        d:'Uvidí každou transakci včetně názvu a data.'},
+            ].map(o=>{
+              const akt = (typeof txShareMode==='function' ? txShareMode(shareSettings) : 'full') === o.v;
+              return `<button class="btn btn-sm ${akt?'btn-accent':'btn-ghost'}"
+                        onclick="updateShareSetting('transactions','${o.v}')"
+                        style="flex:1;min-width:88px">${o.l}</button>`;
+            }).join('')}
+          </div>
+          <div style="font-size:.72rem;color:#a8aec8;margin-top:8px;line-height:1.55">
+            ${(()=>{ const m = (typeof txShareMode==='function' ? txShareMode(shareSettings) : 'full');
+              return m==='off'  ? 'Partner neuvidí žádné částky z transakcí.'
+                   : m==='sums' ? 'Partner uvidí <strong style="color:#c9cede">jen součty za kategorie a měsíc</strong> – kolik padlo na potraviny, ne co kdo koupil. Jednotlivé transakce se vůbec neodešlou.'
+                   : 'Partner uvidí <strong style="color:#c9cede">každou transakci</strong> včetně názvu, data a poznámky.'; })()}
+          </div>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:14px">
         <div class="card-body" style="padding:10px 14px">
           ${sections.map(s=>`
@@ -1356,6 +1383,8 @@ function renderSdileni(){
 
 function updateShareSetting(key, value) {
   if(!S.shareSettings) S.shareSettings = {};
+  // TODO-240: `transactions` je nově trojstavové ('off'|'sums'|'full'),
+  //   ostatní sekce zůstávají boolean. Setter zvládá obojí.
   S.shareSettings[key] = value;
   save();
   // Přerenduj slider (aktualizuj barvy)

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.42 · admin.js · 2026-09-04
+// FinanceFlow · v10.43 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.43',
+    datum: '2026-09-04',
+    zmeny: [
+      '⚖️ TODO-240 (Milanův návrh): SDÍLENÍ TRANSAKCÍ MÁ TŘI ÚROVNĚ, NE VYPÍNAČ. Dosud platilo buď „partner vidí každou položku", nebo „nevidí nic". Mezi tím je ale to, co většina domácností opravdu chce: vědět, KOLIK padlo na potraviny, ne CO kdo v úterý koupil. Nové volby: Nesdílím · Souhrny · Podrobné.',
+      '📊 TODO-240: v režimu Souhrny se posílají jen součty za kategorii a měsíc (příjmy, výdaje, počet záznamů) – jednotlivé transakce se do výřezu vůbec nedostanou. Součty se počítají přes txCZK (cizí měny nesčítat nominálně) a bez přesunů, rozpadů a vyrovnání, stejně jako všude jinde. Klíčem je ID kategorie, ne název – ten se může změnit a historie by se rozpadla.',
+      '🔁 TODO-240: starý zápis se překládá tak, aby se nikomu nezměnilo sdílení pod rukama – `false` → Nesdílím, `true` i chybějící hodnota → Podrobné. Kdo chce ubrat, ubere si sám.',
+      '⚙ TODO-240: součty jsou zapojené i do PŘÍRŮSTKOVÉHO zápisu, jinak by zamrzly na prvním snímku a partner by viděl čísla z okamžiku propojení. Při přepnutí na Podrobné nebo Nesdílím se uzel catSums smaže, aby po sobě nezanechal starý agregát.',
+      '⚙ Nový test tools/smoke_txmode.js (22 kontrol) včetně ověření, že v souhrnech není nic, z čeho by šlo poznat, co kdo koupil.',
+    ]
+  },
   {
     verze: 'v10.42',
     datum: '2026-09-04',

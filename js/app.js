@@ -1,4 +1,4 @@
-// FinanceFlow · v10.42 · app.js · 2026-09-04
+// FinanceFlow · v10.43 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -520,7 +520,7 @@ function resetAppState() {
   // uživatel nesl signatury toho předchozího a _shWrite by považoval cizí
   // sekce za „nezměněné" → do jeho výřezu by se nezapsaly.
   if (typeof _dw !== 'undefined') _dw = { ready:false, metaSig:{}, txSig:null };
-  if (typeof _sh !== 'undefined') _sh = { ready:false, metaSig:{}, txSig:null };
+  if (typeof _sh !== 'undefined') _sh = { ready:false, metaSig:{}, txSig:null, sumSig:'', mode:null };
   if (typeof saveTimeout !== 'undefined' && saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
   if (typeof _premiumStatus !== 'undefined') _premiumStatus = null;
   if (typeof _pin !== 'undefined') _pin = null;
@@ -1425,10 +1425,59 @@ function _shMetaVals(){
   return out;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  TŘI ÚROVNĚ SDÍLENÍ TRANSAKCÍ (TODO-240, S21 – Milanův návrh)
+//  Dosud to byl vypínač: buď partner vidí každou položku, nebo nic. Mezi tím
+//  je ale to, co většina domácností opravdu chce – vědět, KOLIK padlo na
+//  potraviny, ne CO kdo v úterý koupil. Přehled bez dohlížení.
+//
+//    'off'   … nesdílím nic
+//    'sums'  … jen součty za kategorie a měsíc
+//    'full'  … jednotlivé transakce (jako dosud)
+//
+//  Starý zápis se překládá: false → 'off', true i chybějící hodnota → 'full'.
+//  Nikomu se tím sdílení nezmění pod rukama; kdo chce ubrat, ubere si sám.
+// ══════════════════════════════════════════════════════════════════════
+const TX_SHARE_MODES = ['off','sums','full'];
+function txShareMode(ss){
+  const v = (ss || S.shareSettings || {}).transactions;
+  if (v === false) return 'off';
+  if (TX_SHARE_MODES.includes(v)) return v;
+  return 'full';                  // true i undefined – beze změny proti dřívějšku
+}
+window.txShareMode = txShareMode;
+
 function _shTxObj(){
-  const ss=S.shareSettings||{};
-  if(ss.transactions===false) return {};
-  return _dwTxObj();
+  return txShareMode() === 'full' ? _dwTxObj() : {};
+}
+
+// Součty za kategorii a měsíc. Stejná pravidla jako všude jinde: přes txCZK
+// (cizí měny nesčítat nominálně) a bez přesunů, rozpadů a vyrovnání.
+// Klíč měsíce je „RRRR-MM\", klíč kategorie je její id – jméno by se mohlo
+// změnit a historie by se rozpadla.
+function _shCatSums(){
+  if (txShareMode() !== 'sums') return null;
+  const D = S;
+  const out = {};
+  (D.transactions||[]).forEach(t=>{
+    if(!t || !t.date) return;
+    if(t.splitParent || t.isBalancing) return;
+    if(typeof isTransferTx === 'function' && isTransferTx(t)) return;
+    if(t.type !== 'income' && t.type !== 'expense') return;
+    const d = new Date(t.date); if(isNaN(d)) return;
+    const mk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const ck = String(t.catId ?? t.category ?? 'bez');
+    out[mk] = out[mk] || {};
+    const r = out[mk][ck] = out[mk][ck] || { inc:0, exp:0, n:0 };
+    const castka = (typeof txCZK === 'function') ? txCZK(t, D) : (t.amount || t.amt || 0);
+    if(t.type === 'income') r.inc += castka; else r.exp += castka;
+    r.n++;
+  });
+  // Zaokrouhlit až na konci, ať se chyba nesčítá po položkách
+  Object.values(out).forEach(mes => Object.values(mes).forEach(r => {
+    r.inc = Math.round(r.inc); r.exp = Math.round(r.exp);
+  }));
+  return out;
 }
 function _dwSeed(){
   _dw.metaSig={}; const mv=_dwMetaVals();
@@ -1439,7 +1488,7 @@ function _dwSeed(){
 }
 
 // ── Výdejní okénko: vlastní diff sada, aby se i sem zapisovalo jen změněné ──
-let _sh = { ready:false, metaSig:{}, txSig:null };
+let _sh = { ready:false, metaSig:{}, txSig:null, sumSig:'', mode:null };   // TODO-240: sumSig/mode
 
 // Kdo nikoho nemá ve sdílení, výdejní okénko nepotřebuje – ušetří polovinu zápisů.
 // Seznam partnerů je načtený při přihlášení (loadPartners → partnerData).
@@ -1466,12 +1515,17 @@ async function _shWrite(uid){
   const sharedRef = _ref(_db, `users/${uid}/shared`);
   // První zápis (nebo po odhlášení) → plný snímek + nasazení signatur
   if(!_sh.ready){
-    const full = Object.assign({}, _shMetaVals(), { transactions: _shTxObj(), schemaV: 2 });
+    const sums = _shCatSums();   // TODO-240: null, když se sdílí 'off' nebo 'full'
+    const full = Object.assign({}, _shMetaVals(),
+      { transactions: _shTxObj(), txMode: txShareMode(), schemaV: 2 },
+      sums ? { catSums: sums } : {});
     await _set(sharedRef, full);
     _sh.metaSig={}; const mv0=_shMetaVals();
     _DW_META.forEach(k=>{ try{ _sh.metaSig[k]=JSON.stringify(mv0[k]); }catch(e){ _sh.metaSig[k]=''; } });
     _sh.txSig=new Map(); const to0=_shTxObj();
     Object.keys(to0).forEach(id=>{ try{ _sh.txSig.set(id, JSON.stringify(to0[id])); }catch(e){} });
+    _sh.sumSig = sums ? JSON.stringify(sums) : '';   // TODO-240
+    _sh.mode = txShareMode();
     _sh.ready=true;
     return;
   }
@@ -1483,6 +1537,20 @@ async function _shWrite(uid){
   // Tady je mazání SPRÁVNĚ: transakce zmizela z výřezu (smazána, nebo uživatel
   // vypnul sdílení transakcí) → ve výdejním okénku být nemá. Úložiště je jinde.
   _sh.txSig.forEach((_v,id)=>{ if(!seen.has(id)){ updates['transactions/'+id]=null; _sh.txSig.delete(id); } });
+
+  // TODO-240: součty za kategorie musí do přírůstkového zápisu taky, jinak by
+  //   zamrzly na prvním snímku a partner by viděl čísla z okamžiku propojení.
+  //   Přepínání režimu ošetřeno v obou směrech: při přechodu na 'full' nebo 'off'
+  //   se uzel smaže, jinak by tam po sobě zanechal starý agregát.
+  const sums = _shCatSums();
+  const sumSig = sums ? JSON.stringify(sums) : '';
+  if(sumSig !== (_sh.sumSig || '')){
+    updates['catSums'] = sums || null;
+    _sh.sumSig = sumSig;
+  }
+  const rezim = txShareMode();
+  if(rezim !== _sh.mode){ updates['txMode'] = rezim; _sh.mode = rezim; }
+
   if(Object.keys(updates).length){
     await _update(sharedRef, updates);
   }

@@ -25,6 +25,8 @@ function mkSandbox(shareSettings){
     // S21/FIX-315: _shMetaVals i _dwMetaVals nově prochází sanitátorem klíčů,
     //   takže se musí vytáhnout taky – jinak ReferenceError.
     (src.match(/const _FB_ZAKAZANE[\s\S]*?\n\}/)||[''])[0], pick('_fbSafeKeys'),
+    // S21/TODO-240: _shTxObj se ptá na režim přes txShareMode – vytáhnout taky.
+    (src.match(/const TX_SHARE_MODES[\s\S]*?\n\}/)||[''])[0], pick('txShareMode'),
     pick('_dwMetaVals'), pick('_dwTxObj'), pick('_shCatSkeleton'), pick('_shMetaVals'), pick('_shTxObj')
   ].join('\n'), sb);
   return sb;
