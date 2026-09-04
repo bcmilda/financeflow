@@ -1,4 +1,4 @@
-// FinanceFlow · v10.44 · admin.js · 2026-09-04
+// FinanceFlow · v10.45 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.45',
+    datum: '2026-09-04',
+    zmeny: [
+      '💱 FIX-322 (nahlásil Milan): PŘIPNUTÉ MĚNY NEBYLY PER UŽIVATEL. Klíč ff_pinnedFx byl v localStorage BEZ uid – jenže localStorage patří doméně, ne účtu, takže na jednom prohlížeči sdíleli seznam všichni, kdo se kdy přihlásili. Připnutí u jednoho účtu se objevilo i u druhého a vypadalo to, jako by se kurzy měnily „globálně".',
+      '🔍 FIX-322 – UPŘESNĚNÍ ROZSAHU: samotné KURZY se nemění nikomu. Berou se živě z ČNB přes Worker a do databáze se nikdy nezapisují, takže cizím uživatelům na jiných zařízeních se nic nezměnilo. Sdílel se jen seznam připnutých měn, a to mezi účty na TÉMŽE prohlížeči.',
+      '⚙ FIX-322: klíč nese uid. Starý společný seznam se při prvním použití převezme (nikdo o připnuté měny nepřijde) a smaže, ať se nešíří dál. Odhlášený stav má vlastní klíč, poškozený zápis vrátí prázdno místo pádu.',
+      '📋 Changelog v8.36 tvrdil, že se připnuté měny „ukládají do účtu" – nebyla to pravda ani tehdy, vždycky to byl localStorage.',
+      '⚙ Nový test tools/smoke_kurzy.js (12 kontrol) – jádrem je, že se dva účty na jednom prohlížeči neovlivní.',
+    ]
+  },
   {
     verze: 'v10.44',
     datum: '2026-09-04',
