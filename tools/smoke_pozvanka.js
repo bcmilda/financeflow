@@ -14,8 +14,9 @@ console.log('smoke_pozvanka.js');
      /_myGrants\.clear\(\); partnerUids\.forEach\(u=>_myGrants\.add\(u\)\)/.test(app));
   ok('FIX-311 · prázdný uzel seznam vyprázdní (ne že zůstane starý)',
      /if\(!snap\.exists\(\)\) \{\s*_myGrants\.clear\(\);/.test(app));
+  // FIX-319 vložil mezi ně načtení členů domácnosti, takže je mezera delší
   ok('FIX-311 · výřez vzniká už po přihlášení, ne až po prvním uložení',
-     /loadPartners[\s\S]{0,900}await _shWrite\(user\.uid\)/.test(app));
+     /loadPartners[\s\S]{0,2000}await _shWrite\(user\.uid\)/.test(app));
   ok('FIX-311 · zápis výřezu je side-write ve vlastním try/catch',
      /try \{ if\(typeof _shWrite==='function'\) await _shWrite\(user\.uid\); \}\s*\r?\n\s*catch/.test(app));
 

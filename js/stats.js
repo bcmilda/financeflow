@@ -1,4 +1,4 @@
-// FinanceFlow · v10.40 · stats.js · 2026-09-04
+// FinanceFlow · v10.41 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1278,6 +1278,7 @@ function renderSdileni(){
     sharingEl.innerHTML=`
       <div style="margin-bottom:14px">
         <div style="font-size:.82rem;color:var(--text2);margin-bottom:10px">Pošli partnerovi <strong>pozvánku</strong>. Jedním kliknutím se propojíte <strong>oboustranně</strong> – uvidíte na sebe navzájem, nikdo nemusí nic přidávat podruhé.</div>
+        <div id="householdBox" style="margin-bottom:12px"></div>
         <button class="btn btn-accent" onclick="createInviteLink()">🔗 Vytvořit pozvánku</button>
         <div id="inviteBox" style="margin-top:10px"></div>
 
@@ -1348,6 +1349,9 @@ function renderSdileni(){
     }
     partnersEl.innerHTML=html;
   }
+  // FIX-319: panel domácnosti se dopisuje asynchronně (členství se čte z Firebase).
+  //   Side-render ve vlastním try/catch – když se nenačte, zbytek sekce funguje dál.
+  try { if(typeof renderHouseholdBox==='function') renderHouseholdBox(); } catch(e){}
 }
 
 function updateShareSetting(key, value) {
@@ -1400,6 +1404,161 @@ function shareInvite(url){
 }
 window.shareInvite=shareInvite;
 
+// ══════════════════════════════════════════════════════════════════════
+//  DOMÁCNOST JAKO SKUPINA (FIX-319, S21 – Milan)
+//  Pozvánka pro dvojici (FIX-312) řeší jen dvojici. Třetí člověk potřebuje
+//  pozvánku zvlášť od každého, takže pro čtyři lidi je to pořád 6 párování
+//  a kdo na jedno zapomene, vidí jinou „rodinu\" než ostatní.
+//
+//  Ve skupině platí: kdo je v members, vidí všechny ostatní v members.
+//  Přidání čtvrtého ho propojí se všemi najednou – jedním kliknutím.
+//
+//  Členství drží DVA uzly a čtení vyžaduje OBA:
+//    households/{hid}/members/{uid}  … skupina mě zná   (píše si člen sám)
+//    users/{uid}/householdId         … já ji uznávám    (píše si vlastník)
+//  Vypadá to zbytečně, ale právě ta dvojitost dělá z jednosměrného zápisu
+//  oboustranný souhlas: nikdo mě do skupiny nevtáhne a nikdo se do ní
+//  nevecpe zvenku.
+// ══════════════════════════════════════════════════════════════════════
+let _householdCache = null;
+
+async function getMyHousehold(){
+  if(!window._currentUser || !window._db) return null;
+  if(_householdCache) return _householdCache;
+  try{
+    const hid = (await _get(_ref(_db,`users/${window._currentUser.uid}/householdId`))).val();
+    if(!hid) return null;
+    const snap = await _get(_ref(_db,`households/${hid}`));
+    if(!snap.exists()){
+      // Skupina zmizela (vlastník ji smazal) – uklidit vlastní ukazatel,
+      // ať se appka nepokouší číst něco, co není.
+      await _set(_ref(_db,`users/${window._currentUser.uid}/householdId`), null);
+      return null;
+    }
+    _householdCache = Object.assign({hid}, snap.val());
+    return _householdCache;
+  }catch(e){ console.warn('[domácnost]', e?.message); return null; }
+}
+
+async function createHousehold(nazev){
+  if(!window._currentUser || (typeof _isLocalMode!=='undefined' && _isLocalMode)){
+    alert('Domácnost jde založit jen s přihlášeným účtem.'); return null;
+  }
+  const uid = window._currentUser.uid;
+  const stavajici = await getMyHousehold();
+  if(stavajici){ alert('Už jsi v domácnosti „'+(stavajici.meta?.name||'Domácnost')+'\".'); return stavajici; }
+  const hid = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2)).replace(/-/g,'');
+  try{
+    // Pořadí je důležité: nejdřív meta (kvůli pravidlu na joinOpen u members),
+    // pak sám sebe mezi členy, teprve nakonec vlastní ukazatel.
+    await _set(_ref(_db,`households/${hid}/meta`), {
+      owner: uid, name: (nazev||'Domácnost').slice(0,60), joinOpen: true, createdAt: Date.now()
+    });
+    await _set(_ref(_db,`households/${hid}/members/${uid}`), true);
+    await _set(_ref(_db,`users/${uid}/householdId`), hid);
+    _householdCache = null;
+    if(typeof _shWrite==='function'){ try{ await _shWrite(uid); }catch(e){} }
+    if(typeof showToast==='function') showToast('🏠 Domácnost založena');
+    renderSdileni();
+    return await getMyHousehold();
+  }catch(e){ alert('Domácnost se nepodařilo založit: '+e.message); return null; }
+}
+
+async function joinHousehold(hid){
+  if(!window._currentUser || !hid) return false;
+  const uid = window._currentUser.uid;
+  const moje = await getMyHousehold();
+  if(moje && moje.hid === hid) return true;              // už tam jsem
+  if(moje){
+    // FIX-319: sloučit dvě domácnosti jedním kliknutím NEJDE. Vzniklo by
+    //   propojení všech se všemi, které nikdo z ostatních neodsouhlasil.
+    alert('🏠 Jsi v domácnosti „'+(moje.meta?.name||'Domácnost')+'\".\n\n'
+        + 'Do jiné se můžeš přidat, až z téhle odejdeš. Slučovat dvě domácnosti '
+        + 'jedním kliknutím nejde – propojilo by to všechny se všemi, aniž by o tom ostatní věděli.');
+    return false;
+  }
+  try{
+    await _set(_ref(_db,`households/${hid}/members/${uid}`), true);
+    await _set(_ref(_db,`users/${uid}/householdId`), hid);
+    _householdCache = null;
+    if(typeof _shWrite==='function'){ try{ await _shWrite(uid); }catch(e){} }
+    if(typeof showToast==='function') showToast('🏠 Jsi v domácnosti');
+    return true;
+  }catch(e){
+    alert('Do domácnosti se nepodařilo přidat: '+e.message
+        + '\n\nMožná už není otevřená pro nové členy.');
+    return false;
+  }
+}
+
+async function leaveHousehold(){
+  const h = await getMyHousehold();
+  if(!h) return;
+  if(!confirm('Opravdu odejít z domácnosti „'+(h.meta?.name||'Domácnost')+'\"?\n\n'
+            + 'Přestaneš vidět ostatní členy a oni tebe.')) return;
+  const uid = window._currentUser.uid;
+  try{
+    await _set(_ref(_db,`households/${h.hid}/members/${uid}`), null);
+    await _set(_ref(_db,`users/${uid}/householdId`), null);
+    _householdCache = null;
+    if(typeof showToast==='function') showToast('Odešel jsi z domácnosti');
+    renderSdileni();
+    if(typeof loadPartners==='function' && window._currentUser) loadPartners(window._currentUser);
+  }catch(e){ alert('Odchod se nezdařil: '+e.message); }
+}
+
+async function setHouseholdOpen(open){
+  const h = await getMyHousehold();
+  if(!h) return;
+  try{
+    await _set(_ref(_db,`households/${h.hid}/meta/joinOpen`), !!open);
+    _householdCache = null;
+    renderSdileni();
+  }catch(e){ alert('Změna se nezdařila: '+e.message); }
+}
+
+// Panel domácnosti v sekci Sdílení. Vykresluje se asynchronně, protože
+// členství se čte z Firebase – proto se nevkládá do šablony, ale doplní se.
+async function renderHouseholdBox(){
+  const box=document.getElementById('householdBox'); if(!box) return;
+  const h=await getMyHousehold();
+  if(!h){
+    box.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div style="font-size:.78rem;color:#c9cede;margin-bottom:4px"><strong>🏠 Zatím nemáš domácnost</strong></div>
+      <div style="font-size:.72rem;color:#a8aec8;line-height:1.55;margin-bottom:9px">Bez ní propojí pozvánka jen dva lidi
+        a třetí by potřeboval pozvánku zvlášť od každého. V domácnosti se každý nový člen propojí se všemi najednou.</div>
+      <button class="btn btn-primary btn-sm" onclick="createHousehold(prompt('Název domácnosti:','Domácnost')||'Domácnost')">🏠 Založit domácnost</button>
+    </div>`;
+    return;
+  }
+  const pocet=Object.keys(h.members||{}).length;
+  const jsemVlastnik = h.meta?.owner === window._currentUser?.uid;
+  const otevrena = h.meta?.joinOpen === true;
+  box.innerHTML=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:.82rem">🏠 ${h.meta?.name||'Domácnost'}</strong>
+      <span style="font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(125,211,79,.15);color:#7dd34f">👥 ${pocet}/${FAMILY_MAX_MEMBERS}</span>
+      ${jsemVlastnik?'<span style="font-size:.68rem;color:#a8aec8">jsi zakladatel</span>':''}
+    </div>
+    <div style="font-size:.72rem;color:#a8aec8;line-height:1.55;margin-bottom:9px">
+      Členové se vidí navzájem podle toho, co má každý zapnuté v „Co partner uvidí".
+      ${otevrena?'Skupina je <strong style="color:#7dd34f">otevřená</strong> – pozvánka funguje.'
+                :'Skupina je <strong style="color:#fbbf24">uzavřená</strong> – nové pozvánky neprojdou.'}
+    </div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap">
+      ${jsemVlastnik?`<button class="btn btn-ghost btn-sm" onclick="setHouseholdOpen(${!otevrena})">${otevrena?'🔒 Uzavřít':'🔓 Otevřít'}</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="leaveHousehold()">🚪 Odejít</button>
+    </div>
+  </div>`;
+}
+window.renderHouseholdBox=renderHouseholdBox;
+
+window.getMyHousehold=getMyHousehold;
+window.createHousehold=createHousehold;
+window.joinHousehold=joinHousehold;
+window.leaveHousehold=leaveHousehold;
+window.setHouseholdOpen=setHouseholdOpen;
+
 async function createInviteLink(){
   const box=document.getElementById('inviteBox');
   if(!window._currentUser || (typeof _isLocalMode!=='undefined' && _isLocalMode)){
@@ -1414,7 +1573,12 @@ async function createInviteLink(){
     if(box) box.innerHTML=`<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Pozvánku se nepodařilo vytvořit: ${e.message}</div></div>`;
     return;
   }
-  const url=`${location.origin}${location.pathname}?partnerOf=${myUid}&t=${token}`;
+  // FIX-319: odkaz nese i domácnost. Když ji zvoucí má, pozvaný se přidá
+  //   rovnou do NÍ – a vidí tím všechny členy, ne jen zvoucího. Bez domácnosti
+  //   funguje odkaz jako dřív, jako párování dvojice.
+  const dom = await getMyHousehold();
+  const url=`${location.origin}${location.pathname}?partnerOf=${myUid}&t=${token}`
+          + (dom ? `&join=${dom.hid}` : '');
   if(box) box.innerHTML=`
     <div style="background:var(--surface2);border-radius:10px;padding:11px 13px;border:1px solid var(--border);font-size:.72rem;word-break:break-all;color:var(--bank);font-family:monospace">${url}</div>
     <div style="display:flex;gap:7px;margin-top:7px;flex-wrap:wrap">
@@ -1422,7 +1586,10 @@ async function createInviteLink(){
       ${navigator.share ? `<button class="btn btn-primary btn-sm" onclick="shareInvite('${url}')">📤 Odeslat…</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="revokeInvite('${token}')">🗑️ Zneplatnit</button>
     </div>
-    <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Odkaz platí, dokud ho nezneplatníš. Po použití partnerem ho klidně zruš.</div>`;
+    <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">${dom
+      ? `Kdo odkaz otevře, přidá se do domácnosti <strong>${(dom.meta?.name||'Domácnost')}</strong> a uvidí <strong>všechny členy</strong>, ne jen tebe.`
+      : 'Odkaz propojí jen tebe a toho, kdo ho otevře. Chceš-li víc lidí najednou, založ nejdřív domácnost.'}
+      Platí, dokud ho nezneplatníš.</div>`;
 }
 async function revokeInvite(token){
   try{

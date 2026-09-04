@@ -51,7 +51,7 @@
           }
         },
         "shared": {
-          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || (root.child('users').child($uid).child('householdId').val() !== null && root.child('users').child($uid).child('householdId').val() === root.child('users').child(auth.uid).child('householdId').val() && root.child('households').child(root.child('users').child($uid).child('householdId').val()).child('members').child(auth.uid).val() === true) || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
           "transactions": {
             "$txId": {
               "name": {
@@ -82,6 +82,13 @@
         // Pozvankove tokeny. Cte a zapisuje jen vlastnik; pravidlo vyse si hodnotu overuje
         //   serverove pres root.child(), na to cteci pravo potreba neni.
         //   Smazanim tokenu prestane odkaz platit.
+        // FIX-319 (S21): moje příslušnost k domácnosti. Cteni potrebuje KAZDY clen
+        //   (pravidlo shared/.read si ji overuje pres root.child), zapisovat smi
+        //   jen vlastnik – diky tomu me nikdo nemuze do skupiny vtahnout bez me.
+        "householdId": {
+          ".read": "auth != null",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length > 8 && newData.val().length < 64)"
+        },
         "invites": {
           ".read": "auth.uid === $uid",
           "$token": {
@@ -154,6 +161,33 @@
       "$customerId": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": false
+      }
+    },
+    // FIX-319 (S21): DOMACNOST JAKO SKUPINA. Pozvanka pro dvojici (FIX-312) resi
+    //   jen dvojici – treti clovek potrebuje pozvanku zvlast od kazdeho, coz je
+    //   porad N*(N-1). Ve skupine plati: kdo je v members, vidi vsechny ostatni
+    //   v members. Pridani ctvrteho ho propoji se vsemi najednou.
+    //   Clenstvi drzi DVA uzly a cteni vyzaduje OBA: households/{hid}/members/{uid}
+    //   (skupina me zna) a users/{uid}/householdId (ja tu skupinu uznavam).
+    //   Kazdy si pise ten svuj – nikdo me tedy nevtahne dovnitr ani se nevecpe zvenku.
+    "households": {
+      "$hid": {
+        ".read": "root.child('households').child($hid).child('members').child(auth.uid).val() === true",
+        "meta": {
+          ".write": "!data.exists() || data.child('owner').val() === auth.uid",
+          "owner":     { ".validate": "newData.val() === auth.uid || newData.val() === data.val()" },
+          "name":      { ".validate": "newData.isString() && newData.val().length < 60" },
+          "joinOpen":  { ".validate": "newData.isBoolean()" },
+          "createdAt": { ".validate": "newData.isNumber()" }
+        },
+        "members": {
+          // Pripsat smim JEN SAM SEBE a jen kdyz je skupina otevrena.
+          // Odebrat smim sebe (odchod) nebo me smi odebrat vlastnik (vyhozeni).
+          "$uid": {
+            ".write": "(auth.uid === $uid && newData.exists() && root.child('households').child($hid).child('meta').child('joinOpen').val() === true) || (!newData.exists() && (auth.uid === $uid || root.child('households').child($hid).child('meta').child('owner').val() === auth.uid))",
+            ".validate": "newData.isBoolean()"
+          }
+        }
       }
     },
     "community": {

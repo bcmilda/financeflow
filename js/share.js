@@ -1,4 +1,4 @@
-// FinanceFlow · v10.36 · share.js · 2026-09-03
+// FinanceFlow · v10.41 · share.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -337,6 +337,7 @@ async function checkIncomingPartner() {
   const params = new URLSearchParams(window.location.search);
   const partnerOfUid = params.get('partnerOf');
   const inviteToken = params.get('t');   // FIX-312: token z pozvánky
+  const joinHid = params.get('join');    // FIX-319: domácnost, do které se má přidat
   if(!partnerOfUid || !window._currentUser || !window._db) return;
   if(partnerOfUid === window._currentUser.uid) return; // nesmí přidat sám sebe
 
@@ -367,8 +368,16 @@ async function checkIncomingPartner() {
         oboustranne = true;
       } catch(e){ console.warn('[pozvánka] token neprošel:', e?.message); }
     }
+    // FIX-319: přidání do DOMÁCNOSTI. Tím se pozvaný propojí se všemi členy
+    //   naráz, ne jen se zvoucím – to je celý smysl skupiny.
+    let vDomacnosti = false;
+    if(joinHid && typeof joinHousehold === 'function'){
+      try { vDomacnosti = await joinHousehold(joinHid); }
+      catch(e){ console.warn('[domácnost] přidání selhalo:', e?.message); }
+    }
     if(typeof showToast === 'function'){
-      showToast(oboustranne ? '🤝 Propojeno – uvidíte na sebe navzájem'
+      showToast(vDomacnosti ? '🏠 Jsi v domácnosti – uvidíš všechny členy'
+              : oboustranne ? '🤝 Propojeno – uvidíte na sebe navzájem'
                             : '🔗 Zpřístupnil jsi svá data. Aby ses viděl i ty, ať ti pošle pozvánku.');
     }
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.40 · admin.js · 2026-09-04
+// FinanceFlow · v10.42 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,31 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.42',
+    datum: '2026-09-04',
+    zmeny: [
+      '🚫 FIX-320 (Milan): PŘEPÍNÁNÍ PROFILŮ ZRUŠENO. „Přepnout pohled" nahradilo VŠECHNA data v appce partnerovými – celý program se překreslil jeho čísly a dalo se procházet cizí finance stránku po stránce jako svoje. I když jen pro čtení, sdílení má dát domácnosti společný obraz, ne umožnit prohlídku cizího účtu.',
+      '👥 FIX-320: sekce v Sdílení se mění na PŘEHLED ČLENŮ – kdo je v domácnosti a jestli jeho data dorazila (✓ / …). Žádné tlačítko k přepnutí, jen odkaz na Rodinný souhrn, kam společná čísla patří.',
+      '👁 FIX-320: adminský náhled ZŮSTÁVÁ, ale je nově vyhrazený adminovi – ověřuje se přes isAdmin() z admin.js, aby seznam adminských UID zůstal na jednom místě (SKILL 17). Běžný uživatel viewingUid nenastaví, ověřeno chováním, ne jen tvarem kódu. Starý odkaz na přepnutí ho místo toho odvede do Rodinného souhrnu.',
+      '⚙ FIX-320: `viewingUid` zůstává v kódu jako konstantní null pro běžné uživatele. Visí na něm desítky ochranných podmínek (zákaz zápisu, záloh a obnovy nad cizími daty) a vytrhávat je po jedné by bylo riskantnější než je nechat platit navždy.',
+      '⚙ Avatary v seznamu členů kreslí nově jeden sdílený helper místo dvou samostatných výrazů – priorita „vědomá volba před výchozí fotkou" (FIX-314) se tím drží na jednom místě.',
+      '⚙ Nový test tools/smoke_pohled.js (13 kontrol) – většina se ptá na chování: běžný uživatel pohled nepřepne, admin ano, a ochrany nad cizími daty platí dál.',
+    ]
+  },
+  {
+    verze: 'v10.41',
+    datum: '2026-09-04',
+    zmeny: [
+      '🏠 FIX-319 (Milan): DOMÁCNOST JAKO SKUPINA – KONEC PÁROVÁNÍ KAŽDÉHO S KAŽDÝM. Pozvánka z v10.36 propojí dva lidi, jenže třetí potřeboval pozvánku zvlášť od každého: čtyři lidi = 6 párování, a kdo na jedno zapomněl, viděl jinou „rodinu" než ostatní. Ve skupině platí, že kdo je uvnitř, vidí všechny ostatní – čtvrtý člen se propojí se všemi najednou.',
+      '🔐 FIX-319: členství drží DVA uzly a čtení vyžaduje OBA – households/{hid}/members/{uid} („skupina mě zná") a users/{uid}/householdId („já ji uznávám"). Každý si píše ten svůj, takže mě nikdo do skupiny nevtáhne bez mého souhlasu ani se do ní nevecpe zvenku. Vypadá to redundantně a právě ta redundance dělá z jednosměrného zápisu oboustranný souhlas.',
+      '🚪 FIX-319: odejít smí každý sám (odstraní si obojí), vyhodit člena smí navíc zakladatel. Zakladatel může skupinu uzavřít – tím přestanou platit všechny pozvánky. Zmizelá skupina si po sobě uklidí i ukazatel u člena, ať appka nečte něco, co není.',
+      '🚫 FIX-319: sloučit dvě domácnosti jedním kliknutím NEJDE a je to odmítnuté nahlas. Propojilo by to všechny se všemi, aniž by o tom ostatní věděli – jeden klik jednoho člověka by rozhodl za celou skupinu. Kdo chce přejít jinam, musí nejdřív odejít.',
+      '🔗 FIX-319: pozvánka nově nese i identifikátor domácnosti, takže pozvaný se přidá rovnou do NÍ a vidí všechny členy, ne jen zvoucího. Bez domácnosti funguje odkaz jako dřív. V sekci Sdílení přibyl panel s názvem, počtem členů (X/6), stavem otevřenosti a tlačítky Odejít / Otevřít-Uzavřít.',
+      '⚠️ NASAZENÍ: database_rules.json do Firebase Console PŘED kódem – bez pravidel pro uzel households nepůjde skupinu založit ani se do ní přidat.',
+      '⚙ Nový test tools/smoke_domacnost.js (27 kontrol). Klíčové jsou tři: čtení přes skupinu vyžaduje shodné householdId A ZÁROVEŇ členství v members, a householdId nesmí být null – jinak by se „spojili" všichni, kdo žádnou skupinu nemají.',
+    ]
+  },
   {
     verze: 'v10.40',
     datum: '2026-09-04',

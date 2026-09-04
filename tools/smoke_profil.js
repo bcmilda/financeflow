@@ -27,9 +27,12 @@ console.log('smoke_profil.js');
      vyber({},{photoURL:'https://g/x.jpg'})==='foto');
   ok('FIX-314 · nic → placeholder', vyber({},{})==='placeholder');
 
-  ok('FIX-314 · stejné pořadí i v seznamu partnerů (moje dlaždice)',
-     /partner-avatar">\$\{window\._userProfile\?\.avatar \? window\._userProfile\.avatar/.test(app));
-  ok('FIX-314 · a u partnera taky', /\$\{p\?\.profile\?\.avatar \? p\.profile\.avatar/.test(app));
+  // FIX-320: obě dlaždice teď kreslí sdílený helper `avatar()`, ne dva
+  //   samostatné výrazy – priorita se tím drží na jednom místě (SKILL 17).
+  ok('FIX-314 · seznam členů používá sdílený helper avatar()',
+     /const avatar = \(prof, user\) => prof\?\.avatar \? prof\.avatar/.test(app));
+  ok('FIX-314 · helper dává přednost avataru před fotkou',
+     app.indexOf('prof?.avatar ? prof.avatar') < app.indexOf('prof?.photoURL || user?.photoURL'));
   ok('FIX-314 · uložení profilu dá zpětnou vazbu', /showToast\('✅ Profil uložen'\)/.test(app));
 }
 

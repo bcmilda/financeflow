@@ -1,4 +1,4 @@
-// FinanceFlow · v10.40 · app.js · 2026-09-04
+// FinanceFlow · v10.42 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -900,14 +900,35 @@ async function loadPartners(user) {
   const snap = await _get(partnersRef);
   if(!snap.exists()) {
     _myGrants.clear();
-    renderPartnerSection([]);
-    return;
+    // FIX-319: prázdný seznam partnerů ještě neznamená, že nemám domácnost –
+    //   pokračujeme dál, členy skupiny doplní blok níž.
+    try {
+      const hid0 = (await _get(_ref(_db, `users/${user.uid}/householdId`))).val();
+      if (!hid0) { renderPartnerSection([]); return; }
+    } catch(e) { renderPartnerSection([]); return; }
   }
-  const partnerUids = Object.keys(snap.val());
+  const partnerUids = snap.exists() ? Object.keys(snap.val()) : [];
   _cekajiciPartneri.length = 0;   // FIX-316: kdo mě ještě nepřidal zpět
   _bezVyrezu.length = 0;          // FIX-318
+
+  // FIX-319: ke jmenovitým partnerům přibývají členové DOMÁCNOSTI. Ty si nikdo
+  //   nepřidával ručně – stačí, že jsme ve stejné skupině. Právě tím odpadá
+  //   nutnost, aby se každý párovat s každým.
+  try {
+    const hid = (await _get(_ref(_db, `users/${user.uid}/householdId`))).val();
+    if (hid) {
+      const cleni = await _get(_ref(_db, `households/${hid}/members`));
+      if (cleni.exists()) {
+        Object.keys(cleni.val()).forEach(u => {
+          if (u !== user.uid && !partnerUids.includes(u)) partnerUids.push(u);
+        });
+      }
+    }
+  } catch(e) { console.info('[domácnost] členy se nepodařilo načíst:', e?.message); }
   // FIX-311: tenhle uzel znamená „kdo smí číst mě" – proto z něj plní `_myGrants`,
   //   podle kterých se rozhoduje, jestli má vzniknout výdejní okénko `shared`.
+  //   a od FIX-319 i členy domácnosti – ti mě smí číst taky, takže výřez
+  //   musí vzniknout i pro ně.
   _myGrants.clear(); partnerUids.forEach(u=>_myGrants.add(u));
   // Když už někomu přístup udělený je, výřez musí existovat hned po přihlášení,
   //   ne až po prvním uložení dat. Side-write ve vlastním try/catch.
@@ -975,46 +996,90 @@ async function loadPartners(user) {
   renderPartnerSection(loaded);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-320 (S21, Milan): PŘEPÍNÁNÍ PROFILŮ ZRUŠENO
+//  „Přepnout pohled\" nahradilo VŠECHNA data v appce partnerovými – celý
+//  program se překreslil jeho čísly. I když jen pro čtení, znamenalo to
+//  procházet cizí finance stránku po stránce jako svoje. Milan to označil
+//  za nepřípustné a má pravdu: sdílení má dát domácnosti společný obraz,
+//  ne umožnit prohlídku cizího účtu.
+//
+//  Sekce se mění na PŘEHLED ČLENŮ – kdo je v domácnosti a jestli jeho data
+//  dorazila. Společná čísla patří do Rodinného souhrnu, kde jsou vedle sebe
+//  a označená, čí jsou.
+//
+//  `viewingUid` zůstává v kódu jako konstantní null: visí na něm desítky
+//  ochranných podmínek (zákaz zápisu, záloh, obnovy nad cizími daty) a
+//  vytrhávat je po jedné by bylo riskantnější než je nechat platit navždy.
+// ══════════════════════════════════════════════════════════════════════
 function renderPartnerSection(partnerUids) {
   const sec = document.getElementById('partnerSection');
   const btns = document.getElementById('partnerBtns');
+  if(!sec || !btns) return;
   if(!partnerUids.length) { sec.style.display='none'; return; }
   sec.style.display = 'block';
   const me = window._currentUser;
   const myName = window._userProfile?.displayName || me?.displayName || 'Já';
-  
-  let html = `<div class="partner-btn ${viewingUid===null?'active-user':''}" onclick="switchToOwnData()">
-    <div class="partner-avatar">${window._userProfile?.avatar ? window._userProfile.avatar : (me?.photoURL?`<img src="${me.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤')}</div>
+  const avatar = (prof, user) => prof?.avatar ? prof.avatar
+    : (prof?.photoURL || user?.photoURL)
+      ? `<img src="${prof?.photoURL || user.photoURL}" style="width:24px;height:24px;border-radius:50%">`
+      : '👤';
+
+  let html = `<div class="partner-btn active-user" style="cursor:default">
+    <div class="partner-avatar">${avatar(window._userProfile, me)}</div>
     <span class="partner-pname">${myName}</span>
-    <span class="partner-badge badge-me">${viewingUid===null?'Aktivní':''}</span>
+    <span class="partner-badge badge-me">Já</span>
   </div>`;
-  
+
   for(const uid of partnerUids) {
     const p = partnerData[uid];
-    const name = p?.profile?.displayName || 'Partner';
-    html += `<div class="partner-btn ${viewingUid===uid?'active-partner':''}" onclick="switchToPartner('${uid}')">
-      <div class="partner-avatar">${p?.profile?.avatar ? p.profile.avatar : (p?.profile?.photoURL?`<img src="${p.profile.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤')}</div>
+    const name = p?.profile?.displayName || 'Člen domácnosti';
+    // Data buď dorazila, nebo ne – to je jediná informace, kterou tu potřebuje.
+    const mam = !!(p && p.data);
+    html += `<div class="partner-btn" style="cursor:default" title="${mam?'Data dorazila':'Zatím bez dat'}">
+      <div class="partner-avatar">${avatar(p?.profile, null)}</div>
       <span class="partner-pname">${name}</span>
-      <span class="partner-badge badge-view">${viewingUid===uid?'Prohlíží':'→'}</span>
+      <span class="partner-badge badge-view">${mam?'✓':'…'}</span>
     </div>`;
   }
+  html += `<div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+    Společná čísla najdeš v <a href="#" onclick="showPage('rodina');return false" style="color:#7dd34f;font-weight:700">Rodinném souhrnu</a>.</div>`;
   btns.innerHTML = html;
 }
 
-function switchToPartner(uid) {
+// FIX-320: Přepnutí pohledu zůstává, ale UŽ JEN PRO ADMINA. Milan ho potřebuje,
+//   aby mohl nezávazně nahlédnout do profilu uživatele při řešení problému –
+//   to je jiná role než „člen domácnosti", a stojí na jeho UID, ne na sdílení.
+//   Běžný uživatel se sem nedostane: v Sdílení ani v Rodinném souhrnu už na to
+//   není žádné tlačítko.
+function adminViewAs(uid) {
+  // Ověření přes isAdmin() z admin.js – seznam adminských UID má jen jedno
+  //   místo (SKILL 17). Když admin.js není načtený, není ani admin.
+  if (!(typeof isAdmin === 'function' && isAdmin())) {
+    console.warn('[pohled] přepnutí profilu je vyhrazené adminovi');
+    return false;
+  }
   viewingUid = uid;
   // Null-safe (mobil může mít některé prvky jinde/skryté – nesmí to shodit přepnutí dat)
   const _vb = document.getElementById('viewingBanner'); if(_vb) _vb.classList.add('show');
   const _rn = document.getElementById('readonlyNotice'); if(_rn) _rn.classList.add('show');
-  const name = partnerData[uid]?.profile?.displayName || 'Partner';
+  const name = partnerData[uid]?.profile?.displayName || uid.slice(0,8);
   const _vc = document.getElementById('viewingChip'); if(_vc){ _vc.textContent = `👁 ${name}`; _vc.classList.add('show'); }
   const _fab = document.getElementById('mainFab'); if(_fab) _fab.style.display = 'none';
-  // Zavři případně otevřené menu/sidebar na mobilu, ať je vidět přepnutý obsah
   try { if (typeof closeSidebar === 'function') closeSidebar(); } catch(_) {}
-  try { renderPartnerSection(Object.keys(partnerData)); } catch(_) {}
   renderPage();
   updateReadonlyUI();
   if (typeof showToast === 'function') showToast(`👁 Prohlížíš data: ${name}`);
+  return true;
+}
+window.adminViewAs = adminViewAs;
+
+// Ponecháno kvůli starým odkazům (uložená stránka v mezipaměti, staré tlačítko).
+// Běžnému uživateli místo přepnutí profilu ukáže, kam společná čísla patří.
+function switchToPartner(uid) {
+  if (typeof isAdmin === 'function' && isAdmin()) return adminViewAs(uid);
+  if (typeof showToast === 'function') showToast('Společná čísla najdeš v Rodinném souhrnu');
+  if (typeof showPage === 'function') showPage('rodina');
 }
 
 function switchToOwnData() {
