@@ -1,4 +1,4 @@
-// FinanceFlow · v10.43 · stats.js · 2026-09-04
+// FinanceFlow · v10.44 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1104,13 +1104,33 @@ function renderFamilySummary(){
     }))
   ];
   
+  // TODO-240: člen může sdílet buď PODROBNÉ transakce, nebo jen SOUČTY za
+  //   kategorie (uzel `catSums`). Souhrn musí umět obojí, jinak by ten, kdo
+  //   zvolil šetrnější režim, do rodinných čísel nepřispěl vůbec – a domácnost
+  //   by tiše počítala s menší částkou, než ve skutečnosti utratila.
+  const mesicKlic = `${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;
+  const jenSoucty = m => (m.data?.txMode === 'sums') && m.data?.catSums;
+  const soucetZaMesic = m => {
+    const mes = (m.data.catSums||{})[mesicKlic] || {};
+    let inc=0, exp=0;
+    Object.values(mes).forEach(r=>{ inc += r.inc||0; exp += r.exp||0; });
+    return {inc, exp};
+  };
+
   // Family totals
   let familyInc=0,familyExp=0,familyDebt=0,familyBank=0;
+  let _souctyClenu=0;   // kolik členů přispělo jen souhrnem – řekneme to nahlas
   members.forEach(m=>{
     const D=Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]},m.data);
-    const txs=getTx(S.curMonth,S.curYear,D);
-    familyInc+=incSum(txs,D);familyExp+=expSum(txs,D);
-    familyDebt+=(D.debts||[]).reduce((a,d)=>a+d.remaining,0);
+    if(jenSoucty(m)){
+      const s2=soucetZaMesic(m);
+      familyInc+=s2.inc; familyExp+=s2.exp;
+      _souctyClenu++;
+    } else {
+      const txs=getTx(S.curMonth,S.curYear,D);
+      familyInc+=incSum(txs,D);familyExp+=expSum(txs,D);
+    }
+    familyDebt+=(D.debts||[]).reduce((a,d)=>a+(d.remaining||0),0);
     familyBank+=computeBank(D);
   });
   
@@ -1120,6 +1140,10 @@ function renderFamilySummary(){
     <div class="family-stat"><div class="family-stat-label">Rodinné saldo</div><div class="family-stat-val" style="color:${familyInc-familyExp>=0?'var(--income)':'var(--expense)'}">${fmtB(familyInc-familyExp)}</div></div>
     <div class="family-stat"><div class="family-stat-label">Celkový dluh</div><div class="family-stat-val" style="color:var(--debt)">${fmtB(familyDebt)}</div></div>
   </div>
+  ${_souctyClenu ? `<div style="font-size:.72rem;color:#a8aec8;margin:-4px 0 12px;line-height:1.55">
+    ℹ️ ${_souctyClenu===1?'Jeden člen sdílí':'Někteří členové sdílejí'} <strong style="color:#c9cede">jen souhrny za kategorie</strong>,
+    ne jednotlivé transakce. V součtech ${_souctyClenu===1?'jeho':'jejich'} peníze jsou, v žebříčku útrat níž ne –
+    tam se dá zobrazit jen to, co má název a datum.</div>` : ''}
   <div class="card gap"><div class="card-header">
       <span class="card-title">📈 Rodinné saldo – trend</span>
       <div style="display:flex;gap:6px">
@@ -1138,6 +1162,7 @@ function renderFamilySummary(){
   // korekce nebo přesun na spořicí účet tvářily jako "největší útrata měsíce".
   let familyTxs=[];
   members.forEach(m=>{
+    if(jenSoucty(m)) return;   // TODO-240: nemá jednotlivé útraty, jen součty
     const D=Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]},m.data);
     const txs=getTx(S.curMonth,S.curYear,D).filter(t=>t&&t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t));
     txs.forEach(t=>{

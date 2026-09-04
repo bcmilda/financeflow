@@ -1,4 +1,4 @@
-// FinanceFlow · v10.43 · admin.js · 2026-09-04
+// FinanceFlow · v10.44 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.44',
+    datum: '2026-09-04',
+    zmeny: [
+      '🚑 FIX-321: ADMINSKÝ NÁHLED SE NEMĚL JAK VRÁTIT ZPĚT. Ve v10.42 jsem dlaždice v seznamu členů udělal neklikací pro všechny – jenže tím adminský náhled ztratil cestu zpět k vlastním datům i přepínání mezi uživateli. Dlaždice jsou nově klikací pro admina (vlastní vrací zpět, cizí přepne náhled, aktivní se zvýrazní), běžnému uživateli zůstávají jen jako přehled členů.',
+      '📊 TODO-240: RODINNÝ SOUHRN UMÍ ČÍST SOUHRNY. Kdo sdílí jen součty za kategorie, do rodinných čísel nově přispěje – dřív by nepřispěl vůbec a domácnost by tiše počítala s menší částkou, než ve skutečnosti utratila. V žebříčku „kdo na co utratil" takový člen není a appka rovnou vysvětlí proč: nemá co zobrazit, jeho útraty nemají název ani datum.',
+      '⚙ Souhrn si bere správný měsíc podle klíče RRRR-MM; měsíc bez dat dá nuly, ne pád. Chybějící catSums shodí člena do podrobné větve místo do chyby.',
+      '⚙ Nový test tools/smoke_rodinasoucty.js (18 kontrol) – většinou na chování sčítání, ne na tvar kódu.',
+    ]
+  },
   {
     verze: 'v10.43',
     datum: '2026-09-04',

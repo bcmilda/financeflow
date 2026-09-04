@@ -1,4 +1,4 @@
-// FinanceFlow · v10.43 · app.js · 2026-09-04
+// FinanceFlow · v10.44 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -1025,10 +1025,17 @@ function renderPartnerSection(partnerUids) {
       ? `<img src="${prof?.photoURL || user.photoURL}" style="width:24px;height:24px;border-radius:50%">`
       : '👤';
 
-  let html = `<div class="partner-btn active-user" style="cursor:default">
+  // FIX-321 (S21): admin se musí umět vrátit ZPÁTKY. Ve v10.42 jsem dlaždice
+  //   udělal neklikací pro všechny – jenže adminský náhled tím ztratil cestu
+  //   zpět k vlastním datům a mezi uživateli. Klikací jsou proto pro admina,
+  //   běžnému uživateli zůstávají jen jako přehled členů.
+  const jsemAdmin = (typeof isAdmin === 'function' && isAdmin());
+  const klik = (akce) => jsemAdmin ? ` onclick="${akce}" style="cursor:pointer"` : ' style="cursor:default"';
+
+  let html = `<div class="partner-btn ${viewingUid===null?'active-user':''}"${klik('switchToOwnData()')}>
     <div class="partner-avatar">${avatar(window._userProfile, me)}</div>
     <span class="partner-pname">${myName}</span>
-    <span class="partner-badge badge-me">Já</span>
+    <span class="partner-badge badge-me">${jsemAdmin && viewingUid!==null ? '← zpět' : 'Já'}</span>
   </div>`;
 
   for(const uid of partnerUids) {
@@ -1036,14 +1043,14 @@ function renderPartnerSection(partnerUids) {
     const name = p?.profile?.displayName || 'Člen domácnosti';
     // Data buď dorazila, nebo ne – to je jediná informace, kterou tu potřebuje.
     const mam = !!(p && p.data);
-    html += `<div class="partner-btn" style="cursor:default" title="${mam?'Data dorazila':'Zatím bez dat'}">
+    html += `<div class="partner-btn ${viewingUid===uid?'active-partner':''}"${klik(`adminViewAs('${uid}')`)} title="${mam?'Data dorazila':'Zatím bez dat'}">
       <div class="partner-avatar">${avatar(p?.profile, null)}</div>
       <span class="partner-pname">${name}</span>
-      <span class="partner-badge badge-view">${mam?'✓':'…'}</span>
+      <span class="partner-badge badge-view">${viewingUid===uid?'Prohlíží':(mam?'✓':'…')}</span>
     </div>`;
   }
   html += `<div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
-    Společná čísla najdeš v <a href="#" onclick="showPage('rodina');return false" style="color:#7dd34f;font-weight:700">Rodinném souhrnu</a>.</div>`;
+    ${jsemAdmin ? 'Klikni na jméno pro náhled dat (jen pro čtení). ' : ''}Společná čísla najdeš v <a href="#" onclick="showPage('rodina');return false" style="color:#7dd34f;font-weight:700">Rodinném souhrnu</a>.</div>`;
   btns.innerHTML = html;
 }
 
@@ -1067,6 +1074,7 @@ function adminViewAs(uid) {
   const _vc = document.getElementById('viewingChip'); if(_vc){ _vc.textContent = `👁 ${name}`; _vc.classList.add('show'); }
   const _fab = document.getElementById('mainFab'); if(_fab) _fab.style.display = 'none';
   try { if (typeof closeSidebar === 'function') closeSidebar(); } catch(_) {}
+  try { renderPartnerSection(Object.keys(partnerData)); } catch(_) {}
   renderPage();
   updateReadonlyUI();
   if (typeof showToast === 'function') showToast(`👁 Prohlížíš data: ${name}`);

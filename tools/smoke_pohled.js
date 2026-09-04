@@ -38,7 +38,10 @@ ok('FIX-320 · starý odkaz běžného uživatele odvede do Rodinného souhrnu',
 // ── Zdrojový kód ──────────────────────────────────────────────────
 ok('FIX-320 · seznam členů už nemá onclick na přepnutí',
    !/onclick="switchToPartner\('\$\{uid\}'\)"/.test(app));
-ok('FIX-320 · odznak „Prohlíží“ ze seznamu zmizel', !/badge-view">\$\{viewingUid===uid/.test(app));
+// FIX-321: odznak „Prohlíží" se vrátil, ale JEN pro adminský náhled –
+//   běžný uživatel se do stavu viewingUid !== null nedostane.
+ok('FIX-320 · odznak „Prohlíží“ se ukáže jen při náhledu (jinak ✓ / …)',
+   /viewingUid===uid\?'Prohlíží':\(mam\?'✓':'…'\)/.test(app));
 ok('FIX-320 · místo něj se ukazuje, jestli data dorazila', /const mam = !!\(p && p\.data\)/.test(app));
 ok('FIX-320 · seznam odkáže na Rodinný souhrn', /Rodinném souhrnu<\/a>/.test(app));
 ok('FIX-320 · admin používá isAdmin(), ne vlastní kopii UID (SKILL 17)',
