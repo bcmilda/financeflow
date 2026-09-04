@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · settings.js · 2026-09-02
+// FinanceFlow · v10.46 · settings.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -510,7 +510,7 @@ function renderSettingsPage() {
         </div>
         <select class="fs" id="settingDefWallet" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box" onchange="settingChanged()">
           <option value="" ${!_settings?.defWallet?'selected':''}>– žádná (nechat prázdné) –</option>
-          ${(S.wallets||[]).map(w=>`<option value="${w.id}" ${_settings?.defWallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}</option>`).join('')}
+          ${(S.wallets||[]).filter(w=>!w.archived).map(w=>`<option value="${w.id}" ${_settings?.defWallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}</option>`).join('')}   <!-- TODO-241 -->
         </select>
       </div>
 

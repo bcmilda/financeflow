@@ -1,4 +1,4 @@
-// FinanceFlow · v10.34 · ui.js · 2026-09-03
+// FinanceFlow · v10.46 · ui.js · 2026-09-04
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1642,7 +1642,8 @@ function renderTxPage(){
     (D.projects||[]).map(p=>`<option value="${p.id}">📁 ${p.name}</option>`).join(''); _restore(projSel,kProj); }
   const walletSel = document.getElementById('txWalletFilter');
   if(walletSel){ walletSel.innerHTML = '<option value="">👛 Peněženka: Vše</option>' +
-    (D.wallets||[]).map(w=>`<option value="${w.id}">${w.icon||'👛'} ${w.name}</option>`).join(''); _restore(walletSel,kWal); }
+    // TODO-241: archivované peněženky se při zadávání nenabízejí
+    (D.wallets||[]).filter(w=>!w.archived).map(w=>`<option value="${w.id}">${w.icon||'👛'} ${w.name}</option>`).join(''); _restore(walletSel,kWal); }
   // v9.86 (TODO-214): filtr měn – nabídne JEN měny, které se v datech opravdu vyskytují
   const curSel = document.getElementById('txCurFilter');
   if(curSel){
