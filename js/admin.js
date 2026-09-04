@@ -1,4 +1,4 @@
-// FinanceFlow · v10.47 · admin.js · 2026-09-04
+// FinanceFlow · v10.48 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.48',
+    datum: '2026-09-04',
+    zmeny: [
+      '🎚 TODO-242 (Milan): PŘEPÍNAČ ROZSAHU ŘÍDÍ CELOU STRÁNKU. Dosud filtr člena zúžil JEN žebříček „kdo na co utratil" – dlaždice nahoře i graf trendu pořád ukazovaly celou domácnost. Šlo tedy vybrat člena a číslo nad tím mu neodpovídalo, aniž by z toho bylo poznat, ke komu se vztahuje. Nově rozsah platí pro dlaždice, graf i žebříček najednou.',
+      '🏷 TODO-242: popisky se rozsahu přizpůsobí – „Rodinné výdaje" se změní na „Výdaje", nadpis grafu i žebříčku nese jméno člena. Bez toho by se dalo přehlédnout, že už nejde o domácnost. Jméno se escapuje.',
+      '⚙ TODO-242: přepínač se přesunul nad dlaždice a ten původní v žebříčku zmizel – dva přepínače téhož by se dřív nebo později rozešly. Podmínka z FIX-214 platí dál: když člen nemá v měsíci výdaj, ovládání nezmizí spolu s obsahem a prázdný stav vysvětlí proč.',
+      '⚙ TODO-240: člen, který sdílí jen souhrny, přispěje nově i do GRAFU TRENDU. Dřív by trend v jeho měsících klesl, přestože utratil stejně.',
+      '⚙ Starší test popisoval původní nesrovnalost jako správné chování („filtr nesmí zúžit souhrnná čísla") – přepsán na opačné očekávání, plus nový test bez výběru, aby nezmizel součet za domácnost. Nový tools/smoke_rozsah.js (16 kontrol).',
+    ]
+  },
   {
     verze: 'v10.47',
     datum: '2026-09-04',

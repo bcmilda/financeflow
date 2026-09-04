@@ -219,17 +219,34 @@ function mkTwoMember(sb){
     {id:'p1',type:'expense',catId:'c2',name:'Mámin nákup',amount:2000,date:'2026-08-06'}]}}};
 }
 
-check('filtr člena zúží ŽEBŘÍČEK, ale ne souhrnná čísla ani graf',()=>{
+check('TODO-242: rozsah zúží ŽEBŘÍČEK, DLAŽDICE i GRAF (celou stránku)',()=>{
+  // Do S21 tady stálo, že filtr smí zúžit jen žebříček a souhrnná čísla mají
+  // zůstat za celou domácnost. Milan právem namítl, že vybrat člena a mít nad
+  // tím číslo za všechny je matoucí – nejde poznat, ke komu se vztahuje.
+  // Rozsah teď řídí celou stránku, takže tenhle test má opačné očekávání.
   const sb=mkSandbox(); mkTwoMember(sb);
   vm.runInContext(body,sb);
   vm.runInContext('_famMember="Máma"; _famRange=6;',sb);
   sb.renderFamilySummary.call(sb, {});
   const html=sb.document.getElementById('familyContent').innerHTML;
-  assert(html.includes('Mámin nákup'),'filtrovaný člen chybí v žebříčku');
-  assert(!html.includes('Tátův nákup'),'filtr nezúžil žebříček');
-  // souhrn musí zůstat za celou domácnost: 1000+2000 = 3000
-  assert(html.includes('3000 Kč'),'filtr ovlivnil i souhrnné výdaje domácnosti');
-  assert(sb._drawSaldoBarsCalls[0].data[5]===-3000,'filtr ovlivnil i graf: '+sb._drawSaldoBarsCalls[0].data[5]);
+  assert(html.includes('Mámin nákup'),'vybraný člen chybí v žebříčku');
+  assert(!html.includes('Tátův nákup'),'rozsah nezúžil žebříček');
+  // Máma má 2000, Táta 1000 → při rozsahu „Máma" musí všude svítit 2000.
+  assert(!html.includes('3000 Kč'),'dlaždice pořád počítají celou domácnost');
+  assert(sb._drawSaldoBarsCalls[0].data[5]===-2000,'graf nesleduje rozsah: '+sb._drawSaldoBarsCalls[0].data[5]);
+  // Popisky se musí přizpůsobit, ať je jasné, že už nejde o domácnost
+  assert(!html.includes('Rodinné výdaje'),'dlaždice se pořád tváří jako rodinné');
+});
+
+check('TODO-242: bez výběru se počítá celá domácnost (žádná regrese)',()=>{
+  const sb=mkSandbox(); mkTwoMember(sb);
+  vm.runInContext(body,sb);
+  vm.runInContext('_famMember=null; _famRange=6;',sb);
+  sb.renderFamilySummary.call(sb, {});
+  const html=sb.document.getElementById('familyContent').innerHTML;
+  assert(html.includes('3000 Kč'),'souhrn za domácnost nesedí');
+  assert(html.includes('Rodinné výdaje'),'chybí popisek za domácnost');
+  assert(sb._drawSaldoBarsCalls[0].data[5]===-3000,'graf za domácnost nesedí');
 });
 
 check('filtr bez výsledku NESKRYJE ovládání a řekne proč je prázdno (FIX-214)',()=>{
@@ -238,8 +255,11 @@ check('filtr bez výsledku NESKRYJE ovládání a řekne proč je prázdno (FIX-
   vm.runInContext('_famMember="Babička"; _famRange=6;',sb); // člen bez výdajů
   sb.renderFamilySummary.call(sb, {});
   const html=sb.document.getElementById('familyContent').innerHTML;
-  assert(html.includes('Kdo na co utratil'),'celá sekce zmizela i s filtrem');
-  assert(html.includes('setFamMember'),'zmizely přepínače členů – uživatel se nemá jak vrátit');
+  // TODO-242: přepínač se přesunul nad dlaždice, takže se hledá jinde – ale
+  //   podmínka FIX-214 platí dál: ovládání nesmí zmizet spolu s obsahem.
+  assert(html.includes('Na co utratil')||html.includes('Kdo na co utratil'),'celá sekce zmizela i s filtrem');
+  assert(html.includes('setFamMember'),'zmizel přepínač rozsahu – uživatel se nemá jak vrátit');
+  assert(html.includes('Domácnost'),'chybí cesta zpět na celou domácnost');
   assert(html.includes('žádný výdaj nemá'),'prázdný stav nevysvětluje, proč nic nevidí');
 });
 
