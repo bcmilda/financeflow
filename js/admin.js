@@ -1,4 +1,4 @@
-// FinanceFlow · v10.46 · admin.js · 2026-09-04
+// FinanceFlow · v10.47 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.47',
+    datum: '2026-09-04',
+    zmeny: [
+      '🔑 FIX-323 (navazuje na FIX-322): DALŠÍ DVA KLÍČE V localStorage NEMĚLY uid. `ff_notif_prefs` je mezipaměť nastavení oznámení – hlavní kopie ve Firebase (users/{uid}/notifPrefs) v pořádku byla, ale mezipaměť se četla DŘÍV, než Firebase odpoví, takže druhý účet po přihlášení chvíli běžel na cizím nastavení. `ff_announce_seen` drží, které oznámení jsi už viděl – odkliknutí u jednoho účtu ho schovalo VŠEM účtům na daném prohlížeči.',
+      '⚙ Oba klíče nyní nesou uid, odhlášený stav má vlastní. Ověřeno chováním: tři různé účty = tři různé klíče.',
+    ]
+  },
   {
     verze: 'v10.46',
     datum: '2026-09-04',

@@ -1,3 +1,4 @@
+// FinanceFlow · v10.47 · announcements.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  OZNÁMENÍ / NOTIFIKACE – FinanceFlow (Session 11)
 // ══════════════════════════════════════════════════════
@@ -255,8 +256,15 @@ window.addLocalNotification = addLocalNotification; // dostupné i pro offline-s
 //  BADGE – počet nepřečtených (admin + osobní). Aktualizuje
 //  značku na řádku (#announceBadge) i v navigaci (#navAnnounceBadge).
 // ══════════════════════════════════════════════════════
+// FIX-323 (S21): klíč bez uid znamenal, že odkliknuté oznámení zmizelo VŠEM
+//   účtům na daném prohlížeči – druhý uživatel by ho nikdy neuviděl.
+function _announceSeenKey(){
+  const uid = window._currentUser?.uid;
+  return uid ? `ff_announce_seen_${uid}` : 'ff_announce_seen_local';
+}
+
 function getLastSeenAnnounce() {
-  try { return parseInt(localStorage.getItem('ff_announce_seen') || '0', 10) || 0; }
+  try { return parseInt(localStorage.getItem(_announceSeenKey()) || '0', 10) || 0; }
   catch (e) { return 0; }
 }
 function markAnnouncementsSeen() {
@@ -264,7 +272,7 @@ function markAnnouncementsSeen() {
     const newestAdmin = _announcements[0]?.createdAt || 0;
     const newestLocal = getLocalNotifications()[0]?.createdAt || 0;
     const newest = Math.max(newestAdmin, newestLocal);
-    if (newest) localStorage.setItem('ff_announce_seen', String(newest));
+    if (newest) localStorage.setItem(_announceSeenKey(), String(newest));
   } catch (e) {}
   updateAnnounceBadge(0);
 }
