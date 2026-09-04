@@ -1,4 +1,4 @@
-// FinanceFlow · v10.39 · stats.js · 2026-09-04
+// FinanceFlow · v10.40 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1071,6 +1071,17 @@ function renderFamilySummary(){
     // FIX-316: rozlišit „nikoho nemám" od „přidal jsem, ale on mě ještě ne".
     //   Dosud obojí vypadalo stejně a uživatel netušil, na čem to stojí.
     const ceka = (typeof _cekajiciPartneri!=='undefined' && _cekajiciPartneri.length) ? _cekajiciPartneri : [];
+    // FIX-318: třetí stav – přístup mám, ale protějšek se od nasazení nepřihlásil,
+    //   takže mu ještě nevznikl výdejní výřez. Dřív se to schovalo za fallback na
+    //   /data a vypadalo to, že všechno funguje (jen se sdílelo víc, než mělo).
+    const bezV = (typeof _bezVyrezu!=='undefined' && _bezVyrezu.length) ? _bezVyrezu : [];
+    if(bezV.length){
+      el.innerHTML = `<div class="insight-item warn"><div class="insight-icon">📭</div><div class="insight-text">
+        ${bezV.length===1?'Jeden člen domácnosti se':'Někteří členové domácnosti se'} od poslední aktualizace
+        ${bezV.length===1?'ještě nepřihlásil':'ještě nepřihlásili'}, takže ${bezV.length===1?'jeho':'jejich'} data
+        zatím nejsou k dispozici. Stačí, aby si ${bezV.length===1?'appku otevřel':'appku otevřeli'} – pak se objeví sama.</div></div>`;
+      return;
+    }
     el.innerHTML = ceka.length
       ? `<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">
            Čeká se na druhou stranu. ${ceka.length===1?'Jednomu člověku jsi':'Několika lidem jsi'} zpřístupnil svá data,
@@ -1453,10 +1464,9 @@ async function addPartner(){
     try{
       [dataSnap,profileSnap]=await Promise.all([_get(_ref(_db,`users/${partnerUid}/shared`)),_get(_ref(_db,`users/${partnerUid}/profile`))]);
     }catch(e){ odepreno=true; }
-    if(!odepreno && dataSnap && !dataSnap.exists()){
-      try{ const legacy=await _get(_ref(_db,`users/${partnerUid}/data`)); if(legacy.exists()){dataSnap=legacy;src='data';} }
-      catch(e){ odepreno=true; }
-    }
+    // FÁZE 2 (FIX-318): záložní čtení /data zrušeno i tady – viz app.js.
+    //   Chybějící výřez se řeší stejně jako odepření: řekneme, co chybí, a
+    //   uložený přístup zůstane platit. Nefiltrovaná data se nečtou nikdy.
     if(odepreno || !dataSnap || !dataSnap.exists()){
       // Není to chyba – druhá strana mě zatím nepřidala. Půlka propojení stojí.
       input.value='';

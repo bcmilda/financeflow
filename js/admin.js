@@ -1,4 +1,4 @@
-// FinanceFlow · v10.39 · admin.js · 2026-09-04
+// FinanceFlow · v10.40 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.40',
+    datum: '2026-09-04',
+    zmeny: [
+      '🔐 FÁZE 2 / FIX-318: PARTNEŘI UŽ NEČTOU users/{uid}/data. Od teď mají přístup VÝHRADNĚ k users/{uid}/shared, což je filtrovaný výřez podle „Co partner uvidí". Do v10.39 existoval záložní pád na /data, když výřez neexistoval – a přesně v tom stavu shareSettings nefiltrovaly NIC: partner viděl i vypnuté sekce a uzly bez přepínače (deník, Životní mapa, viz FIX-317). Berlička je pryč z kódu i z pravidel.',
+      '📭 FIX-318: kdo výřez ještě nemá (od nasazení se nepřihlásil), prostě není vidět – místo tichého obejití se to řekne. Rodinný souhrn nyní rozlišuje TŘI různé příčiny prázdna: nikoho nemám · přidal jsem, ale on mě ne · přidali jsme se, ale on se ještě nepřihlásil. Dřív všechny tři vypadaly stejně.',
+      '👁 Adminovo právo číst cizí data ZŮSTÁVÁ – stojí na Milanově UID, ne na partnerství, takže se ho fáze 2 netýká.',
+      '⚠️ NASAZENÍ: database_rules.json do Firebase Console PŘED kódem. Podmínka byla splněna – oba testovací účty už výřez mají.',
+      '⚙ Nový test tools/smoke_faze2.js (15 kontrol). Hlídá i to, že /data a /shared mají RŮZNÁ čtecí pravidla – kdyby někdo partnery omylem vrátil zpátky, celá fáze 2 by byla zbytečná a nikdo by si toho nevšiml.',
+    ]
+  },
   {
     verze: 'v10.39',
     datum: '2026-09-04',

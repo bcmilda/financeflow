@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v10.30 · 2026-09-02 (S21 FIX-307: community/$monthKey/users je nove klicovany PSEUDONYMEM z users/{uid}/communityId, ne uid. Zapis smi jen ten, komu pseudonym patri; mazani sveho stareho uid-klicovaneho zaznamu je povolene kvuli migraci. Uzel stripeEvents zapisuje VYHRADNE worker pres Database Secret (obchazi pravidla) – klientovi je zapovezen tim, ze tu neni uveden.)
+// FinanceFlow · database rules · v10.40 · 2026-09-04 (S21 FAZE 2 / FIX-318: users/{uid}/data uz partneri NECTOU – cte jen vlastnik a admin. Partner ma pristup VYHRADNE k users/{uid}/shared, coz je filtrovany vyrez podle shareSettings. Do v10.39 existoval zalozni pad na /data, kdyz vyrez neexistoval – a v tom stavu shareSettings nefiltrovaly nic. FIX-312: partners/$pid dovoluje pozvanemu zapsat sam sebe s platnym tokenem z users/{uid}/invites. FIX-307: community/$monthKey/users je klicovany pseudonymem z users/{uid}/communityId.)
 {
   "rules": {
     "users": {
@@ -7,7 +7,7 @@
         ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === $uid",
         "data": {
-          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
             "$txId": {
               "name": {
                 ".validate": "!newData.isString() || newData.val().length < 300"

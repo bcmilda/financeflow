@@ -1,4 +1,4 @@
-// FinanceFlow · v10.39 · app.js · 2026-09-04
+// FinanceFlow · v10.40 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -905,6 +905,7 @@ async function loadPartners(user) {
   }
   const partnerUids = Object.keys(snap.val());
   _cekajiciPartneri.length = 0;   // FIX-316: kdo mě ještě nepřidal zpět
+  _bezVyrezu.length = 0;          // FIX-318
   // FIX-311: tenhle uzel znamená „kdo smí číst mě" – proto z něj plní `_myGrants`,
   //   podle kterých se rozhoduje, jestli má vzniknout výdejní okénko `shared`.
   _myGrants.clear(); partnerUids.forEach(u=>_myGrants.add(u));
@@ -926,11 +927,16 @@ async function loadPartners(user) {
         _get(_ref(_db, `users/${uid}/shared`)),
         _get(_ref(_db, `users/${uid}/profile`))
       ]);
+      // FÁZE 2 (S21, FIX-318): ZÁLOŽNÍ ČTENÍ /data ZRUŠENO.
+      //   Fáze 1 dovolila spadnout na nefiltrované `users/{uid}/data`, dokud
+      //   výřezy nevzniknou. Jenže přesně v tom stavu `shareSettings` nedělaly
+      //   NIC – partner viděl i sekce, které měl protějšek vypnuté, včetně
+      //   uzlů bez přepínače (deník, Životní mapa; viz FIX-317). Berlička
+      //   je pryč a s ní i právo partnerů číst /data v pravidlech.
+      //   Kdo výřez nemá, prostě není vidět – dokud se jednou nepřihlásí.
       if(!dataSnap.exists()){
-        try {
-          const legacy = await _get(_ref(_db, `users/${uid}/data`));
-          if(legacy.exists()){ dataSnap = legacy; src = 'data'; console.info('[shared] partner', uid, '– výřez zatím není, čtu /data (fáze 1)'); }
-        } catch(e){ /* fáze 2: /data už partnerovi číst nelze – v pořádku */ }
+        console.info(`[sdílení] ${uid.slice(0,8)}… ještě nemá výdejní okénko – uvidím ho, až se přihlásí.`);
+        _bezVyrezu.push(uid);
       }
       if(dataSnap.exists()) {
         partnerData[uid] = {
@@ -1380,7 +1386,9 @@ let _sh = { ready:false, metaSig:{}, txSig:null };
 //   co číst. Sdílení se tak nerozjelo ani po správném přidání.
 let _myGrants = new Set();          // komu jsem udělil přístup ke svým datům
 let _cekajiciPartneri = [];         // FIX-316: komu jsem dal přístup, ale on mně ještě ne
+let _bezVyrezu = [];                // FIX-318: kdo mi přístup dal, ale výřez mu ještě nevznikl
 window._cekajiciPartneri = _cekajiciPartneri;
+window._bezVyrezu = _bezVyrezu;
 function _hasPartners(){
   try {
     if (_myGrants && _myGrants.size) return true;
