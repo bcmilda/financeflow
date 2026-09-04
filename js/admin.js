@@ -1,4 +1,4 @@
-// FinanceFlow · v10.48 · admin.js · 2026-09-04
+// FinanceFlow · v10.49 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.49',
+    datum: '2026-09-04',
+    zmeny: [
+      '👤 TODO-233 (Milan): NOVÁ STRÁNKA MŮJ ÚČET. Nahrazuje modal „Upravit profil" – spouštěčem je celý blok se jménem a ikonou nahoře v sidebaru, ne malá tužka vedle. Modal je z app.html odstraněný a staré cesty k němu (openProfileModal, saveProfile, řádek Profil v Nastavení) vedou na stránku, aby nevznikla dvě místa na úpravu téhož.',
+      '🪪 Obsah: avatar a jméno k úpravě · e-mail a ID uživatele s tlačítkem Kopírovat · předplatné s proklikem na tarify · účtenky, transakce a počet měsíců s daty (účtenky jen ODKAZEM, ne druhý seznam) · referral · smazání účtu. ZÁMĚRNĚ tu není Tutoriál, Nastavení, „Co partner uvidí" ani Moje domácnost – to jsou jiné sekce.',
+      '♻️ Avatar picker i referral řádek používají TYTÉŽ funkce jako dřív modal (renderAvatarPicker, renderReferralCodeRow) – žádná kopie, která by se rozešla.',
+      '🗑 Smazání účtu: dvě potvrzení, druhé opsáním slova SMAZAT. Nejdřív odejde z komunitního přehledu a domácnosti (jinak by po uživateli zůstaly stopy), teprve pak smaže vlastní data. Dílčí selhání zbytek nezastaví. NERUŠÍ přihlašovací účet u Googlu ani předplatné u Stripu – obojí vyžaduje krok mimo appku a uživatel se to dozví DOPŘEDU, ne až z tichého selhání.',
+      '👓 Čitelnost podle Milanova opakovaného zadání: na stránce se nepoužívá var(--text3) ani var(--text2), popisky #a8aec8, hodnoty #c9cede, nic menšího než .72rem. Test to hlídá.',
+      '⚙ Nový modul js/ucet.js + test tools/smoke_ucet.js (31 kontrol).',
+    ]
+  },
   {
     verze: 'v10.48',
     datum: '2026-09-04',

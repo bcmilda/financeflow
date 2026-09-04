@@ -1,4 +1,4 @@
-// FinanceFlow · v10.41 · share.js · 2026-09-04
+// FinanceFlow · v10.49 · share.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -300,7 +300,7 @@ function renderReferralCodeRow(){
   if(rb && rb.code){
     wrap.innerHTML = '<label>Referral kód</label><div style="font-size:.82rem;color:var(--text);padding:6px 0">Pozván/a kódem <strong style="color:var(--premium)">' + rb.code + '</strong> &#10003;</div>';
   } else {
-    wrap.innerHTML = '<label>Referral kód <span style="color:var(--text3);font-weight:400;font-size:.74rem">(od toho, kdo tě pozval &middot; jen 1&times;)</span></label>'
+    wrap.innerHTML = '<label>Referral kód <span style="color:#a8aec8;font-weight:400;font-size:.74rem">(od toho, kdo tě pozval &middot; jen 1&times;)</span></label>'
       + '<div style="display:flex;gap:8px"><input class="fi" id="profileRefInput" placeholder="např. ABCD1234" style="flex:1;text-transform:uppercase"><button class="btn btn-accent btn-sm" onclick="submitReferralCode(document.getElementById(\'profileRefInput\').value)">Uložit</button></div>'
       + '<div style="font-size:.7rem;color:#a8aec8;margin-top:5px;line-height:1.4">Body se pozvateli připíšou až po 2 týdnech používání (nebo 7 dnech aktivity + 5 transakcích) – ochrana proti zneužití.</div>';
   }

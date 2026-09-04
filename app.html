@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v10.48</title>
+<title>FinanceFlow v10.49</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -261,16 +261,18 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.48 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.49 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
-  <div class="sidebar-user">
+  <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
+       ne malá tužka vedle. Modal „Upravit profil" nahradila stránka. -->
+  <div class="sidebar-user" onclick="showPage('ucet')" style="cursor:pointer" title="Můj účet">
     <div id="sidebarAvatar" class="user-avatar-placeholder">👤</div>
     <div class="user-info">
       <div class="user-name" id="sidebarName">Načítám...</div>
       <div class="user-email" id="sidebarEmail"></div>
     </div>
-    <button class="user-edit-btn" onclick="openProfileModal()" title="Upravit profil">✎</button>
+    <span class="settings-chevron" style="margin-left:auto;color:#a8aec8">›</span>
   </div>
 
   <!-- Premium / Trial banner -->
@@ -1040,6 +1042,11 @@
     <div id="importContent"></div>
   </div>
 
+  <!-- ══ MŮJ ÚČET (TODO-233) ══ -->
+  <div class="page" id="page-ucet">
+    <div id="ucetContent"></div>
+  </div>
+
   <div class="page" id="page-nastaveni">
     <div id="settingsPageContent">
       <div class="empty"><div class="ei">⚙️</div><div class="et">Načítám nastavení...</div></div>
@@ -1051,7 +1058,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.48</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.49</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -2144,22 +2151,14 @@
 </div>
 
 <!-- MODAL: Profile Edit -->
-<div class="overlay" id="modalProfile">
-  <div class="modal">
-    <div class="modal-head"><h3>Upravit profil</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalProfile')">✕</button></div>
-    <div class="modal-body">
-      <div class="fg"><label>Avatar</label><div id="profileAvatarPicker" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
-      <div class="fg"><label>Zobrazované jméno</label><input class="fi" id="profileName" placeholder="Jan Novák"></div>
-      <div style="font-size:.75rem;color:var(--text3);margin-top:-6px;margin-bottom:12px">Toto jméno uvidí váš partner v rodinném přehledu.</div>
-      <div class="fg" id="profileRefRow" style="margin-top:6px"></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalProfile')">Zrušit</button><button class="btn btn-accent" onclick="saveProfile()">Uložit</button></div>
-  </div>
+<!-- TODO-233: modal „Upravit profil" nahradila stránka Můj účet (page-ucet).
+     Kostra tu zůstává jen kvůli renderAvatarPicker, který cílí na
+     #profileAvatarPicker – ten element je nově na stránce, ne tady. -->
 </div>
 
-<script src="js/app.js?v=fb1c1398e4f7725d"></script>
+<script src="js/app.js?v=4b28b8904de34856"></script>
 <script src="js/helpers.js?v=98e6be54016192e5"></script>
-<script src="js/ui.js?v=57b11c34466cdfdc"></script>
+<script src="js/ui.js?v=86568ea67e91a8b6"></script>
 <script src="js/transactions.js?v=b321af6434cb16ab"></script>
 <script src="js/report.js?v=79ef757e4873b28a"></script>
 <script src="js/review.js?v=f42276fc5b7db6ba"></script>
@@ -2173,8 +2172,8 @@
 <script src="js/projects.js?v=279de8a85f5fb95b"></script>
 <script src="js/receipts.js?v=01dbbf659564a4bd"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
-<script src="js/settings.js?v=7ad277089956f230"></script>
-<script src="js/share.js?v=6f0b474eb83138dc"></script>
+<script src="js/settings.js?v=c1f85cd92fbdc7ae"></script>
+<script src="js/share.js?v=efcaa25444b40838"></script>
 <script src="js/sms-import.js?v=a720e4e732a7b2af"></script>
 <script src="js/duplicates.js?v=a3d330b013e0fd3d"></script>
 <script src="js/nakup.js?v=29c6718d79f75fcc"></script>
@@ -2186,8 +2185,9 @@
 <script src="js/advisor.js?v=470e342380c5539a"></script>
 <script src="js/kalendar.js?v=3382e36893ecd91f"></script>
 <script src="js/donate.js?v=832cd19c4ee60fc5"></script>
+<script src="js/ucet.js?v=b7c16260f4f8cce1"></script>
 <script src="js/announcements.js?v=33c4afbb26d5d922"></script>
-<script src="js/admin.js?v=f2570fcfed1bb7b9"></script>
+<script src="js/admin.js?v=b3d2b3603ae7a2a1"></script>
 <script src="js/import.js?v=8d2d4ca436edfc88"></script>
 <script src="js/push.js?v=1cf4653a3af13074"></script>
 <script src="js/kurzy.js?v=c372947f013a8e1a"></script>

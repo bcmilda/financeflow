@@ -1,4 +1,4 @@
-// FinanceFlow · v10.46 · settings.js · 2026-09-04
+// FinanceFlow · v10.49 · settings.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -362,7 +362,10 @@ function renderSettingsPage() {
     <div class="settings-section">
       <div class="settings-section-title">Profil</div>
 
-      <div class="settings-item settings-profile-header" onclick="openProfileModal()">
+      <!-- TODO-233: profil se edituje na stránce Můj účet (klik na jméno v sidebaru).
+           Tenhle řádek zůstává jako proklik, ale modal už neotevírá – dvě místa
+           na úpravu téhož by se rozešla. -->
+      <div class="settings-item settings-profile-header" onclick="showPage('ucet')">
         <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.4rem">
           ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : '👤'}
         </div>

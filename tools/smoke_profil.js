@@ -33,7 +33,9 @@ console.log('smoke_profil.js');
      /const avatar = \(prof, user\) => prof\?\.avatar \? prof\.avatar/.test(app));
   ok('FIX-314 · helper dává přednost avataru před fotkou',
      app.indexOf('prof?.avatar ? prof.avatar') < app.indexOf('prof?.photoURL || user?.photoURL'));
-  ok('FIX-314 · uložení profilu dá zpětnou vazbu', /showToast\('✅ Profil uložen'\)/.test(app));
+  // TODO-233: ukládání profilu se přesunulo do ucet.js spolu se stránkou
+  ok('FIX-314 · uložení profilu dá zpětnou vazbu',
+     /showToast\('✅ Profil uložen'\)/.test(R('ucet.js')));
 }
 
 // ── FIX-313 · UID viditelné + spolehlivé kopírování ───────────────
