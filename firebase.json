@@ -1,15 +1,133 @@
 {
+  "database": {
+    "rules": "database.rules.json"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/*.md",
+      "worker*.js",
+      "patch-*.md",
+      "Summary_*.md",
+      "AUDIT_*.md",
+      "ADR-*.md",
+      "*.xlsx",
+      "*.svg",
+      "*.py",
+      "database.rules.json",
+      "*.yml",
+      "*.yaml",
+      "bubble-*.html",
+      "chart-preview-*.html",
+      "ff-grafy-*.html",
+      "propojeni-*.html",
+      "landing_v4.html",
+      "lepsi-uver.html",
+      "_gitignore",
+      "tiers-preview.html",
+      "nahled-*.html",
+      "tools/**",
+      "*.log",
+      "package.json",
+      "package-lock.json"
     ],
     "rewrites": [
       {
+        "source": "/app",
+        "destination": "/app.html"
+      },
+      {
+        "source": "/app/**",
+        "destination": "/app.html"
+      },
+      {
+        "source": "/legal",
+        "destination": "/legal.html"
+      },
+      {
+        "source": "/funkce",
+        "destination": "/funkce.html"
+      },
+      {
+        "source": "/jak-to-funguje",
+        "destination": "/jak-to-funguje.html"
+      },
+      {
+        "source": "/proc-my",
+        "destination": "/proc-my.html"
+      },
+      {
+        "source": "/cenik",
+        "destination": "/cenik.html"
+      },
+      {
+        "source": "/zabezpeceni",
+        "destination": "/zabezpeceni.html"
+      },
+      {
+        "source": "/o-zakladateli",
+        "destination": "/o-zakladateli.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "sw.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "manifest.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "SAMEORIGIN"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          },
+          {
+            "key": "X-XSS-Protection",
+            "value": "1; mode=block"
+          }
+        ]
       }
     ]
   }

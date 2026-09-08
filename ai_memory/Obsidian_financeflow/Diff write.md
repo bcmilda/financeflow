@@ -1,0 +1,11 @@
+Hotovo — **v8.88 = S17 diff-write je implementovaná**. A k tvé otázce: **ano, hloubková validace teď dává smysl a je součástí rules v2** — s per-transakčními uzly validuju každý záznam zvlášť (name < 300 znaků, note < 1000 = obrana proti XSS payloadům i cost-abuse), záměrně tolerantně, aby migrace starých transakcí neprošla zamítnutím.
+
+### ⚡ Co se změnilo (a jedna odchylka od ADR k lepšímu)
+
+**Odchylka, kterou ti dlužím vysvětlit:** ADR počítal s „obalením mutací v transactions.js". Při čtení kódu jsem ale zjistil, že transakce mění i import, účtenky, SMS import, duplicity a offline sync — a kdybych jedinou mutaci minul, změna by se tiše neuložila (přesně typ chyby jako FIX-160). Zvolil jsem proto **bezpečnější variantu: automatický diff při uložení** — `saveToFirebase` porovná aktuální stav s posledním uloženým a pošle jen rozdíl. Tenhle přístup **nemůže žádnou mutaci minout**, protože nesleduje „kdo změnil", ale „co se změnilo". Výstup je stejný, riziko řádově menší, a 33 modulů zůstalo nedotčených.
+
+**Ověřeno simulací (7 scénářů):** přidání transakce = zápis 1 klíče, editace = 1 klíč, smazání = 1 klíč, změna kategorie = **transakce se nepřepisují vůbec**, beze změny = žádný zápis, vypnutí sdílení korektně smaže sdílené. Z ~1,5 MB na ~1 KB na uložení.
+
+**Migrace (lazy, s pojistkami):** při tvém **prvním uložení** po nasazení se jednorázově: (1) zazálohuje staré pole do `users/{uid}/dataBackupV1`, (2) zapíše celá data v nové struktuře (`data/transactions/{id}` jako objekt) + `schemaV: 2`. Od té chvíle jedou jen diffy. Čtení zůstává postaru (onValue celého uzlu) — `sanitizeUserData` teď normalizuje objekt→pole, takže `S.transactions` je v paměti pořád pole a nic v aplikaci se nemění. Bonus: při té příležitosti jsem chytil, že onValue handler **minul sanitizaci z v8.86** (patchoval jsem tehdy jinou variantu) — opraveno.
+
+Tím je S16 formálně uzavřená (kód v8.90 + dokumentace). Až večer nasadíš a otestuješ migraci, dej vědět, jak dopadla — a příští session otevřeme **S17→S18** (TODO-177): query čtení, child listenery a `stats` agregáty. Hodně štěstí s nasazením!

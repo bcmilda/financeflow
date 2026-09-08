@@ -1,0 +1,365 @@
+// FinanceFlow · database rules · v10.51 · 2026-09-04 (S21: novy uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
+{
+  "rules": {
+    "users": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === $uid",
+        "data": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
+            "$txId": {
+              "name": {
+                ".validate": "!newData.isString() || newData.val().length < 300"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 1000"
+              }
+            }
+          },
+          "milestones": {
+            "$msId": {
+              "label": {
+                ".validate": "!newData.isString() || newData.val().length < 200"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 600"
+              },
+              "icon": {
+                ".validate": "!newData.isString() || newData.val().length < 16"
+              }
+            }
+          }
+        },
+        "profile": {
+          ".read": "auth != null"
+        },
+        "premium": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "type": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() === 'trial' || newData.val() === 'free'"
+          },
+          "premiumUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now"
+          },
+          "trialUntil": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() <= now + 2764800000"
+          },
+          "trialUsed": {
+            ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || data.val() !== true || newData.val() === true"
+          }
+        },
+        "shared": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || (root.child('users').child($uid).child('householdId').val() !== null && root.child('users').child($uid).child('householdId').val() === root.child('users').child(auth.uid).child('householdId').val() && root.child('households').child(root.child('users').child($uid).child('householdId').val()).child('members').child(auth.uid).val() === true) || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "transactions": {
+            "$txId": {
+              "name": {
+                ".validate": "!newData.isString() || newData.val().length < 300"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 1000"
+              }
+            }
+          }
+        },
+        "settings": {
+          ".read": "auth.uid === $uid"
+        },
+        "partners": {
+          ".read": "auth.uid === $uid",
+          // FIX-312 (S21): tenhle uzel znamena "kdo smi cist ME". Zapsat sem smi vlastnik
+          //   vzdy; POZVANY navic sam sebe, kdyz predlozi platny token z users/{uid}/invites.
+          //   Diky tomu jedno kliknuti na pozvanku propoji OBE strany - dosud musel kazdy
+          //   pridat toho druheho zvlast a nez to udelali oba, nevidel nikdo nic.
+          // POZOR: komentar musi byt radkovy. Klic "//" s textovou hodnotou Firebase chape
+          //   jako nazev uzlu a spadne na: Syntax error ... Expected '{'.
+          "$pid": {
+            ".write": "auth.uid === $uid || (auth.uid === $pid && !data.exists() && newData.exists() && root.child('users').child($uid).child('invites').child(newData.child('token').val()).val() === true)",
+            ".validate": "newData.isBoolean() || (newData.hasChildren(['token']) && newData.child('token').isString() && newData.child('token').val().length < 64)"
+          }
+        },
+        // Pozvankove tokeny. Cte a zapisuje jen vlastnik; pravidlo vyse si hodnotu overuje
+        //   serverove pres root.child(), na to cteci pravo potreba neni.
+        //   Smazanim tokenu prestane odkaz platit.
+        // FIX-319 (S21): moje příslušnost k domácnosti. Cteni potrebuje KAZDY clen
+        //   (pravidlo shared/.read si ji overuje pres root.child), zapisovat smi
+        //   jen vlastnik – diky tomu me nikdo nemuze do skupiny vtahnout bez me.
+        "householdId": {
+          ".read": "auth != null",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length > 8 && newData.val().length < 64)"
+        },
+        "invites": {
+          ".read": "auth.uid === $uid",
+          "$token": {
+            ".validate": "newData.isBoolean()"
+          }
+        },
+        "categoryMappings": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$key": {
+            ".validate": "newData.hasChildren([\"catId\",\"updatedAt\"]) && newData.child(\"catId\").isString() && newData.child(\"catId\").val().length > 0"
+          }
+        },
+        "itemStats": {
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
+          "$itemKey": {
+            ".validate": "newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"updatedAt\"]) || newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"lastDate\"])"
+          }
+        },
+        "aiUsage": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "$month": {
+            "$type": {
+              ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || newData.val() >= data.val()"
+            }
+          }
+        }
+      }
+    },
+    "leads": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$leadId": {
+        ".write": "auth != null && !data.exists()",
+        ".validate": "(newData.hasChildren(['name']) || newData.hasChildren(['email']) || newData.hasChildren(['phone'])) && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length < 200)) && (!newData.child('email').exists() || (newData.child('email').isString() && newData.child('email').val().length < 200)) && (!newData.child('phone').exists() || (newData.child('phone').isString() && newData.child('phone').val().length < 50))"
+      }
+    },
+    "affiliate": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$affId": {
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+    "trialsUsed": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$emailKey": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid",
+        ".validate": "newData.hasChildren(['uid','at'])"
+      }
+    },
+    // TODO-256 (S21): NAHROBKY SMAZANYCH UCTU. Mimo users/, aby prezily smazani
+    //   podstromu. Obsahuji POUZE uid (klic), datum a HASH e-mailu – zadna data.
+    //   Ucel: odlisit „ucet nikdy neexistoval" od „byl smazan", dohledat
+    //   premiumLog, ktery u smazaneho uid nema k cemu patrit, a poznat opakovane
+    //   zakladani a mazani tehoz e-mailu (zneuziti trialu).
+    //   Zapsat smi uzivatel JEN SAM SEBE a jen jednou (!data.exists()) – nikdo
+    //   tedy nemuze „oznacit za smazany" cizi ucet ani svuj nahrobek prepsat.
+    //   Cist smi vyhradne admin.
+    "deletedAccounts": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".write": "auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['at'])",
+        "at":            { ".validate": "newData.isNumber()" },
+        "emailHash":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)" },
+        "melPredplatne": { ".validate": "newData.isBoolean()" },
+        "stripeZrusen":  { ".validate": "!newData.exists() || newData.isBoolean()" }
+      }
+    },
+
+    "banned": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "premiumLog": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": false
+    },
+    "stats": {
+      "founderCount": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "stripeCustomers": {
+      "$customerId": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": false
+      }
+    },
+    // FIX-319 (S21): DOMACNOST JAKO SKUPINA. Pozvanka pro dvojici (FIX-312) resi
+    //   jen dvojici – treti clovek potrebuje pozvanku zvlast od kazdeho, coz je
+    //   porad N*(N-1). Ve skupine plati: kdo je v members, vidi vsechny ostatni
+    //   v members. Pridani ctvrteho ho propoji se vsemi najednou.
+    //   Clenstvi drzi DVA uzly a cteni vyzaduje OBA: households/{hid}/members/{uid}
+    //   (skupina me zna) a users/{uid}/householdId (ja tu skupinu uznavam).
+    //   Kazdy si pise ten svuj – nikdo me tedy nevtahne dovnitr ani se nevecpe zvenku.
+    "households": {
+      "$hid": {
+        ".read": "root.child('households').child($hid).child('members').child(auth.uid).val() === true",
+        "meta": {
+          ".write": "!data.exists() || data.child('owner').val() === auth.uid",
+          "owner":     { ".validate": "newData.val() === auth.uid || newData.val() === data.val()" },
+          "name":      { ".validate": "newData.isString() && newData.val().length < 60" },
+          "joinOpen":  { ".validate": "newData.isBoolean()" },
+          "createdAt": { ".validate": "newData.isNumber()" }
+        },
+        "members": {
+          // Pripsat smim JEN SAM SEBE a jen kdyz je skupina otevrena.
+          // Odebrat smim sebe (odchod) nebo me smi odebrat vlastnik (vyhozeni).
+          "$uid": {
+            ".write": "(auth.uid === $uid && newData.exists() && root.child('households').child($hid).child('meta').child('joinOpen').val() === true) || (!newData.exists() && (auth.uid === $uid || root.child('households').child($hid).child('meta').child('owner').val() === auth.uid))",
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      }
+    },
+    "community": {
+      "$monthKey": {
+        "users": {
+          "$pid": {
+            ".read": "root.child('users').child(auth.uid).child('communityId').val() === $pid || auth.uid === $pid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+            ".write": "root.child('users').child(auth.uid).child('communityId').val() === $pid || (auth.uid === $pid && !newData.exists())",
+            ".validate": "newData.hasChildren(['updatedAt'])"
+          }
+        },
+        "aggregate": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      },
+      "itemTags": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          "$tag": {
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
+      "itemTagValidation": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      },
+      "suggestionOverrides": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth != null"
+      }
+    },
+    "catalog": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$item": {
+        ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 60"
+      },
+      "prices": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$product": {
+          "$record": {
+            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
+          }
+        }
+      },
+      "items": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$itemKey": {
+          ".validate": "newData.hasChildren(['name'])"
+        }
+      }
+    },
+    "referrals": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$refCode": {
+        ".validate": "newData.hasChildren(['uid','createdAt'])"
+      }
+    },
+    "referral_clicks": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null"
+    },
+    "keyword_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "coicop_corrections": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admin_coicop_overrides": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$catId": {
+        ".validate": "newData.hasChildren(['coicop','name','assignedAt']) && newData.child('coicop').isNumber() && newData.child('coicop').val() >= 0 && newData.child('coicop').val() <= 13"
+      },
+      "subs": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "support": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$entry": {
+        ".validate": "newData.hasChildren(['email','message','date'])"
+      }
+    },
+    "welcomeMessage": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+    },
+    "announcements": {
+      ".read": "auth != null",
+      ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$id": {
+        ".validate": "newData.hasChildren(['title','type','createdAt'])"
+      }
+    },
+    "poll_votes": {
+      ".read": "auth != null",
+      "$pollId": {
+        "$uid": {
+          ".write": "auth.uid === $uid",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "push_subs": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$key": {
+        ".write": "auth != null",
+        ".validate": "newData.child('uid').val() === auth.uid"
+      }
+    },
+    "reviews": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['stars','at'])",
+        "stars": {
+          ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5"
+        },
+        "text": {
+          ".validate": "!newData.isString() || newData.val().length <= 600"
+        },
+        "name": {
+          ".validate": "!newData.isString() || newData.val().length <= 80"
+        },
+        "ver": {
+          ".validate": "!newData.isString() || newData.val().length <= 20"
+        },
+        "at": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    }
+  }
+}
