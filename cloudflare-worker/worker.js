@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.30 · 2026-09-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.51 · 2026-09-04  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -237,6 +237,14 @@ export default {
     // S17.26 (TODO-153, Milan): Stripe webhook – aktivace/prodloužení/zrušení Premium.
     // Vlastní autentizace (Stripe-Signature), NE Firebase token → musí být PŘED obecnou
     // POST větví níže, která vyžaduje Authorization header s Firebase idToken.
+    // TODO-255 (S21): zrušení předplatného při smazání účtu. Klient na to nemá
+    //   klíč, umí to jen Worker. Ověřuje se Firebase tokenem – ruší se VÝHRADNĚ
+    //   předplatné toho, kdo o to žádá; uid se bere z tokenu, ne z těla požadavku,
+    //   aby nešlo zrušit cizí.
+    if (request.method === 'POST' && new URL(request.url).pathname === '/cancel-subscription') {
+      return handleCancelSubscription(request, env, corsHeaders);
+    }
+
     if (request.method === 'POST' && new URL(request.url).pathname === '/stripe-webhook') {
       return handleStripeWebhook(request, env, corsHeaders);
     }
@@ -1000,5 +1008,77 @@ async function handleCommunityAgg(request, env, corsHeaders) {
     return json({ ok: true, k, month, updatedAt: aggregate.updatedAt }, 200, corsHeaders);
   } catch (e) {
     return json({ error: 'Agregace selhala: ' + e.message }, 500, corsHeaders);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  TODO-255 · ZRUŠENÍ PŘEDPLATNÉHO (S21)
+//  Volá se při smazání účtu. Bez toho by Stripe účtoval dál i poté, co
+//  uživatel z appky zmizel – a on by neměl kde to zrušit.
+//
+//  `cancel_at_period_end=true`, ne okamžité zrušení: uživatel si zaplacené
+//  období dočerpá. Okamžité zrušení bez vrácení peněz by bylo horší než nic.
+// ══════════════════════════════════════════════════════════════════════
+async function handleCancelSubscription(request, env, cors) {
+  const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+  if (!idToken) return json({ error: 'Chybí Authorization header' }, 401, cors);
+
+  // uid VÝHRADNĚ z ověřeného tokenu – nikdy z těla požadavku
+  const verifyRes = await fetch(
+    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+  );
+  if (!verifyRes.ok) return json({ error: 'Neplatný Firebase token' }, 401, cors);
+  const vd = await verifyRes.json();
+  const uid = vd.users?.[0]?.localId;
+  if (!uid) return json({ error: 'Firebase uživatel nenalezen' }, 401, cors);
+
+  try {
+    // Najdi customera podle uid. `stripeCustomers` je mapa customerId → uid,
+    // takže se prochází – uživatelů s platbou je řádově málo.
+    const mapRes = await fetch(`${FIREBASE_DB_URL}/stripeCustomers.json?auth=${env.FIREBASE_DB_SECRET}`);
+    const mapa = (await mapRes.json()) || {};
+    const customerId = Object.keys(mapa).find(cid => {
+      const v = mapa[cid];
+      return v === uid || (v && v.uid === uid);
+    });
+    if (!customerId) return json({ ok: true, note: 'žádné předplatné nenalezeno' }, 200, cors);
+
+    // Aktivní subscriptions daného customera
+    const subsRes = await fetch(
+      `https://api.stripe.com/v1/subscriptions?customer=${encodeURIComponent(customerId)}&status=active&limit=10`,
+      { headers: { 'Authorization': 'Bearer ' + env.STRIPE_SECRET_KEY } }
+    );
+    if (!subsRes.ok) return json({ error: 'Stripe: seznam předplatných selhal' }, 502, cors);
+    const subs = await subsRes.json();
+    if (!subs.data || !subs.data.length) return json({ ok: true, note: 'žádné aktivní předplatné' }, 200, cors);
+
+    let zruseno = 0;
+    for (const sub of subs.data) {
+      const r = await fetch(`https://api.stripe.com/v1/subscriptions/${sub.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env.STRIPE_SECRET_KEY,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'cancel_at_period_end=true',
+      });
+      if (r.ok) zruseno++;
+    }
+
+    // Stopa v auditu – uzel premiumLog přežívá smazání účtu (je mimo users/)
+    try {
+      await fetch(`${FIREBASE_DB_URL}/premiumLog/${uid}/${Date.now()}.json?auth=${env.FIREBASE_DB_SECRET}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'cancelOnDelete', customerId, zruseno, at: Date.now() }),
+      });
+    } catch (e) { /* audit je bonus, ne podmínka */ }
+
+    if (zruseno === 0) return json({ error: 'Stripe zrušení selhalo' }, 502, cors);
+    return json({ ok: true, zruseno }, 200, cors);
+  } catch (e) {
+    console.error('cancel-subscription:', e);
+    return json({ error: String(e) }, 500, cors);
   }
 }

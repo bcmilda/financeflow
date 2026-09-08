@@ -1,4 +1,4 @@
-// FinanceFlow · v10.50 · ucet.js · 2026-09-04
+// FinanceFlow · v10.51 · ucet.js · 2026-09-04
 // ══════════════════════════════════════════════════════════════════════
 //  MŮJ ÚČET (TODO-233, S21 – Milan)
 //  Nahrazuje modal „Upravit profil“. Spouštěčem je jméno a ikona úplně
@@ -95,8 +95,11 @@ function renderUcetPage() {
   const mesice = new Set((D.transactions || [])
     .map(t => (t && t.date) ? String(t.date).slice(0, 7) : null).filter(Boolean)).size;
 
+  // Datum založení účtu žije v users/{uid}/premium.createdAt – vzniká při prvním
+  // přihlášení. Čte se asynchronně, proto placeholder a doplnění níž.
   html += _ucetKarta('📦 Moje data',
-    _ucetRadek('Naskenované účtenky', `${pocetUct}`,
+    _ucetRadek('Účet založen', `<span id="ucetZalozen">načítám…</span>`)
+    + _ucetRadek('Naskenované účtenky', `${pocetUct}`,
       `<button class="btn btn-ghost btn-sm" onclick="showPage('uctenky')">Otevřít →</button>`)
     + _ucetRadek('Transakce', `${pocetTx}`,
       `<button class="btn btn-ghost btn-sm" onclick="showPage('transakce')">Otevřít →</button>`)
@@ -150,7 +153,26 @@ function renderUcetPage() {
   // Referral řádek vykresluje share.js. Side-render ve vlastním try/catch –
   // když selže, zbytek stránky funguje dál.
   try { if (typeof renderReferralCodeRow === 'function') renderReferralCodeRow(); } catch (e) {}
+  try { doplnDatumZalozeni(); } catch (e) {}
 }
+
+// Datum založení účtu. Side-render ve vlastním try/catch – když se nenačte,
+// zbytek stránky funguje dál a ukáže se pomlčka místo prázdna.
+async function doplnDatumZalozeni() {
+  const el = document.getElementById('ucetZalozen'); if (!el) return;
+  const uid = window._currentUser?.uid;
+  if (!uid || !window._db) { el.textContent = '—'; return; }
+  try {
+    const snap = await _get(_ref(_db, `users/${uid}/premium/createdAt`));
+    const ts = snap.val();
+    if (!ts) { el.textContent = '—'; return; }
+    const d = new Date(ts);
+    const dni = Math.floor((Date.now() - ts) / 86400000);
+    const kolik = dni < 1 ? 'dnes' : dni === 1 ? 'včera' : `před ${dni} dny`;
+    el.innerHTML = `${d.toLocaleDateString('cs-CZ')} <span style="color:${UCET_POPISEK};font-size:.78rem">· ${kolik}</span>`;
+  } catch (e) { el.textContent = '—'; }
+}
+window.doplnDatumZalozeni = doplnDatumZalozeni;
 
 // ══════════════════════════════════════════════════════════════════════
 //  SMAZÁNÍ ÚČTU (TODO-233)
@@ -191,12 +213,53 @@ async function ucetSmazatUcet() {
       if (hid) await _set(_ref(_db, `households/${hid}/members/${me.uid}`), null);
     } catch (e) { console.warn('[smazání] domácnost:', e?.message); }
 
+    // TODO-255: partnerská propojení. Svoje `partners` smažu s podstromem, ale
+    //   záznam O MNĚ v cizích seznamech zůstane – k tomu nemám právo zápisu.
+    //   Řeší se tím, že po smazání dat nemá partner co číst (uzel `shared` je pryč).
+    let cizich = 0;
+    try {
+      const moji = await _get(_ref(_db, `users/${me.uid}/partners`));
+      cizich = moji.exists() ? Object.keys(moji.val()).length : 0;
+    } catch (e) {}
+
+    // TODO-255: zrušení předplatného u Stripu. Klient na to nemá klíč, umí to
+    //   jen Worker. Když se nepovede, NEZASTAVUJEME mazání – ale uživatel to
+    //   musí vědět, aby mu Stripe neúčtoval dál.
+    let stripeZrusen = null;
+    if (platici) {
+      try {
+        const token = await me.getIdToken?.();
+        const r = await fetch('https://misty-limit-0523.bc-milda.workers.dev/cancel-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        });
+        stripeZrusen = r.ok;
+      } catch (e) { stripeZrusen = false; }
+    }
+
+    // TODO-256: náhrobek. Mimo `users/`, ať přežije smazání podstromu.
+    //   Obsahuje POUZE uid, datum a hash e-mailu – žádná data. Slouží k tomu,
+    //   aby šlo odlišit „účet nikdy neexistoval" od „byl smazán", a aby se
+    //   dal dohledat premiumLog, který u smazaného uid nemá k čemu patřit.
+    try {
+      await _set(_ref(_db, `deletedAccounts/${me.uid}`), {
+        at: Date.now(),
+        emailHash: await _hashEmail(me.email || ''),
+        melPredplatne: !!platici,
+        stripeZrusen: stripeZrusen,
+      });
+    } catch (e) { console.warn('[smazání] náhrobek:', e && e.message); }
+
     // Teprve teď vlastní data
     await _set(_ref(_db, `users/${me.uid}`), null);
 
-    alert('Data byla smazána.\n\n'
-      + 'Přihlašovací účet u Googlu zůstává – ten zrušíš ve svém Google účtu.'
-      + (platici ? '\nPředplatné nezapomeň zrušit u Stripu nebo napiš na info@financeflow.cz.' : ''));
+    alert('Účet byl smazán.\n\n'
+      + (cizich ? `Odpojen od ${cizich} ${cizich === 1 ? 'partnera' : 'partnerů'}.\n` : '')
+      + (platici
+          ? (stripeZrusen ? 'Předplatné bylo zrušeno.\n'
+                          : '⚠️ Předplatné se nepodařilo zrušit automaticky – napiš prosím na info@financeflow.cz, jinak ti Stripe bude účtovat dál.\n')
+          : '')
+      + '\nPřihlašovací účet u Googlu zůstává – ten zrušíš ve svém Google účtu.');
     // Pozor: funkce se jmenuje signOut, ne logout (chytil check_tdz.js –
     //   `node --check` by tenhle překlep pustil a projevil by se až TADY,
     //   tedy po nevratném smazání dat).
@@ -206,6 +269,17 @@ async function ucetSmazatUcet() {
     alert('Mazání se nezdařilo: ' + e.message + '\n\nData zůstala beze změny.');
   }
 }
+// Hash e-mailu pro náhrobek. Nesmí jít zpětně přečíst – slouží jen k tomu,
+// aby šlo poznat opakované zakládání a mazání téhož e-mailu.
+async function _hashEmail(email) {
+  const norm = String(email || '').trim().toLowerCase();
+  if (!norm) return null;
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(norm));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  } catch (e) { return null; }
+}
+
 window.ucetSmazatUcet = ucetSmazatUcet;
 
 async function saveUcetProfil() {
