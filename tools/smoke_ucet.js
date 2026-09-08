@@ -17,7 +17,9 @@ ok('TODO-233 · openProfileModal odvede na stránku', /function openProfileModal
 ok('TODO-233 · saveProfile deleguje, nesahá na smazané prvky',
    /if \(typeof saveUcetProfil === 'function'\) return saveUcetProfil\(\);/.test(app) &&
    !/document\.getElementById\('profileName'\)\.value/.test(app));
-ok('TODO-233 · Nastavení odkazuje na stránku, ne na modal', /onclick="showPage\('ucet'\)"/.test(set));
+// Sekce Profil z Nastavení úplně zmizela, takže tam žádný proklik nezůstal –
+// tuhle kontrolu nahradila dvojice „sekce Profil je pryč / Prémiový plán je pryč" níž.
+ok('TODO-233 · v Nastavení nezůstal odkaz na smazaný modal', !/openProfileModal/.test(set));
 
 // ── Spouštěč a registrace stránky ─────────────────────────────────
 ok('TODO-233 · spouštěčem je celý blok se jménem', /class="sidebar-user" onclick="showPage\('ucet'\)"/.test(html));
@@ -64,6 +66,30 @@ ok('TODO-233 · popisky jsou #a8aec8 a hodnoty #c9cede',
    /UCET_POPISEK = '#a8aec8'/.test(uc) && /UCET_HODNOTA = '#c9cede'/.test(uc));
 ok('TODO-233 · nic menšího než .72rem', !/font-size:\.6\d/.test(uc) && !/font-size:\.71/.test(uc));
 ok('TODO-233 · jméno se escapuje (může obsahovat < nebo &)', /escHtml\(jmeno\)/.test(uc));
+
+// ── FIX-324 · vymazání dat nesmí nechat stopy ─────────────────────
+{
+  const set=R('settings.js');
+  ok('FIX-324 · mazání dat smaže i výřez pro partnery',
+     /users\/\$\{uid\}\/shared`\), null\)/.test(set));
+  ok('FIX-324 · a komunitní záznamy', /purgeMyCommunityData/.test(set));
+  ok('FIX-324 · a zálohy (jinak by z nich šlo obnovit zpět)',
+     /users\/\$\{uid\}\/backups`\), null\)/.test(set));
+  ok('FIX-324 · dílčí selhání zbytek nezastaví',
+     (set.match(/console\.warn\('\[mazání\]/g)||[]).length>=3);
+  ok('FIX-324 · tarif (premium) se NEMAŽE – účet zůstává',
+     !/users\/\$\{uid\}\/premium`\), null\)/.test(set));
+
+  // Duplicity pryč z Nastavení
+  ok('TODO-233 · sekce Profil je z Nastavení pryč', !/settings-profile-header/.test(set));
+  ok('TODO-233 · řádek Prémiový plán taky', !/Prémiový plán/.test(set));
+  ok('TODO-233 · řádek Vymazat všechna data taky', !/settings-item-title" style="color:var\(--expense\)">Vymazat/.test(set));
+  ok('TODO-233 · ale funkce mazání zůstala (volá ji Účet)', /function openDeleteDataModal\(\)/.test(set));
+
+  // Na Účtu jsou obě akce a je mezi nimi vidět rozdíl
+  ok('TODO-233 · Účet nabízí obě akce', /openDeleteDataModal\(\)/.test(uc) && /ucetSmazatUcet\(\)/.test(uc));
+  ok('TODO-233 · vysvětlí, že vymazání dat účet nesmaže', /Účet, tarif ani domácnost nezmizí/.test(uc));
+}
 
 console.log(`\n${pass} OK, ${fail} chyb`);
 process.exit(fail?1:0);

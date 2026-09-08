@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · admin.js · 2026-09-04
+// FinanceFlow · v10.50 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -510,6 +510,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.50',
+    datum: '2026-09-04',
+    zmeny: [
+      '🚨 FIX-324: VYMAZÁNÍ DAT NECHÁVALO ZA SEBOU KOPII. Mazal se jen users/{uid}/data a referral – ale users/{uid}/shared, což je kopie dat pro partnery, zůstalo netknuté. Členové domácnosti tak dál viděli transakce, které už u sebe nemám: data „zmizela" jen mně. Totéž platilo pro komunitní záznamy a pro zálohy, ze kterých šlo smazaná data dokonce obnovit zpátky.',
+      '⚙ FIX-324: nově se maže i výřez, komunitní záznamy a zálohy. Tarif (premium) se schválně NEMAŽE – „vymazat data" znamená začínám od nuly, ne ruším účet. Každý krok má vlastní try/catch, takže dílčí selhání nezastaví zbytek.',
+      '🧹 TODO-233: sekce PROFIL z Nastavení odstraněna (jméno, e-mail, Prémiový plán) – bylo to jen proklikem na to, co je nově na stránce Můj účet. Dvě místa se stejným obsahem se dřív nebo později rozejdou a uživatel neví, které platí.',
+      '🗑 TODO-233: „Vymazat všechna data" přesunuto z Nastavení na Můj účet, kde stojí vedle „Smazat účet". Ty dvě věci se pletou, takže je u obou vysvětlené, co přesně dělají a v čem se liší – vymazání dat účet, tarif ani domácnost nezruší.',
+    ]
+  },
   {
     verze: 'v10.49',
     datum: '2026-09-04',

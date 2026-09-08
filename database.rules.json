@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v10.40 · 2026-09-04 (S21 FAZE 2 / FIX-318: users/{uid}/data uz partneri NECTOU – cte jen vlastnik a admin. Partner ma pristup VYHRADNE k users/{uid}/shared, coz je filtrovany vyrez podle shareSettings. Do v10.39 existoval zalozni pad na /data, kdyz vyrez neexistoval – a v tom stavu shareSettings nefiltrovaly nic. FIX-312: partners/$pid dovoluje pozvanemu zapsat sam sebe s platnym tokenem z users/{uid}/invites. FIX-307: community/$monthKey/users je klicovany pseudonymem z users/{uid}/communityId.)
+// FinanceFlow · database rules · v10.51 · 2026-09-04 (S21: novy uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
 {
   "rules": {
     "users": {
@@ -140,6 +140,26 @@
         ".validate": "newData.hasChildren(['uid','at'])"
       }
     },
+    // TODO-256 (S21): NAHROBKY SMAZANYCH UCTU. Mimo users/, aby prezily smazani
+    //   podstromu. Obsahuji POUZE uid (klic), datum a HASH e-mailu – zadna data.
+    //   Ucel: odlisit „ucet nikdy neexistoval" od „byl smazan", dohledat
+    //   premiumLog, ktery u smazaneho uid nema k cemu patrit, a poznat opakovane
+    //   zakladani a mazani tehoz e-mailu (zneuziti trialu).
+    //   Zapsat smi uzivatel JEN SAM SEBE a jen jednou (!data.exists()) – nikdo
+    //   tedy nemuze „oznacit za smazany" cizi ucet ani svuj nahrobek prepsat.
+    //   Cist smi vyhradne admin.
+    "deletedAccounts": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".write": "auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['at'])",
+        "at":            { ".validate": "newData.isNumber()" },
+        "emailHash":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)" },
+        "melPredplatne": { ".validate": "newData.isBoolean()" },
+        "stripeZrusen":  { ".validate": "!newData.exists() || newData.isBoolean()" }
+      }
+    },
+
     "banned": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$uid": {

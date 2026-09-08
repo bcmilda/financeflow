@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · ucet.js · 2026-09-04
+// FinanceFlow · v10.50 · ucet.js · 2026-09-04
 // ══════════════════════════════════════════════════════════════════════
 //  MŮJ ÚČET (TODO-233, S21 – Milan)
 //  Nahrazuje modal „Upravit profil“. Spouštěčem je jméno a ikona úplně
@@ -109,19 +109,34 @@ function renderUcetPage() {
   html += _ucetKarta('🎁 Doporučení', `<div class="fg" id="profileRefRow"></div>`);
 
   // ── Konec účtu ──────────────────────────────────────────────────
+  // Dvě různé věci, které se pletou: VYMAZAT DATA (účet zůstane, začínáš od nuly)
+  // a SMAZAT ÚČET (zmizí i profil, tarif a členství). Stojí vedle sebe schválně,
+  // ať je rozdíl vidět dřív, než se na něco klikne.
   if (!lokalni) {
     html += `<div class="card" style="margin-bottom:12px;border-color:rgba(248,113,113,.25)">
-      <div class="card-header"><span class="card-title" style="color:var(--expense)">⚠️ Smazání účtu</span></div>
+      <div class="card-header"><span class="card-title" style="color:var(--expense)">⚠️ Nevratné akce</span></div>
       <div class="card-body">
-        <div style="font-size:.78rem;color:${UCET_HODNOTA};line-height:1.6;margin-bottom:10px">
-          Smaže <strong>všechna tvoje data</strong> – transakce, účtenky, peněženky, dluhy i zálohy.
-          Zároveň tě odpojí od domácnosti a smaže tvé záznamy v komunitním přehledu.
-          <strong style="color:var(--expense)">Tohle nejde vrátit zpět.</strong>
+        <div style="padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:14px">
+          <div style="font-size:.86rem;font-weight:600;color:${UCET_HODNOTA};margin-bottom:5px">🗑 Vymazat všechna data</div>
+          <div style="font-size:.76rem;color:${UCET_POPISEK};line-height:1.6;margin-bottom:10px">
+            Smaže transakce, účtenky, peněženky, dluhy, zálohy i tvůj výřez pro partnery.
+            <strong style="color:${UCET_HODNOTA}">Účet, tarif ani domácnost nezmizí</strong> – appka bude prázdná a začneš od nuly.
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="openDeleteDataModal()">Vymazat data</button>
         </div>
-        <div style="font-size:.72rem;color:${UCET_POPISEK};line-height:1.55;margin-bottom:12px">
-          Než to uděláš, stáhni si zálohu – v Nastavení → Data.
+
+        <div>
+          <div style="font-size:.86rem;font-weight:600;color:${UCET_HODNOTA};margin-bottom:5px">👤 Smazat celý účet</div>
+          <div style="font-size:.76rem;color:${UCET_POPISEK};line-height:1.6;margin-bottom:10px">
+            Kromě dat smaže i profil, odejde z domácnosti a odstraní tvé záznamy v komunitním přehledu.
+            <strong style="color:var(--expense)">Tohle nejde vrátit zpět.</strong>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="ucetSmazatUcet()">Smazat účet</button>
         </div>
-        <button class="btn btn-danger" onclick="ucetSmazatUcet()">Smazat účet a všechna data</button>
+
+        <div style="font-size:.72rem;color:${UCET_POPISEK};line-height:1.55;margin-top:12px">
+          Před obojím si stáhni zálohu – Nastavení → Data &amp; soukromí → Záloha dat (JSON).
+        </div>
       </div>
     </div>`;
   }

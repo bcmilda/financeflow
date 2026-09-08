@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · settings.js · 2026-09-04
+// FinanceFlow · v10.50 · settings.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -306,6 +306,20 @@ async function confirmDeleteAllData() {
       await _set(_ref(_db, `users/${uid}/data`), null);
       await _set(_ref(_db, `users/${uid}/referral`), null);
     } catch(e) { console.error('Delete Firebase error:', e); }
+
+    // FIX-324 (S21): VÝDEJNÍ OKÉNKO SE NEMAZALO. `users/{uid}/shared` je kopie
+    //   dat pro partnery – po vymazání zůstalo netknuté, takže členové
+    //   domácnosti dál viděli transakce, které už u sebe nemám. Data „zmizela"
+    //   jen mně. Totéž platilo pro komunitní záznamy a zálohy, z nichž by
+    //   navíc šlo smazaná data obnovit zpátky.
+    //   Tarif (premium) se schválně NEMAŽE – tohle je „začínám od nuly",
+    //   ne „ruším účet". Na to je zvlášť tlačítko Smazat účet.
+    try { await _set(_ref(_db, `users/${uid}/shared`), null); }
+    catch(e) { console.warn('[mazání] výřez:', e && e.message); }
+    try { if (typeof purgeMyCommunityData === 'function') await purgeMyCommunityData(); }
+    catch(e) { console.warn('[mazání] komunita:', e && e.message); }
+    try { await _set(_ref(_db, `users/${uid}/backups`), null); }
+    catch(e) { console.warn('[mazání] zálohy:', e && e.message); }
   }
 
   // 3) Smaž lokální snapshot (IndexedDB ff_snapshot_db + localStorage ff_snapshot_{uid}) – jinak se data vrátí offline
@@ -358,33 +372,10 @@ function renderSettingsPage() {
 
   el.innerHTML = `
 
-    <!-- ── PROFIL ── -->
-    <div class="settings-section">
-      <div class="settings-section-title">Profil</div>
-
-      <!-- TODO-233: profil se edituje na stránce Můj účet (klik na jméno v sidebaru).
-           Tenhle řádek zůstává jako proklik, ale modal už neotevírá – dvě místa
-           na úpravu téhož by se rozešla. -->
-      <div class="settings-item settings-profile-header" onclick="showPage('ucet')">
-        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.4rem">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : '👤'}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:.92rem">${name}</div>
-          <div style="font-size:.76rem;color:var(--text3);margin-top:1px">${email || 'Lokální účet'}</div>
-        </div>
-        <span class="settings-chevron">›</span>
-      </div>
-
-      <div class="settings-item" onclick="showPaywall()">
-        <span class="settings-icon">⭐</span>
-        <div class="settings-item-body">
-          <div class="settings-item-title">Prémiový plán</div>
-          <div class="settings-item-sub">${premLabel}</div>
-        </div>
-        <span class="settings-chevron">›</span>
-      </div>
-    </div>
+    <!-- TODO-233 (Milan): sekce PROFIL odstraněna. Jméno, e-mail i tarif jsou
+         nově na stránce Můj účet (klik na jméno v sidebaru). Tady to bylo jen
+         proklikem na totéž – dvě místa se stejným obsahem se dřív nebo později
+         rozejdou a uživatel neví, které platí. Odkaz na tarify vede z Účtu. -->
 
     <!-- ── OBECNÉ ── -->
     <div class="settings-section">
@@ -731,14 +722,8 @@ function renderSettingsPage() {
         <span class="settings-chevron">›</span>
       </div>
 
-      <div class="settings-item" onclick="openDeleteDataModal()" style="border-left:3px solid var(--expense)">
-        <span class="settings-icon">🗑</span>
-        <div class="settings-item-body">
-          <div class="settings-item-title" style="color:var(--expense)">Vymazat všechna data</div>
-          <div class="settings-item-sub">Nevratné smazání + odhlášení</div>
-        </div>
-        <span class="settings-chevron" style="color:var(--expense)">›</span>
-      </div>
+      <!-- TODO-233: mazání dat se přesunulo na stránku Můj účet, kam patří.
+           Funkce openDeleteDataModal() zůstává – volá ji odtamtud. -->
     </div>
 
     <!-- ── NÁPOVĚDA ── -->
