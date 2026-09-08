@@ -1,3 +1,4 @@
+// FinanceFlow · v10.18 · sms-import.js · 2026-08-28
 // ══════════════════════════════════════════════════════
 //  SMS / NOTIFIKACE IMPORT – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -307,14 +308,38 @@ const BANK_PARSERS = [
 ];
 
 // ── Pomocné funkce ──
+// FIX-282 (S20): původně `.replace(',', '.')` – BEZ /g, takže se nahradila jen
+//   PRVNÍ čárka a tečka jako oddělovač tisíců zůstala. parseFloat pak četl jen
+//   po druhou tečku: "1.234,50" → 1.234 místo 1234,50 – částka 1000× menší, a ticho.
+//   Trefovalo to hlavně Revolut, který používá anglický formát (€12.50).
+//
+//   Nově: poslední čárka/tečka je desetinný oddělovač, všechny předchozí jsou
+//   oddělovače tisíců. Výjimka – jediný oddělovač se třemi číslicemi za sebou
+//   ("1.234", "1 234") je tisícový, ne desetinný: u peněz se píšou dvě desetinná
+//   místa, ne tři. Bez té výjimky by z "1.234" vyšlo 1,23 Kč.
 function parseCzNum(str) {
   if (!str) return 0;
-  // "1 250,50" nebo "1250.50" nebo "1 250"
-  return parseFloat(
-    String(str)
-      .replace(/\s/g, '')
-      .replace(',', '.')
-  ) || 0;
+  // Zahodíme všechno kromě číslic, oddělovačů a mínusu – měnové symboly (€, Kč)
+  // se do regex skupiny občas dostanou a parseFloat by na nich vrátil NaN.
+  let s = String(str).replace(/[^0-9.,-]/g, '');
+  const lastSep = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+  if (lastSep >= 0) {
+    const decimals = s.length - lastSep - 1;
+    // Oddělovače jednoho druhu ("1.000.000") = vždy tisíce. Smíšené ("1.234,50")
+    // znamenají, že ten poslední je desetinný.
+    const hasComma = s.indexOf(',') >= 0, hasDot = s.indexOf('.') >= 0;
+    const thousandsOnly = (hasComma !== hasDot) && decimals === 3;
+    let out = '';
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === ',' || ch === '.') {
+        if (i === lastSep && !thousandsOnly) out += '.';   // desetinný
+        // jinak oddělovač tisíců – zahodit
+      } else out += ch;
+    }
+    s = out;
+  }
+  return parseFloat(s) || 0;
 }
 
 function normCurrency(str) {

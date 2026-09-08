@@ -1,4 +1,4 @@
-// FinanceFlow · v9.25 · budouci.js · 2026-07-27
+// FinanceFlow · v10.17 · budouci.js · 2026-08-28
 // ══════════════════════════════════════════════════════
 //  BUDOUCÍ PLATBY – FinanceFlow v6.50
 //  TODO-058 · Zdroje: šablony + narozeniny + cíle + dluhy
@@ -356,18 +356,54 @@ function budouciRenderGroup(group) {
 // S17.8 (Milan): stav platby se ODVOZUJE ze seznamu transakcí, netlačí se „Zaplaceno" naslepo.
 // Prvek se ukazuje JEN u plateb s odhadem, jen v aktuálním měsíci a až PO datu splatnosti.
 // Budoucí měsíce nemají žádné tlačítko (nedávalo smysl a hrozila duplicita).
+// FIX-281 (S20): rozpad nazvu na slova. Bez diakritiky, aby „Nájem" a „najem"
+//   byly totéž – lidi píší obojak. Slova kratší než 2 znaky zahazujeme
+//   (spojky, iniciály), jinak by „v“ nebo „a“ dělaly náhodné shody.
+function _budouciWords(s) {
+  return (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(w => w.length >= 2);
+}
+
+// FIX-281: shoda na CELÁ SLOVA, ne podreťazec. Do v10.16 se porovnávalo
+//   `tn.includes(nm) || nm.includes(tn)`, takže kratší název byl podreťazcem
+//   delšího a „Voda" se označila jako zaplacená kvůli „Vodafone".
+//   Ověřené fálesné shody: Voda→Vodafone, Nájem→Nájemné garáž,
+//   Plyn→Plynulá jízda, Auto→Autolékárna.
+//   Zároveň musí dál fungovat legitimní „Nájem" ↔ „Nájem srpen"
+//   a „ČEZ" ↔ „ČEZ Prodej", proto ne úplná shoda, ale podmnožina slov.
+function _budouciNameMatch(a, b) {
+  const wa = _budouciWords(a), wb = _budouciWords(b);
+  if (!wa.length || !wb.length) return false;
+  const [short, long] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  return short.every(w => long.indexOf(w) >= 0);
+}
+
+// FIX-281: ČÁSTKA. Do v10.16 se neporovnávala vůbec – nájem 15 000 se tvářil
+//   jako zaplacený i tehdy, když jsi zaplatil zálohu 500 se stejným názvem.
+//   Tolerance 25 % (zálohy za energie kolísají) a minimálně 50 Kč, aby
+//   drobné položky neselhávaly na pár korunách. Neznámá částka nerozhoduje.
+function _budouciAmtMatch(expected, actual) {
+  if (!(expected > 0) || !(actual > 0)) return true;
+  return Math.abs(expected - actual) <= Math.max(0.25 * Math.max(expected, actual), 50);
+}
+
 function budouciIsPaid(item, D, exact) {
   D = D || getData();
   const dateStr = item.date.toISOString().slice(0, 10);
   const ym = dateStr.slice(0, 7);
-  const nm = (item.name || '').trim().toLowerCase();
+  const nm = (item.name || '').trim();
   if (!nm) return false;
   return (D.transactions || []).some(t => {
     if (!t || t.splitParent) return false;
-    const tn = (t.name || '').trim().toLowerCase();
+    const tn = (t.name || '').trim();
     if (!tn) return false;
-    const nameMatch = tn === nm || tn.includes(nm) || nm.includes(tn);
-    if (!nameMatch) return false;
+    // Vydajovou polozku nemuze „zaplatit" prijem se stejnym nazvem
+    if (!item.isTransfer && t.type === 'income') return false;
+    if (!_budouciNameMatch(tn, nm)) return false;
+    // Castka pres txCZK – transakce muze byt v cizi mene (SKILL 20)
+    const tAmt = (typeof txCZK === 'function') ? txCZK(t, D) : (t.amount || t.amt || 0);
+    if (!_budouciAmtMatch(item.amount, tAmt)) return false;
     // exact = shoda i na konkrétní den výskytu (pro budoucí/týdenní, ať se neoznačí sousední)
     return exact ? (t.date === dateStr) : ((t.date || '').slice(0, 7) === ym);
   });

@@ -1,4 +1,4 @@
-// FinanceFlow · v9.88 · settings.js · 2026-08-17
+// FinanceFlow · v10.50 · settings.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -306,6 +306,20 @@ async function confirmDeleteAllData() {
       await _set(_ref(_db, `users/${uid}/data`), null);
       await _set(_ref(_db, `users/${uid}/referral`), null);
     } catch(e) { console.error('Delete Firebase error:', e); }
+
+    // FIX-324 (S21): VÝDEJNÍ OKÉNKO SE NEMAZALO. `users/{uid}/shared` je kopie
+    //   dat pro partnery – po vymazání zůstalo netknuté, takže členové
+    //   domácnosti dál viděli transakce, které už u sebe nemám. Data „zmizela"
+    //   jen mně. Totéž platilo pro komunitní záznamy a zálohy, z nichž by
+    //   navíc šlo smazaná data obnovit zpátky.
+    //   Tarif (premium) se schválně NEMAŽE – tohle je „začínám od nuly",
+    //   ne „ruším účet". Na to je zvlášť tlačítko Smazat účet.
+    try { await _set(_ref(_db, `users/${uid}/shared`), null); }
+    catch(e) { console.warn('[mazání] výřez:', e && e.message); }
+    try { if (typeof purgeMyCommunityData === 'function') await purgeMyCommunityData(); }
+    catch(e) { console.warn('[mazání] komunita:', e && e.message); }
+    try { await _set(_ref(_db, `users/${uid}/backups`), null); }
+    catch(e) { console.warn('[mazání] zálohy:', e && e.message); }
   }
 
   // 3) Smaž lokální snapshot (IndexedDB ff_snapshot_db + localStorage ff_snapshot_{uid}) – jinak se data vrátí offline
@@ -358,30 +372,10 @@ function renderSettingsPage() {
 
   el.innerHTML = `
 
-    <!-- ── PROFIL ── -->
-    <div class="settings-section">
-      <div class="settings-section-title">Profil</div>
-
-      <div class="settings-item settings-profile-header" onclick="openProfileModal()">
-        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:1.4rem">
-          ${photo ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">` : '👤'}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:.92rem">${name}</div>
-          <div style="font-size:.76rem;color:var(--text3);margin-top:1px">${email || 'Lokální účet'}</div>
-        </div>
-        <span class="settings-chevron">›</span>
-      </div>
-
-      <div class="settings-item" onclick="showPaywall()">
-        <span class="settings-icon">⭐</span>
-        <div class="settings-item-body">
-          <div class="settings-item-title">Prémiový plán</div>
-          <div class="settings-item-sub">${premLabel}</div>
-        </div>
-        <span class="settings-chevron">›</span>
-      </div>
-    </div>
+    <!-- TODO-233 (Milan): sekce PROFIL odstraněna. Jméno, e-mail i tarif jsou
+         nově na stránce Můj účet (klik na jméno v sidebaru). Tady to bylo jen
+         proklikem na totéž – dvě místa se stejným obsahem se dřív nebo později
+         rozejdou a uživatel neví, které platí. Odkaz na tarify vede z Účtu. -->
 
     <!-- ── OBECNÉ ── -->
     <div class="settings-section">
@@ -510,7 +504,7 @@ function renderSettingsPage() {
         </div>
         <select class="fs" id="settingDefWallet" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box" onchange="settingChanged()">
           <option value="" ${!_settings?.defWallet?'selected':''}>– žádná (nechat prázdné) –</option>
-          ${(S.wallets||[]).map(w=>`<option value="${w.id}" ${_settings?.defWallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}</option>`).join('')}
+          ${(S.wallets||[]).filter(w=>!w.archived).map(w=>`<option value="${w.id}" ${_settings?.defWallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}</option>`).join('')}   <!-- TODO-241 -->
         </select>
       </div>
 
@@ -549,8 +543,8 @@ function renderSettingsPage() {
         <select class="fs" id="settingFirstDay" style="margin-left:38px;width:calc(100% - 38px);box-sizing:border-box"
           onchange="settingChanged()">
           <option value="0" ${!(_settings?.firstDay>0)?'selected':''}>🤖 Automaticky (z transakcí)</option>
-          ${Array.from({length:28},(_,i)=>i+1).map(d =>
-            `<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci</option>`
+          ${Array.from({length:31},(_,i)=>i+1).map(d =>
+            `<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci${d>28?' (v kratším měsíci poslední)':''}</option>`
           ).join('')}
         </select>
         <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
@@ -688,6 +682,37 @@ function renderSettingsPage() {
         <span class="settings-chevron">›</span>
       </div>
 
+      <!-- FIX-278 (S20): SDILENI DO KOMUNITNIHO PREHLEDU.
+           Do v10.14 se publishCommunityStats() ptalo na element 'settingCommunity',
+           ktery NIKDY NEEXISTOVAL - podminka byla vzdy nepravdiva a data (prijem,
+           vydaje po COICOP, mira uspor) se odesilala VZDY a nesla se vypnout.
+           Nove je to skutecny prepinac ulozeny v _settings.community.
+           Vychozi je VYPNUTO: uzel community/{mesic}/users je klicovany uid a cte
+           ho kazdy prihlaseny - u financnich udaju je jediny obhajitelny vychozi
+           stav "dokud nereknu ano, neodesilej". -->
+      <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="settings-icon">🌍</span>
+          <div class="settings-item-body">
+            <div class="settings-item-title">Sdílet mé údaje do Komunitního přehledu</div>
+            <div class="settings-item-sub">Bez toho zůstane Komunitní přehled prázdný</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;cursor:pointer">
+            <input type="checkbox" id="settingCommunity" ${_settings?.community===true?'checked':''}
+              onchange="setCommunityShare(this.checked)"
+              style="opacity:0;width:0;height:0;position:absolute">
+            <span style="position:absolute;inset:0;background:${_settings?.community===true?'var(--income)':'var(--surface3)'};border-radius:24px;transition:.3s">
+              <span style="position:absolute;left:${_settings?.community===true?'20px':'2px'};top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></span>
+            </span>
+          </label>
+        </div>
+        <div style="margin-left:38px;font-size:.72rem;color:var(--text3);line-height:1.5">
+          Odesílá se měsíční příjem, celkové výdaje, míra úspor a rozpad výdajů
+          po skupinách COICOP — <strong>ne</strong> jednotlivé transakce, názvy obchodů ani účtenky.
+          Při vypnutí se již odeslané údaje smažou.
+        </div>
+      </div>
+
       <div class="settings-item" onclick="openPrivacyPolicy()">
         <span class="settings-icon">🔐</span>
         <div class="settings-item-body">
@@ -697,14 +722,8 @@ function renderSettingsPage() {
         <span class="settings-chevron">›</span>
       </div>
 
-      <div class="settings-item" onclick="openDeleteDataModal()" style="border-left:3px solid var(--expense)">
-        <span class="settings-icon">🗑</span>
-        <div class="settings-item-body">
-          <div class="settings-item-title" style="color:var(--expense)">Vymazat všechna data</div>
-          <div class="settings-item-sub">Nevratné smazání + odhlášení</div>
-        </div>
-        <span class="settings-chevron" style="color:var(--expense)">›</span>
-      </div>
+      <!-- TODO-233: mazání dat se přesunulo na stránku Můj účet, kam patří.
+           Funkce openDeleteDataModal() zůstává – volá ji odtamtud. -->
     </div>
 
     <!-- ── NÁPOVĚDA ── -->
@@ -776,6 +795,58 @@ function markSettingsSaved() {
 }
 
 function settingChanged() { showSettingsSaveBar(); }
+
+// FIX-278 (S20): souhlas se sdílením do Komunitního přehledu.
+//   Uklada se HNED (ne pres save bar) – souhlas se sdílením dat nesmí zůstat
+//   viset v neuloženém stavu. Při VYPNUTÍ navíc smažeme, co už bylo odesláno:
+//   nechat tam staré záznamy by znamenalo, že vypnutí nic neřeší.
+async function setCommunityShare(on) {
+  if (typeof _settings === 'undefined' || !_settings) return;
+  _settings.community = !!on;
+  try {
+    if (window._currentUser && typeof _isLocalMode !== 'undefined' && !_isLocalMode) {
+      await _set(_ref(_db, `users/${window._currentUser.uid}/settings`), _settings);
+    } else {
+      try { localStorage.setItem('ff_v43_settings', JSON.stringify(_settings)); } catch(e) {}
+    }
+  } catch(e) { console.error('Community consent save error:', e); }
+
+  if (!on) {
+    // Odstraň vlastní příspěvky ze všech měsíců, ne jen z toho aktuálního.
+    try { await purgeMyCommunityData(); }
+    catch(e) { console.warn('Community purge:', e); }
+    if (typeof showToast === 'function') showToast('✅ Sdílení vypnuto – odeslané údaje smazány');
+  } else {
+    if (typeof showToast === 'function') showToast('✅ Sdílení zapnuto');
+    // Ať se přehled naplni hned, ne až při příštím uložení
+    try { if (typeof publishCommunityStats === 'function') await publishCommunityStats(getData()); }
+    catch(e) { console.warn('Community publish:', e); }
+  }
+}
+
+// Projde uzly community/{mesic}/users/{uid} a smaže vlastní záznamy.
+// Čte se seznam měsíců – uzel community sam otevřený ke čtení není, ale
+// měsíční klíče umime odvodit: mazeme 36 měsíců zpětně (3 roky), což s rezervou
+// pokrývá celou dobu, po kterou funkce publikovala.
+async function purgeMyCommunityData() {
+  if (!window._currentUser || (typeof _isLocalMode !== 'undefined' && _isLocalMode)) return;
+  const uid = window._currentUser.uid;
+  // FIX-307 (S21): od v10.30 se publikuje pod pseudonymem. Mazat se ale musí OBOJÍ –
+  //   nový pseudonymní záznam i případný starý klíčovaný uid, jinak by po vypnutí
+  //   sdílení zůstala v databázi právě ta identifikovatelná verze.
+  const pid = (typeof getCommunityId === 'function') ? await getCommunityId() : null;
+  const now = new Date();
+  const updates = {};
+  for (let i = 0; i < 36; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    updates[`community/${key}/users/${uid}`] = null;
+    if (pid && pid !== uid) updates[`community/${key}/users/${pid}`] = null;
+  }
+  await _update(_ref(_db), updates);
+}
+window.setCommunityShare = setCommunityShare;
+window.purgeMyCommunityData = purgeMyCommunityData;
 
 // ══════════════════════════════════════════════════════
 //  NÁPOVĚDA – FAQ Modal
@@ -907,7 +978,12 @@ async function renderBackupBody() {
     </div>`;
 }
 
-window.renderBackupBody = () => renderBackupBody();
+// FIX-293 (S21): obalovací šipka kolem vlastního jména je nekonečná rekurze.
+//   Deklarace funkce na nejvyšší úrovni UŽ JE vlastností window, takže tenhle
+//   řádek ji přepsal šipkou, jejíž tělo volá zpátky window.X → sebe sama.
+//   Firefox: "too much recursion", Chrome: "Maximum call stack size exceeded".
+//   Správně se přiřazuje REFERENCE na funkci, ne obalovací šipka.
+window.renderBackupBody = renderBackupBody;
 
 async function doBackupNow() {
   if (typeof backupRun !== 'function') return;
@@ -930,8 +1006,8 @@ async function doBackupRestore(key) {
   } else if (typeof showToast === 'function') showToast('⚠️ ' + ((r && r.err) || 'Obnova selhala'));
 }
 
-window.doBackupNow = () => doBackupNow();
-window.doBackupRestore = k => doBackupRestore(k);
+window.doBackupNow = doBackupNow;            // FIX-293
+window.doBackupRestore = doBackupRestore;    // FIX-293
 
 // Export dat jako JSON
 function exportUserData() {

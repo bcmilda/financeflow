@@ -1,4 +1,4 @@
-// FinanceFlow · v10.06 · onboarding.js · 2026-08-28
+// FinanceFlow · v10.31 · onboarding.js · 2026-09-02
 //  TODO-234: ONBOARDING KROK 1
 // ══════════════════════════════════════════════════════
 // Jediná stránka pro nového uživatele: jazyk, výchozí měna, typ peněženky
@@ -111,7 +111,7 @@ function renderOnboardingModal() {
       <div class="fg"><label>📆 Den výplaty</label>
         <select class="fs" id="onbFirstDay">
           <option value="0" ${!(_settings?.firstDay>0)?'selected':''}>🤖 Automaticky</option>
-          ${Array.from({length:28},(_,i)=>i+1).map(d=>`<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci</option>`).join('')}
+          ${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}" ${(_settings?.firstDay||0)==d?'selected':''}>${d}. den v měsíci${d>28?' (v kratším měsíci poslední)':''}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -169,6 +169,7 @@ function onboardingSave() {
   }
 
   _settings.onboardingDone = true;
+  _settings.onboardingSkipped = false;      // TODO-236: vyplněno → z checklistu zmizí
   _persistOnboardingSettings();
   if (typeof save === 'function') save();   // uloží změněnou peněženku (Firebase/local)
   if (typeof applyLanguage === 'function') applyLanguage();
@@ -178,9 +179,17 @@ function onboardingSave() {
 }
 
 function onboardingSkip() {
+  // TODO-236 (S21, Milan): přeskočené nastavení nesmí zmizet beze stopy.
+  //   `onboardingDone` brání tomu, aby modal znovu vyskočil sám (to by bylo
+  //   otravné), `onboardingSkipped` ho drží v checklistu na Přehledu, odkud
+  //   si ho uživatel otevře, až bude chtít. Dvě různé otázky, dva příznaky:
+  //   „už jsem se ptal" a „uživatel odpověděl".
   _settings.onboardingDone = true;
+  _settings.onboardingSkipped = true;
   _persistOnboardingSettings();
   closeModal('modalOnboarding');
+  if (typeof showToast === 'function') showToast('Přeskočeno – najdeš to v „Dokonči nastavení" na Přehledu');
+  if (typeof renderPage === 'function') renderPage();   // ať se krok v checklistu objeví hned
 }
 
 function _persistOnboardingSettings() {
@@ -191,3 +200,12 @@ function _persistOnboardingSettings() {
     try { localStorage.setItem('ff_v43_settings', JSON.stringify(_settings)); } catch (e) {}
   }
 }
+
+// Dočasná pomůcka pro ruční test (S20): existující účet uvidí modal automaticky
+// jen jako opravdu nový uživatel (ADR-116) – jinak ho nezobrazí NIKDY, ani po
+// smazání _settings.onboardingDone. Pro náhled na vlastním účtu otevři konzoli
+// prohlížeče (F12 → Konzole) a napiš: previewOnboarding()
+window.previewOnboarding = openOnboardingModal;
+// TODO-236: checklist na Přehledu otevírá tentýž modal (openOnboardingModal
+//   nemá guard na onboardingDone – ten je jen v maybeShowOnboarding).
+window.openOnboardingModal = openOnboardingModal;

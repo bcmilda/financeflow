@@ -1,4 +1,4 @@
-// FinanceFlow · v10.51 · admin.js · 2026-09-04
+// FinanceFlow · v10.46 · admin.js · 2026-09-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -146,34 +146,6 @@ async function renderAdmin() {
       </div></div>
     </div>
     <div id="atab-udrzba-content" style="display:none">
-
-      <!-- TODO-254 + TODO-256 (S21): GDPR export a náhrobky smazaných účtů -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">📄 GDPR · export údajů o uživateli</span></div>
-        <div class="card-body">
-          <div style="font-size:.78rem;color:#c9cede;line-height:1.6;margin-bottom:10px">
-            Složí <strong>kompletní</strong> přehled podle čl. 15 GDPR – včetně tarifu, auditu plateb
-            a komunitních záznamů, které v uživatelské záloze nejsou. Přidá i to, co k odpovědi patří:
-            účel zpracování, příjemce a dobu uchování.
-          </div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-            <input class="fi" id="gdprUid" placeholder="UID uživatele" style="flex:1;min-width:200px;font-family:monospace;font-size:.78rem">
-            <button class="btn btn-accent btn-sm" onclick="adminGdprExport(document.getElementById('gdprUid').value.trim())">📄 Vytvořit export</button>
-          </div>
-          <div style="font-size:.72rem;color:#a8aec8;margin-top:8px;line-height:1.5">
-            Lhůta na odpověď je <strong>1 měsíc</strong> od doručení žádosti (lze prodloužit o 2 měsíce,
-            ale musíš to do měsíce oznámit). Odpověď je zdarma.
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">🪦 Smazané účty</span></div>
-        <div class="card-body" id="deletedAccountsBox">
-          <div style="font-size:.78rem;color:#a8aec8">Načítám…</div>
-        </div>
-      </div>
-
       <div class="card" style="margin-bottom:14px">
         <div class="card-header"><span class="card-title">💎 Referral body</span></div>
         <div class="card-body">
@@ -535,66 +507,9 @@ function switchAdminTab(tab, btn) {
   if(tab==='announce'){ loadAdminAnnouncements(); if(typeof loadAdminWelcome==='function') loadAdminWelcome(); }
   if(tab==='verze') loadVerze();
   if(tab==='zdravi') renderAdminZdravi();   // S20
-  if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
 }
 
 const VERZE_LOG = [
-  {
-    verze: 'v10.51',
-    datum: '2026-09-04',
-    zmeny: [
-      '📄 TODO-254: GDPR EXPORT (čl. 15). Admin → Údržba. Uživatelská záloha obsahuje jen users/{uid}/data – chyběl v ní tarif, audit plateb (ten je MIMO podstrom uživatele), aktivita, referral i komunitní záznamy. Skládat to ručně z Firebase Console znamená na něco zapomenout. Export navíc přidává to, co k odpovědi podle GDPR patří a data sama o sobě neobsahují: účel zpracování, příjemce (Google, Cloudflare, Stripe, Anthropic, Resend) a dobu uchování.',
-      '🔎 TODO-254: komunitní záznamy se hledají pod PSEUDONYMEM, ne pod uid (FIX-307) – bez communityId je nedohledáme a export to místo prázdna vysvětlí. Selhání jednoho uzlu nezastaví celý export, jen se u něj poznamená chyba.',
-      '🪦 TODO-256: NÁHROBKY SMAZANÝCH ÚČTŮ. Smazání nastavilo users/{uid} na null a uživatel z výpisu zmizel beze stopy – nešlo odlišit „účet nikdy neexistoval" od „byl smazán" ani dohledat, komu patří záznamy v premiumLog. Nový uzel deletedAccounts/{uid} obsahuje POUZE uid, datum a hash e-mailu – žádná data. Zapsat smí uživatel jen sám sebe a jen jednou, číst smí jen admin.',
-      '⚠️ TODO-256: admin vidí seznam smazaných účtů a upozornění, když se tentýž e-mail objeví opakovaně – to je jediný důvod, proč se hash vůbec ukládá (zneužití trialu).',
-      '💳 TODO-255: ZRUŠENÍ PŘEDPLATNÉHO PŘI SMAZÁNÍ ÚČTU. Dosud Stripe účtoval dál i poté, co uživatel z appky zmizel – a on neměl kde to zrušit. Nový endpoint /cancel-subscription v workeru; uid se bere z OVĚŘENÉHO tokenu, ne z těla požadavku, aby nešlo zrušit cizí předplatné. Ruší se k konci zaplaceného období (cancel_at_period_end), ne okamžitě bez vrácení peněz.',
-      '⚙ TODO-255: když se zrušení nepovede, mazání POKRAČUJE, ale uživatel se to dozví a dostane kontakt. Tiché selhání by znamenalo, že platí za appku, kterou už nemá.',
-      '📅 Uživatelský profil doplněn o DATUM ZALOŽENÍ ÚČTU (z premium.createdAt) včetně „před X dny".',
-      '⚠️ NASAZENÍ: database_rules.json (nový uzel deletedAccounts) i worker.js (nový endpoint) se nasazují ZVLÁŠŤ. Bez pravidel se náhrobek nezapíše, bez workeru se předplatné nezruší.',
-      '⚙ Nový test tools/smoke_gdpr.js (31 kontrol).',
-    ]
-  },
-  {
-    verze: 'v10.50',
-    datum: '2026-09-04',
-    zmeny: [
-      '🚨 FIX-324: VYMAZÁNÍ DAT NECHÁVALO ZA SEBOU KOPII. Mazal se jen users/{uid}/data a referral – ale users/{uid}/shared, což je kopie dat pro partnery, zůstalo netknuté. Členové domácnosti tak dál viděli transakce, které už u sebe nemám: data „zmizela" jen mně. Totéž platilo pro komunitní záznamy a pro zálohy, ze kterých šlo smazaná data dokonce obnovit zpátky.',
-      '⚙ FIX-324: nově se maže i výřez, komunitní záznamy a zálohy. Tarif (premium) se schválně NEMAŽE – „vymazat data" znamená začínám od nuly, ne ruším účet. Každý krok má vlastní try/catch, takže dílčí selhání nezastaví zbytek.',
-      '🧹 TODO-233: sekce PROFIL z Nastavení odstraněna (jméno, e-mail, Prémiový plán) – bylo to jen proklikem na to, co je nově na stránce Můj účet. Dvě místa se stejným obsahem se dřív nebo později rozejdou a uživatel neví, které platí.',
-      '🗑 TODO-233: „Vymazat všechna data" přesunuto z Nastavení na Můj účet, kde stojí vedle „Smazat účet". Ty dvě věci se pletou, takže je u obou vysvětlené, co přesně dělají a v čem se liší – vymazání dat účet, tarif ani domácnost nezruší.',
-    ]
-  },
-  {
-    verze: 'v10.49',
-    datum: '2026-09-04',
-    zmeny: [
-      '👤 TODO-233 (Milan): NOVÁ STRÁNKA MŮJ ÚČET. Nahrazuje modal „Upravit profil" – spouštěčem je celý blok se jménem a ikonou nahoře v sidebaru, ne malá tužka vedle. Modal je z app.html odstraněný a staré cesty k němu (openProfileModal, saveProfile, řádek Profil v Nastavení) vedou na stránku, aby nevznikla dvě místa na úpravu téhož.',
-      '🪪 Obsah: avatar a jméno k úpravě · e-mail a ID uživatele s tlačítkem Kopírovat · předplatné s proklikem na tarify · účtenky, transakce a počet měsíců s daty (účtenky jen ODKAZEM, ne druhý seznam) · referral · smazání účtu. ZÁMĚRNĚ tu není Tutoriál, Nastavení, „Co partner uvidí" ani Moje domácnost – to jsou jiné sekce.',
-      '♻️ Avatar picker i referral řádek používají TYTÉŽ funkce jako dřív modal (renderAvatarPicker, renderReferralCodeRow) – žádná kopie, která by se rozešla.',
-      '🗑 Smazání účtu: dvě potvrzení, druhé opsáním slova SMAZAT. Nejdřív odejde z komunitního přehledu a domácnosti (jinak by po uživateli zůstaly stopy), teprve pak smaže vlastní data. Dílčí selhání zbytek nezastaví. NERUŠÍ přihlašovací účet u Googlu ani předplatné u Stripu – obojí vyžaduje krok mimo appku a uživatel se to dozví DOPŘEDU, ne až z tichého selhání.',
-      '👓 Čitelnost podle Milanova opakovaného zadání: na stránce se nepoužívá var(--text3) ani var(--text2), popisky #a8aec8, hodnoty #c9cede, nic menšího než .72rem. Test to hlídá.',
-      '⚙ Nový modul js/ucet.js + test tools/smoke_ucet.js (31 kontrol).',
-    ]
-  },
-  {
-    verze: 'v10.48',
-    datum: '2026-09-04',
-    zmeny: [
-      '🎚 TODO-242 (Milan): PŘEPÍNAČ ROZSAHU ŘÍDÍ CELOU STRÁNKU. Dosud filtr člena zúžil JEN žebříček „kdo na co utratil" – dlaždice nahoře i graf trendu pořád ukazovaly celou domácnost. Šlo tedy vybrat člena a číslo nad tím mu neodpovídalo, aniž by z toho bylo poznat, ke komu se vztahuje. Nově rozsah platí pro dlaždice, graf i žebříček najednou.',
-      '🏷 TODO-242: popisky se rozsahu přizpůsobí – „Rodinné výdaje" se změní na „Výdaje", nadpis grafu i žebříčku nese jméno člena. Bez toho by se dalo přehlédnout, že už nejde o domácnost. Jméno se escapuje.',
-      '⚙ TODO-242: přepínač se přesunul nad dlaždice a ten původní v žebříčku zmizel – dva přepínače téhož by se dřív nebo později rozešly. Podmínka z FIX-214 platí dál: když člen nemá v měsíci výdaj, ovládání nezmizí spolu s obsahem a prázdný stav vysvětlí proč.',
-      '⚙ TODO-240: člen, který sdílí jen souhrny, přispěje nově i do GRAFU TRENDU. Dřív by trend v jeho měsících klesl, přestože utratil stejně.',
-      '⚙ Starší test popisoval původní nesrovnalost jako správné chování („filtr nesmí zúžit souhrnná čísla") – přepsán na opačné očekávání, plus nový test bez výběru, aby nezmizel součet za domácnost. Nový tools/smoke_rozsah.js (16 kontrol).',
-    ]
-  },
-  {
-    verze: 'v10.47',
-    datum: '2026-09-04',
-    zmeny: [
-      '🔑 FIX-323 (navazuje na FIX-322): DALŠÍ DVA KLÍČE V localStorage NEMĚLY uid. `ff_notif_prefs` je mezipaměť nastavení oznámení – hlavní kopie ve Firebase (users/{uid}/notifPrefs) v pořádku byla, ale mezipaměť se četla DŘÍV, než Firebase odpoví, takže druhý účet po přihlášení chvíli běžel na cizím nastavení. `ff_announce_seen` drží, které oznámení jsi už viděl – odkliknutí u jednoho účtu ho schovalo VŠEM účtům na daném prohlížeči.',
-      '⚙ Oba klíče nyní nesou uid, odhlášený stav má vlastní. Ověřeno chováním: tři různé účty = tři různé klíče.',
-    ]
-  },
   {
     verze: 'v10.46',
     datum: '2026-09-04',
@@ -5247,137 +5162,6 @@ async function adminRevokePremium(uid) {
     showToast('❌ Chyba: ' + e.message);
   }
 }
-
-// ══════════════════════════════════════════════════════════════════════
-//  TODO-254 · GDPR EXPORT (článek 15, S21)
-//  Uživatel má právo dostat KOMPLETNÍ přehled toho, co o něm zpracováváme.
-//  Uživatelská záloha JSON obsahuje jen users/{uid}/data – chybí v ní tarif,
-//  audit plateb (ten je mimo podstrom uživatele), aktivita i referral.
-//  Skládat to ručně z Firebase Console znamená na něco zapomenout.
-//
-//  Export je určený ADMINOVI k odeslání žadateli. Kromě dat obsahuje i to,
-//  co po GDPR patří k odpovědi: účel, příjemce a doba uchování – bez toho
-//  není odpověď úplná, i kdyby data seděla.
-// ══════════════════════════════════════════════════════════════════════
-const GDPR_UZLY_UZIVATEL = ['data','profile','settings','premium','referral',
-                            'activity','security','meta','notifPrefs','shared',
-                            'communityId','householdId','partners','backups'];
-const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs'];
-
-async function adminGdprExport(uid) {
-  if (!isAdmin()) { alert('Jen pro admina.'); return; }
-  if (!uid) { uid = prompt('UID uživatele:'); if (!uid) return; }
-
-  const vysledek = {
-    _meta: {
-      subjekt: uid,
-      vygenerovano: new Date().toISOString(),
-      pravni_zaklad: 'Čl. 15 GDPR – právo na přístup k osobním údajům',
-      spravce: 'FinanceFlow · info@financeflow.cz',
-      ucel_zpracovani: 'Vedení osobní finanční evidence uživatele a poskytování souvisejících funkcí aplikace.',
-      prijemci: [
-        'Google Firebase (Realtime Database, Authentication, Hosting) – uložení dat',
-        'Cloudflare (Workers) – zpracování požadavků',
-        'Stripe – zpracování plateb (pouze u platících uživatelů)',
-        'Anthropic – zpracování dotazů u AI funkcí (pouze při jejich použití)',
-        'Resend – odesílání e-mailů',
-      ],
-      doba_uchovani: 'Do smazání účtu uživatelem. Audit plateb (premiumLog) a záznam o smazání účtu (deletedAccounts) se uchovávají déle z důvodu účetní evidence a prevence zneužití.',
-      poznamka: 'Prázdný uzel znamená, že se v této kategorii žádné údaje nezpracovávají.',
-    },
-    uzivatel: {},
-    mimo_podstrom_uzivatele: {},
-  };
-
-  const nacti = async (cesta) => {
-    try { const sn = await _get(_ref(_db, cesta)); return sn.exists() ? sn.val() : null; }
-    catch (e) { return { _chyba: 'nepodařilo se načíst: ' + (e && e.message) }; }
-  };
-
-  for (const uzel of GDPR_UZLY_UZIVATEL) {
-    vysledek.uzivatel[uzel] = await nacti(`users/${uid}/${uzel}`);
-  }
-  for (const uzel of GDPR_UZLY_MIMO) {
-    vysledek.mimo_podstrom_uzivatele[uzel] = await nacti(`${uzel}/${uid}`);
-  }
-  // Náhrobek – existuje jen u smazaných účtů
-  vysledek.mimo_podstrom_uzivatele.deletedAccounts = await nacti(`deletedAccounts/${uid}`);
-
-  // Komunitní záznamy jsou pod PSEUDONYMEM, ne pod uid – bez communityId je
-  // nedohledáme, a to je záměr (FIX-307). Do exportu patří vysvětlení, ne prázdno.
-  const pid = vysledek.uzivatel.communityId;
-  if (pid) {
-    const kom = {};
-    const dnes = new Date();
-    for (let i = 0; i < 36; i++) {
-      const d = new Date(dnes.getFullYear(), dnes.getMonth() - i, 1);
-      const klic = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const z = await nacti(`community/${klic}/users/${pid}`);
-      if (z) kom[klic] = z;
-    }
-    vysledek.komunitni_prehled = {
-      _pozn: 'Záznamy jsou uloženy pod náhodným pseudonymem, ne pod ID uživatele.',
-      zaznamy: kom,
-    };
-  } else {
-    vysledek.komunitni_prehled = { _pozn: 'Uživatel do Komunitního přehledu nepřispívá.' };
-  }
-
-  const blob = new Blob([JSON.stringify(vysledek, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `gdpr-export-${uid.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  showToast('📄 GDPR export stažen');
-}
-window.adminGdprExport = adminGdprExport;
-
-// ── TODO-256 · Náhrobky smazaných účtů ────────────────────────────────
-//  Smazání nastaví users/{uid} na null, takže uživatel z výpisu zmizí beze
-//  stopy. Nešlo pak odlišit „účet nikdy neexistoval\" od „byl smazán\" ani
-//  dohledat, komu patří záznamy v premiumLog.
-async function renderDeletedAccounts() {
-  const el = document.getElementById('deletedAccountsBox'); if (!el) return;
-  if (!isAdmin()) { el.innerHTML = ''; return; }
-  try {
-    const snap = await _get(_ref(_db, 'deletedAccounts'));
-    if (!snap.exists()) {
-      el.innerHTML = '<div style="font-size:.78rem;color:#a8aec8">Zatím nikdo účet nesmazal.</div>';
-      return;
-    }
-    const zaznamy = Object.entries(snap.val())
-      .map(([uid, v]) => ({ uid, ...v }))
-      .sort((a, b) => (b.at || 0) - (a.at || 0));
-
-    // Opakované zakládání a mazání téhož e-mailu – jediný důvod, proč se
-    // hash vůbec ukládá.
-    const dleHashe = {};
-    zaznamy.forEach(z => { if (z.emailHash) dleHashe[z.emailHash] = (dleHashe[z.emailHash] || 0) + 1; });
-    const opakovane = Object.values(dleHashe).filter(n => n > 1).length;
-
-    el.innerHTML = `
-      <div style="font-size:.78rem;color:#c9cede;margin-bottom:8px">
-        Smazaných účtů: <strong>${zaznamy.length}</strong>
-        ${opakovane ? ` · <span style="color:#fbbf24">⚠️ ${opakovane}× tentýž e-mail opakovaně</span>` : ''}
-      </div>
-      ${zaznamy.slice(0, 50).map(z => `
-        <div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.76rem">
-          <span style="font-family:monospace;color:#a8aec8">${z.uid.slice(0, 10)}…</span>
-          <span style="color:#c9cede">${z.at ? new Date(z.at).toLocaleDateString('cs-CZ') : '—'}</span>
-          ${z.melPredplatne ? `<span style="color:${z.stripeZrusen ? '#7dd34f' : '#f87171'}">${z.stripeZrusen ? 'předplatné zrušeno' : '⚠️ předplatné NEZRUŠENO'}</span>` : ''}
-          ${z.emailHash && dleHashe[z.emailHash] > 1 ? '<span style="color:#fbbf24">opakovaně</span>' : ''}
-          <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="adminGdprExport('${z.uid}')">📄 GDPR</button>
-        </div>`).join('')}
-      <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
-        Náhrobek obsahuje jen ID, datum a hash e-mailu – žádná osobní data.
-        Slouží k dohledání plateb a k odhalení opakovaného zneužití trialu.
-      </div>`;
-  } catch (e) {
-    el.innerHTML = `<div style="font-size:.78rem;color:#f87171">Nepodařilo se načíst: ${e && e.message}</div>`;
-  }
-}
-window.renderDeletedAccounts = renderDeletedAccounts;
 
 async function adminViewUserAs(uid) {
   if (!confirm('Přepnout pohled jako tento uživatel? (Read-only – nelze měnit jejich data)\n\nPro návrat klikni na "Vrátit se k mým datům" v hlavičce nebo refreshni stránku.')) return;

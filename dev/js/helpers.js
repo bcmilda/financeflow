@@ -1,4 +1,4 @@
-// FinanceFlow · v9.95 · helpers.js · 2026-08-19
+// FinanceFlow · v10.30 · helpers.js · 2026-09-02
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -125,10 +125,16 @@ function computeTransferTotals(D){
   const _nm = s => (s||'').trim().toLowerCase();
   const INVEST_NAMES = ['investice','trading','fondy','akcie','etf','krypto','podílové fondy'];
   const SAVE_NAMES = ['spoření','sporeni','finanční rezerva','financni rezerva','rezerva','penzijko','penzijní','penzijni'];
-  const groupOf = c => ASSET_GROUP[c.id]
+  // FIX-286 (S20, Milan): „Virtuální přesun" nebyl v žádném seznamu a spadl do
+  //   fallbacku 'investment' – vklad do cíle se proto na Dashboardu započítal
+  //   do „Investice" („tento měsíc +19 500"). Odložit si peníze na cíl ale není
+  //   investice, je to přehození v rámci vlastních peněz (viz FIX-285).
+  const isVirtualCat = c => /virtuáln|virtualn/.test(_nm(c.name));
+  const groupOf = c => isVirtualCat(c) ? 'virtual'
+    : (ASSET_GROUP[c.id]
     || (INVEST_NAMES.includes(_nm(c.name)) ? 'investment'
     :  SAVE_NAMES.includes(_nm(c.name)) ? 'savings'
-    :  (c.isSaving ? 'savings' : 'investment'));
+    :  (c.isSaving ? 'savings' : 'investment')));
   const perCat = {};
   cats.forEach(c=>{ perCat[c.id] = {id:c.id, name:c.name, icon:c.icon, color:c.color, total:0, month:0,
                                     group: groupOf(c)}; });
@@ -142,7 +148,7 @@ function computeTransferTotals(D){
     if(d.getMonth()===curM && d.getFullYear()===curY) perCat[cid].month += sign*amt;
   });
   // Souhrn podle skupiny
-  const byGroup = { investment:{total:0,month:0}, savings:{total:0,month:0} };
+  const byGroup = { investment:{total:0,month:0}, savings:{total:0,month:0}, virtual:{total:0,month:0} };  // FIX-286
   Object.values(perCat).forEach(p=>{
     if(byGroup[p.group]){ byGroup[p.group].total += p.total; byGroup[p.group].month += p.month; }
   });
@@ -160,7 +166,18 @@ const txCZK=(t,data)=>{
   if(t&&t.amtCZK!=null&&isFinite(t.amtCZK))return t.amtCZK;
   const amt=(t&&(t.amount||t.amt))||0;
   if(!t||!t.wallet)return amt;
-  const ws=(data&&data.wallets)||(typeof S!=='undefined'&&S&&S.wallets)||[];
+  // FIX-280 (S20): když volající nepředá D (děje se na ~28 místech), fallback
+  //   sahal rovnou do S.wallets – tedy do peněženek PŘIHLÁŠENÉHO uživatele.
+  //   Při prohlížení partnera (viewingUid) tak jeho eurová transakce nenašla
+  //   peněženku, spadla na CZK a sečetla se v nominále. Fallback teď respektuje
+  //   viewingUid stejně jako getData(). Sáháme na partnerData přímo, ne přes
+  //   getData() – ten při viewingUid staví Object.assign nový objekt a txCZK
+  //   běží ve smyčkách nad tisíci transakcemi.
+  //   Explicitní D má pořád přednost a je jediné správné řešení tam, kde se
+  //   cizí data zpracovávají BEZ viewingUid (rodinný souhrn – viz computeBank).
+  const ws=(data&&data.wallets)
+    ||((typeof viewingUid!=='undefined'&&viewingUid&&typeof partnerData!=='undefined'&&partnerData[viewingUid]&&partnerData[viewingUid].data&&partnerData[viewingUid].data.wallets)||null)
+    ||(typeof S!=='undefined'&&S&&S.wallets)||[];
   const w=ws.find(x=>x.id===t.wallet);
   const cur=(w&&w.currency)?w.currency:'CZK';
   if(cur==='CZK')return amt;
@@ -550,7 +567,12 @@ function computeBank(data){
   monthKeys.forEach(key=>{
     const[y,m]=key.split('_').map(Number);
     if(y>S.curYear||(y===S.curYear&&m>S.curMonth))return;
-    const txs=getTx(m,y,D);total+=incSum(txs)-expSum(txs);
+    // FIX-280 (S20): incSum/expSum MUSÍ dostat D (SKILL 20). Bez něj txCZK hledá
+    //   peněženku v S.wallets, tedy u PŘIHLÁŠENÉHO uživatele – a computeBank se
+    //   volá i nad partnerovými daty (rodinný souhrn). Partnerova eurová peněženka
+    //   v mých datech není → měna spadne na CZK a 2000 EUR se sečte jako 2000 Kč.
+    //   Stejná třída chyby jako FIX-273, jen o úroveň hlouběji.
+    const txs=getTx(m,y,D);total+=incSum(txs,D)-expSum(txs,D);
   });
   return total;
 }
@@ -563,9 +585,9 @@ function bankSeries(n,data){
   for(let i=n-1;i>=0;i--){
     let m=S.curMonth-i,y=S.curYear;if(m<0){m+=12;y--;}
     let bal=start;
-    allM.forEach(key=>{const[ky,km]=key.split('_').map(Number);if(ky>y||(ky===y&&km>m))return;const txs=getTx(km,ky,D);bal+=incSum(txs)-expSum(txs);});
+    allM.forEach(key=>{const[ky,km]=key.split('_').map(Number);if(ky>y||(ky===y&&km>m))return;const txs=getTx(km,ky,D);bal+=incSum(txs,D)-expSum(txs,D);});
     const txs=getTx(m,y,D);
-    arr.push({m,y,label:CZ_M[m].slice(0,3),balance:bal,saldo:incSum(txs)-expSum(txs)});
+    arr.push({m,y,label:CZ_M[m].slice(0,3),balance:bal,saldo:incSum(txs,D)-expSum(txs,D)});
   }
   return arr;
 }
@@ -642,21 +664,73 @@ function computeCoicopAggregates(txs, D) {
   return {cats: result, unassigned: Math.round(unassigned)};
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  KOMUNITNÍ PSEUDONYM (FIX-307, S21)
+//  Záznamy v community/{měsíc}/users byly klíčované `uid`. Od v10.24 je sice
+//  čte jen vlastník a admin, ale klíč sám je pořád přímý identifikátor –
+//  a uid appka vybízí sdílet (partnerský odkaz ?partnerOf={uid}). Kdo ho zná,
+//  ví, který záznam čí je; stačilo by jediné povolení navíc v pravidlech.
+//  Nově se publikuje pod náhodným pseudonymem, uloženým v users/{uid}/communityId.
+//  Vazba pseudonym→uid tak existuje jen uvnitř uživatelova vlastního podstromu,
+//  kam nikdo jiný nevidí. Worker při agregaci klíče vůbec nezkoumá.
+// ══════════════════════════════════════════════════════════════════════
+let _communityIdCache = null;
+async function getCommunityId() {
+  if (_communityIdCache) return _communityIdCache;
+  if (!window._currentUser || !window._db) return null;
+  const uid = window._currentUser.uid;
+  try {
+    const snap = await _get(_ref(_db, `users/${uid}/communityId`));
+    if (snap.exists() && typeof snap.val() === 'string' && snap.val().length >= 8) {
+      _communityIdCache = snap.val();
+      return _communityIdCache;
+    }
+    // SKILL 31: chybějící uzel neznamená „smazáno\", ale „ještě nevznikl\".
+    const novy = (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2))
+      .replace(/-/g, '');
+    await _set(_ref(_db, `users/${uid}/communityId`), novy);
+    _communityIdCache = novy;
+    return novy;
+  } catch (e) {
+    console.warn('[community] pseudonym:', e?.message);
+    return null;
+  }
+}
+window.getCommunityId = getCommunityId;
+
+// Starý záznam klíčovaný uid se při prvním pseudonymním zápisu odstraní.
+// Bez toho by v databázi zůstal identifikovatelný otisk i po přechodu.
+async function dropLegacyCommunityRecord(monthKey) {
+  try {
+    if (!window._currentUser || !window._db) return;
+    await _set(_ref(_db, `community/${monthKey}/users/${window._currentUser.uid}`), null);
+  } catch (e) { /* pravidla to nemusí povolit u cizího klíče – není to chyba */ }
+}
+window.dropLegacyCommunityRecord = dropLegacyCommunityRecord;
+
 async function uploadCoicopToFirebase(month, year, D) {
   try {
     if(!window._currentUser || !window._db) return;
-    const uid = window._currentUser.uid;
+    // FIX-279 (S20): DRUHÁ CESTA DO KOMUNITY, KTERÁ OBCHÁZELA SOUHLAS.
+    //   FIX-278 opravil publishCommunityStats(), ale tahle funkce zapisuje do
+    //   TÉHOŽ uzlu community/{měsíc}/users/{uid} a souhlas nekontrolovala vůbec –
+    //   volá se z save() throttlovaně každých 5 minut. Bez tohohle řádku by
+    //   vypnutý přepínač nic neřešil: jedna cesta by mlčela, druhá publikovala dál.
+    if (typeof _settings === 'undefined' || !_settings || _settings.community !== true) return;
+    const pid = await getCommunityId();          // FIX-307: pseudonym místo uid
+    if (!pid) return;
     const txs = getTx(month, year, D);
-    const income = incSum(txs);
-    const exp = expSum(txs);
+    const income = incSum(txs, D);   // FIX-280: přes D, jinak se cizí měna sečte v nominále
+    const exp = expSum(txs, D);
     if(exp <= 0) return;
     const {cats, unassigned} = computeCoicopAggregates(txs, D);
     const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-    await _set(_ref(_db, `community/${monthKey}/users/${uid}`), {
+    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), {
       totalExp: Math.round(exp), income: Math.round(income),
       savingRate: income > 0 ? Math.round((income-exp)/income*100) : 0,
       cats, unassigned, updatedAt: Date.now(),
     });
+    await dropLegacyCommunityRecord(monthKey);   // FIX-307: úklid uid-klíčovaného záznamu
   } catch(e) { console.warn('uploadCoicop failed:', e?.message); }
 }
 

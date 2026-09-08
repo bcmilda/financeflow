@@ -1,4 +1,4 @@
-// FinanceFlow · v10.04 · nakup.js · 2026-08-24
+// FinanceFlow · v10.14 · nakup.js · 2026-08-28
 // ══════════════════════════════════════════════════════
 //  NÁKUPNÍ SEZNAM + HLÍDAČ CEN + PLÁNY A CÍLE – FinanceFlow v6.49
 // ══════════════════════════════════════════════════════
@@ -450,6 +450,16 @@ function goalGetSaved(goalId) {
   return deps.reduce((s,d) => s + (d.amount||0), 0);
 }
 
+// FIX-276: české skloňování dnů. Bez toho by hláška říkala „Zbývá 1 dní"
+// nebo „Termín uplynul před 3 dnem". Tvar 'pred' je 7. pád (před 1 dnem / 2 dny).
+function _goalDnu(n, tvar) {
+  const a = Math.abs(n);
+  if (tvar === 'pred') return a === 1 ? '1 dnem' : a + ' dny';
+  if (a === 1) return '1 den';
+  if (a >= 2 && a <= 4) return a + ' dny';
+  return a + ' dní';
+}
+
 function goalGetStatus(goal) {
   const saved      = goalGetSaved(goal.id);
   const target     = goal.targetAmount || 0;
@@ -461,9 +471,12 @@ function goalGetStatus(goal) {
   // Deadline
   let deadlineInfo = null;
   if (goal.deadline) {
-    const today     = new Date();
-    const dead      = new Date(goal.deadline);
-    const diffDays  = Math.ceil((dead - today) / 86400000);
+    // FIX-276 (S20): obě data na půlnoc. new Date() nese aktuální čas, ale
+    //   new Date('2026-06-01') je půlnoc – u termínu „dnes" pak Math.ceil
+    //   vycházel 0 nebo −1 podle denní doby.
+    const today     = new Date(); today.setHours(0,0,0,0);
+    const dead      = new Date(goal.deadline); dead.setHours(0,0,0,0);
+    const diffDays  = Math.round((dead - today) / 86400000);
     deadlineInfo    = { date: goal.deadline, daysLeft: diffDays };
   }
 
@@ -474,9 +487,14 @@ function goalGetStatus(goal) {
   else if (pct >= 40)   { mood = '🔵'; moodText = 'Dobrý pokrok'; }
   else if (pct < 10 && saved > 0) { mood = '🟠'; moodText = 'Teprve začínáš'; }
 
-  // Varování deadline
-  if (deadlineInfo && deadlineInfo.daysLeft < 30 && pct < 100) {
-    mood = '🔴'; moodText = `Deadline za ${deadlineInfo.daysLeft} dní!`;
+  // Termín. FIX-276: podmínka `daysLeft < 30` neměla spodní hranici, takže
+  //   prošlý termín hlásil „Deadline za −88 dní!". Formulace zůstává věcná –
+  //   appka konstatuje, nehodnotí („Termín uplynul", ne „Nestihl jsi to").
+  if (deadlineInfo && pct < 100) {
+    const d = deadlineInfo.daysLeft;
+    if (d < 0)        { mood = '🔴'; moodText = `Termín uplynul před ${_goalDnu(d,'pred')}`; }
+    else if (d === 0) { mood = '🔴'; moodText = 'Termín je dnes'; }
+    else if (d < 30)  { mood = '🔴'; moodText = `Zbývá ${_goalDnu(d)}`; }
   }
 
   return { saved, target, pct, remaining, monthly, monthsLeft, deadlineInfo, mood, moodText };
@@ -538,7 +556,7 @@ function goalBuildCard(goal) {
         ≈ ${st.monthsLeft} měsíců
       </div>` : ''}
       ${st.deadlineInfo ? `<div style="font-size:.75rem;padding:4px 10px;background:${st.deadlineInfo.daysLeft<30?'rgba(248,113,113,.1)':'var(--surface3)'};border-radius:8px;color:${st.deadlineInfo.daysLeft<30?'var(--expense)':'var(--text2)'}">
-        ⏰ ${fmtD(st.deadlineInfo.date)} ${st.deadlineInfo.daysLeft>0?`(za ${st.deadlineInfo.daysLeft} dní)`:'(dnes!)'}
+        ⏰ ${fmtD(st.deadlineInfo.date)} ${st.deadlineInfo.daysLeft>0?`(zbývá ${_goalDnu(st.deadlineInfo.daysLeft)})`:st.deadlineInfo.daysLeft===0?'(dnes)':`(před ${_goalDnu(st.deadlineInfo.daysLeft,'pred')})`}
       </div>` : ''}
     </div>
 

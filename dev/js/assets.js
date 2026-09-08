@@ -1,4 +1,4 @@
-//  FinanceFlow · v9.91 · assets.js · 2026-08-19
+//  FinanceFlow · v10.31 · assets.js · 2026-09-02
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -15,9 +15,15 @@ const ASSET_TYPES = {
 // S12.1k: skupiny dle LIKVIDITY (Gemini struktura) – peněženky = likvidní vrstva
 const LIQ_GROUPS = {
   wallets: { label: 'Peněženky',                     icon: '👛', color: '#60a5fa', desc: 'běžné účty, hotovost, kreditka' },
+  virtual: { label: 'Virtuální přesuny',              icon: '📋', color: '#c084fc', desc: 'peníze odložené na cíle – nejde o investici, jen o rezervaci vlastních peněz' },
   reserve: { label: 'Finanční rezerva',              icon: '🛟', color: '#22d3ee', desc: 'spoření, spořicí účet, termínovaný vklad – likvidní' },
   mid:     { label: 'Střednědobá a investiční aktiva', icon: '📈', color: '#10b981', desc: 'akcie, ETF, fondy, krypto' },
   fixed:   { label: 'Fyzická a dlouhodobá aktiva',   icon: '🏠', color: '#f59e0b', desc: 'nemovitosti, auta, penzijko, drahé kovy' },
+  // FIX-285 (S20, Milan): virtuální přesuny STOJÍ MIMO investice. „Vklad do cíle"
+  //   se doposud choval jako investiční aktivum (kategorie „Virtuální přesun"
+  //   nespadala do žádného vzoru v assetCatLiq → default 'mid'), takže peníze
+  //   odložené na cíl nafukovaly částku „investováno". Je to ale jen přehození
+  //   v rámci vlastních peněz, ne investice.
 };
 
 // ADR-076b: stupeň likvidity přesunové kategorie → určuje sekci aktiva
@@ -26,15 +32,30 @@ function assetCatLiq(catId){
   const cc = ((typeof S!=='undefined' && S.categories) || []).find(x => x.id === catId);
   if (!cc) return null;
   if (cc.liq === 'reserve' || cc.liq === 'mid' || cc.liq === 'long') return cc.liq; // ruční nastavení
-  const n = (cc.name || '').toLowerCase(); // odvození podle názvu (výchozí)
-  if (/rezerv|spoř|spor|stavebn|termín|termin|vkladn/.test(n)) return 'reserve';
+  return assetLiqFromName(cc.name);
+}
+
+// S21 (Milan): odhad podle NÁZVU vytažen zvlášť, aby ho mohla použít i nápověda
+//   ve správě kategorií (dřív šel odhad vidět až ve Finančních aktivech, takže
+//   se špatné zařazení odhalilo pozdě – viz FIX-303).
+function assetLiqFromName(name){
+  const n = (name || '').toLowerCase();
+  if (!n) return null;
+  if (/virtuáln|virtualn/.test(n)) return 'virtual';   // FIX-285: cíle nejsou investice
+  // FIX-303 (S21): POŘADÍ TESTŮ ROZHODUJE. Vzor 'spoř' je podřetězcem názvů jako
+  //   „Penzijní spoření" nebo „Doplňkové penzijní spoření" – když se testoval dřív,
+  //   skončily peníze vázané do 60 let v LIKVIDNÍ REZERVĚ. Emergency fund
+  //   („kolik měsíců přežiju bez příjmu") tím nadhodnocoval bezpečnostní polštář
+  //   o částku, ke které se uživatel bez sankce nedostane. Dlouhodobé vzory
+  //   proto musí jít PRVNÍ – jsou specifičtější.
   if (/penzij|důchod|duchod|dlouhodob/.test(n)) return 'long';
+  if (/rezerv|spoř|spor|stavebn|termín|termin|vkladn/.test(n)) return 'reserve';
   return 'mid';
 }
 // Do které sekce aktivum patří: 'reserve' | 'mid' | 'fixed'
 function assetTier(a){
   if (a.linkedCatId){ const t = assetCatLiq(a.linkedCatId); if (t) return (t === 'long') ? 'fixed' : t; }
-  if (a.liqTier === 'reserve' || a.liqTier === 'mid' || a.liqTier === 'fixed') return a.liqTier;
+  if (a.liqTier === 'reserve' || a.liqTier === 'mid' || a.liqTier === 'fixed' || a.liqTier === 'virtual') return a.liqTier;
   if (a.type === 'investment') return 'mid';
   if (a.type === 'savings')    return 'reserve';
   return 'fixed'; // property / vehicle / custom
@@ -204,7 +225,7 @@ function renderAssets() {
       <div style="font-size:1.6rem;font-weight:800;font-family:Syne,sans-serif;color:${netWorth>=0?'var(--income)':'var(--expense)'};margin-bottom:10px">
         ${fmtBP(netWorth)}
       </div>
-      ${(()=>{ // S14: 5 karet – Peněženky, Finanční rezerva, Střednědobá, Fyzická, Závazky
+      ${(()=>{ // S14: karty dle likvidity + Závazky. FIX-285: virtuální přesuny zvlášť.
         const lt = assetLiqTotals(D);
         const cards = [
           {label:'Peněženky',    val:lt.wallets,  color:'#60a5fa'},
@@ -213,12 +234,39 @@ function renderAssets() {
           {label:'Fyzická',      val:lt.fixed,    color:'#f59e0b'},
           {label:'Závazky',      val:-totalDebts, color:'#f87171'},
         ];
+        // FIX-285 (Milan): „Z toho virtuální přesuny" – peníze odložené na cíle
+        //   snižují zůstatek peněženky (odtud záporné číslo u Peněženek), ale
+        //   nikam z majetku neodešly. Bez tohoto řádku to vypadá, že peníze zmizely.
+        //   Není to šestá karta – je to ROZPAD už započítané částky, ne přírůstek.
+        const virt = lt.virtual || 0;
+        const virtRows = (D.assets||[]).filter(a=>assetTier(a)==='virtual')
+          .sort((x,y)=>(y.value||0)-(x.value||0));
         return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px">
           ${cards.map(cd=>`<div style="text-align:center;padding:9px 6px;background:var(--surface3);border-radius:10px;border-top:2px solid ${cd.color}">
             <div style="font-size:.84rem;font-weight:800;color:${cd.color};font-family:Syne,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fmtBP(cd.val)}</div>
             <div style="font-size:.72rem;color:${cd.color};font-weight:700;margin-top:3px">${cd.label}</div>
           </div>`).join('')}
-        </div>`; })()}
+        </div>
+        ${virt!==0?`<div style="margin-top:0;padding-top:0;position:relative">
+          <!-- FIX-290 (Milan): šipka VEDE OD DLAŽDICE „PENĚŽENKY" (první v mřížce) –
+               odtud ty peníze odešly. Bez ní řádek vypadal jako další nezávislá
+               položka a nebylo poznat, proč mají Peněženky záporné číslo. -->
+          <div style="display:flex;align-items:flex-start;gap:6px;padding-left:10px;margin-top:2px">
+            <span style="color:#c084fc;font-size:1rem;line-height:1;margin-top:-2px">⤷</span>
+            <div style="flex:1;border-left:2px solid #c084fc;padding-left:10px;margin-top:4px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:#c084fc;font-weight:700">
+                <span>📋 Z toho virtuální přesuny</span><span>${fmtBP(virt)}</span>
+              </div>
+              ${virtRows.map(a=>`<div style="display:flex;justify-content:space-between;font-size:.74rem;color:#a8aec8;margin-top:4px">
+            <span>${a.icon||'📋'} ${escHtml(a.name||'')}</span><span>${fmtBP(a.value||0)}</span>
+          </div>`).join('')}
+              <div style="font-size:.7rem;color:#8b91a8;margin-top:6px;line-height:1.45">
+                Peníze odložené na cíle. Odešly z peněženky, ale z majetku ne – proto je
+                u Peněženek záporné číslo. Nejde o investici.
+              </div>
+            </div>
+          </div>
+        </div>`:''}`; })()}
     </div>
 
     <!-- Session 10 TODO-090: Asset Allocation – rozložení majetku -->
@@ -245,59 +293,133 @@ function renderAssetAllocation(D) {
   const cont = document.getElementById('assetAllocationCard');
   if (!cont) return;
   D = D || getData();
-  const nw = computeAssetsNetWorth(D);
 
-  // Sestav segmenty: typy aktiv + peněženky
-  const segs = [];
-  ASSET_TABS.forEach(t => {
-    const v = nw.byType[t] || 0;
-    if (v > 0) segs.push({ name: ASSET_TYPES[t].label, color: ASSET_TYPES[t].color, icon: ASSET_TYPES[t].icon, value: v });
-  });
-  if ((nw.totalWallets||0) > 0) segs.push({ name: 'Peněženky', color: '#94a3b8', icon: '👛', value: nw.totalWallets });
+  // FIX-288 (S20, Milan): graf členil podle a.type, takže (a) nesouhlasil s členěním
+  //   v kartě Čisté jmění ani se sekcemi pod ním, (b) cíle byly schované v Investicích
+  //   a (c) Peněženky se při ZÁPORNÉM zůstatku nezobrazily vůbec (podmínka `> 0`),
+  //   což je přesně Milanův případ (−19 500 Kč). Nyní se používá STEJNÉ členění
+  //   dle likvidity (LIQ_GROUPS) jako všude jinde na stránce.
+  const lt = assetLiqTotals(D);
+  const ORDER = ['wallets','virtual','reserve','mid','fixed'];
+  const segs = ORDER
+    .map(k => ({ key:k, name: LIQ_GROUPS[k].label, color: LIQ_GROUPS[k].color,
+                 icon: LIQ_GROUPS[k].icon, value: lt[k] || 0 }))
+    .filter(x => x.value !== 0);
 
-  const total = segs.reduce((s,x)=>s+x.value,0);
-  if (!segs.length || total <= 0) {
-    cont.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-body" style="text-align:center;padding:18px;color:var(--text3);font-size:.8rem">
+  // Koláč umí jen kladné výseče. Záporné složky (přečerpaný účet, kreditka)
+  // se proto ukazují pod grafem jako odečet – zamlčet je by znamenalo, že součty nesedí.
+  const pos = segs.filter(x => x.value > 0);
+  const neg = segs.filter(x => x.value < 0);
+  const totalPos = pos.reduce((a,x) => a + x.value, 0);
+  const netTotal = segs.reduce((a,x) => a + x.value, 0);
+
+  if (!segs.length || totalPos <= 0) {
+    cont.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-body" style="text-align:center;padding:18px;color:#a8aec8;font-size:.8rem">
       📊 Přidej aktiva pro zobrazení rozložení majetku</div></div>`;
     return;
   }
 
-  segs.sort((a,b)=>b.value-a.value);
-
-  // SVG donut – conic přes stroke-dasharray na kružnici
-  const R = 52, CX = 60, CY = 60, C = 2 * Math.PI * R;
-  let offset = 0;
-  const arcs = segs.map(s => {
-    const frac = s.value / total;
-    const dash = C * frac;
-    const arc = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${s.color}" stroke-width="14"
-      stroke-dasharray="${dash} ${C-dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${CX} ${CY})"
-      style="transition:stroke-dashoffset .5s"/>`;
-    offset += dash;
-    return arc;
+  // Donut. viewBox 240 + width:100% + max-width + preserveAspectRatio – bez toho
+  // se SVG s malým viewBoxem na desktopu roztáhne (pravidlo z dřívějších grafů).
+  const R = 88, RI = 62, CX = 120, CY = 120;
+  const polar = (cx,cy,r,deg) => { const a=(deg-90)*Math.PI/180; return [cx+r*Math.cos(a), cy+r*Math.sin(a)]; };
+  const arcPath = (a0,a1) => {
+    const large = (a1-a0) > 180 ? 1 : 0;
+    const [x0,y0]=polar(CX,CY,R,a0),  [x1,y1]=polar(CX,CY,R,a1);
+    const [u1,v1]=polar(CX,CY,RI,a1), [u0,v0]=polar(CX,CY,RI,a0);
+    return `M${x0} ${y0} A${R} ${R} 0 ${large} 1 ${x1} ${y1} L${u1} ${v1} A${RI} ${RI} 0 ${large} 0 ${u0} ${v0} Z`;
+  };
+  // FIX-289 (Milan): drobné položky byly nečitelné – 0,3 % = 1 stupeň, tedy vlasová
+  //   čárka. Každá výseč dostane MINIMÁLNĚ 8°, aby šla trefit myší i prstem;
+  //   chybějící stupně se stráhnou z velkých výsečí poměrně. Částky a procenta
+  //   v legendě zůstávají přesné – zkresluje se jen kresba, ne čísla.
+  const MIN_DEG = 8;
+  const rawSweeps = pos.map(x => x.value / totalPos * 360);
+  const smallIdx = rawSweeps.map((d,i)=>d<MIN_DEG?i:-1).filter(i=>i>=0);
+  const borrowed = smallIdx.reduce((a,i)=>a+(MIN_DEG-rawSweeps[i]),0);
+  const bigTotal = rawSweeps.reduce((a,d,i)=>a+(smallIdx.includes(i)?0:d),0);
+  const sweeps = rawSweeps.map((d,i)=>{
+    if (smallIdx.includes(i)) return MIN_DEG;
+    return bigTotal > 0 ? d - borrowed * (d / bigTotal) : d;
+  });
+  let ang = 0;
+  const slices = pos.map((x,i) => {
+    const sweep = sweeps[i];
+    // mezera mezi výsečemi jen když je výseč dost velká, jinak by drobné zmizely
+    const gap = sweep > 6 ? 1.2 : 0;
+    const d = arcPath(ang + gap/2, ang + sweep - gap/2);
+    ang += sweep;
+    const pct = Math.round(x.value/totalPos*100);
+    return `<path d="${d}" fill="${x.color}" opacity=".9" style="cursor:pointer;transition:opacity .15s"
+      onmouseover="allocFocus(${i},'${x.color}');this.style.opacity='1'"
+      onmouseout="allocFocus(-1);this.style.opacity='.9'"><title>${x.icon} ${x.name}: ${fmtBP(x.value)} (${pct} %)</title></path>`;
   }).join('');
 
-  const legend = segs.map(s => {
-    const pct = Math.round(s.value/total*100);
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:.76rem">
-      <span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:${s.color};display:inline-block"></span>${s.icon} ${s.name}</span>
-      <span style="color:var(--text3)"><strong style="color:var(--text)">${fmtBP(s.value)}</strong> · ${pct}%</span>
+  window._allocSegs = pos.map(x => ({ name:x.name, icon:x.icon, value:x.value,
+                                      pct: Math.round(x.value/totalPos*100) }));
+  window._allocTotal = netTotal;
+
+  const legend = segs.map((x,i) => {
+    const isNeg = x.value < 0;
+    const pct = isNeg ? null : Math.round(x.value/totalPos*100);
+    const idx = isNeg ? -1 : pos.indexOf(x);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)${isNeg?';opacity:.85':''}"
+      ${idx>=0?`onmouseover="allocFocus(${idx},'${x.color}')" onmouseout="allocFocus(-1)"`:''}
+      >
+      <span style="display:flex;align-items:center;gap:7px;min-width:0;font-size:.78rem;flex:1">
+        <span style="width:10px;height:10px;border-radius:3px;background:${x.color};display:inline-block;flex-shrink:0"></span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.icon} ${x.name}</span>
+      </span>
+      <span style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;line-height:1.25">
+        <strong style="font-size:.78rem;white-space:nowrap;color:${isNeg?'var(--expense)':'var(--text)'}">${fmtBP(x.value)}</strong>
+        ${pct!==null?`<span style="font-size:.68rem;color:#8b91a8;white-space:nowrap">${pct} % majetku</span>`:''}
+      </span>
     </div>`;
   }).join('');
 
   cont.innerHTML = `
     <div class="card" style="margin-bottom:16px">
       <div class="card-header"><span class="card-title">📊 Rozložení majetku</span></div>
-      <div class="card-body" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-        <svg viewBox="0 0 120 120" style="width:120px;height:120px;flex-shrink:0">
-          ${arcs}
-          <text x="60" y="56" text-anchor="middle" font-size="9" fill="var(--text3)">Celkem</text>
-          <text x="60" y="70" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)">${(total/1000).toFixed(0)}k</text>
-        </svg>
-        <div style="flex:1;min-width:160px">${legend}</div>
+      <div class="card-body">
+        <div style="display:flex;justify-content:center;margin:4px 0 14px">
+          <svg id="allocDonut" viewBox="0 0 240 240" preserveAspectRatio="xMidYMid meet"
+               style="width:100%;max-width:240px;height:auto">
+            ${slices}
+            <text id="allocLabel" x="120" y="112" text-anchor="middle" font-size="11" fill="#a8aec8">Celkem</text>
+            <text id="allocValue" x="120" y="132" text-anchor="middle" font-size="19" font-weight="700"
+                  font-family="Syne,sans-serif" fill="${netTotal>=0?'var(--income)':'var(--expense)'}">${fmtBP(netTotal)}</text>
+            <text id="allocSub" x="120" y="150" text-anchor="middle" font-size="10" fill="#8b91a8"></text>
+          </svg>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:7px">${legend}</div>
+        ${neg.length?`<div style="font-size:.7rem;color:#8b91a8;margin-top:10px;line-height:1.45">
+          ℹ️ ${neg.map(n=>n.name).join(', ')} ${neg.length>1?'mají':'má'} záporný zůstatek, takže ${neg.length>1?'nejsou':'není'} ve výsečích – od celku se odečítá${neg.length>1?'jí':''}.
+        </div>`:''}
       </div>
     </div>`;
 }
+
+// FIX-288: hover nad výsečí nebo legendou přepisuje střed donutu.
+function allocFocus(i, color) {
+  const lab = document.getElementById('allocLabel');
+  const val = document.getElementById('allocValue');
+  const sub = document.getElementById('allocSub');
+  if (!lab || !val || !sub) return;
+  const segs = window._allocSegs || [];
+  if (i < 0 || !segs[i]) {
+    lab.textContent = 'Celkem';
+    val.textContent = (typeof fmtBP==='function') ? fmtBP(window._allocTotal||0) : (window._allocTotal||0);
+    val.setAttribute('fill', (window._allocTotal||0) >= 0 ? 'var(--income)' : 'var(--expense)');
+    sub.textContent = '';
+    return;
+  }
+  const s = segs[i];
+  lab.textContent = `${s.icon} ${s.name}`;
+  val.textContent = (typeof fmtBP==='function') ? fmtBP(s.value) : s.value;
+  val.setAttribute('fill', color || 'var(--text)');
+  sub.textContent = `${s.pct} % majetku`;
+}
+window.allocFocus = allocFocus;
 
 function assetsSetTab(tab) {
   _assetsTab = tab;
@@ -337,7 +459,7 @@ function renderAssetsTab(D) {
 // S12.1k: součty dle likvidity (peněženky = liquid)
 function assetLiqTotals(D){
   D = D || getData();
-  const out = { wallets: 0, reserve: 0, mid: 0, fixed: 0 };
+  const out = { wallets: 0, reserve: 0, mid: 0, fixed: 0, virtual: 0 };  // FIX-285
   out.wallets = (D.wallets||[]).reduce((s,w)=>s+(typeof walletBalanceCZK==='function'?walletBalanceCZK(w.id,D):(typeof computeWalletBalance==='function'?computeWalletBalance(w.id,D):(w.balance||0))),0);
   (D.assets||[]).forEach(a=>{ const t=assetTier(a); out[t]=(out[t]||0)+(a.value||0); });
   return out;
@@ -352,11 +474,13 @@ function assetBuildLiquiditySections(D){
     const isWallets = key === 'wallets';
     const assets = isWallets ? [] : (D.assets||[]).filter(a=>assetTier(a)===key).sort((x,y)=>(y.value||0)-(x.value||0));
     const hasContent = isWallets ? (D.wallets||[]).length : assets.length;
-    html += `<div style="margin:16px 0 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
-      <span style="font-size:.8rem;font-weight:800;color:${g.color}">${g.icon} ${g.label}</span>
+    // FIX-285b (Milan): virtuální přesuny navazují na Peněženky – šipka ukazuje,
+    //   že ty peníze přišly odtud, ne že jde o další nezávislý majetek.
+    html += `<div style="margin:${key==='virtual'?'4px':'16px'} 0 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px${key==='virtual'?';padding-left:16px;border-left:2px solid '+g.color+';margin-left:4px':''}">
+      <span style="font-size:.8rem;font-weight:800;color:${g.color}">${key==='virtual'?'↳ ':''}${g.icon} ${g.label}</span>
       <span style="font-size:.84rem;font-weight:800;color:${g.color}">${fmtBP(lt[key]||0)}</span>
     </div>
-    <div style="font-size:.74rem;color:#a8aec8;margin:-2px 0 8px">${g.desc}</div>`;
+    <div style="font-size:.74rem;color:#a8aec8;margin:-2px 0 8px${key==='virtual'?';padding-left:20px':''}">${g.desc}</div>`;
     if(!hasContent){
       html += `<div style="font-size:.72rem;color:var(--text3);padding:6px 2px">Zatím nic${(isWallets||ro)?'':' – přidej tlačítkem „+ Přidat" nebo přes Přesun'}</div>`;
       return;

@@ -1,3 +1,4 @@
+// FinanceFlow · v10.14 · import.js · 2026-08-28
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -382,7 +383,11 @@ function guessCategoryFromKeyword(name) {
     if(n.includes((c.name||'').toLowerCase()) && c.name.length>=3) {
       return {catId: c.id, catName: c.name, subcat: ''};
     }
-    for(const sub of (c.subcats||c.subcategories||[])) {
+    // FIX-277 (S20): pole se v celé appce jmenuje `subs` (categories.json,
+    //   stats.js, ui.js, admin.js, helpers.js, charts.js). `subcats` byl
+    //   jediný výskyt v celém kódu → smyčka nikdy neproběhla a import
+    //   NIKDY nenavrhl podkategorii. Nic nespadlo, jen se to tiše nekonalo.
+    for(const sub of (c.subs||c.subcats||c.subcategories||[])) {
       const subName = typeof sub==='string'?sub:(sub?.name||'');
       if(subName.length>=3 && n.includes(subName.toLowerCase())) {
         return {catId: c.id, catName: c.name, subcat: subName};
@@ -1057,13 +1062,18 @@ function calcDupScore(r, existing) {
 
 // FIX-055: Vytvoří cached index existujících transakcí pro rychlé porovnávání.
 // Volá se jednou v openImportEditor, pole `existing` se předá obohacené (in-place na shallow copy).
-function buildExistingIndex(existing) {
+function buildExistingIndex(existing, D) {
   return existing.map(t => {
     const name = (t.name||'').toLowerCase().trim();
     return {
       ...t,
       _ts: t.date ? new Date(t.date).getTime() : (t.created ? new Date(t.created).getTime() : NaN),
-      _amt: t.amount || t.amt || 0,
+      // FIX-275 (S20): PŘES txCZK, ne t.amount (SKILL 20). Bankovní výpis nese
+      //   částku v MĚNĚ ÚČTU (CZK), zatímco existující transakce může být v cizí
+      //   měně – 100 EUR má amount=100, ale reálně stálo 2500 Kč. Porovnávat
+      //   2500 (z výpisu) proti 100 (amount) znamenalo 0 bodů za částku a
+      //   duplikát tiše propadl → transakce se naimportovala podruhé.
+      _amt: (typeof txCZK === 'function') ? txCZK(t, D) : (t.amount || t.amt || 0),
       _nameLow: name,
       _words: name ? name.split(/\s+/).filter(w => w.length > 2) : [],
     };
@@ -1092,7 +1102,7 @@ async function openImportEditor(filename) {
   }
 
   // FIX-055: Pre-cache existujících transakcí pro rychlé porovnání
-  const existingIdx = buildExistingIndex(existing);
+  const existingIdx = buildExistingIndex(existing, D);
 
   // FIX-055: Pre-cache importovaných řádků (timestampy, lowercase názvy, slova)
   _importRows.forEach(r => {

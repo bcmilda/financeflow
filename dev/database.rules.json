@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v9.75 · 2026-08-03 (uzel reviews: zapis jen na vlastni uid, validace hvezdicek 1-5 a delky textu) (S18.3: validace delky u milestones – zapis je uz kryty kaskadou .write z users/$uid, nove pravidlo netreba. S17.33: číslování sjednoceno s appkou. S17.27: BEZPEČNOSTNÍ FIX – validace users/$uid/premium brání self-upgradu; aiUsage monotónní. S17.29: admin write na premium + uzel banned. S17.26/28: stripeCustomers, premiumLog, stats/founderCount)
+// FinanceFlow · database rules · v10.51 · 2026-09-04 (S21: novy uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
 {
   "rules": {
     "users": {
@@ -7,8 +7,7 @@
         ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === $uid",
         "data": {
-          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-          "transactions": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
             "$txId": {
               "name": {
                 ".validate": "!newData.isString() || newData.val().length < 300"
@@ -51,11 +50,50 @@
             ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || data.val() !== true || newData.val() === true"
           }
         },
+        "shared": {
+          ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || (root.child('users').child($uid).child('householdId').val() !== null && root.child('users').child($uid).child('householdId').val() === root.child('users').child(auth.uid).child('householdId').val() && root.child('households').child(root.child('users').child($uid).child('householdId').val()).child('members').child(auth.uid).val() === true) || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          "transactions": {
+            "$txId": {
+              "name": {
+                ".validate": "!newData.isString() || newData.val().length < 300"
+              },
+              "note": {
+                ".validate": "!newData.isString() || newData.val().length < 1000"
+              }
+            }
+          }
+        },
         "settings": {
           ".read": "auth.uid === $uid"
         },
         "partners": {
-          ".read": "auth.uid === $uid"
+          ".read": "auth.uid === $uid",
+          // FIX-312 (S21): tenhle uzel znamena "kdo smi cist ME". Zapsat sem smi vlastnik
+          //   vzdy; POZVANY navic sam sebe, kdyz predlozi platny token z users/{uid}/invites.
+          //   Diky tomu jedno kliknuti na pozvanku propoji OBE strany - dosud musel kazdy
+          //   pridat toho druheho zvlast a nez to udelali oba, nevidel nikdo nic.
+          // POZOR: komentar musi byt radkovy. Klic "//" s textovou hodnotou Firebase chape
+          //   jako nazev uzlu a spadne na: Syntax error ... Expected '{'.
+          "$pid": {
+            ".write": "auth.uid === $uid || (auth.uid === $pid && !data.exists() && newData.exists() && root.child('users').child($uid).child('invites').child(newData.child('token').val()).val() === true)",
+            ".validate": "newData.isBoolean() || (newData.hasChildren(['token']) && newData.child('token').isString() && newData.child('token').val().length < 64)"
+          }
+        },
+        // Pozvankove tokeny. Cte a zapisuje jen vlastnik; pravidlo vyse si hodnotu overuje
+        //   serverove pres root.child(), na to cteci pravo potreba neni.
+        //   Smazanim tokenu prestane odkaz platit.
+        // FIX-319 (S21): moje příslušnost k domácnosti. Cteni potrebuje KAZDY clen
+        //   (pravidlo shared/.read si ji overuje pres root.child), zapisovat smi
+        //   jen vlastnik – diky tomu me nikdo nemuze do skupiny vtahnout bez me.
+        "householdId": {
+          ".read": "auth != null",
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length > 8 && newData.val().length < 64)"
+        },
+        "invites": {
+          ".read": "auth.uid === $uid",
+          "$token": {
+            ".validate": "newData.isBoolean()"
+          }
         },
         "categoryMappings": {
           ".read": "auth.uid === $uid",
@@ -102,6 +140,26 @@
         ".validate": "newData.hasChildren(['uid','at'])"
       }
     },
+    // TODO-256 (S21): NAHROBKY SMAZANYCH UCTU. Mimo users/, aby prezily smazani
+    //   podstromu. Obsahuji POUZE uid (klic), datum a HASH e-mailu – zadna data.
+    //   Ucel: odlisit „ucet nikdy neexistoval" od „byl smazan", dohledat
+    //   premiumLog, ktery u smazaneho uid nema k cemu patrit, a poznat opakovane
+    //   zakladani a mazani tehoz e-mailu (zneuziti trialu).
+    //   Zapsat smi uzivatel JEN SAM SEBE a jen jednou (!data.exists()) – nikdo
+    //   tedy nemuze „oznacit za smazany" cizi ucet ani svuj nahrobek prepsat.
+    //   Cist smi vyhradne admin.
+    "deletedAccounts": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".write": "auth.uid === $uid && !data.exists()",
+        ".validate": "newData.hasChildren(['at'])",
+        "at":            { ".validate": "newData.isNumber()" },
+        "emailHash":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)" },
+        "melPredplatne": { ".validate": "newData.isBoolean()" },
+        "stripeZrusen":  { ".validate": "!newData.exists() || newData.isBoolean()" }
+      }
+    },
+
     "banned": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$uid": {
@@ -125,14 +183,45 @@
         ".write": false
       }
     },
+    // FIX-319 (S21): DOMACNOST JAKO SKUPINA. Pozvanka pro dvojici (FIX-312) resi
+    //   jen dvojici – treti clovek potrebuje pozvanku zvlast od kazdeho, coz je
+    //   porad N*(N-1). Ve skupine plati: kdo je v members, vidi vsechny ostatni
+    //   v members. Pridani ctvrteho ho propoji se vsemi najednou.
+    //   Clenstvi drzi DVA uzly a cteni vyzaduje OBA: households/{hid}/members/{uid}
+    //   (skupina me zna) a users/{uid}/householdId (ja tu skupinu uznavam).
+    //   Kazdy si pise ten svuj – nikdo me tedy nevtahne dovnitr ani se nevecpe zvenku.
+    "households": {
+      "$hid": {
+        ".read": "root.child('households').child($hid).child('members').child(auth.uid).val() === true",
+        "meta": {
+          ".write": "!data.exists() || data.child('owner').val() === auth.uid",
+          "owner":     { ".validate": "newData.val() === auth.uid || newData.val() === data.val()" },
+          "name":      { ".validate": "newData.isString() && newData.val().length < 60" },
+          "joinOpen":  { ".validate": "newData.isBoolean()" },
+          "createdAt": { ".validate": "newData.isNumber()" }
+        },
+        "members": {
+          // Pripsat smim JEN SAM SEBE a jen kdyz je skupina otevrena.
+          // Odebrat smim sebe (odchod) nebo me smi odebrat vlastnik (vyhozeni).
+          "$uid": {
+            ".write": "(auth.uid === $uid && newData.exists() && root.child('households').child($hid).child('meta').child('joinOpen').val() === true) || (!newData.exists() && (auth.uid === $uid || root.child('households').child($hid).child('meta').child('owner').val() === auth.uid))",
+            ".validate": "newData.isBoolean()"
+          }
+        }
+      }
+    },
     "community": {
       "$monthKey": {
         "users": {
-          ".read": "auth != null",
-          "$uid": {
-            ".write": "auth.uid === $uid",
+          "$pid": {
+            ".read": "root.child('users').child(auth.uid).child('communityId').val() === $pid || auth.uid === $pid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+            ".write": "root.child('users').child(auth.uid).child('communityId').val() === $pid || (auth.uid === $pid && !newData.exists())",
             ".validate": "newData.hasChildren(['updatedAt'])"
           }
+        },
+        "aggregate": {
+          ".read": "auth != null",
+          ".write": false
         }
       },
       "itemTags": {

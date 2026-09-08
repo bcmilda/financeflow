@@ -1,4 +1,4 @@
-// FinanceFlow · v10.05 · ui.js · 2026-08-28
+// FinanceFlow · v10.49 · ui.js · 2026-09-04
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -39,6 +39,7 @@ function renderPage(){
     if(typeof renderSettingsPage==='function') renderSettingsPage();
     else if(typeof applySettings==='function') applySettings();
   }
+  if(curPage==='ucet' && typeof renderUcetPage==='function') renderUcetPage();   // TODO-233
   if(curPage==='sdileni')renderSdileni();
   if(curPage==='projekty')renderProjectGrid();
   if(curPage==='projektDetail'&&_currentProjectId)renderProjectDetail(_currentProjectId);
@@ -305,6 +306,123 @@ function renderSummaryCards(){
 //  DASHBOARD
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  TODO-234: ONBOARDING KROK 1 – uvítací nastavení (S20)
+//  Jednorázový modal pro NOVÉHO uživatele. Krok 2 je karta „Dokonči nastavení"
+//  níže, krok 3 bude tutoriál v uživatelském menu (TODO-233).
+//
+//  Proč to vzniklo (FIX-264 + TODO-227):
+//   · nový uživatel měl prázdné rozbalovátko peněženek a nevěděl proč
+//   · `_settings.hasDebts` čte Finanční skóre (premium.js), ale NEBYLO KDE HO ZADAT –
+//     „nemám dluh" a „ještě jsem ho nezadal" vypadá v datech stejně, takže se
+//     uživateli bez dluhu složka S2 do skóre vůbec nezapočítala
+//
+//  ⚠️ Zobrazuje se jen tomu, kdo ho opravdu nevidel. Absence `onboarded` u
+//  STÁVAJÍCÍHO uživatele neznamená „nový uživatel" (SKILL 31) – proto se
+//  kontroluje i to, že nemá žádné transakce, a stávajícím se příznak tiše dopíše.
+// ══════════════════════════════════════════════════════
+function maybeShowOnboarding(D){
+  if(viewingUid) return;                      // prohlížím cizí účet, nic nenastavuju
+  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
+  if(!st) return;                             // nastavení ještě nedoběhlo z Firebase
+  if(st.onboarded) return;
+  const hasData = ((D&&D.transactions)||[]).length > 0;
+  if(hasData){
+    // Stávající uživatel bez příznaku – NEotravovat, jen si tiše poznamenat.
+    st.onboarded = true;
+    if(typeof persistSettings==='function') persistSettings();
+    return;
+  }
+  obFillDefaults();
+  const el = document.getElementById('modalOnboard');
+  if(el) el.classList.add('open');
+}
+// Naplní rozbalovátka aktuálními hodnotami (a dny 1–28 pro den výplaty).
+function obFillDefaults(){
+  const st = (typeof _settings!=='undefined' && _settings) ? _settings : {};
+  const fd = document.getElementById('obFirstDay');
+  if(fd && !fd.options.length){
+    let html = '<option value="0">🤖 Automaticky (z transakcí)</option>';
+    for(let d=1; d<=28; d++) html += `<option value="${d}">${d}. den</option>`;
+    fd.innerHTML = html;
+  }
+  const set = (id,val)=>{ const e=document.getElementById(id); if(e && val!=null) e.value=val; };
+  set('obLang', st.lang||'cs');
+  set('obCurrency', st.currency||'CZK');
+  set('obDateFmt', st.dateFmt||'cs');
+  set('obPayFreq', st.payFreq||'monthly');
+  set('obFirstDay', st.firstDay||0);
+  obToggleFirstDay();
+  obSetDebts(null);
+}
+// Den v měsíci dává smysl jen u měsíční a půlměsíční výplaty.
+function obToggleFirstDay(){
+  const f = document.getElementById('obPayFreq');
+  const w = document.getElementById('obFirstDayWrap');
+  if(!f || !w) return;
+  const show = (f.value==='monthly' || f.value==='semimonthly');
+  w.style.display = show ? '' : 'none';
+}
+// null = nezodpovězeno (výchozí). Vědomé „ne" je jiná informace než ticho.
+let _obHasDebts = null;
+function obSetDebts(v){
+  _obHasDebts = v;
+  const y=document.getElementById('obDebtYes'), n=document.getElementById('obDebtNo');
+  if(!y||!n) return;
+  y.className = (v===true)  ? 'btn btn-accent' : 'btn btn-ghost';
+  n.className = (v===false) ? 'btn btn-accent' : 'btn btn-ghost';
+}
+function skipOnboarding(){
+  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
+  if(st){ st.onboarded = true; if(typeof persistSettings==='function') persistSettings(); }
+  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
+  if(typeof showToast==='function') showToast('Nastavení najdeš kdykoliv v ⚙️ Nastavení');
+}
+function saveOnboarding(){
+  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
+  if(!st){ skipOnboarding(); return; }
+  const val = id => (document.getElementById(id)||{}).value;
+
+  st.lang     = val('obLang')     || 'cs';
+  st.currency = val('obCurrency') || 'CZK';
+  st.dateFmt  = val('obDateFmt')  || 'cs';
+  st.payFreq  = val('obPayFreq')  || 'monthly';
+  st.firstDay = parseInt(val('obFirstDay')) || 0;
+  // Nezodpovězeno se NEUKLÁDÁ jako false – to by skóre přiznalo body za bezdlužnost,
+  // kterou uživatel nepotvrdil (TODO-227).
+  if(_obHasDebts !== null) st.hasDebts = _obHasDebts;
+  st.onboarded = true;
+
+  // Peněženka: přejmenovat tu, kterou založila ensureBaseData, ne zakládat druhou.
+  const wName = (val('obWalletName')||'').trim();
+  if(wName && Array.isArray(S.wallets) && S.wallets.length === 1) S.wallets[0].name = wName;
+
+  // Typ platby: nový uživatel má S.payTypes prázdné, takže se založí ten vybraný
+  // a rovnou se nastaví jako výchozí pro novou transakci.
+  const ptName = (val('obPayType')||'').trim();
+  if(ptName){
+    if(!Array.isArray(S.payTypes)) S.payTypes = [];
+    let pt = S.payTypes.find(p => p && p.name === ptName);
+    if(!pt){
+      const icons = {'Karta':'💳','Hotovost':'💵','Převod':'🏦'};
+      pt = { id:(typeof uid==='function'?uid():'pt'+Date.now().toString(36)), name:ptName, icon:icons[ptName]||'💳' };
+      S.payTypes.push(pt);
+    }
+    st.defPayType = pt.id;
+  }
+  if(Array.isArray(S.wallets) && S.wallets.length === 1) st.defWallet = S.wallets[0].id;
+
+  if(typeof persistSettings==='function') persistSettings();
+  if(typeof save==='function') save();
+  if(typeof applySettings==='function') applySettings();
+  if(typeof applyLanguage==='function') applyLanguage();
+
+  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
+  if(typeof showToast==='function') showToast('✅ Hotovo – můžeš zapsat první transakci');
+  if(typeof forceRender==='function') forceRender();
+}
+
+// ══════════════════════════════════════════════════════
 //  S12.1b: ONBOARDING PRŮVODCE (Dokonči nastavení X/5)
 //  Karta na vrchu Přehledu pro nové uživatele. Každý krok
 //  vede přímo na správné místo. Zmizí po dokončení všech
@@ -333,6 +451,18 @@ function renderOnboardingCard(D){
       go:"openAutoLimitsModal()" },
     { icon:'👨‍👩‍👧', label:'Vyplň složení domácnosti', sub:'pro srovnání s průměry ČSÚ',
       done: (parseInt(st.household_adults)||0) > 0, go:"showPage('nastaveni')" },
+    // TODO-236 (S21, Milan): co se v onboardingu přeskočí, má skončit tady.
+    //   Pro uživatele, kteří onboardingem nikdy neprošli, je `onboardingSkipped`
+    //   undefined → krok je rovnou hotový a nikoho neotravuje (SKILL 31:
+    //   chybějící příznak neznamená „přeskočeno").
+    { icon:'👋', label:'Dokonči úvodní nastavení', sub:'jazyk, měna, formát data, frekvence výplaty',
+      done: st.onboardingSkipped !== true, go:"openOnboardingModal()" },
+    // Odpověď na otázku po půjčce odemyká S2 (zadluženost) ve Finančním skóre.
+    //   Podmínka je ZÁMĚRNĚ stejná jako `_debtsKnown` v premium.js – checklist
+    //   nesmí tvrdit něco jiného než skóre, které na tomtéž stojí.
+    { icon:'🏦', label:'Řekni, jestli máš půjčku nebo hypotéku', sub:'bez toho skóre nezná zadluženost a vynechá ji',
+      done: (D.debts||[]).length > 0 || st.hasDebts === false || st.hasDebts === true,
+      go:"openOnboardingModal()" },
   ];
   const doneCount = steps.filter(s=>s.done).length;
   if(doneCount === steps.length){ el.innerHTML=''; return; }
@@ -425,7 +555,9 @@ function renderTransferOverview(D){
   const el = document.getElementById('transferOverviewCard'); if(!el) return;
   if(typeof computeTransferTotals!=='function'){ el.innerHTML=''; return; }
   const T = computeTransferTotals(D);
-  const active = T.perCat.filter(p=>Math.abs(p.total)>0.01 || Math.abs(p.month)>0.01);
+  // FIX-286 (Milan): virtuální přesuny sem nepatří – nejsou to úspory ani investice,
+  //   jen si člověk odložil vlastní peníze na cíl. Zobrazují se v kartě Čistý majetek.
+  const active = T.perCat.filter(p=>p.group!=='virtual' && (Math.abs(p.total)>0.01 || Math.abs(p.month)>0.01));
   if(!active.length){ el.innerHTML=''; return; }  // nic nasměrováno → kartu neukazuj
 
   const fmtK = v => (typeof fmt==='function'?fmt(Math.round(czkToBase(v))):Math.round(v)); // v8.60 (TODO-150): v základní měně
@@ -1230,10 +1362,140 @@ let _txTypeFilter = 'all';
 let _txSort = 'date';
 let _txSortDir = 'desc';
 
+// ══════════════════════════════════════════════════════════════════════
+//  S21 (Milan): TABULKA – SOUHRN MĚSÍC PO MĚSÍCI
+//  Seznam transakcí ukazuje vždycky jen jeden měsíc, takže odpověď na otázku
+//  „kolik toho vlastně zapisuju a jak to šlo v čase?\" v appce nebyla nikde.
+//  Tabulka jde napříč VŠEMI daty, ne jen aktuálním měsícem.
+//
+//  Počítá se přes txCZK (cizí měny) a bez přesunů, splitů a vyrovnání –
+//  stejná pravidla jako souhrnný odznak nad seznamem, ať si čísla nesedí
+//  jenom náhodou (SKILL: agregace jednou, ne dvakrát různě).
+//  Sloupec „Záznamů\" ale počítá VŠECHNY transakce včetně přesunů, protože
+//  odpovídá na jinou otázku: kolik jsem toho zapsal, ne kolik jsem protočil.
+// ══════════════════════════════════════════════════════════════════════
+let _txTableOpen = false;
+let _txTableDir = 'desc';          // desc = nejnovější měsíc nahoře
+
+function txMonthlySummary(D){
+  const _statTx = t => !isTransferTx(t) && !t.splitParent && !t.isBalancing;
+  const mapa = new Map();
+  (D.transactions||[]).forEach(t=>{
+    if(!t || !t.date) return;
+    const d = new Date(t.date);
+    if(isNaN(d)) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
+    let r = mapa.get(key);
+    if(!r){ r = {y:d.getFullYear(), m:d.getMonth(), n:0, inc:0, exp:0}; mapa.set(key,r); }
+    r.n++;
+    if(!_statTx(t)) return;
+    if(t.type==='income')  r.inc += txCZK(t,D);
+    if(t.type==='expense') r.exp += txCZK(t,D);
+  });
+  return [...mapa.values()];
+}
+
+function toggleTxTable(btn){
+  _txTableOpen = !_txTableOpen;
+  if(btn) btn.classList.toggle('active', _txTableOpen);
+  renderTxMonthTable();
+}
+function setTxTableDir(){
+  _txTableDir = _txTableDir === 'desc' ? 'asc' : 'desc';
+  renderTxMonthTable();
+}
+
+function renderTxMonthTable(){
+  const box = document.getElementById('txMonthTable');
+  const head = document.getElementById('txTableHead');
+  const list = document.getElementById('txList');
+  if(!box) return;
+  box.style.display = _txTableOpen ? 'block' : 'none';
+  if(head) head.style.display = _txTableOpen ? 'none' : '';
+  if(list) list.style.display = _txTableOpen ? 'none' : '';
+  if(!_txTableOpen){ box.innerHTML=''; return; }
+
+  const D = getData();
+  const rows = txMonthlySummary(D);
+  if(!rows.length){
+    box.innerHTML = '<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Zatím žádné transakce</div></div>';
+    return;
+  }
+  rows.sort((a,b)=> _txTableDir==='desc'
+    ? (b.y-a.y) || (b.m-a.m)
+    : (a.y-b.y) || (a.m-b.m));
+
+  const celkemN   = rows.reduce((a,r)=>a+r.n,0);
+  const celkemInc = rows.reduce((a,r)=>a+r.inc,0);
+  const celkemExp = rows.reduce((a,r)=>a+r.exp,0);
+  const prumerN   = Math.round(celkemN/rows.length*10)/10;
+  const maxN      = Math.max(...rows.map(r=>r.n), 1);
+
+  const bunka = (obsah, styl='') =>
+    `<div style="padding:8px 10px;font-size:.78rem;${styl}">${obsah}</div>`;
+
+  box.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Celkem záznamů</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${celkemN}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Měsíců s daty</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${rows.length}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Průměr / měsíc</div>
+        <div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:800">${String(prumerN).replace('.',',')}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                background:var(--surface2);border-radius:9px 9px 0 0;border:1px solid var(--border);border-bottom:none;font-weight:700;font-size:.72rem;color:#c9cede">
+      ${bunka(`<span onclick="setTxTableDir()" style="cursor:pointer;user-select:none" title="Přepnout řazení">📅 Měsíc ${_txTableDir==='desc'?'↓':'↑'}</span>`)}
+      ${bunka('Záznamů', 'text-align:right')}
+      ${bunka('Příjmy', 'text-align:right')}
+      ${bunka('Výdaje', 'text-align:right')}
+      ${bunka('Saldo', 'text-align:right')}
+    </div>
+    <div style="border:1px solid var(--border);border-radius:0 0 9px 9px;overflow:hidden">
+      ${rows.map((r,i)=>{
+        const saldo = r.inc - r.exp;
+        const podil = Math.round(r.n/maxN*100);
+        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                     align-items:center;background:${i%2?'transparent':'rgba(255,255,255,.02)'}">
+          ${bunka(`<span style="font-weight:600">${CZ_M[r.m]} ${r.y}</span>`)}
+          ${bunka(`<span style="display:inline-block;min-width:26px;text-align:right;font-weight:700">${r.n}</span>
+                   <span style="display:inline-block;width:${Math.max(3,podil*0.34)}px;height:5px;border-radius:3px;background:#60a5fa;margin-left:6px;vertical-align:middle"
+                         title="${r.n} z nejsilnějšího měsíce (${maxN})"></span>`, 'text-align:right')}
+          ${bunka(`<span style="color:var(--income)">${r.inc?fmtB(r.inc):'—'}</span>`, 'text-align:right')}
+          ${bunka(`<span style="color:var(--expense)">${r.exp?fmtB(r.exp):'—'}</span>`, 'text-align:right')}
+          ${bunka(`<span style="font-weight:700;color:${saldo>=0?'var(--income)':'var(--expense)'}">${fmtB(saldo)}</span>`, 'text-align:right')}
+        </div>`;
+      }).join('')}
+      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+                  align-items:center;background:var(--surface2);border-top:1px solid var(--border);font-weight:700">
+        ${bunka('Celkem')}
+        ${bunka(String(celkemN), 'text-align:right')}
+        ${bunka(`<span style="color:var(--income)">${fmtB(celkemInc)}</span>`, 'text-align:right')}
+        ${bunka(`<span style="color:var(--expense)">${fmtB(celkemExp)}</span>`, 'text-align:right')}
+        ${bunka(`<span style="color:${celkemInc-celkemExp>=0?'var(--income)':'var(--expense)'}">${fmtB(celkemInc-celkemExp)}</span>`, 'text-align:right')}
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+      Jde napříč všemi daty, ne jen zobrazeným měsícem. Příjmy a výdaje jsou bez přesunů,
+      rozpadů a vyrovnání; sloupec <strong>Záznamů</strong> naopak počítá všechno, co jsi zapsal.
+    </div>`;
+}
+window.toggleTxTable = toggleTxTable;
+window.setTxTableDir = setTxTableDir;
+window.txMonthlySummary = txMonthlySummary;
+
 function setTxTypeFilter(type, btn) {
   _txTypeFilter = type;
   document.querySelectorAll('.tx-filt-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  if(_txTableOpen){ _txTableOpen = false; renderTxMonthTable(); }   // S21: filtr typu se seznamu, ne tabulky
   renderTx();
 }
 
@@ -1381,7 +1643,8 @@ function renderTxPage(){
     (D.projects||[]).map(p=>`<option value="${p.id}">📁 ${p.name}</option>`).join(''); _restore(projSel,kProj); }
   const walletSel = document.getElementById('txWalletFilter');
   if(walletSel){ walletSel.innerHTML = '<option value="">👛 Peněženka: Vše</option>' +
-    (D.wallets||[]).map(w=>`<option value="${w.id}">${w.icon||'👛'} ${w.name}</option>`).join(''); _restore(walletSel,kWal); }
+    // TODO-241: archivované peněženky se při zadávání nenabízejí
+    (D.wallets||[]).filter(w=>!w.archived).map(w=>`<option value="${w.id}">${w.icon||'👛'} ${w.name}</option>`).join(''); _restore(walletSel,kWal); }
   // v9.86 (TODO-214): filtr měn – nabídne JEN měny, které se v datech opravdu vyskytují
   const curSel = document.getElementById('txCurFilter');
   if(curSel){
@@ -1487,6 +1750,8 @@ function renderTx(){
   const badge = document.getElementById('txSummaryBadge');
   if(badge) badge.innerHTML = txs.length ?
     `<span style="color:var(--income)">+${fmtB(totalInc)}</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmtB(totalExp)}</span> <span style="color:var(--text3)">· ${txs.length} záznamů</span>` : '';
+  // S21: tabulka si drží stav i po překreslení seznamu (přepnutí měsíce apod.)
+  if(typeof renderTxMonthTable === 'function' && _txTableOpen) renderTxMonthTable();
 
   if(!txs.length){
     el.innerHTML='<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Žádné transakce</div></div>';

@@ -1,4 +1,4 @@
-// FinanceFlow · v8.44 · push.js · 2026-06-26
+// FinanceFlow · v10.47 · push.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  FinanceFlow – Web Push klient (Session 11, v7.41)
 //  Povolení notifikací + subscription přes PushManager +
@@ -177,15 +177,26 @@ if (document.readyState === 'loading') {
 const NOTIF_PREF_DEFAULTS = { priceAlerts: true, debtAlerts: true, news: true, system: true };
 let _notifPrefs = null;
 
+// FIX-323 (S21, navazuje na FIX-322): klíč mezipaměti nesl jen 'ff_notif_prefs',
+//   bez uid. localStorage patří doméně, ne účtu – na jednom prohlížeči si tak
+//   dva účty přepisovaly nastavení oznámení navzájem. Hlavní kopie je ve
+//   Firebase pod users/{uid}/notifPrefs a ta v pořádku byla; špatně se chovala
+//   jen mezipaměť, ze které se čte, NEŽ Firebase odpoví. Druhý účet proto po
+//   přihlášení chvíli běžel na cizím nastavení.
+function _notifPrefsKey(){
+  const uid = window._currentUser?.uid;
+  return uid ? `ff_notif_prefs_${uid}` : 'ff_notif_prefs_local';
+}
+
 async function loadNotifPrefs() {
   if (!_notifPrefs) {
-    try { const c = localStorage.getItem('ff_notif_prefs'); if (c) _notifPrefs = JSON.parse(c); } catch (e) {}
+    try { const c = localStorage.getItem(_notifPrefsKey()); if (c) _notifPrefs = JSON.parse(c); } catch (e) {}
     if (!_notifPrefs) _notifPrefs = { ...NOTIF_PREF_DEFAULTS };
   }
   if (window._currentUser && window._db) {
     try {
       const s = await _get(_ref(_db, `users/${window._currentUser.uid}/notifPrefs`));
-      if (s.exists()) { _notifPrefs = { ...NOTIF_PREF_DEFAULTS, ...s.val() }; localStorage.setItem('ff_notif_prefs', JSON.stringify(_notifPrefs)); }
+      if (s.exists()) { _notifPrefs = { ...NOTIF_PREF_DEFAULTS, ...s.val() }; localStorage.setItem(_notifPrefsKey(), JSON.stringify(_notifPrefs)); }
     } catch (e) {}
   }
   return _notifPrefs;
@@ -194,7 +205,7 @@ async function loadNotifPrefs() {
 async function setNotifPref(key, val) {
   if (!_notifPrefs) _notifPrefs = { ...NOTIF_PREF_DEFAULTS };
   _notifPrefs[key] = val;
-  try { localStorage.setItem('ff_notif_prefs', JSON.stringify(_notifPrefs)); } catch (e) {}
+  try { localStorage.setItem(_notifPrefsKey(), JSON.stringify(_notifPrefs)); } catch (e) {}   // FIX-323
   if (window._currentUser && window._db) {
     try { await _set(_ref(_db, `users/${window._currentUser.uid}/notifPrefs/${key}`), val); } catch (e) {}
   }

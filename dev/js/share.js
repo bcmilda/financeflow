@@ -1,4 +1,4 @@
-//  FinanceFlow · v8.33 · share.js · 2026-06-25
+// FinanceFlow · v10.49 · share.js · 2026-09-04
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -300,7 +300,7 @@ function renderReferralCodeRow(){
   if(rb && rb.code){
     wrap.innerHTML = '<label>Referral kód</label><div style="font-size:.82rem;color:var(--text);padding:6px 0">Pozván/a kódem <strong style="color:var(--premium)">' + rb.code + '</strong> &#10003;</div>';
   } else {
-    wrap.innerHTML = '<label>Referral kód <span style="color:var(--text3);font-weight:400;font-size:.74rem">(od toho, kdo tě pozval &middot; jen 1&times;)</span></label>'
+    wrap.innerHTML = '<label>Referral kód <span style="color:#a8aec8;font-weight:400;font-size:.74rem">(od toho, kdo tě pozval &middot; jen 1&times;)</span></label>'
       + '<div style="display:flex;gap:8px"><input class="fi" id="profileRefInput" placeholder="např. ABCD1234" style="flex:1;text-transform:uppercase"><button class="btn btn-accent btn-sm" onclick="submitReferralCode(document.getElementById(\'profileRefInput\').value)">Uložit</button></div>'
       + '<div style="font-size:.7rem;color:#a8aec8;margin-top:5px;line-height:1.4">Body se pozvateli připíšou až po 2 týdnech používání (nebo 7 dnech aktivity + 5 transakcích) – ochrana proti zneužití.</div>';
   }
@@ -336,6 +336,8 @@ window.copyPartnerLink = copyPartnerLink;
 async function checkIncomingPartner() {
   const params = new URLSearchParams(window.location.search);
   const partnerOfUid = params.get('partnerOf');
+  const inviteToken = params.get('t');   // FIX-312: token z pozvánky
+  const joinHid = params.get('join');    // FIX-319: domácnost, do které se má přidat
   if(!partnerOfUid || !window._currentUser || !window._db) return;
   if(partnerOfUid === window._currentUser.uid) return; // nesmí přidat sám sebe
 
@@ -346,11 +348,38 @@ async function checkIncomingPartner() {
     const snap = await _get(_ref(_db, dedupeKey));
     if(snap.exists()) return;
 
-    // Bidirektionální přidání jako partnerů
-    await _update(_ref(_db), {
-      [`users/${partnerOfUid}/partners/${myUid}`]: { addedAt: new Date().toISOString(), via: 'partnerLink' },
-      [`users/${myUid}/partners/${partnerOfUid}`]: { addedAt: new Date().toISOString(), via: 'partnerLink' },
-    });
+    // FIX-308 (S21): tenhle `update` byl ATOMICKY ODSOUZENÝ K NEÚSPĚCHU. Zapisoval
+    //   i do `users/{partnerOfUid}/partners/...`, tedy do CIZÍHO podstromu, kam mám
+    //   podle pravidel (`users/$uid/.write: auth.uid === $uid`) zakázáno psát. Firebase
+    //   `update` je navíc všechno-nebo-nic, takže s cizí cestou spadla i ta moje vlastní
+    //   – párování přes odkaz tedy neudělalo vůbec nic a bonus se přesto pokoušel připsat.
+    //   Zapsat můžu jen SVOU stranu: „tenhle člověk smí číst moje data".
+    await _set(_ref(_db, `users/${myUid}/partners/${partnerOfUid}`),
+               { addedAt: new Date().toISOString(), via: 'partnerLink' });
+
+    // FIX-312: s platným tokenem smím zapsat i do zvoucího seznamu – pravidlo
+    //   si token ověří serverově. Tím je propojení OBOUSTRANNÉ po jednom kliknutí.
+    //   Bez tokenu (starý odkaz) zůstane jednosměrné jako dřív, jen o tom řekneme.
+    let oboustranne = false;
+    if(inviteToken){
+      try {
+        await _set(_ref(_db, `users/${partnerOfUid}/partners/${myUid}`),
+                   { addedAt: new Date().toISOString(), via: 'invite', token: inviteToken });
+        oboustranne = true;
+      } catch(e){ console.warn('[pozvánka] token neprošel:', e?.message); }
+    }
+    // FIX-319: přidání do DOMÁCNOSTI. Tím se pozvaný propojí se všemi členy
+    //   naráz, ne jen se zvoucím – to je celý smysl skupiny.
+    let vDomacnosti = false;
+    if(joinHid && typeof joinHousehold === 'function'){
+      try { vDomacnosti = await joinHousehold(joinHid); }
+      catch(e){ console.warn('[domácnost] přidání selhalo:', e?.message); }
+    }
+    if(typeof showToast === 'function'){
+      showToast(vDomacnosti ? '🏠 Jsi v domácnosti – uvidíš všechny členy'
+              : oboustranne ? '🤝 Propojeno – uvidíte na sebe navzájem'
+                            : '🔗 Zpřístupnil jsi svá data. Aby ses viděl i ty, ať ti pošle pozvánku.');
+    }
 
     // Credit bonus bodů majiteli odkazu
     const earnedRef = _ref(_db, `users/${partnerOfUid}/referral/earned`);

@@ -1,4 +1,4 @@
-// FinanceFlow · v9.42 · donate.js · 2026-08-01
+// FinanceFlow · v10.30 · donate.js · 2026-09-02
 // ══════════════════════════════════════════════════════
 //  DONATE – Stripe Payment Link integrace (TODO-073)
 // ══════════════════════════════════════════════════════
@@ -72,6 +72,19 @@ function isLiveEnv() {
 
 // FIX-065: Premium subscription – přesměrování na Stripe Subscription Payment Link
 function startPremiumSubscription(period) {
+  // FIX-305 (S21): DRUHÉ KLIKNUTÍ NA PLATEBNÍ ODKAZ. Nic dosud nebránilo tomu
+  //   otevřít checkout znovu, i když Premium už běží. Vznikly by DVĚ nezávislé
+  //   Stripe subscriptions – appka by o té druhé nevěděla (webhook jen přepíše
+  //   stav podle poslední dokončené), ale Stripe by účtoval obě. Kontrola musí
+  //   být SYNCHRONNÍ, před window.open (SKILL 15: po await ho Firefox zablokuje).
+  const st = (typeof _premiumStatus !== 'undefined' && _premiumStatus) ? _premiumStatus : null;
+  if (st && (st.type === 'premium' || st.type === 'pro') && st.until > Date.now()) {
+    const doKdy = new Date(st.until).toLocaleDateString('cs-CZ');
+    alert('💎 Předplatné už máš aktivní do ' + doKdy + '.\n\n' +
+          'Další platba by založila druhé předplatné a Stripe by ti účtoval obě. ' +
+          'Změnu tarifu i zrušení řeš v Nastavení → Předplatné, nebo napiš na info@financeflow.cz.');
+    return;
+  }
   let link;
   if (period === 'yearly') {
     link = isLiveEnv() ? PREMIUM_YEARLY_LINK_LIVE : PREMIUM_YEARLY_LINK_TEST;

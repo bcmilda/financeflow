@@ -1,4 +1,4 @@
-// FinanceFlow · v10.06 · app.js · 2026-08-28
+// FinanceFlow · v10.49 · app.js · 2026-09-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -403,7 +403,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data
@@ -516,6 +516,11 @@ function resetAppState() {
         curMonth:new Date().getMonth(), curYear:new Date().getFullYear() };
   partnerData = {};
   viewingUid = null;
+  // S20 (Krok 0): resetuj i diff signatury. Bez toho by si nově přihlášený
+  // uživatel nesl signatury toho předchozího a _shWrite by považoval cizí
+  // sekce za „nezměněné" → do jeho výřezu by se nezapsaly.
+  if (typeof _dw !== 'undefined') _dw = { ready:false, metaSig:{}, txSig:null };
+  if (typeof _sh !== 'undefined') _sh = { ready:false, metaSig:{}, txSig:null, sumSig:'', mode:null };
   if (typeof saveTimeout !== 'undefined' && saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
   if (typeof _premiumStatus !== 'undefined') _premiumStatus = null;
   if (typeof _pin !== 'undefined') _pin = null;
@@ -894,30 +899,78 @@ async function loadPartners(user) {
   const partnersRef = _ref(_db, `users/${user.uid}/partners`);
   const snap = await _get(partnersRef);
   if(!snap.exists()) {
-    renderPartnerSection([]);
-    return;
+    _myGrants.clear();
+    // FIX-319: prázdný seznam partnerů ještě neznamená, že nemám domácnost –
+    //   pokračujeme dál, členy skupiny doplní blok níž.
+    try {
+      const hid0 = (await _get(_ref(_db, `users/${user.uid}/householdId`))).val();
+      if (!hid0) { renderPartnerSection([]); return; }
+    } catch(e) { renderPartnerSection([]); return; }
   }
-  const partnerUids = Object.keys(snap.val());
+  const partnerUids = snap.exists() ? Object.keys(snap.val()) : [];
+  _cekajiciPartneri.length = 0;   // FIX-316: kdo mě ještě nepřidal zpět
+  _bezVyrezu.length = 0;          // FIX-318
+
+  // FIX-319: ke jmenovitým partnerům přibývají členové DOMÁCNOSTI. Ty si nikdo
+  //   nepřidával ručně – stačí, že jsme ve stejné skupině. Právě tím odpadá
+  //   nutnost, aby se každý párovat s každým.
+  try {
+    const hid = (await _get(_ref(_db, `users/${user.uid}/householdId`))).val();
+    if (hid) {
+      const cleni = await _get(_ref(_db, `households/${hid}/members`));
+      if (cleni.exists()) {
+        Object.keys(cleni.val()).forEach(u => {
+          if (u !== user.uid && !partnerUids.includes(u)) partnerUids.push(u);
+        });
+      }
+    }
+  } catch(e) { console.info('[domácnost] členy se nepodařilo načíst:', e?.message); }
+  // FIX-311: tenhle uzel znamená „kdo smí číst mě" – proto z něj plní `_myGrants`,
+  //   podle kterých se rozhoduje, jestli má vzniknout výdejní okénko `shared`.
+  //   a od FIX-319 i členy domácnosti – ti mě smí číst taky, takže výřez
+  //   musí vzniknout i pro ně.
+  _myGrants.clear(); partnerUids.forEach(u=>_myGrants.add(u));
+  // Když už někomu přístup udělený je, výřez musí existovat hned po přihlášení,
+  //   ne až po prvním uložení dat. Side-write ve vlastním try/catch.
+  try { if(typeof _shWrite==='function') await _shWrite(user.uid); }
+  catch(e){ console.warn('[shared] výřez při startu:', e?.message); }
   const loaded = [];
   
   for(const uid of partnerUids) {
     try {
-      const [dataSnap, profileSnap] = await Promise.all([
-        _get(_ref(_db, `users/${uid}/data`)),
+      // S20 (Krok 0): partneři čtou VÝDEJNÍ OKÉNKO users/{uid}/shared, ne úložiště.
+      // FÁZE 1 nasazení: partner, který se od updatu ještě ani jednou neuložil,
+      // shared zatím nemá – dokud pravidla povolují obojí, spadneme na /data,
+      // aby nikomu nezmizel partner z appky. Tenhle fallback se odstraní ve
+      // FÁZI 2 spolu s partnerským přístupem k /data (viz PLAN-oprava-sdileni.md).
+      let src = 'shared';
+      let [dataSnap, profileSnap] = await Promise.all([
+        _get(_ref(_db, `users/${uid}/shared`)),
         _get(_ref(_db, `users/${uid}/profile`))
       ]);
+      // FÁZE 2 (S21, FIX-318): ZÁLOŽNÍ ČTENÍ /data ZRUŠENO.
+      //   Fáze 1 dovolila spadnout na nefiltrované `users/{uid}/data`, dokud
+      //   výřezy nevzniknou. Jenže přesně v tom stavu `shareSettings` nedělaly
+      //   NIC – partner viděl i sekce, které měl protějšek vypnuté, včetně
+      //   uzlů bez přepínače (deník, Životní mapa; viz FIX-317). Berlička
+      //   je pryč a s ní i právo partnerů číst /data v pravidlech.
+      //   Kdo výřez nemá, prostě není vidět – dokud se jednou nepřihlásí.
+      if(!dataSnap.exists()){
+        console.info(`[sdílení] ${uid.slice(0,8)}… ještě nemá výdejní okénko – uvidím ho, až se přihlásí.`);
+        _bezVyrezu.push(uid);
+      }
       if(dataSnap.exists()) {
         partnerData[uid] = {
-          data: dataSnap.val(),
+          data: sanitizeUserData(dataSnap.val()), // S16.5 (P0-1): partnerova data = hlavní XSS vektor
           profile: profileSnap.exists() ? profileSnap.val() : {displayName: 'Partner', photoURL: null}
         };
         loaded.push(uid);
-        // Live listener for partner data
-        const pRef = _ref(_db, `users/${uid}/data`);
+        // Live listener na tom uzlu, ze kterého se úspěšně načetlo
+        const pRef = _ref(_db, `users/${uid}/${src}`);
         if(_partnerListeners[uid]) _off(pRef, 'value', _partnerListeners[uid]);
         _partnerListeners[uid] = _onValue(pRef, (s) => {
           if(s.exists()) {
-            partnerData[uid].data = sanitizeUserData(s.val()); // S16.5 (P0-1): partnerova data = hlavní XSS vektor
+            partnerData[uid].data = sanitizeUserData(s.val());
             if(viewingUid === uid) {
               if(typeof renderPageDebounced === 'function') renderPageDebounced();
               else renderPage();
@@ -926,51 +979,115 @@ async function loadPartners(user) {
           }
         });
       }
-    } catch(e) { console.log('Partner load error:', e); }
+    } catch(e) {
+      // FIX-316 (S21): „Permission denied" tady NENÍ chyba appky, ale normální
+      //   stav: druhá strana mě zatím nepřidala, takže její data číst nesmím.
+      //   Vypisovat to jako Error mátlo při ladění – vypadalo to, že je rozbité
+      //   sdílení, přitom chybělo jen protějškovo potvrzení.
+      const odepreno = /permission/i.test(e?.message || '');
+      if (odepreno) {
+        _cekajiciPartneri.push(uid);
+        console.info(`[sdílení] ${uid.slice(0,8)}… mě zatím nepřidal, jeho data proto nevidím.`);
+      } else {
+        console.warn('[sdílení] partnera se nepodařilo načíst:', uid.slice(0,8)+'…', e?.message || e);
+      }
+    }
   }
   renderPartnerSection(loaded);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-320 (S21, Milan): PŘEPÍNÁNÍ PROFILŮ ZRUŠENO
+//  „Přepnout pohled\" nahradilo VŠECHNA data v appce partnerovými – celý
+//  program se překreslil jeho čísly. I když jen pro čtení, znamenalo to
+//  procházet cizí finance stránku po stránce jako svoje. Milan to označil
+//  za nepřípustné a má pravdu: sdílení má dát domácnosti společný obraz,
+//  ne umožnit prohlídku cizího účtu.
+//
+//  Sekce se mění na PŘEHLED ČLENŮ – kdo je v domácnosti a jestli jeho data
+//  dorazila. Společná čísla patří do Rodinného souhrnu, kde jsou vedle sebe
+//  a označená, čí jsou.
+//
+//  `viewingUid` zůstává v kódu jako konstantní null: visí na něm desítky
+//  ochranných podmínek (zákaz zápisu, záloh, obnovy nad cizími daty) a
+//  vytrhávat je po jedné by bylo riskantnější než je nechat platit navždy.
+// ══════════════════════════════════════════════════════════════════════
 function renderPartnerSection(partnerUids) {
   const sec = document.getElementById('partnerSection');
   const btns = document.getElementById('partnerBtns');
+  if(!sec || !btns) return;
   if(!partnerUids.length) { sec.style.display='none'; return; }
   sec.style.display = 'block';
   const me = window._currentUser;
   const myName = window._userProfile?.displayName || me?.displayName || 'Já';
-  
-  let html = `<div class="partner-btn ${viewingUid===null?'active-user':''}" onclick="switchToOwnData()">
-    <div class="partner-avatar">${me?.photoURL?`<img src="${me.photoURL}" style="width:24px;height:24px;border-radius:50%">` : (window._userProfile?.avatar || '👤')}</div>
+  const avatar = (prof, user) => prof?.avatar ? prof.avatar
+    : (prof?.photoURL || user?.photoURL)
+      ? `<img src="${prof?.photoURL || user.photoURL}" style="width:24px;height:24px;border-radius:50%">`
+      : '👤';
+
+  // FIX-321 (S21): admin se musí umět vrátit ZPÁTKY. Ve v10.42 jsem dlaždice
+  //   udělal neklikací pro všechny – jenže adminský náhled tím ztratil cestu
+  //   zpět k vlastním datům a mezi uživateli. Klikací jsou proto pro admina,
+  //   běžnému uživateli zůstávají jen jako přehled členů.
+  const jsemAdmin = (typeof isAdmin === 'function' && isAdmin());
+  const klik = (akce) => jsemAdmin ? ` onclick="${akce}" style="cursor:pointer"` : ' style="cursor:default"';
+
+  let html = `<div class="partner-btn ${viewingUid===null?'active-user':''}"${klik('switchToOwnData()')}>
+    <div class="partner-avatar">${avatar(window._userProfile, me)}</div>
     <span class="partner-pname">${myName}</span>
-    <span class="partner-badge badge-me">${viewingUid===null?'Aktivní':''}</span>
+    <span class="partner-badge badge-me">${jsemAdmin && viewingUid!==null ? '← zpět' : 'Já'}</span>
   </div>`;
-  
+
   for(const uid of partnerUids) {
     const p = partnerData[uid];
-    const name = p?.profile?.displayName || 'Partner';
-    html += `<div class="partner-btn ${viewingUid===uid?'active-partner':''}" onclick="switchToPartner('${uid}')">
-      <div class="partner-avatar">${p?.profile?.photoURL?`<img src="${p.profile.photoURL}" style="width:24px;height:24px;border-radius:50%">` : '👤'}</div>
+    const name = p?.profile?.displayName || 'Člen domácnosti';
+    // Data buď dorazila, nebo ne – to je jediná informace, kterou tu potřebuje.
+    const mam = !!(p && p.data);
+    html += `<div class="partner-btn ${viewingUid===uid?'active-partner':''}"${klik(`adminViewAs('${uid}')`)} title="${mam?'Data dorazila':'Zatím bez dat'}">
+      <div class="partner-avatar">${avatar(p?.profile, null)}</div>
       <span class="partner-pname">${name}</span>
-      <span class="partner-badge badge-view">${viewingUid===uid?'Prohlíží':'→'}</span>
+      <span class="partner-badge badge-view">${viewingUid===uid?'Prohlíží':(mam?'✓':'…')}</span>
     </div>`;
   }
+  html += `<div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+    ${jsemAdmin ? 'Klikni na jméno pro náhled dat (jen pro čtení). ' : ''}Společná čísla najdeš v <a href="#" onclick="showPage('rodina');return false" style="color:#7dd34f;font-weight:700">Rodinném souhrnu</a>.</div>`;
   btns.innerHTML = html;
 }
 
-function switchToPartner(uid) {
+// FIX-320: Přepnutí pohledu zůstává, ale UŽ JEN PRO ADMINA. Milan ho potřebuje,
+//   aby mohl nezávazně nahlédnout do profilu uživatele při řešení problému –
+//   to je jiná role než „člen domácnosti", a stojí na jeho UID, ne na sdílení.
+//   Běžný uživatel se sem nedostane: v Sdílení ani v Rodinném souhrnu už na to
+//   není žádné tlačítko.
+function adminViewAs(uid) {
+  // Ověření přes isAdmin() z admin.js – seznam adminských UID má jen jedno
+  //   místo (SKILL 17). Když admin.js není načtený, není ani admin.
+  if (!(typeof isAdmin === 'function' && isAdmin())) {
+    console.warn('[pohled] přepnutí profilu je vyhrazené adminovi');
+    return false;
+  }
   viewingUid = uid;
   // Null-safe (mobil může mít některé prvky jinde/skryté – nesmí to shodit přepnutí dat)
   const _vb = document.getElementById('viewingBanner'); if(_vb) _vb.classList.add('show');
   const _rn = document.getElementById('readonlyNotice'); if(_rn) _rn.classList.add('show');
-  const name = partnerData[uid]?.profile?.displayName || 'Partner';
+  const name = partnerData[uid]?.profile?.displayName || uid.slice(0,8);
   const _vc = document.getElementById('viewingChip'); if(_vc){ _vc.textContent = `👁 ${name}`; _vc.classList.add('show'); }
   const _fab = document.getElementById('mainFab'); if(_fab) _fab.style.display = 'none';
-  // Zavři případně otevřené menu/sidebar na mobilu, ať je vidět přepnutý obsah
   try { if (typeof closeSidebar === 'function') closeSidebar(); } catch(_) {}
   try { renderPartnerSection(Object.keys(partnerData)); } catch(_) {}
   renderPage();
   updateReadonlyUI();
   if (typeof showToast === 'function') showToast(`👁 Prohlížíš data: ${name}`);
+  return true;
+}
+window.adminViewAs = adminViewAs;
+
+// Ponecháno kvůli starým odkazům (uložená stránka v mezipaměti, staré tlačítko).
+// Běžnému uživateli místo přepnutí profilu ukáže, kam společná čísla patří.
+function switchToPartner(uid) {
+  if (typeof isAdmin === 'function' && isAdmin()) return adminViewAs(uid);
+  if (typeof showToast === 'function') showToast('Společná čísla najdeš v Rodinném souhrnu');
+  if (typeof showPage === 'function') showPage('rodina');
 }
 
 function switchToOwnData() {
@@ -1172,21 +1289,72 @@ function _dwEnsureIds(){
   let n=0;
   (S.transactions||[]).forEach(t=>{ if(t && (t.id==null||t.id==='')){ t.id='tx_'+Date.now().toString(36)+'_'+(n++)+Math.random().toString(36).slice(2,7); } });
 }
+// ══════════════════════════════════════════════════════
+//  S20 (Krok 0): ÚLOŽIŠTĚ ≠ VÝDEJNÍ OKÉNKO
+//  Do v10.10 se shareSettings vynucovaly TADY, při zápisu do users/{uid}/data.
+//  Jenže ten uzel je zároveň jediné úložiště uživatele – vypnutí přepínače
+//  v „Sdílení & Partneři" tedy nezastavilo sdílení, ale SMAZALO data z cloudu
+//  (diff-write zapsal transactions/{id}=null pro každou transakci). Přepínače
+//  jsou přitom dostupné každému, i tomu, kdo nikdy žádného partnera nepřidal.
+//
+//  Nově:
+//    users/{uid}/data    → _dwMetaVals/_dwTxObj … VŽDY kompletní, čte jen vlastník
+//    users/{uid}/shared  → _shMetaVals/_shTxObj … výřez, tohle čtou partneři
+//  Filtr tak nemá jak sáhnout na úložiště. Viz PLAN-oprava-sdileni.md.
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-315 (S21): NEPLATNÉ KLÍČE SHODILY CELÝ ZÁPIS DO FIREBASE
+//  Firebase v klíči nesnese  .  #  $  /  [  ]  a při jediném takovém klíči
+//  odmítne CELÝ `set` – ne jen tu jednu hodnotu. Stačilo, aby se do
+//  `coicopOverrides` dostala podkategorie „Školka/škola\", a výřez `shared`
+//  se nezapsal vůbec: partner neměl co číst a Rodinný souhrn zůstal prázdný.
+//
+//  Ta samá chyba tu už jednou byla (S9) a opravila se u zdroje – v
+//  renderCatPage(), aby merge nemutoval S.categories. Vrátila se jinudy.
+//  Proto ji tentokrát chytáme i NA HRANICI ZÁPISU: ať ji zavleče kterýkoli
+//  kód, k Firebase se nedostane. Oprava u zdroje tím nezaniká, tohle je
+//  druhá obrana, ne náhrada.
+//
+//  Klíč se nezahazuje, jen se v něm zakázané znaky nahradí pomlčkou –
+//  „Školka/škola\" → „Školka-škola\". Data se tak neztratí a název zůstane
+//  čitelný. (Zahodit klíč by znamenalo tiše přijít o COICOP zařazení.)
+// ══════════════════════════════════════════════════════════════════════
+const _FB_ZAKAZANE = /[.#$/\[\]]/g;
+function _fbSafeKeys(v){
+  if (Array.isArray(v)) return v.map(_fbSafeKeys);
+  if (v && typeof v === 'object'){
+    const out = {};
+    for (const k of Object.keys(v)){
+      const bezpecny = String(k).replace(_FB_ZAKAZANE, '-');
+      if (!bezpecny) continue;                 // prázdný klíč Firebase taky nebere
+      if (bezpecny !== k) {
+        console.warn('[firebase] klíč upraven:', JSON.stringify(k), '→', JSON.stringify(bezpecny));
+      }
+      out[bezpecny] = _fbSafeKeys(v[k]);
+    }
+    return out;
+  }
+  return v;
+}
+window._fbSafeKeys = _fbSafeKeys;
+
 function _dwMetaVals(){
-  const ss=S.shareSettings||{};
+  // FIX-315: sanitace i tady – úložiště `data` je na neplatný klíč stejně
+  //   citlivé jako výřez. Kdyby spadl tenhle zápis, uživatel přijde o data,
+  //   ne „jen" o sdílení. Volá se přes _fbSafeKeys až v _dwWrite/_shMetaVals.
   return {
-    debts: ss.debts===false?[]:S.debts||[],
-    categories: ss.categories===false?[]:S.categories||[],
-    bank: ss.bank===false?{startBalance:0}:S.bank||{startBalance:0},
-    birthdays: ss.birthdays===false?[]:S.birthdays||[],
-    wishes: ss.wishes===false?[]:S.wishes||[],
-    wallets: ss.wallets===false?[]:S.wallets||[],
+    debts: S.debts||[],
+    categories: S.categories||[],
+    bank: S.bank||{startBalance:0},
+    birthdays: S.birthdays||[],
+    wishes: S.wishes||[],
+    wallets: S.wallets||[],
     payTypes: S.payTypes||[],
     sablony: S.sablony||[],
-    projects: ss.projects===false?[]:S.projects||[],
-    receipts: ss.receipts===false?[]:S.receipts||[],
+    projects: S.projects||[],
+    receipts: S.receipts||[],
     nakupList: S.nakupList||[],
-    assets: ss.assets===false?[]:S.assets||[],
+    assets: S.assets||[],
     noSyncKeys: S.noSyncKeys||[],
     importHistory: S.importHistory||[],
     shareSettings: S.shareSettings||{},
@@ -1200,11 +1368,124 @@ function _dwMetaVals(){
   };
 }
 function _dwTxObj(){
-  const ss=S.shareSettings||{};
-  if(ss.transactions===false) return {};
   const o={};
   (S.transactions||[]).forEach(t=>{ if(t && t.id!=null) o[String(t.id)]=t; });
   return o;
+}
+// ── Výdejní okénko: tady filtr žije. Vrací PRÁZDNO pro vypnuté sekce,
+//    ale zapisuje se do users/{uid}/shared, ne do úložiště. ──
+// ══════════════════════════════════════════════════════════════════════
+//  VÝDEJNÍ OKÉNKO – FIX-317 (S21): OD KOPÍROVÁNÍ K POVOLOVACÍMU SEZNAMU
+//  Původní verze vzala CELÉ úložiště a vypnuté sekce z něj vymazala. Do
+//  výřezu tím propadlo všechno, na co nikdo nemyslel: `diary` (osobní deník),
+//  `calNotes`, `workCal`, `milestones` (Životní mapa), `idleCfg`, `pristiCfg`,
+//  `importHistory`, `nakupList`, `sablony`, `noSyncKeys` – bez přepínače,
+//  bez zmínky v „Co partner uvidí\". Třináct uzlů, o kterých uživatel nevěděl.
+//
+//  Je to táž chyba jako u Firebase pravidel, jen v kódu: co není výslovně
+//  povoleno, musí být ZAKÁZÁNO. Nový uzel v S se teď do výřezu nedostane sám
+//  od sebe – někdo ho sem musí vědomě dopsat.
+//
+//  `payTypes`, `wallets` a `categories` zůstávají, protože bez nich by se
+//  sdílené transakce nedaly vykreslit (byly by to částky bez názvů).
+//  U kategorií se ale posílá jen KOSTRA – viz _shCatSkeleton níž.
+// ══════════════════════════════════════════════════════════════════════
+
+// Kategorie jsou u všech uživatelů skoro stejné, takže jako ochrana soukromí
+// nedávaly smysl (Milanův postřeh, S21). Nesou ale i osobní věci: `limit` je
+// rozpočet, `coicopOverrides` prozrazuje ruční zatřídění. Posílá se proto jen
+// to, co je potřeba k vykreslení cizí transakce: co to je a jak se to jmenuje.
+function _shCatSkeleton(cats){
+  return (cats||[]).map(c => ({
+    id: c.id, name: c.name, icon: c.icon || null, color: c.color || null,
+    type: c.type || null, parent: c.parent ?? null,
+    subs: Array.isArray(c.subs) ? c.subs.map(x => (typeof x === 'string' ? x : (x && x.name) || '')) : []
+  }));
+}
+
+function _shMetaVals(){
+  const ss = S.shareSettings || {};
+  const mv = _fbSafeKeys(_dwMetaVals());   // FIX-315
+  const zap = k => ss[k] !== false;        // výchozí stav je „sdílím\"
+
+  const out = {
+    // — nutné k vykreslení, samo o sobě neprozradí útratu —
+    categories: _shCatSkeleton(mv.categories),
+    payTypes:   mv.payTypes || [],
+
+    // — sekce s přepínačem v „Co partner uvidí\" —
+    debts:     zap('debts')     ? mv.debts     : [],
+    bank:      zap('bank')      ? mv.bank      : { startBalance: 0 },
+    birthdays: zap('birthdays') ? mv.birthdays : [],
+    wishes:    zap('wishes')    ? mv.wishes    : [],
+    wallets:   zap('wallets')   ? mv.wallets   : [],
+    projects:  zap('projects')  ? mv.projects  : [],
+    receipts:  zap('receipts')  ? mv.receipts  : [],
+    assets:    zap('assets')    ? mv.assets    : [],
+  };
+
+  // ZÁMĚRNĚ SE NESDÍLÍ (a nedopisovat sem bez rozmyslu):
+  //   diary, calNotes, workCal, milestones  – osobní zápisky a životní události
+  //   idleCfg, reportSectors, pristiCfg     – nastavení mých vlastních pohledů
+  //   importHistory, noSyncKeys             – provozní stopa, partnerovi k ničemu
+  //   nakupList, sablony                    – nákupní seznam a šablony
+  //   shareSettings                         – komu co sdílím není věc partnera
+  return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  TŘI ÚROVNĚ SDÍLENÍ TRANSAKCÍ (TODO-240, S21 – Milanův návrh)
+//  Dosud to byl vypínač: buď partner vidí každou položku, nebo nic. Mezi tím
+//  je ale to, co většina domácností opravdu chce – vědět, KOLIK padlo na
+//  potraviny, ne CO kdo v úterý koupil. Přehled bez dohlížení.
+//
+//    'off'   … nesdílím nic
+//    'sums'  … jen součty za kategorie a měsíc
+//    'full'  … jednotlivé transakce (jako dosud)
+//
+//  Starý zápis se překládá: false → 'off', true i chybějící hodnota → 'full'.
+//  Nikomu se tím sdílení nezmění pod rukama; kdo chce ubrat, ubere si sám.
+// ══════════════════════════════════════════════════════════════════════
+const TX_SHARE_MODES = ['off','sums','full'];
+function txShareMode(ss){
+  const v = (ss || S.shareSettings || {}).transactions;
+  if (v === false) return 'off';
+  if (TX_SHARE_MODES.includes(v)) return v;
+  return 'full';                  // true i undefined – beze změny proti dřívějšku
+}
+window.txShareMode = txShareMode;
+
+function _shTxObj(){
+  return txShareMode() === 'full' ? _dwTxObj() : {};
+}
+
+// Součty za kategorii a měsíc. Stejná pravidla jako všude jinde: přes txCZK
+// (cizí měny nesčítat nominálně) a bez přesunů, rozpadů a vyrovnání.
+// Klíč měsíce je „RRRR-MM\", klíč kategorie je její id – jméno by se mohlo
+// změnit a historie by se rozpadla.
+function _shCatSums(){
+  if (txShareMode() !== 'sums') return null;
+  const D = S;
+  const out = {};
+  (D.transactions||[]).forEach(t=>{
+    if(!t || !t.date) return;
+    if(t.splitParent || t.isBalancing) return;
+    if(typeof isTransferTx === 'function' && isTransferTx(t)) return;
+    if(t.type !== 'income' && t.type !== 'expense') return;
+    const d = new Date(t.date); if(isNaN(d)) return;
+    const mk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const ck = String(t.catId ?? t.category ?? 'bez');
+    out[mk] = out[mk] || {};
+    const r = out[mk][ck] = out[mk][ck] || { inc:0, exp:0, n:0 };
+    const castka = (typeof txCZK === 'function') ? txCZK(t, D) : (t.amount || t.amt || 0);
+    if(t.type === 'income') r.inc += castka; else r.exp += castka;
+    r.n++;
+  });
+  // Zaokrouhlit až na konci, ať se chyba nesčítá po položkách
+  Object.values(out).forEach(mes => Object.values(mes).forEach(r => {
+    r.inc = Math.round(r.inc); r.exp = Math.round(r.exp);
+  }));
+  return out;
 }
 function _dwSeed(){
   _dw.metaSig={}; const mv=_dwMetaVals();
@@ -1212,6 +1493,75 @@ function _dwSeed(){
   _dw.txSig=new Map(); const to=_dwTxObj();
   Object.keys(to).forEach(id=>{ try{ _dw.txSig.set(id, JSON.stringify(to[id])); }catch(e){} });
   _dw.ready=true;
+}
+
+// ── Výdejní okénko: vlastní diff sada, aby se i sem zapisovalo jen změněné ──
+let _sh = { ready:false, metaSig:{}, txSig:null, sumSig:'', mode:null };   // TODO-240: sumSig/mode
+
+// Kdo nikoho nemá ve sdílení, výdejní okénko nepotřebuje – ušetří polovinu zápisů.
+// Seznam partnerů je načtený při přihlášení (loadPartners → partnerData).
+// FIX-311 (S21): TENHLE TEST SE PTAL NA ŠPATNOU VĚC A `shared` KVŮLI TOMU NEVZNIKL.
+//   `partnerData` je seznam lidí, JEJICHŽ data umím přečíst. Jenže výdejní okénko
+//   `shared` se má psát tehdy, když někdo může číst MĚ – a to je úplně jiný seznam:
+//   `users/{já}/partners`. Kdo někomu udělil přístup, ale sám ještě nic číst nesměl,
+//   měl `partnerData` prázdné, `_shWrite` se nikdy nespustil a druhá strana neměla
+//   co číst. Sdílení se tak nerozjelo ani po správném přidání.
+let _myGrants = new Set();          // komu jsem udělil přístup ke svým datům
+let _cekajiciPartneri = [];         // FIX-316: komu jsem dal přístup, ale on mně ještě ne
+let _bezVyrezu = [];                // FIX-318: kdo mi přístup dal, ale výřez mu ještě nevznikl
+window._cekajiciPartneri = _cekajiciPartneri;
+window._bezVyrezu = _bezVyrezu;
+function _hasPartners(){
+  try {
+    if (_myGrants && _myGrants.size) return true;
+    return !!(partnerData && Object.keys(partnerData).length);
+  } catch(e){ return false; }
+}
+window._myGrants = _myGrants;
+
+async function _shWrite(uid){
+  const sharedRef = _ref(_db, `users/${uid}/shared`);
+  // První zápis (nebo po odhlášení) → plný snímek + nasazení signatur
+  if(!_sh.ready){
+    const sums = _shCatSums();   // TODO-240: null, když se sdílí 'off' nebo 'full'
+    const full = Object.assign({}, _shMetaVals(),
+      { transactions: _shTxObj(), txMode: txShareMode(), schemaV: 2 },
+      sums ? { catSums: sums } : {});
+    await _set(sharedRef, full);
+    _sh.metaSig={}; const mv0=_shMetaVals();
+    _DW_META.forEach(k=>{ try{ _sh.metaSig[k]=JSON.stringify(mv0[k]); }catch(e){ _sh.metaSig[k]=''; } });
+    _sh.txSig=new Map(); const to0=_shTxObj();
+    Object.keys(to0).forEach(id=>{ try{ _sh.txSig.set(id, JSON.stringify(to0[id])); }catch(e){} });
+    _sh.sumSig = sums ? JSON.stringify(sums) : '';   // TODO-240
+    _sh.mode = txShareMode();
+    _sh.ready=true;
+    return;
+  }
+  const updates={};
+  const mv=_shMetaVals();
+  _DW_META.forEach(k=>{ let sig; try{ sig=JSON.stringify(mv[k]); }catch(e){ sig=''; } if(sig!==_sh.metaSig[k]){ updates[k]=mv[k]; _sh.metaSig[k]=sig; } });
+  const to=_shTxObj(); const seen=new Set();
+  Object.keys(to).forEach(id=>{ seen.add(id); let sig; try{ sig=JSON.stringify(to[id]); }catch(e){ sig=''; } if(sig!==_sh.txSig.get(id)){ updates['transactions/'+id]=to[id]; _sh.txSig.set(id,sig); } });
+  // Tady je mazání SPRÁVNĚ: transakce zmizela z výřezu (smazána, nebo uživatel
+  // vypnul sdílení transakcí) → ve výdejním okénku být nemá. Úložiště je jinde.
+  _sh.txSig.forEach((_v,id)=>{ if(!seen.has(id)){ updates['transactions/'+id]=null; _sh.txSig.delete(id); } });
+
+  // TODO-240: součty za kategorie musí do přírůstkového zápisu taky, jinak by
+  //   zamrzly na prvním snímku a partner by viděl čísla z okamžiku propojení.
+  //   Přepínání režimu ošetřeno v obou směrech: při přechodu na 'full' nebo 'off'
+  //   se uzel smaže, jinak by tam po sobě zanechal starý agregát.
+  const sums = _shCatSums();
+  const sumSig = sums ? JSON.stringify(sums) : '';
+  if(sumSig !== (_sh.sumSig || '')){
+    updates['catSums'] = sums || null;
+    _sh.sumSig = sumSig;
+  }
+  const rezim = txShareMode();
+  if(rezim !== _sh.mode){ updates['txMode'] = rezim; _sh.mode = rezim; }
+
+  if(Object.keys(updates).length){
+    await _update(sharedRef, updates);
+  }
 }
 
 // Save to Firebase (own data only) – DIFF-WRITE (S17, ADR-062)
@@ -1234,10 +1584,14 @@ async function saveToFirebase() {
           localStorage.setItem(bkey,'1');
         }
       }catch(e){ console.warn('[diff-write] záloha v1 přeskočena:', e); }
-      const full = Object.assign({}, _dwMetaVals(), { transactions: _dwTxObj(), schemaV: 2 });
+      const full = _fbSafeKeys(Object.assign({}, _dwMetaVals(), { transactions: _dwTxObj(), schemaV: 2 }));   // FIX-315
       await _set(dataRef, full);
       S.schemaV = 2;
       _dwSeed();
+      // Side-write (vlastní try/catch): výdejní okénko je bonus, ne podmínka
+      // toho, aby se uživateli uložila data. Když selže, uloženo je pořád.
+      try { if(_hasPartners()) await _shWrite(uid); }
+      catch(e){ console.warn('[shared] zápis výřezu selhal:', e); }
       setSyncStatus('ok');
       publishCommunityStats(getData());
       return;
@@ -1245,7 +1599,7 @@ async function saveToFirebase() {
 
     // ── Diff zápis ──
     const updates = {};
-    const mv = _dwMetaVals();
+    const mv = _fbSafeKeys(_dwMetaVals());   // FIX-315
     _DW_META.forEach(k=>{ let sig; try{ sig=JSON.stringify(mv[k]); }catch(e){ sig=''; } if(sig!==_dw.metaSig[k]){ updates[k]=mv[k]; _dw.metaSig[k]=sig; } });
     const to = _dwTxObj(); const seen=new Set();
     Object.keys(to).forEach(id=>{ seen.add(id); let sig; try{ sig=JSON.stringify(to[id]); }catch(e){ sig=''; } if(sig!==_dw.txSig.get(id)){ updates['transactions/'+id]=to[id]; _dw.txSig.set(id,sig); } });
@@ -1254,6 +1608,9 @@ async function saveToFirebase() {
     if(Object.keys(updates).length){
       await _update(dataRef, updates);
     }
+    // Side-write (vlastní try/catch) – viz výše
+    try { if(_hasPartners()) await _shWrite(uid); }
+    catch(e){ console.warn('[shared] zápis výřezu selhal:', e); }
     setSyncStatus('ok');
     publishCommunityStats(getData());
   } catch(e) {
@@ -1374,10 +1731,15 @@ function updateSidebarUser(user) {
   const av = document.getElementById('sidebarAvatar');
   const photo = window._userProfile?.photoURL || user.photoURL;
   if(av){
-    if(photo) {
-      av.outerHTML = `<img src="${photo}" class="user-avatar" id="sidebarAvatar" onerror="this.outerHTML='<div class=user-avatar-placeholder id=sidebarAvatar>👤</div>'">`;
-    } else if(window._userProfile?.avatar) {
+    // FIX-314 (S21, Milan): VÝBĚR AVATARA NEDĚLAL NIC. Fotka z Google účtu se
+    //   testovala PRVNÍ – a tu má po přihlášení přes Google skoro každý, takže
+    //   emoji avatar nemohl nikdy vyhrát. Uživatel si ho vybral, uložil se do
+    //   profilu, ale v sidebaru se nic nezměnilo. Vědomá volba musí přebít
+    //   výchozí hodnotu, ne naopak.
+    if(window._userProfile?.avatar) {
       av.outerHTML = `<div class="user-avatar-placeholder" id="sidebarAvatar">${window._userProfile.avatar}</div>`;
+    } else if(photo) {
+      av.outerHTML = `<img src="${photo}" class="user-avatar" id="sidebarAvatar" onerror="this.outerHTML='<div class=user-avatar-placeholder id=sidebarAvatar>👤</div>'">`;
     } else {
       av.outerHTML = `<div class="user-avatar-placeholder" id="sidebarAvatar">👤</div>`;
     }
@@ -1405,21 +1767,18 @@ function selectAvatar(e){
 }
 window.selectAvatar = selectAvatar;
 
+// TODO-233: profil se edituje na stránce Můj účet. Tahle funkce zůstává jen
+//   pro staré odkazy (uložená stránka v mezipaměti) a odvede uživatele tam,
+//   kam patří – dvě místa na úpravu téhož by se rozešla.
 function openProfileModal() {
-  document.getElementById('profileName').value = window._userProfile?.displayName || '';
-  _selectedAvatar = (window._userProfile && window._userProfile.avatar) || '';
-  if(typeof renderAvatarPicker==='function') renderAvatarPicker();
-  if(typeof renderReferralCodeRow==='function') renderReferralCodeRow();
-  document.getElementById('modalProfile').classList.add('open');
+  if (typeof showPage === 'function') showPage('ucet');
 }
+// TODO-233: ukládání profilu je nově v ucet.js (saveUcetProfil). Tahle funkce
+//   zůstává jen kvůli případným starým odkazům – po odstranění modalu by
+//   sáhla na neexistující #profileName a spadla, proto rovnou deleguje.
 async function saveProfile() {
-  const name = document.getElementById('profileName').value.trim();
-  if(!name) { alert('Zadej jméno'); return; }
-  window._userProfile = Object.assign(window._userProfile||{}, {displayName: name, avatar: (typeof _selectedAvatar!=='undefined' ? _selectedAvatar : '')||null});
-  await _set(_ref(_db, `users/${window._currentUser.uid}/profile`), window._userProfile);
-  updateSidebarUser(window._currentUser);
-  renderPartnerSection(Object.keys(partnerData));
-  closeModal('modalProfile');
+  if (typeof saveUcetProfil === 'function') return saveUcetProfil();
+  if (typeof showPage === 'function') showPage('ucet');
 }
 
 // ══════════════════════════════════════════════════════

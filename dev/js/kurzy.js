@@ -1,4 +1,4 @@
-// FinanceFlow · v9.97 · kurzy.js · 2026-08-19
+// FinanceFlow · v10.45 · kurzy.js · 2026-09-04
 // Kurzy měn (denní kurzovní lístek ČNB) + možnost připnout oblíbené měny pro rychlý přehled.
 // Data: proxy přes Cloudflare Worker (endpoint /cnb, cache 1×/den + CORS).
 // Fallback: poslední načtené kurzy v paměti → uložené orientační průměry (_FX_RATES z debts.js).
@@ -22,17 +22,49 @@ const FX_INFO = {
   XDR:['Zvláštní práva čerpání (MMF)','🏦']
 };
 
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-322 (S21, nahlásil Milan): PŘIPNUTÉ MĚNY NEBYLY PER UŽIVATEL
+//  Klíč `ff_pinnedFx` byl v localStorage BEZ uid. localStorage patří doméně,
+//  ne účtu – takže na jednom prohlížeči sdíleli seznam připnutých měn všichni,
+//  kdo se kdy přihlásili. Milan připnul měnu u sebe a objevila se i na
+//  testovacím účtu; vypadalo to, jako by se to měnilo „globálně".
+//
+//  Zápis do Firebase to nikdy nedělalo, takže cizím lidem se nic neměnilo –
+//  ale mezi účty na jednom zařízení ano, a to stačí. Changelog v8.36 přitom
+//  tvrdil „ukládá se do účtu", což nebyla pravda ani tehdy.
+//
+//  Nově má klíč uid. Starý společný seznam se při prvním použití převezme
+//  (aby o připnuté měny nikdo nepřišel) a smaže, ať se nešíří dál.
+// ══════════════════════════════════════════════════════════════════════
+function _pinnedFxKey(){
+  const uid = window._currentUser?.uid;
+  return uid ? `ff_pinnedFx_${uid}` : 'ff_pinnedFx_local';
+}
+
 function getPinnedFx(){
-  try { return JSON.parse(localStorage.getItem('ff_pinnedFx') || '[]'); } catch(e){ return []; }
+  const key = _pinnedFxKey();
+  try {
+    const vlastni = localStorage.getItem(key);
+    if (vlastni !== null) return JSON.parse(vlastni || '[]');
+    // Jednorázový přenos ze starého společného klíče
+    const stary = localStorage.getItem('ff_pinnedFx');
+    if (stary !== null) {
+      localStorage.setItem(key, stary);
+      localStorage.removeItem('ff_pinnedFx');
+      return JSON.parse(stary || '[]');
+    }
+    return [];
+  } catch(e){ return []; }
 }
 
 function togglePinFx(code){
   const list = getPinnedFx();
   const i = list.indexOf(code);
   if (i >= 0) list.splice(i, 1); else list.push(code);
-  try { localStorage.setItem('ff_pinnedFx', JSON.stringify(list)); } catch(e){}
+  try { localStorage.setItem(_pinnedFxKey(), JSON.stringify(list)); } catch(e){}
   renderKurzy(); // vizuál hned, nezávisle na Firebase
 }
+window.getPinnedFx = getPinnedFx;
 window.togglePinFx = togglePinFx;
 
 async function fetchFxRates(force){

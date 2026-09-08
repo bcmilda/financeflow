@@ -1,4 +1,4 @@
-// FinanceFlow · v10.48 · stats.js · 2026-09-04
+// FinanceFlow · v10.46 · stats.js · 2026-09-04
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1066,13 +1066,7 @@ window.unarchiveCat=unarchiveCat;
 // TODO-230: stav Rodinného souhrnu. Mimo S (render nesmí mutovat globální stav)
 // a mimo Firebase – je to jen pohled, ne data. Po reloadu zpět na výchozí.
 let _famRange = 6;        // rozsah grafu v měsících (6 | 12)
-// TODO-242 (S21, Milan): PŘEPÍNAČ ROZSAHU. Dosud `_famMember` filtroval JEN
-//   žebříček „kdo na co utratil" – dlaždice nahoře pořád ukazovaly celou
-//   domácnost. Šlo tedy vybrat člena a číslo nad tím mu neodpovídalo.
-//   Nově rozsah řídí CELOU stránku: dlaždice, graf trendu i žebříček.
-//     null   … celá domácnost
-//     jméno  … jeden konkrétní člen (včetně mě)
-let _famMember = null;
+let _famMember = null;    // filtr žebříčku: null = všichni, jinak jméno člena
 
 function setFamRange(n){ _famRange = n; renderFamilySummary(); }
 function setFamMember(name){ _famMember = (name === '' ? null : name); renderFamilySummary(); }
@@ -1155,9 +1149,7 @@ function renderFamilySummary(){
   // Family totals
   let familyInc=0,familyExp=0,familyDebt=0,familyBank=0;
   let _souctyClenu=0;   // kolik členů přispělo jen souhrnem – řekneme to nahlas
-  // TODO-242: rozsah platí i pro souhrnná čísla, ne jen pro žebříček
-  const vRozsahu = m => !_famMember || m.name === _famMember;
-  members.filter(vRozsahu).forEach(m=>{
+  members.forEach(m=>{
     const D=Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]},m.data);
     if(jenSoucty(m)){
       const s2=soucetZaMesic(m);
@@ -1171,21 +1163,10 @@ function renderFamilySummary(){
     familyBank+=computeBank(D);
   });
   
-  // TODO-242: přepínač rozsahu nad dlaždicemi – řídí celou stránku.
-  const rozsahy=[{label:'👨‍👩‍👧 Domácnost',val:''}].concat(members.map(m=>({label:m.name,val:m.name})));
-  const jeCely = !_famMember;
-  let html=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center">
-    <span style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin-right:2px">Rozsah</span>
-    ${rozsahy.map(c=>{
-      const active=(_famMember||'')===c.val;
-      return `<button class="btn btn-ghost btn-sm" onclick="setFamMember('${String(c.val).replace(/'/g,"&#39;")}')"
-        style="font-size:.74rem;padding:4px 12px;${active?'background:var(--bank-bg);color:var(--bank);border-color:var(--bank);font-weight:700':''}">${escHtml(c.label)}</button>`;
-    }).join('')}
-  </div>
-  <div class="family-grid">
-    <div class="family-stat"><div class="family-stat-label">${jeCely?'Rodinné příjmy':'Příjmy'}</div><div class="family-stat-val" style="color:var(--income)">${fmtB(familyInc)}</div></div>
-    <div class="family-stat"><div class="family-stat-label">${jeCely?'Rodinné výdaje':'Výdaje'}</div><div class="family-stat-val" style="color:var(--expense)">${fmtB(familyExp)}</div></div>
-    <div class="family-stat"><div class="family-stat-label">${jeCely?'Rodinné saldo':'Saldo'}</div><div class="family-stat-val" style="color:${familyInc-familyExp>=0?'var(--income)':'var(--expense)'}">${fmtB(familyInc-familyExp)}</div></div>
+  let html=`<div class="family-grid">
+    <div class="family-stat"><div class="family-stat-label">Rodinné příjmy</div><div class="family-stat-val" style="color:var(--income)">${fmtB(familyInc)}</div></div>
+    <div class="family-stat"><div class="family-stat-label">Rodinné výdaje</div><div class="family-stat-val" style="color:var(--expense)">${fmtB(familyExp)}</div></div>
+    <div class="family-stat"><div class="family-stat-label">Rodinné saldo</div><div class="family-stat-val" style="color:${familyInc-familyExp>=0?'var(--income)':'var(--expense)'}">${fmtB(familyInc-familyExp)}</div></div>
     <div class="family-stat"><div class="family-stat-label">Celkový dluh</div><div class="family-stat-val" style="color:var(--debt)">${fmtB(familyDebt)}</div></div>
   </div>
   ${_souctyClenu ? `<div style="font-size:.72rem;color:#a8aec8;margin:-4px 0 12px;line-height:1.55">
@@ -1193,7 +1174,7 @@ function renderFamilySummary(){
     ne jednotlivé transakce. V součtech ${_souctyClenu===1?'jeho':'jejich'} peníze jsou, v žebříčku útrat níž ne –
     tam se dá zobrazit jen to, co má název a datum.</div>` : ''}
   <div class="card gap"><div class="card-header">
-      <span class="card-title">📈 ${jeCely?'Rodinné saldo':'Saldo · '+escHtml(_famMember)} – trend</span>
+      <span class="card-title">📈 Rodinné saldo – trend</span>
       <div style="display:flex;gap:6px">
         ${[6,12].map(n=>`<button class="btn btn-ghost btn-sm" onclick="setFamRange(${n})"
           style="font-size:.72rem;padding:3px 10px;${_famRange===n?'background:var(--bank-bg);color:var(--bank);border-color:var(--bank)':''}">${n} měsíců</button>`).join('')}
@@ -1232,11 +1213,17 @@ function renderFamilySummary(){
   // Sekce se vykreslí, i když filtr nic nenašel – jinak by uživatel po kliknutí
   // na člena viděl, jak mu zmizel i samotný filtr, a nevěděl proč (FIX-214).
   if(familyTxs.length){
-    // TODO-242: vlastní přepínač tady zmizel – rozsah se řídí nahoře pro celou
-    //   stránku. Dva přepínače téhož by se dřív nebo později rozešly.
+    const memberChips=[{label:'Všichni',val:''}].concat(members.map(m=>({label:m.name,val:m.name})));
     html+=`<div class="family-member-col" style="margin-bottom:16px">
-      <div class="family-member-head">👀 ${_famMember?'Na co utratil '+escHtml(_famMember):'Kdo na co utratil nejvíc'}</div>
+      <div class="family-member-head">👀 Kdo na co utratil nejvíc</div>
       <div class="family-member-body">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          ${memberChips.map(c=>{
+            const active=(_famMember||'')===c.val;
+            return `<button class="btn btn-ghost btn-sm" onclick="setFamMember('${String(c.val).replace(/'/g,"&#39;")}')"
+              style="font-size:.72rem;padding:3px 10px;${active?'background:var(--bank-bg);color:var(--bank);border-color:var(--bank)':''}">${escHtml(c.label)}</button>`;
+          }).join('')}
+        </div>
         ${!topFamilyTxs.length?`<div style="font-size:.8rem;color:var(--text3);padding:8px 0">${escHtml(_famMember||'')} v tomhle měsíci žádný výdaj nemá.</div>`:''}
         ${topFamilyTxs.map(t=>`
           <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
@@ -1294,17 +1281,7 @@ function renderFamilySummary(){
       let m=S.curMonth-i, y=S.curYear;
       if(m<0){ m+=12; y--; }
       let mInc=0, mExp=0;
-      const mk2=`${y}-${String(m+1).padStart(2,'0')}`;
-      // TODO-242: graf se řídí týmž rozsahem jako dlaždice – jinak by ukazoval
-      //   celou domácnost pod čísly za jednoho člena.
-      // TODO-240: člen se souhrny přispěje i sem, jinak by trend klesl v měsících,
-      //   kdy ve skutečnosti utratil stejně.
-      members.filter(vRozsahu).forEach(mem=>{
-        if(jenSoucty(mem)){
-          const mes=(mem.data.catSums||{})[mk2]||{};
-          Object.values(mes).forEach(r=>{ mInc+=r.inc||0; mExp+=r.exp||0; });
-          return;
-        }
+      members.forEach(mem=>{
         const D=Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[]},mem.data);
         const txs=getTx(m,y,D);
         mInc+=incSum(txs,D); mExp+=expSum(txs,D);

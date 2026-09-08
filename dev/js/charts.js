@@ -1,4 +1,4 @@
-// FinanceFlow · v9.91 · charts.js · 2026-08-19
+// FinanceFlow · v10.25 · charts.js · 2026-08-28
 //  GRAFY (simplified)
 // ══════════════════════════════════════════════════════
 function renderGrafy(){
@@ -311,15 +311,35 @@ function renderBdayList(){
   const el=document.getElementById('bdayList');if(!el)return;
   const bdays=(D.birthdays||[]).sort((a,b)=>a.month-b.month||a.day-b.day);
   if(!bdays.length){el.innerHTML='<div class="empty"><div class="ei">🎂</div><div class="et">Žádné narozeniny</div></div>';return;}
-  el.innerHTML=bdays.map(b=>`<div class="bday-item"><div class="bday-icon">🎂</div><div class="bday-info"><div class="bday-name">${b.name}</div><div class="bday-date">${b.day}. ${CZ_M[b.month-1]}${b.gift?` · 🎁 ${fmt(b.gift)}`:''}</div>${b.note?`<div class="bday-date" style="color:var(--text3)">${b.note}</div>`:''}</div><div style="text-align:right">${daysUntilBday(b)<=30?`<div class="bday-soon">za ${daysUntilBday(b)} dní</div>`:''}<div style="display:flex;gap:4px;margin-top:4px">${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="editBday('${b.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="deleteBday('${b.id}')">✕</button>`:''}</div></div></div>`).join('');
+  el.innerHTML=bdays.map(b=>`<div class="bday-item"><div class="bday-icon">🎂</div><div class="bday-info"><div class="bday-name">${b.name}</div><div class="bday-date">${b.day}. ${CZ_M[b.month-1]}${b.gift?` · 🎁 ${fmt(b.gift)}`:''}</div>${b.note?`<div class="bday-date" style="color:var(--text3)">${b.note}</div>`:''}</div><div style="text-align:right">${(()=>{const _d=daysUntilBday(b);return _d<=30?`<div class="bday-soon">${_d===0?'DNES 🎉':_d===1?'ZÍTRA':'za '+_bdayDnu(_d)}</div>`:'';})()}<div style="display:flex;gap:4px;margin-top:4px">${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="editBday('${b.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="deleteBday('${b.id}')">✕</button>`:''}</div></div></div>`).join('');
 }
 function renderBdayUpcoming(){
   const D=getData();const el=document.getElementById('bdayUpcoming');if(!el)return;
   const bdays=(D.birthdays||[]).map(b=>({...b,days:daysUntilBday(b)})).sort((a,b)=>a.days-b.days).slice(0,5);
   if(!bdays.length){el.innerHTML='<div class="empty"><div class="et">Žádné narozeniny</div></div>';return;}
-  el.innerHTML=bdays.map(b=>`<div class="insight-item ${b.days<=7?'bad':b.days<=30?'warn':'info'}"><div class="insight-icon">🎂</div><div class="insight-text"><strong>${b.name}</strong> – ${b.day}. ${CZ_M[b.month-1]}<br>${b.days===0?'<strong>DNES!</strong>':b.days===1?'<strong>ZÍTRA!</strong>':`za <strong>${b.days} dní</strong>`}${b.gift?` · dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join('');
+  el.innerHTML=bdays.map(b=>`<div class="insight-item ${b.days<=7?'bad':b.days<=30?'warn':'info'}"><div class="insight-icon">🎂</div><div class="insight-text"><strong>${b.name}</strong> – ${b.day}. ${CZ_M[b.month-1]}<br>${b.days===0?'<strong>DNES!</strong>':b.days===1?'<strong>ZÍTRA!</strong>':`za <strong>${_bdayDnu(b.days)}</strong>`}${b.gift?` · dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join('');
 }
-function daysUntilBday(b){const now=new Date();const ny=now.getFullYear();let next=new Date(ny,b.month-1,b.day);if(next<now)next=new Date(ny+1,b.month-1,b.day);return Math.round((next-now)/(1000*60*60*24));}
+// FIX-291 (S20): dřív se porovnávala PŮLNOC cílového dne s AKTUÁLNÍM časem.
+//   Půlnoc dneška je vždy menší než „teď", takže se datum posunulo o rok:
+//   narozeniny, které má někdo DNES, hlásily „za 364 dní" a spadly na konec
+//   seřazeného seznamu – přesně v den, kdy má připomínka smysl, ji appka nedala.
+//   Zároveň zítřejší vycházely na 0 dní (9 hodin → Math.round(0.375) = 0),
+//   takže texty „DNES!" / „ZÍTRA!" v renderBdayUpcoming se zobrazovaly o den dřív.
+//   Stejná třída chyby jako FIX-276 (termín cíle) a stejná oprava: obě data na půlnoc.
+function daysUntilBday(b){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const ny=now.getFullYear();
+  let next=new Date(ny,b.month-1,b.day); next.setHours(0,0,0,0);
+  if(next<now){ next=new Date(ny+1,b.month-1,b.day); next.setHours(0,0,0,0); }
+  return Math.round((next-now)/86400000);
+}
+// FIX-291: české skloňování (1 den · 3 dny · 8 dní) – dřív vždy „dní".
+function _bdayDnu(n){
+  const a=Math.abs(n);
+  if(a===1) return '1 den';
+  if(a>=2&&a<=4) return a+' dny';
+  return a+' dní';
+}
 function openBdayModal(){if(viewingUid)return;['editBdayId','bdayName','bdayDay','bdayGift','bdayNote'].forEach(id=>document.getElementById(id).value='');document.getElementById('bdayMonth').value='1';document.getElementById('bdayModalTitle').textContent='Přidat narozeniny';document.getElementById('modalBday').classList.add('open');}
 function editBday(id){if(viewingUid)return;const b=(S.birthdays||[]).find(x=>x.id===id);if(!b)return;document.getElementById('editBdayId').value=id;document.getElementById('bdayName').value=b.name;document.getElementById('bdayDay').value=b.day;document.getElementById('bdayMonth').value=b.month;moneyInFill('bdayGift', b.gift);document.getElementById('bdayNote').value=b.note||'';document.getElementById('bdayModalTitle').textContent='Upravit narozeniny';document.getElementById('modalBday').classList.add('open');}
 function saveBday(){const eid=document.getElementById('editBdayId').value;const name=document.getElementById('bdayName').value.trim();const day=parseInt(document.getElementById('bdayDay').value);const month=parseInt(document.getElementById('bdayMonth').value);const gift=moneyInRead('bdayGift');const note=document.getElementById('bdayNote').value.trim();if(!name||!day||!month){alert('Vyplň jméno, den a měsíc');return;}if(!S.birthdays)S.birthdays=[];if(eid){const b=S.birthdays.find(x=>x.id===eid);if(b)Object.assign(b,{name,day,month,gift,note});}else S.birthdays.push({id:uid(),name,day,month,gift,note});save();closeModal('modalBday');renderPage();}
