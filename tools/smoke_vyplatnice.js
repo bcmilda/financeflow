@@ -99,7 +99,11 @@ ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
       return r.hruba!==o.hruba || r.cisty!==o.cisty || r.dobirka!==o.dobirka;
     });
     ok(`importní soubor: všech ${data.length} měsíců sedí na skutečnou pásku`, spatne.length===0);
-    ok('importní soubor pokrývá víc než rok', data.length>=8);
+    ok('importní soubor pokrývá víc než rok', data.length>=11);
+    ok('02/2025 v importu NENÍ (Milan: první páska je 03/2025)',
+       !data.some(z=>z.m==='2025-02'));
+    ok('vánoční příspěvek je v šabloně (nalezen v 11/25)',
+       /kod: '5010', label: 'Vánoční příspěvek'/.test(v));
   }
 }
 

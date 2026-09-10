@@ -1,4 +1,4 @@
-// FinanceFlow · v10.54 · vyplatnice.js · 2026-09-10
+// FinanceFlow · v10.55 · vyplatnice.js · 2026-09-10
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -33,6 +33,7 @@ const VYPL_SABLONA_CZ = {
     { key: 'prescasPr', kod: '2026', label: 'Příplatek přesčas',      povaha: 'prilezitostna', odvozena: true  },
     { key: 'svatek',    kod: '2089', label: 'Příplatek práce ve svátek', povaha: 'prilezitostna', odvozena: true },
     { key: 'vikend',    kod: '2129', label: 'Příplatek So + Ne',      povaha: 'prilezitostna', odvozena: true  },
+    { key: 'vanocni',   kod: '5010', label: 'Vánoční příspěvek',      povaha: 'prilezitostna', odvozena: false },
     { key: 'nabor',     kod: '5047', label: 'Náborový příspěvek',     povaha: 'prilezitostna', odvozena: false },
     { key: 'penzPrisp', kod: 'PENZ', label: 'Příspěvek na PP',        povaha: 'pruchozi',      odvozena: false },
   ],

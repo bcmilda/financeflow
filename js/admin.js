@@ -1,4 +1,4 @@
-// FinanceFlow · v10.54 · admin.js · 2026-09-10
+// FinanceFlow · v10.55 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.55',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 Do importu přibyly čtyři měsíce (09–12/2025). Celkem 11 pásek od 03/2025 do 08/2026 – VŠECHNY sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Model tedy platí i přes vánoční příspěvek, svátky, dovolenou napříč dvěma měsíci a měnící se PPÚ (141 → 248 → 184 → 220).',
+      '🎁 Do šablony přibyl vánoční příspěvek (kód 5010, nalezen v 11/25) jako příležitostná položka – v ostatních měsících chybí a neznamená to nulu.',
+      '⚙ Období 02/2025 z importu odebráno – Milan potvrdil, že první výplatnice je z 03/2025.',
+    ]
+  },
   {
     verze: 'v10.54',
     datum: '2026-09-10',

@@ -1,33 +1,5 @@
 [
  {
-  "m": "2025-02",
-  "hlavicka": {
-   "fond": 66,
-   "odprac": 66,
-   "neprit": 0,
-   "ppu": 141.08,
-   "tarif": 23000
-  },
-  "prijmy": {
-   "zaklad": 9857,
-   "vykonove": 394,
-   "osobni": 887,
-   "mobilita": 1281,
-   "nocni": 395,
-   "vikend": 155,
-   "nabor": 3000
-  },
-  "odvody": {
-   "slevaZak": 2570
-  },
-  "srazky": {},
-  "ocekavano": {
-   "hruba": 15969,
-   "cisty": 14116,
-   "dobirka": 14116
-  }
- },
- {
   "m": "2025-03",
   "hlavicka": {
    "fond": 132,
@@ -212,6 +184,133 @@
    "hruba": 33850,
    "cisty": 27407,
    "dobirka": 27086
+  }
+ },
+ {
+  "m": "2025-09",
+  "hlavicka": {
+   "fond": 220,
+   "odprac": 181.47,
+   "neprit": 38.53,
+   "ppu": 219.7,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 21034,
+   "dovolena": 8465,
+   "vykonove": 656,
+   "osobni": 1578,
+   "mobilita": 2734,
+   "nocni": 1230,
+   "svatek": 2417,
+   "vikend": 1450
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 434
+  },
+  "ocekavano": {
+   "hruba": 39564,
+   "cisty": 31603,
+   "dobirka": 31169
+  }
+ },
+ {
+  "m": "2025-10",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 165,
+   "neprit": 0,
+   "ppu": 183.86,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 25500,
+   "vykonove": 740,
+   "osobni": 2040,
+   "mobilita": 3315,
+   "nocni": 901,
+   "vikend": 202
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 434,
+   "penezenka": 31
+  },
+  "ocekavano": {
+   "hruba": 32698,
+   "cisty": 26569,
+   "dobirka": 26104
+  }
+ },
+ {
+  "m": "2025-11",
+  "hlavicka": {
+   "fond": 154,
+   "odprac": 153.25,
+   "neprit": 33,
+   "ppu": 183.86,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 21857,
+   "dovolena": 4045,
+   "vykonove": 736,
+   "osobni": 2030,
+   "mobilita": 3299,
+   "nocni": 1030,
+   "prescas": 3519,
+   "prescasPr": 977,
+   "vikend": 1402,
+   "vanocni": 8409
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 124
+  },
+  "ocekavano": {
+   "hruba": 47304,
+   "cisty": 37276,
+   "dobirka": 37152
+  }
+ },
+ {
+  "m": "2025-12",
+  "hlavicka": {
+   "fond": 132,
+   "odprac": 132,
+   "neprit": 33,
+   "ppu": 183.86,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 19125,
+   "dovolena": 6067,
+   "vykonove": 740,
+   "osobni": 2040,
+   "mobilita": 3315,
+   "nocni": 772,
+   "prescas": 6375,
+   "prescasPr": 1517,
+   "vikend": 405
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "stravovani": 372
+  },
+  "ocekavano": {
+   "hruba": 40356,
+   "cisty": 33450,
+   "dobirka": 33078
   }
  },
  {
