@@ -1,4 +1,4 @@
-// FinanceFlow · v10.57 · admin.js · 2026-09-10
+// FinanceFlow · v10.58 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.58',
+    datum: '2026-09-10',
+    zmeny: [
+      '📊 TODO-258 · VÝPLATNICE FÁZE 2: GRAFY SLOŽENÍ V ČASE. Hrubá mzda se rozkládá na tři skupiny podle otázky „dostanu to i příští měsíc, aniž bych udělal cokoli navíc?": PEVNÁ (tarif, mobilita, náhrada za dovolenou) · ZA ČAS (přesčas, noční, víkend, svátek) · ZA VÝKON (prémie a odměny). Právě posun mezi pevnou a za výkon je to, co Milan hledal.',
+      '🛡️ Nová karta „Podíl pevné složky" – kolik z hrubé mzdy je jisté, s vývojem v čase a změnou v procentních bodech za sledované období. Appka ZÁMĚRNĚ neříká, který podíl je správný: závisí to na tom, jestli uživatel ve firmě zůstane, a to ona neví.',
+      '✂️ Karta „Srážky za N měsíců" – součet po položkách za celé sledované období. Průchozí položky (příspěvek na penzijko, který se hned strhne) se nepočítají, nejsou to peníze uživatele ani tam, ani zpět.',
+      '⚙ Grafy jsou ZÁMĚRNĚ bez canvasu – skládané pruhy z divů se samy přizpůsobí šířce, nepotřebují DPR škálování ani čekání na dokončení layoutu (SKILL 2) a na mobilu vypadají stejně jako na desktopu.',
+      '⚙ Neznámá položka spadne do skupiny „Ostatní", nikdy se neztratí – test ověřuje, že rozklad sedí na hrubou mzdu ve všech 19 skutečných měsících.',
+    ]
+  },
   {
     verze: 'v10.57',
     datum: '2026-09-10',

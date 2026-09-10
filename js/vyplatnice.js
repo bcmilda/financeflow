@@ -1,4 +1,4 @@
-// FinanceFlow · v10.57 · vyplatnice.js · 2026-09-10
+// FinanceFlow · v10.58 · vyplatnice.js · 2026-09-10
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -90,6 +90,32 @@ function vyplDopocet(z) {
 // Podíl PEVNÉ složky – jádro toho, kvůli čemu funkce vzniká. Pevné je to,
 // co dostanu i bez přesčasů a bez výkonu; pohyblivé zbytek.
 const VYPL_PEVNE = ['zaklad', 'mobilita', 'dovolena'];
+// FÁZE 2: rozklad hrubé mzdy na tři skupiny. Hranice není libovolná – ptá se
+//   „dostanu to i příští měsíc, aniž bych cokoli udělal navíc?“
+//     pevná    … ano (tarif, mobilita, náhrada za dovolenou)
+//     za čas   … jen když odpracuji navíc (přesčas, noční, víkend, svátek)
+//     za výkon … jen když se firmě i mně bude dařit (prémie, odměny)
+//   Právě posun mezi PEVNOU a ZA VÝKON je to, co Milan hledá.
+const VYPL_ZA_CAS  = ['nocni', 'prescas', 'prescasPr', 'vikend', 'svatek'];
+const VYPL_ZA_VYKON = ['vykonove', 'osobni', 'korekce', 'vanocni', 'rocni', 'nabor'];
+
+function vyplRozklad(z) {
+  const p = z.prijmy || {};
+  const sab = vyplSablona();
+  const pruchozi = new Set(sab.prijmy.filter(x => x.povaha === 'pruchozi').map(x => x.key));
+  const r = { pevna: 0, zaCas: 0, zaVykon: 0, jine: 0, celkem: 0 };
+  Object.keys(p).forEach(k => {
+    if (pruchozi.has(k)) return;
+    const v = +p[k] || 0;
+    r.celkem += v;
+    if (VYPL_PEVNE.includes(k)) r.pevna += v;
+    else if (VYPL_ZA_CAS.includes(k)) r.zaCas += v;
+    else if (VYPL_ZA_VYKON.includes(k)) r.zaVykon += v;
+    else r.jine += v;
+  });
+  return r;
+}
+window.vyplRozklad = vyplRozklad;
 function vyplPodilPevne(z) {
   const p = z.prijmy || {};
   const sab = vyplSablona();
@@ -164,8 +190,120 @@ function _renderKalVyplatnice(D, m, y) {
     });
     html += `</div></div>`;
   }
+  html += _vyplGrafy(zaznamy);
   return html;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  FÁZE 2 · GRAFY SLOŽENÍ V ČASE (TODO-258)
+//  Záměrně BEZ canvasu – skládané pruhy z divů se samy přizpůsobí šířce,
+//  nepotřebují DPR škálování ani čekání na layout (SKILL 2) a na mobilu
+//  vypadají stejně jako na desktopu.
+// ══════════════════════════════════════════════════════════════════════
+const VYPL_BARVY = { pevna: '#4ade80', zaCas: '#60a5fa', zaVykon: '#fbbf24', jine: '#a78bfa' };
+
+function _vyplGrafy(zaznamy) {
+  if (zaznamy.length < 2) return '';
+  const rada = zaznamy.slice().sort((a, b) => (a.m || '').localeCompare(b.m || '')).slice(-24);
+  const max = Math.max(...rada.map(z => vyplRozklad(z).celkem), 1);
+  const mesic = m => { const [y, mm] = m.split('-'); return CZ_M[(+mm || 1) - 1].slice(0, 3) + ' ' + y.slice(2); };
+
+  // ── A · Složení hrubé mzdy ──
+  let a = rada.map(z => {
+    const r = vyplRozklad(z);
+    const dil = (v, barva, popis) => v > 0
+      ? `<div title="${popis}: ${fmt(Math.round(v))} Kč" style="height:${v / max * 100}%;background:${barva}"></div>` : '';
+    return `<div style="flex:1;min-width:14px;display:flex;flex-direction:column;justify-content:flex-end;height:130px;gap:1px">
+        ${dil(r.zaVykon, VYPL_BARVY.zaVykon, 'Za výkon')}
+        ${dil(r.zaCas,   VYPL_BARVY.zaCas,   'Za čas')}
+        ${dil(r.jine,    VYPL_BARVY.jine,    'Ostatní')}
+        ${dil(r.pevna,   VYPL_BARVY.pevna,   'Pevná')}
+      </div>`;
+  }).join('');
+
+  const legenda = [['pevna', 'Pevná'], ['zaCas', 'Za čas'], ['zaVykon', 'Za výkon'], ['jine', 'Ostatní']]
+    .map(([k, l]) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:.7rem;color:${VYPL_POPISEK}">
+        <span style="width:9px;height:9px;border-radius:2px;background:${VYPL_BARVY[k]}"></span>${l}</span>`).join('');
+
+  // ── B · Podíl pevné složky ──
+  const podily = rada.map(z => { const r = vyplRozklad(z); return r.celkem ? r.pevna / r.celkem * 100 : null; });
+  const platne = podily.filter(v => v != null);
+  const prumer = platne.length ? Math.round(platne.reduce((a, b) => a + b, 0) / platne.length) : null;
+  const prvni = platne[0], posledni = platne[platne.length - 1];
+  const zmena = (prvni != null && posledni != null) ? Math.round(posledni - prvni) : null;
+
+  const b = rada.map((z, i) => {
+    const v = podily[i];
+    return `<div title="${mesic(z.m)}: ${v != null ? Math.round(v) + ' %' : '—'}"
+        style="flex:1;min-width:14px;height:70px;display:flex;flex-direction:column;justify-content:flex-end">
+        <div style="height:${v != null ? v : 0}%;background:${VYPL_BARVY.pevna};opacity:.85"></div></div>`;
+  }).join('');
+
+  // ── C · Srážky ──
+  const sab = vyplSablona();
+  const pruchoziSr = new Set(sab.srazky.filter(x => x.povaha === 'pruchozi').map(x => x.key));
+  const srazkySoucet = {};
+  rada.forEach(z => Object.keys(z.srazky || {}).forEach(k => {
+    if (pruchoziSr.has(k)) return;
+    srazkySoucet[k] = (srazkySoucet[k] || 0) + (+z.srazky[k] || 0);
+  }));
+  const nazev = k => (sab.srazky.find(x => x.key === k) || {}).label || k;
+  const srCelkem = Object.values(srazkySoucet).reduce((a, b) => a + b, 0);
+
+  return `
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">📊 Z čeho se skládá hrubá mzda</span></div>
+    <div class="card-body">
+      <div style="margin-bottom:7px">${legenda}</div>
+      <div style="display:flex;gap:2px;align-items:flex-end">${a}</div>
+      <div style="display:flex;justify-content:space-between;font-size:.66rem;color:${VYPL_POPISEK};margin-top:5px">
+        <span>${mesic(rada[0].m)}</span><span>${mesic(rada[rada.length - 1].m)}</span></div>
+      <div style="font-size:.72rem;color:${VYPL_POPISEK};margin-top:9px;line-height:1.55">
+        <strong style="color:${VYPL_HODNOTA}">Pevná</strong> je to, co dostaneš i bez přesčasů a bez výkonu.
+        <strong style="color:${VYPL_HODNOTA}">Za čas</strong> závisí na odpracovaných hodinách,
+        <strong style="color:${VYPL_HODNOTA}">za výkon</strong> na rozhodnutí zaměstnavatele.
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">🛡️ Podíl pevné složky</span></div>
+    <div class="card-body">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px">
+        <span style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:${VYPL_BARVY.pevna}">${posledni != null ? Math.round(posledni) : '—'} %</span>
+        <span style="font-size:.74rem;color:${VYPL_POPISEK}">poslední měsíc · průměr ${prumer != null ? prumer : '—'} %</span>
+        ${zmena != null ? `<span style="font-size:.74rem;color:${zmena >= 0 ? 'var(--income)' : 'var(--debt)'}">
+            ${zmena >= 0 ? '+' : ''}${zmena} pb za sledované období</span>` : ''}
+      </div>
+      <div style="display:flex;gap:2px;align-items:flex-end">${b}</div>
+      <div style="font-size:.72rem;color:${VYPL_POPISEK};margin-top:9px;line-height:1.55">
+        Kolik z hrubé mzdy je jisté. Vyšší podíl znamená stabilnější příjem —
+        pevnou část ti nikdo nesebere a počítá se do dovolené i náhrad.
+        Appka neříká, který podíl je správný; to závisí na tom, jestli ve firmě zůstaneš.
+      </div>
+    </div>
+  </div>
+
+  ${srCelkem ? `<div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">✂️ Srážky za ${rada.length} měsíců</span></div>
+    <div class="card-body">
+      ${Object.keys(srazkySoucet).sort((x, y) => srazkySoucet[y] - srazkySoucet[x]).map(k => `
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:.8rem;color:${VYPL_POPISEK}">${nazev(k)}</span>
+          <span style="font-size:.84rem;font-weight:600;color:${VYPL_HODNOTA}">${fmt(Math.round(srazkySoucet[k]))} Kč</span>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:9px 0 2px">
+        <span style="font-size:.86rem;font-weight:700">Celkem</span>
+        <span style="font-size:.95rem;font-weight:800;color:var(--expense)">${fmt(Math.round(srCelkem))} Kč</span>
+      </div>
+      <div style="font-size:.72rem;color:${VYPL_POPISEK};margin-top:8px;line-height:1.55">
+        Průchozí položky (příspěvek na penzijko, který se hned strhne) se nepočítají —
+        nejsou to tvoje peníze ani tam, ani zpět.
+      </div>
+    </div>
+  </div>` : ''}`;
+}
+window._vyplGrafy = _vyplGrafy;
 
 // ── Formulář ──────────────────────────────────────────────────────────
 function vyplOtevritForm(mKlic) {

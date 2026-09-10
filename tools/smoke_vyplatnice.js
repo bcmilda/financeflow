@@ -117,5 +117,45 @@ ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
   }
 }
 
+// ── FÁZE 2 · rozklad a grafy (TODO-258) ───────────────────────────
+{
+  const r=ctx.vyplRozklad({prijmy:{zaklad:20000,mobilita:2000,dovolena:1000,
+    nocni:500,prescas:800,vykonove:900,osobni:600,penzPrisp:800}});
+  ok('rozklad · pevná = tarif + mobilita + dovolená', r.pevna===23000);
+  ok('rozklad · za čas = noční + přesčas',            r.zaCas===1300);
+  ok('rozklad · za výkon = prémie',                   r.zaVykon===1500);
+  ok('rozklad · průchozí položka se nezapočítá',      r.celkem===25800);
+  ok('rozklad · skupiny dají dohromady celek',
+     r.pevna+r.zaCas+r.zaVykon+r.jine===r.celkem);
+  ok('rozklad · neznámá položka spadne do „jiné“, neztratí se',
+     ctx.vyplRozklad({prijmy:{zaklad:100,neznama:50}}).jine===50);
+  ok('rozklad · prázdná páska nespadne', ctx.vyplRozklad({}).celkem===0);
+
+  // Nad skutečnými daty musí rozklad sedět na hrubou mzdu z pásky
+  const fsx=require('fs'), px=require('path');
+  const cesta=px.join(__dirname,'vyplatnice-import.json');
+  if (fsx.existsSync(cesta)) {
+    const data=JSON.parse(fsx.readFileSync(cesta,'utf8'));
+    const nesedi=data.filter(z=>ctx.vyplRozklad(z).celkem!==z.ocekavano.hruba);
+    ok('rozklad sedí na hrubou mzdu ve VŠECH 19 měsících', nesedi.length===0);
+    const podily=data.map(z=>{const q=ctx.vyplRozklad(z);return q.pevna/q.celkem*100;});
+    ok('podíl pevné složky je v rozumném rozmezí (60–95 %)',
+       podily.every(p=>p>=55 && p<=95));
+  }
+}
+{
+  const g=R('vyplatnice.js');
+  ok('grafy · bez canvasu (žádné DPR ani čekání na layout)',
+     !/getContext\('2d'\)/.test(g) && /display:flex;gap:2px;align-items:flex-end/.test(g));
+  ok('grafy · při jednom měsíci se nekreslí nic', /if \(zaznamy\.length < 2\) return ''/.test(g));
+  ok('grafy · zobrazí se posledních 24 měsíců', /\.slice\(-24\)/.test(g));
+  ok('grafy · legenda vysvětluje všechny tři skupiny',
+     /Za výkon/.test(g) && /Za čas/.test(g) && /Pevná/.test(g));
+  ok('grafy · srážky vylučují průchozí položky', /pruchoziSr\.has\(k\)/.test(g));
+  ok('grafy · appka NEHODNOTÍ, který podíl je správný',
+     /Appka neříká, který podíl je správný/.test(g));
+  ok('grafy · dělení nulou při prázdné pásce ošetřeno', /r\.celkem \? r\.pevna \/ r\.celkem/.test(g));
+}
+
 console.log(`\n${pass} OK, ${fail} chyb`);
 process.exit(fail?1:0);
