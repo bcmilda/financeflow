@@ -7,7 +7,10 @@ console.log('smoke_vyplatnice.js');
 
 const v=R('vyplatnice.js'), app=R('app.js'), kal=R('kalendar.js');
 const ctx=vm.createContext({}); ctx.window=ctx;
+// SKILL 36: detektor (fáze 3) leží AŽ ZA sekcí Render, takže se musí vytáhnout
+//   zvlášť – původní rozsah extrakce ho míjel a padalo to na „not a function“.
 vm.runInContext('var S={};'+v.slice(v.indexOf('const VYPL_POVAHY'), v.indexOf('// ── Render')), ctx);
+vm.runInContext(v.slice(v.indexOf('function vyplZmenyTarifu('), v.indexOf('function _vyplDetektor(')), ctx);
 
 // ── Výpočet ověřený na SKUTEČNÝCH páskách ─────────────────────────
 const pasky=[
@@ -155,6 +158,67 @@ ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
   ok('grafy · appka NEHODNOTÍ, který podíl je správný',
      /Appka neříká, který podíl je správný/.test(g));
   ok('grafy · dělení nulou při prázdné pásce ošetřeno', /r\.celkem \? r\.pevna \/ r\.celkem/.test(g));
+}
+
+// ── FÁZE 3 · detektor přesunu (TODO-259) ──────────────────────────
+{
+  const mk=(m,tarif,vykonove,osobni,extra={})=>({m,hlavicka:{tarif},
+    prijmy:Object.assign({zaklad:tarif,vykonove,osobni},extra)});
+  // Základ nahoru, prémie dolů → přesun
+  let r=ctx.vyplAnalyzaPresunu([
+    mk('2025-01',20000,2000,1000), mk('2025-02',20000,2000,1000), mk('2025-03',20000,2000,1000),
+    mk('2025-04',23000,500,500),   mk('2025-05',23000,500,500),   mk('2025-06',23000,500,500)],3)[0];
+  ok('detektor · základ +3000 a prémie −2000 označí jako PŘESUN',
+     r.dTarif===3000 && Math.round(r.dVykon)===-2000 && r.presun===true);
+  ok('detektor · spočítá, kolik ze zvýšení pokles prémií snědl',
+     Math.round(r.pokryti*100)===67);
+  ok('detektor · netto je součet obou pohybů', Math.round(r.netto)===1000);
+
+  // Základ nahoru, prémie taky → NENÍ přesun
+  r=ctx.vyplAnalyzaPresunu([
+    mk('2025-01',20000,2000,1000), mk('2025-02',20000,2000,1000), mk('2025-03',20000,2000,1000),
+    mk('2025-04',23000,2500,1200), mk('2025-05',23000,2500,1200), mk('2025-06',23000,2500,1200)],3)[0];
+  ok('detektor · skutečné zvýšení se za přesun NEoznačí', r.presun===false);
+
+  // Jednorázová odměna nesmí zkreslit průměr
+  const bezOdmeny=ctx.vyplAnalyzaPresunu([
+    mk('2025-01',20000,2000,1000), mk('2025-02',20000,2000,1000), mk('2025-03',20000,2000,1000),
+    mk('2025-04',23000,2000,1000), mk('2025-05',23000,2000,1000), mk('2025-06',23000,2000,1000)],3)[0];
+  const sOdmenou=ctx.vyplAnalyzaPresunu([
+    mk('2025-01',20000,2000,1000), mk('2025-02',20000,2000,1000,{vanocni:9000}), mk('2025-03',20000,2000,1000),
+    mk('2025-04',23000,2000,1000), mk('2025-05',23000,2000,1000), mk('2025-06',23000,2000,1000)],3)[0];
+  ok('detektor · vánoční příspěvek NEZKRESLÍ porovnání prémií',
+     Math.round(bezOdmeny.dVykon)===Math.round(sOdmenou.dVykon));
+  ok('detektor · vynechané jednorázovky se přesto vykážou', sOdmenou.jednorazovePred===9000);
+
+  // Bez změny tarifu není co hlásit
+  ok('detektor · beze změny tarifu nehlásí nic',
+     ctx.vyplAnalyzaPresunu([mk('2025-01',20000,2000,1000),mk('2025-02',20000,2000,1000)],3).length===0);
+  ok('detektor · bez měsíců na jedné straně analýzu vynechá',
+     ctx.vyplAnalyzaPresunu([mk('2025-01',20000,2000,1000),mk('2025-02',23000,2000,1000)],3).length===1);
+
+  // Skutečná data
+  const fsx=require('fs'), px=require('path');
+  const cesta=px.join(__dirname,'vyplatnice-import.json');
+  if (fsx.existsSync(cesta)) {
+    const data=JSON.parse(fsx.readFileSync(cesta,'utf8'));
+    const an=ctx.vyplAnalyzaPresunu(data);
+    ok('detektor · v Milanových datech najde OBĚ změny tarifu', an.length===2);
+    ok('detektor · zachytí 23 000 → 25 500 i 25 500 → 26 140',
+       an[0].tarifPred===23000 && an[0].tarifPo===25500 &&
+       an[1].tarifPred===25500 && an[1].tarifPo===26140);
+    ok('detektor · obě změny vyjdou jako čisté zvýšení (netto > 0)',
+       an.every(a=>a.netto>0));
+  }
+
+  const g=R('vyplatnice.js');
+  ok('detektor · porovnává TARIF, ne vyplacený základ',
+     /Porovnává se <strong[^>]*>tarif<\/strong>, ne vyplacený základ/.test(g));
+  ok('detektor · vysvětlí, proč se nekouká na vyplacený základ',
+     /krátí\s*\n?\s*podle odpracovaných hodin/.test(g));
+  ok('detektor · při málo datech se nekreslí', /if \(zaznamy\.length < 4\) return ''/.test(g));
+  ok('pořadí · analýza je PŘED historií',
+     g.indexOf('_vyplDetektor(zaznamy)') < g.indexOf('📜 Historie'));
 }
 
 console.log(`\n${pass} OK, ${fail} chyb`);

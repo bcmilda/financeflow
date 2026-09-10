@@ -1,4 +1,4 @@
-// FinanceFlow · v10.58 · vyplatnice.js · 2026-09-10
+// FinanceFlow · v10.59 · vyplatnice.js · 2026-09-10
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -98,6 +98,11 @@ const VYPL_PEVNE = ['zaklad', 'mobilita', 'dovolena'];
 //   Právě posun mezi PEVNOU a ZA VÝKON je to, co Milan hledá.
 const VYPL_ZA_CAS  = ['nocni', 'prescas', 'prescasPr', 'vikend', 'svatek'];
 const VYPL_ZA_VYKON = ['vykonove', 'osobni', 'korekce', 'vanocni', 'rocni', 'nabor'];
+// Uvnitř skupiny „za výkon" je ještě jedna hranice, která se ukázala až na
+// datech: PRAVIDELNÉ prémie chodí každý měsíc, JEDNORÁZOVÉ odměny jednou za rok.
+// Do porovnání před/po změně tarifu smí jen ty pravidelné — jinak jeden vánoční
+// příspěvek posune průměr o tisíce a detektor hlásí přesun, který se nestal.
+const VYPL_PREMIE_PRAVIDELNE = ['vykonove', 'osobni', 'korekce'];
 
 function vyplRozklad(z) {
   const p = z.prijmy || {};
@@ -174,6 +179,9 @@ function _renderKalVyplatnice(D, m, y) {
   }
   html += `</div></div><div id="vyplFormBox"></div>`;
 
+  // Milan (S21): historie mezi grafy mátla – nejdřív analýza, pak výpis.
+  html += _vyplDetektor(zaznamy);
+  html += _vyplGrafy(zaznamy);
   // Historie
   if (zaznamy.length) {
     html += `<div class="card"><div class="card-header"><span class="card-title">📜 Historie (${zaznamy.length})</span></div><div class="card-body">`;
@@ -190,9 +198,127 @@ function _renderKalVyplatnice(D, m, y) {
     });
     html += `</div></div>`;
   }
-  html += _vyplGrafy(zaznamy);
   return html;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  FÁZE 3 · DETEKTOR PŘESUNU (TODO-259) — jádro celé funkce
+//
+//  Milanův postřeh: „zvednou základ a zároveň sníží prémie = stejný výsledek“.
+//  Dole se nezmění nic, ale změnilo se, z čeho je výplata složená — a to má
+//  následky: základ ti nikdo nesebere, počítá se do dovolené i náhrad a určuje
+//  hodnotu přesčasové hodiny.
+//
+//  PROČ SE NEPOROVNÁVAJÍ SOUSEDNÍ MĚSÍCE PŘÍMO:
+//  Základní mzda se krátí odpracovaným fondem. Měsíc s dovolenou nebo neplaceným
+//  volnem má nižší „pevnou“ složku, aniž by se cokoli změnilo. Naivní porovnání
+//  by hlásilo poplach pokaždé, když si vezmeš volno.
+//  Detektor proto vychází z TARIFU, který je na pásce uvedený přímo a na
+//  odpracovaných hodinách nezávisí, a prémie porovnává jako PRŮMĚR za období
+//  před změnou a po ní — jednotlivý měsíc kolísá moc na to, aby o něčem svědčil.
+// ══════════════════════════════════════════════════════════════════════
+
+function vyplZmenyTarifu(zaznamy) {
+  const rada = zaznamy.slice().filter(z => (z.hlavicka || {}).tarif)
+    .sort((a, b) => (a.m || '').localeCompare(b.m || ''));
+  const zmeny = [];
+  for (let i = 1; i < rada.length; i++) {
+    const pred = +rada[i - 1].hlavicka.tarif, po = +rada[i].hlavicka.tarif;
+    if (pred !== po) zmeny.push({ m: rada[i].m, index: i, tarifPred: pred, tarifPo: po });
+  }
+  return { rada, zmeny };
+}
+
+// Průměr výkonnostní složky za `n` měsíců před/po indexu.
+function _vyplPrumerVykon(rada, od, do_) {
+  const usek = rada.slice(Math.max(0, od), do_);
+  if (!usek.length) return null;
+  // Jen PRAVIDELNÉ prémie – viz VYPL_PREMIE_PRAVIDELNE.
+  const soucet = z => VYPL_PREMIE_PRAVIDELNE.reduce((a, k) => a + (+(z.prijmy || {})[k] || 0), 0);
+  const s = usek.reduce((a, z) => a + soucet(z), 0);
+  // Kolik jednorázových odměn jsme z porovnání vynechali – řekneme to nahlas.
+  const jednorazove = usek.reduce((a, z) => a + ['vanocni', 'rocni', 'nabor']
+    .reduce((b, k) => b + (+(z.prijmy || {})[k] || 0), 0), 0);
+  return { prumer: s / usek.length, mesicu: usek.length, jednorazove };
+}
+
+function vyplAnalyzaPresunu(zaznamy, okno = 3) {
+  const { rada, zmeny } = vyplZmenyTarifu(zaznamy);
+  return zmeny.map(z => {
+    const pred = _vyplPrumerVykon(rada, z.index - okno, z.index);
+    const po   = _vyplPrumerVykon(rada, z.index, z.index + okno);
+    if (!pred || !po) return null;
+    const dTarif = z.tarifPo - z.tarifPred;
+    const dVykon = po.prumer - pred.prumer;
+    return {
+      m: z.m, tarifPred: z.tarifPred, tarifPo: z.tarifPo,
+      dTarif, dVykon, netto: dTarif + dVykon,
+      vykonPred: pred.prumer, vykonPo: po.prumer,
+      mesicuPred: pred.mesicu, mesicuPo: po.mesicu,
+      jednorazovePred: pred.jednorazove, jednorazovePo: po.jednorazove,
+      // Přesun = základ nahoru A ZÁROVEŇ prémie dolů (nebo naopak).
+      presun: (dTarif > 0 && dVykon < 0) || (dTarif < 0 && dVykon > 0),
+      // Kolik ze zvýšení základu „snědl“ pokles prémií
+      pokryti: dTarif !== 0 ? Math.min(1, Math.max(0, -dVykon / dTarif)) : 0,
+    };
+  }).filter(Boolean);
+}
+window.vyplZmenyTarifu = vyplZmenyTarifu;
+window.vyplAnalyzaPresunu = vyplAnalyzaPresunu;
+
+function _vyplDetektor(zaznamy) {
+  if (zaznamy.length < 4) return '';
+  const analyzy = vyplAnalyzaPresunu(zaznamy);
+  if (!analyzy.length) return '';
+  const cs = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(Math.round(v)));
+
+  return `<div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">🔍 Změny základu a co je doprovázelo</span></div>
+    <div class="card-body">
+      ${analyzy.map(a => {
+        const [ry, rm] = a.m.split('-');
+        const barvaN = a.netto >= 0 ? 'var(--income)' : 'var(--expense)';
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:.86rem;font-weight:600;color:${VYPL_HODNOTA};margin-bottom:7px">
+            ${CZ_M[(+rm || 1) - 1]} ${ry} · tarif ${fmt(a.tarifPred)} → ${fmt(a.tarifPo)} Kč</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+            <div><div style="font-size:.68rem;color:${VYPL_POPISEK}">Základ</div>
+              <div style="font-size:.9rem;font-weight:700;color:${a.dTarif >= 0 ? 'var(--income)' : 'var(--expense)'}">${cs(a.dTarif)}</div></div>
+            <div><div style="font-size:.68rem;color:${VYPL_POPISEK}">Prémie (⌀)</div>
+              <div style="font-size:.9rem;font-weight:700;color:${a.dVykon >= 0 ? 'var(--income)' : 'var(--expense)'}">${cs(a.dVykon)}</div></div>
+            <div><div style="font-size:.68rem;color:${VYPL_POPISEK}">Výsledek</div>
+              <div style="font-size:.9rem;font-weight:800;color:${barvaN}">${cs(a.netto)}</div></div>
+          </div>
+
+          <div style="font-size:.74rem;color:${VYPL_POPISEK};line-height:1.6">
+            ${a.presun
+              ? (a.pokryti >= 0.8
+                  ? `Základ vzrostl, ale prémie klesly skoro o totéž — <strong style="color:${VYPL_HODNOTA}">na výplatě to skoro není vidět</strong>.
+                     Přesto je to změna k lepšímu: základ je jistý, prémie ne, a základ určuje i hodnotu přesčasové hodiny.`
+                  : `Základ vzrostl a prémie zároveň klesly — část zvýšení se tím vyrovnala
+                     (zhruba ${Math.round(a.pokryti * 100)} %). Zbytek je skutečné přidání.`)
+              : (a.dTarif > 0 && a.dVykon >= 0
+                  ? `Základ vzrostl a prémie neklesly. <strong style="color:${VYPL_HODNOTA}">Skutečné zvýšení</strong>, žádný přesun.`
+                  : `Základ klesl. Stojí za ověření, jestli šlo o změnu úvazku nebo o něco jiného.`)}
+          </div>
+          <div style="font-size:.7rem;color:${VYPL_POPISEK};margin-top:5px;line-height:1.5">
+            Průměr <strong style="color:${VYPL_HODNOTA}">pravidelných</strong> prémií za
+            ${a.mesicuPred} ${a.mesicuPred === 1 ? 'měsíc' : 'měsíce'} před a ${a.mesicuPo} po změně.
+            ${(a.jednorazovePred + a.jednorazovePo) > 0
+              ? `Jednorázové odměny (vánoční, roční, náborová) v hodnotě ${fmt(Math.round(a.jednorazovePred + a.jednorazovePo))} Kč
+                 se do porovnání nepočítají — chodí jednou za rok a posunuly by průměr o tisíce.` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+      <div style="font-size:.72rem;color:${VYPL_POPISEK};margin-top:9px;line-height:1.55">
+        Porovnává se <strong style="color:${VYPL_HODNOTA}">tarif</strong>, ne vyplacený základ — ten se krátí
+        podle odpracovaných hodin, takže by měsíc s dovolenou vypadal jako snížení platu.
+      </div>
+    </div>
+  </div>`;
+}
+window._vyplDetektor = _vyplDetektor;
 
 // ══════════════════════════════════════════════════════════════════════
 //  FÁZE 2 · GRAFY SLOŽENÍ V ČASE (TODO-258)

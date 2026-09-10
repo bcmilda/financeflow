@@ -1,4 +1,4 @@
-// FinanceFlow · v10.58 · admin.js · 2026-09-10
+// FinanceFlow · v10.59 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.59',
+    datum: '2026-09-10',
+    zmeny: [
+      '🔍 TODO-259 · VÝPLATNICE FÁZE 3: DETEKTOR PŘESUNU. Jádro celé funkce a důvod, proč vznikla. U každé změny tarifu ukáže, o kolik vzrostl základ, co se ve stejnou dobu stalo s prémiemi a jaký je čistý výsledek.',
+      '⚖️ POROVNÁVÁ SE TARIF, NE VYPLACENÝ ZÁKLAD. Základní mzda se krátí odpracovaným fondem, takže měsíc s dovolenou nebo neplaceným volnem má nižší „pevnou" složku, aniž by se cokoli změnilo. Naivní porovnání sousedních měsíců by hlásilo poplach pokaždé, když si uživatel vezme volno. Tarif je na pásce uvedený přímo a na hodinách nezávisí.',
+      '🎁 JEDNORÁZOVÉ ODMĚNY SE Z POROVNÁNÍ VYNECHÁVAJÍ. Ukázalo se to až na skutečných datech: první verze detektoru hlásila u obou změn tarifu „přesun se 100% pokrytím", protože do průměru prémií spadl vánoční příspěvek 8 409 Kč a náborový 4 000 Kč. Porovnávají se proto jen PRAVIDELNÉ prémie (výkonové, osobní, korekce) a vynechaná částka se vypíše, aby to nebylo tiché.',
+      '📈 Prémie se berou jako PRŮMĚR za tři měsíce před a po změně – jednotlivý měsíc kolísá příliš na to, aby o něčem svědčil.',
+      '🧭 Pořadí záložky srovnáno (Milan): nejdřív analýza (detektor + grafy), teprve pak výpis historie. Dřív byla historie mezi grafy.',
+      '⚙ Test hlídá i past s jednorázovou odměnou: tatáž data s vánočním příspěvkem a bez něj musí dát STEJNÝ rozdíl prémií. Nový rozsah extrakce v testu (SKILL 36) – detektor leží za sekcí Render a původní výřez ho míjel.',
+    ]
+  },
   {
     verze: 'v10.58',
     datum: '2026-09-10',
