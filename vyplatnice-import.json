@@ -1,0 +1,252 @@
+[
+ {
+  "m": "2025-02",
+  "hlavicka": {
+   "fond": 66,
+   "odprac": 66,
+   "neprit": 0,
+   "ppu": 141.08,
+   "tarif": 23000
+  },
+  "prijmy": {
+   "zaklad": 9857,
+   "vykonove": 394,
+   "osobni": 887,
+   "mobilita": 1281,
+   "nocni": 395,
+   "vikend": 155,
+   "nabor": 3000
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {},
+  "ocekavano": {
+   "hruba": 15969,
+   "cisty": 14116,
+   "dobirka": 14116
+  }
+ },
+ {
+  "m": "2025-03",
+  "hlavicka": {
+   "fond": 132,
+   "odprac": 165,
+   "neprit": 11,
+   "ppu": 141.08,
+   "tarif": 23000
+  },
+  "prijmy": {
+   "zaklad": 23000,
+   "vykonove": 1150,
+   "osobni": 2588,
+   "mobilita": 3738,
+   "nocni": 691,
+   "prescas": 5750,
+   "prescasPr": 1164,
+   "vikend": 310,
+   "nabor": 3000
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 496
+  },
+  "ocekavano": {
+   "hruba": 41391,
+   "cisty": 32949,
+   "dobirka": 32453
+  }
+ },
+ {
+  "m": "2025-04",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 167.5,
+   "neprit": 11,
+   "ppu": 248.31,
+   "tarif": 23000
+  },
+  "prijmy": {
+   "zaklad": 23000,
+   "vykonove": 831,
+   "osobni": 1634,
+   "mobilita": 3035,
+   "nocni": 1217,
+   "prescas": 348,
+   "prescasPr": 155,
+   "vikend": 1366
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 186
+  },
+  "ocekavano": {
+   "hruba": 31586,
+   "cisty": 25751,
+   "dobirka": 25565
+  }
+ },
+ {
+  "m": "2025-05",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 165,
+   "neprit": 0,
+   "ppu": 248.31,
+   "tarif": 23000
+  },
+  "prijmy": {
+   "zaklad": 23000,
+   "vykonove": 869,
+   "osobni": 2070,
+   "mobilita": 2990,
+   "nocni": 1217,
+   "svatek": 5463,
+   "vikend": 1093,
+   "nabor": 4000
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 434,
+   "penezenka": 51
+  },
+  "ocekavano": {
+   "hruba": 40702,
+   "cisty": 32430,
+   "dobirka": 31945
+  }
+ },
+ {
+  "m": "2025-06",
+  "hlavicka": {
+   "fond": 154,
+   "odprac": 154,
+   "neprit": 0,
+   "ppu": 248.31,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 25500,
+   "vykonove": 852,
+   "osobni": 2295,
+   "korekce": 500,
+   "mobilita": 3315,
+   "nocni": 1043,
+   "vikend": 1093
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 310
+  },
+  "ocekavano": {
+   "hruba": 34598,
+   "cisty": 27964,
+   "dobirka": 27654
+  }
+ },
+ {
+  "m": "2025-07",
+  "hlavicka": {
+   "fond": 176,
+   "odprac": 88,
+   "neprit": 66,
+   "ppu": 219.7,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 12750,
+   "dovolena": 14500,
+   "vykonove": 482,
+   "osobni": 956,
+   "mobilita": 1658,
+   "nocni": 615,
+   "vikend": 725
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 186
+  },
+  "ocekavano": {
+   "hruba": 31686,
+   "cisty": 25825,
+   "dobirka": 25639
+  }
+ },
+ {
+  "m": "2025-08",
+  "hlavicka": {
+   "fond": 176,
+   "odprac": 177.25,
+   "neprit": 0,
+   "ppu": 219.7,
+   "tarif": 25500
+  },
+  "prijmy": {
+   "zaklad": 25500,
+   "vykonove": 858,
+   "osobni": 1926,
+   "mobilita": 3339,
+   "nocni": 1230,
+   "prescas": 181,
+   "prescasPr": 69,
+   "vikend": 747
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {
+   "stravovani": 310,
+   "penezenka": 11
+  },
+  "ocekavano": {
+   "hruba": 33850,
+   "cisty": 27407,
+   "dobirka": 27086
+  }
+ },
+ {
+  "m": "2026-08",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 164.25,
+   "neprit": 22,
+   "ppu": 219.91,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 22655,
+   "dovolena": 4838,
+   "vykonove": 984,
+   "osobni": 1952,
+   "mobilita": 3383,
+   "nocni": 1231,
+   "prescas": 3366,
+   "prescasPr": 1168,
+   "vikend": 1677,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "stravovani": 260,
+   "dps": 800
+  },
+  "ocekavano": {
+   "hruba": 41254,
+   "cisty": 34109,
+   "dobirka": 33849
+  }
+ }
+]

@@ -75,5 +75,33 @@ ok('výplatnice se NESDÍLÍ s partnery', /payslips, payslipTemplate            
 ok('nad cizími daty se neukládá ani nemaže',
    (v.match(/typeof viewingUid !== 'undefined' && viewingUid\) return;/g)||[]).length>=2);
 
+// ── Import s kontrolou (TODO-257) ─────────────────────────────────
+ok('import odmítne měsíc, který nesedí na dobírku', /nesedi\.push\(`dobírka/.test(v));
+ok('import kontroluje hrubou, čistý i dobírku',
+   /nesedi\.push\(`hrubá/.test(v) && /nesedi\.push\(`čistý/.test(v));
+ok('bez `ocekavano` se pásce věří (nevynucuje se)', /if \(o\.hruba   != null/.test(v));
+ok('naimportují se jen měsíce, které prošly', /const klice = new Set\(ok\.map/.test(v));
+ok('uživatel se dozví, PROČ měsíc neprošel', /✗ \$\{c\}/.test(v));
+ok('rozbitý JSON nespadne, jen to řekne', /Nepovedlo se přečíst JSON/.test(v));
+ok('import nad cizími daty neprojde',
+   /function vyplImportSpustit\(\) \{\s*\n\s*if \(typeof viewingUid/.test(v));
+ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
+   /kod: '2089', label: 'Příplatek práce ve svátek'/.test(v));
+
+// Ověření importního souboru proti skutečným páskám
+{
+  const fsx=require('fs'), px=require('path');
+  const cesta=px.join(__dirname,'vyplatnice-import.json');
+  if (fsx.existsSync(cesta)) {
+    const data=JSON.parse(fsx.readFileSync(cesta,'utf8'));
+    const spatne=data.filter(z=>{
+      const r=ctx.vyplDopocet(z), o=z.ocekavano||{};
+      return r.hruba!==o.hruba || r.cisty!==o.cisty || r.dobirka!==o.dobirka;
+    });
+    ok(`importní soubor: všech ${data.length} měsíců sedí na skutečnou pásku`, spatne.length===0);
+    ok('importní soubor pokrývá víc než rok', data.length>=8);
+  }
+}
+
 console.log(`\n${pass} OK, ${fail} chyb`);
 process.exit(fail?1:0);

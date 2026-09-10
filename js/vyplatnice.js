@@ -1,4 +1,4 @@
-// FinanceFlow · v10.53 · vyplatnice.js · 2026-09-10
+// FinanceFlow · v10.54 · vyplatnice.js · 2026-09-10
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -31,6 +31,7 @@ const VYPL_SABLONA_CZ = {
     { key: 'nocni',     kod: '1061', label: 'Příplatek noční',        povaha: 'prilezitostna', odvozena: true  },
     { key: 'prescas',   kod: '2024', label: 'Přesčas – mzda',         povaha: 'prilezitostna', odvozena: true  },
     { key: 'prescasPr', kod: '2026', label: 'Příplatek přesčas',      povaha: 'prilezitostna', odvozena: true  },
+    { key: 'svatek',    kod: '2089', label: 'Příplatek práce ve svátek', povaha: 'prilezitostna', odvozena: true },
     { key: 'vikend',    kod: '2129', label: 'Příplatek So + Ne',      povaha: 'prilezitostna', odvozena: true  },
     { key: 'nabor',     kod: '5047', label: 'Náborový příspěvek',     povaha: 'prilezitostna', odvozena: false },
     { key: 'penzPrisp', kod: 'PENZ', label: 'Příspěvek na PP',        povaha: 'pruchozi',      odvozena: false },
@@ -134,12 +135,14 @@ function _renderKalVyplatnice(D, m, y) {
           + `<div style="display:flex;gap:7px;margin-top:12px;flex-wrap:wrap">
                <button class="btn btn-ghost btn-sm" onclick="vyplOtevritForm('${mKlic}')">✎ Upravit</button>
                <button class="btn btn-danger btn-sm" onclick="vyplSmazat('${mKlic}')">Smazat</button>
+               <button class="btn btn-ghost btn-sm" onclick="vyplImportDialog()">📥 Import</button>
              </div>`;
   } else {
     html += `<div style="font-size:.8rem;color:${VYPL_POPISEK};line-height:1.6;margin-bottom:10px">
         Za tenhle měsíc zatím pásku nemáš. Opsání zabere asi minutu — a teprve
         z několika měsíců je vidět, jestli roste základ, nebo jen prémie.</div>
-      <button class="btn btn-accent" onclick="vyplOtevritForm('${mKlic}')">+ Zadat výplatnici</button>`;
+      <button class="btn btn-accent" onclick="vyplOtevritForm('${mKlic}')">+ Zadat výplatnici</button>
+      <button class="btn btn-ghost" style="margin-left:7px" onclick="vyplImportDialog()">📥 Import</button>`;
   }
   html += `</div></div><div id="vyplFormBox"></div>`;
 
@@ -240,6 +243,78 @@ function vyplSmazat(mKlic) {
   S.payslips = (S.payslips || []).filter(x => x.m !== mKlic);
   save(); renderPage();
 }
+
+// ══════════════════════════════════════════════════════════════════════
+//  IMPORT (TODO-257): vložení více měsíců najednou přes JSON.
+//  Ruční opisování dvaceti pásek by trvalo dvacet minut a chyba by se
+//  poznala až u nesedícího součtu. Import proto KAŽDOU pásku přepočítá
+//  a měsíce, u kterých model nesedí na zadanou dobírku, ODMÍTNE –
+//  radši nenaimportovat než naimportovat špatně.
+// ══════════════════════════════════════════════════════════════════════
+function vyplImportDialog() {
+  const box = document.getElementById('vyplFormBox'); if (!box) return;
+  box.innerHTML = `<div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">📥 Import výplatnic</span></div>
+    <div class="card-body">
+      <div style="font-size:.76rem;color:${VYPL_POPISEK};line-height:1.6;margin-bottom:10px">
+        Vlož JSON s páskami. Každý měsíc se přepočítá a porovná s dobírkou, kterou
+        v datech uvedeš — <strong style="color:${VYPL_HODNOTA}">měsíc, který nesedí, se
+        nenaimportuje</strong> a dozvíš se proč.
+      </div>
+      <textarea id="vyplImportText" rows="7" placeholder='[{"m":"2025-03", …}]'
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-family:monospace;font-size:.74rem"></textarea>
+      <div id="vyplImportVysledek" style="margin-top:10px"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-accent" onclick="vyplImportSpustit()">Zkontrolovat a naimportovat</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('vyplFormBox').innerHTML=''">Zrušit</button>
+      </div>
+    </div></div>`;
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function vyplImportSpustit() {
+  if (typeof viewingUid !== 'undefined' && viewingUid) return;
+  const el = document.getElementById('vyplImportVysledek');
+  let data;
+  try {
+    data = JSON.parse(document.getElementById('vyplImportText').value);
+    if (!Array.isArray(data)) throw new Error('čekal jsem pole měsíců');
+  } catch (e) {
+    el.innerHTML = `<div style="font-size:.78rem;color:var(--expense)">Nepovedlo se přečíst JSON: ${e.message}</div>`;
+    return;
+  }
+
+  const ok = [], chyby = [];
+  data.forEach(z => {
+    if (!z || !z.m) { chyby.push('záznam bez měsíce'); return; }
+    const v = vyplDopocet(z);
+    // Kontrola proti tomu, co je na pásce. Bez `ocekavano` se pásce věří.
+    const o = z.ocekavano || {};
+    const nesedi = [];
+    if (o.hruba   != null && v.hruba   !== +o.hruba)   nesedi.push(`hrubá ${v.hruba} ≠ ${o.hruba}`);
+    if (o.cisty   != null && v.cisty   !== +o.cisty)   nesedi.push(`čistý ${v.cisty} ≠ ${o.cisty}`);
+    if (o.dobirka != null && v.dobirka !== +o.dobirka) nesedi.push(`dobírka ${v.dobirka} ≠ ${o.dobirka}`);
+    if (nesedi.length) chyby.push(`${z.m}: ${nesedi.join(' · ')}`);
+    else ok.push(z);
+  });
+
+  el.innerHTML = `<div style="font-size:.8rem;color:${VYPL_HODNOTA};margin-bottom:6px">
+      Sedí: <strong style="color:var(--income)">${ok.length}</strong>
+      ${chyby.length ? ` · Nesedí: <strong style="color:var(--expense)">${chyby.length}</strong>` : ''}
+    </div>
+    ${chyby.map(c => `<div style="font-size:.74rem;color:var(--expense);line-height:1.5">✗ ${c}</div>`).join('')}`;
+
+  if (!ok.length) return;
+  const klice = new Set(ok.map(z => z.m));
+  S.payslips = (S.payslips || []).filter(x => !klice.has(x.m))
+    .concat(ok.map(z => ({ m: z.m, hlavicka: z.hlavicka || {}, prijmy: z.prijmy || {},
+                           odvody: z.odvody || {}, srazky: z.srazky || {} })));
+  save();
+  if (typeof showToast === 'function') showToast(`🧾 Naimportováno ${ok.length} měsíců`);
+  setTimeout(() => renderPage(), 400);
+}
+window.vyplImportDialog = vyplImportDialog;
+window.vyplImportSpustit = vyplImportSpustit;
 
 window.vyplOtevritForm = vyplOtevritForm;
 window.vyplUlozit = vyplUlozit;

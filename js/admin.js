@@ -1,4 +1,4 @@
-// FinanceFlow · v10.53 · admin.js · 2026-09-10
+// FinanceFlow · v10.54 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.54',
+    datum: '2026-09-10',
+    zmeny: [
+      '📥 TODO-257: IMPORT VÝPLATNIC s vlastní kontrolou. Ruční opisování dvaceti pásek trvá dvacet minut a chyba se pozná až u nesedícího součtu. Import proto KAŽDOU pásku přepočítá a porovná s hrubou mzdou, čistým příjmem a dobírkou, které jsou na ní napsané — měsíc, který nesedí, se NENAIMPORTUJE a uživatel se dozví proč. Radši nenaimportovat než naimportovat špatně.',
+      '🧾 Přepsáno a ověřeno OSM skutečných pásek (02/25 – 08/26). Všech osm sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Model tedy platí napříč rokem a půl, přes dvě změny tarifu (23 000 → 25 500 → 26 140) i přes měsíce s dovolenou, svátkem, náborovým příspěvkem a slevou na dítě.',
+      '🎄 Do šablony přibyl příplatek za práci ve svátek (kód 2089) — objevil se až v pásce 05/25. Přesně ten případ, kvůli kterému mají položky povahu „příležitostná": v ostatních měsících chybí a neznamená to nulu.',
+    ]
+  },
   {
     verze: 'v10.53',
     datum: '2026-09-10',
