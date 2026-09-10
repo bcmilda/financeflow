@@ -1,4 +1,4 @@
-// FinanceFlow · v10.52 · kalendar.js · 2026-09-10
+// FinanceFlow · v10.53 · kalendar.js · 2026-09-10
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -37,7 +37,16 @@ function renderKalendar() {
     <div style="display:flex;gap:8px;margin-bottom:14px">
       ${tabBtn('finance', '💰', 'Finanční')}
       ${tabBtn('work', '🗓️', 'Pracovní')}
+      ${tabBtn('vyplatnice', '🧾', 'Výplatnice')}
     </div>`;
+
+  // TODO-257 (S21): evidence výplatních pásek. Vlastní modul vyplatnice.js.
+  if (mode === 'vyplatnice') {
+    el.innerHTML = toggle + (typeof _renderKalVyplatnice === 'function'
+      ? _renderKalVyplatnice(D, m, y)
+      : '<div class="empty"><div class="et">Modul výplatnic se nenačetl.</div></div>');
+    return;
+  }
 
   if (mode === 'work') {
     el.innerHTML = toggle + _renderKalWork(D, m, y);

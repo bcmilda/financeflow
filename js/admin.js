@@ -1,4 +1,4 @@
-// FinanceFlow · v10.52 · admin.js · 2026-09-10
+// FinanceFlow · v10.53 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,19 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.53',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 TODO-257 (Milan): NOVÁ ZÁLOŽKA VÝPLATNICE v Kalendáři. Evidence výplatních pásek měsíc po měsíci – hrubá mzda, odvody, srážky, dobírka a podíl PEVNÉ složky. Vzniklo z Milanova postřehu, že zaměstnavatel zvedne základ a zároveň sníží prémie: výsledek dole vypadá stejně, ale změnilo se, z čeho je složený. Základ ti nikdo nesebere, prémii ano – a základ se počítá do dovolené, náhrad i hodnoty přesčasové hodiny.',
+      '🔢 Výpočet ověřen na ČTYŘECH skutečných páskách (02/25, 06/25, 08/25, 08/26) – hrubá mzda, čistý příjem i dobírka sedí do koruny. Dvě věci, které to vyžadovalo: pojistné se zaokrouhluje NAHORU (matematické dávalo o 2 Kč vyšší čistý příjem) a základ daně nahoru na celé stovky.',
+      '↔️ Průchozí položky: PENZ (příspěvek zaměstnavatele na penzijko) a DPS se navzájem RUŠÍ. Nepočítají se do hrubé mzdy ani do srážek – jinak by se objevily dvakrát a vyrušily se až v součtu, což vypadá jako chyba.',
+      '📋 Každá položka má POVAHU, protože chybějící řádek neznamená nulu (SKILL 31): stálá (chybí = skutečně nula) · příležitostná (dovolená, přesčas – chybí = neproběhlo, mlčet) · podmíněná (sleva na dítě – pominul nárok, hlásit jinak) · průchozí. Bez toho by detektor v každém měsíci bez dovolené hlásil propad příjmu o 4 838 Kč.',
+      '⚙ Prázdné pole ve formuláři se NEUKLÁDÁ jako nula – je to informace, ne chybějící údaj. Uživateli je to napsané nad formulářem.',
+      '⚠️ payslips a payslipTemplate doplněny do schématu saveToFirebase, do _DW_META i do zálohy – nový uzel bez zápisu do schématu by Firebase sync tiše smazal (známá past z CLAUDE.md). Výplatnice se ZÁMĚRNĚ nesdílí s partnery.',
+      '⚙ Fáze 1 ze tří. Grafy složení v čase (fáze 2) a detektor přesunu mezi základem a prémiemi (fáze 3) přijdou samostatně. Nový modul js/vyplatnice.js + test tools/smoke_vyplatnice.js (34 kontrol proti skutečným páskám).',
+    ]
+  },
   {
     verze: 'v10.52',
     datum: '2026-09-10',
