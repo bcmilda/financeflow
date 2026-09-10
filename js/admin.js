@@ -1,4 +1,4 @@
-// FinanceFlow · v10.51 · admin.js · 2026-09-04
+// FinanceFlow · v10.52 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.52',
+    datum: '2026-09-10',
+    zmeny: [
+      '📐 FIX-325 (Milan): pole „Čistá výplata" plavalo výš než sousední. Popisek vedle něj se na mobilu zalomí do DVOU řádků, tenhle do jednoho – a protože se sloupce zarovnávaly nahoru, input vpravo visel. Řešeno zarovnáním podle spodní hrany (align-items:end), ne pevnou výškou popisku; ta by se rozbila při jiné velikosti písma. Popisky navíc dostaly čitelnou barvu místo var(--text3).',
+      '⏱ FIX-326 (Milan): HODINOVÁ SAZBA Z ČISTÉ VÝPLATY se ukazuje rovnou pod polem a přepočítává se při psaní. Dosud šla zjistit až po uložení a jen ve statistice měsíce.',
+      '📅 FIX-326: sazba se počítá z FONDU pracovní doby daného měsíce, ne z paušálních 160 h. Únor 2026 má 20 pracovních dní, prosinec 23 – při 12h směnách je to 230 vs. 264,5 hodiny, tedy rozdíl 15 %. Paušál by nesedel ani jednomu měsíci. Placené hodiny = pracovní dny × (hodin na směnu − neplacená přestávka).',
+      '⚙ FIX-326: konfigurace se bere ŽIVĚ z polí, ne z uložené – jinak by náhled ukazoval sazbu podle starých hodnot, dokud uživatel neklikne na Uložit. Vypíše se i přesčasová hodina s příplatkem a rozklad výpočtu (dny × hodiny), aby bylo vidět, odkud se číslo vzalo.',
+      '⚙ Nový test tools/smoke_sazba.js (20 kontrol) – ověřuje fond hodin proti skutečnému kalendáři, ne proti konstantě.',
+    ]
+  },
   {
     verze: 'v10.51',
     datum: '2026-09-04',
