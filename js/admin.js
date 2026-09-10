@@ -1,4 +1,4 @@
-// FinanceFlow · v10.55 · admin.js · 2026-09-10
+// FinanceFlow · v10.57 · admin.js · 2026-09-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -539,6 +539,23 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.57',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 KOMPLETNÍ ŘADA: 19 výplatnic od 02/2025 do 08/2026 BEZ JEDINÉ MEZERY. Všech 19 sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Období 02/2025 vráceno zpět – Milan potvrdil, že to byla jeho první páska (nástup, náborový příspěvek).',
+      '🏆 Do šablony přibyla roční prémie (kód 5045, nalezena v 05/26). Za rok a půl se objevily čtyři položky, které v původní šabloně nebyly: příplatek za svátek, náborový příspěvek, vánoční příspěvek a roční prémie – všechny příležitostné. Potvrzuje to, že rozdělení podle povahy bylo správné.',
+      '⚙ Test nově hlídá SOUVISLOST řady – chybějící měsíc uprostřed by zkreslil každý trend, který nad daty postavíme.',
+    ]
+  },
+  {
+    verze: 'v10.56',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 Import rozšířen na 15 měsíců (03/2025 – 08/2026). Přibyly 01–04/2026, tedy období po zvýšení tarifu na 26 140. Všech 15 sedí do koruny.',
+      '📅 UPŘESNĚNÍ OBDOBÍ: měsíc se řídí sloupcem „Obd." na pásce, ne měsícem, kdy výplata přišla. Páska doručená v lednu 2026 s obdobím 12/25 patří k prosinci. Potvrzuje to i nárok na dovolenou – v 12/25 zbývá 3,4 h, v 01/26 je „Nová norm. 132,0", tedy nový kalendářní rok.',
+    ]
+  },
   {
     verze: 'v10.55',
     datum: '2026-09-10',

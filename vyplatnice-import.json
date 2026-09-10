@@ -1,5 +1,33 @@
 [
  {
+  "m": "2025-02",
+  "hlavicka": {
+   "fond": 66,
+   "odprac": 66,
+   "neprit": 0,
+   "ppu": 141.08,
+   "tarif": 23000
+  },
+  "prijmy": {
+   "zaklad": 9857,
+   "vykonove": 394,
+   "osobni": 887,
+   "mobilita": 1281,
+   "nocni": 395,
+   "vikend": 155,
+   "nabor": 3000
+  },
+  "odvody": {
+   "slevaZak": 2570
+  },
+  "srazky": {},
+  "ocekavano": {
+   "hruba": 15969,
+   "cisty": 14116,
+   "dobirka": 14116
+  }
+ },
+ {
   "m": "2025-03",
   "hlavicka": {
    "fond": 132,
@@ -311,6 +339,241 @@
    "hruba": 40356,
    "cisty": 33450,
    "dobirka": 33078
+  }
+ },
+ {
+  "m": "2026-01",
+  "hlavicka": {
+   "fond": 143,
+   "odprac": 121,
+   "neprit": 22,
+   "ppu": 229.29,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 22119,
+   "dovolena": 5044,
+   "vykonove": 593,
+   "osobni": 1880,
+   "mobilita": 2875,
+   "nocni": 963,
+   "vikend": 757
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "stravovani": 65
+  },
+  "ocekavano": {
+   "hruba": 34231,
+   "cisty": 28951,
+   "dobirka": 28886
+  }
+ },
+ {
+  "m": "2026-02",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 186.25,
+   "neprit": 0,
+   "ppu": 229.29,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 26140,
+   "vykonove": 856,
+   "osobni": 2508,
+   "mobilita": 3836,
+   "nocni": 803,
+   "prescas": 3366,
+   "prescasPr": 1218,
+   "vikend": 757,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 715,
+   "penezenka": 11
+  },
+  "ocekavano": {
+   "hruba": 39484,
+   "cisty": 32815,
+   "dobirka": 32089
+  }
+ },
+ {
+  "m": "2026-03",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 165,
+   "neprit": 0,
+   "ppu": 229.29,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 26140,
+   "vykonove": 758,
+   "osobni": 2222,
+   "mobilita": 3398,
+   "nocni": 1124,
+   "vikend": 1513,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 260
+  },
+  "ocekavano": {
+   "hruba": 35155,
+   "cisty": 29633,
+   "dobirka": 29373
+  }
+ },
+ {
+  "m": "2026-04",
+  "hlavicka": {
+   "fond": 154,
+   "odprac": 165,
+   "neprit": 0,
+   "ppu": 224.3,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 26140,
+   "vykonove": 997,
+   "osobni": 2241,
+   "mobilita": 3641,
+   "nocni": 1413,
+   "prescas": 1867,
+   "prescasPr": 617,
+   "vikend": 740,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 390
+  },
+  "ocekavano": {
+   "hruba": 37656,
+   "cisty": 31469,
+   "dobirka": 31079
+  }
+ },
+ {
+  "m": "2026-05",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 165,
+   "neprit": 0,
+   "ppu": 224.3,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 26140,
+   "vykonove": 873,
+   "osobni": 2091,
+   "mobilita": 3398,
+   "nocni": 1413,
+   "vikend": 987,
+   "rocni": 5688,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 195
+  },
+  "ocekavano": {
+   "hruba": 40590,
+   "cisty": 33628,
+   "dobirka": 33433
+  }
+ },
+ {
+  "m": "2026-06",
+  "hlavicka": {
+   "fond": 176,
+   "odprac": 143.25,
+   "neprit": 11,
+   "neplacene": 22,
+   "ppu": 224.3,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 21239,
+   "dovolena": 2467,
+   "vykonove": 664,
+   "osobni": 1702,
+   "mobilita": 2766,
+   "nocni": 942,
+   "prescas": 37,
+   "prescasPr": 14,
+   "vikend": 1234,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 325
+  },
+  "ocekavano": {
+   "hruba": 31065,
+   "cisty": 26633,
+   "dobirka": 26308
+  }
+ },
+ {
+  "m": "2026-07",
+  "hlavicka": {
+   "fond": 165,
+   "odprac": 132,
+   "neprit": 33,
+   "ppu": 219.91,
+   "tarif": 26140
+  },
+  "prijmy": {
+   "zaklad": 20912,
+   "dovolena": 7257,
+   "vykonove": 652,
+   "osobni": 1568,
+   "mobilita": 2719,
+   "nocni": 1078,
+   "vikend": 484,
+   "penzPrisp": 800
+  },
+  "odvody": {
+   "slevaZak": 2570,
+   "slevaDet": 1267
+  },
+  "srazky": {
+   "dps": 800,
+   "stravovani": 258,
+   "penezenka": 11
+  },
+  "ocekavano": {
+   "hruba": 34670,
+   "cisty": 29279,
+   "dobirka": 29010
   }
  },
  {

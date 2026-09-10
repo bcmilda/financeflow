@@ -99,9 +99,19 @@ ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
       return r.hruba!==o.hruba || r.cisty!==o.cisty || r.dobirka!==o.dobirka;
     });
     ok(`importní soubor: všech ${data.length} měsíců sedí na skutečnou pásku`, spatne.length===0);
-    ok('importní soubor pokrývá víc než rok', data.length>=11);
-    ok('02/2025 v importu NENÍ (Milan: první páska je 03/2025)',
-       !data.some(z=>z.m==='2025-02'));
+    ok('importní soubor pokrývá 19 měsíců', data.length>=19);
+    ok('období se řídí sloupcem Obd. na pásce, ne měsícem výplaty',
+       data.some(z=>z.m==='2026-01') && data.some(z=>z.m==='2025-12'));
+    ok('řada je SOUVISLÁ (žádný chybějící měsíc)', (()=>{
+      const ms=data.map(z=>z.m).sort();
+      for(let i=0;i<ms.length-1;i++){
+        const [y,m]=ms[i].split('-').map(Number), [y2,m2]=ms[i+1].split('-').map(Number);
+        if((y2*12+m2)-(y*12+m)!==1) return false;
+      } return true; })());
+    ok('roční prémie je v šabloně (nalezena v 05/26)',
+       /kod: '5045', label: 'Roční prémie'/.test(v));
+    ok('02/2025 je zpátky (Milanovo upřesnění: první páska)',
+       data.some(z=>z.m==='2025-02'));
     ok('vánoční příspěvek je v šabloně (nalezen v 11/25)',
        /kod: '5010', label: 'Vánoční příspěvek'/.test(v));
   }
