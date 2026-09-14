@@ -1,4 +1,4 @@
-// FinanceFlow · v10.53 · app.js · 2026-09-10
+// FinanceFlow · v10.62 · app.js · 2026-09-12
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -405,7 +405,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data
@@ -1460,8 +1460,35 @@ function txShareMode(ss){
 }
 window.txShareMode = txShareMode;
 
+// ══════════════════════════════════════════════════════════════════════
+//  S22: OSOBNÍ POZNÁMKY SE PARTNEROVI NEPOSÍLAJÍ
+//  `_shTxObj()` v režimu 'full' vracel CELÉ objekty transakcí. Jakmile na
+//  transakci přibyl deníkový zápisek (`notes`), odešel by partnerovi s ní –
+//  přesně ta chyba, kterou S21 opravovala u `diary` (FIX-317). Deník je
+//  osobní: partner má vidět, že jsem utratil 900 Kč, ne proč mi to bylo líto.
+//  Stejně tak `priorityNote` (poznámka u hodnocení útraty), která se dosud
+//  sdílela nedopatřením.
+//  Pozor: seznam je ZÁKAZOVÝ, ne povolovací – transakce má desítky polí a
+//  povolovací seznam by při každém novém poli tiše ubral partnerovi data.
+//  Nové OSOBNÍ pole na transakci se ale musí dopsat sem, jinak uteče.
+//  Seznam žije UVNITŘ funkce záměrně: je to jediné místo, kde se používá,
+//  a funkce tak zůstává soběstačná.
 function _shTxObj(){
-  return txShareMode() === 'full' ? _dwTxObj() : {};
+  const _TX_OSOBNI = ['notes', 'priorityNote'];
+  if (txShareMode() !== 'full') return {};
+  const plne = _dwTxObj();
+  const out = {};
+  Object.keys(plne).forEach(id=>{
+    const t = plne[id];
+    if(!t || typeof t !== 'object'){ out[id] = t; return; }
+    let maOsobni = false;
+    for(const k of _TX_OSOBNI){ if(t[k] !== undefined){ maOsobni = true; break; } }
+    if(!maOsobni){ out[id] = t; return; }          // beze změny = beze změny podpisu
+    const kopie = Object.assign({}, t);
+    _TX_OSOBNI.forEach(k=>{ delete kopie[k]; });
+    out[id] = kopie;
+  });
+  return out;
 }
 
 // Součty za kategorii a měsíc. Stejná pravidla jako všude jinde: přes txCZK

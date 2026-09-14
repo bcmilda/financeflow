@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · ui.js · 2026-09-04
+// FinanceFlow · v10.62 · ui.js · 2026-09-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -62,6 +62,9 @@ function renderPage(){
   if(curPage==='import')renderImport();
   if(curPage==='kalendar')renderKalendar();
   if(curPage==='denik')renderDenik();
+  //  S22: stránka poznámek se překresluje i při změně dat (Firebase onValue),
+  //  aby zápis z jiného zařízení doputoval sem, ne jen do Deníku.
+  if(curPage==='poznamky' && typeof renderPoznamky==='function') renderPoznamky();
   if(curPage==='komunita')renderKomunita();
   if(curPage==='oAplikaci') {
     // Inicializuj share link bar
