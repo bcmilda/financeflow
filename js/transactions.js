@@ -1,4 +1,4 @@
-//  FinanceFlow · v9.84 · transactions.js · 2026-08-17
+//  FinanceFlow · v10.65 · transactions.js · 2026-09-12
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -420,6 +420,9 @@ function renderPredAccuracy(D){
   let rowsH='', errs=[];
   keys.slice(-12).forEach(k=>{
     const s=diary[k]; if(!s) return;
+    //  S22: záznam bez predikce (vznikl jen kvůli zápisu přesčasů) do tabulky
+    //  přesnosti nepatří – neměl by co srovnávat a vypsal by prázdné řádky.
+    if(!(s.predExp>0)) return;
     const [y,mm]=k.split('-').map(Number); const mi=mm-1;
     const txs=getTx(mi,y,D);
     const actExp=Math.round(expSum(txs,D));
@@ -427,9 +430,14 @@ function renderPredAccuracy(D){
     const running = k===curKey;
     const closed = !running && (y<now.getFullYear() || (y===now.getFullYear() && mi<now.getMonth()));
     const dev = s.predExp>0 ? Math.round((actExp-s.predExp)/s.predExp*100) : null;
-    if(closed && dev!==null) errs.push(Math.abs(dev));
+    //  S22 (Milan): snímek pořízený až v průběhu měsíce (první otevření appky
+    //  třeba 17. den) zná už půlku skutečnosti, takže vychází nezaslouženě
+    //  přesně. Do průměrné odchylky se nezapočítává a v tabulce je označený –
+    //  tvářit se, že jde o plnohodnotnou predikci, by zkreslovalo MAPE.
+    const pozdni = (typeof s.day==='number') && s.day > 5;
+    if(closed && dev!==null && !pozdni) errs.push(Math.abs(dev));
     rowsH+=`<tr${running?' style="opacity:.75"':''}>
-      <td style="text-align:left;white-space:nowrap">${CZ_M[mi]} ${y} ${s.auto?'<span title="automatický snímek" style="font-size:.62rem;color:#a8aec8">auto</span>':''}</td>
+      <td style="text-align:left;white-space:nowrap">${CZ_M[mi]} ${y} ${s.auto?'<span title="automatický snímek" style="font-size:.62rem;color:#a8aec8">auto</span>':''}${pozdni?`<span title="Snímek vznikl až ${s.day}. den měsíce, takže predikce znala část skutečnosti – do průměrné odchylky se nepočítá" style="font-size:.62rem;color:var(--debt)"> částečný</span>`:''}</td>
       <td style="color:#a8aec8">${fmtB(s.predExp)}</td>
       <td style="color:var(--expense);font-weight:700">${actExp?fmtB(actExp):'–'}</td>
       <td>${dev!==null?devBadge(dev):'–'}</td>

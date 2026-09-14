@@ -1,4 +1,4 @@
-// FinanceFlow · v10.64 · projects.js · 2026-09-12
+// FinanceFlow · v10.65 · projects.js · 2026-09-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5849,6 +5849,87 @@ function _denikPredCurve(D, m, y, predExp){
 }
 
 // ══════════════════════════════════════════════════════
+//  S22 (Milan): PŘESČASY — zápis a BONUS ZA ÚSILÍ
+//  Milan: „Odměnit za snahu o přesčasy a větší příjem."
+//
+//  Proč BONUS a ne složka Obrazu:
+//   • Obraz měří ZMĚNU. Přesčas jako složka by trestal za omezení z 4× na 2×
+//     týdně, i když ten člověk pořád dělá navíc. Bonus se počítá ze STAVU,
+//     takže 2× týdně pořád něco dá, jen míň – a nikdy nejde do mínusu.
+//     Omezení přesčasů tak uživatele NIKDY nestojí body.
+//   • Úsilí je vstup, ne výsledek. Kdyby se míchalo do váženého průměru,
+//     přestalo by z Obrazu být poznat, jestli dobrý výsledek znamená
+//     „dostal jsem se dál" nebo „dřel jsem a jsem na stejném místě".
+//
+//  Strop 15 z 200 je schválně nízký: údaj je NEOVĚŘITELNÝ (uživatel ho píše
+//  sám), takže i vylhané maximum posune výsledek o 7,5 %, ne o třetinu.
+//
+//  Ukládá se do měsíčního záznamu Deníku (`S.diary[klíč].overtimeH`). Zápis
+//  přichází BĚHEM měsíce, kdežto snímek predikce vzniká na jeho začátku –
+//  proto se sem zapisuje i do záznamu, který ještě neexistuje (viz otSet).
+//  Takový záznam nemá predikci a Přesnost predikce ho přeskakuje.
+//
+//  TODO: výplatnice umí složku „za čas" i fond vs. odpracováno – až se na ně
+//  navážeme, mají mít přednost před ručním zápisem (přesnější a bez ptaní).
+// ══════════════════════════════════════════════════════
+const _USILI_KOTVY = [ {x:0,b:0}, {x:8,b:5}, {x:20,b:10}, {x:35,b:15} ];
+
+//  Odpověď z checklistu: kolik hodin navíc za daný měsíc. Vrací null, když
+//  se uživatel ještě nevyjádřil – nula znamená „neměl jsem přesčas", což je
+//  jiná informace než „nezeptali jsme se ho".
+function otGet(m, y){
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  if(!diary) return null;
+  const z = diary[_denikKey(y==null?S.curYear:y, m==null?S.curMonth:m)];
+  return (z && typeof z.overtimeH === 'number') ? z.overtimeH : null;
+}
+
+function otSet(hodin, m, y){
+  if(typeof viewingUid!=='undefined' && viewingUid) return;
+  const mm = (m==null) ? S.curMonth : m, yy = (y==null) ? S.curYear : y;
+  const key = _denikKey(yy, mm);
+  if(!S.diary) S.diary = {};
+  //  `null` = zrušit odpověď (tlačítko „změnit"). Musí být rozlišené od nuly:
+  //  nula znamená „neměl jsem přesčas", zrušení znamená „zeptej se znovu".
+  if(hodin === null){
+    if(S.diary[key]){
+      delete S.diary[key].overtimeH;
+      delete S.diary[key].overtimeAt;
+      //  Záznam, který vznikl JEN kvůli přesčasům, po zrušení nemá co držet.
+      if(S.diary[key].onlyOvertime) delete S.diary[key];
+    }
+    if(typeof save==='function') save();
+    if(typeof renderPage==='function') renderPage();
+    return;
+  }
+  //  Záznam pro tenhle měsíc nemusí existovat – snímek predikce vzniká na
+  //  začátku měsíce, kdežto na přesčasy se ptáme až během něj.
+  if(!S.diary[key]) S.diary[key] = { createdAt: Date.now(), onlyOvertime: true };
+  S.diary[key].overtimeH = Math.max(0, Math.round(+hodin || 0));
+  S.diary[key].overtimeAt = Date.now();
+  if(typeof save==='function') save();
+  if(typeof renderPage==='function') renderPage();
+}
+
+//  Průměr hodin navíc za okno. Počítají se jen měsíce, na které uživatel
+//  ODPOVĚDĚL – nezodpovězený měsíc není nula, jen nevíme.
+function obrazUsiliBonus(D, mesicu){
+  const n = mesicu || 6;
+  let soucet = 0, odpovezeno = 0;
+  for(let i=0; i<n; i++){
+    let m = S.curMonth - i, y = S.curYear;
+    while(m < 0){ m += 12; y--; }
+    const h = otGet(m, y);
+    if(h === null) continue;
+    soucet += h; odpovezeno++;
+  }
+  if(!odpovezeno) return { bonus: 0, prumer: null, mesicu: 0 };
+  const prumer = soucet / odpovezeno;
+  const bonus = (typeof mscInterpV2==='function') ? (mscInterpV2(_USILI_KOTVY, prumer) ?? 0) : 0;
+  return { bonus: Math.round(bonus), prumer: Math.round(prumer), mesicu: odpovezeno, hodin: soucet };
+}
+
+// ══════════════════════════════════════════════════════
 //  S22 (Milan): ZÁZNAM ZMĚN OBJEMU ŠABLON — `S.fixedLog`
 //  Místo měsíčního snímkování se zapisuje ZMĚNA. Důvod: šablonu lze změnit
 //  jedině v appce, takže zachytit změnu je spolehlivější než čekat na první
@@ -6007,6 +6088,12 @@ function denikAutoSnapshot(){
   const snap=_denikBuildSnap(D,m,y);
   if(!snap.predExp) return;                                    // bez historie by snímek byl samé nuly
   snap.auto=true;
+  //  S22 (Milan): DEN POŘÍZENÍ. Snímek má zmrazit, co model tvrdil na ZAČÁTKU
+  //  měsíce – jenže vzniká při prvním otevření appky, a to může být klidně
+  //  17. den. Taková predikce už zná půlku měsíce, takže by v Přesnosti
+  //  vycházela nezaslouženě přesně a kazila průměrnou odchylku.
+  //  Den se proto ukládá a pozdní snímky se z průměru vynechávají.
+  snap.day=now.getDate();
   S.diary[key]=snap;
   window._denikAutoDone=true;
   save();

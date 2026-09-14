@@ -1,4 +1,4 @@
-// FinanceFlow · v10.64 · ui.js · 2026-09-12
+// FinanceFlow · v10.65 · ui.js · 2026-09-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -520,9 +520,22 @@ function renderMonthlyChecklist(D){
   const txCount = monthTxs.length;
   const has20 = txCount >= 20;
 
+  //  S22 (Milan): OTÁZKA NA PŘESČASY. Ptá se každý měsíc, protože odpověď se
+  //  mění měsíc od měsíce a jinde ji appka nemá – výplatnice nahrává málokdo
+  //  a do pracovního kalendáře si přesčasy zapisuje ještě míň lidí.
+  //  Odpovědí je i „žádný": nula znamená „neměl jsem", kdežto NEodpovězeno
+  //  znamená „nevíme" a do průměru se nepočítá (viz obrazUsiliBonus).
+  //  Rychlé volby místo psaní čísla – u bonusu nezáleží na přesnosti a psát
+  //  čísla na mobilu je otrava.
+  const otH = (typeof otGet==='function') ? otGet() : null;
+  const otAnswered = otH !== null;
   const tasks = [
     { icon:'💰', label:'Přidej výplatu / hlavní příjem', sub:'tento měsíc', done:hasSalary, go:"showPage('transakce')" },
     { icon:'📝', label:`Zapiš aspoň 20 transakcí (${txCount}/20)`, sub:'pro přesné statistiky a skóre', done:has20, go:"showPage('transakce')" },
+    { icon:'💪', label: otAnswered
+        ? (otH>0 ? `Přesčasy: ${otH} h navíc` : 'Přesčasy: žádné')
+        : 'Měl jsi tento měsíc přesčas?',
+      sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:true },
   ];
   const doneCount = tasks.filter(t=>t.done).length;
   if(doneCount === tasks.length){ el.innerHTML=''; return; }  // vše hotovo → skryj
@@ -539,15 +552,31 @@ function renderMonthlyChecklist(D){
       <div style="height:7px;background:var(--surface3);border-radius:5px;overflow:hidden;margin-bottom:12px">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4ade80,#22c55e);transition:width .3s"></div>
       </div>
-      ${tasks.map(t=>`
-      <div onclick="${t.done?'':t.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${t.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}">
+      ${tasks.map(t=>{
+        //  Úkol s volbami se neproklikává jinam – odpovídá se rovnou tady.
+        if(t.otask && !t.done) return `
+      <div style="padding:8px 10px;border-radius:9px;margin-bottom:5px;background:var(--surface2)">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <span style="font-size:1rem;flex-shrink:0">${t.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.82rem;font-weight:600">${t.label}</div>
+            <div style="font-size:.68rem;color:#a8aec8">${t.sub}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+          ${[['žádný',0],['do 10 h',5],['10–25 h',17],['víc než 25 h',32]].map(([lbl,h])=>
+            `<button onclick="otSet(${h})" style="flex:1;min-width:72px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.72rem;font-weight:600;cursor:pointer">${lbl}</button>`).join('')}
+        </div>
+      </div>`;
+        return `
+      <div onclick="${t.done?(t.otask?'otSet(null)':''):t.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${t.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}${t.done&&t.otask?';cursor:pointer':''}">
         <span style="font-size:1rem;flex-shrink:0">${t.done?'✅':t.icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:.82rem;font-weight:600;${t.done?'text-decoration:line-through;color:#a8aec8':''}">${t.label}</div>
           ${t.done?'':`<div style="font-size:.68rem;color:#a8aec8">${t.sub}</div>`}
         </div>
-        ${t.done?'':'<span style="color:var(--text3);flex-shrink:0">›</span>'}
-      </div>`).join('')}
+        ${t.done?(t.otask?'<span style="color:#a8aec8;font-size:.66rem;flex-shrink:0">změnit</span>':''):'<span style="color:var(--text3);flex-shrink:0">›</span>'}
+      </div>`;}).join('')}
     </div>
   </div>`;
 }

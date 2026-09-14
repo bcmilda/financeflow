@@ -1,4 +1,4 @@
-// FinanceFlow · v10.64 · admin.js · 2026-09-12
+// FinanceFlow · v10.65 · admin.js · 2026-09-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -550,6 +550,19 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.65',
+    datum: '2026-09-12',
+    zmeny: [
+      '💪 PŘESČASY A BONUS ZA ÚSILÍ (zadání Milana: „odměnit za snahu o přesčasy a větší příjem"). Měsíční checklist se nově ptá „Měl jsi tento měsíc přesčas?" – rychlé volby (žádný / do 10 h / 10–25 h / víc než 25 h), psát čísla na mobilu je otrava a u bonusu na přesnosti nezáleží. Odpověď se ukládá do měsíčního záznamu Deníku.',
+      '➕ Úsilí je BONUS (0–15 z 200), NE složka Obrazu. Obraz měří změnu, takže jako složka by trestal za omezení přesčasů ze 4× na 2× týdně – i když ten člověk pořád dělá navíc. Bonus se počítá ze STAVU, takže 2× týdně pořád něco dá, jen míň, a nikdy nejde do mínusu: omezení přesčasů uživatele NIKDY nestojí body. Zároveň je úsilí vstup, ne výsledek – ve váženém průměru by zamlžilo, jestli dobrý Obraz znamená „dostal jsem se dál" nebo „dřel jsem a jsem na stejném místě".',
+      '🧢 Strop 15 z 200 je schválně nízký: údaj je NEOVĚŘITELNÝ (uživatel ho píše sám), takže i vylhané maximum posune výsledek o 7,5 %, ne o třetinu.',
+      '0️⃣ „Žádný přesčas" (nula) a „neodpověděl jsem" (null) jsou rozlišené. Neodpovězený měsíc se do průměru nepočítá – nula by lhala, že ten měsíc nikdo nedřel. Tlačítko „změnit" odpověď ZRUŠÍ, nenastaví nulu.',
+      '📅 FIX: PRVNÍ OTEVŘENÍ APPKY UPROSTŘED MĚSÍCE KAZILO PŘESNOST PREDIKCE. Snímek má zmrazit, co model tvrdil na začátku měsíce, jenže vzniká při prvním otevření – a to může být klidně 17. den, kdy predikce už zná půlku skutečnosti a vychází nezaslouženě přesně. Nově se ukládá den pořízení (`snap.day`); snímek pozdější než 5. den se nezapočítává do průměrné odchylky a v tabulce je označený „částečný“ s vysvětlením.',
+      '🧹 Záznam, který vznikl jen kvůli zápisu přesčasů (bez predikce), Přesnost predikce přeskakuje – jinak by vypsal prázdný řádek.',
+      '🧪 tools/smoke_usili.js – 16 testů. Klíčový ověřuje, že omezení přesčasů nestojí body.',
+    ]
+  },
   {
     verze: 'v10.64',
     datum: '2026-09-12',
