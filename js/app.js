@@ -1,4 +1,4 @@
-// FinanceFlow · v10.62 · app.js · 2026-09-12
+// FinanceFlow · v10.64 · app.js · 2026-09-12
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -311,6 +311,7 @@ async function saveSnapshot() {
       // TODO-257: nové uzly MUSÍ být ve schématu, jinak je Firebase sync tiše smaže
       payslips:      S.payslips      || [], payslipTemplate: S.payslipTemplate || null,
       diary:         S.diary         || {},
+      fixedLog:      S.fixedLog      || [],   // S22: historie objemu šablon (nedopočitatelná zpětně)
       idleCfg:       S.idleCfg       || {},
       milestones:    S.milestones    || [],
       reportSectors: S.reportSectors || {},
@@ -333,7 +334,7 @@ async function saveSnapshot() {
                  bank:S.bank||{startBalance:0},birthdays:S.birthdays||[],wishes:S.wishes||[],
                  wallets:S.wallets||[],payTypes:S.payTypes||[],sablony:S.sablony||[],
                  projects:S.projects||[],receipts:S.receipts||[],nakupList:S.nakupList||[],
-                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},payslips:S.payslips||[],payslipTemplate:S.payslipTemplate||null,diary:S.diary||{},idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},_savedAt:Date.now()};
+                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},payslips:S.payslips||[],payslipTemplate:S.payslipTemplate||null,diary:S.diary||{},fixedLog:S.fixedLog||[],idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},_savedAt:Date.now()};
       localStorage.setItem('ff_snapshot_' + uid, JSON.stringify(s));
     } catch (_) {}
   }
@@ -1283,7 +1284,7 @@ function _attachOwnListeners(userRef, uid, initialVal){
 //  Meta sekce → zapíšou se jen ty, které se změnily. Reader (sanitizeUserData) vrací pole.
 //  Bezpečný mezikrok: čtení stále přes onValue celého uzlu; migrace lazy + záloha v1.
 // ══════════════════════════════════════════════════════
-const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','idleCfg','milestones','reportSectors','pristiCfg'];
+const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','fixedLog','idleCfg','milestones','reportSectors','pristiCfg'];
 let _dw = { ready:false, metaSig:{}, txSig:null };
 
 function _dwEnsureIds(){
@@ -1365,6 +1366,7 @@ function _dwMetaVals(){
     payslips: S.payslips||[],
     payslipTemplate: S.payslipTemplate||null,
     diary: S.diary||{},
+    fixedLog: S.fixedLog||[],   // S22: historie objemu šablon
     idleCfg: S.idleCfg||{},  // S17.4 (TODO-183): konfigurace Ušlého zisku
     milestones: S.milestones||[],  // v9.45 (TODO-203): Životní mapa – zlomové události
     reportSectors: S.reportSectors||{},  // v9.52 (TODO-208): vlastní sektory Reportu
@@ -1431,6 +1433,7 @@ function _shMetaVals(){
   // ZÁMĚRNĚ SE NESDÍLÍ (a nedopisovat sem bez rozmyslu):
   //   payslips, payslipTemplate            – výplatní pásky (TODO-257)
   //   diary, calNotes, workCal, milestones  – osobní zápisky a životní události
+  //   fixedLog                              – historie mých závazků (patří k sablony)
   //   idleCfg, reportSectors, pristiCfg     – nastavení mých vlastních pohledů
   //   importHistory, noSyncKeys             – provozní stopa, partnerovi k ničemu
   //   nakupList, sablony                    – nákupní seznam a šablony

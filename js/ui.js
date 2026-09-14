@@ -1,4 +1,4 @@
-// FinanceFlow · v10.62 · ui.js · 2026-09-12
+// FinanceFlow · v10.64 · ui.js · 2026-09-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -83,6 +83,11 @@ function renderPage(){
   // S17.3 (TODO-186): automatický snímek predikce pro nový měsíc (základ trackingu Přesnost).
   // Jednorázově per session (guard uvnitř), ne při prohlížení partnera.
   if(typeof denikAutoSnapshot==='function') denikAutoSnapshot();
+  //  S22: zachytí změnu objemu šablon. Běží při každém překreslení (ne 1×
+  //  za session jako snímek), protože šablonu lze upravit kdykoli a zápis
+  //  musí následovat hned – log se ale rozšíří, jen když se objem SKUTEČNĚ
+  //  změnil, takže to nic nestojí.
+  if(typeof fixedLogTouch==='function') fixedLogTouch();
   // TODO-093: synchronizuj podpis i po přímém renderu (showPage, changeMonth, save),
   // aby následný debounce zbytečně nepřekresloval.
   if(typeof _dataSig === 'function') _lastRenderSig = _dataSig();

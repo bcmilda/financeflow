@@ -1,4 +1,4 @@
-// FinanceFlow · v10.63 · admin.js · 2026-09-12
+// FinanceFlow · v10.64 · admin.js · 2026-09-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -550,6 +550,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.64',
+    datum: '2026-09-12',
+    zmeny: [
+      '🗑️ MAZÁNÍ SNÍMKŮ DENÍKU ZRUŠENO (Milan). Tlačítko „Vytrhnout list" maže celý S.diary[key]. Uživatel ho použil, protože chtěl zahodit nepovedenou predikci – a nevědomky si tím smazal i objem trvalých závazků za ten měsíc, tedy data, která se nedají dopočítat ze žádného jiného zdroje. Mazání jedné věci bralo i druhou, o které uživatel nevěděl, že tam je.',
+      '📒 HISTORIE ŠABLON PŘEDĚLÁNA ZE SNÍMKOVÁNÍ NA ZÁZNAM PŘI ZMĚNĚ (`S.fixedLog`). Šablonu lze změnit jedině v appce, takže zachytit změnu je spolehlivější než čekat na první otevření v novém měsíci – a objem pak jde zrekonstruovat k LIBOVOLNÉMU dni, ne jen k prvnímu v měsíci. Log roste s úpravami, ne s časem: beze změny objemu nepřibývá nic.',
+      '🔒 `fixedLog` doplněn do VŠECH synchronizačních schémat (TODO-257: nové uzly musí být ve schématu, jinak je Firebase sync tiše smaže) a mezi data, která se NEsdílí partnerovi – patří k šablonám, které se taky nesdílí.',
+      '🧊 Prázdný začátek se do logu nezapisuje. Nula bez zadaných šablon není „změna na nulu", ale „ještě nic nezadal" – v historii by se tvářila jako zrušení závazků.',
+      '✅ Ověřeno, že zpětné dopisování transakcí Přesnost predikce NEZKRESLUJE: renderPredAccuracy() bere skutečnost živě přes getTx(), zmrazená je jen predikce. To je správně a měnit se nemuselo.',
+      '🧪 tools/smoke_zavazky.js rozšířen na 25 testů (rekonstrukce objemu k datu, log neroste beze změny, přítomnost ve schématu, nesdílení, zrušené mazání).',
+    ]
+  },
   {
     verze: 'v10.63',
     datum: '2026-09-12',

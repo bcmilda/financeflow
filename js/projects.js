@@ -1,4 +1,4 @@
-// FinanceFlow · v10.63 · projects.js · 2026-09-12
+// FinanceFlow · v10.64 · projects.js · 2026-09-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5849,7 +5849,47 @@ function _denikPredCurve(D, m, y, predExp){
 }
 
 // ══════════════════════════════════════════════════════
-//  S22: MĚSÍČNÍ OBJEM TRVALÝCH ZÁVAZKŮ ZE ŠABLON
+//  S22 (Milan): ZÁZNAM ZMĚN OBJEMU ŠABLON — `S.fixedLog`
+//  Místo měsíčního snímkování se zapisuje ZMĚNA. Důvod: šablonu lze změnit
+//  jedině v appce, takže zachytit změnu je spolehlivější než čekat na první
+//  otevření v měsíci — a objem pak jde zrekonstruovat k LIBOVOLNÉMU dni,
+//  ne jen k prvnímu v měsíci. Zároveň to nepotřebuje nic, co by běželo bez
+//  appky (server se přístupem ke všem datům by byl úplně jiný bezpečnostní
+//  model, než na kterém appka stojí).
+//
+//  Tvar: [{ ts: <Date.now()>, total: <Kč/měs> }], jen když se objem ZMĚNIL.
+//  Beze změny nepřibývá nic, takže log neroste s časem, ale s úpravami.
+// ══════════════════════════════════════════════════════
+const _FIXEDLOG_MAX = 400;      // ~roky úprav; strop proti nafouknutí při hromadném importu
+
+function fixedLogTouch(D){
+  D = D || getData();
+  if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne nad daty partnera
+  if(!Array.isArray(S.fixedLog)) S.fixedLog = [];
+  const ted = sablonyFixedTotal(D);
+  const posledni = S.fixedLog.length ? S.fixedLog[S.fixedLog.length-1] : null;
+  //  Prázdný stav na začátku nezapisujeme – nula bez šablon není „změna na nulu",
+  //  je to „ještě nic nezadal" a v historii by se tvářila jako zrušení závazků.
+  if(!posledni && !ted) return;
+  if(posledni && posledni.total === ted) return;
+  S.fixedLog.push({ ts: Date.now(), total: ted });
+  if(S.fixedLog.length > _FIXEDLOG_MAX) S.fixedLog = S.fixedLog.slice(-_FIXEDLOG_MAX);
+  if(typeof save==='function') save();
+}
+
+//  Objem závazků, jak vypadal k danému datu. Vrací null, když log v té době
+//  ještě neexistoval – nula by lhala, že se tehdy neplatilo nic.
+function fixedLogAt(kdy){
+  const log = (typeof S!=='undefined' && Array.isArray(S.fixedLog)) ? S.fixedLog : null;
+  if(!log || !log.length) return null;
+  const t = (kdy instanceof Date) ? kdy.getTime() : new Date(kdy).getTime();
+  if(!isFinite(t)) return null;
+  let out = null;
+  for(const z of log){ if(z && z.ts <= t) out = z.total; else break; }
+  return out;   // null = log začal až po tomhle datu
+}
+
+// ══════════════════════════════════════════════════════
 //  Kolik uživatele stojí opakované platby přepočtené na měsíc. Zakládá se
 //  kvůli tomu, že appka historii šablon dosud NEDRŽELA – znala jen jejich
 //  dnešní stav, takže nešlo zjistit, jestli trvalé závazky vzrostly.
@@ -5886,14 +5926,19 @@ function sablonyFixedTotal(D, kDatu){
   return Math.round(soucet);
 }
 
-//  Objem závazků ze snímku starého `zpetMesicu`. Vrací null, když snímek
-//  z toho měsíce neexistuje nebo je z doby před zavedením pole – bez toho
-//  by chybějící historie vypadala jako nula, tedy jako „tehdy jsi neplatil nic".
+//  Objem závazků před `zpetMesicu`. Primárně ze `S.fixedLog` (zná hodnotu
+//  k libovolnému dni), záložně z měsíčního snímku Deníku. Vrací null, když
+//  ani jedno nesahá tak daleko – nula by lhala, že se tehdy neplatilo nic.
 function sablonyFixedBefore(D, zpetMesicu){
   D = D || getData();
+  const n = zpetMesicu || 6;
+  const kdy = new Date(S.curYear, S.curMonth - n, 1);
+  const zLogu = fixedLogAt(kdy);
+  if(zLogu !== null) return zLogu;
+
   const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : (D.diary||null);
   if(!diary) return null;
-  let m = S.curMonth - (zpetMesicu||6), y = S.curYear;
+  let m = S.curMonth - n, y = S.curYear;
   while(m < 0){ m += 12; y--; }
   const snap = diary[_denikKey(y, m)];
   if(!snap || typeof snap.fixedTotal !== 'number') return null;
@@ -5967,11 +6012,17 @@ function denikAutoSnapshot(){
   save();
 }
 
+//  S22 (Milan): MAZÁNÍ SNÍMKŮ ZRUŠENO.
+//  Tlačítko „Vytrhnout list" mazalo celý S.diary[key]. Uživatel ho použil,
+//  protože chtěl zahodit nepovedenou predikci – a nevědomky si tím smazal
+//  i objem trvalých závazků a počet přesčasů za ten měsíc, tedy data, která
+//  se nedají dopočítat ze žádného jiného zdroje. Mazání jedné věci bralo
+//  i druhou, o které uživatel nevěděl, že tam je.
+//  Funkce zůstává jen jako pojistka pro případ, že by někde zbyl odkaz.
 function denikDeleteSnap(key){
-  if(!confirm('Smazat snímek predikce pro tento měsíc?')) return;
-  if(S.diary) delete S.diary[key];
-  save(); renderDenik();
+  if(typeof showToast==='function') showToast('Snímky se už nemažou – drží historii, která se nedá obnovit');
 }
+
 
 // v2: graf na pergamenu – PŘÍJEM (zelený inkoust) / VÝDEJE (červený) / PREDIKCE výdajů (fialová přerušovaná)
 function _denikDayChart(days, actExp, actInc, pred, todayD){
@@ -6244,7 +6295,7 @@ function renderDenik(){
     ${dRow('Hotovost (k datu zápisu)', fmtB(snap.wallets))}
     ${snap.scoreRaw!==null&&snap.scoreRaw!==undefined?dRow('Finanční skóre', `${snap.scoreRaw} / ${snap.scoreMax}`):''}
     ${snap.stressRaw!==null&&snap.stressRaw!==undefined?dRow('Dluhový stres', `${snap.stressRaw} / 100`):''}
-    <div style="text-align:right;margin-top:10px"><button onclick="denikDeleteSnap('${key}')" style="background:none;border:1px solid rgba(140,47,47,.5);border-radius:7px;color:#8c2f2f;font-size:.68rem;padding:4px 9px;cursor:pointer;font-family:Georgia,serif">🗑 Vytrhnout list</button></div>
+
   ` : `
     <div style="font-size:.84rem;line-height:1.7;color:#5b4636;padding:6px 0 12px;font-style:italic">Tato stránka je zatím prázdná – predikce pro ${CZ_M[m].toLowerCase()} nebyla zapsána.${isCurM?'<br><br>Zapiš ji: snímek je neměnný záznam „co jsme čekali", zatímco skutečnost na protější straně se dopočítává živě z transakcí.':''}</div>
     ${isCurM?`<button class="denik-btn" onclick="denikSnapshot()">🖋 Zapsat predikci (${CZ_M[m]})</button>`:''}

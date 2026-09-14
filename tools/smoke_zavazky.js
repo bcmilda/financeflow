@@ -147,5 +147,74 @@ check('_denikBuildSnap zapisuje fixedTotal', () => {
   assert(/fixedTotal:/.test(usek), 'snímek fixedTotal neukládá – historie by se nezačala kupit');
 });
 
+console.log('\n── Záznam změn objemu šablon (fixedLog) ──');
+
+const touch = (D) => { sb.__D = D; return vm.runInContext('fixedLogTouch(__D)', sb); };
+const logAt = (kdy) => vm.runInContext(`fixedLogAt(${JSON.stringify(kdy)})`, sb);
+const log = () => vm.runInContext('S.fixedLog', sb);
+
+check('prázdný začátek nezapíše nulu (není to zrušení závazků, jen prázdno)', () => {
+  sb.S.fixedLog = [];
+  touch({ sablony:[] });
+  assert(log().length === 0, 'zapsal nulu do prázdného logu');
+});
+
+check('první šablona se zapíše', () => {
+  sb.S.fixedLog = [];
+  touch({ sablony:[{amount:-12000, type:'expense', freq:'monthly'}] });
+  assert(log().length === 1 && log()[0].total === 12000, 'log: '+JSON.stringify(log()));
+});
+
+check('beze změny objemu log neroste', () => {
+  const D = { sablony:[{amount:-12000, type:'expense', freq:'monthly'}] };
+  touch(D); touch(D); touch(D);
+  assert(log().length === 1, 'log narostl na '+log().length+' bez změny objemu');
+});
+
+check('změna objemu přidá záznam', () => {
+  touch({ sablony:[{amount:-12000, type:'expense', freq:'monthly'},
+                   {amount:-3000, type:'expense', freq:'monthly'}] });
+  assert(log().length === 2 && log()[1].total === 15000, 'log: '+JSON.stringify(log()));
+});
+
+check('hodnota k dřívějšímu datu se zrekonstruuje', () => {
+  sb.S.fixedLog = [
+    { ts: new Date('2026-01-10').getTime(), total: 14000 },
+    { ts: new Date('2026-05-20').getTime(), total: 15500 },
+  ];
+  assert(logAt('2026-03-01') === 14000, 'k březnu vyšlo '+logAt('2026-03-01'));
+  assert(logAt('2026-07-01') === 15500, 'k červenci vyšlo '+logAt('2026-07-01'));
+});
+
+check('před začátkem logu vrací null, ne nulu', () => {
+  assert(logAt('2025-06-01') === null, 'vrátilo '+logAt('2025-06-01')+' místo null');
+});
+
+check('fixedLog je v synchronizačním schématu (jinak ho Firebase tiše smaže)', () => {
+  const app = fs.readFileSync('app.js','utf8');
+  assert(/_DW_META[^\n]*'fixedLog'/.test(app), 'chybí v _DW_META (TODO-257)');
+  assert((app.match(/fixedLog/g)||[]).length >= 4, 'není ve všech schématech');
+});
+
+check('fixedLog se NEsdílí partnerovi', () => {
+  const app = fs.readFileSync('app.js','utf8');
+  const i = app.indexOf('ZÁMĚRNĚ SE NESDÍLÍ');
+  assert(i > 0 && /fixedLog/.test(app.slice(i, i+700)), 'není mezi nesdílenými');
+});
+
+console.log('\n── Mazání snímků zrušeno ──');
+
+check('tlačítko „Vytrhnout list" je pryč', () => {
+  const src = fs.readFileSync('projects.js','utf8');
+  assert(!/onclick="denikDeleteSnap/.test(src), 'tlačítko je pořád v UI');
+});
+
+check('denikDeleteSnap už nemaže', () => {
+  const src = fs.readFileSync('projects.js','utf8');
+  const i = src.indexOf('function denikDeleteSnap');
+  const usek = src.slice(i, i+400);
+  assert(!/delete S\.diary/.test(usek), 'pořád maže snímek');
+});
+
 console.log(fails ? `\n❌ SELHALO ${fails}` : '\n✅ ZÁVAZKY OVĚŘENY');
 process.exit(fails ? 1 : 0);
