@@ -1,4 +1,4 @@
-// FinanceFlow · v10.46 · premium.js · 2026-09-04
+// FinanceFlow · v10.61 · premium.js · 2026-09-12
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1602,7 +1602,11 @@ function finScoreS4(rate){ // % základu odloženo do investic → 0–25 b (tab
 //  v9.58 (FIX-228): funkce nyní přijímá měsíc/rok. Bez toho počítala vždy
 //  jen aktuální měsíc, takže graf vývoje nemohl ukázat skóre 0–310 za starší
 //  měsíce a musel sahat po jiném (0–100) čísle – odtud rozpor 91 vs 140.
-function computeFinancialScore(D, _m, _y) {
+//  v10.60 (S22): volitelný 4. parametr `_cfg` = dočasná konfigurace vah/kotev.
+//  Slouží ADMIN SIMULÁTORU (adminScoringSim) – ten jím počítá „co by se stalo,
+//  kdyby" nad Milanovými skutečnými daty, aniž by sáhl na ostrou `_SCORING_V2`.
+//  Funkce zůstává čistá: nic nemutuje, bez parametru se chová přesně jako dřív.
+function computeFinancialScore(D, _m, _y, _cfg) {
   const _M = (_m == null) ? S.curMonth : _m;
   const _Y = (_y == null) ? S.curYear  : _y;
   const baseIncome = computeBaseIncome(D);
@@ -1620,65 +1624,76 @@ function computeFinancialScore(D, _m, _y) {
   const totalDebt = debts.reduce((a,d)=>a+(d.remaining||0),0);
   const annualIncome = (incDTI||totalInc) * 12;
 
-  // ── S1: Cash Flow (0–75 b) – v8.74 (TODO-159): plná bodovací tabulka ──
-  let expRatio = null, score1;
-  // TODO-227 (S19, Milan): ŽÁDNÉ NEUTRÁLNÍ VÝCHOZÍ HODNOTY.
-  //   Dřív dostal nový uživatel 36/75 „neutrál", 25/50 rezervu, 18/35 spoření
-  //   a 38/50 rozpočet – dohromady 181 bodů (58 %) ZADARMO za to, že nic nemá.
-  //   Aplikace mu řekla „Dobré" dřív, než zadal první transakci.
-  //   Nyní: co nelze změřit, se NEHODNOTÍ – složka vypadne z čitatele i JMENOVATELE
-  //   (`avail`). Skóre = dosažené / dosažitelné, ne dosažené / všechno možné.
-  let s1avail = false;
-  if (totalInc > 0) { expRatio = totalExp / totalInc; score1 = msc_S1(expRatio) ?? 0; s1avail = true; }
-  else score1 = 0;
-  const s1max = _SCORING.max.S1;
-  const s1label = score1>=s1max*0.8?'🟢 Cash flow OK':score1>=s1max*0.45?'🟡 Výdaje '+Math.round((expRatio||0)*100)+'% příjmu':'🔴 Výdaje překračují příjmy';
+  // ══════════════════════════════════════════════════════
+  //  v10.60 (TODO-228, S22): FINANČNÍ SKÓRE v2 – VÁHY + KOTVY
+  //  Nahrazuje schodovité bodovací tabulky (76/60/41/50/31 řádků) lineární
+  //  interpolací mezi kotvami (mscInterpV2, helpers.js). Důležitost složky
+  //  řídí VÁHA v procentech (_SCORING_V2.vahy), ne velikost tabulky.
+  //  Nezměřitelná složka NEDOSTANE ani 0 ani 100 – vypadne z výpočtu úplně,
+  //  její váha se rozpustí mezi zbylé (nula lže stejně jako sto, jen opačně).
+  //  Pod prahem pokrytí (50 % vah) appka NEUKÁŽE známku ani číslo – jinak by
+  //  nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), dostal „Výborné".
+  //  Podklad: NAVRH-skore-v2.md, scoring-config-v2.json (odsouhlaseno S22).
+  //  Milanovo rozhodnutí S22: interně 0–100, zobrazení/historie ×3,1 (0–310) –
+  //  stejná škála jako dřív, žádný přepočet ani svislá čára v grafu.
+  // ══════════════════════════════════════════════════════
+  const SV2 = _cfg || _SCORING_V2;
 
-  // ── S2: Zadluženost = DTI (0–60) + DSTI (0–40) = 0–100 b ──
+  // ── S1: Cash flow (výdaje/příjmy) ──
+  let expRatio = null, s1sub = null;
+  const s1avail = totalInc > 0 && txs.length > 0;
+  if (s1avail) { expRatio = totalExp / totalInc; s1sub = mscInterpV2(SV2.S1, expRatio); }
+  const s1label = !s1avail ? '⏳ Zatím nezměřeno' :
+    s1sub>=80?'🟢 Cash flow OK':s1sub>=45?'🟡 Výdaje '+Math.round(expRatio*100)+'% příjmu':'🔴 Výdaje překračují příjmy';
+
+  // ── S2: Zadluženost = DTI (60 %) + DSTI (40 %) ──
   const dti  = annualIncome > 0 ? totalDebt / annualIncome * 100 : 0;
   const dsti = (incDSTI||totalInc) > 0 ? monthlyPayments / (incDSTI||totalInc||1) * 100 : 0;
-  // TODO-227: „nemám dluh" vs. „ještě jsem ho nezadal" vypadá v datech stejně.
-  //   Plný počet bodů se přizná JEN když to uživatel potvrdil v onboardingu
-  //   (`_settings.hasDebts === false`). Jinak se S2 z hodnocení vynechá úplně –
-  //   nemít dluh je opravdu dobře, ale appka to musí VĚDĚT, ne předpokládat.
+  // „nemám dluh" vs. „ještě jsem ho nezadal" vypadá v datech stejně – plný počet
+  // se přizná JEN po potvrzení v onboardingu (_settings.hasDebts === false).
   const _debtsKnown = debts.length>0
     || (typeof _settings!=='undefined' && _settings && _settings.hasDebts === false);
   const s2avail = _debtsKnown;
-  const scoreDTI  = !s2avail ? 0 : (debts.length>0 ? msc_DTI(dti)  : _SCORING.max.DTI);
-  const scoreDSTI = !s2avail ? 0 : (debts.length>0 ? msc_DSTI(dsti): _SCORING.max.DSTI);
-  const score2 = scoreDTI + scoreDSTI;
-  const s2max = _SCORING.max.DTI + _SCORING.max.DSTI;
-  const s2label = score2>=s2max*0.8?'🟢 Nízké zadlužení':score2>=s2max*0.45?`🟡 DTI ${Math.round(dti)}% / DSTI ${Math.round(dsti)}%`:`🔴 Vysoké zadlužení – DSTI ${Math.round(dsti)}%`;
+  const dtiSub  = !s2avail ? null : (debts.length>0 ? mscInterpV2(SV2.DTI, dti)   : 100);
+  const dstiSub = !s2avail ? null : (debts.length>0 ? mscInterpV2(SV2.DSTI, dsti) : 100);
+  const s2sub = s2avail ? (dtiSub*SV2.podilDTI + dstiSub*SV2.podilDSTI)/100 : null;
+  const s2label = !s2avail ? '⏳ Zatím nezměřeno' :
+    s2sub>=80?'🟢 Nízké zadlužení':s2sub>=45?`🟡 DTI ${Math.round(dti)}% / DSTI ${Math.round(dsti)}%`:`🔴 Vysoké zadlužení – DSTI ${Math.round(dsti)}%`;
 
-  // ── S3: Rezerva (0–50 b) – měsíce rezervy ──
+  // ── S3: Rezerva – v2 (Milan, S22): proti VÝDAJŮM, ne příjmu.
+  //   „Jak dlouho vydržím bez příjmu" určuje to, kolik utrácím, ne kolik
+  //   vydělávám. Dostupnost navíc vyžaduje aspoň jednu spořicí/rezervní
+  //   peněženku nebo aktivum – jinak nula lže, že rezerva neexistuje, místo
+  //   toho, že ji appka jen nevidí (stejná past jako dřív u S1/S4). ──
   const savWallets = (D.wallets||[]).filter(w=>w.type==='savings'||w.type==='investment');
   let savBalance = savWallets.reduce((a,w)=>a+(w.balance||0),0);
+  let reserveAssetsCount = 0;
   if(typeof assetTier==='function'){
-    savBalance += (D.assets||[]).filter(a=>assetTier(a)==='reserve').reduce((a2,x)=>a2+(x.value||0),0);
+    const reserveAssets = (D.assets||[]).filter(a=>assetTier(a)==='reserve');
+    reserveAssetsCount = reserveAssets.length;
+    savBalance += reserveAssets.reduce((a2,x)=>a2+(x.value||0),0);
   }
-  const monthsReserve = (baseIncome||0) > 0 ? savBalance / (baseIncome||1) : null;
-  const s3max = _SCORING.max.S3;
-  const s3avail = monthsReserve !== null;                      // TODO-227
-  const score3 = s3avail ? (msc_S3(monthsReserve) ?? 0) : 0;
-  const s3label = score3>=s3max*0.8?`🟢 Rezerva ${monthsReserve?monthsReserve.toFixed(1):'?'} měs.`:score3>=s3max*0.45?`🟡 Rezerva ${monthsReserve?monthsReserve.toFixed(1):'?'} měs.`:`🔴 Nízká rezerva`;
+  const s3avail = (savWallets.length>0 || reserveAssetsCount>0) && totalExp > 0;
+  const monthsReserve = s3avail ? savBalance / totalExp : null;
+  const s3sub = s3avail ? mscInterpV2(SV2.S3, monthsReserve) : null;
+  const s3label = !s3avail ? '⏳ Zatím nezměřeno' :
+    s3sub>=80?`🟢 Rezerva ${monthsReserve.toFixed(1)} měs. výdajů`:s3sub>=45?`🟡 Rezerva ${monthsReserve.toFixed(1)} měs.`:`🔴 Nízká rezerva`;
 
-  // ── S4: Aktivní spoření (0–35 b) – 📈 isInvest → % základu ──
+  // ── S4: Míra spoření (tok, ne stav) – 📈 isInvest/isSaving → % základu ──
   let savCats = (D.categories||[]).filter(c=>c.isInvest && c.name!=='Virtuální přesun');
   if(!savCats.length) savCats = (D.categories||[]).filter(c=>c.isSaving && c.name!=='Virtuální přesun');
-  const s4max = _SCORING.max.S4;
-  let score4 = 0, activeSavingRate = null;                     // TODO-227
   const s4avail = savCats.length > 0 && (baseIncome||0) > 0;
+  let activeSavingRate = null, s4sub = null;
   if (s4avail) {
     const totalSaved = savCats.reduce((a,c)=>a+getActual(c.id,null,_M,_Y,D),0);
     activeSavingRate = totalSaved / (baseIncome||1) * 100;
-    score4 = msc_S4(activeSavingRate) ?? 0;
+    s4sub = mscInterpV2(SV2.S4, activeSavingRate);
   }
-  const s4label = score4>=s4max*0.8?`🟢 Spoříš ${activeSavingRate?Math.round(activeSavingRate):'?'}% příjmu`:score4>=s4max*0.45?`🟡 Spoříš ${activeSavingRate?Math.round(activeSavingRate):'?'}%`:`🔴 Spoření nízké / nenastaveno`;
+  const s4label = !s4avail ? '⏳ Zatím nezměřeno' :
+    s4sub>=80?`🟢 Spoříš ${Math.round(activeSavingRate)}% příjmu`:s4sub>=45?`🟡 Spoříš ${Math.round(activeSavingRate)}%`:`🔴 Spoření nízké`;
 
-  // ── S5: Rozpočet (0–50 b) – v8.74 (TODO-159): napojeno na Měsíční report
-  //     (průměr skóre kategorií vs limity 0–100) přeškálováno na 0–50. ──
-  const s5max = 50;
-  let score5 = 0, budgetPct = null;                            // TODO-227
+  // ── S5: Dodržování rozpočtu – napojeno na Měsíční report (0–100) ──
+  let budgetPct = null, s5sub = null;
   let s5avail = false;
   if (typeof computeHealthScores==='function') {
     try {
@@ -1686,19 +1701,20 @@ function computeFinancialScore(D, _m, _y) {
       budgetPct = hs.budgetScore; // 0–100
       // hodnotí se jen tehdy, když má uživatel aspoň jednu kategorii s limitem
       s5avail = (D.categories||[]).some(c=>(c.healthPct>0)||(c.healthAmt>0));
-      score5 = s5avail ? Math.round(budgetPct/100*s5max) : 0;
+      s5sub = s5avail ? mscInterpV2(SV2.S5, budgetPct) : null;
     } catch(e){}
   }
-  const s5label = score5>=s5max*0.8?`🟢 Rozpočet drží (${budgetPct??'?'}/100)`:score5>=s5max*0.45?`🟡 Rozpočet ${budgetPct??'?'}/100`:`🔴 Limity překročeny (${budgetPct??'?'}/100)`;
+  const s5label = !s5avail ? '⏳ Zatím nezměřeno' :
+    s5sub>=80?`🟢 Rozpočet drží (${budgetPct}/100)`:s5sub>=45?`🟡 Rozpočet ${budgetPct}/100`:`🔴 Limity překročeny (${budgetPct}/100)`;
 
-  // ── KONZISTENČNÍ BONUS ───────────────────────────────────────
+  // ── KONZISTENČNÍ BONUS (max +5 na škále 0–100) ───────────────────────
   // Session 10 FIX: PŮVODNĚ se počítadlo `consistencyMonths` MUTOVALO do
   // D.scoreState při KAŽDÉM volání funkce (inkrement/reset). Protože se
   // computeFinancialScore() volá z mnoha míst (render, networth, ai.js) a při
   // každém přepnutí měsíce, počítadlo skákalo nepředvídatelně → skóre se měnilo
   // bez zjevného důvodu (např. 18 → 25 → 31 po překliknutí měsíců).
-  // OPRAVA: bonus se počítá DETERMINISTICKY z historie dat – projdeme posledních
-  // 6 měsíců zpět od aktuálního a spočítáme, kolik PO SOBĚ JDOUCÍCH měsíců se
+  // OPRAVA: bonus se počítá DETERMINISTICKY z historie dat – projdeme historii
+  // zpět od aktuálního měsíce a spočítáme, kolik PO SOBĚ JDOUCÍCH měsíců se
   // výdaje meziměsíčně snižovaly. Žádná mutace stavu, čistá funkce.
   let pm=_M-1,py=_Y;if(pm<0){pm=11;py--;}
   const prevTxs=getTx(pm,py,D);
@@ -1707,10 +1723,11 @@ function computeFinancialScore(D, _m, _y) {
 
   // Deterministický výpočet konzistence: kolik po sobě jdoucích měsíců (zpět od
   // aktuálního) měl uživatel meziměsíční pokles výdajů + nějaký příjem.
+  // v2: strop 12 měsíců (dřív 6) – kotva bonusu jde až na 12 měsíců (viz níže).
   let cm=0;
   {
     let m=_M, y=_Y;
-    for(let i=0;i<6;i++){
+    for(let i=0;i<12;i++){
       let pmm=m-1,pyy=y;if(pmm<0){pmm=11;pyy--;}
       const curT=getTx(m,y,D), prvT=getTx(pmm,pyy,D);
       const curE=expSum(curT), prvE=expSum(prvT), prvI=incSum(prvT);
@@ -1719,7 +1736,7 @@ function computeFinancialScore(D, _m, _y) {
       else break;
     }
   }
-  const consistencyBonus = (typeof msc_BONUS==='function') ? msc_BONUS(cm) : ([0,1,3,6,9,15,18,21,24,27,30][Math.min(10,cm)]||0); // v8.74: BONUS tabulka (0–30)
+  const consistencyBonus100 = mscInterpV2(SV2.bonus.kotvy, cm) ?? 0;   // 0–5, na škále 0–100
 
   // Trend label (pro dashboard kartu)
   const incImprove=totalInc>=prevInc, expImprove=totalExp<=prevExp, salImprove=curSal>=prevSal;
@@ -1727,59 +1744,67 @@ function computeFinancialScore(D, _m, _y) {
   const trendScore = prevInc>0?[5,12,20,25][posCount]:17;
   const trendLabel = trendScore>=20?'🟢 Pozitivní trend':trendScore>=12?'🟡 Stabilní trend':'🔴 Zhoršující se trend';
 
-  // ── CELKOVÝ VÝSLEDEK ─ v8.74 (TODO-159): plné škály
-  //   S1 75 + S2 100 + S3 50 + S4 35 + S5 50 = 310 b (+ bonus 30) → normalizace na 0–100.
-  // ── TODO-227: DYNAMICKÝ JMENOVATEL ──
-  //   Skóre = dosažené / DOSAŽITELNÉ. Složka, kterou nelze změřit, nevstupuje
-  //   ani do čitatele, ani do jmenovatele. Nový uživatel s příjmy a výdaji má
-  //   měřitelné jen S1 → 36/75 = 48/100 místo dřívějších 217/310 = 70/100.
-  //   Bonus se do jmenovatele nezapočítává (je to prémie navíc), ale strop drží.
+  // ── VÁŽENÝ PRŮMĚR (TODO-228) ──────────────────────────────────────
+  //   Nezměřitelná složka vypadne z čitatele I jmenovatele – váha se rozpustí
+  //   mezi zbylé v jejich vzájemném poměru. Matematicky totéž jako vážený
+  //   průměr počítaný jen přes dostupné složky (Σ vah vždy = 100 %).
   const _slozky = [
-    { k:'S1', avail:s1avail, score:score1, max:s1max },
-    { k:'S2', avail:s2avail, score:score2, max:s2max },
-    { k:'S3', avail:s3avail, score:score3, max:s3max },
-    { k:'S4', avail:s4avail, score:score4, max:s4max },
-    { k:'S5', avail:s5avail, score:score5, max:s5max },
+    { k:'S1', nazev:'cash flow',    avail:s1avail, sub:s1sub, w:SV2.vahy.S1 },
+    { k:'S2', nazev:'zadluženost',  avail:s2avail, sub:s2sub, w:SV2.vahy.S2 },
+    { k:'S3', nazev:'rezerva',      avail:s3avail, sub:s3sub, w:SV2.vahy.S3 },
+    { k:'S4', nazev:'spoření',      avail:s4avail, sub:s4sub, w:SV2.vahy.S4 },
+    { k:'S5', nazev:'rozpočet',     avail:s5avail, sub:s5sub, w:SV2.vahy.S5 },
   ];
-  const _live   = _slozky.filter(x=>x.avail);
-  const rawMax  = s1max + s2max + s3max + s4max + s5max;   // 310 – plná škála
-  const availMax = _live.reduce((a,x)=>a+x.max, 0);        // kolik lze dnes získat
-  const baseTotal = _live.reduce((a,x)=>a+x.score, 0);
-  const rawTotal = Math.min(availMax || rawMax, baseTotal + consistencyBonus);
-  //   Bez jediné měřitelné složky nemá skóre smysl → null, karta místo čísla
-  //   vypíše, co je potřeba doplnit.
-  const total = availMax > 0 ? Math.round(rawTotal / availMax * 100) : null;
+  const _live = _slozky.filter(x=>x.avail);
+  const availWeight = _live.reduce((a,x)=>a+x.w, 0);           // Σ vah = 100 → rovnou %
+  const coverage = availWeight;                                 // z kolika % je skóre podložené
+  const weightedSum = _live.reduce((a,x)=>a+x.w*x.sub, 0);
+  const total100raw = availWeight>0 ? weightedSum/availWeight : null;   // 0–100, vážený průměr
+  const total100 = total100raw===null ? null : Math.min(100, total100raw + consistencyBonus100);
   const missing = _slozky.filter(x=>!x.avail).map(x=>x.k);
-  const coverage = Math.round(availMax / rawMax * 100);    // z kolika % je skóre podložené
+  const missingNames = _slozky.filter(x=>!x.avail).map(x=>x.nazev);
 
-  // S16 (TODO-169): hodnocení přepočítáno na REÁLNÉ body z bodovacích tabulek (0–310).
-  //   Prahy = stejné poměry jako dřívější %: 90/75/60/45/30 % z 310 → 279/233/186/140/93 b.
-  //   `total` (0–100) zůstává interně pro kruh a ai.js.
-  //   TODO-227 (Milan): „tím se musí uzpůsobit i celkový výklad hodnocení –
-  //   taky musí být dynamický". Prahy se počítají z DOSAŽITELNÉHO maxima, ne
-  //   z pevných 310. Kdo má měřitelnou jen jednu složku, dostane hodnocení podle
-  //   toho, jak si v ní vede – ne podle toho, kolik složek mu chybí.
-  const _gMax = availMax || rawMax;
-  const grade = total === null ? {label:'Zatím nelze určit', emoji:'⏳', color:'#a8aec8'} :
-                rawTotal>=Math.round(_gMax*0.90)?{label:'Výborné',    emoji:'🏆',color:'#4ade80'}:
-                rawTotal>=Math.round(_gMax*0.75)?{label:'Velmi dobré',emoji:'⭐',color:'#60a5fa'}:
-                rawTotal>=Math.round(_gMax*0.60)?{label:'Dobré',      emoji:'👍',color:'#a78bfa'}:
-                rawTotal>=Math.round(_gMax*0.45)?{label:'Průměrné',   emoji:'📊',color:'#fbbf24'}:
-                rawTotal>=Math.round(_gMax*0.30)?{label:'Rizikové',   emoji:'⚠️',color:'#fb923c'}:
-                                                 {label:'Kritické',   emoji:'🚨',color:'#f87171'};
+  //   Práh pokrytí (TODO-228): pod ním appka NEUKÁŽE známku ani číslo – jinak
+  //   dostane nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), „Výborné".
+  const belowThreshold = coverage < SV2.prahPokryti;
+  const total = (total100===null || belowThreshold) ? null : Math.round(total100);
+
+  //   Milanovo rozhodnutí S22: zobrazení a historie zůstávají na staré škále
+  //   0–310 (×3,1) – žádný přepočet starých snímků, žádná svislá čára v grafu.
+  const SCALE = SV2.meritko310;
+  const rawMax = 310;
+  const rawTotal = total===null ? 0 : Math.round(total100 * SCALE);
+  const availMax = Math.round(coverage/100 * rawMax);
+  const consistencyBonus = Math.round(consistencyBonus100 * SCALE);   // pro UI text „+X bodů"
+
+  const grade = total === null
+    ? (belowThreshold && total100raw!==null
+        ? {label:'Zatím nemám dost dat na hodnocení', emoji:'⏳', color:'#a8aec8',
+           hint:'Doplň, co appka umí změřit, a skóre se objeví.'}
+        : {label:'Zatím nelze určit', emoji:'⏳', color:'#a8aec8'})
+    : (SV2.znamky.find(z=>total>=z.min) || SV2.znamky[SV2.znamky.length-1]);
+
+  // Body do skóre 0–310 na displeji – pevně zaokrouhlená maxima (93/78/62/46/31,
+  // součet přesně 310), viz _SCORING_V2.maxBody310.
+  const _dm = SV2.maxBody310;
+
+  //   baseTotal = výsledek PŘED konzistenčním bonusem, na téže škále 0–310
+  //   jako rawTotal (dřív to byl vážený součet w×sub, tedy 0–10 000 – nikde se
+  //   nezobrazoval, ale každý, kdo by ho vzal, by dostal nesmysl).
+  const baseTotal = total===null ? 0 : Math.round((total100raw||0) * SCALE);
 
   return {
     total, baseTotal, consistencyBonus, grade, rawTotal, rawMax,
-    availMax, coverage, missing,        // TODO-227: z čeho je skóre podložené
+    availMax, coverage, missing, missingNames,   // TODO-228: z čeho je skóre podložené
     components: [
-      {label:'💰 Cash flow',   score:score1, max:s1max, detail:s1label, avail:s1avail, hint:'Zapiš příjem a výdaje za tenhle měsíc.'},
+      {label:'💰 Cash flow',   score:Math.round((s1sub??0)*_dm.S1/100), max:_dm.S1, detail:s1label, avail:s1avail, hint:'Zapiš příjem a výdaje za tenhle měsíc.'},
       // FIX-309: „Ano, mám půjčku" bez zadané půjčky nechávalo uživatele bez kudy dál.
-      {label:'🏦 Zadluženost', score:score2, max:s2max, detail:s2label, avail:s2avail,
+      {label:'🏦 Zadluženost', score:Math.round((s2sub??0)*_dm.S2/100), max:_dm.S2, detail:s2label, avail:s2avail,
        hint:'Appka ví, že dluh máš, ale nezná ho.', action:"showPage('dluhy');", actionLabel:'Zadat půjčku →',
-       sub:[{label:'DTI',score:scoreDTI,max:_SCORING.max.DTI},{label:'DSTI',score:scoreDSTI,max:_SCORING.max.DSTI}]},
-      {label:'🐷 Rezerva',     score:score3, max:s3max, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
-      {label:'💎 Spoření',     score:score4, max:s4max, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
-      {label:'📊 Rozpočet',    score:score5, max:s5max, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
+       sub:[{label:'DTI',score:Math.round(dtiSub??0),max:100},{label:'DSTI',score:Math.round(dstiSub??0),max:100}]},
+      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
+      {label:'💎 Spoření',     score:Math.round((s4sub??0)*_dm.S4/100), max:_dm.S4, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
+      {label:'📊 Rozpočet',    score:Math.round((s5sub??0)*_dm.S5/100), max:_dm.S5, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
     ],
     trend:{score:trendScore,label:trendLabel,consistencyMonths:cm,bonus:consistencyBonus},
   };
@@ -1859,7 +1884,12 @@ function renderFinancialScore(D) {
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <!-- v9.43: obloukový ukazatel s pásmy známek -->
       <div class="fscore-gauge">
-        ${_scoreArcGauge(sc.rawTotal, sc.availMax || sc.rawMax, grade.color)}
+        <!-- v10.60 (TODO-228): gauge dostává VŽDY rawMax (310).
+             V v1 byl rawTotal součtem bodů jen za dostupné složky, takže
+             availMax byl správný jmenovatel. V v2 je rawTotal už
+             znormalizovaný vážený průměr ×3,1 – leží vždy na plné škále.
+             Podávat mu availMax znamenalo „285 / 171" a ručičku na dorazu. -->
+        ${_scoreArcGauge(sc.rawTotal, sc.rawMax, grade.color)}
         <div class="fscore-zones">
           ${_FSCORE_ZONES.map(([a,b,c,lbl])=>{
             const on = lbl===grade.label;
@@ -1872,14 +1902,25 @@ function renderFinancialScore(D) {
         <div style="font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Finanční skóre</div>
         <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:${grade.color}">${grade.emoji} ${grade.label}</div>
         <div style="font-size:.74rem;color:#a8aec8;margin-top:4px">Celkové hodnocení vaší finanční situace</div>
-        ${(()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.availMax || sc.rawMax);
+        ${sc.total===null ? '' : (()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.rawMax);
           return nx ? `<div style="font-size:.72rem;margin-top:5px;color:#c9cede">Do známky <b style="color:var(--text)">${nx.label}</b> chybí <b style="color:var(--text)">${nx.need}</b> ${nx.need===1?'bod':nx.need<5?'body':'bodů'}</div>`
                     : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení</div>`; })()}
-        ${consistencyBonus>0?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
-        ${(sc.availMax && sc.availMax < sc.rawMax) ? `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
-           Škála je ${sc.availMax} místo ${sc.rawMax} bodů — ${sc.missing.length===1?'jedna složka se':'některé složky se'} zatím
-           nedá${sc.missing.length===1?'':'jí'} změřit, tak ${sc.missing.length===1?'ji':'je'} appka do hodnocení nepočítá.
-           Doplň, co chybí, a škála se zase natáhne.</div>` : ''}
+        ${(sc.total!==null && consistencyBonus>0)?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
+        <!-- v10.60 (TODO-228): škála se už nezužuje (rawMax je vždy 310) –
+             místo toho se říká, z KOLIKA PROCENT je skóre podložené. -->
+        ${(()=>{
+          const chybi = (sc.missingNames||[]).join(', ');
+          if(sc.total===null && sc.coverage>0) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Zatím umím změřit jen ${sc.coverage} % z toho, co do skóre patří — na hodnocení je potřeba aspoň 50 %.
+             Chybí: ${chybi}. Doplň to a skóre se objeví.</div>`;
+          if(sc.total===null) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Zatím nemám co měřit. Začni tím, že zapíšeš příjem a výdaje za tenhle měsíc.</div>`;
+          if(sc.coverage<100) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Skóre je podložené z ${sc.coverage} % — ${sc.missing.length===1?'složka':'složky'} <b style="color:#c9cede">${chybi}</b>
+             se ${sc.missing.length===1?'zatím nedá':'zatím nedají'} změřit, tak ${sc.missing.length===1?'ji':'je'} appka do hodnocení nepočítá.
+             Doplň, co chybí, a hodnocení bude přesnější.</div>`;
+          return '';
+        })()}
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:.72rem" onclick="showPage('obraz',null)">📈 Podrobná analýza →</button>
       </div>
       <!-- 4 složky -->

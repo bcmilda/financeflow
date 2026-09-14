@@ -1,4 +1,4 @@
-// FinanceFlow · v10.59 · admin.js · 2026-09-10
+// FinanceFlow · v10.63 · admin.js · 2026-09-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -91,6 +91,7 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-announce" onclick="switchAdminTab('announce',this)">📢 Oznámení</button>
       <button class="tx-filt-btn"        id="atab-verze"    onclick="switchAdminTab('verze',this)">📝 Verze</button>
       <button class="tx-filt-btn"        id="atab-audit"    onclick="switchAdminTab('audit',this)">💳 Audit plateb</button>
+      <button class="tx-filt-btn"        id="atab-skore"   onclick="switchAdminTab('skore',this)">⚖️ Skóre</button>
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
     </div>
@@ -134,6 +135,15 @@ async function renderAdmin() {
           <div id="auditResult"><div style="color:#a8aec8;font-size:.8rem">Načítám…</div></div>
         </div>
       </div>
+    </div>
+
+    <!-- S22 (Milan): SIMULÁTOR SKÓRE – váhy + bodovací kotvy + živý přepočet
+         na SKUTEČNÝCH datech. Bez ukládání: hodnoty se nikam nezapisují,
+         admin si vyzkouší dopad a výsledná čísla se přepíší do _SCORING_V2
+         v helpers.js. Běžný uživatel váhy měnit nemůže – karta je admin-only
+         a vlastní výpočet skóre ostrou konfiguraci nikdy nečte odsud. -->
+    <div id="atab-skore-content" style="display:none">
+      <div id="adminScoringSim"></div>
     </div>
 
     <!-- S14: ÚDRŽBA (vlastní záložka, ne napříč všemi) -->
@@ -515,7 +525,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -536,9 +546,67 @@ function switchAdminTab(tab, btn) {
   if(tab==='verze') loadVerze();
   if(tab==='zdravi') renderAdminZdravi();   // S20
   if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
+  if(tab==='skore'){ if(typeof renderScoringSim==='function') renderScoringSim(); }             // S22
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.63',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX (od S10!) · „KAM RŮST PŘISTÁL" TVRDILO UŽIVATELI NEPRAVDU. Metrika počítala `Math.min(růst výdajů, součet VŠECH šablon)` – to není měření, to je strop. Součet šablon je u běžné domácnosti 15–20 tis. Kč, takže minimum vyšlo skoro vždy rovno růstu výdajů a karta hlásila, že CELÝ růst přistál v trvalých závazcích – i když se žádná pravidelná platba nezměnila. Věta „zbytek byly jednorázové výdaje" přitom mluvila vždycky o nule. Jiné číslo by se ukázalo teprve při růstu výdajů nad ~18 000 Kč měsíčně.',
+      '🧮 Správně se musí porovnat objem závazků DNES a TEHDY. Appka ale historii šablon nedržela – znala jen jejich dnešní stav. Od téhle verze se do měsíčního snímku Deníku ukládá `fixedTotal` a historie se začíná kupit: první srovnání za pár měsíců, plnohodnotné za šest. Než se nakupí, karta POCTIVĚ ŘEKNE, že to zatím spočítat neumí – nepravdivé číslo je horší než žádné.',
+      '📐 FIX (tamtéž): starý součet ignoroval frekvenci šablon, takže roční pojistka za 12 000 Kč se počítala jako 12 000 Kč MĚSÍČNĚ. Nová `sablonyFixedTotal()` přepočítává všech pět frekvencí (týdenní, čtrnáctidenní, měsíční, čtvrtletní, roční) na měsíční ekvivalent, vynechává příjmy, převody a ukončené šablony.',
+      '🚫 Metrika se NEZAŘAZUJE do bodování Finančního obrazu – dokud byla rovná růstu výdajů, bodovat ji by znamenalo počítat podruhé totéž, co už boduje „Dopad životního stylu". Po opravě a nasbírání historie se zařadí s OBRÁCENÝM směrem, než říkal návrh: vyšší podíl v trvalých závazcích = horší, protože měří riziko, ne výkon (závazek při poklesu příjmu nezmizí).',
+      '🧪 tools/smoke_zavazky.js – 15 testů včetně reprodukce původní vady na číslech, aby bylo zřejmé, co se opravilo.',
+    ]
+  },
+  {
+    verze: 'v10.62',
+    datum: '2026-09-12',
+    zmeny: [
+      '📝 DENÍKOVÉ POZNÁMKY K VÝDAJŮM (level 1, zadání Milana): „Je to přece deník." Klikneš v Deníku na výdaj, otevře se vlastní stránka a zapisuješ si k němu, kolikrát chceš. Každý zápis má čas, jde upravit i smazat. Nový modul poznamky.js.',
+      '🔁 KONEC PŘEPISOVÁNÍ: dosavadní revNote() uměl JEDNU poznámku na transakci přes prompt() a ukládal ji do `t.priorityNote` – druhý zápis ten první přepsal. To bylo políčko, ne deník. Nově `t.notes = [{id, ts, text}]`.',
+      '🔒 ÚNIK OŠETŘEN: `_shTxObj()` posílal partnerovi v režimu „full" CELÉ objekty transakcí, takže by mu poznámky odešly s nimi – tatáž chyba, kterou S21 opravovala u osobního deníku (FIX-317). Nový seznam `_TX_OSOBNI` v app.js osobní pole z výřezu odstraní (`notes` i `priorityNote`, která se dosud sdílela nedopatřením). Partner má vidět, že jsem utratil 900 Kč, ne proč mi to bylo líto.',
+      '📦 Stará `priorityNote` se NEMAŽE – při prvním otevření se převezme jako první zápis a označí „ze starší poznámky". Zároveň se v ní dál zrcadlí nejnovější zápis, protože ji čte Detektor úspor a souhrny.',
+      '🐛 FIX (S22): revNote() při prohlížení cizích dat mlčky skončil – klik neudělal NIC a nikde nestálo proč. Nyní se napíše, co se děje (jinde v kódu, např. assets.js, se to takhle chová odjakživa).',
+      '🔢 FIX (S22): dva zápisy pořízené ve stejné milisekundě mají shodný čas a stabilní řazení nechalo starší nahoře. Při shodě teď rozhoduje pořadí zápisu.',
+      '🛡️ Text zápisu se escapuje – poznámka s `<img src=x onerror=…>` se zobrazí jako text, neprovede se.',
+      '🧪 tools/smoke_poznamky.js – 15 behaviorálních testů. Klíčové jsou dva: druhý zápis nesmí přepsat první (to je celý smysl deníku) a poznámky nesmí odejít do výřezu pro partnera.',
+    ]
+  },
+  {
+    verze: 'v10.61',
+    datum: '2026-09-12',
+    zmeny: [
+      '⚖️ SIMULÁTOR FINANČNÍHO SKÓRE (admin panel → záložka „Skóre"). Odpovídá na otázku „co se stane, když tohle změním" přepočtem, ne čtením zdrojáku. Posuvníky vah, editovatelné bodovací kotvy, práh pokrytí – a živý přepočet na SKUTEČNÝCH datech i na čtyřech modelových profilech (Začátečník / Bez dluhů / Spořil / Zadlužený), aby bylo vidět, jestli nová váha někomu nekřivdí.',
+      '🔒 BEZ UKLÁDÁNÍ (rozhodnutí Milana). Hodnoty se nikam nezapisují – ukládat do users/{uid} by znamenalo, že si každý nastaví vlastní váhy a skóre přestane být mezi lidmi srovnatelné; globální uzel by potřeboval vlastní Firebase pravidla (data, která uživatel nesmí měnit, patří MIMO jeho podstrom – lekce ze S21). Simulátor místo toho vygeneruje hotový blok k přepsání do _SCORING_V2 v helpers.js.',
+      '💯 SOUČET VAH MUSÍ BÝT PŘESNĚ 100 % (Milan) – ani víc, ani míň. Při jiném součtu se simulace vůbec nepočítá a blok k přepsání se NEVYGENERUJE; panel rovnou napíše, kolik procent ubrat nebo přidat. Body na displeji (0–310) se dopočítávají z vah tak, aby jejich součet seděl přesně na 310.',
+      '🧮 computeFinancialScore() přijímá volitelný 4. parametr `_cfg` – dočasnou konfiguraci. Funkce zůstává čistá: nic nemutuje a bez parametru se chová přesně jako dřív, takže simulace NEMŮŽE ovlivnit skóre uživatelů. `_settings.hasDebts` se při výpočtu modelových profilů přepíná v try/finally, aby se vrátil i při pádu.',
+      '👤 Karta je admin-only a běžný uživatel si váhy měnit nemůže – ostrou konfiguraci čte výhradně helpers.js.',
+      '🧪 tools/smoke_simskore.js – 13 behaviorálních testů. Klíčový je ten, který ověřuje, že se ostrá _SCORING_V2 simulací NEZMĚNÍ: bez něj by si admin posunutím posuvníku tiše přepsal skóre všem.',
+    ]
+  },
+  {
+    verze: 'v10.60',
+    datum: '2026-09-12',
+    zmeny: [
+      '⚖️ TODO-228 · FINANČNÍ SKÓRE V2: VÁHY MÍSTO BODOVACÍCH TABULEK. Composed z NAVRH-skore-v2.md, odsouhlaseno s Milanem. Pět složek (Cash flow 30 %, Zadluženost 25 %, Rezerva 20 %, Spoření 15 %, Rozpočet 10 %) se teď počítá 0–100 na vlastní škále a váhy určují důležitost – dřív to dělala velikost bodové tabulky (75/100/50/35/50), takže změna důležitosti znamenala přepsat celou tabulku.',
+      '🚫 NEZMĚŘITELNÁ SLOŽKA NEDOSTANE ANI 0, ANI 100. Vypadne z výpočtu úplně, její váha se rozpustí mezi zbylé. Dřív měl prázdný poměr výdaje/příjmy hodnotu 0, kterou tabulka četla jako „neutrácí nic" = 100 bodů.',
+      '🔒 PRÁH POKRYTÍ 50 %: pod ním appka NEUKÁŽE známku ani číslo, jen hlášku „Zatím nemám dost dat". Bez tohohle dostal nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), hodnocení „Výborné".',
+      '🐷 S3 REZERVA SE POČÍTÁ PROTI VÝDAJŮM, NE PŘÍJMU (Milanovo rozhodnutí S22). „Jak dlouho vydržím bez příjmu" určuje to, kolik utrácím, ne kolik vydělávám – kdo vydělává 80 000 a utrácí 25 000, má s rezervou 150 000 Kč šest měsíců, ne dva. Dostupnost navíc nově vyžaduje aspoň jednu spořicí/rezervní peněženku nebo aktivum – jinak nula lhala, že rezerva neexistuje, místo toho, že ji appka jen nevidí.',
+      '📏 ZOBRAZENÍ A HISTORIE ZŮSTÁVAJÍ NA ŠKÁLE 0–310 (Milanovo rozhodnutí S22). Interně se počítá 0–100 podle vah/kotev/pokrytí, výsledek se ×3,1 vrátí na starou škálu – žádný přepočet starých snímků, žádná svislá čára v grafu vývoje skóre.',
+      '📐 KONEC SCHODOVITÝCH TABULEK. Staré tabulky měly 76 pásem po jednom bodu u S1 a 60 u DTI – rozdíl 0,1 % mohl přeskočit celý bod. Nová `mscInterpV2()` (helpers.js) interpoluje lineárně mezi 5–7 kotvami na složku.',
+      '🧮 Konzistenční bonus přepočítán na novou škálu (max +5 z 100, zobrazeno ×3,1 ≈ +16) a strop prodloužen na 12 měsíců historie (dřív 6), aby odpovídal kotvě bonusu.',
+      '🤖 FIX (S22): ai.js posílal do promptu pro AI radu rozpad skóre podle staré 4složkové verze („Trend: X/25") – čtyři pevné položky se /25 max, ačkoliv skóre už 3 sessions počítalo 5 složek s různými maximy. Teď se rozpad generuje dynamicky ze `score.components`.',
+      '🧪 smoke_skore.js přepsán na behaviorální testy (SKILL 35) – místo regexů nad zdrojovým textem premium.js teď skutečně volá computeFinancialScore() s testovacími daty ve vm-sandboxu (stejný vzor jako tools/smoke.js). Pokrývá práh pokrytí, S3 proti výdajům, nedostupnost bez peněženky a bonus.',
+      '🐛 FIX (S22, při kontrole): PŘETÉKAJÍCÍ UKAZATEL SKÓRE. Půlkruhový gauge dostával jako maximum `availMax` (dosažitelné body podle pokrytí). To sedělo ve v1, kde byl `rawTotal` součtem bodů jen za dostupné složky – ve v2 je ale `rawTotal` už znormalizovaný vážený průměr ×3,1, tedy vždy na plné škále 310. Při 55% pokrytí tak ukazatel hlásil „285 / 171", ručička stála na dorazu a appka k tomu tvrdila „🏆 Jsi v nejvyšším pásmu hodnocení". Gauge i výpočet „do známky chybí" nyní dostávají `rawMax`.',
+      '🐛 FIX (S22): pod prahem pokrytí appka zároveň nabízela „Do známky Rizikové chybí 93 bodů" a ukazovala konzistenční bonus – obojí odvozené z nuly, která není výsledek, ale díra. Obojí se pod prahem skrývá.',
+      '📉 FIX (S22): GRAF VÝVOJE SKÓRE KRESLIL PROPAD NA DNO. Měsíc pod prahem pokrytí má `rawTotal` 0, takže měsíc, kdy si uživatel nic nezapsal, vypadal v grafu jako pád z 287 na nulu – jako by přišel o všechno. Takový bod se nyní VYNECHÁVÁ: čára se přeruší a naváže až na dalším změřeném měsíci, místo kruhu je přerušovaný šedý kroužek s pomlčkou uprostřed grafu a popisek osy vysvětlí, co pomlčka znamená.',
+      '🧹 FIX (S22): `baseTotal` v návratu computeFinancialScore() nesl vážený součet w×sub (0–10 000). Nikde se nezobrazoval, ale kdokoli by ho vzal, dostal by nesmysl. Nyní je to výsledek před bonusem na téže škále 0–310 jako `rawTotal`.',
+      '🧪 smoke_skore.js rozšířen o testy RENDERU (volá renderFinancialScore() do fiktivního elementu a čte vygenerované HTML) – přetečení gauge ani falešné „nejvyšší pásmo" se už nemůže vrátit bez zeleného testu.',
+    ]
+  },
   {
     verze: 'v10.59',
     datum: '2026-09-10',
@@ -8140,3 +8208,395 @@ function runIntegrityCheck() {
       + `<div style="font-size:.7rem;color:#8b91a8;margin-top:8px">Kontrola nic nemění – jen hlásí. Opravy dělej v příslušných kartách.</div>`;
 }
 window.runIntegrityCheck = runIntegrityCheck;
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan) · SIMULÁTOR FINANČNÍHO SKÓRE – admin only, BEZ UKLÁDÁNÍ
+//
+//  Proč vznikl: po přechodu na skóre v2 (TODO-228) jsou váhy a bodovací
+//  kotvy DATA (_SCORING_V2 v helpers.js), ne konstanty rozeseté po kódu.
+//  Díky tomu jde odpovědět na otázku „co se stane, když tohle změním"
+//  přepočtem, ne čtením zdrojáku.
+//
+//  ZÁMĚRNĚ SE NIKAM NEUKLÁDÁ (rozhodnutí Milana, S22):
+//    • ukládat do users/{uid} by znamenalo, že si každý nastaví vlastní váhy
+//      a skóre přestane být mezi lidmi srovnatelné,
+//    • globální uzel by potřeboval vlastní Firebase pravidla (data, která
+//      uživatel nesmí měnit, patří MIMO jeho podstrom – lekce ze S21).
+//  Simulátor tedy jen počítá a na konci vypíše hotový blok k přepsání do
+//  helpers.js. Běžný uživatel se sem nedostane a jeho skóre tohle nijak
+//  neovlivní – computeFinancialScore() bez 4. parametru čte pořád ostrou
+//  _SCORING_V2.
+//
+//  SOUČET VAH MUSÍ BÝT PŘESNĚ 100 % (Milan): ani víc, ani míň. Jinak se
+//  rozbije jmenovatel váženého průměru. Při jiném součtu se blok k přepsání
+//  NEVYGENERUJE a simulace se označí jako neplatná.
+// ══════════════════════════════════════════════════════════════════════
+
+let _simCfg = null;          // pracovní kopie konfigurace (nikdy ne odkaz na ostrou!)
+let _simSlozka = 'S1';       // která složka má rozbalenou bodovací tabulku
+
+function _simKlon(o){ return JSON.parse(JSON.stringify(o)); }
+
+function _simReset(){
+  if(typeof _SCORING_V2==='undefined'){ _simCfg=null; return; }
+  _simCfg = _simKlon(_SCORING_V2);
+}
+
+function simResetVse(){ _simReset(); renderScoringSim(); }
+
+function _simSoucetVah(){
+  if(!_simCfg) return 0;
+  return Object.values(_simCfg.vahy).reduce((a,b)=>a+(+b||0), 0);
+}
+
+//  Body na displeji (0–310) se dopočítají z vah tak, aby jejich součet seděl
+//  přesně na 310 – poslední složka dostane zbytek po zaokrouhlení ostatních.
+function _simMaxBody(vahy, meritko){
+  const klice = ['S1','S2','S3','S4','S5'];
+  const out = {}; let sum = 0;
+  klice.forEach((k,i)=>{
+    if(i < klice.length-1){ out[k] = Math.round((vahy[k]||0)/100*100*meritko); sum += out[k]; }
+  });
+  out[klice[klice.length-1]] = Math.round(100*meritko) - sum;
+  return out;
+}
+
+function simSetVaha(k, v){
+  if(!_simCfg) return;
+  _simCfg.vahy[k] = Math.max(0, Math.min(100, Math.round(+v||0)));
+  _simCfg.maxBody310 = _simMaxBody(_simCfg.vahy, _simCfg.meritko310);
+  renderScoringSim();
+}
+
+function simSetPrah(v){
+  if(!_simCfg) return;
+  _simCfg.prahPokryti = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+
+function simSetSlozka(k){ _simSlozka = k; renderScoringSim(); }
+
+function simSetKotva(slozka, i, pole, v){
+  if(!_simCfg || !_simCfg[slozka] || !_simCfg[slozka][i]) return;
+  const cislo = parseFloat(String(v).replace(',','.'));
+  if(!isFinite(cislo)) return;
+  _simCfg[slozka][i][pole] = pole==='b' ? Math.max(0, Math.min(100, cislo)) : cislo;
+  //  kotvy musí zůstat vzestupně podle x, jinak interpolace vrací nesmysly
+  _simCfg[slozka].sort((a,b)=>a.x-b.x);
+  renderScoringSim();
+}
+
+//  Modelové profily – aby bylo vidět, že změna vah nezasáhne jen mě.
+//  Nejsou to „testovací data", jsou to typické situace, na kterých se pozná,
+//  jestli nová váha nedělá někomu křivdu.
+const _SIM_PROFILY = [
+  { id:'zacatecnik', nazev:'Začátečník', popis:'zapsal příjem a výdaje, nic víc',
+    D:()=>({ transactions:_simTx(40000,32000), debts:[], wallets:[], assets:[], categories:[], shareSettings:{} }), hasDebts:undefined },
+  { id:'bezdluhu', nazev:'Bez dluhů', popis:'potvrdil, že nemá půjčku',
+    D:()=>({ transactions:_simTx(40000,28000), debts:[], wallets:[], assets:[], categories:[], shareSettings:{} }), hasDebts:false },
+  { id:'sporil', nazev:'Spořil', popis:'rezerva 6 měsíců výdajů, spoří 15 %',
+    D:()=>({ transactions:_simTx(45000,25000,4000), debts:[],
+             wallets:[{id:'w',type:'savings',balance:150000}], assets:[],
+             categories:[{id:'inv',name:'Investice',isInvest:true,healthPct:10},{id:'zit',name:'Život',healthPct:60}],
+             shareSettings:{} }), hasDebts:false },
+  { id:'zadluzeny', nazev:'Zadlužený', popis:'splátky 35 % příjmu, bez rezervy',
+    D:()=>({ transactions:_simTx(38000,36000),
+             debts:[{id:'d',name:'Půjčka',remaining:900000,payment:13300,rate:9}],
+             wallets:[{id:'w',type:'savings',balance:5000}], assets:[],
+             categories:[{id:'zit',name:'Život',healthPct:60}], shareSettings:{} }), hasDebts:true },
+];
+
+//  6 měsíců transakcí, ať funguje i základ příjmu (3M zpětné okno) a trend.
+function _simTx(inc, exp, spor){
+  const out = [];
+  const m0 = (typeof S!=='undefined' && S) ? S.curMonth : new Date().getMonth();
+  const y0 = (typeof S!=='undefined' && S) ? S.curYear  : new Date().getFullYear();
+  for(let i=0;i<6;i++){
+    let m=m0-i, y=y0; while(m<0){ m+=12; y--; }
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-15`;
+    out.push({id:`si${i}`, date:iso, type:'income',  amount:inc, name:'Výplata', catId:'vyplata'});
+    out.push({id:`se${i}`, date:iso, type:'expense', amount:exp, name:'Život',   catId:'zit'});
+    if(spor) out.push({id:`ss${i}`, date:iso, type:'expense', amount:spor, name:'Investice', catId:'inv'});
+  }
+  return out;
+}
+
+//  Spočítá skóre pro daná data s danou konfigurací. _settings.hasDebts se musí
+//  na chvíli přepnout (čte ho S2) – vždy se vrátí zpátky, i když výpočet spadne.
+function _simSkore(D, cfg, hasDebts){
+  if(typeof computeFinancialScore!=='function') return null;
+  const puvodni = (typeof _settings!=='undefined' && _settings) ? _settings.hasDebts : undefined;
+  try{
+    if(typeof _settings!=='undefined' && _settings) _settings.hasDebts = hasDebts;
+    return computeFinancialScore(D, undefined, undefined, cfg);
+  } catch(e){ console.warn('[sim] výpočet selhal', e); return null; }
+  finally{
+    if(typeof _settings!=='undefined' && _settings){
+      if(puvodni===undefined) delete _settings.hasDebts; else _settings.hasDebts = puvodni;
+    }
+  }
+}
+
+function renderScoringSim(){
+  const el = document.getElementById('adminScoringSim'); if(!el) return;
+  if(typeof isAdmin!=='function' || !isAdmin()){ el.innerHTML=''; return; }
+  if(typeof _SCORING_V2==='undefined'){
+    el.innerHTML = '<div class="card"><div class="card-body"><div class="empty"><div class="et">Konfigurace skóre není načtená (helpers.js).</div></div></div></div>';
+    return;
+  }
+  if(!_simCfg) _simReset();
+
+  const cfg = _simCfg;
+  const soucet = _simSoucetVah();
+  const platny = soucet === 100;
+  const NAZVY = { S1:'💰 Cash flow', S2:'🏦 Zadluženost', S3:'🐷 Rezerva', S4:'💎 Spoření', S5:'📊 Rozpočet' };
+  const POPIS = {
+    S1:'výdaje ÷ příjmy · nižší je lepší',
+    S2:'DTI (60 %) + DSTI (40 %) · nižší je lepší',
+    S3:'rezerva ÷ měsíční výdaje · vyšší je lepší',
+    S4:'% základu odloženo · vyšší je lepší',
+    S5:'skóre dodržování limitů 0–100 · vyšší je lepší',
+  };
+  const JEDNOTKY = { S1:'poměr', DTI:'%', DSTI:'%', S3:'měsíců', S4:'%', S5:'bodů' };
+
+  // ── moje skutečná data: ostrá vs. simulovaná konfigurace ──
+  const D = (typeof getData==='function') ? getData() : null;
+  const mojeOstre = D ? _simSkore(D, null, (typeof _settings!=='undefined'&&_settings)?_settings.hasDebts:undefined) : null;
+  const mojeSim   = (D && platny) ? _simSkore(D, cfg, (typeof _settings!=='undefined'&&_settings)?_settings.hasDebts:undefined) : null;
+
+  const zmenaTag = (novy, stary) => {
+    if(novy==null || stary==null) return '';
+    const d = novy - stary;
+    if(d===0) return '<span style="font-size:.68rem;color:#8b91a8;margin-left:6px">beze změny</span>';
+    const c = d>0 ? 'var(--income)' : 'var(--expense)';
+    return `<span style="font-size:.68rem;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:99px;background:${d>0?'rgba(74,222,128,.15)':'rgba(248,113,113,.15)'};color:${c}">${d>0?'+':''}${d}</span>`;
+  };
+  const cisloNeboPomlcka = v => v==null ? '<span style="color:#a8aec8">—</span>' : v;
+
+  // ── posuvníky vah ──
+  const vahyHTML = ['S1','S2','S3','S4','S5'].map(k=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.8rem;min-width:132px;color:#e8eaf2">${NAZVY[k]}</span>
+      <input type="range" min="0" max="60" step="1" value="${cfg.vahy[k]}"
+             oninput="simSetVaha('${k}',this.value)" style="flex:1;min-width:80px;accent-color:#8b7cf6">
+      <input type="number" min="0" max="100" value="${cfg.vahy[k]}"
+             onchange="simSetVaha('${k}',this.value)"
+             style="width:58px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+      <span style="font-size:.76rem;color:#a8aec8;min-width:16px">%</span>
+      <span style="font-size:.72rem;color:#a8aec8;min-width:56px;text-align:right">${(cfg.maxBody310||{})[k]??'?'} b</span>
+    </div>`).join('');
+
+  // ── bodovací tabulka vybrané složky ──
+  const klicTabulky = _simSlozka;
+  const kotvy = cfg[klicTabulky] || [];
+  const tabHTML = kotvy.map((kt,i)=>`
+    <tr>
+      <td style="padding:4px 6px"><input type="number" step="any" value="${kt.x}"
+            onchange="simSetKotva('${klicTabulky}',${i},'x',this.value)"
+            style="width:78px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px;color:#a8aec8;font-size:.72rem">${JEDNOTKY[klicTabulky]||''}</td>
+      <td style="padding:4px 6px"><input type="number" min="0" max="100" step="1" value="${kt.b}"
+            onchange="simSetKotva('${klicTabulky}',${i},'b',this.value)"
+            style="width:68px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px">
+        <div style="height:7px;background:var(--surface3);border-radius:99px;overflow:hidden;min-width:70px">
+          <div style="height:100%;width:${kt.b}%;background:${kt.b>=80?'var(--income)':kt.b>=45?'var(--debt)':'var(--expense)'};border-radius:99px"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const prepinacSlozek = ['S1','DTI','DSTI','S3','S4','S5'].map(k=>`
+    <button class="tx-filt-btn${_simSlozka===k?' active':''}" style="font-size:.72rem;padding:4px 10px"
+            onclick="simSetSlozka('${k}')">${k==='DTI'?'S2 · DTI':k==='DSTI'?'S2 · DSTI':NAZVY[k]||k}</button>`).join('');
+
+  // ── modelové profily ──
+  const profilyHTML = _SIM_PROFILY.map(p=>{
+    const data = p.D();
+    const o = _simSkore(data, null, p.hasDebts);
+    const s = platny ? _simSkore(data, cfg, p.hasDebts) : null;
+    const zn = x => x ? (x.total===null ? '⏳ nehodnoceno' : `${x.grade.emoji} ${x.grade.label}`) : '—';
+    return `<tr>
+      <td style="padding:7px 6px">
+        <div style="font-size:.8rem;color:#e8eaf2;font-weight:600">${p.nazev}</div>
+        <div style="font-size:.68rem;color:#a8aec8">${p.popis}</div>
+      </td>
+      <td style="padding:7px 6px;text-align:right;font-size:.78rem;color:#a8aec8;white-space:nowrap">
+        ${cisloNeboPomlcka(o?o.rawTotal:null)} / 310<div style="font-size:.66rem">${zn(o)}</div></td>
+      <td style="padding:7px 6px;text-align:right;font-size:.82rem;font-weight:700;color:#e8eaf2;white-space:nowrap">
+        ${cisloNeboPomlcka(s?s.rawTotal:null)} / 310${s&&o?zmenaTag(s.rawTotal,o.rawTotal):''}
+        <div style="font-size:.66rem;font-weight:400;color:#a8aec8">${zn(s)}</div></td>
+    </tr>`;
+  }).join('');
+
+  // ── rozpad mých složek ──
+  const mojeSlozkyHTML = (mojeSim && mojeOstre)
+    ? mojeSim.components.map((c,i)=>{
+        const o = mojeOstre.components[i];
+        const pct = c.max>0 ? Math.max(0,Math.min(100, c.score/c.max*100)) : 0;
+        const barva = pct>=80?'var(--income)':pct>=50?'var(--debt)':'var(--expense)';
+        return `<div style="margin-bottom:9px">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:.78rem;flex:1;min-width:0;color:#e8eaf2">${c.label}</span>
+            ${c.avail===false
+              ? '<span style="font-size:.72rem;color:#a8aec8">nezměřeno</span>'
+              : `<span style="font-size:.72rem;color:#a8aec8;min-width:62px;text-align:right">${o?o.score+' / '+o.max:''}</span>
+                 <span style="font-family:Syne,sans-serif;font-weight:800;font-size:.84rem;color:${barva};min-width:66px;text-align:right">${c.score} / ${c.max}</span>`}
+          </div>
+          ${c.avail===false?'':`<div style="height:6px;background:var(--surface3);border-radius:99px;overflow:hidden;margin-top:4px">
+            <div style="height:100%;width:${pct.toFixed(1)}%;background:${barva};border-radius:99px"></div></div>`}
+        </div>`;
+      }).join('')
+    : '';
+
+  // ── blok k přepsání do helpers.js ──
+  const exportBlok = platny ? [
+    `  vahy: { S1:${cfg.vahy.S1}, S2:${cfg.vahy.S2}, S3:${cfg.vahy.S3}, S4:${cfg.vahy.S4}, S5:${cfg.vahy.S5} },`,
+    `  prahPokryti: ${cfg.prahPokryti},`,
+    `  maxBody310: { S1:${cfg.maxBody310.S1}, S2:${cfg.maxBody310.S2}, S3:${cfg.maxBody310.S3}, S4:${cfg.maxBody310.S4}, S5:${cfg.maxBody310.S5} },`,
+    ...['S1','DTI','DSTI','S3','S4','S5'].map(k=>
+      `  ${k}: [ ${cfg[k].map(z=>`{x:${z.x},b:${z.b}}`).join(',')} ],`),
+  ].join('\n') : '';
+
+  el.innerHTML = `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">⚖️ Simulátor finančního skóre</span>
+      <button class="btn btn-ghost btn-sm" onclick="simResetVse()" style="font-size:.72rem">↺ Vrátit na ostré</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:12px">
+        Zkouší, co by se stalo, kdyby skóre počítalo jinak — na tvých skutečných datech
+        i na modelových profilech. <b style="color:#c9cede">Nikam se to neukládá</b> a skóre
+        uživatelů to neovlivní; dole je hotový blok k přepsání do <code>helpers.js</code>.
+      </div>
+
+      <!-- VÁHY -->
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.9rem;color:#e8eaf2;margin-bottom:4px">Váhy složek</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:6px">Určují důležitost. Body vpravo jsou podíl z 310 na displeji.</div>
+      ${vahyHTML}
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:.84rem">
+        <span style="min-width:132px;color:#e8eaf2;font-weight:700">Součet</span>
+        <span style="font-family:Syne,sans-serif;font-weight:800;font-size:1.05rem;color:${platny?'var(--income)':'var(--expense)'}">${soucet} %</span>
+        ${platny
+          ? '<span style="font-size:.72rem;color:var(--income)">✓ platné</span>'
+          : `<span style="font-size:.72rem;color:var(--expense)">musí být přesně 100 % — ${soucet>100?'ubírej':'přidej'} ${Math.abs(100-soucet)} %</span>`}
+      </div>
+
+      <!-- PRÁH -->
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+        <span style="font-size:.8rem;min-width:132px;color:#e8eaf2">Práh pokrytí</span>
+        <input type="range" min="0" max="100" step="5" value="${cfg.prahPokryti}"
+               oninput="simSetPrah(this.value)" style="flex:1;min-width:80px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.prahPokryti}" onchange="simSetPrah(this.value)"
+               style="width:58px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8;min-width:16px">%</span>
+      </div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px">Pod touhle podloženosti appka známku vůbec neukáže.</div>
+    </div>
+  </div>
+
+  <!-- MOJE SKÓRE -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📊 Tvoje skutečná data</span></div>
+    <div class="card-body">
+      ${!platny ? `<div style="font-size:.8rem;color:var(--expense);line-height:1.5">
+          Součet vah je ${soucet} %, ne 100 % — simulace se nepočítá, dokud to nesedí.</div>`
+      : !mojeSim ? `<div style="font-size:.8rem;color:#a8aec8">Nepodařilo se spočítat skóre z tvých dat.</div>`
+      : `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+          <div>
+            <div style="font-size:.7rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Ostrá konfigurace</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:#a8aec8">
+              ${cisloNeboPomlcka(mojeOstre?mojeOstre.rawTotal:null)} <span style="font-size:.9rem">/ 310</span></div>
+            <div style="font-size:.72rem;color:#a8aec8">${mojeOstre?(mojeOstre.total===null?'⏳ nehodnoceno':mojeOstre.grade.emoji+' '+mojeOstre.grade.label):'—'}</div>
+          </div>
+          <div style="font-size:1.2rem;color:#a8aec8;padding-bottom:10px">→</div>
+          <div>
+            <div style="font-size:.7rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Simulace</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.9rem;font-weight:800;color:${mojeSim.grade.color}">
+              ${cisloNeboPomlcka(mojeSim.rawTotal)} <span style="font-size:1rem">/ 310</span>
+              ${mojeOstre?zmenaTag(mojeSim.rawTotal, mojeOstre.rawTotal):''}</div>
+            <div style="font-size:.76rem;color:${mojeSim.grade.color}">${mojeSim.total===null?'⏳ nehodnoceno':mojeSim.grade.emoji+' '+mojeSim.grade.label}</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="font-size:.7rem;color:#a8aec8">Pokrytí</div>
+            <div style="font-size:.95rem;font-weight:700;color:#e8eaf2">${mojeSim.coverage} %</div>
+          </div>
+        </div>
+        ${mojeSlozkyHTML}
+        <div style="font-size:.7rem;color:#8b91a8;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          Šedé číslo = ostrá konfigurace, barevné = simulace.
+        </div>`}
+    </div>
+  </div>
+
+  <!-- BODOVACÍ TABULKA -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📐 Bodovací kotvy</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Mezi kotvami se body dopočítávají přímkou. <b style="color:#c9cede">Hodnota</b> je to, co se měří,
+        <b style="color:#c9cede">body</b> jsou 0–100 uvnitř složky. Pořadí se srovná samo.
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${prepinacSlozek}</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:6px">${POPIS[klicTabulky]||(klicTabulky==='DTI'?'celkový dluh ÷ roční příjem · nižší je lepší':'splátky ÷ měsíční příjem · nižší je lepší')}</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:4px 6px;font-weight:600">Hodnota</th><th></th>
+          <th style="padding:4px 6px;font-weight:600">Body</th><th style="padding:4px 6px;font-weight:600">Podíl</th>
+        </tr></thead>
+        <tbody>${tabHTML}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODELOVÉ PROFILY -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">👥 Modelové profily</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Typické situace, na kterých se pozná, jestli nová váha někomu nekřivdí.
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:5px 6px;font-weight:600">Profil</th>
+          <th style="padding:5px 6px;font-weight:600;text-align:right">Ostrá</th>
+          <th style="padding:5px 6px;font-weight:600;text-align:right">Simulace</th>
+        </tr></thead>
+        <tbody>${profilyHTML}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 K přepsání do helpers.js</span></div>
+    <div class="card-body">
+      ${platny ? `
+        <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+          Vlož do <code>_SCORING_V2</code> v <code>helpers.js</code> (nahradí odpovídající řádky).
+        </div>
+        <textarea readonly id="simExportBox" style="width:100%;min-height:150px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surface3);color:#c9cede;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.5;resize:vertical">${exportBlok.replace(/</g,'&lt;')}</textarea>
+        <button class="btn btn-accent btn-sm" style="margin-top:8px" onclick="simKopirovat()">📋 Kopírovat</button>`
+      : `<div style="font-size:.8rem;color:var(--expense);line-height:1.55">
+          Nevygeneruje se, dokud součet vah není přesně 100 % (teď ${soucet} %).</div>`}
+    </div>
+  </div>`;
+}
+
+function simKopirovat(){
+  const box = document.getElementById('simExportBox'); if(!box) return;
+  try{
+    box.select();
+    navigator.clipboard.writeText(box.value)
+      .then(()=>{ if(typeof showToast==='function') showToast('📋 Zkopírováno'); })
+      .catch(()=>{ document.execCommand('copy'); if(typeof showToast==='function') showToast('📋 Zkopírováno'); });
+  }catch(e){ console.warn('[sim] kopírování selhalo', e); }
+}
+
+window.renderScoringSim = renderScoringSim;
+window.simResetVse = simResetVse;
+window.simSetVaha = simSetVaha;
+window.simSetPrah = simSetPrah;
+window.simSetSlozka = simSetSlozka;
+window.simSetKotva = simSetKotva;
+window.simKopirovat = simKopirovat;

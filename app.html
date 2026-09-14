@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v10.59</title>
+<title>FinanceFlow v10.63</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -261,7 +261,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.59 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.63 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -450,6 +450,10 @@
   <!-- ADMIN PANEL -->
   <div class="page" id="page-denik">
     <div id="denikContent"></div>
+  </div>
+  <!-- S22: deníkové poznámky k jednotlivému výdaji (level 1) -->
+  <div class="page" id="page-poznamky">
+    <div id="poznamkyContent"></div>
   </div>
   <div class="page" id="page-admin">
     <div id="adminContent"></div>
@@ -1058,7 +1062,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.59</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.63</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -2156,20 +2160,21 @@
      #profileAvatarPicker – ten element je nově na stránce, ne tady. -->
 </div>
 
-<script src="js/app.js?v=c1497f77c98b3114"></script>
-<script src="js/helpers.js?v=98e6be54016192e5"></script>
-<script src="js/ui.js?v=86568ea67e91a8b6"></script>
+<script src="js/app.js?v=567c3bfab960e045"></script>
+<script src="js/helpers.js?v=2c09f23d32544234"></script>
+<script src="js/ui.js?v=9efbddddf6e9ec95"></script>
 <script src="js/transactions.js?v=b321af6434cb16ab"></script>
 <script src="js/report.js?v=79ef757e4873b28a"></script>
-<script src="js/review.js?v=f42276fc5b7db6ba"></script>
+<script src="js/review.js?v=5a4497d97dc1838b"></script>
 <script src="js/inflace.js?v=ebf900bdbc743a9c"></script>
 <script src="js/charts.js?v=6b23668c2683e315"></script>
 <script src="js/stats.js?v=d5037a65652c234c"></script>
 <script src="js/debts.js?v=24bdde63e7a85df8"></script>
-<script src="js/ai.js?v=b1f55e8134f89bcb"></script>
-<script src="js/premium.js?v=f4a66c428d89a21c"></script>
+<script src="js/ai.js?v=37bb426330825729"></script>
+<script src="js/premium.js?v=30d332a427015fa3"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98"></script>
-<script src="js/projects.js?v=279de8a85f5fb95b"></script>
+<script src="js/projects.js?v=338d1eaf9d480dba"></script>
+<script src="js/poznamky.js?v=e3f1ea64b95e10b9"></script>
 <script src="js/receipts.js?v=01dbbf659564a4bd"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
 <script src="js/settings.js?v=bbc24d87f8e1ba34"></script>
@@ -2182,13 +2187,13 @@
 <script src="js/budouci.js?v=74a41855d55a20b9"></script>
 <script src="js/pristi.js?v=268de55ca298d8dc"></script>
 <script src="js/assets.js?v=b4cea9a43a05bcd7"></script>
-<script src="js/advisor.js?v=470e342380c5539a"></script>
+<script src="js/advisor.js?v=dab3896c82038bc7"></script>
 <script src="js/kalendar.js?v=cb2332466e30c8dc"></script>
 <script src="js/vyplatnice.js?v=86280a1ce54dd04d"></script>
 <script src="js/donate.js?v=832cd19c4ee60fc5"></script>
 <script src="js/ucet.js?v=f006e57f978b56e6"></script>
 <script src="js/announcements.js?v=33c4afbb26d5d922"></script>
-<script src="js/admin.js?v=c408fafca0d57b02"></script>
+<script src="js/admin.js?v=fd15091241be029d"></script>
 <script src="js/import.js?v=8d2d4ca436edfc88"></script>
 <script src="js/push.js?v=1cf4653a3af13074"></script>
 <script src="js/kurzy.js?v=c372947f013a8e1a"></script>

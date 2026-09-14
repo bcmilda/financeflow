@@ -1,4 +1,4 @@
-// FinanceFlow · v9.81 · ai.js · 2026-08-17
+// FinanceFlow · v10.60 · ai.js · 2026-09-12
 //  AI RÁDCE
 // ══════════════════════════════════════════════════════
 // Worker URL – sem doplňte URL po vytvoření Workeru
@@ -150,11 +150,8 @@ ${debtDetails ? '- Detail: '+debtDetails : ''}
 - Celkem v peněženkách: ${fmt(walletTotal)} Kč
 - Spořicí/investiční: ${fmt(savTotal)} Kč
 
-FINANČNÍ SKÓRE: ${score.total}/100 (${score.grade.label})
-- Příjmy vs výdaje: ${score.components[0].score}/25
-- Zadluženost: ${score.components[1].score}/25
-- Úspory: ${score.components[2].score}/25
-- Trend: ${score.components[3].score}/25
+FINANČNÍ SKÓRE: ${score.total}/100 (${score.grade.label}) – na škále 0–310: ${score.rawTotal}/${score.rawMax}
+${score.components.map(c=>`- ${c.label.replace(/^\S+\s/,'')}: ${c.avail?`${c.score}/${c.max}`:'zatím nezměřeno'}`).join('\n')}
 
 AKTIVNÍ PROJEKTY: ${projects.length > 0 ? projDetails : 'žádné'}
 
@@ -290,7 +287,7 @@ Proveď finanční simulaci spoření. Spočítej:
     score: `${ctx}
 
 Moje finanční skóre je ${score.total}/100 (${score.grade.label}).
-Složky: ${score.components.map(c=>c.label+' '+c.score+'/25').join(', ')}.
+Složky: ${score.components.map(c=>c.label+' '+(c.avail?c.score+'/'+c.max:'nezměřeno')).join(', ')}.
 
 1. Co táhne skóre dolů nejvíce?
 2. **Top 3 akce** pro zlepšení skóre – seřazené dle dopadu

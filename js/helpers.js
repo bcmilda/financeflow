@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · helpers.js · 2026-09-02
+// FinanceFlow · v10.60 · helpers.js · 2026-09-12
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -254,6 +254,61 @@ function msc_DSTI(pct){ for(const[t,p]of _SCORING.DSTI){if(pct<=t)return p;} ret
 function msc_S3(months){ if(months==null)return null; for(const[t,p]of _SCORING.S3){if(months>=t)return p;} return 0; }
 function msc_S4(rate){ if(rate==null)return null; for(const[t,p]of _SCORING.S4){if(rate>=t)return p;} return 0; }
 function msc_BONUS(m){ let out=0; for(const[t,p]of _SCORING.BONUS){ if(m>=t) out=p; } return out; }
+
+// ══════════════════════════════════════════════════════
+//  v10.60 (TODO-228, S22): FINANČNÍ SKÓRE v2 – VÁHY + KOTVY.
+//  Používá VÝHRADNĚ computeFinancialScore() v premium.js. `_SCORING`/`msc_*`
+//  výše ZŮSTÁVAJÍ BEZE ZMĚNY – čte je i Dluhový stres index (debts.js) a
+//  Finanční obraz (projects.js expScore/savingScore/DTI-DSTI body), které
+//  s touhle změnou nesouvisí (SKILL 12: před opravou sdíleného výpočtu
+//  prověř všechny spotřebitele).
+//  Podklad: NAVRH-skore-v2.md, scoring-config-v2.json (odsouhlaseno S22
+//  s Milanem – váhy 30/25/20/15/10, práh pokrytí 50 %, S3 proti výdajům,
+//  bonus +5 do výsledku, zobrazení na staré škále 0–310 beze změny historie).
+// ══════════════════════════════════════════════════════
+const _SCORING_V2 = {
+  vahy: { S1:30, S2:25, S3:20, S4:15, S5:10 },   // musí dát dohromady 100
+  prahPokryti: 50,      // pod touto % podloženosti se známka/číslo nezobrazí
+  meritko310: 3.1,       // Milanovo rozhodnutí S22: zobrazovat na škále 0–310
+  // pevně zaokrouhlená maxima pro zobrazení složek – součet přesně 310
+  // (30/25/20/15/10 % × 3,1 = 93/77,5/62/46,5/31 → zaokrouhleno na 93/78/62/46/31)
+  maxBody310: { S1:93, S2:78, S3:62, S4:46, S5:31 },
+  S1:  [ {x:0.5,b:100},{x:0.65,b:85},{x:0.8,b:65},{x:0.9,b:45},{x:1.0,b:25},{x:1.1,b:10},{x:1.25,b:0} ],
+  DTI: [ {x:0,b:100},{x:15,b:97},{x:100,b:80},{x:200,b:60},{x:350,b:35},{x:600,b:12},{x:900,b:0} ],
+  DSTI:[ {x:0,b:100},{x:10,b:85},{x:20,b:65},{x:30,b:45},{x:40,b:25},{x:50,b:10},{x:60,b:0} ],
+  podilDTI: 60, podilDSTI: 40,       // S2 = DTI×60 % + DSTI×40 %, poměr zachován z v1
+  S3:  [ {x:0,b:0},{x:1,b:25},{x:3,b:60},{x:6,b:85},{x:12,b:100} ],   // proti VÝDAJŮM (S22)
+  S4:  [ {x:0,b:0},{x:5,b:30},{x:10,b:55},{x:20,b:80},{x:30,b:100} ],
+  S5:  [ {x:0,b:0},{x:50,b:40},{x:75,b:70},{x:90,b:90},{x:100,b:100} ],
+  bonus: { max:5, kotvy:[ {x:0,b:0},{x:3,b:2},{x:6,b:3},{x:12,b:5} ] },
+  znamky: [   // sestupně podle min – total v procentech (0–100)
+    {min:90,label:'Výborné',    emoji:'🏆',color:'#4ade80'},
+    {min:75,label:'Velmi dobré',emoji:'⭐',color:'#60a5fa'},
+    {min:60,label:'Dobré',      emoji:'👍',color:'#a78bfa'},
+    {min:45,label:'Průměrné',   emoji:'📊',color:'#fbbf24'},
+    {min:30,label:'Rizikové',   emoji:'⚠️',color:'#fb923c'},
+    {min:0, label:'Kritické',   emoji:'🚨',color:'#f87171'},
+  ],
+};
+// Lineární interpolace mezi kotvami – nahrazuje schodovité pásmo jedním
+// hladkým číslem (rozdíl 0,1 % už nepřeskočí celý bod dolů/nahoru).
+// Kotvy MUSÍ být seřazené vzestupně podle x; b může podle "směru" složky
+// klesat (nižší je lepší) i růst (vyšší je lepší) – interpolace to neřeší,
+// jen spojuje sousední body přímkou.
+function mscInterpV2(kotvy, x){
+  if(x==null || !kotvy || !kotvy.length) return null;
+  if(x<=kotvy[0].x) return kotvy[0].b;
+  const last=kotvy[kotvy.length-1];
+  if(x>=last.x) return last.b;
+  for(let i=0;i<kotvy.length-1;i++){
+    const a=kotvy[i], c=kotvy[i+1];
+    if(x>=a.x && x<=c.x){
+      const t=(x-a.x)/(c.x-a.x);
+      return a.b + t*(c.b-a.b);
+    }
+  }
+  return last.b;
+}
 
 // v8.72 (FIX-187): PŘÍJMOVÁ obdoba getActual – FFR a Diverzifikace příjmů dřív používaly
 // getActual (jen expense) → pasivní příjem vždy 0 a jediným „zdrojem příjmu" byla income
