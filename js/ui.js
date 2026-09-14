@@ -1,4 +1,4 @@
-// FinanceFlow · v10.65 · ui.js · 2026-09-12
+// FinanceFlow · v10.66 · ui.js · 2026-09-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -529,13 +529,15 @@ function renderMonthlyChecklist(D){
   //  čísla na mobilu je otrava.
   const otH = (typeof otGet==='function') ? otGet() : null;
   const otAnswered = otH !== null;
+  //  Z výplatnice appka přesčasy zná sama – tehdy se neptá, jen oznámí.
+  const otZPasky = (typeof otZdroj==='function') && otZdroj() === 'payslip';
   const tasks = [
     { icon:'💰', label:'Přidej výplatu / hlavní příjem', sub:'tento měsíc', done:hasSalary, go:"showPage('transakce')" },
     { icon:'📝', label:`Zapiš aspoň 20 transakcí (${txCount}/20)`, sub:'pro přesné statistiky a skóre', done:has20, go:"showPage('transakce')" },
     { icon:'💪', label: otAnswered
-        ? (otH>0 ? `Přesčasy: ${otH} h navíc` : 'Přesčasy: žádné')
+        ? (otH>0 ? `Přesčasy: ${otH} h navíc${otZPasky?' (z výplatnice)':''}` : `Přesčasy: žádné${otZPasky?' (z výplatnice)':''}`)
         : 'Měl jsi tento měsíc přesčas?',
-      sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:true },
+      sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:!otZPasky },
   ];
   const doneCount = tasks.filter(t=>t.done).length;
   if(doneCount === tasks.length){ el.innerHTML=''; return; }  // vše hotovo → skryj

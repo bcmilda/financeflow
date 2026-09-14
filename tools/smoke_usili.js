@@ -105,5 +105,37 @@ check('záznam bez predikce se v tabulce přesnosti přeskočí',()=>{
   const src=fs.readFileSync('transactions.js','utf8');
   assert(/if\(!\(s\.predExp>0\)\) return;/.test(src),'záznam jen s přesčasy by vypsal prázdný řádek');
 });
+console.log('\n── Výplatnice mají přednost před ručním zápisem ──');
+const pasky=(arr)=>{ sb.S.payslips=arr; };
+
+check('přesčas z pásky = odpracováno nad fond',()=>{
+  sb.S.diary={}; pasky([{m:'2026-07',hlavicka:{fond:168,odprac:196}}]);
+  assert(get()===28,'vrátilo '+get()+', čekáno 28');
+});
+check('páska přebije ruční odpověď',()=>{
+  sb.S.diary={}; set(5);
+  pasky([{m:'2026-07',hlavicka:{fond:168,odprac:196}}]);
+  assert(get()===28,'ruční 5 h přebilo pásku: '+get());
+  assert(vm.runInContext("otZdroj()",sb)==='payslip','zdroj hlásí '+vm.runInContext("otZdroj()",sb));
+});
+check('bez pásky se použije ruční odpověď',()=>{
+  pasky([]); sb.S.diary={}; set(12);
+  assert(get()===12,'vrátilo '+get());
+  assert(vm.runInContext("otZdroj()",sb)==='rucne','zdroj hlásí '+vm.runInContext("otZdroj()",sb));
+});
+check('neúplná páska (chybí fond) se ignoruje, nevrátí nesmysl',()=>{
+  sb.S.diary={}; pasky([{m:'2026-07',hlavicka:{odprac:196}}]);
+  assert(get()===null,'z neúplné pásky vyšlo '+get());
+});
+check('odpracováno POD fond = 0 přesčasů, ne záporné číslo',()=>{
+  pasky([{m:'2026-07',hlavicka:{fond:168,odprac:140}}]);
+  assert(get()===0,'vrátilo '+get()+' (dovolená by dělala záporný přesčas)');
+});
+check('checklist se na přesčas neptá, když je páska',()=>{
+  const src=fs.readFileSync('ui.js','utf8');
+  assert(/otask:!otZPasky/.test(src),'otázka se zobrazí i když appka odpověď zná');
+  assert(/z výplatnice/.test(src),'uživatel se nedozví, odkud číslo je');
+});
+
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ ÚSILÍ OVĚŘENO');
 process.exit(fails?1:0);

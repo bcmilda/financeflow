@@ -1,4 +1,4 @@
-// FinanceFlow · v10.65 · projects.js · 2026-09-12
+// FinanceFlow · v10.66 · projects.js · 2026-09-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5874,14 +5874,43 @@ function _denikPredCurve(D, m, y, predExp){
 // ══════════════════════════════════════════════════════
 const _USILI_KOTVY = [ {x:0,b:0}, {x:8,b:5}, {x:20,b:10}, {x:35,b:15} ];
 
+//  VÝPLATNICE MAJÍ PŘEDNOST (Milan, S22). Páska zná fond hodin i skutečně
+//  odpracované, takže přesčas = odpracováno nad fond. Je to přesnější než
+//  ruční odhad a nemusí se na to nikdo ptát.
+//  Klíč měsíce je u výplatnic i v Deníku shodný (`YYYY-MM`), ověřeno.
+//  Vrací null, když páska za ten měsíc není nebo nemá vyplněné obě hodnoty –
+//  tehdy se sáhne po ruční odpovědi z checklistu.
+function otFromPayslip(m, y){
+  const zaznamy = (typeof S!=='undefined' && Array.isArray(S.payslips)) ? S.payslips : null;
+  if(!zaznamy || !zaznamy.length) return null;
+  const z = zaznamy.find(x => x && x.m === _denikKey(y==null?S.curYear:y, m==null?S.curMonth:m));
+  if(!z) return null;
+  const h = z.hlavicka || {};
+  const fond = Number(h.fond), odprac = Number(h.odprac);
+  if(!isFinite(fond) || !isFinite(odprac) || !fond || !odprac) return null;
+  return Math.max(0, Math.round(odprac - fond));
+}
+
 //  Odpověď z checklistu: kolik hodin navíc za daný měsíc. Vrací null, když
 //  se uživatel ještě nevyjádřil – nula znamená „neměl jsem přesčas", což je
 //  jiná informace než „nezeptali jsme se ho".
+//  Pořadí zdrojů: výplatnice → ruční odpověď → nic.
 function otGet(m, y){
+  const zPasky = otFromPayslip(m, y);
+  if(zPasky !== null) return zPasky;
   const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
   if(!diary) return null;
   const z = diary[_denikKey(y==null?S.curYear:y, m==null?S.curMonth:m)];
   return (z && typeof z.overtimeH === 'number') ? z.overtimeH : null;
+}
+
+//  Odkud číslo pochází – checklist podle toho neotravuje s otázkou, na kterou
+//  si appka odpověděla sama.
+function otZdroj(m, y){
+  if(otFromPayslip(m, y) !== null) return 'payslip';
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  const z = diary ? diary[_denikKey(y==null?S.curYear:y, m==null?S.curMonth:m)] : null;
+  return (z && typeof z.overtimeH === 'number') ? 'rucne' : null;
 }
 
 function otSet(hodin, m, y){

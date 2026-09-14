@@ -1,4 +1,4 @@
-// FinanceFlow · v10.65 · admin.js · 2026-09-12
+// FinanceFlow · v10.66 · admin.js · 2026-09-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -550,6 +550,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.66',
+    datum: '2026-09-12',
+    zmeny: [
+      '📄 VÝPLATNICE MAJÍ PŘEDNOST PŘED RUČNÍM ZÁPISEM PŘESČASŮ (Milan). Páska zná fond hodin i skutečně odpracované, takže přesčas = odpracováno nad fond – přesnější než odhad a bez ptaní. Pořadí zdrojů: výplatnice → odpověď z checklistu → nic. Když appka odpověď zná z pásky, checklist se neptá, jen oznámí „(z výplatnice)".',
+      '🛡️ Neúplná páska (chybí fond nebo odpracováno) se ignoruje a sáhne se po ruční odpovědi – z půlky vyplněné hlavičky by vyšlo nesmyslné číslo. Odpracováno POD fond (dovolená, nemoc) dá 0 přesčasů, ne záporný počet.',
+    ]
+  },
   {
     verze: 'v10.65',
     datum: '2026-09-12',
