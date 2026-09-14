@@ -1,4 +1,4 @@
-// FinanceFlow · v9.60 · advisor.js · 2026-08-03
+// FinanceFlow · v10.60 · advisor.js · 2026-09-12
 // ══════════════════════════════════════════════════════
 //  REPORT PRO FINANČNÍHO PORADCE – FinanceFlow v6.51
 //  TODO-059 · Záložka "📋 Poradce" v Měsíčním reportu
@@ -696,19 +696,44 @@ function drawHealthScoreLineChart(canvasId, months) {
     : (s >= 71 ? '#4ade80' : s >= 41 ? '#fbbf24' : '#f87171');
 
   // 1) Spojnicová čára mezi STŘEDY kruhů (kreslí se první, pod kruhy)
+  //  v10.60 (TODO-228): měsíc s `mereno:false` (pod prahem pokrytí) NENÍ nula –
+  //  je to díra v datech. Čára se u něj přeruší a naváže až na dalším změřeném
+  //  měsíci; propojit ho přes nulu by ukazovalo propad, který se nestal.
   if (n > 1) {
     ctx.strokeStyle = 'rgba(96,165,250,.85)';
     ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
     ctx.beginPath();
+    let navazuje = false;
     months.forEach((mo, i) => {
+      if (mo.mereno === false) { navazuje = false; return; }
       const x = xAt(i), y = yAt(mo.score);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      if (!navazuje) { ctx.moveTo(x, y); navazuje = true; } else ctx.lineTo(x, y);
     });
     ctx.stroke();
   }
 
   // 2) Kruhy s čísly (mini health ring) v každém bodě
   months.forEach((mo, i) => {
+    //  v10.60 (TODO-228): neměřený měsíc = prázdný šedý kruh s pomlčkou,
+    //  posazený doprostřed grafu (ne dole u nuly – tam by pořád vypadal
+    //  jako nejhorší výsledek).
+    if (mo.mereno === false) {
+      const x = xAt(i), y = padT + plotH / 2;
+      const lw0 = Math.max(3, ringR * 0.22);
+      ctx.beginPath(); ctx.arc(x, y, ringR, 0, Math.PI * 2);
+      ctx.fillStyle = '#161a2b'; ctx.fill();
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(x, y, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(168,173,196,.35)'; ctx.lineWidth = lw0; ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(168,173,196,.75)';
+      ctx.font = `bold ${Math.round(ringR * 0.78)}px Syne, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('—', x, y);
+      ctx.font = '10px Instrument Sans'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(mo.label, x, H - 10);
+      return;
+    }
     const x = xAt(i), y = yAt(mo.score);
     const color = colorFor(mo.score, mo);
     const lw = Math.max(3, ringR * 0.22);

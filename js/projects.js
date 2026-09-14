@@ -1,4 +1,4 @@
-// FinanceFlow · v10.31 · projects.js · 2026-09-02
+// FinanceFlow · v10.63 · projects.js · 2026-09-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1615,7 +1615,12 @@ function renderReport() {
       const fs = (typeof computeFinancialScore === 'function')
         ? computeFinancialScore(D, m, y) : null;
       const sc = fs ? fs.rawTotal : computeHealthScores(D, m, y).overall;
-      months.push({ m, y, score: sc, max: fs ? fs.rawMax : 100,
+      //  v10.60 (TODO-228): měsíc pod prahem pokrytí (50 %) má rawTotal 0 –
+      //  to není nula jako výsledek, to je „nemám co měřit". V grafu by se
+      //  vykreslil jako propad na dno, jako by uživatel přišel o všechno.
+      //  `mereno:false` říká grafu, že tenhle bod má vynechat, ne nakreslit 0.
+      const mereno = fs ? (fs.total !== null) : true;
+      months.push({ m, y, score: sc, max: fs ? fs.rawMax : 100, mereno,
                     grade: fs ? fs.grade : null, label: CZ_M[m].slice(0,3) });
     }
     if (n === 1) {
@@ -1625,7 +1630,9 @@ function renderReport() {
       //  v9.66: podoba „skóre karty" z preview – celkové skóre, kolik chybí do
       //  lepší známky, a ROZPAD NA SLOŽKY vč. ZMĚNY ZA MĚSÍC. Stav řekne, jak
       //  jsi na tom; změna řekne, co jsi ten měsíc udělal.
-      const _next = (()=>{ try{
+      //  v10.60 (TODO-228): u neměřeného měsíce nemá „do známky chybí X bodů"
+      //  smysl – počítalo by se to z nuly, která není výsledek, ale díra.
+      const _next = (mo.mereno === false) ? null : (()=>{ try{
           const th=[[.30,'⚠️ Rizikové'],[.45,'📊 Průměrné'],[.60,'👍 Dobré'],[.75,'⭐ Velmi dobré'],[.90,'🏆 Výborné']];
           for(const [t,l] of th){ const need=Math.round(mo.max*t)-mo.score; if(need>0) return {need,l}; }
           return null; }catch(e){ return null; } })();
@@ -1686,7 +1693,11 @@ function renderReport() {
     } else if (typeof drawHealthScoreLineChart === 'function') {
       cont.innerHTML = `<canvas id="reportScoreCanvas" style="width:100%;display:block"></canvas>`;
       { const nEl=document.getElementById('reportScoreAxisNote');
-        if(nEl) nEl.textContent='Finanční skóre 0–310 (jako na Dashboardu) · vyšší = lepší · osa: měsíce'; }
+        //  v10.60 (TODO-228): pokud je v okně měsíc, který nešel změřit,
+        //  popisek to řekne – jinak je přerušená čára a pomlčka záhada.
+        const _dira = months.some(mo=>mo.mereno===false);
+        if(nEl) nEl.textContent='Finanční skóre 0–310 (jako na Dashboardu) · vyšší = lepší · osa: měsíce'
+          + (_dira ? ' · „—" = v tom měsíci nebylo dost dat na hodnocení' : ''); }
       setTimeout(() => drawHealthScoreLineChart('reportScoreCanvas', months), 30);
     }
   }, 60);
@@ -4215,22 +4226,39 @@ function renderObraz() {
           //  tiché zmizení vypadá jako chyba a uživatel neví, co mu uniká.
           const dExp = _lsA.exp - _lsB.exp;
           if(!isFinite(dExp)) return '';
-          let fixed = 0;
-          try{
-            (D.sablony||[]).forEach(t=>{ const a=Math.abs(t.amount||t.castka||0);
-              if(a && (t.type==='expense'||(t.amount||0)<0)) fixed += a; });
-          }catch(e){}
-          const inFixed = Math.min(dExp, fixed);
+          //  FIX (S22): PŮVODNĚ `inFixed = Math.min(dExp, součet VŠECH šablon)`.
+          //  To není měření, to je strop. Součet šablon je u běžné domácnosti
+          //  kolem 15–20 tis. Kč, takže minimum vyšlo skoro vždy rovno dExp
+          //  a karta tvrdila, že CELÝ růst přistál v trvalých závazcích –
+          //  i když se žádná pravidelná platba nezměnila. Věta „zbytek byly
+          //  jednorázové výdaje" mluvila vždycky o nule. Platilo od S10.
+          //  Správně se musí porovnat objem závazků DNES a TEHDY. Historii
+          //  šablon appka dosud nedržela; od v10.63 se ukládá do měsíčního
+          //  snímku (`fixedTotal`, viz sablonyFixedTotal). Než se nakupí,
+          //  karta POCTIVĚ ŘEKNE, že to zatím spočítat neumí – nepravdivé
+          //  číslo je horší než žádné.
+          const fixedNyni = (typeof sablonyFixedTotal==='function') ? sablonyFixedTotal(D) : null;
+          const fixedDrive = (typeof sablonyFixedBefore==='function') ? sablonyFixedBefore(D, series.length) : null;
+          const maHistorii = (fixedNyni !== null && fixedDrive !== null);
+          const dFixed = maHistorii ? (fixedNyni - fixedDrive) : null;
+          //  Do závazků nemohlo přistát víc, než o kolik vzrostly výdaje.
+          const vZavazcich = (dFixed === null) ? null : Math.max(0, Math.min(dExp, dFixed));
+          const jednorazove = (vZavazcich === null) ? null : Math.max(0, dExp - vZavazcich);
           return `
           <div style="margin-top:11px;padding:10px 12px;background:var(--surface2);border-left:3px solid ${dExp>0?'var(--debt)':'var(--income)'};border-radius:0 10px 10px 0">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
               <span style="font-size:.7rem;font-weight:800;color:${dExp>0?'var(--debt)':'var(--income)'};text-transform:uppercase;letter-spacing:.05em">Kam růst přistál</span>
               <span style="font-size:.66rem;color:#a8aec8">${series.length}M vs baseline</span></div>
-            <div style="font-family:Syne,sans-serif;font-size:1.15rem;font-weight:800;margin:3px 0 5px;color:${dExp>0?'var(--debt)':'var(--income)'}">${dExp>0?fmtB(Math.round(inFixed))+' do trvalých závazků':(dExp<0?'0 Kč – výdaje klesly':'0 Kč – beze změny')}</div>
-            <div style="font-size:.7rem;color:#a8aec8;line-height:1.5">${dExp>0
-              ? `Z nárůstu výdajů o ${fmtB(Math.round(dExp))} připadá ${fmtB(Math.round(inFixed))} na pravidelné měsíční platby, zbytek byly jednorázové výdaje.`
-              : (dExp<0 ? `Výdaje se snížily o ${fmtB(Math.round(-dExp))} – žádný růst, který by mohl přistát v závazcích.`
-                        : 'Výdaje zůstaly na stejné úrovni.')}</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.15rem;font-weight:800;margin:3px 0 5px;color:${dExp>0?'var(--debt)':'var(--income)'}">${
+              dExp<=0 ? (dExp<0?'0 Kč – výdaje klesly':'0 Kč – beze změny')
+              : (vZavazcich===null ? '<span style="font-size:.9rem;color:#a8aec8">zatím nelze určit</span>'
+                                   : fmtB(Math.round(vZavazcich))+' do trvalých závazků')}</div>
+            <div style="font-size:.7rem;color:#a8aec8;line-height:1.5">${
+              dExp<0 ? `Výdaje se snížily o ${fmtB(Math.round(-dExp))} – žádný růst, který by mohl přistát v závazcích.`
+              : dExp===0 ? 'Výdaje zůstaly na stejné úrovni.'
+              : vZavazcich===null
+                ? `Výdaje vzrostly o ${fmtB(Math.round(dExp))}. Jestli část skončila v pravidelných platbách, půjde říct, až bude appka znát jejich objem i z dřívějška – začala si ho ukládat teprve teď, takže první srovnání bude za pár měsíců.`
+                : `Z nárůstu výdajů o ${fmtB(Math.round(dExp))} připadá ${fmtB(Math.round(vZavazcich))} na pravidelné měsíční platby${jednorazove>0?` a ${fmtB(Math.round(jednorazove))} na jednorázové výdaje`:''}.`}</div>
             <div style="margin-top:7px;padding-top:6px;border-top:1px dashed var(--border);font-size:.68rem;color:#a8aec8;line-height:1.55">
               <b style="color:#c9cede">Co to je:</b> rozlišuje, jestli vyšší výdaje skončily v <b>opakovaných závazcích</b> (nájem, leasing, předplatné), nebo v jednorázových nákupech. Trvalé závazky při poklesu příjmu nezmizí — proto je tenhle rozdíl důležitější než celková částka.</div>
           </div>`;
@@ -5820,6 +5848,58 @@ function _denikPredCurve(D, m, y, predExp){
   return shape.map(v=>Math.round(predExp*v/used));
 }
 
+// ══════════════════════════════════════════════════════
+//  S22: MĚSÍČNÍ OBJEM TRVALÝCH ZÁVAZKŮ ZE ŠABLON
+//  Kolik uživatele stojí opakované platby přepočtené na měsíc. Zakládá se
+//  kvůli tomu, že appka historii šablon dosud NEDRŽELA – znala jen jejich
+//  dnešní stav, takže nešlo zjistit, jestli trvalé závazky vzrostly.
+//  (Kvůli tomu byla metrika „Kam růst přistál" od S10 nepravdivá: místo
+//  přírůstku závazků počítala Math.min(růst výdajů, součet VŠECH šablon),
+//  což je skoro vždy rovno růstu výdajů – viz FIX v téhle session.)
+//
+//  Přepočet na měsíc je nutný: šablony mají pět frekvencí a sčítat je
+//  nominálně znamená, že roční pojistka za 12 000 Kč vypadá jako 12 000 Kč
+//  měsíčně. Přesně to dělal starý výpočet.
+//
+//  Počítají se JEN výdaje, ne převody – přesun na spořicí účet je závazek
+//  vůči sobě, ne platba ven, a v „kam přistál růst výdajů" nemá co dělat.
+//  Prošlé šablony (endDate v minulosti) se nepočítají.
+// ══════════════════════════════════════════════════════
+const _FREQ_NA_MESIC = { weekly: 52/12, biweekly: 26/12, monthly: 1, quarterly: 1/3, yearly: 1/12 };
+
+function sablonyFixedTotal(D, kDatu){
+  D = D || getData();
+  const ref = kDatu ? new Date(kDatu) : new Date();
+  let soucet = 0;
+  try{
+    (D.sablony||[]).forEach(s=>{
+      if(!s) return;
+      if(s.type === 'income' || s.type === 'transfer') return;
+      if(s.endDate && new Date(s.endDate) < ref) return;     // už neběží
+      const castka = Math.abs(s.amount || s.castka || 0);
+      if(!castka) return;
+      const nasobek = _FREQ_NA_MESIC[s.freq || 'monthly'];
+      if(!nasobek) return;
+      soucet += castka * nasobek;
+    });
+  }catch(e){ return 0; }
+  return Math.round(soucet);
+}
+
+//  Objem závazků ze snímku starého `zpetMesicu`. Vrací null, když snímek
+//  z toho měsíce neexistuje nebo je z doby před zavedením pole – bez toho
+//  by chybějící historie vypadala jako nula, tedy jako „tehdy jsi neplatil nic".
+function sablonyFixedBefore(D, zpetMesicu){
+  D = D || getData();
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : (D.diary||null);
+  if(!diary) return null;
+  let m = S.curMonth - (zpetMesicu||6), y = S.curYear;
+  while(m < 0){ m += 12; y--; }
+  const snap = diary[_denikKey(y, m)];
+  if(!snap || typeof snap.fixedTotal !== 'number') return null;
+  return snap.fixedTotal;
+}
+
 // S17.3 (TODO-186): výpočet snímku vytažen do sdílené funkce – používá ruční 🖋 i automatický snímek.
 function _denikBuildSnap(D,m,y){
   const avgInc=(typeof computeEffectiveIncome==='function')?computeEffectiveIncome(D,12):0;
@@ -5848,6 +5928,10 @@ function _denikBuildSnap(D,m,y){
     wallets: (typeof assetLiqTotals==='function')?Math.round(assetLiqTotals(D).wallets||0):0,
     scoreRaw: sc?sc.rawTotal:null, scoreMax: sc?sc.rawMax:null,
     stressRaw: (typeof computeStressIndex==='function')?(computeStressIndex(D)||{total:null}).total:null,  // S16.8 (Deník v2.1)
+    //  S22: objem trvalých závazků (šablony přepočtené na měsíc). Zakládá
+    //  historii, kterou appka dosud neměla – od téhle verze se kupí a za
+    //  pár měsíců půjde poprvé říct, jestli fixní náklady vzrostly.
+    fixedTotal: (typeof sablonyFixedTotal==='function')?sablonyFixedTotal(D):null,
   };
 }
 
@@ -6243,10 +6327,88 @@ function renderDenik(){
       </div>
     </div>
     ${_denikCestaHTML()}
+    ${_denikVydajeHTML(m,y)}
     ${_zivotniMapaHTML(m,y)}
     ${typeof revDenikHTML==='function'?revDenikHTML(m,y):''}
     ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}
     ${_osaZivotaHTML()}`;
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): VÝDAJE MĚSÍCE V DENÍKU – vstup do poznámek (level 1)
+//  „Je to přece deník." Deník dosud ukazoval jen souhrny a grafy; k jednotlivé
+//  útratě se nedalo nic připsat. Tenhle seznam je vstupní bod: klikneš na
+//  výdaj, otevře se stránka poznámek (poznamky.js) a zapisuješ, kolikrát chceš.
+//
+//  Ve výchozím stavu se ukazuje 12 největších výdajů měsíce – k nim má člověk
+//  nejčastěji co říct a celý seznam by na mobilu Deník zavalil. Tlačítko
+//  rozbalí zbytek.
+// ══════════════════════════════════════════════════════
+let _denikVydajeVse = false;
+function denikVydajeToggle(){ _denikVydajeVse = !_denikVydajeVse; renderDenik(); }
+
+function _denikVydajeHTML(m, y){
+  const D = getData();
+  let txs;
+  try { txs = getTx(m, y, D) || []; } catch(e){ return ''; }
+
+  //  Stejná pravidla jako všude jinde: přes txCZK (cizí měny nesčítat
+  //  nominálně) a bez přesunů, rozpadů a vyrovnání – ty nejsou útrata.
+  const vydaje = txs.filter(t => t && t.type==='expense'
+      && !t.splitParent && !t.isBalancing
+      && !(typeof isTransferTx==='function' && isTransferTx(t)))
+    .map(t => ({ t, castka: (typeof txCZK==='function') ? txCZK(t, D) : (t.amount||t.amt||0) }))
+    .sort((a,b) => b.castka - a.castka);
+
+  if(!vydaje.length){
+    //  Prázdný stav musí VYSVĚTLIT, co se hledalo – ne jen mlčet.
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="card-header"><span class="card-title">📝 Zápisky k výdajům</span></div>
+      <div class="card-body">
+        <div style="font-size:.82rem;color:#a8aec8;line-height:1.55">
+          V ${CZ_M[m]} ${y} zatím není žádný výdaj, ke kterému by se dalo psát.
+          Jakmile nějaký zapíšeš, objeví se tu a můžeš si k němu vést deník.
+        </div>
+      </div></div>`;
+  }
+
+  const LIMIT = 12;
+  const zobrazit = _denikVydajeVse ? vydaje : vydaje.slice(0, LIMIT);
+  const skryto = vydaje.length - zobrazit.length;
+
+  const radky = zobrazit.map(({t, castka}) => {
+    const n = (typeof pznPocet==='function') ? pznPocet(t) : 0;
+    const d = new Date(t.date);
+    const den = isNaN(d) ? '' : `${d.getDate()}. ${d.getMonth()+1}.`;
+    const c = (D.categories||[]).find(c=>c && String(c.id)===String(t.catId ?? t.category));
+    const nazev = String(t.name || t.note || 'Bez názvu')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const kat = c ? String(c.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+    return `<div onclick="pznOtevri('${String(t.id).replace(/'/g,"\\'")}','denik')"
+      style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.84rem;color:#e8eaf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nazev}</div>
+        <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">${den}${kat?' · '+kat:''}</div>
+      </div>
+      ${n ? `<span style="font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(139,124,246,.18);color:#b5a9ff;white-space:nowrap">📝 ${n}</span>` : ''}
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.86rem;color:var(--expense);white-space:nowrap">${fmtB(castka)}</div>
+      <span style="color:#a8aec8;font-size:.9rem">›</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📝 Zápisky k výdajům</span></div>
+    <div class="card-body">
+      <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:8px">
+        Klikni na výdaj a piš si k němu, co chceš — proč to bylo, jestli to stálo za to.
+        Zápisů může být kolik chceš a zůstávají jen u tebe.
+      </div>
+      ${radky}
+      ${skryto > 0
+        ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="denikVydajeToggle()">Zobrazit všech ${vydaje.length} výdajů (+${skryto})</button>`
+        : (_denikVydajeVse && vydaje.length > LIMIT
+            ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="denikVydajeToggle()">Zobrazit jen největší</button>` : '')}
+    </div></div>`;
 }
 
 // ══════════════════════════════════════════════════════
