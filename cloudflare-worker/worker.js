@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.51 · 2026-09-04  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.72 · 2026-09-16  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -228,6 +228,10 @@ export default {
     }
 
     // S14: ČNB denní kurzovní lístek (veřejný, bez klíče) – proxy s denní cache + CORS
+    if (request.method === 'GET' && new URL(request.url).pathname === '/inflace') {
+      return handleInflace(cors);
+    }
+
     if (request.method === 'GET' && new URL(request.url).pathname === '/cnb') {
       // S19 (TODO-215): volitelný ?date=DD.MM.RRRR → historický lístek pro daný den.
       //   Bez parametru se chová přesně jako dřív (dnešní kurzy).
@@ -377,16 +381,33 @@ PRAVIDLO 2 – VÁHOVÉ položky (kg, g): price = cena/kg, qty = hmotnost, lineT
 - "Meloun vodní  6,445 kg × 29,90 Kč/kg  192,71 Kč" → price:29.90, qty:6.445, unit:"kg", lineTotal:192.71
 KLÍČOVÉ: lineTotal = pravý sloupec na řádku POLOŽKY (ne sleva), price = cena/kg.
 
-PRAVIDLO 3 – SLEVY: Pokud je sleva SOUČÁSTÍ ŘÁDKU (závorka nebo "SLEVA" na stejném řádku), zahrň ji do lineTotal:
+PRAVIDLO 3 – SLEVY. OBECNÉ PRAVIDLO: JAKÁKOLI SAMOSTATNÁ ZÁPORNÁ ČÁSTKA hned pod položkou
+je sleva k TÉ položce – bez ohledu na to, jak se ten řádek jmenuje. Nerozhoduje slovo "sleva",
+rozhoduje ZÁPORNÉ ZNAMÉNKO. Každý řetězec si to pojmenovává jinak:
+  "SLEVA VĚRNOSTI" (Penny, Albert) · "Tvoje cena s Kaufland Card" / "Tvoje cena" (Kaufland)
+  "Akční cena" · "Klubová cena" (Billa) · "Kupón" · "Sleva %" · a desítky dalších.
+Když narazíš na záporný řádek, jehož význam nepoznáš, POŘÁD ho odečti od předchozí položky.
+Pokud je sleva SOUČÁSTÍ ŘÁDKU (závorka nebo "SLEVA" na stejném řádku), zahrň ji do lineTotal:
 - "Paprika 0,458kg × 99,99  45,75 SLEVA -13,74 (32,01)" → lineTotal:32.01, discount:13.74
-Pokud je sleva na SAMOSTATNÉM ŘÁDKU hned po položce (typicky Penny, Albert věrnostní slevy):
-- "Meloun vodní 6,445kg × 29,90 = 192,71" + další řádek "SLEVA VĚRNOSTI  -64,45" + "128,26" → lineTotal:128.26, discount:64.45
+Sleva na SAMOSTATNÉM ŘÁDKU hned po položce:
+- "Meloun vodní 6,445kg × 29,90 = 192,71" + řádek "SLEVA VĚRNOSTI -64,45" → lineTotal:128.26, discount:64.45
+- "OYAKATA Ramen 2 × 49,90 = 99,80" + řádek "Tvoje cena s -49,90" → lineTotal:49.90, discount:49.90
 - Takový slevový řádek NEPŘIDÁVEJ jako samostatnou položku do items!
 Vždy přidej pole "discount": číslo (kladné, i když na účtence záporné) nebo 0 pokud sleva nebyla.
 
-PRAVIDLO 4 – "total" = CELKOVÁ ZAPLACENÁ ČÁSTKA (řádek "Celkem"/"Součet"/"TOTAL"). Pokud chybí, spočítej sum(lineTotal).
+PRAVIDLO 4 – ČÁSTKY. Účtenka má často DVĚ různá čísla a OBĚ jsou správně:
+- "total" = KOLIK BYLO SKUTEČNĚ ZAPLACENO (řádek "CELKEM", "Zaplaceno", "Platba kartou").
+  Tohle je částka, která odešla z účtu – i když je zaokrouhlená na koruny.
+- "subtotal" = řádek "SOUČET"/"Mezisoučet" (součet položek PŘED zaokrouhlením), je-li natištěn.
+- "rounding" = total − subtotal, když jde o zaokrouhlení na koruny (typicky do 1 Kč). Jinak 0.
+Příklad: "SOUČET 122,60" + "CELKEM 123,00" → subtotal:122.60, total:123.00, rounding:0.40
+Když je natištěné jen jedno číslo, dej ho do "total" a "subtotal" nech null.
+NIKDY total nedopočítávej ze součtu položek – když na účtence celková částka není, vrať total:null.
 
-PRAVIDLO 5 – OVĚŘENÍ: sum(items.lineTotal) musí ≈ total (tolerance ±2 Kč). Pokud nesedí, oprav lineTotal.
+PRAVIDLO 5 – ČÍSLA NIKDY NEUPRAVUJ, ABY SI ODPOVÍDALA. Opiš je tak, jak jsou natištěná.
+Když ti sum(items.lineTotal) nesedí se subtotal/total, je to DŮLEŽITÁ INFORMACE pro appku
+(nejspíš unikla sleva, záloha na lahve nebo celá položka) – appka si s tím poradí a zeptá se
+uživatele. Kdybys čísla srovnal, rozpor zmizí a chyba se nikdy nenajde.
 
 PRAVIDLO 6 – Nezahrnuj do items: záhlaví, daňové řádky (DPH, 21%), platební způsoby, věrnostní body.`
               }
@@ -654,6 +675,113 @@ async function handleCnb(cors, forDate) {
     return json({ date: dateStr, rates, source: 'CNB' }, 200, { ...cors, 'Cache-Control': 'no-cache, max-age=0' });
   } catch (e) {
     return json({ error: 'CNB fetch failed', detail: String((e && e.message) || e) }, 502, cors);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): OFICIÁLNÍ INFLACE Z ČSÚ  →  GET /inflace
+//
+//  K čemu to je: metrika „Reálný růst příjmu" ve Finančním obrazu potřebuje
+//  vědět, KDE JE NULA – tedy o kolik musel příjem vzrůst, aby si člověk koupil
+//  totéž co loni. Přidání o 3 % při inflaci 3 % je stání na místě, při inflaci
+//  8 % propad. Bez reference by metrika chválila každé přidání.
+//
+//  Pozor na časté nedorozumění: index spotřebitelských cen nevydává ČNB, ale
+//  ČSÚ. ČNB publikuje prognózy a měnovou politiku; tohle je statistika.
+//
+//  Proč přes Worker a ne rovnou z prohlížeče:
+//    1) ČSÚ neposílá CORS hlavičky, prohlížeč by odpověď zahodil,
+//    2) soubor je celá časová řada od roku 2000 (jednotky MB) – stahovat ho
+//       každému uživateli zvlášť je plýtvání; tady se stáhne jednou a cachuje.
+//
+//  Cache 7 dní: ČSÚ vydává nová čísla JEDNOU MĚSÍČNĚ, kolem 10.–15. dne za
+//  předchozí měsíc. Denní cache by nic nepřinesla, jen zátěž navíc.
+//
+//  Formát CSV (dokumentace ČSÚ, sada CEN0101E):
+//    sloupce idhod, hodnota, stapro_kod, ucel_tep, ucel_cis, ucel_kod,
+//            casz_kod, mesic, rok, obdobiod, obdobido, ...
+//    casz_kod = C  →  meziroční index (proti stejnému měsíci loni)  ← bereme
+//    casz_kod = K  →  podíl klouzavých průměrů (roční „míra inflace")
+//    prázdný ucel_kod = SOUHRNNÝ index za všechny oddíly
+//    `hodnota` je index v procentech; inflace = hodnota − 100.
+//
+//  Vracíme meziroční (C), ne klouzavý průměr (K): roční průměr reaguje se
+//  zpožděním a pro srovnání s letošním růstem příjmu by zaostával.
+//  Oddíly (ucel_kod 1–12) posíláme taky – appka má COICOP v coicop.js, takže
+//  půjde říct „tobě potraviny zdražily o 8 %, průměru o 3 %".
+// ══════════════════════════════════════════════════════
+const CSU_ISC_CSV = 'https://data.csu.gov.cz/opendata/sady/CEN0101E/distribuce/csv';
+
+//  Rozdělí CSV řádek. Položky jsou v uvozovkách, oddělovač čárka – čárka uvnitř
+//  uvozovek (názvy oddílů ji obsahují) se nesmí brát jako oddělovač.
+function csvRadek(line) {
+  const out = [];
+  let cur = '', vUvoz = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { vUvoz = !vUvoz; continue; }
+    if (ch === ',' && !vUvoz) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+async function handleInflace(cors) {
+  try {
+    const r = await fetch(CSU_ISC_CSV, { cf: { cacheTtl: 604800, cacheEverything: true } });
+    if (!r.ok) return json({ error: 'CSU nedostupne', status: r.status }, 502, cors);
+    const txt = await r.text();
+    const lines = txt.split('\n');
+    if (lines.length < 2) return json({ error: 'CSU prazdna odpoved' }, 502, cors);
+
+    const hlavicka = csvRadek(lines[0]).map(s => s.trim().toLowerCase());
+    const ix = {};
+    ['hodnota', 'ucel_kod', 'casz_kod', 'mesic', 'rok', 'ucel_txt'].forEach(k => { ix[k] = hlavicka.indexOf(k); });
+    if (ix.hodnota < 0 || ix.casz_kod < 0 || ix.rok < 0 || ix.mesic < 0) {
+      //  Když ČSÚ změní strukturu, radši to přiznej, než abys vrátil nesmysl.
+      return json({ error: 'CSU zmenilo strukturu CSV', hlavicka }, 502, cors);
+    }
+
+    let nejRok = 0, nejMesic = 0;
+    let celkem = null;
+    const oddily = {};
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line || line.length < 10) continue;
+      if (line.indexOf('"C"') < 0 && line.indexOf(',C,') < 0) continue;   // hrubý předfiltr, ať se neparsuje vše
+      const p = csvRadek(line);
+      if ((p[ix.casz_kod] || '').trim() !== 'C') continue;
+
+      const rok = parseInt(p[ix.rok], 10);
+      const mesic = parseInt(p[ix.mesic], 10);
+      const hodnota = parseFloat(p[ix.hodnota]);
+      if (!rok || !mesic || !isFinite(hodnota)) continue;
+
+      if (rok > nejRok || (rok === nejRok && mesic > nejMesic)) {
+        nejRok = rok; nejMesic = mesic; celkem = null; 
+        for (const k in oddily) delete oddily[k];
+      }
+      if (rok !== nejRok || mesic !== nejMesic) continue;
+
+      const kod = (p[ix.ucel_kod] || '').trim();
+      const mira = Math.round((hodnota - 100) * 10) / 10;   // index v % → míra inflace
+      if (!kod) celkem = mira;                               // prázdný kód = souhrn
+      else oddily[kod] = { mira, nazev: ix.ucel_txt >= 0 ? (p[ix.ucel_txt] || '').trim() : '' };
+    }
+
+    if (celkem === null) return json({ error: 'CSU: souhrnny index nenalezen' }, 502, cors);
+
+    return json({
+      inflace: celkem,          // meziroční, v procentech
+      rok: nejRok, mesic: nejMesic,
+      oddily,
+      typ: 'mezirocni',
+      source: 'CSU CEN0101E',
+    }, 200, { ...cors, 'Cache-Control': 'public, max-age=86400' });
+  } catch (e) {
+    return json({ error: 'CSU fetch failed', detail: String((e && e.message) || e) }, 502, cors);
   }
 }
 
