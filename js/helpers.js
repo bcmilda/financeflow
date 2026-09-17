@@ -1,4 +1,4 @@
-// FinanceFlow · v10.60 · helpers.js · 2026-09-12
+// FinanceFlow · v10.68 · helpers.js · 2026-09-12
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -290,6 +290,66 @@ const _SCORING_V2 = {
     {min:0, label:'Kritické',   emoji:'🚨',color:'#f87171'},
   ],
 };
+// ══════════════════════════════════════════════════════
+//  v10.68 (S22): KONFIGURACE FINANČNÍHO OBRAZU — váhy + kotvy
+//  Obraz je JINÉ číslo než Finanční skóre: skóre měří ÚROVEŇ („jak na tom
+//  jsem"), Obraz měří ZMĚNU za 6 (nebo 12) měsíců („kam se hýbu"). Proto se
+//  smí obojí opírat o stejnou veličinu — rezerva jako stav a rezerva jako
+//  trend jsou dvě různé informace, ne dvojí započtení.
+//
+//  Základ 100, rozsah složek −100..+100, výsledek 0–200. Neořezává se:
+//  hodnota nad 200 je legitimní a stupnice ji ukáže jako „za normálem".
+//  (Stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo
+//  110 a posledních deset bodů nikdo nikdy neviděl.)
+//
+//  Asymetrie je ve SKLONU křivky, ne ve stropu: propad se ke svému stropu
+//  dostane rychleji než zlepšení. Ve stropu by rozbila aritmetiku součtu.
+//
+//  Kotvy jsou záchytné body; mezi nimi se hodnota dopočítá přímkou
+//  (mscInterpV2), takže růst o 6 % a o 60 % už nedostane stejné body jako
+//  ve staré schodovité verzi.
+// ══════════════════════════════════════════════════════
+const _OBRAZ_V1 = {
+  zaklad: 100,            // „nic se nezměnilo" — u metriky ZMĚNY je nula poctivý stav
+  min: 0, max: 200,       // zobrazení; hodnota mimo rozsah se NEOŘEZÁVÁ
+  prahPokryti: 40,        // níž než u skóre (50 %) – chybějící historie je tu běžná
+  minSlozek: 2,           // ...ale jedna složka na hodnocení vývoje nestačí
+  vahy: { prijem:30, styl:25, jmeni:30, koncentrace:15 },   // musí dát 100
+
+  //  💰 Reálný růst příjmu (% ročně PO očištění o inflaci).
+  //  Referenci (kde je nula) řeší obrazInflaceRef(): osobní inflace z účtenek
+  //  → ČNB → pevná 3 %. Bez ní by metrika chválila každé přidání, i když
+  //  z něj reálně ubývá.
+  prijem: [ {x:-10,b:-100},{x:-3,b:-60},{x:0,b:0},{x:3,b:40},{x:7,b:75},{x:15,b:100} ],
+
+  //  🛒 Dopad životního stylu (změna počtu měsíců, které tě rezerva uživí).
+  styl: [ {x:-2,b:-100},{x:-0.5,b:-50},{x:0,b:0},{x:0.5,b:35},{x:2,b:80},{x:4,b:100} ],
+
+  //  💎 Net Worth Momentum – uvnitř 70 % „proti výdajům" + 30 % zrychlení.
+  //  Kotvy drží projects.js (_NWM_KOTVY_*), sem patří jen váha složky.
+
+  //  📊 Koncentrační riziko (podíl největší kategorie na výdajích).
+  //  POZOR: jediná složka měřící STAV, ne změnu. Vědomá výjimka – stabilních
+  //  60 % v jedné kategorii je riziko bez ohledu na to, jestli se to hnulo.
+  //  Kotvy počítají s tím, že bydlení běžně dělá 25–30 % výdajů české
+  //  domácnosti, takže to má vycházet mírně kladně, ne jako poplach.
+  koncentrace: [ {x:20,b:100},{x:30,b:30},{x:35,b:0},{x:50,b:-60},{x:70,b:-100} ],
+
+  //  💪 Bonus za úsilí (přesčasy) – 0..15, NIKDY záporný, není složkou
+  //  váženého průměru. Kotvy drží projects.js (_USILI_KOTVY).
+  bonusUsiliMax: 15,
+
+  znamky: [   // sestupně podle min, na škále 0–200
+    {min:170,label:'Výrazný posun vpřed', emoji:'🚀',color:'#4ade80'},
+    {min:135,label:'Zlepšuješ se',        emoji:'📈',color:'#60a5fa'},
+    {min:105,label:'Mírné zlepšení',      emoji:'🙂',color:'#a78bfa'},
+    {min:95, label:'Držíš krok',          emoji:'➖',color:'#a8aec8'},
+    {min:65, label:'Mírné zhoršení',      emoji:'⚠️',color:'#fbbf24'},
+    {min:30, label:'Zhoršuješ se',        emoji:'🔻',color:'#fb923c'},
+    {min:0,  label:'Výrazný propad',      emoji:'🚨',color:'#f87171'},
+  ],
+};
+
 // Lineární interpolace mezi kotvami – nahrazuje schodovité pásmo jedním
 // hladkým číslem (rozdíl 0,1 % už nepřeskočí celý bod dolů/nahoru).
 // Kotvy MUSÍ být seřazené vzestupně podle x; b může podle "směru" složky
