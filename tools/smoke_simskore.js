@@ -57,5 +57,25 @@ ok('_settings.hasDebts se vrátil na původní',vm.runInContext('_settings.hasDe
 // reset
 vm.runInContext('simResetVse()',sb);
 ok('reset vrátí váhy na ostré',/vahy: \{ S1:30/.test(karta.innerHTML));
+console.log('\n── Simulátor Obrazu (S22) ──');
+const ostrObrPred=JSON.stringify(vm.runInContext('_OBRAZ_V1',sb));
+vm.runInContext("simSetCo('obraz')",sb);
+ok('přepne se na Obraz',/Simulátor finančního obrazu/.test(karta.innerHTML));
+ok('ukazuje váhy i s vysvětlením',/Reálný růst příjmu/.test(karta.innerHTML)&&/strop všeho ostatního/.test(karta.innerHTML));
+ok('ukazuje kotvy jako záchytné body',/záchytné body/.test(karta.innerHTML));
+ok('vysvětluje rozdíl skóre vs obraz',/skóre měří úroveň/.test(karta.innerHTML));
+ok('vygeneruje export blok',/vahy: \{ prijem:30/.test(karta.innerHTML));
+vm.runInContext("simObrazVaha('prijem',40)",sb);
+ok('součet 110 % → neplatné, bez exportu',/110 %/.test(karta.innerHTML)&&!/vahy: \{ prijem:40/.test(karta.innerHTML));
+vm.runInContext("simObrazVaha('koncentrace',5)",sb);
+ok('po srovnání na 100 % se export vrátí',/vahy: \{ prijem:40/.test(karta.innerHTML));
+vm.runInContext("simObrazKotva('prijem',0,'b',-80)",sb);
+ok('kotva jde upravit',/{x:-10,b:-80}/.test(karta.innerHTML));
+ok('ostrá _OBRAZ_V1 zůstala NEDOTČENÁ',ostrObrPred===JSON.stringify(vm.runInContext('_OBRAZ_V1',sb)));
+vm.runInContext("simObrazResetVse()",sb);
+ok('reset vrátí ostré hodnoty',/vahy: \{ prijem:30/.test(karta.innerHTML));
+vm.runInContext("simSetCo('skore')",sb);
+ok('zpátky na skóre',/Simulátor finančního skóre/.test(karta.innerHTML));
+
 console.log(f?`\n❌ SELHALO ${f}`:'\n✅ SIMULÁTOR OVĚŘEN');
 process.exit(f?1:0);

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.73 · admin.js · 2026-09-16
+// FinanceFlow · v10.74 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -92,6 +92,7 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-verze"    onclick="switchAdminTab('verze',this)">📝 Verze</button>
       <button class="tx-filt-btn"        id="atab-audit"    onclick="switchAdminTab('audit',this)">💳 Audit plateb</button>
       <button class="tx-filt-btn"        id="atab-skore"   onclick="switchAdminTab('skore',this)">⚖️ Skóre</button>
+      <button class="tx-filt-btn"        id="atab-reports" onclick="switchAdminTab('reports',this)">🚩 Hlášení účtenek</button>
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
     </div>
@@ -144,6 +145,11 @@ async function renderAdmin() {
          a vlastní výpočet skóre ostrou konfiguraci nikdy nečte odsud. -->
     <div id="atab-skore-content" style="display:none">
       <div id="adminScoringSim"></div>
+    </div>
+
+    <!-- S22: hlášení špatně přečtených účtenek od uživatelů (uzel receipt_reports) -->
+    <div id="atab-reports-content" style="display:none">
+      <div id="adminReceiptReports"></div>
     </div>
 
     <!-- S14: ÚDRŽBA (vlastní záložka, ne napříč všemi) -->
@@ -525,7 +531,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -547,9 +553,22 @@ function switchAdminTab(tab, btn) {
   if(tab==='zdravi') renderAdminZdravi();   // S20
   if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
   if(tab==='skore'){ if(typeof renderScoringSim==='function') renderScoringSim(); }             // S22
+  if(tab==='reports'){ if(typeof renderReceiptReports==='function') renderReceiptReports(); }   // S22
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.74',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (moje chyba z v10.71): „_ffScriptFail is not defined". Diagnostický blok byl vložen před js/helpers.js, jenže PRVNÍ načítaný skript je js/app.js – ten je v souboru dřív. Když selhal on, funkce ještě neexistovala a místo srozumitelné hlášky spadla appka na ReferenceError. Blok je nyní před ÚPLNĚ PRVNÍM lokálním skriptem a volání v atributu je navíc obalené `window._ffScriptFail && ...`, protože prohlížeč umí začít stahovat skripty dřív, než doběhne inline kód (preload scanner).',
+      '🚩 ADMIN: ČTENÍ HLÁŠENÍ ÚČTENEK (nová záložka). Od v10.71 uživatelé hlásili do uzlu receipt_reports, ale nebylo kde si to přečíst – funkce sbírala data, na která se nikdo nepodívá.',
+      '📊 Řadí se podle VELIKOSTI ROZDÍLU mezi částkou na účtence a součtem položek, ne podle času. Právě ten rozdíl ukazuje, co analyzéru uniklo (u Kauflandu sleva „Tvoje cena s −49,90"), takže největší rozpory patří nahoru. Navíc přehled podle obchodu: opakující se řetězec znamená chybu promptu, ne náhodu.',
+      '🔒 Fotka účtenky se zobrazí až na kliknutí – je na ní adresa prodejny a čas nákupu, nemá být vidět jen tím, že se otevře seznam. Poznámka od uživatele se escapuje.',
+      '🧭 Když Firebase vrátí Permission denied, karta rovnou napíše, že chybí uzel `receipt_reports` v pravidlech – jinak by admin hledal chybu v kódu.',
+      '🧪 tools/smoke_adminrep.js – 12 testů.',
+    ]
+  },
   {
     verze: 'v10.73',
     datum: '2026-09-16',
@@ -8928,3 +8947,159 @@ window.simObrazSlozka = simObrazSlozka;
 window.simObrazVaha = simObrazVaha;
 window.simObrazPrah = simObrazPrah;
 window.simObrazKotva = simObrazKotva;
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan): ČTENÍ HLÁŠENÍ ŠPATNĚ PŘEČTENÝCH ÚČTENEK
+//
+//  Uživatel hlásí z karty účtenky (v10.71) do /receipt_reports/{uid}/{id}.
+//  Bez téhle záložky ta funkce sbírala data, na která se nikdo nepodívá.
+//
+//  Co je na hlášení cenné: rozdíl mezi částkou NATIŠTĚNOU na účtence a
+//  součtem položek. Právě tenhle rozdíl ukazuje, co analyzéru uniklo –
+//  u Milanova Kauflandu to byla sleva „Tvoje cena s −49,90", kterou prompt
+//  neznal. Řadí se proto podle velikosti rozdílu, ne podle času: největší
+//  rozpory odhalí nejvíc.
+//
+//  Fotka se zobrazuje až na kliknutí. Je to účtenka s adresou prodejny a
+//  časem nákupu – nemá být vidět jen tím, že se otevře seznam.
+// ══════════════════════════════════════════════════════════════════════
+let _rrData = null;
+let _rrFoto = null;      // id hlášení, jehož fotka je zrovna rozbalená
+
+async function renderReceiptReports(){
+  const el = document.getElementById('adminReceiptReports'); if(!el) return;
+  if(typeof isAdmin!=='function' || !isAdmin()){ el.innerHTML=''; return; }
+
+  if(_rrData === null){
+    el.innerHTML = '<div class="card"><div class="card-body"><div class="empty"><div class="et">Načítám hlášení…</div></div></div></div>';
+    try{
+      const uid = window._currentUser?.uid;
+      const token = uid ? await window._currentUser.getIdToken?.() : null;
+      if(!uid || !token) throw new Error('nepřihlášen');
+      const r = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/receipt_reports.json?auth=${token}`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const raw = await r.json();
+      _rrData = [];
+      Object.keys(raw||{}).forEach(uidKey=>{
+        Object.keys(raw[uidKey]||{}).forEach(id=>{
+          const z = raw[uidKey][id];
+          if(z && typeof z === 'object') _rrData.push({...z, _uid: uidKey, _id: id});
+        });
+      });
+    }catch(e){
+      _rrData = [];
+      el.innerHTML = `<div class="card"><div class="card-body"><div style="font-size:.82rem;color:var(--expense);line-height:1.5">
+        Hlášení se nepodařilo načíst: ${String(e.message||e)}.<br>
+        <span style="color:#a8aec8;font-size:.74rem">Pokud hlásí Permission denied, chybí v pravidlech uzel
+        <code>receipt_reports</code> – nasazuje se do Firebase Console.</span></div></div></div>`;
+      return;
+    }
+  }
+
+  if(!_rrData.length){
+    el.innerHTML = `<div class="card"><div class="card-body"><div class="empty">
+      <div class="ei">🚩</div><div class="et">Zatím žádné hlášení</div>
+      <div style="font-size:.78rem;color:#a8aec8;margin-top:6px;line-height:1.5">
+        Uživatelé hlásí z karty účtenky, když součet položek nesedí na částku na dokladu.</div>
+      </div></div></div>`;
+    return;
+  }
+
+  //  Největší rozpory nahoru – tam je nejvíc co opravit.
+  const razeno = _rrData.slice().sort((a,b)=>Math.abs(b.rozdil||0)-Math.abs(a.rozdil||0));
+
+  //  Přehled podle obchodu: když jeden řetězec vyskakuje opakovaně, je to
+  //  chyba promptu, ne náhoda.
+  const podleObchodu = {};
+  razeno.forEach(z=>{
+    const k = (z.store||'?').split(',')[0].trim().slice(0,28) || '?';
+    if(!podleObchodu[k]) podleObchodu[k] = {pocet:0, soucet:0};
+    podleObchodu[k].pocet++;
+    podleObchodu[k].soucet += Math.abs(z.rozdil||0);
+  });
+  const obchodyHTML = Object.keys(podleObchodu)
+    .sort((a,b)=>podleObchodu[b].pocet-podleObchodu[a].pocet).slice(0,8)
+    .map(k=>`<span style="display:inline-block;padding:3px 9px;border-radius:99px;background:var(--surface3);
+      border:1px solid var(--border);font-size:.72rem;color:#c9cede;margin:0 5px 5px 0">
+      ${_rrEsc(k)} <b style="color:#e8eaf2">${podleObchodu[k].pocet}×</b></span>`).join('');
+
+  const radky = razeno.map(z=>{
+    const rozdil = Math.abs(z.rozdil||0);
+    const chybi = (z.rozdil||0) > 0;
+    const dt = z.nahlaseno ? new Date(z.nahlaseno) : null;
+    const kdy = dt ? `${dt.getDate()}. ${dt.getMonth()+1}. ${dt.getFullYear()}` : '';
+    const polozky = Array.isArray(z.polozky) ? z.polozky : [];
+    const otevrena = _rrFoto === z._id;
+    return `
+    <div style="padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.84rem;color:#e8eaf2;font-weight:600;word-break:break-word">${_rrEsc(z.store||'—')}</div>
+          <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">
+            ${_rrEsc(z.date||'')} · nahlášeno ${kdy} · ${polozky.length} položek
+            ${z.appVerze?` · v${_rrEsc(z.appVerze)}`:''}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.92rem;color:${chybi?'var(--debt)':'var(--expense)'}">
+            ${_rrCislo(rozdil)} Kč</div>
+          <div style="font-size:.64rem;color:#a8aec8">${chybi?'appce něco uniklo':'appka počítá navíc'}</div>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-top:5px">
+        na účtence <b style="color:#c9cede">${_rrCislo(z.printedTotal)}</b>
+        ${z.subtotal!=null?` (součet ${_rrCislo(z.subtotal)})`:''}
+        · appka spočítala <b style="color:#c9cede">${_rrCislo(z.itemsSum)}</b>
+      </div>
+      ${z.poznamka?`<div style="font-size:.74rem;color:#c9cede;margin-top:5px;padding:6px 9px;background:var(--surface3);border-radius:7px">„${_rrEsc(z.poznamka)}"</div>`:''}
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px">
+        <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="rrToggleDetail('${z._id}')">
+          ${otevrena?'Skrýt':'Položky'}${z.maSnimek?' a fotka':''}</button>
+      </div>
+      ${otevrena?`
+        <div style="margin-top:8px">
+          ${z.snimek?`<img src="${z.snimek}" style="max-width:100%;border-radius:9px;border:1px solid var(--border);margin-bottom:9px">`
+                    :(z.maSnimek?'<div style="font-size:.7rem;color:#a8aec8;margin-bottom:6px">Fotka byla nad limit a neodeslala se.</div>':'')}
+          <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+            ${polozky.map(it=>`<tr>
+              <td style="padding:2px 5px;color:#c9cede">${_rrEsc(it.name||'')}</td>
+              <td style="padding:2px 5px;text-align:right;color:#a8aec8">${it.qty||1}×</td>
+              <td style="padding:2px 5px;text-align:right;color:#e8eaf2">${_rrCislo(it.lineTotal!=null?it.lineTotal:it.price)}</td>
+              <td style="padding:2px 5px;text-align:right;color:var(--income)">${it.discount?('−'+_rrCislo(it.discount)):''}</td>
+            </tr>`).join('')}
+          </table>
+        </div>`:''}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">🚩 Hlášení účtenek (${_rrData.length})</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="rrZnovuNacti()">↻ Načíst znovu</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Řazeno podle velikosti rozdílu – největší rozpory odhalí nejvíc. Opakující se obchod
+        znamená chybu promptu, ne náhodu.
+      </div>
+      ${obchodyHTML?`<div style="margin-bottom:10px">${obchodyHTML}</div>`:''}
+      ${radky}
+    </div>
+  </div>`;
+}
+
+function _rrEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _rrCislo(v){
+  const n = parseFloat(v);
+  return isFinite(n) ? (Math.round(n*100)/100).toFixed(2).replace('.',',') : '—';
+}
+function rrToggleDetail(id){ _rrFoto = (_rrFoto===id) ? null : id; renderReceiptReports(); }
+function rrZnovuNacti(){ _rrData = null; _rrFoto = null; renderReceiptReports(); }
+
+window.renderReceiptReports = renderReceiptReports;
+window.rrToggleDetail = rrToggleDetail;
+window.rrZnovuNacti = rrZnovuNacti;
