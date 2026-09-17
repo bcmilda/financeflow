@@ -1,4 +1,4 @@
-// FinanceFlow · v10.66 · projects.js · 2026-09-12
+// FinanceFlow · v10.72 · projects.js · 2026-09-16
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3669,8 +3669,21 @@ function computeObrazScore(series){
 }
 
 // Skóre pro okno posunuté o `back` měsíců zpět – pro srovnání „kde jsem byl".
+//  FIX (S22, Milan): ZPĚTNÉ OKNO IGNOROVALO DLUHY.
+//  Funkce plnila do každého měsíce `debt: 0`. computeObrazScore() pak spočítá
+//  `first.debt > 0 ? ... : 0`, takže trend dluhu vyšel VŽDY nula a složka
+//  přispěla 0 bodů — pokaždé, u každého uživatele.
+//  Skóre za AKTUÁLNÍ okno se tedy skládalo ze čtyř složek, za DŘÍVĚJŠÍ ze tří
+//  a čtvrtou tiše nahradilo nulou — a ta dvě čísla se porovnávala, jako by
+//  byla souměřitelná. Kdo za půl roku splatil velkou část dluhu, dostal
+//  v aktuálním okně body, v dřívějším nulu, a appka mu to vydávala za
+//  zlepšení, které s jeho dluhem nemá nic společného.
+//  Historie dluhu se přitom rekonstruovat DÁ a živá řada to už od v8.68 umí:
+//  zůstatek ke konci měsíce = dnešní zůstatek + splátky zaplacené PO něm
+//  (transakce s debtId). Tady se použije tentýž postup.
 function computeObrazScoreBack(D, months, back){
   const ser = [];
+  const totalDebtNow = (D.debts||[]).reduce((a,d)=>a+(d&&d.remaining>0?d.remaining:0), 0);
   for(let i = months + back - 1; i >= back; i--){
     const dt = new Date(S.curYear, S.curMonth - i, 1);
     const m = dt.getMonth(), y = dt.getFullYear();
@@ -3682,7 +3695,11 @@ function computeObrazScoreBack(D, months, back){
       const a = (typeof txCZK==='function') ? txCZK(t, D) : (t.amount||0);
       if(a>0) inc+=a; else exp+=Math.abs(a);
     });
-    ser.push({inc, exp, savings:inc-exp, debt:0});
+    const monthEnd = new Date(y, m+1, 1).getTime();
+    const paidAfter = (D.transactions||[]).filter(t=>t && t.debtId && !t.splitParent
+        && new Date(t.date).getTime() >= monthEnd)
+      .reduce((a,t)=>a + ((typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0)), 0);
+    ser.push({inc, exp, savings:inc-exp, debt: totalDebtNow + paidAfter});
   }
   return computeObrazScore(ser);
 }
@@ -5849,6 +5866,203 @@ function _denikPredCurve(D, m, y, predExp){
 }
 
 // ══════════════════════════════════════════════════════
+//  S22 (Milan): INFLAČNÍ REFERENCE pro „Reálný růst příjmu"
+//  Reference je NULA NA STUPNICI – bod, kde platí „stojíš na místě".
+//  Přidali ti 3 % při inflaci 3 % → koupíš si totéž co loni → 0 bodů.
+//  Při inflaci 8 % → koupíš si míň → záporné body, přestože je na výplatnici
+//  vyšší číslo. Bez reference by metrika chválila každé přidání.
+//
+//  POŘADÍ ZDROJŮ (rozhodnutí Milana, S22):
+//    1) OSOBNÍ inflace z účtenek – nejlepší, protože ČNB/ČSÚ průměruje celou
+//       populaci a ty možná vůbec nekupuješ to, co průměr táhne nahoru.
+//       Milanova obava, že se čísla „rozjedou napříč produkty", je už
+//       vyřešená: _inflCompute() nepočítá prostý průměr, ale index VÁŽENÝ
+//       útratou – položka, za kterou utratíš víc, váží víc. Proto se pár
+//       podražených rohlíků neprojeví jako desetiprocentní inflace.
+//    2) ČSÚ – oficiální meziroční index spotřebitelských cen, stahuje se
+//       přes Worker (routa /inflace) do `S.cnbInflace`. Pozor: ISC nevydává
+//       ČNB, ale ČSÚ – ČNB dělá prognózy a měnovou politiku.
+//    3) Pevná 3 % – poslední záchrana, ať metrika funguje i bez čehokoli.
+//
+//  Minimální vzorek: pod 5 sledovanými položkami je osobní inflace šum,
+//  ne měření. Tehdy se raději sáhne po záloze.
+// ══════════════════════════════════════════════════════
+const OBRAZ_INFLACE_FIX = 3;        // %, poslední záchrana
+const OBRAZ_INFLACE_MIN_POLOZEK = 5;
+
+//  Stažení oficiální inflace z ČSÚ přes Worker (routa /inflace, S22).
+//  Volá se nejvýš jednou za den – ČSÚ vydává nová čísla jednou MĚSÍČNĚ, kolem
+//  10.–15. dne za předchozí měsíc, takže častější dotazy nic nepřinesou.
+//  Selhání je v pořádku: `obrazInflaceRef()` má zálohu (osobní inflace, pak
+//  pevná 3 %), takže appka funguje i bez sítě a bez ČSÚ.
+const CSU_REFRESH_MS = 24 * 3600 * 1000;
+
+async function nactiInflaciCSU(){
+  try{
+    if(typeof S === 'undefined' || !S) return;
+    if(S.cnbInflaceAt && (Date.now() - S.cnbInflaceAt) < CSU_REFRESH_MS) return;
+    //  Adresa workeru přes sdílenou konstantu – natvrdo zapsaná adresa se při
+    //  příštím přesunu tiše rozbije (přesně to se stalo u FIX-057).
+    const wu = (typeof WORKER_URL !== 'undefined') ? WORKER_URL : 'https://misty-limit-0523.bc-milda.workers.dev';
+    const r = await fetch(wu + '/inflace');
+    if(!r.ok) return;
+    const d = await r.json();
+    if(!d || typeof d.inflace !== 'number' || !isFinite(d.inflace)) return;
+    S.cnbInflace   = d.inflace;          // čte ji obrazInflaceRef() jako 2. zdroj
+    S.cnbInflaceAt = Date.now();
+    S.cnbInflaceObd = (d.rok && d.mesic) ? `${d.rok}-${String(d.mesic).padStart(2,'0')}` : '';
+    S.cnbInflaceOddily = d.oddily || null;   // COICOP oddíly – pro srovnání „ty vs. průměr"
+    //  ZÁMĚRNĚ SE NEUKLÁDÁ do Firebase a NENÍ v _DW_META (TODO-257).
+    //  Je to veřejný údaj, který jde kdykoli stáhnout znovu – ukládat ho ke
+    //  každému uživateli zvlášť by byl jen odpad v databázi. Cache tedy žije
+    //  jen po dobu sezení; Worker si stejně drží odpověď 7 dní, takže to
+    //  stojí jeden dotaz při startu.
+  }catch(e){ /* bez sítě se prostě použije záloha */ }
+}
+
+function obrazInflaceRef(){
+  //  1) osobní z účtenek
+  try{
+    if(typeof _inflCollect==='function' && typeof _inflCompute==='function'){
+      const r = _inflCompute(_inflCollect());
+      if(r && r.yoy !== null && isFinite(r.yoy) && (r.yoyCount||0) >= OBRAZ_INFLACE_MIN_POLOZEK){
+        return { hodnota: r.yoy, zdroj: 'osobni', polozek: r.yoyCount,
+                 popis: `tvoje vlastní inflace z účtenek (${r.yoyCount} položek)` };
+      }
+    }
+  }catch(e){ /* účtenky nejsou, jde se dál */ }
+
+  //  2) ČNB/ČSÚ – hák pro budoucí napojení přes Worker (routa /inflace)
+  if(typeof S!=='undefined' && S && typeof S.cnbInflace === 'number' && isFinite(S.cnbInflace)){
+    const obd = S.cnbInflaceObd ? ` (${S.cnbInflaceObd})` : '';
+    return { hodnota: S.cnbInflace, zdroj: 'csu',
+             popis: `oficiální meziroční inflace ČSÚ${obd}` };
+  }
+
+  //  3) pevná záloha
+  return { hodnota: OBRAZ_INFLACE_FIX, zdroj: 'fix',
+           popis: `odhad ${OBRAZ_INFLACE_FIX} % – naskenuj účtenky a appka bude počítat tvoji vlastní inflaci` };
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): NET WORTH MOMENTUM — složka Finančního obrazu
+//  Jediná složka, která měří STAV MAJETKU. Všechno ostatní v Obrazu (i ve
+//  Finančním skóre) měří toky a jejich poměry; jestli člověku za rok jmění
+//  vyrostlo nebo se ztenčilo, neodpovídalo nic.
+//
+//  Milan vybral ze tří pohledů dva do bodování a jeden do textu:
+//    1) PROTI VÝDAJŮM (70 %) — o kolik měsíců života sis přikoupil.
+//       Proti PŘÍJMU se to měřit nesmí: kdo vydělá o 20 % víc a odkládá
+//       o 20 % víc korun, má stejný podíl a vyjde mu NULOVÉ zlepšení –
+//       normalizace příjmem vyruší přesně to, co má být vidět.
+//    2) ZRYCHLENÍ (30 %) — tohle okno proti předchozímu stejně dlouhému.
+//       ⚠️ Vědomý kompromis (rozhodnutí Milana): po mimořádně dobrém období
+//       strhne i normální období do mínusu, přestože člověk pořád odkládá.
+//       Je to tatáž past jako u přesčasů 4× → 2× týdně, proto jen 30 % a
+//       proto se NIKDY nepoužívá samostatně.
+//    3) V KORUNÁCH — jen text na kartě, žádné body. Absolutní částka a
+//       varianta 1 měří totéž s jiným jmenovatelem; bodovat obě by znamenalo
+//       počítat jeden fakt dvakrát.
+//
+//  Vyžaduje řadu `netWorth` z měsíčních snímků – tu appka začala ukládat až
+//  v téhle verzi. Bez ní složka NENÍ měřitelná a z váženého průměru vypadne
+//  i s váhou (ne nula – nula by tvrdila, že jmění stagnuje).
+// ══════════════════════════════════════════════════════
+const _NWM_PODIL_VYDAJE = 70, _NWM_PODIL_ZRYCHLENI = 30;
+const _NWM_KOTVY_MESICE = [ {x:-3,b:-100},{x:-1,b:-50},{x:0,b:0},{x:1,b:35},{x:3,b:75},{x:6,b:100} ];
+const _NWM_KOTVY_ZRYCHL = [ {x:-50,b:-100},{x:-20,b:-50},{x:0,b:0},{x:20,b:40},{x:50,b:80},{x:100,b:100} ];
+
+//  Čisté jmění ze snímku před `zpetMesicu`. null = řada tak daleko nesahá.
+function nwAt(zpetMesicu){
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  if(!diary) return null;
+  let m = S.curMonth - (zpetMesicu||0), y = S.curYear;
+  while(m < 0){ m += 12; y--; }
+  const snap = diary[_denikKey(y, m)];
+  return (snap && typeof snap.netWorth === 'number') ? snap.netWorth : null;
+}
+
+function obrazNetWorthMomentum(D, mesicu){
+  D = D || getData();
+  const n = mesicu || 6;
+  const ted = (typeof computeAssetsNetWorth==='function')
+    ? (()=>{ try{ const x=computeAssetsNetWorth(D); return x?x.netWorth:null; }catch(e){ return null; } })()
+    : null;
+  const pred  = nwAt(n);       // začátek tohoto okna
+  const pred2 = nwAt(2*n);     // začátek předchozího okna (jen pro zrychlení)
+
+  if(ted === null || pred === null){
+    return { avail:false, sub:null, duvod:'Appka si čisté jmění začala zaznamenávat teprve teď – porovnávat bude mít s čím za pár měsíců.' };
+  }
+
+  const delta = ted - pred;                       // 3) v korunách (jen text)
+
+  //  1) proti VÝDAJŮM – kolik měsíců života sis přikoupil
+  let mesiceZivota = null, subVydaje = null;
+  const vydaje = (()=>{
+    let s = 0, k = 0;
+    for(let i=0;i<n;i++){
+      let m = S.curMonth - i, y = S.curYear; while(m<0){ m+=12; y--; }
+      const e = expSum(getTx(m,y,D), D);
+      if(e>0){ s += e; k++; }
+    }
+    return k ? s/k : 0;
+  })();
+  if(vydaje > 0){
+    mesiceZivota = delta / vydaje;
+    subVydaje = mscInterpV2(_NWM_KOTVY_MESICE, mesiceZivota);
+  }
+
+  //  2) ZRYCHLENÍ – tohle okno proti předchozímu
+  let zrychleni = null, subZrychl = null;
+  if(pred2 !== null){
+    const drive = pred - pred2;
+    //  Podíl dvou přírůstků dává smysl jen když ten dřívější byl kladný.
+    //  Z „minule jsem prodělal, teď taky" nelze udělat procento zrychlení.
+    if(drive > 0){
+      zrychleni = (delta - drive) / drive * 100;
+      subZrychl = mscInterpV2(_NWM_KOTVY_ZRYCHL, zrychleni);
+    }
+  }
+
+  //  Když zrychlení spočítat nejde, nese celou složku pohled na výdaje –
+  //  dopočítávat ho nulou by tvrdilo „nezrychlil ani nezpomalil", což nevíme.
+  let sub;
+  if(subVydaje === null && subZrychl === null){
+    return { avail:false, sub:null, duvod:'Chybí výdaje i dřívější jmění, není co porovnat.' };
+  } else if(subZrychl === null){ sub = subVydaje;
+  } else if(subVydaje === null){ sub = subZrychl;
+  } else { sub = (subVydaje*_NWM_PODIL_VYDAJE + subZrychl*_NWM_PODIL_ZRYCHLENI)/100; }
+
+  return {
+    avail: true,
+    sub: Math.round(sub),
+    delta, mesiceZivota, zrychleni,
+    subVydaje: subVydaje===null?null:Math.round(subVydaje),
+    subZrychl: subZrychl===null?null:Math.round(subZrychl),
+  };
+}
+
+//  Věta na kartu – všechny tři pohledy pohromadě, body jen z prvních dvou.
+function obrazNWMText(r){
+  if(!r || !r.avail) return r && r.duvod ? r.duvod : '';
+  const kc = (typeof fmtB==='function') ? fmtB(Math.round(Math.abs(r.delta))) : String(Math.round(Math.abs(r.delta)));
+  const smer = r.delta >= 0 ? 'vzrostlo o' : 'kleslo o';
+  let t = `Jmění ti ${smer} <b>${kc}</b>`;
+  if(r.mesiceZivota !== null){
+    const m = Math.abs(r.mesiceZivota).toFixed(1);
+    t += r.mesiceZivota >= 0 ? ` — to je <b>${m} měsíce života</b> navíc` : ` — to je o <b>${m} měsíce života</b> míň`;
+  }
+  if(r.zrychleni !== null){
+    const z = Math.abs(Math.round(r.zrychleni));
+    t += z === 0 ? ' a tempo se nezměnilo'
+       : (r.zrychleni > 0 ? ` a o <b>${z} %</b> rychleji než předchozí období`
+                          : ` a o <b>${z} %</b> pomaleji než předchozí období`);
+  }
+  return t + '.';
+}
+
+// ══════════════════════════════════════════════════════
 //  S22 (Milan): PŘESČASY — zápis a BONUS ZA ÚSILÍ
 //  Milan: „Odměnit za snahu o přesčasy a větší příjem."
 //
@@ -6087,6 +6301,12 @@ function _denikBuildSnap(D,m,y){
     //  historii, kterou appka dosud neměla – od téhle verze se kupí a za
     //  pár měsíců půjde poprvé říct, jestli fixní náklady vzrostly.
     fixedTotal: (typeof sablonyFixedTotal==='function')?sablonyFixedTotal(D):null,
+    //  S22: čisté jmění k tomuhle měsíci. Appka dosud držela jen DNEŠNÍ stav –
+    //  minulý se dopočítat nedá, protože nikdo neví, jak se měnila tržní
+    //  hodnota majetku. Bez téhle řady nejde měřit, jestli jmění roste.
+    netWorth: (typeof computeAssetsNetWorth==='function')
+      ? (()=>{ try{ const n=computeAssetsNetWorth(D); return n?Math.round(n.netWorth):null; }catch(e){ return null; } })()
+      : null,
   };
 }
 
@@ -6881,7 +7101,14 @@ function _denikCestaHTML(){
         const a = (typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0);
         if(a>0) inc+=a; else exp+=Math.abs(a);
       });
-      series.push({inc, exp, savings:inc-exp, debt:0});
+      //  FIX (S22): i tady se plnilo `debt:0` – viz computeObrazScoreBack().
+      //  Zůstatek ke konci měsíce = dnešní + splátky zaplacené PO něm (v8.68).
+      const _me = new Date(y, m+1, 1).getTime();
+      const _paidAfter = (D.transactions||[]).filter(t=>t && t.debtId && !t.splitParent
+          && new Date(t.date).getTime() >= _me)
+        .reduce((a,t)=>a + ((typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0)), 0);
+      const _debtNow = (D.debts||[]).reduce((a,d)=>a+(d&&d.remaining>0?d.remaining:0), 0);
+      series.push({inc, exp, savings:inc-exp, debt:_debtNow + _paidAfter});
     }
     if(series.every(x=>!x.inc && !x.exp)) return '';
     const sm = computeObrazSubmetrics(series);

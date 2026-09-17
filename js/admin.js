@@ -1,4 +1,4 @@
-// FinanceFlow · v10.66 · admin.js · 2026-09-12
+// FinanceFlow · v10.73 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -550,6 +550,98 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.73',
+    datum: '2026-09-16',
+    zmeny: [
+      '🧾 JEDNA ÚČTENKA = JEDNA TRANSAKCE (oprava, nahlásil Milan). Od v6.88 (S9) se účtenka dělila na jednu transakci za každou kategorii položek – z jednoho nákupu v Kauflandu tak vzniklo SEDM řádků a celková zaplacená částka, tedy to hlavní, co člověk chce vidět, nebyla nikde.',
+      '🔎 Proč to vzniklo: zadání TODO-014 znělo o KATEGORIZACI (učení obchodník→kategorie pro importy, bankovní výpisy, AI rádce a skenování účtenek). Dělení nákupu na víc transakcí si nikdo nepřál – přišlo to jako vedlejší produkt, protože přes kategorie na položkách se to dalo udělat snadno. Roky to nebylo vidět: bez naučených přiřazení spadly položky do jedné skupiny a transakce byla jedna. Jakmile se učení rozběhlo, projevilo se to naplno.',
+      '📦 Kategorie se NEZTRÁCEJÍ – žijí dál na položkách v `receiptItems` (včetně itemCatId a podkategorie) a statistiky, Inflace i Detektor z nich čtou stejně jako dřív. Kategorie transakce = ta, ve které je nejvíc peněz.',
+      '💰 Částka transakce = co bylo SKUTEČNĚ ZAPLACENO. U hotovostních účtenek se liší od součtu položek o zaokrouhlení na koruny (SOUČET 122,60 · CELKEM 123,00) a z účtu odešlo to druhé; rozdíl se ukládá do `receiptRounding`, ať je při zpětné kontrole jasné, proč to nesedí na haléř.',
+      '🧠 Učení mapování zůstává beze změny – ukládá se za každou položku i za obchod. To bylo skutečné zadání TODO-014 a funguje dál.',
+      '🧪 tools/smoke_jednatx.js – 13 testů.',
+      'ℹ️ Zpětně se nic nepřepisuje: transakce rozsekané starou logikou zůstanou. Milan si je projde a smaže sám.',
+    ]
+  },
+  {
+    verze: 'v10.72',
+    datum: '2026-09-16',
+    zmeny: [
+      '📈 OFICIÁLNÍ INFLACE Z ČSÚ — nová routa /inflace v Cloudflare Workeru. Metrika „Reálný růst příjmu" ve Finančním obrazu potřebuje vědět, KDE JE NULA: přidání o 3 % při inflaci 3 % je stání na místě, při inflaci 8 % propad. Bez reference by metrika chválila každé přidání, i když z něj reálně ubývá.',
+      'ℹ️ Pozor na časté nedorozumění: index spotřebitelských cen NEVYDÁVÁ ČNB, ale ČSÚ — ČNB dělá prognózy a měnovou politiku. Bereme sadu CEN0101E, meziroční index (casz_kod = C), souhrn za všechny oddíly; `hodnota` je index v %, míra inflace = hodnota − 100.',
+      '🔀 Meziroční, ne klouzavý průměr (casz_kod = K): roční průměr reaguje se zpožděním a proti letošnímu růstu příjmu by zaostával.',
+      '🌐 Proč přes Worker a ne rovnou z prohlížeče: ČSÚ neposílá CORS hlavičky (prohlížeč by odpověď zahodil) a soubor je celá časová řada od roku 2000 — stahovat ji každému uživateli zvlášť je plýtvání. Cache 7 dní, protože ČSÚ vydává nová čísla jednou MĚSÍČNĚ (kolem 10.–15. dne za předchozí měsíc).',
+      '🥇 Pořadí zdrojů zůstává: OSOBNÍ inflace z účtenek → ČSÚ → pevná 3 %. Osobní je pořád lepší, protože ČSÚ průměruje celou populaci. Selhání sítě nic neshodí, jen se sáhne po záloze.',
+      '🍞 Stahují se i oddíly COICOP (potraviny, bydlení, doprava…). Appka má COICOP v coicop.js, takže půjde říct „tobě potraviny zdražily o 8 %, průměru o 3 %".',
+      '🛡️ Když ČSÚ změní strukturu CSV, worker to přizná chybou místo aby vrátil nesmyslné číslo. Názvy oddílů obsahují čárky, takže parser respektuje uvozovky.',
+      '🗑️ Stažená hodnota se ZÁMĚRNĚ neukládá do Firebase ani do _DW_META — je to veřejný údaj, který jde kdykoli stáhnout znovu; ukládat ho ke každému uživateli zvlášť by byl odpad v databázi.',
+      '🧪 tools/smoke_inflace.js – 15 testů (parser i klient).',
+      '⚠️ NASAZENÍ: worker.js → Cloudflare. Bez toho routa /inflace neexistuje a appka zůstane na pevných 3 %.',
+    ]
+  },
+  {
+    verze: 'v10.71',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔍 DIAGNOSTIKA NENAČTENÉHO SOUBORU. Milan po nasazení v10.66 viděl jen „Uncaught SyntaxError: Invalid or unexpected token" a z toho nešlo poznat vůbec nic. Příčina: když některý .js soubor na hostingu chybí, server nevrátí 404 se slušným hlášením, ale HTML stránku. Prohlížeč ji zkusí zpracovat jako JavaScript, narazí na „<" a vypíše tuhle hlášku. Nově má každý skript onerror a appka rovnou napíše, KTERÝ soubor chybí – plus globální záchyt pro případ, kdy se soubor stáhne, ale je to HTML místo JS.',
+      '🚩 NAHLÁŠENÍ ŠPATNĚ PŘEČTENÉ ÚČTENKY (Milan). Formulář v „O aplikaci" na tohle nestačil: uživatel musí slovy popsat, co viděl, a stejně chybí to jediné, z čeho jde prompt opravit – fotka a JSON, který z ní analyzér vyrobil. Tlačítko je přímo u upozornění na rozpor; odešle obchod, datum, natištěnou i spočítanou částku a názvy s cenami položek.',
+      '🔒 SOUKROMÍ: účtenka není neutrální obrázek – je na ní adresa prodejny, čas nákupu a co člověk jedl. Fotka se proto přikládá JEN po výslovném zaškrtnutí, uživatel dopředu vidí, co přesně odejde, a u zaškrtávátka stojí, co je na účtence vidět. Bez fotky hlášení funguje taky (čísla a názvy položek odhalí většinu chyb). Když fotka u účtenky uložená není, zaškrtávátko se vůbec nenabídne.',
+      '📉 Snímek se před odesláním zmenší na 1000 px a zkomprimuje; přes strop 400 kB se raději vynechá, než aby zápis spadl. Položek se posílá nejvýš 80.',
+      '🗄️ Nový uzel `receipt_reports` v database_rules.json – přihlášený uživatel píše jen do svého podstromu, čte výhradně admin (stejný vzor jako coicop_corrections). ⚠️ NASAZUJE SE DO FIREBASE CONSOLE PŘED kódem, jinak zápis skončí chybou.',
+      '🧪 tools/smoke_report.js – 17 testů.',
+    ]
+  },
+  {
+    verze: 'v10.70',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan na živých datech): ÚČTENKA UKÁZALA ŠPATNOU ČÁSTKU HNED PO SKENU. Kaufland 1 540,88 místo 1 490,99 – analyzér přehlédl slevový řádek „Tvoje cena s −49,90". PRAVIDLO 3 v promptu vyjmenovávalo konkrétní formulace („SLEVA VĚRNOSTI", typicky Penny a Albert), jenže Kaufland slovo „sleva" vůbec nepoužívá. Nově platí obecné pravidlo: JAKÁKOLI samostatná záporná částka pod položkou je sleva k té položce – rozhoduje znaménko, ne název řádku.',
+      '🔓 FIX ZÁVAŽNĚJŠÍ: PROMPT NUTIL ANALYZÉR ZAHLADIT VLASTNÍ CHYBU. PRAVIDLO 5 znělo „sum(items) musí ≈ total, pokud nesedí, oprav lineTotal". Appka přitom má od S19 kontrolu úplnosti (TODO-226), která porovnává součet položek s částkou na účtence – jenže model ta dvě čísla předtím uměle ztotožnil, takže kontrola neměla co najít. Nově: čísla se NIKDY neupravují, aby si odpovídala; rozpor je informace, ne problém k zametení.',
+      '💰 DVĚ SPRÁVNÉ ČÁSTKY NA JEDNÉ ÚČTENCE. Milanova druhá účtenka: „SOUČET 122,60" a „CELKEM 123,00". Obě jsou správně – první je součet položek, druhá to, co odešlo z účtu (zaokrouhleno na koruny). Prompt i appka nově rozlišují `total` (zaplaceno), `subtotal` (součet položek) a `rounding`. Položky se porovnávají proti subtotalu, takže zaokrouhlení už nevyvolá varování.',
+      '🔒 FIX: rpUpdateTotal() TIŠE PŘEPISOVAL NATIŠTĚNOU ČÁSTKU součtem položek. I kdyby analyzér přečetl „CELKEM" správně, první úprava kterékoli položky to číslo zahodila – a rozpor zmizel dřív, než ho někdo uviděl. Natištěná částka se teď drží zvlášť v `printedTotal` a nikdy se nepřepisuje.',
+      '⚠️ KONTROLA UŽ HNED PO SKENU, ne až v Historii (tam běžela od S19, tedy až POTOM, co uživatel transakci uložil). Hlásí se neutrálně – rozdíl nemusí být chyba AI, bývá to i vratná záloha na lahve nebo sleva na celý doklad.',
+      '🖱️ OPRAVA JEDNÍM KLIKEM, nikdy automaticky (výhrada Milana: špatně přečtený total by zmařil celý výpočet). Dvě tlačítka: „Použít částku z účtenky" (a zamkne ji, ať ji součet položek nepřebije) a „Doplnit rozdíl jako položku". Rozhoduje uživatel – má účtenku v ruce.',
+      '🛒 VÝCHOZÍ KATEGORIE POLOŽEK: „Ostatní" → „Nákup" (Milan). U nákupu v potravinách skončily všechny položky v Ostatní a uživatel musel každou ručně přepnout. Nově se nejdřív zkusí kategorie celé účtenky (Kaufland → Jídlo & Nákupy), takže položky rovnou sednou tam, kam patří.',
+      '📱 Hlavička karty se na mobilu mačkala – datum a kategorie vedle sebe v jednom řádku, ani jedno pořádně vidět. Nyní se zalomí pod sebe (flex-wrap + min-width).',
+      '🧪 tools/smoke_uctenka_kontrola.js – 20 testů, reprodukuje obě Milanovy účtenky.',
+      '⚠️ NASAZENÍ: worker.js patří do CLOUDFLARE, ne na GitHub. Bez toho deploye se chování analyzéru NEZMĚNÍ a slevy budou dál unikat.',
+    ]
+  },
+  {
+    verze: 'v10.69',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX · ZPĚTNÉ OKNO OBRAZU IGNOROVALO DLUHY. Funkce computeObrazScoreBack() plnila do každého měsíce `debt: 0`, takže trend dluhu vyšel VŽDY nula a složka přispěla 0 bodů – pokaždé, u každého uživatele. Skóre za AKTUÁLNÍ okno se skládalo ze čtyř složek, za DŘÍVĚJŠÍ ze tří a čtvrtou tiše nahradilo nulou; ta dvě čísla se pak porovnávala, jako by byla souměřitelná. Kdo za půl roku splatil velkou část dluhu, dostal v aktuálním okně body, v dřívějším nulu, a appka mu to vydávala za zlepšení, které s jeho dluhem nemá nic společného.',
+      '🔧 Historie dluhu se přitom rekonstruovat DÁ a živá řada to od v8.68 umí: zůstatek ke konci měsíce = dnešní zůstatek + splátky zaplacené PO něm (transakce s debtId). Zpětná funkce ten postup jen nepoužívala. Opraveno na OBOU místech, kde se `debt: 0` plnilo.',
+      '📈 INFLAČNÍ REFERENCE pro „Reálný růst příjmu" (obrazInflaceRef). Reference je nula na stupnici: přidání o 3 % při inflaci 3 % znamená stání na místě, při inflaci 8 % propad. Bez ní by metrika chválila každé přidání, i když z něj reálně ubývá.',
+      '🥇 Pořadí zdrojů (rozhodnutí Milana): OSOBNÍ inflace z účtenek → ČNB/ČSÚ (hák `S.cnbInflace`, zatím nenapojeno) → pevná 3 %. Osobní je lepší než oficiální, protože ČNB průměruje celou populaci. Obava, že se čísla rozjedou napříč produkty, je vyřešená už v inflace.js: počítá se index VÁŽENÝ útratou, ne prostý průměr, takže pár podražených rohlíků nedělá desetiprocentní inflaci.',
+      '🔬 Pod 5 sledovanými položkami je osobní inflace šum, ne měření – tehdy se sáhne po záloze. Rozbitý výpočet účtenek shodí na zálohu, ne na pád stránky.',
+      '🧪 tools/smoke_obrazfix.js – 11 testů.',
+    ]
+  },
+  {
+    verze: 'v10.68',
+    datum: '2026-09-12',
+    zmeny: [
+      '🖼️ SIMULÁTOR FINANČNÍHO OBRAZU v admin panelu (Milan). Záložka „Skóre" má nově přepínač: ⚖️ Finanční skóre / 🖼️ Finanční obraz. U každé složky je VÁHA i s vysvětlením, proč je zrovna taková, a editovatelné KOTVY od −100 do +100.',
+      '📐 Konfigurace Obrazu vytažena do `_OBRAZ_V1` (helpers.js) — stejně jako u skóre jsou váhy a kotvy DATA, ne konstanty rozeseté po kódu. Základ 100, rozsah 0–200, NEOŘEZÁVÁ se (stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních deset bodů nikdo neviděl).',
+      '🧭 V panelu je vysvětlený i rozdíl mezi oběma čísly: skóre měří ÚROVEŇ („jak na tom jsem"), Obraz měří ZMĚNU za okno („kam se hýbu"). Proto se obojí smí opírat o stejnou veličinu — rezerva jako stav a rezerva jako trend jsou dvě různé informace, ne dvojí započtení.',
+      '🔒 Simulátor Obrazu nic neukládá a pracuje s KLONEM: ostrá `_OBRAZ_V1` se nemění (hlídá test). Součet vah musí být přesně 100 %, jinak se blok k přepsání nevygeneruje.',
+      '🧪 tools/smoke_simskore.js rozšířen na 24 testů.',
+    ]
+  },
+  {
+    verze: 'v10.67',
+    datum: '2026-09-12',
+    zmeny: [
+      '💎 NET WORTH MOMENTUM – nová složka Finančního obrazu, jediná měřící STAV MAJETKU. Všechno ostatní v Obrazu i ve Finančním skóre měří toky a jejich poměry; na otázku „vyrostlo mi za rok jmění, nebo se ztenčilo?" dosud neodpovídalo nic.',
+      '🔢 Milan vybral ze tří pohledů dva do bodování a jeden do textu: PROTI VÝDAJŮM (70 %, o kolik měsíců života sis přikoupil), ZRYCHLENÍ (30 %, tohle okno proti předchozímu) a V KORUNÁCH jen jako věta na kartě. Absolutní částka a pohled „proti výdajům" měří totéž s jiným jmenovatelem – bodovat obě by znamenalo počítat jeden fakt dvakrát.',
+      '🚫 NESMÍ se měřit proti PŘÍJMU: kdo vydělá o 20 % víc a odkládá o 20 % víc korun, má stejný podíl a vyšlo by mu NULOVÉ zlepšení. Normalizace příjmem vyruší přesně to, co má být vidět – proto proti výdajům.',
+      '⚠️ Zrychlení je vědomý kompromis (rozhodnutí Milana): po mimořádně dobrém období strhne i normální období do mínusu, přestože člověk pořád odkládá. Je to tatáž past jako u přesčasů 4× → 2× týdně, proto jen 30 % váhy a nikdy se nepoužívá samostatně. Ze záporného dřívějšího tempa se procento nepočítá vůbec.',
+      '📒 Appka si začíná ukládat ČISTÉ JMĚNÍ do měsíčního snímku – dosud znala jen dnešní stav a minulý se dopočítat nedá (nikdo neví, jak se měnila tržní hodnota majetku). Než se řada nasbírá, složka NENÍ měřitelná a z váženého průměru vypadne i s váhou. Nula by tvrdila, že jmění stagnuje, což není totéž jako „nevíme".',
+      '🧪 tools/smoke_nwm.js – 14 testů.',
+    ]
+  },
   {
     verze: 'v10.66',
     datum: '2026-09-12',
@@ -8370,9 +8462,23 @@ function _simSkore(D, cfg, hasDebts){
   }
 }
 
+//  S22 (Milan): záložka umí dvě konfigurace – Finanční SKÓRE (úroveň) a
+//  Finanční OBRAZ (změna za okno). Jsou to dvě různá čísla s různými váhami,
+//  proto dva oddělené simulátory pod jedním přepínačem.
+let _simCo = 'skore';
+function simSetCo(k){ _simCo = k; renderScoringSim(); }
+
+function _simPrepinac(){
+  return `<div style="display:flex;gap:6px;margin-bottom:12px">
+    <button class="tx-filt-btn${_simCo==='skore'?' active':''}" style="flex:1" onclick="simSetCo('skore')">⚖️ Finanční skóre</button>
+    <button class="tx-filt-btn${_simCo==='obraz'?' active':''}" style="flex:1" onclick="simSetCo('obraz')">🖼️ Finanční obraz</button>
+  </div>`;
+}
+
 function renderScoringSim(){
   const el = document.getElementById('adminScoringSim'); if(!el) return;
   if(typeof isAdmin!=='function' || !isAdmin()){ el.innerHTML=''; return; }
+  if(_simCo === 'obraz'){ el.innerHTML = _simPrepinac() + _renderObrazSim(); return; }
   if(typeof _SCORING_V2==='undefined'){
     el.innerHTML = '<div class="card"><div class="card-body"><div class="empty"><div class="et">Konfigurace skóre není načtená (helpers.js).</div></div></div></div>';
     return;
@@ -8490,7 +8596,7 @@ function renderScoringSim(){
       `  ${k}: [ ${cfg[k].map(z=>`{x:${z.x},b:${z.b}}`).join(',')} ],`),
   ].join('\n') : '';
 
-  el.innerHTML = `
+  el.innerHTML = _simPrepinac() + `
   <div class="card" style="margin-bottom:14px">
     <div class="card-header">
       <span class="card-title">⚖️ Simulátor finančního skóre</span>
@@ -8633,3 +8739,192 @@ window.simSetPrah = simSetPrah;
 window.simSetSlozka = simSetSlozka;
 window.simSetKotva = simSetKotva;
 window.simKopirovat = simKopirovat;
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan): SIMULÁTOR FINANČNÍHO OBRAZU — admin only, BEZ UKLÁDÁNÍ
+//  Stejný princip jako simulátor skóre: pracuje s KLONEM konfigurace, ostrou
+//  `_OBRAZ_V1` nikdy nemění, a na konci vypíše blok k přepsání do helpers.js.
+//
+//  Ukazuje u každé složky VÁHU i KOTVY. Kotvy jsou záchytné body — hodnota
+//  mezi nimi se dopočítá přímkou, takže na rozdíl od staré schodovité verze
+//  (±15 nebo nic) je rozdíl mezi růstem o 6 % a o 60 % vidět.
+// ══════════════════════════════════════════════════════════════════════
+let _simObraz = null;
+let _simObrazSlozka = 'prijem';
+
+function _simObrazReset(){
+  if(typeof _OBRAZ_V1==='undefined'){ _simObraz=null; return; }
+  _simObraz = JSON.parse(JSON.stringify(_OBRAZ_V1));
+}
+function simObrazResetVse(){ _simObrazReset(); renderScoringSim(); }
+function simObrazSlozka(k){ _simObrazSlozka = k; renderScoringSim(); }
+
+function simObrazVaha(k, v){
+  if(!_simObraz) return;
+  _simObraz.vahy[k] = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+function simObrazPrah(v){
+  if(!_simObraz) return;
+  _simObraz.prahPokryti = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+function simObrazKotva(slozka, i, pole, v){
+  if(!_simObraz || !_simObraz[slozka] || !_simObraz[slozka][i]) return;
+  const cislo = parseFloat(String(v).replace(',','.'));
+  if(!isFinite(cislo)) return;
+  _simObraz[slozka][i][pole] = (pole==='b') ? Math.max(-100, Math.min(100, cislo)) : cislo;
+  _simObraz[slozka].sort((a,b)=>a.x-b.x);   // kotvy musí být vzestupně podle x
+  renderScoringSim();
+}
+
+const _OBRAZ_POPIS = {
+  prijem: { nazev:'💰 Reálný růst příjmu', jedn:'% ročně',
+    co:'O kolik ti vzrostl příjem PO očištění o inflaci. Nula je tam, kde inflaci jen dorovnáš — bez toho by metrika chválila každé přidání, i když z něj reálně ubývá.' },
+  styl: { nazev:'🛒 Dopad životního stylu', jedn:'měsíců',
+    co:'O kolik měsíců se prodloužila nebo zkrátila doba, kterou tě rezerva uživí. Nejhmatatelnější důsledek dražšího života: i když našetříš víc, vyšší výdaje dobu pokrytí zkrátí.' },
+  koncentrace: { nazev:'📊 Koncentrační riziko', jedn:'% výdajů',
+    co:'Podíl největší kategorie na výdajích. Jediná složka měřící STAV, ne změnu — stabilních 60 % v jedné kategorii je riziko bez ohledu na to, jestli se to hnulo. Kotvy počítají s tím, že bydlení běžně dělá 25–30 % výdajů.' },
+};
+
+function _renderObrazSim(){
+  if(typeof _OBRAZ_V1==='undefined'){
+    return '<div class="card"><div class="card-body"><div class="empty"><div class="et">Konfigurace Obrazu není načtená (helpers.js).</div></div></div></div>';
+  }
+  if(!_simObraz) _simObrazReset();
+  const cfg = _simObraz;
+  const soucet = Object.values(cfg.vahy).reduce((a,b)=>a+(+b||0),0);
+  const platny = soucet === 100;
+
+  const VAHY_POPIS = {
+    prijem:      { nazev:'💰 Reálný růst příjmu', proc:'strop všeho ostatního — bez příjmu se nezlepší nic' },
+    styl:        { nazev:'🛒 Dopad životního stylu', proc:'nejrychleji ovlivnitelné, proto o něco níž' },
+    jmeni:       { nazev:'💎 Net Worth Momentum', proc:'jediná měří stav majetku, nejtěžší ošidit' },
+    koncentrace: { nazev:'📊 Koncentrační riziko', proc:'riziko, ne výkon — nemá přebít vývoj' },
+  };
+
+  const vahyHTML = Object.keys(VAHY_POPIS).map(k=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:.8rem;min-width:150px;color:#e8eaf2">${VAHY_POPIS[k].nazev}</span>
+        <input type="range" min="0" max="60" step="1" value="${cfg.vahy[k]}"
+               oninput="simObrazVaha('${k}',this.value)" style="flex:1;min-width:70px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.vahy[k]}" onchange="simObrazVaha('${k}',this.value)"
+               style="width:56px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8">%</span>
+      </div>
+      <div style="font-size:.68rem;color:#8b91a8;margin-top:3px;padding-left:2px">${VAHY_POPIS[k].proc}</div>
+    </div>`).join('');
+
+  const klic = _simObrazSlozka;
+  const maKotvy = !!cfg[klic];
+  const popis = _OBRAZ_POPIS[klic];
+  const kotvyHTML = !maKotvy ? '' : cfg[klic].map((kt,i)=>`
+    <tr>
+      <td style="padding:4px 6px"><input type="number" step="any" value="${kt.x}"
+            onchange="simObrazKotva('${klic}',${i},'x',this.value)"
+            style="width:76px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px;color:#a8aec8;font-size:.7rem">${popis?popis.jedn:''}</td>
+      <td style="padding:4px 6px"><input type="number" min="-100" max="100" step="1" value="${kt.b}"
+            onchange="simObrazKotva('${klic}',${i},'b',this.value)"
+            style="width:66px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:${kt.b<0?'var(--expense)':kt.b>0?'var(--income)':'#a8aec8'};font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px">
+        <div style="position:relative;height:7px;background:var(--surface3);border-radius:99px;min-width:80px">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.25)"></div>
+          <div style="position:absolute;top:0;bottom:0;border-radius:99px;background:${kt.b<0?'var(--expense)':'var(--income)'};
+            ${kt.b>=0?`left:50%;width:${kt.b/2}%`:`right:50%;width:${-kt.b/2}%`}"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const prepinac = ['prijem','styl','koncentrace'].map(k=>`
+    <button class="tx-filt-btn${klic===k?' active':''}" style="font-size:.72rem;padding:4px 10px"
+            onclick="simObrazSlozka('${k}')">${_OBRAZ_POPIS[k].nazev}</button>`).join('');
+
+  const exportBlok = platny ? [
+    `  zaklad: ${cfg.zaklad}, min: ${cfg.min}, max: ${cfg.max},`,
+    `  prahPokryti: ${cfg.prahPokryti}, minSlozek: ${cfg.minSlozek},`,
+    `  vahy: { prijem:${cfg.vahy.prijem}, styl:${cfg.vahy.styl}, jmeni:${cfg.vahy.jmeni}, koncentrace:${cfg.vahy.koncentrace} },`,
+    ...['prijem','styl','koncentrace'].map(k=>
+      `  ${k}: [ ${cfg[k].map(z=>`{x:${z.x},b:${z.b}}`).join(',')} ],`),
+  ].join('\n') : '';
+
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">🖼️ Simulátor finančního obrazu</span>
+      <button class="btn btn-ghost btn-sm" onclick="simObrazResetVse()" style="font-size:.72rem">↺ Vrátit na ostré</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:12px">
+        Obraz je jiné číslo než skóre: <b style="color:#c9cede">skóre měří úroveň</b> („jak na tom jsem"),
+        <b style="color:#c9cede">Obraz měří změnu</b> za 6 nebo 12 měsíců („kam se hýbu"). Proto se obojí smí
+        opírat o stejnou veličinu — rezerva jako stav a rezerva jako trend jsou dvě různé informace.
+        Základ ${cfg.zaklad}, rozsah ${cfg.min}–${cfg.max}, neořezává se.
+      </div>
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.9rem;color:#e8eaf2;margin-bottom:6px">Váhy složek</div>
+      ${vahyHTML}
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:.84rem">
+        <span style="min-width:150px;color:#e8eaf2;font-weight:700">Součet</span>
+        <span style="font-family:Syne,sans-serif;font-weight:800;font-size:1.05rem;color:${platny?'var(--income)':'var(--expense)'}">${soucet} %</span>
+        ${platny ? '<span style="font-size:.72rem;color:var(--income)">✓ platné</span>'
+                 : `<span style="font-size:.72rem;color:var(--expense)">musí být přesně 100 % — ${soucet>100?'ubírej':'přidej'} ${Math.abs(100-soucet)} %</span>`}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+        <span style="font-size:.8rem;min-width:150px;color:#e8eaf2">Práh pokrytí</span>
+        <input type="range" min="0" max="100" step="5" value="${cfg.prahPokryti}"
+               oninput="simObrazPrah(this.value)" style="flex:1;min-width:70px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.prahPokryti}" onchange="simObrazPrah(this.value)"
+               style="width:56px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8">%</span>
+      </div>
+      <div style="font-size:.68rem;color:#8b91a8">Níž než u skóre (50 %) — chybějící historie je tu běžná. Zároveň musí být měřitelné aspoň ${cfg.minSlozek} složky.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📐 Bodovací kotvy</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Kotvy jsou <b style="color:#c9cede">záchytné body</b> — hodnota mezi nimi se dopočítá přímkou.
+        Body jdou od −100 do +100 uvnitř složky; asymetrie patří do sklonu (propad se ke stropu dostane
+        rychleji), ne do stropu samotného. Pořadí se srovná samo.
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${prepinac}</div>
+      ${popis?`<div style="font-size:.72rem;color:#a8aec8;line-height:1.5;margin-bottom:8px">${popis.co}</div>`:''}
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:4px 6px;font-weight:600">Hodnota</th><th></th>
+          <th style="padding:4px 6px;font-weight:600">Body</th><th style="padding:4px 6px;font-weight:600">−100 ⟷ +100</th>
+        </tr></thead>
+        <tbody>${kotvyHTML}</tbody>
+      </table>
+      <div style="font-size:.68rem;color:#8b91a8;margin-top:10px;line-height:1.5">
+        💎 <b>Net Worth Momentum</b> má kotvy v projects.js (uvnitř 70 % „proti výdajům" + 30 % zrychlení) —
+        tady se nastavuje jen jeho váha. 💪 <b>Bonus za úsilí</b> (0–${cfg.bonusUsiliMax}) není složkou váženého
+        průměru: počítá se ze stavu, ne ze změny, a nikdy nejde do mínusu, takže omezení přesčasů nikoho nestojí body.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 K přepsání do helpers.js</span></div>
+    <div class="card-body">
+      ${platny ? `
+        <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+          Vlož do <code>_OBRAZ_V1</code> v <code>helpers.js</code>.
+        </div>
+        <textarea readonly id="simExportBox" style="width:100%;min-height:150px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surface3);color:#c9cede;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.5;resize:vertical">${exportBlok.replace(/</g,'&lt;')}</textarea>
+        <button class="btn btn-accent btn-sm" style="margin-top:8px" onclick="simKopirovat()">📋 Kopírovat</button>`
+      : `<div style="font-size:.8rem;color:var(--expense);line-height:1.55">
+          Nevygeneruje se, dokud součet vah není přesně 100 % (teď ${soucet} %).</div>`}
+    </div>
+  </div>`;
+}
+
+window.simSetCo = simSetCo;
+window.simObrazResetVse = simObrazResetVse;
+window.simObrazSlozka = simObrazSlozka;
+window.simObrazVaha = simObrazVaha;
+window.simObrazPrah = simObrazPrah;
+window.simObrazKotva = simObrazKotva;
