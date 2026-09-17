@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v10.51 · 2026-09-04 (S21: novy uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
+// FinanceFlow · database rules · v10.71 · 2026-09-16 (S22: novy uzel receipt_reports – hlaseni spatne prectene uctenky, pise prihlaseny uzivatel do sveho podstromu, cte jen admin. S21: uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
 {
   "rules": {
     "users": {
@@ -301,6 +301,16 @@
     "admins": {
       ".read": "auth != null",
       ".write": false
+    },
+    "receipt_reports": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$report": {
+          ".validate": "newData.hasChildren(['date','store','printedTotal','itemsSum'])"
+        }
+      }
     },
     "support": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
