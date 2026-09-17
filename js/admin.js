@@ -1,4 +1,4 @@
-// FinanceFlow · v10.74 · admin.js · 2026-09-16
+// FinanceFlow · v10.75 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.75',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan): TAGY UKAZOVALY NESMYSLNÉ ČÁSTKY. getAllTags() přičítal ke KAŽDÉMU tagu CELOU částku transakce. Jenže tagy chodí z analýzy účtenky – jeden nákup nese Pečivo, Ovoce, Zelenina, Těstoviny, Sladkosti, Drogerie i Koření. Nákup za 995 Kč se tedy započítal SEDMKRÁT v plné výši a stránka tvrdila, že za zeleninu padlo 995 Kč; součet přes všechny tagy byl násobkem skutečné útraty.',
+      '🏷️ Nyní tag z POLOŽEK účtenky bere jen ceny těch položek, které ho nesou. Tag napsaný ručně k celé transakci (#dovolená) bere dál celou částku – tam se opravdu vztahuje na celý výdaj.',
+      '🧮 Podíl se počítá na částce transakce, ne na součtu položek: účtenka se může o zaokrouhlení lišit (SOUČET 122,60 · CELKEM 123,00) a transakce je navíc už přepočtená přes txCZK, takže se tím zároveň ošetří cizí měny. Součet přes tagy tak sedne na skutečnou útratu na haléře.',
+      '📊 Proužek pod tagem měřil POČET transakcí, zatímco vedle něj stála částka – dva údaje o různých věcech vedle sebe. Nyní měří peníze a seznam se řadí podle částky, ne podle počtu.',
+      '💱 Částka nově přes fmtB() – dřív fmt() bez převodu, což je past PAST 3 hlídaná v tools/smoke_mena.js (uživatel s jinou základní měnou by viděl korunové číslo bez měny).',
+      '🧪 tools/smoke_tagy.js – 12 testů.',
+    ]
+  },
   {
     verze: 'v10.74',
     datum: '2026-09-16',
@@ -7462,18 +7474,54 @@ function parseTags(input) {
     .filter(t => t.length >= 1 && t.length <= 30);
 }
 
+// ══════════════════════════════════════════════════════
+//  S22 (nahlásil Milan): TAGY UKAZOVALY NESMYSLNÉ ČÁSTKY
+//  Původně se ke KAŽDÉMU tagu přičetla CELÁ částka transakce:
+//      tagMap[tag].total += t.amount || t.amt || 0;
+//  Jenže tagy chodí z analýzy účtenky – jeden nákup nese Pečivo, Ovoce,
+//  Zelenina, Těstoviny, Sladkosti, Drogerie i Koření. Nákup za 995 Kč se
+//  tedy započítal SEDMKRÁT v plné výši a stránka tvrdila, že za zeleninu
+//  padlo 995 Kč. Součet přes všechny tagy byl násobkem skutečné útraty.
+//
+//  Nyní: tag z POLOŽEK účtenky bere jen ceny těch položek, které ho nesou.
+//  Tag napsaný ručně k celé transakci (#dovolená) bere dál celou částku –
+//  tam se opravdu vztahuje na celý výdaj.
+//
+//  Podíl se počítá na částce transakce, ne na součtu položek: účtenka se
+//  může o zaokrouhlení lišit (SOUČET 122,60 · CELKEM 123,00) a transakce je
+//  navíc už přepočtená přes txCZK, takže se tím zároveň ošetří cizí měny.
+// ══════════════════════════════════════════════════════
 function getAllTags(D) {
   const D2 = D || getData();
   const tagMap = {};
   (D2.transactions||[]).forEach(t => {
+    const castka = (typeof txCZK==='function') ? Math.abs(txCZK(t, D2))
+                                              : Math.abs(t.amount||t.amt||0);
+    const polozky = Array.isArray(t.receiptItems) ? t.receiptItems : [];
+    const soucetPolozek = polozky.reduce((a,it)=>a + Math.abs(
+      (it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1))), 0);
+
     parseTxTags(t).forEach(tag => {
       if(!tagMap[tag]) tagMap[tag] = {name:tag, count:0, total:0, txs:[]};
       tagMap[tag].count++;
-      tagMap[tag].total += t.amount||t.amt||0;
+
+      let castkaTagu = castka;
+      if(polozky.length && soucetPolozek > 0){
+        const sTagem = polozky.filter(it => it && it.tag === tag);
+        if(sTagem.length){
+          const cast = sTagem.reduce((a,it)=>a + Math.abs(
+            (it.lineTotal != null) ? it.lineTotal : ((it.price||0)*(it.qty||1))), 0);
+          //  Podíl z celku – drží to i při zaokrouhlení a cizí měně.
+          castkaTagu = castka * (cast / soucetPolozek);
+        }
+        //  Tag, který na žádné položce není, přišel od uživatele ručně
+        //  a vztahuje se na celou transakci → zůstává plná částka.
+      }
+      tagMap[tag].total += castkaTagu;
       tagMap[tag].txs.push(t);
     });
   });
-  return Object.values(tagMap).sort((a,b) => b.count - a.count);
+  return Object.values(tagMap).sort((a,b) => b.total - a.total);
 }
 
 function tagsInputHandler(input) {
@@ -7562,8 +7610,10 @@ function renderTagy() {
     <div class="card" style="margin-bottom:14px">
       <div class="card-header"><span class="card-title">🏷️ Všechny tagy</span></div>
       <div class="card-body" style="padding:8px 14px">
-        ${tags.map(tag => {
-          const pct = tag.count > 0 ? Math.round(tag.count/totalTagged*100) : 0;
+        ${(()=>{ const maxCastka = Math.max(...tags.map(x=>x.total), 1); return tags.map(tag => {
+          //  S22: proužek měří PENÍZE, ne počet transakcí. Dřív stál vedle sebe
+          //  údaj o částce a proužek o něčem úplně jiném.
+          const pct = Math.round(tag.total / maxCastka * 100);
           return `<div style="margin-bottom:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
               <div style="display:flex;align-items:center;gap:8px">
@@ -7571,13 +7621,13 @@ function renderTagy() {
                   onclick="filterByTag('${tag.name}')">#${tag.name}</span>
                 <span style="font-size:.76rem;color:var(--text2)">${tag.count} transakcí</span>
               </div>
-              <span style="font-size:.82rem;font-weight:700;color:var(--expense)">−${fmt(Math.round(tag.total))} Kč</span>
+              <span style="font-size:.82rem;font-weight:700;color:var(--expense)">−${fmtB(Math.round(tag.total))}</span>
             </div>
             <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${pct}%;background:var(--bank);border-radius:3px"></div>
             </div>
           </div>`;
-        }).join('')}
+        }).join(''); })()}
       </div>
     </div>
 
