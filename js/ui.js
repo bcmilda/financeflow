@@ -1,4 +1,4 @@
-// FinanceFlow · v10.66 · ui.js · 2026-09-12
+// FinanceFlow · v10.72 · ui.js · 2026-09-16
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -88,6 +88,10 @@ function renderPage(){
   //  musí následovat hned – log se ale rozšíří, jen když se objem SKUTEČNĚ
   //  změnil, takže to nic nestojí.
   if(typeof fixedLogTouch==='function') fixedLogTouch();
+  //  S22: oficialni inflace z CSU (pres Worker). Neceka se na ni - dobehne na
+  //  pozadi a projevi se pri pristim prekresleni. Bez site se nic nedeje,
+  //  obrazInflaceRef() ma zalohu (osobni inflace, pak pevna 3 %).
+  if(typeof nactiInflaciCSU==='function') nactiInflaciCSU();
   // TODO-093: synchronizuj podpis i po přímém renderu (showPage, changeMonth, save),
   // aby následný debounce zbytečně nepřekresloval.
   if(typeof _dataSig === 'function') _lastRenderSig = _dataSig();
