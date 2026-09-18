@@ -1,4 +1,4 @@
-// FinanceFlow · v10.79 · settings.js · 2026-09-16
+// FinanceFlow · v10.80 · settings.js · 2026-09-16
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,

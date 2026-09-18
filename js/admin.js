@@ -1,4 +1,4 @@
-// FinanceFlow · v10.79 · admin.js · 2026-09-16
+// FinanceFlow · v10.80 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.80',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX: SERVICE WORKER ZŮSTAL NA v10.66. Hlavička i `CACHE_NAME` se od té doby nezměnily – bumpoval jsem je textovou náhradou, jejíž kotva obsahovala konkrétní datum, a jakmile přestala sedět, náhrada TIŠE NIC NEUDĚLALA. Cache shellu se tedy u verzí 10.67–10.79 nevynucovala znovu a prohlížeč mohl servírovat starý app.html. Nyní `ff-shell-v10.80` a bump se po každém kroku OVĚŘUJE, ne jen provede.',
+      '📦 SJEDNOCOVACÍ DÁVKA: všechny soubory změněné od v10.76 mají jednotnou hlavičku v10.80 a hashe v app.html sedí na skutečný obsah. Důvod: stahování v předchozích verzích selhávalo a vznikl zmatek, co je nasazené a co ne.',
+      'ℹ️ Obsah dávky (změny beze změny chování oproti 10.76–10.79): audit schématu + oprava `S.goals` → `S.wishes` v _dataSig (v10.76) · průchod řetězcem, oprava editace účtenky a dvojího započtení hodnocení (v10.77) · Finanční obraz v1 s teploměrovou stupnicí (v10.78) · oprava průvodce mazáním dat a volby „Celkově" v Obrazu (v10.79).',
+    ]
+  },
   {
     verze: 'v10.79',
     datum: '2026-09-16',

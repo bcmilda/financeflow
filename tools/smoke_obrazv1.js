@@ -1,0 +1,168 @@
+// FinanceFlow · v10.78 · tools/smoke_obrazv1.js · 2026-09-16
+// S22 · Finanční obraz v1 – tři nové složky + skládací funkce.
+// Obraz měří ZMĚNU za okno (6M/12M/Celkově), ne úroveň. Neměřitelná složka
+// musí vypadnout z výpočtu i s váhou; nula by lhala, že se nic nezměnilo.
+const fs=require('fs'), vm=require('vm');
+let fails=0;
+const check=(n,f)=>{try{f();console.log('  ✅',n);}catch(e){fails++;console.log('  ❌',n,'→',e.message);}};
+const assert=(c,m)=>{if(!c)throw new Error(m);};
+const noop=()=>{};const el=new Proxy({},{get:(t,k)=>k==='style'?{}:noop});
+const sb={console,Math,Date,JSON,Object,Array,String,Number,Boolean,RegExp,Map,Set,Promise,Intl,
+ Infinity,NaN,isFinite,isNaN,parseInt,parseFloat,setTimeout,clearTimeout,
+ window:{},document:{getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>el,addEventListener:noop,body:el,documentElement:el},
+ localStorage:{getItem:()=>null,setItem:noop,removeItem:noop},navigator:{language:'cs-CZ'},location:{href:'x',pathname:'/'},
+ fetch:()=>Promise.resolve({ok:false}),requestAnimationFrame:c=>setTimeout(c,0),
+ IntersectionObserver:class{observe(){}disconnect(){}},confirm:()=>true,alert:noop};
+sb.window=sb;sb.globalThis=sb;sb.self=sb;vm.createContext(sb);
+['helpers.js','assets.js','debts.js','projects.js'].forEach(f=>{
+  try{vm.runInContext(fs.readFileSync(f,'utf8'),sb,{filename:f});}
+  catch(e){console.error('❌ '+f+': '+e.message);process.exit(2);}});
+sb.S={curMonth:6,curYear:2026,diary:{},payslips:[]};
+vm.runInContext("S=globalThis.S; save=()=>{}; _settings={lang:'cs'};",sb);
+
+//  12 měsíců dat: druhá polovina (novější) má vyšší příjem a nižší výdaje
+function data(opts){
+  const o=Object.assign({incStare:40000,incNove:46000,expStare:30000,expNove:27000,kat:3},opts||{});
+  const tx=[];
+  for(let i=0;i<12;i++){
+    let m=6-i,y=2026; while(m<0){m+=12;y--;}
+    const iso=`${y}-${String(m+1).padStart(2,'0')}-15`;
+    const nove=i<6;
+    tx.push({id:'i'+i,date:iso,type:'income',amount:nove?o.incNove:o.incStare,catId:'v'});
+    const e=nove?o.expNove:o.expStare;
+    //  rozdělit výdaje do `kat` kategorií, první největší
+    const podily=[0.5,0.3,0.2,0.1].slice(0,o.kat);
+    const suma=podily.reduce((a,b)=>a+b,0);
+    podily.forEach((p,j)=>tx.push({id:'e'+i+'_'+j,date:iso,type:'expense',amount:Math.round(e*p/suma),catId:'c'+j}));
+  }
+  return {transactions:tx,debts:[],
+    wallets:o.rezerva===0?[]:[{id:'w',type:'savings',balance:o.rezerva||180000}],
+    assets:[],categories:[{id:'c0',name:'Bydlení'},{id:'c1',name:'Jídlo'},{id:'c2',name:'Doprava'},{id:'c3',name:'Zábava'}],
+    shareSettings:{}};
+}
+const D=data();
+vm.runInContext("getData=()=>globalThis.__D;",sb);
+const volej=(fn,d,n)=>{sb.__D=d||D; return vm.runInContext(`${fn}(__D,${n||6})`,sb);};
+
+console.log('── 💰 Reálný růst příjmu ──');
+check('spočítá roční tempo z porovnání dvou oken',()=>{
+  const r=volej('obrazRealnyRustPrijmu');
+  assert(r.avail,'nedostupné: '+r.duvod);
+  //  46000/40000 = +15 % za 6 měsíců → ×2 = +30 % ročně
+  assert(Math.abs(r.hruby-30)<0.5,'hrubý růst '+r.hruby+' místo ~30');
+});
+check('odečte inflaci (bez účtenek pevná 3 %)',()=>{
+  const r=volej('obrazRealnyRustPrijmu');
+  assert(Math.abs(r.realny-(r.hruby-r.inflace))<0.01,'neodečetlo inflaci');
+  assert(r.inflace===3,'záloha není 3 %, ale '+r.inflace);
+});
+check('pokles příjmu dá záporné body',()=>{
+  const r=volej('obrazRealnyRustPrijmu',data({incNove:34000}));
+  assert(r.sub<0,'body '+r.sub);
+});
+check('bez dost měsíců je NEMĚŘITELNÝ, ne nula',()=>{
+  const d={transactions:[{id:'a',date:'2026-07-15',type:'income',amount:40000,catId:'v'}],
+    debts:[],wallets:[],assets:[],categories:[],shareSettings:{}};
+  const r=volej('obrazRealnyRustPrijmu',d);
+  assert(r.avail===false,'tváří se jako měřitelný');
+  assert(/chybí dost měsíců/.test(r.duvod||''),'chybí vysvětlení');
+});
+
+console.log('\n── 🛒 Dopad životního stylu ──');
+check('nižší výdaje prodlouží dobu, kterou rezerva vydrží',()=>{
+  const r=volej('obrazDopadStylu');
+  assert(r.avail,'nedostupné: '+r.duvod);
+  assert(r.zmena>0,'změna '+r.zmena+' – pokles výdajů měl rezervu prodloužit');
+  assert(r.sub>0,'body '+r.sub);
+});
+check('vyšší výdaje ji zkrátí a dají mínus',()=>{
+  const r=volej('obrazDopadStylu',data({expNove:36000}));
+  assert(r.zmena<0,'změna '+r.zmena);
+  assert(r.sub<0,'body '+r.sub);
+});
+check('bez rezervy je NEMĚŘITELNÝ (není co krátit)',()=>{
+  const r=volej('obrazDopadStylu',data({rezerva:0}));
+  assert(r.avail===false,'počítá i bez rezervy');
+});
+
+console.log('\n── 📊 Koncentrační riziko ──');
+check('najde největší kategorii a její podíl',()=>{
+  const r=volej('obrazKoncentrace');
+  assert(r.avail,'nedostupné: '+r.duvod);
+  assert(Math.abs(r.podil-50)<1,'podíl '+r.podil+' místo ~50');
+  assert(r.kategorie==='Bydlení','kategorie '+r.kategorie);
+});
+check('vyšší koncentrace = horší body',()=>{
+  const nizka=volej('obrazKoncentrace',data({kat:4}));
+  const vysoka=volej('obrazKoncentrace',data({kat:3}));
+  assert(vysoka.sub<nizka.sub,'koncentrovanější dostal víc bodů');
+});
+check('pod třemi kategoriemi se neměří (jinak trestá za netřídění)',()=>{
+  const r=volej('obrazKoncentrace',data({kat:2}));
+  assert(r.avail===false,'měří i se dvěma kategoriemi');
+});
+
+console.log('\n── Skládací funkce ──');
+check('vrátí hodnotu kolem základu 100 na škále 0–200',()=>{
+  const v=volej('computeObrazV1');
+  assert(v,'nic nevrátilo');
+  assert(v.zaklad===100 && v.max===200,'škála '+v.zaklad+'/'+v.max);
+  assert(v.hodnota>=0,'hodnota '+v.hodnota);
+});
+check('zlepšení dá víc než 100, zhoršení míň',()=>{
+  const dobry=volej('computeObrazV1');
+  const spatny=volej('computeObrazV1',data({incNove:34000,expNove:36000}));
+  assert(dobry.hodnota>100,'zlepšení dalo '+dobry.hodnota);
+  assert(spatny.hodnota<100,'zhoršení dalo '+spatny.hodnota);
+});
+check('KLÍČOVÉ · neměřitelná složka vypadne i s váhou',()=>{
+  const v=volej('computeObrazV1',data({rezerva:0}));
+  //  styl (25 %) i jmění (30 %, chybí historie) vypadnou → zbývá 45 %
+  const zive=v.slozky.filter(s=>s.avail);
+  const soucet=zive.reduce((a,s)=>a+s.vaha,0);
+  assert(v.pokryti===soucet,'pokrytí '+v.pokryti+' ≠ součet vah živých '+soucet);
+  assert(v.slozky.some(s=>!s.avail && s.sub===null),'neměřitelná složka dostala body');
+});
+check('pod prahem pokrytí se známka NEUKÁŽE',()=>{
+  const d={transactions:[{id:'a',date:'2026-07-15',type:'expense',amount:1000,catId:'c0'}],
+    debts:[],wallets:[],assets:[],categories:[{id:'c0',name:'X'}],shareSettings:{}};
+  const v=volej('computeObrazV1',d);
+  assert(v.hodnota===null,'vydalo číslo '+v.hodnota+' bez podkladu');
+  assert(/nemám co porovnat/.test(v.znamka.label),'známka '+v.znamka.label);
+});
+check('delší okno dá jiné číslo (a to je správně)',()=>{
+  const a=volej('computeObrazV1',D,6);
+  const b=volej('computeObrazV1',D,12);
+  assert(a && b,'nespočítalo');
+  assert(a.mesicu===6 && b.mesicu===12,'okno se nepropsalo');
+});
+check('známka odpovídá hodnotě podle konfigurace',()=>{
+  //  Neporovnávat proti vlastnímu slovníku – ten se rozejde s _OBRAZ_V1.
+  //  Ověřit rovnou proti prahům v konfiguraci: to je jediný zdroj pravdy.
+  const v=volej('computeObrazV1');
+  assert(v.znamka && v.znamka.label,'chybí známka');
+  const znamky=vm.runInContext('_OBRAZ_V1.znamky',sb);
+  const ocekavana=znamky.find(z=>v.hodnota>=z.min);
+  assert(v.znamka.label===ocekavana.label,
+    'hodnota '+v.hodnota+' dala „'+v.znamka.label+'", podle prahů má být „'+ocekavana.label+'"');
+});
+check('hranice pásem sedí na konfiguraci',()=>{
+  const znamky=vm.runInContext('_OBRAZ_V1.znamky',sb);
+  assert(znamky[0].min===170,'nejvyšší pásmo začíná na '+znamky[0].min);
+  const drzi=znamky.find(z=>z.min===95);
+  assert(drzi && /krok/i.test(drzi.label),'chybí úzké pásmo „Držíš krok"');
+});
+
+console.log('\n── Teploměr a karta ──');
+const src=fs.readFileSync('projects.js','utf8');
+check('stupnice NEOŘEZÁVÁ – hodnota nad 200 se přizná',()=>{
+  assert(/nad běžným pásmem/.test(src),'přetečení se nepřizná');
+});
+check('u známky je vidět okno',()=>{
+  assert(/_obrazV1Card\(D, months, _winTxt\)/.test(src),'okno se do karty nepředává');
+});
+check('nemění se význam staré proměnné score',()=>{
+  assert(/const score = _sc\.score;/.test(src),'stará proměnná byla přepsána – tichá záměna 0–100 za 0–200');
+});
+console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ OBRAZ v1 OVĚŘEN');
+process.exit(fails?1:0);

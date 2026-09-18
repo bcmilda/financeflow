@@ -1,4 +1,4 @@
-// FinanceFlow · v10.73 · receipts.js · 2026-09-16
+// FinanceFlow · v10.80 · receipts.js · 2026-09-16
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3319,19 +3319,36 @@ function syncReceiptToTransactions(r) {
   const linked = S.transactions.filter(t =>
     t.receiptDate === r.date && (t.receiptStore||'').toLowerCase() === (r.store||'').toLowerCase());
   if(!linked.length) return;
-  // Pro každou propojenou transakci aktualizuj tagy podle jejích položek
+  //  FIX (audit S22): DVĚ VADY, OBĚ DŮSLEDEK PŘECHODU NA JEDNU TRANSAKCI (v10.73).
+  //
+  //  1) Filtr `it.itemCatId === t.catId` pocházel z doby, kdy každá transakce
+  //     nesla JEN položky své kategorie. Dnes je transakce jedna a nese
+  //     všechny – po editaci účtenky by si tedy ponechala jen položky hlavní
+  //     kategorie a zbytek rozpadu by zmizel. U Kauflandu se čtyřiceti
+  //     položkami by po jedné úpravě zbyly třeba dvě.
+  //
+  //  2) Přestavěné položky zahazovaly `itemCatId` a `itemSubcat`. Od v10.73
+  //     na nich kategorie ŽIJÍ – editace účtenky by je smazala a rozpad by
+  //     zůstal beze smyslu.
+  //
+  //  Nově: jedna účtenka = jedna transakce, takže se přenášejí VŠECHNY položky
+  //  se VŠEMI poli. Přenáší se i částka, jinak by se transakce po úpravě
+  //  účtenky rozešla s tím, co je na dokladu.
   linked.forEach(t => {
-    // Najdi položky které patří této transakci (podle kategorie transakce)
-    const matchItems = (r.items||[]).filter(it => {
-      // Pokud transakce má catId, vyber položky té kategorie; jinak všechny
-      return !t.catId || it.itemCatId === t.catId;
-    });
-    const itemsForTx = matchItems.length ? matchItems : (r.items||[]);
-    // Tagy z těchto položek
+    const itemsForTx = (r.items||[]);
     const tagSet = [...new Set(itemsForTx.map(it=>it.tag).filter(Boolean))];
-    if(tagSet.length) t.tags = tagSet.join(' ');
-    // Aktualizuj receiptItems (pro expand v transakci)
-    t.receiptItems = itemsForTx.map(it=>({name:it.name, price:it.price, qty:it.qty, unit:it.unit||'ks', lineTotal:it.lineTotal, tag:it.tag||''}));
+    t.tags = tagSet.join(' ');          // i prázdné – smazaný tag musí zmizet
+    t.receiptItems = itemsForTx.map(it=>({
+      name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
+      lineTotal: (it.lineTotal != null && isFinite(it.lineTotal))
+        ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
+      tag: it.tag||'',
+      itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+    }));
+    if(r.total != null && isFinite(r.total) && r.total > 0){
+      const nova = Math.round(r.total*100)/100;
+      t.amount = nova; t.amt = nova;
+    }
   });
 }
 window.syncReceiptToTransactions = syncReceiptToTransactions;

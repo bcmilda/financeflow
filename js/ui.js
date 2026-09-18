@@ -1,4 +1,4 @@
-// FinanceFlow · v10.72 · ui.js · 2026-09-16
+// FinanceFlow · v10.80 · ui.js · 2026-09-16
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -124,7 +124,13 @@ function _dataSig(){
       dsum: (S.debts||[]).reduce((s,x)=>s+(x.remaining||0),0),
       // FIX (S11): wallet balances + virtuální cíle + tagy/subcat (jinak se změny neprojeví)
       wsum: (S.wallets||[]).reduce((s,w)=>s+(w.balance||0),0),
-      gsum: (S.goals||[]).reduce((s,g)=>s+(g.saved||0)+(g.target||0),0),
+      //  FIX (audit S22): DŘÍV `S.goals` – POLE, KTERÉ V APLIKACI NEEXISTUJE.
+      //  Byl to jediný výskyt v celém kódu; virtuální cíle žijí v `S.wishes`
+      //  (savedAmount, done, doneAt – viz nakup.js). `gsum` proto vycházelo
+      //  vždycky 0 a do podpisu nepřispívalo ničím, takže úprava cíle nemusela
+      //  překreslit stránku: „upravil jsem a nic se nestalo, dokud jsem
+      //  nepřepnul jinam".
+      gsum: (S.wishes||[]).reduce((s,w)=>s+(w.savedAmount||0)+(w.targetAmount||0)+(w.monthlyTarget||0)+(w.done?1:0),0),
       tsum: (S.transactions||[]).reduce((s,t)=>s+((Array.isArray(t.tags)?t.tags.join():t.tags||'')+(t.subcat||'')).length,0),
     });
   } catch { return String(Date.now()); }
