@@ -1,4 +1,4 @@
-// FinanceFlow · v10.75 · admin.js · 2026-09-16
+// FinanceFlow · v10.79 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,55 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.79',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan): MAZÁNÍ DAT ŠLO JEN NAPOPRVÉ. Průvodce má tři kroky a stav drží `_deleteCurrentStep`. Funkce openDeleteDataModal() vracela do výchozí polohy jen VIDITELNOST kroků, ne počítadlo ani tlačítko. Po zavření uprostřed tedy zůstalo počítadlo na 2 nebo 3 → druhý pokus přeskočil nabídku zálohy; a `deleteNextBtn.onclick` přepsaný na confirmDeleteAllData → třetí pokus rovnou volal potvrzení nad prázdným polem, které nebylo vidět, vypsal „Zadej přesně SMAZAT" a vrátil uživatele na úvodní obrazovku. Přesně to Milan popsal.',
+      '🔄 Nová `resetDeleteWizard()` vrací počítadlo, tlačítko, vstupní pole i viditelnost kroků. Volá se na KAŽDÉ cestě ven (křížek i Zrušit), ne jen při otevření. Vstupní pole se navíc vyprazdňuje – zůstat tam předvyplněné SMAZAT znamená být jeden klik od nevratného smazání.',
+      '🛟 Prázdné pole už uživatele z průvodce nevyhodí: když krok 3 není vidět, zobrazí se, a kurzor skočí do pole. Dostat výtku za nevyplněné pole, do kterého není kam psát, je slepá ulička.',
+      '💾 U nabídky zálohy přibylo „Záloha je nepovinná — pokračovat můžeš i bez ní". Milan hlásil, že nabídka nešla odmítnout.',
+      '🪟 FIX (Obraz): U VOLBY „CELKOVĚ" NEVZNIKLO ŽÁDNÉ SKÓRE. Složky porovnávají okno s předchozím stejně dlouhým, jenže „Celkově" sahá až k nejstarší transakci – před ním tedy není nic, všechny složky vyjdou jako neměřitelné a Obraz neukáže vůbec nic. Nově se okno zkrátí nejvýš na POLOVINU dostupné historie, takže „Celkově" znamená „novější polovina proti starší" – přirozený význam celkové změny. U 6M a 12M se nic nemění, dokud je historie dost dlouhá.',
+      '🧪 tools/smoke_smazani.js – 8 testů průvodce mazáním (fiktivní DOM, skutečné mazání se v testu nespouští).',
+    ]
+  },
+  {
+    verze: 'v10.78',
+    datum: '2026-09-16',
+    zmeny: [
+      '🖼️ FINANČNÍ OBRAZ v1 – nová karta s teploměrovou stupnicí. Dopsány tři chybějící složky (Net Worth Momentum byl hotový z v10.67) a skládací funkce computeObrazV1(). Váhy 30/25/30/15 podle rozhodnutí Milana.',
+      '💰 REÁLNÝ RŮST PŘÍJMU – porovnává PRŮMĚR za okno s průměrem za předchozí stejně dlouhé okno, ne první vs. poslední měsíc (jeden výkyv by rozhodl o celé metrice). Přepočítává se na roční tempo, aby 6M a 12M dávaly srovnatelná čísla, a odečítá se inflace z obrazInflaceRef() (osobní z účtenek → ČSÚ → 3 %).',
+      '🛒 DOPAD ŽIVOTNÍHO STYLU – o kolik měsíců se změnila doba, kterou rezerva uživí. POZOR K VÝKLADU: appka nedrží historii rezervy (jen čisté jmění od v10.67), takže metrika izoluje vliv VÝDAJŮ: „kdyby rezerva zůstala stejná, o kolik se zkrátila kvůli dražšímu životu". To je přesně to, co má název slibovat, a nemíchá se do toho, kolik se povedlo odložit (od toho je Net Worth Momentum).',
+      '📊 KONCENTRAČNÍ RIZIKO – podíl největší kategorie na výdajích. Jediná složka měřící STAV, ne změnu (vědomá výjimka, rozhodl Milan): stabilních 60 % v jedné kategorii je zranitelnost bez ohledu na to, že se nic nehnulo. Pod třemi kategoriemi se NEMĚŘÍ – kdo má dvě, má vždycky „vysoký podíl" a byl by trestán za to, že si výdaje netřídí.',
+      '🌡️ TEPLOMĚROVÁ STUPNICE (přání Milana) místo kruhu: běžné pásmo 0–200 je vyznačené ryskami po 50 bodech se zvýrazněným základem 100 („nic se nezměnilo"), a hodnota, která pásmo přesáhne, se PŘIZNÁ místo aby se ořízla. Stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních deset bodů nikdo neviděl.',
+      '🪟 U známky je vždycky vidět OKNO (6M / 12M / Celkově). Delší okno znamená větší změny, což je správně, ale samo číslo to neprozradí – bez popisku by si uživatel přepnul rozsah, uviděl jiné číslo a bral to jako chybu.',
+      '🚫 Neměřitelná složka vypadne z výpočtu I S VAHOU, ta se rozpustí mezi zbylé. Pod prahem pokrytí (40 %) nebo pod dvěma měřitelnými složkami se známka neukáže vůbec – u metriky ZMĚNY je „nemám co porovnat" častý a poctivý stav.',
+      '⚠️ Stará karta „Cesta finančního zdraví" ZŮSTÁVÁ vedle nové. Proměnná `score` (0–100) je použitá na desítkách míst níž a tichá záměna za škálu 0–200 je přesně ten druh chyby, který se v téhle session lovil. Retire až po srovnání obou čísel na reálných datech.',
+      '🧪 tools/smoke_obrazv1.js – 20 testů. Známky se ověřují proti _OBRAZ_V1, ne proti vlastnímu slovníku v testu (ten by se s konfigurací časem rozešel).',
+    ]
+  },
+  {
+    verze: 'v10.77',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔗 PRŮCHOD ŘETĚZCEM účtenka → transakce → editace → statistiky. Nalezeny dvě vady, OBĚ důsledek přechodu na jednu transakci (v10.73), který jsem nedotáhl.',
+      '🐛 FIX: EDITACE ÚČTENKY V HISTORII NIČILA ROZPAD. syncReceiptToTransactions() filtrovala položky podle `it.itemCatId === t.catId` – logika z doby, kdy každá transakce nesla jen položky své kategorie. Dnes je transakce jedna a nese všechny, takže by si po editaci ponechala JEN položky hlavní kategorie: u Kauflandu se čtyřiceti položkami by zbyly třeba dvě. Navíc se přestavbou zahazovaly `itemCatId` a `itemSubcat`, na kterých od v10.73 kategorie ŽIJÍ – rozpad by zůstal beze smyslu. Nově se přenášejí všechny položky se všemi poli, včetně částky (jinak se transakce po úpravě rozejde s dokladem) a včetně smazaných tagů.',
+      '🐛 FIX: DVOJÍ ZAPOČTENÍ U HODNOCENÍ ÚTRAT. Sčítaly se hodnocené TRANSAKCE i hodnocené POLOŽKY účtenek – kdo označil nákup za zbytečný a k tomu ohodnotil pár položek uvnitř, započítal tytéž peníze dvakrát. Po v10.73 je to citelnější: účtenka je jedna transakce v plné výši, takže překryv není částečný, ale úplný. Přednost mají položky (jsou konkrétnější); transakce, jejíž účtenka má aspoň jednu hodnocenou položku, se do součtu nebere.',
+      '✅ Ověřeno, že Inflace i COICOP čtou `S.receipts`, ne rozpad na transakci – na změnách v transakcích tedy nezávisí a dvojí započtení mezi účtenkami a transakcemi nehrozí.',
+      '🤝 ROZHODNUTÍ (Milan): partner v plném sdílení vidí i rozpad účtenky, nejen částku. Zůstává beze změny.',
+      '🧪 tools/smoke_retezec.js – 13 testů přes celý řetězec.',
+    ]
+  },
+  {
+    verze: 'v10.76',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔍 AUDIT SYNCHRONIZAČNÍHO SCHÉMATU – projito všech 37 polí S.* napříč 41 moduly proti ukládacím schématům, _DW_META a seznamu sdílených. Výsledek je lepší, než jsem čekal: sdílení partnerovi je UZAVŘENÝ povolovací seznam (10 sdílených + 15 vyjmenovaných nesdílených = přesně 25 klíčů _DW_META, nic nepropadlo bez rozhodnutí) a načítání zpět je samoopravné (přihlásí se i ke klíčům mimo _DW_META a nahlásí je do konzole).',
+      '🐛 FIX: `_dataSig()` v ui.js sledoval `S.goals` – POLE, KTERÉ V APLIKACI NEEXISTUJE. Byl to jediný výskyt v celém kódu; virtuální cíle žijí v `S.wishes` (savedAmount, targetAmount, monthlyTarget, done). Kontrolní součet tedy vycházel vždycky 0 a úprava cíle nemusela překreslit stránku – projevovalo se to jako „upravil jsem cíl a nic se nestalo, dokud jsem nepřepnul jinam".',
+      '🧪 tools/smoke_schema.js – audit, který se opakuje SÁM. Ručně provedený audit se podruhé neudělá; tenhle běží s každým spuštěním testů a spadne, jakmile přibude pole bez cesty do Firebase, klíč bez rozhodnutí o sdílení nebo duch v podpisu dat. Ověřeno, že obě zavedené chyby skutečně chytí, ne že je jen zelený.',
+      '⚠️ K ROZHODNUTÍ (nezměněno): `_dwTxObj()` posílá partnerovi CELÉ objekty transakcí, takže v režimu plného sdílení vidí i `receiptItems` – kompletní rozpis každé účtenky. Před v10.73 byl rozpis roztroušený po transakcích podle kategorií, teď je celý na jedné. Není to chyba (nastavení se jmenuje „plné sdílení"), ale je rozdíl mezi „nechal jsem 1 490 Kč v Kauflandu" a „koupil jsem konkrétní léky a alkohol". Viz AUDIT-schema-S22.md.',
+    ]
+  },
   {
     verze: 'v10.75',
     datum: '2026-09-16',

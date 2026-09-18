@@ -1,4 +1,4 @@
-// FinanceFlow · v10.72 · projects.js · 2026-09-16
+// FinanceFlow · v10.79 · projects.js · 2026-09-16
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -949,7 +949,25 @@ function reportRatingSummary(D, m, y) {
     if (String(r.date || '').slice(0, 7) !== ym) return;
     (r.items || []).forEach(it => { if (it && it.priority) items.push(it); });
   });
-  const ratedTx = txs.filter(t => t.priority);
+  //  FIX (audit S22): DVOJÍ ZAPOČTENÍ U HODNOCENÍ ÚTRAT.
+  //  Sčítaly se hodnocené TRANSAKCE i hodnocené POLOŽKY účtenek. Když uživatel
+  //  označil nákup v Kauflandu za zbytečný (1 490 Kč) a k tomu ohodnotil pár
+  //  položek uvnitř, započítaly se tytéž peníze dvakrát. Po v10.73 je to
+  //  citelnější: účtenka je teď JEDNA transakce v plné výši, takže překryv
+  //  není částečný, ale úplný.
+  //  Přednost mají POLOŽKY – jsou konkrétnější. Transakce, jejíž účtenka má
+  //  aspoň jednu hodnocenou položku, se do součtu nebere.
+  const _hodnocenoVUctence = new Set();
+  (S.receipts || []).forEach(r => {
+    if (String(r.date || '').slice(0, 7) !== ym) return;
+    if (!(r.items || []).some(it => it && it.priority)) return;
+    _hodnocenoVUctence.add(`${r.date}|${String(r.store||'').toLowerCase()}`);
+  });
+  const ratedTx = txs.filter(t => {
+    if (!t.priority) return false;
+    const klic = `${t.receiptDate}|${String(t.receiptStore||'').toLowerCase()}`;
+    return !_hodnocenoVUctence.has(klic);
+  });
   const all = ratedTx.map(t => ({ p: t.priority, a: Math.abs(txCZK(t, D)), n: t.name || 'Bez názvu' }))
     .concat(items.map(it => ({ p: it.priority,
       a: (typeof lineAmt === 'function') ? lineAmt(it) : (it.price || 0) * (it.qty || 1),
@@ -3776,6 +3794,122 @@ function computeObrazSubmetrics(series){
   };
 }
 
+
+// ══════════════════════════════════════════════════════
+//  S22: KARTA FINANČNÍHO OBRAZU v1 – TEPLOMĚROVÁ STUPNICE
+//  Stupnice místo kruhu (přání Milana): běžné pásmo 0–200 je vyznačené a
+//  hodnota, která ho přesáhne, jde ZA NĚJ místo aby se ořízla. Stará škála
+//  50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních
+//  deset bodů nikdo nikdy neviděl.
+//
+//  Vedle známky je vždycky VIDĚT OKNO (6M / 12M / Celkově). Bez toho by si
+//  uživatel přepnul rozsah, uviděl jiné číslo a bral to jako chybu – delší
+//  okno znamená větší změny, což je správně, ale samo číslo to neprozradí.
+// ══════════════════════════════════════════════════════
+function _obrazTeplomer(v1){
+  const CFG = (typeof _OBRAZ_V1 !== 'undefined') ? _OBRAZ_V1 : null;
+  if(!CFG) return '';
+  const min = CFG.min, max = CFG.max;
+  const h = (v1.hodnota == null) ? CFG.zaklad : v1.hodnota;
+  const zaNormalem = h > max;
+  //  Nad rámec stupnice: ručička jde za hranici, ale drží se v kresbě.
+  const pct = Math.max(0, Math.min(100, (Math.min(h, max) - min) / (max - min) * 100));
+  const barva = v1.hodnota == null ? '#a8aec8' : v1.znamka.color;
+
+  //  Dělicí rysky po 50 bodech + zvýrazněný základ (100 = „nic se nezměnilo").
+  const rysky = [0, 50, 100, 150, 200].map(b => {
+    const l = (b - min) / (max - min) * 100;
+    const zaklad = b === CFG.zaklad;
+    return `<div style="position:absolute;left:${l}%;top:0;bottom:0;width:${zaklad?2:1}px;
+      background:${zaklad?'rgba(255,255,255,.55)':'rgba(255,255,255,.18)'}"></div>`;
+  }).join('');
+
+  return `
+  <div style="margin:10px 0 4px">
+    <div style="position:relative;height:16px;background:var(--surface3);border-radius:99px;overflow:hidden;border:1px solid var(--border)">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:${barva};opacity:.85"></div>
+      ${rysky}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#8b93ad;margin-top:3px">
+      <span>0 · propad</span><span>100 · beze změny</span><span>200 · posun</span>
+    </div>
+    ${zaNormalem ? `<div style="font-size:.7rem;color:var(--income);margin-top:5px">
+      🎉 <b>${h}</b> je nad běžným pásmem — takový posun se stupnice už nevejde.</div>` : ''}
+  </div>`;
+}
+
+function _obrazV1Card(D, mesicu, oknoTxt){
+  if(typeof computeObrazV1 !== 'function') return '';
+  let v1;
+  try{ v1 = computeObrazV1(D, mesicu); }catch(e){ console.warn('[obraz v1]', e); return ''; }
+  if(!v1) return '';
+
+  const slozkyHTML = v1.slozky.map(s => {
+    if(!s.avail) return `
+      <div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);opacity:.6">
+        <span style="font-size:.78rem;flex:1;min-width:0">${s.nazev}</span>
+        <span style="font-size:.7rem;color:#a8aec8">nezměřeno</span>
+      </div>
+      ${s.duvod ? `<div style="font-size:.66rem;color:#8b93ad;padding:0 0 6px;line-height:1.45">${s.duvod}</div>` : ''}`;
+    const kladne = s.sub >= 0;
+    const sirka = Math.min(50, Math.abs(s.sub) / 2);
+    return `
+      <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:.78rem;flex:1;min-width:0">${s.nazev}</span>
+          <span style="font-size:.64rem;color:#8b93ad">${s.vaha} %</span>
+          <span style="font-family:Syne,sans-serif;font-weight:800;font-size:.82rem;min-width:46px;text-align:right;
+            color:${kladne?'var(--income)':'var(--expense)'}">${kladne?'+':''}${s.sub}</span>
+        </div>
+        <div style="position:relative;height:5px;background:var(--surface3);border-radius:99px;margin-top:4px">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.3)"></div>
+          <div style="position:absolute;top:0;bottom:0;border-radius:99px;background:${kladne?'var(--income)':'var(--expense)'};
+            ${kladne?`left:50%;width:${sirka}%`:`right:50%;width:${sirka}%`}"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const nwm = (v1.slozky.find(s => s.klic === 'jmeni') || {}).detail;
+  const nwmText = (nwm && typeof obrazNWMText === 'function') ? obrazNWMText(nwm) : '';
+  const prijem = (v1.slozky.find(s => s.klic === 'prijem') || {}).detail;
+
+  return `
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:.82rem;font-weight:700">🖼️ Finanční obraz</span>
+        <span style="font-size:.66rem;color:#a8aec8">${oknoTxt || ''}</span>
+      </div>
+
+      ${v1.hodnota === null ? `
+        <div style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:#a8aec8;margin:8px 0 2px">
+          ${v1.znamka.emoji} ${v1.znamka.label}</div>
+        <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
+          Obraz měří, kam se hýbeš — potřebuje tedy dva body v čase.
+          Zatím umím změřit ${v1.pokryti} % z toho, co do něj patří.
+          ${v1.chybi.length ? `Chybí: ${v1.chybi.join(', ')}.` : ''}</div>`
+      : `
+        <div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 0;flex-wrap:wrap">
+          <span style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${v1.znamka.color}">${v1.hodnota}</span>
+          <span style="font-size:.9rem;color:${v1.znamka.color}">${v1.znamka.emoji} ${v1.znamka.label}</span>
+        </div>
+        ${_obrazTeplomer(v1)}
+        ${v1.bonus > 0 ? `<div style="font-size:.7rem;color:var(--income);margin-top:2px">
+          💪 Práce navíc: +${v1.bonus} bodů${v1.bonusDetail && v1.bonusDetail.prumer!=null?` (Ø ${v1.bonusDetail.prumer} h/měs)`:''}</div>` : ''}
+        ${v1.pokryti < 100 ? `<div style="font-size:.68rem;color:#8b93ad;margin-top:5px;line-height:1.5">
+          Podloženo z ${v1.pokryti} % — ${v1.chybi.join(', ')} se zatím nedá změřit, tak se do hodnocení nepočítá.</div>` : ''}
+      `}
+
+      <div style="margin-top:10px">${slozkyHTML}</div>
+
+      ${nwmText ? `<div style="font-size:.72rem;color:#a8aec8;line-height:1.55;margin-top:8px">${nwmText}</div>` : ''}
+      ${prijem && prijem.avail ? `<div style="font-size:.68rem;color:#8b93ad;line-height:1.5;margin-top:5px">
+        Růst příjmu ${prijem.hruby>=0?'+':''}${prijem.hruby.toFixed(1)} % ročně, po očištění o inflaci
+        ${prijem.realny>=0?'+':''}${prijem.realny.toFixed(1)} %. Reference: ${prijem.popisInflace}.</div>` : ''}
+    </div>
+  </div>`;
+}
+
 function renderObraz() {
   const el = document.getElementById('obrazContent'); if(!el) return;
   const D = getData();
@@ -3939,6 +4073,8 @@ function renderObraz() {
   const _prev = computeObrazScoreBack(D, series.length, _back);
   const _dScore = _prev.hasData ? (score - _prev.score) : null;
   const _wfMax = 15;
+  const obrazV1Card = _obrazV1Card(D, months, _winTxt);
+
   const journeyCard = `
     <div class="card" style="margin-bottom:12px">
       <div class="card-body" style="padding:14px">
@@ -4506,6 +4642,7 @@ function renderObraz() {
       <div style="font-size:.76rem;color:#a8aec8">Skóre: <strong style="color:${trendColor}">${score}/100</strong></div>
     </div>
 
+    ${obrazV1Card}
     ${journeyCard}
 
     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:18px 0 10px">📈 2 · Hlavní metriky a jejich podmetriky</div>
@@ -5944,6 +6081,195 @@ function obrazInflaceRef(){
            popis: `odhad ${OBRAZ_INFLACE_FIX} % – naskenuj účtenky a appka bude počítat tvoji vlastní inflaci` };
 }
 
+
+// ══════════════════════════════════════════════════════
+//  S22: SLOŽKY FINANČNÍHO OBRAZU v1 (_OBRAZ_V1 v helpers.js)
+//  Obraz měří ZMĚNU za okno (6M / 12M / Celkově), ne úroveň – tím se liší od
+//  Finančního skóre. Každá složka vrací −100..+100 nebo `avail:false`, když ji
+//  změřit nelze; neměřitelná složka pak vypadne z váženého průměru i s váhou
+//  (nula by lhala, že se nic nezměnilo).
+// ══════════════════════════════════════════════════════
+
+//  ÚČINNÁ DÉLKA SROVNÁVACÍHO OKNA.
+//  Složky porovnávají okno s PŘEDCHOZÍM stejně dlouhým, takže potřebují
+//  dvojnásobek historie. Milan na to upozornil u volby „Celkově": tam okno
+//  sahá až k nejstarší transakci, před ním tedy není nic, všechny složky
+//  vyjdou jako neměřitelné a Obraz neukáže vůbec nic.
+//  Řešení: okno se zkrátí nejvýš na POLOVINU dostupné historie, takže
+//  „Celkově" znamená „novější polovina proti starší" – přirozený význam
+//  celkové změny. U 6M a 12M se nic nemění, dokud je historie dost dlouhá.
+function _obrazOkno(D, n){
+  const ts = (D.transactions||[]).map(t=>new Date(t.date).getTime()).filter(x=>!isNaN(x));
+  if(!ts.length) return n;
+  const nej = new Date(Math.min(...ts));
+  const rozsah = (S.curYear - nej.getFullYear())*12 + (S.curMonth - nej.getMonth()) + 1;
+  return Math.max(2, Math.min(n, Math.floor(rozsah/2)));
+}
+
+//  Průměrný měsíční příjem / výdaj za `n` měsíců počínaje `odsun` měsíců zpět.
+function _obrazPrumer(D, n, odsun, druh){
+  let soucet = 0, mesicu = 0;
+  for(let i = odsun; i < odsun + n; i++){
+    let m = S.curMonth - i, y = S.curYear; while(m < 0){ m += 12; y--; }
+    const txs = getTx(m, y, D);
+    const v = (druh === 'inc') ? incSum(txs, D) : expSum(txs, D);
+    if(v > 0){ soucet += v; mesicu++; }
+  }
+  return { prumer: mesicu ? soucet/mesicu : 0, mesicu };
+}
+
+//  💰 REÁLNÝ RŮST PŘÍJMU – o kolik vzrostl příjem PO očištění o inflaci.
+//  Porovnává průměr za okno s průměrem za PŘEDCHOZÍ stejně dlouhé okno
+//  (ne první vs. poslední měsíc – jeden výkyv by rozhodl o celé metrice).
+//  Výsledek se přepočte na roční tempo, aby 6M a 12M dávaly srovnatelná čísla.
+function obrazRealnyRustPrijmu(D, mesicu){
+  D = D || getData();
+  const n = _obrazOkno(D, mesicu || 6);
+  const ted = _obrazPrumer(D, n, 0, 'inc');
+  const drive = _obrazPrumer(D, n, n, 'inc');
+  //  Aspoň dva měsíce s příjmem na obou stranách – z jednoho měsíce se trend
+  //  určit nedá a z nuly se procento nepočítá vůbec.
+  if(ted.mesicu < 2 || drive.mesicu < 2 || drive.prumer <= 0){
+    return { avail:false, duvod:'Na porovnání příjmu chybí dost měsíců s daty.' };
+  }
+  const rustHruby = (ted.prumer - drive.prumer) / drive.prumer * 100;
+  const rocni = rustHruby * (12 / n);                 // na roční tempo
+  const ref = (typeof obrazInflaceRef === 'function') ? obrazInflaceRef() : { hodnota:3, popis:'' };
+  const realny = rocni - (ref.hodnota || 0);
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.prijem, realny),
+    realny, hruby: rocni, inflace: ref.hodnota, zdrojInflace: ref.zdroj, popisInflace: ref.popis,
+  };
+}
+
+//  🛒 DOPAD ŽIVOTNÍHO STYLU – o kolik měsíců se změnila doba, kterou uživatele
+//  rezerva uživí.
+//  DŮLEŽITÉ K VÝKLADU: appka nedrží historii REZERVY (jen čisté jmění od
+//  v10.67). Metrika proto izoluje vliv VÝDAJŮ: „kdyby rezerva zůstala stejná,
+//  o kolik měsíců se zkrátila kvůli dražšímu životu". To je přesně to, co má
+//  název slibovat – jestli výdaje předbíhají příjem – a nemíchá se do toho,
+//  kolik se zrovna povedlo odložit (od toho je Net Worth Momentum).
+function obrazDopadStylu(D, mesicu){
+  D = D || getData();
+  const n = _obrazOkno(D, mesicu || 6);
+  const ted = _obrazPrumer(D, n, 0, 'exp');
+  const drive = _obrazPrumer(D, n, n, 'exp');
+  if(ted.mesicu < 2 || drive.mesicu < 2 || ted.prumer <= 0 || drive.prumer <= 0){
+    return { avail:false, duvod:'Na porovnání výdajů chybí dost měsíců s daty.' };
+  }
+  //  Rezerva: spořicí/investiční peněženky + rezervní aktiva (jako S3 ve skóre).
+  const wal = (D.wallets||[]).filter(w=>w.type==='savings'||w.type==='investment');
+  let rezerva = wal.reduce((a,w)=>a+(w.balance||0),0);
+  if(typeof assetTier === 'function'){
+    rezerva += (D.assets||[]).filter(a=>assetTier(a)==='reserve').reduce((a,x)=>a+(x.value||0),0);
+  }
+  if(rezerva <= 0){
+    return { avail:false, duvod:'Bez rezervy nejde říct, o kolik měsíců se zkrátila.' };
+  }
+  const mesicuTed = rezerva / ted.prumer;
+  const mesicuDrive = rezerva / drive.prumer;
+  const zmena = mesicuTed - mesicuDrive;      // + = výdaje klesly, rezerva vydrží dýl
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.styl, zmena),
+    zmena, mesicuTed, mesicuDrive,
+    vydajeTed: ted.prumer, vydajeDrive: drive.prumer,
+  };
+}
+
+//  📊 KONCENTRAČNÍ RIZIKO – podíl největší kategorie na výdajích za okno.
+//  JEDINÁ složka měřící STAV, ne změnu (vědomá výjimka, rozhodnutí Milana S22):
+//  stabilních 60 % v jedné kategorii je zranitelnost bez ohledu na to, že se
+//  za půl roku nic nehnulo. Kotvy počítají s tím, že bydlení běžně dělá
+//  25–30 % výdajů české domácnosti – to má vycházet mírně kladně, ne jako poplach.
+function obrazKoncentrace(D, mesicu){
+  D = D || getData();
+  const n = mesicu || 6;
+  const podle = {};
+  let celkem = 0;
+  for(let i = 0; i < n; i++){
+    let m = S.curMonth - i, y = S.curYear; while(m < 0){ m += 12; y--; }
+    getTx(m, y, D).forEach(t => {
+      if(!t || t.type !== 'expense' || t.splitParent || t.isBalancing) return;
+      if(typeof isTransferTx === 'function' && isTransferTx(t)) return;
+      const a = Math.abs((typeof txCZK === 'function') ? txCZK(t, D) : (t.amount||0));
+      if(!a) return;
+      const k = String(t.catId ?? t.category ?? '');
+      podle[k] = (podle[k]||0) + a;
+      celkem += a;
+    });
+  }
+  //  Pod třemi kategoriemi nemá koncentrace smysl – kdo má dvě, má vždycky
+  //  „vysoký podíl" a byl by trestán za to, že si výdaje netřídí.
+  const klice = Object.keys(podle).filter(k => k);
+  if(celkem <= 0 || klice.length < 3){
+    return { avail:false, duvod:'Na koncentraci je potřeba aspoň tři kategorie s výdaji.' };
+  }
+  let nejK = klice[0];
+  klice.forEach(k => { if(podle[k] > podle[nejK]) nejK = k; });
+  const podil = podle[nejK] / celkem * 100;
+  const cat = (D.categories||[]).find(x => String(x.id) === nejK);
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.koncentrace, podil),
+    podil, kategorie: cat ? cat.name : 'největší kategorie', castka: podle[nejK], celkem,
+  };
+}
+
+//  ══════════════════════════════════════════════════════
+//  SKLÁDACÍ FUNKCE – Finanční obraz v1
+//  Základ 100, rozsah 0–200, NEOŘEZÁVÁ se (hodnota nad 200 je legitimní
+//  a stupnice ji ukáže za běžným pásmem).
+//  Neměřitelná složka vypadne z čitatele i jmenovatele, váha se rozpustí mezi
+//  zbylé. Pod prahem pokrytí (40 %) nebo pod dvěma měřitelnými složkami se
+//  známka NEUKÁŽE – u metriky změny je „nemám co porovnat" častý stav.
+//  ══════════════════════════════════════════════════════
+function computeObrazV1(D, mesicu){
+  D = D || getData();
+  const CFG = (typeof _OBRAZ_V1 !== 'undefined') ? _OBRAZ_V1 : null;
+  if(!CFG) return null;
+  const n = mesicu || 6;
+
+  const slozky = [
+    { k:'prijem',      nazev:'💰 Reálný růst příjmu',   w:CFG.vahy.prijem,      r: obrazRealnyRustPrijmu(D, n) },
+    { k:'styl',        nazev:'🛒 Dopad životního stylu', w:CFG.vahy.styl,        r: obrazDopadStylu(D, n) },
+    { k:'jmeni',       nazev:'💎 Net Worth Momentum',    w:CFG.vahy.jmeni,       r: obrazNetWorthMomentum(D, n) },
+    { k:'koncentrace', nazev:'📊 Koncentrační riziko',   w:CFG.vahy.koncentrace, r: obrazKoncentrace(D, n) },
+  ];
+
+  const zive = slozky.filter(x => x.r && x.r.avail && x.r.sub != null);
+  const pokryti = zive.reduce((a,x) => a + x.w, 0);          // Σ vah = 100 → rovnou %
+  const podPrahem = pokryti < CFG.prahPokryti || zive.length < (CFG.minSlozek || 2);
+
+  const bonusR = (typeof obrazUsiliBonus === 'function') ? obrazUsiliBonus(D, n) : { bonus:0 };
+  const bonus = bonusR.bonus || 0;
+
+  let hodnota = null;
+  if(!podPrahem){
+    const vazeny = zive.reduce((a,x) => a + x.w * x.r.sub, 0) / pokryti;   // −100..+100
+    hodnota = Math.round(CFG.zaklad + vazeny + bonus);
+  }
+
+  const znamka = (hodnota === null)
+    ? { label:'Zatím nemám co porovnat', emoji:'⏳', color:'#a8aec8' }
+    : (CFG.znamky.find(z => hodnota >= z.min) || CFG.znamky[CFG.znamky.length - 1]);
+
+  return {
+    hodnota, zaklad: CFG.zaklad, min: CFG.min, max: CFG.max,
+    znamka, pokryti, podPrahem, bonus, bonusDetail: bonusR,
+    mesicu: n,
+    slozky: slozky.map(x => ({
+      klic:x.k, nazev:x.nazev, vaha:x.w,
+      avail: !!(x.r && x.r.avail),
+      sub: (x.r && x.r.sub != null) ? Math.round(x.r.sub) : null,
+      duvod: (x.r && x.r.duvod) || '',
+      detail: x.r || null,
+    })),
+    chybi: slozky.filter(x => !(x.r && x.r.avail)).map(x => x.nazev),
+  };
+}
+
 // ══════════════════════════════════════════════════════
 //  S22 (Milan): NET WORTH MOMENTUM — složka Finančního obrazu
 //  Jediná složka, která měří STAV MAJETKU. Všechno ostatní v Obrazu (i ve
@@ -5984,7 +6310,7 @@ function nwAt(zpetMesicu){
 
 function obrazNetWorthMomentum(D, mesicu){
   D = D || getData();
-  const n = mesicu || 6;
+  const n = _obrazOkno(D, mesicu || 6);
   const ted = (typeof computeAssetsNetWorth==='function')
     ? (()=>{ try{ const x=computeAssetsNetWorth(D); return x?x.netWorth:null; }catch(e){ return null; } })()
     : null;

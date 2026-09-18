@@ -1,4 +1,4 @@
-// FinanceFlow · v10.50 · settings.js · 2026-09-04
+// FinanceFlow · v10.79 · settings.js · 2026-09-16
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -267,12 +267,30 @@ async function pinVerifySubmit() {
 // ══════════════════════════════════════════════════════
 //  VYMAZAT DATA
 // ══════════════════════════════════════════════════════
+//  FIX (nahlásil Milan, S22): MAZÁNÍ DAT ŠLO JEN NAPOPRVÉ.
+//  Průvodce má tři kroky a stav drží `_deleteCurrentStep` v app.html. Tahle
+//  funkce vracela do výchozí polohy jen VIDITELNOST kroků – ne počítadlo
+//  a ne tlačítko. Po zavření uprostřed průvodce tedy zůstalo:
+//    • `_deleteCurrentStep` na 2 nebo 3 → napodruhé se přeskočila nabídka
+//      zálohy a rovnou se chtělo slovo SMAZAT,
+//    • `deleteNextBtn.onclick` přepsaný na confirmDeleteAllData a popisek
+//      „Smazat vše" → napotřetí tlačítko rovnou volalo potvrzení, to našlo
+//      prázdné pole (krok 3 nebyl vidět), vypsalo „Zadej přesně SMAZAT"
+//      a vrátilo uživatele na úvodní obrazovku. Políčko nešlo vyplnit vůbec.
+//  Navíc: krok 2 nabízel export bez možnosti odmítnout – doplněno „Ne, díky".
 function openDeleteDataModal() {
   const modal = document.getElementById('modalDeleteData'); if (!modal) return;
   document.getElementById('deleteStep1').style.display = 'block';
   document.getElementById('deleteStep2').style.display = 'none';
   document.getElementById('deleteStep3').style.display = 'none';
   document.getElementById('deleteConfirmInput').value = '';
+  //  Vrátit i STAV průvodce, ne jen to, co je vidět.
+  try { _deleteCurrentStep = 1; } catch(e) {}
+  const btn = document.getElementById('deleteNextBtn');
+  if (btn) {
+    btn.textContent = 'Pokračovat';
+    btn.onclick = (typeof handleDeleteStep === 'function') ? handleDeleteStep : null;
+  }
   modal.classList.add('open');
 }
 
@@ -287,9 +305,19 @@ function deleteDataStep3() {
 }
 
 async function confirmDeleteAllData() {
-  const input = document.getElementById('deleteConfirmInput').value.trim();
+  const pole = document.getElementById('deleteConfirmInput');
+  const input = (pole ? pole.value : '').trim();
   if (input !== 'SMAZAT') {
+    //  Ujistit se, že je krok 3 vidět – jinak uživatel dostane výtku za
+    //  nevyplněné pole, které nemá kam napsat.
+    const s3 = document.getElementById('deleteStep3');
+    if (s3 && s3.style.display === 'none') {
+      document.getElementById('deleteStep1').style.display = 'none';
+      document.getElementById('deleteStep2').style.display = 'none';
+      s3.style.display = 'block';
+    }
     alert('Zadej přesně slovo SMAZAT (velkými písmeny)');
+    if (pole) pole.focus();
     return;
   }
   closeModal('modalDeleteData');
