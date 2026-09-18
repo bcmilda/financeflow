@@ -159,10 +159,28 @@ check('stupnice NEOŘEZÁVÁ – hodnota nad 200 se přizná',()=>{
   assert(/nad běžným pásmem/.test(src),'přetečení se nepřizná');
 });
 check('u známky je vidět okno',()=>{
-  assert(/_obrazV1Card\(D, months, _winTxt\)/.test(src),'okno se do karty nepředává');
+  assert(/_obrazV1Card\(D, months, _winTxt,/.test(src),'okno se do karty nepředává');
+  assert(/\$\{oknoTxt \|\| ''\}/.test(src),'karta okno nevypisuje');
 });
 check('nemění se význam staré proměnné score',()=>{
   assert(/const score = _sc\.score;/.test(src),'stará proměnná byla přepsána – tichá záměna 0–100 za 0–200');
+});
+check('KLÍČOVÉ · úvodní blok stránky ukazuje NOVÝ obraz, ne starý pruh 0–100',()=>{
+  //  Milan hlásil „Obraz je pořád nezměněn, škála 0–100": nová karta se sice
+  //  vykreslovala, ale až POD úvodním blokem, takže první, co viděl, byl
+  //  starý pruh. Dvě skóre nad sebou navíc nedávají smysl.
+  assert(!/Skóre: <strong style="color:\$\{trendColor\}">\$\{score\}\/100/.test(src),
+    'úvodní blok pořád ukazuje staré skóre 0–100');
+  assert(/_obrazTeplomer\(_v1\)/.test(src),'úvodní blok nemá teploměr');
+});
+check('skóre se počítá JEDNOU a sdílí se mezi blokem a kartou',()=>{
+  //  Dvojí výpočet by při rozdílu vyrobil dvě různá čísla na jedné stránce.
+  assert(/_obrazV1Card\(D, months, _winTxt, _v1\)/.test(src),'karta si počítá vlastní výsledek');
+});
+check('selhání výpočtu se PŘIZNÁ, karta mlčky nezmizí',()=>{
+  assert(/_chyba:true/.test(src),'chybí příznak selhání');
+  assert(/nepodařilo spočítat/.test(src),'uživatel se nedozví, že se něco nepovedlo');
+  assert(/_OBRAZ_V1<\/code> v helpers\.js/.test(src),'neřekne, co zkontrolovat');
 });
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ OBRAZ v1 OVĚŘEN');
 process.exit(fails?1:0);

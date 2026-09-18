@@ -1,4 +1,4 @@
-// FinanceFlow · v10.80 · projects.js · 2026-09-16
+// FinanceFlow · v10.81 · projects.js · 2026-09-16
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3838,11 +3838,22 @@ function _obrazTeplomer(v1){
   </div>`;
 }
 
-function _obrazV1Card(D, mesicu, oknoTxt){
-  if(typeof computeObrazV1 !== 'function') return '';
-  let v1;
-  try{ v1 = computeObrazV1(D, mesicu); }catch(e){ console.warn('[obraz v1]', e); return ''; }
+function _obrazV1Card(D, mesicu, oknoTxt, hotove){
+  let v1 = hotove || null;
+  if(!v1){
+    if(typeof computeObrazV1 !== 'function') return '';
+    try{ v1 = computeObrazV1(D, mesicu); }catch(e){ console.warn('[obraz v1]', e); return ''; }
+  }
   if(!v1) return '';
+  //  Když se výpočet nepovedl, řekni to rovnou – prázdná karta vypadá jako
+  //  „nic se nezměnilo" a chyba se nikdy nenajde.
+  if(v1._chyba) return `
+    <div class="card" style="margin-bottom:12px"><div class="card-body" style="padding:14px">
+      <div style="font-size:.82rem;color:var(--debt)">⚠️ Finanční obraz se nepodařilo spočítat.</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-top:5px;line-height:1.5">
+        Nejspíš chybí konfigurace <code>_OBRAZ_V1</code> v helpers.js — zkontroluj, že je nahraná
+        aktuální verze. Podrobnost je v konzoli pod <code>[obraz v1]</code>.</div>
+    </div></div>`;
 
   const slozkyHTML = v1.slozky.map(s => {
     if(!s.avail) return `
@@ -4073,7 +4084,19 @@ function renderObraz() {
   const _prev = computeObrazScoreBack(D, series.length, _back);
   const _dScore = _prev.hasData ? (score - _prev.score) : null;
   const _wfMax = 15;
-  const obrazV1Card = _obrazV1Card(D, months, _winTxt);
+  //  Spočítat JEDNOU a použít v úvodním bloku i v kartě – dvojí výpočet by
+  //  při rozdílu vyrobil dvě různá čísla na jedné stránce.
+  let _v1 = null;
+  try{ _v1 = (typeof computeObrazV1==='function') ? computeObrazV1(D, months) : null; }
+  catch(e){ console.warn('[obraz v1]', e); }
+  if(!_v1){
+    //  SELHAT NAHLAS. Dřív se vrátil prázdný řetězec a karta prostě zmizela –
+    //  uživatel pak hlásí „Obraz se nezměnil" a nikdo neví proč.
+    _v1 = { hodnota:null, pokryti:0, chybi:[], bonus:0, slozky:[],
+            znamka:{ label:'Obraz se nepodařilo spočítat', emoji:'⚠️', color:'var(--debt)' },
+            _chyba:true };
+  }
+  const obrazV1Card = _obrazV1Card(D, months, _winTxt, _v1);
 
   const journeyCard = `
     <div class="card" style="margin-bottom:12px">
@@ -4635,11 +4658,23 @@ function renderObraz() {
         ${[['6','6M'],['12','12M'],['all','Celkově']].map(([k,t])=>`
           <button onclick="obrazSetWin('${k}')" style="padding:4px 11px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;border:1px solid ${_obrazWin===k?'rgba(96,165,250,.55)':'var(--border)'};background:${_obrazWin===k?'rgba(96,165,250,.16)':'transparent'};color:${_obrazWin===k?'#93c5fd':'#a8aec8'}">${t}</button>`).join('')}
       </div>
-      <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${trendColor}">${trendLabel}</div>
-      <div style="margin:12px auto;width:200px;height:12px;background:linear-gradient(90deg,var(--expense),var(--debt),var(--income));border-radius:6px;position:relative">
-        <div style="position:absolute;top:-4px;left:${score}%;transform:translateX(-50%);width:8px;height:20px;background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:left .8s"></div>
-      </div>
-      <div style="font-size:.76rem;color:#a8aec8">Skóre: <strong style="color:${trendColor}">${score}/100</strong></div>
+      <!--  S22: ÚVODNÍ SKÓRE JE NOVÝ FINANČNÍ OBRAZ (0–200, teploměr).
+            Milan hlásil, že „Obraz je pořád nezměněn, škála 0–100" – a měl
+            pravdu: nová karta se sice vykreslovala, ale AŽ POD tímhle blokem,
+            takže první, co na stránce viděl, byl starý pruh. Dvě skóre nad
+            sebou navíc nedávají smysl. Starý údaj 0–100 zůstává níž
+            v kartě „Cesta finančního zdraví" jako detail. -->
+      <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${_v1.znamka.color}">${_v1.hodnota===null?_v1.znamka.emoji+' '+_v1.znamka.label:_v1.hodnota}</div>
+      ${_v1.hodnota===null ? `
+        <div style="font-size:.76rem;color:#a8aec8;line-height:1.55;max-width:420px;margin:6px auto 0">
+          Obraz měří, kam se hýbeš — potřebuje tedy dva body v čase.
+          Zatím umím změřit ${_v1.pokryti} % z toho, co do něj patří.${_v1.chybi.length?` Chybí: ${_v1.chybi.join(', ')}.`:''}
+        </div>`
+      : `
+        <div style="font-size:.86rem;color:${_v1.znamka.color};margin-top:2px">${_v1.znamka.emoji} ${_v1.znamka.label}</div>
+        <div style="max-width:420px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        ${_v1.bonus>0?`<div style="font-size:.7rem;color:var(--income)">💪 Práce navíc: +${_v1.bonus} bodů</div>`:''}
+        ${_v1.pokryti<100?`<div style="font-size:.68rem;color:#8b93ad;margin-top:4px">Podloženo z ${_v1.pokryti} % — ${_v1.chybi.join(', ')} se zatím nedá změřit.</div>`:''}`}
     </div>
 
     ${obrazV1Card}
