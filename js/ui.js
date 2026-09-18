@@ -1,4 +1,4 @@
-// FinanceFlow · v10.80 · ui.js · 2026-09-16
+// FinanceFlow · v10.84 · ui.js · 2026-09-18
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1354,10 +1354,17 @@ function renderSuhrnReport(expCats,totalCur,totalPrev,pm,py,D,targetId){
   let html=`<div class="card" style="border-left:4px solid ${totalDiff===null?'var(--bank)':totalDiff<=-5?'var(--income)':totalDiff>5?'var(--expense)':'var(--debt)'}">
     <div class="card-header" style="background:${totalDiff===null?'transparent':totalDiff<=-5?'var(--income-bg)':totalDiff>5?'var(--expense-bg)':'var(--debt-bg)'}">
       <span class="card-title">${totalDiff===null?'📊 Přehled měsíce':totalDiff<=-5?'✅ Skvělý výsledek!':totalDiff>5?'⚠️ Výdaje vzrostly':'✔️ Výdaje stabilní'} – ${CZ_M[S.curMonth]} ${S.curYear}</span>
-      <span style="font-weight:700;color:${totalDiff<=0?'var(--income)':totalDiff<=5?'var(--debt)':'var(--expense)'}">${totalDiff>0?'+':''}${totalDiff}% vs ${CZ_M[pm]}</span>
+      ${totalDiff===null
+        ? `<span style="font-weight:600;font-size:.74rem;color:#a8aec8">${CZ_M[pm]}: bez výdajů</span>`
+        : `<span style="font-weight:700;color:${totalDiff<=0?'var(--income)':totalDiff<=5?'var(--debt)':'var(--expense)'}">${totalDiff>0?'+':''}${totalDiff}% vs ${CZ_M[pm]}</span>`}
     </div>
     <div class="card-body">`;
-  if(totalDiff<=-5)html+=`<div class="insight-item good"><div class="insight-icon">🎉</div><div class="insight-text">Celkové výdaje klesly o <strong>${Math.abs(totalDiff)}%</strong> – ušetřeno <strong>${fmt(Math.abs(totalSaved))}</strong> oproti ${CZ_M[pm]}.</div></div>`;
+  //  S23 (Milan): „null% vs Srpen" a „Výdaje stabilní. Odchylka null%".
+  //  Bez výdajů v minulém měsíci je totalDiff === null – a v JS platí
+  //  `null <= 5`, takže to propadlo do větve „stabilní". Absence základny
+  //  není nulová změna (SKILL 31): řekne se, že není s čím srovnávat.
+  if(totalDiff===null)html+=`<div class="insight-item"><div class="insight-icon">🆕</div><div class="insight-text"><strong>Zatím není s čím srovnávat.</strong> V měsíci ${CZ_M[pm]} nemáš žádné výdaje, takže procenta spočítat nejde. Tento měsíc zatím <strong>${fmt(totalCur)}</strong>; srovnání se rozjede příští měsíc.</div></div>`;
+  else if(totalDiff<=-5)html+=`<div class="insight-item good"><div class="insight-icon">🎉</div><div class="insight-text">Celkové výdaje klesly o <strong>${Math.abs(totalDiff)}%</strong> – ušetřeno <strong>${fmt(Math.abs(totalSaved))}</strong> oproti ${CZ_M[pm]}.</div></div>`;
   else if(totalDiff<=5)html+=`<div class="insight-item warn"><div class="insight-icon">↔️</div><div class="insight-text"><strong>Výdaje stabilní.</strong> Odchylka ${totalDiff>0?'+':''}${totalDiff}% – v pásmu ±5%.</div></div>`;
   else html+=`<div class="insight-item bad"><div class="insight-icon">📈</div><div class="insight-text"><strong>Výdaje vzrostly o ${totalDiff}%</strong> (+${fmt(totalCur-totalPrev)} oproti ${CZ_M[pm]}).</div></div>`;
   // S17 (Milan): kompaktní grid místo celořádkových karet – 1 kategorie = malá dlaždice,

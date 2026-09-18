@@ -1,4 +1,4 @@
-// FinanceFlow · v10.83 · projects.js · 2026-09-16
+// FinanceFlow · v10.84 · projects.js · 2026-09-18
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3817,40 +3817,45 @@ function _obrazTeplomer(v1){
   const pct = Math.max(0, Math.min(100, (Math.min(h, max) - min) / (max - min) * 100));
   const barva = prazdny ? 'rgba(168,174,200,.35)' : v1.znamka.color;
 
-  //  S22 (Milan): RYSKY PO 10 BODECH + BAREVNÁ ŠKÁLA jako u staré verze.
-  //  Původní teploměr byl jednobarevný pruh se čtyřmi ryskami – nešlo z něj
-  //  odečíst, kde přesně hodnota leží, ani jestli je to dobře nebo špatně.
-  //  Teď je podklad přechod červená → žlutá → zelená (stejná logika jako
-  //  starý pruh 0–100), malé rysky po 10 bodech a velké po 50 s popiskem.
-  const rysky = [];
-  for(let b = min; b <= max; b += 10){
-    const l = (b - min) / (max - min) * 100;
-    const velka = (b % 50 === 0);
+  //  S23 (Milan): BAREVNÁ ŠKÁLA VŽDY + PRAVÍTKO NA SPODNÍM LEMU.
+  //  V10.83 jsem barvu přidal jen pro stav S HODNOTOU; prázdný stav zůstal
+  //  šedý šrafovaný. Milan ale testuje na čerstvém účtu, takže viděl právě
+  //  ten prázdný – a z jeho pohledu se „nic neopravilo". Měl pravdu: barva
+  //  říká, KTERÝ SMĚR JE DOBRÝ, a to platí i bez dat. Prázdný stav se teď
+  //  pozná podle chybějícího jezdce a ztlumení, ne podle chybějící škály.
+  //
+  //  Pravítko: čárka po 1 bodu, delší po 5, nejdelší po 10, přes celou výšku
+  //  po 50 (tam sedí i popisky). Kreslí se jako SVG s non-scaling-stroke,
+  //  ať jsou čárky tenké při jakékoli šířce. Krok je v OBRAZ_RYSKA_KROK.
+  const KROK = (typeof window!=='undefined' && window.OBRAZ_RYSKA_KROK) || 1;
+  const VY = 22;                       // výška pruhu v px = výška viewBoxu
+  let cary = '';
+  for(let b = min; b <= max; b += KROK){
+    const x = (b - min) / (max - min) * 1000;
     const zaklad = (b === CFG.zaklad);
-    rysky.push(`<div style="position:absolute;left:${l}%;${zaklad?'top:0;bottom:0':velka?'top:0;bottom:0':'top:35%;bottom:35%'};
-      width:${zaklad?2:1}px;background:${zaklad?'rgba(255,255,255,.75)':velka?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)'}"></div>`);
+    const p50 = (b % 50 === 0), p10 = (b % 10 === 0), p5 = (b % 5 === 0);
+    const vyska = (zaklad || p50) ? VY : p10 ? 10 : p5 ? 6.5 : 3.5;
+    const sila  = zaklad ? 2 : p50 ? 1.4 : p10 ? 1.1 : p5 ? .9 : .6;
+    const kryti = zaklad ? .95 : p50 ? .7 : p10 ? .62 : p5 ? .48 : .34;
+    cary += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${VY}" y2="${(VY-vyska).toFixed(1)}" stroke="rgba(255,255,255,${kryti})" stroke-width="${sila}" vector-effect="non-scaling-stroke"/>`;
   }
+  const pravitko = `<svg viewBox="0 0 1000 ${VY}" preserveAspectRatio="none" width="100%" height="${VY}"
+      style="position:absolute;left:0;top:0;display:block;pointer-events:none">${cary}</svg>`;
 
-  //  Ručička – bílý jezdec jako u staré škály, ať je přesně vidět, kde hodnota leží.
+  //  Ručička – bílý jezdec, ať je přesně vidět, kde hodnota leží.
   const rucicka = prazdny ? '' : `
-    <div style="position:absolute;top:-4px;left:${pct}%;transform:translateX(-50%);width:8px;height:24px;
-      background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.45);transition:left .6s"></div>`;
+    <div style="position:absolute;top:-5px;left:${pct}%;transform:translateX(-50%);width:8px;height:${VY+10}px;
+      background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.55);transition:left .6s"></div>`;
 
   return `
   <div style="margin:10px 0 4px;position:relative">
-    <div style="position:relative;height:16px;border-radius:99px;border:1px solid var(--border);
-      background:${prazdny
-        ? 'var(--surface3)'
-        : 'linear-gradient(90deg,var(--expense) 0%,var(--debt) 50%,var(--income) 100%)'};
-      ${prazdny?'':'opacity:.9'}">
-      ${prazdny
-        ? `<div style="position:absolute;left:0;right:0;top:0;bottom:0;border-radius:99px;
-             background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px)"></div>`
-        : ''}
-      ${rysky.join('')}
+    <div style="position:relative;height:${VY}px;border-radius:7px;border:1px solid var(--border);overflow:hidden;
+      background:linear-gradient(90deg,#ef4444 0%,#f97316 25%,#fbbf24 50%,#a3e635 75%,#22c55e 100%);
+      ${prazdny?'filter:saturate(.6) brightness(.72)':''}">
+      ${pravitko}
     </div>
     ${rucicka}
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#8b93ad;margin-top:6px">
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#a8aec8;margin-top:6px">
       <span>0 · propad</span><span>50</span><span>100 · beze změny</span><span>150</span><span>200 · posun</span>
     </div>
     ${zaNormalem ? `<div style="font-size:.7rem;color:var(--income);margin-top:5px">
@@ -4402,7 +4407,32 @@ function renderObraz() {
     }catch(e){ return ''; }
   })();
 
-  const lifestyleCard = !_lsVerdict ? '' : `
+  //  S23 (Milan): „SEKCE 4 LIFESTYLE SE NEZOBRAZUJE, KARTY ZMIZELY."
+  //  Bez verdiktu (méně než 2 měsíce s daty, nebo první polovina okna bez
+  //  příjmu či výdajů) vracela karta PRÁZDNÝ ŘETĚZEC – a s ní zmizely i
+  //  „Kam růst přistál", „Reálný růst" a „Rezerva vydrží", protože všechny
+  //  žijí uvnitř ní. Zůstal jen nadpis řádku nad prázdným rámečkem.
+  //  V10.83 jsem tentýž vzor opravil u sekcí 3 a 8 a tuhle přehlédl (SKILL 47).
+  //  Nově: co spočítat JDE (Expense Ratio, Rezerva vydrží), se ukáže hned;
+  //  zbytek řekne, proč tu není a co ho rozjede.
+  const _lsMesicuSDaty = series.filter(x => (x.inc>0 || x.exp>0)).length;
+  const _lsPrazdna = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-body" style="padding:14px">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">📊 Růst životního stylu</div>
+        ${_erTxt||''}
+        <div style="margin-top:${_erTxt?'10px':'0'};padding:10px 12px;background:var(--surface2);border-left:3px solid #60a5fa;border-radius:0 10px 10px 0">
+          <div style="font-size:.78rem;font-weight:700;color:#c9cede;margin-bottom:3px">⏳ Tempo růstu zatím změřit nejde</div>
+          <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
+            Karta porovnává <b style="color:#c9cede">první a druhou polovinu okna</b>, takže potřebuje záznamy aspoň ze dvou měsíců —
+            a v obou polovinách příjem i výdaje. Zatím ${_lsMesicuSDaty===0?'nemám žádný měsíc se záznamy':_lsMesicuSDaty===1?'mám jeden měsíc se záznamy':'mám '+_lsMesicuSDaty+' měsíce, ale v první polovině okna chybí příjem nebo výdaje'}.
+            Jakmile přibudou, ukáže se tu verdikt, tabulka baseline vs. teď, „Kam růst přistál" i reálný růst po inflaci.
+          </div>
+        </div>
+      </div>
+    </div>
+    ${_rezervaCard}`;
+  const lifestyleCard = !_lsVerdict ? _lsPrazdna : `
     <div class="card" style="margin-bottom:12px;border-color:${_lsVerdict.bd}">
       <div class="card-body" style="padding:14px">
         <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">📊 Růst životního stylu</div>
@@ -4705,7 +4735,7 @@ function renderObraz() {
               co spočítat a stupnice se vůbec nekreslila. Jenže pak není poznat,
               jestli je funkce vůbec nasazená, ani co se od ní čekat.
               Prázdná stupnice s ryskami ukáže, kam to směřuje. -->
-        <div style="max-width:420px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        <div style="max-width:560px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
         <div style="font-size:.76rem;color:#a8aec8;line-height:1.55;max-width:420px;margin:2px auto 0">
           Obraz měří, <b style="color:#c9cede">kam se hýbeš</b> — potřebuje tedy dva body v čase.
           ${_v1.pokryti>0
@@ -4715,7 +4745,7 @@ function renderObraz() {
         </div>`
       : `
         <div style="font-size:.86rem;color:${_v1.znamka.color};margin-top:2px">${_v1.znamka.emoji} ${_v1.znamka.label}</div>
-        <div style="max-width:420px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        <div style="max-width:560px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
         ${_v1.bonus>0?`<div style="font-size:.7rem;color:var(--income)">💪 Práce navíc: +${_v1.bonus} bodů</div>`:''}
         ${_v1.pokryti<100?`<div style="font-size:.68rem;color:#8b93ad;margin-top:4px">Podloženo z ${_v1.pokryti} % — ${_v1.chybi.join(', ')} se zatím nedá změřit.</div>`:''}`}
     </div>

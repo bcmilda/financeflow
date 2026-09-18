@@ -183,7 +183,9 @@ check('KLÍČOVÉ · stupnice se ukáže i BEZ DAT, jen prázdná',()=>{
   //  je funkce vůbec nasazená, ani co se od ní čekat.
   const prazdny = vm.runInContext("_obrazTeplomer({hodnota:null,znamka:{color:'#a8aec8'}})",sb);
   assert(prazdny.length>200,'prázdná stupnice se nevykreslí');
-  assert(/repeating-linear-gradient/.test(prazdny),'prázdný stav není odlišený šrafováním');
+  //  S23 (Milan): prázdný stav se pozná podle ZTLUMENÍ a chybějícího jezdce, ne podle šedi.
+  assert(/filter:saturate/.test(prazdny),'prázdný stav není odlišený ztlumením');
+  assert(!/background:white/.test(prazdny),'prázdný stav má jezdce');
   assert(/100 · beze změny/.test(prazdny),'chybí rysky se základem');
 });
 check('prázdná stupnice nemá výplň (nevypadá jako výsledek)',()=>{
@@ -200,14 +202,31 @@ check('selhání výpočtu se PŘIZNÁ, karta mlčky nezmizí',()=>{
 });
 console.log('\n── Teploměr: rysky a barevná škála (S22, Milan) ──');
 const tep = (h) => vm.runInContext("_obrazTeplomer("+JSON.stringify({hodnota:h,znamka:{color:'#4ade80'}})+")",sb);
-check('rysky po 10 bodech, velké po 50',()=>{
-  const s = tep(141);
-  const male = (s.match(/top:35%/g)||[]).length;
-  assert(male >= 15, 'malých rysek jen '+male+' – po deseti bodech jich má být 16');
-  assert((s.match(/top:0;bottom:0/g)||[]).length >= 5, 'chybí velké rysky po 50');
+//  S23 (Milan): pravítko na spodním lemu – čárka po 1 bodu, delší po 5 a 10.
+//  Test MĚŘÍ vykreslené čáry, ne tvar kódu (SKILL 35).
+const cary = (h) => [...tep(h).matchAll(/<line x1="([\d.]+)"[^>]*y2="([\d.]+)"/g)].map(m=>({x:+m[1],y2:+m[2]}));
+check('pravítko: 201 čar, jedna na každý bod stupnice',()=>{
+  assert(cary(141).length===201,'čar je '+cary(141).length);
 });
-check('barevná škála místo jednobarevného pruhu',()=>{
-  assert(/linear-gradient\(90deg,var\(--expense\)/.test(tep(141)),'není přechod červená → žlutá → zelená');
+check('pravítko: po pětkách delší, po desítkách ještě delší, po 50 přes celou výšku',()=>{
+  const c = cary(141), d = b => 22 - c[b].y2;      // délka čáry u bodu b
+  assert(d(3) < d(5),  'pětka není delší než jednotka');
+  assert(d(5) < d(10), 'desítka není delší než pětka');
+  assert(d(10) < d(50),'padesátka není delší než desítka');
+  assert(d(50)===22 && d(100)===22, 'po 50 nejde čára přes celou výšku');
+  assert(d(7)===d(3) && d(15)===d(5) && d(20)===d(10), 'stejné řády nemají stejnou délku');
+});
+check('pravítko sedí na SPODNÍM lemu (čáry rostou odspodu)',()=>{
+  assert(/y1="22"/.test(tep(141)) && !/y1="0"/.test(tep(141)),'čáry nezačínají u spodní hrany');
+});
+check('barevná škála červená → žlutá → zelená',()=>{
+  assert(/linear-gradient\(90deg,#ef4444[^)]*#fbbf24 50%[^)]*#22c55e 100%\)/.test(tep(141)),'není přechod');
+});
+check('KLÍČOVÉ (S23) · barevná škála je i BEZ DAT',()=>{
+  //  V10.83 byla barva jen u stavu s hodnotou. Milan testuje na čerstvém účtu,
+  //  viděl šedý pruh a oprava pro něj neexistovala. Původní test tu šeď
+  //  VYŽADOVAL – potvrzoval vadu jako správné chování (SKILL 34).
+  assert(/linear-gradient\(90deg,#ef4444/.test(tep(null)),'prázdný stav je bez barvy');
 });
 check('ručička ukazuje přesnou polohu',()=>{
   assert(/background:white/.test(tep(141)),'chybí jezdec');
@@ -217,11 +236,6 @@ check('popisky osy po 50 bodech',()=>{
   const s = tep(141);
   ['0 · propad','50','100 · beze změny','150','200 · posun'].forEach(t=>
     assert(s.includes(t),'chybí popisek '+t));
-});
-check('prázdný stav má šrafování, ne barevnou škálu',()=>{
-  const s = tep(null);
-  assert(/repeating-linear-gradient/.test(s),'chybí šrafování');
-  assert(!/linear-gradient\(90deg,var\(--expense\)/.test(s),'prázdný stav má barevnou škálu – vypadá jako výsledek');
 });
 
 console.log('\n── Sekce se neschovávají bez vysvětlení (S22, Milan) ──');

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.80 · receipts.js · 2026-09-16
+// FinanceFlow · v10.84 · receipts.js · 2026-09-18
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -224,21 +224,39 @@ function renderUctenky() {
 
   // Slouč podobné klíče – jen pokud se liší pouze o hmotnost/čísla (např. "rohlík" = "rohlík 43g")
   // NEZLUČUJ "rohlík" se "sladký rohlík" – to jsou různé produkty!
-  const mergedPrices = {};
+  //
+  //  S23 (Milan): SOJOVÉ KOSTKY 100 g A 300 g SE SLILY DO JEDNÉ POLOŽKY a karta
+  //  hlásila „↑ 201 %, 19,90 → 59,90 Kč/ks". Nic nezdražilo – jsou to dvě
+  //  různá balení (Kč/kg vyšlo správně 0 %). Klíč odřezává gramáž, aby šla
+  //  hlídat shrinkflace, jenže tím slil i balení, která spolu nesouvisí.
+  //  Falešná shoda je horší než žádná (SKILL 33).
+  //  Nově se skupina dělí podle VELIKOSTI BALENÍ: dohromady patří jen balení,
+  //  která se liší nejvýš o 25 % (100 g → 90 g je shrinkflace, 100 g → 300 g
+  //  je jiný výrobek). Záznam bez gramáže v názvu se přidá k první skupině
+  //  téhož jména – tam rozlišit nejde a dosud to tak fungovalo.
+  const PKG_TOL = 1.25;
+  const _normK = x => x.replace(/\d+/g, '').replace(/\s+/g,' ').trim();
+  const _skupiny = [];
   Object.entries(itemPrices).forEach(([key, vals]) => {
-    // Normalizovaný klíč bez číslic a jednotek pro porovnání
-    const normalize = s => s.replace(/\d+/g, '').replace(/\s+/g,' ').trim();
-    const normKey = normalize(key);
-    const match = Object.keys(mergedPrices).find(k => {
-      const normK = normalize(k);
-      // Shodují se normalizované verze (liší se jen čísly)
-      return normK === normKey;
+    const norm = _normK(key);
+    vals.forEach(v => {
+      const w = v.originalWeight || null;
+      let g = _skupiny.find(x => x.norm === norm && (
+        !w || !x.w || (Math.max(w, x.w) / Math.min(w, x.w) <= PKG_TOL)));
+      if(!g){
+        const stitek = w ? ' ' + (w >= 1 ? String(w).replace('.',',') + 'kg' : Math.round(w*1000) + 'g') : '';
+        g = { name: key + stitek, norm, w, vals: [] };
+        _skupiny.push(g);
+      }
+      if(!g.w && w) g.w = w;
+      g.vals.push(v);
     });
-    if(match) {
-      mergedPrices[match] = [...mergedPrices[match], ...vals];
-    } else {
-      mergedPrices[key] = [...vals];
-    }
+  });
+  const mergedPrices = {};
+  _skupiny.forEach(g => {
+    let n = g.name, i = 2;
+    while(mergedPrices[n]) n = g.name + ' #' + (i++);
+    mergedPrices[n] = g.vals;
   });
 
   const priceChanges = Object.entries(mergedPrices)
@@ -1793,8 +1811,19 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
     const now = new Date();
     let savMonth=0, savYear=0, savTotal=0;
     const byMonth = {};
+    //  S23 (Milan): „MÁME SLEDOVAT, KOLIK A KDE JSME UŠETŘILI – NIKDE TO NEVIDÍM."
+    //  Karta existovala, ale při nule se mlčky schovala – a nula tam byla právě
+    //  proto, že analyzér slevu přehlédl. Dvě chyby se navzájem kryly (SKILL 47).
+    //  Nově je vidět vždy a přibyl rozpad PODLE OBCHODŮ.
+    const byStore = {};
+    const _stKey = x => String(x||'Neznámý').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
     receipts.forEach(rr=>{
+      const sk = _stKey(rr.store);
+      if(!byStore[sk]) byStore[sk] = {store: rr.store||'Neznámý', sv:0, spent:0, n:0, nSlev:0, polozek:0};
+      byStore[sk].spent += (parseFloat(rr.total)||0); byStore[sk].n++;
       const sv = receiptSavings(rr);
+      if(sv>0){ byStore[sk].sv += sv; byStore[sk].nSlev++;
+        byStore[sk].polozek += (rr.items||[]).filter(it=>(parseFloat(it&&it.discount)||0)>0).length; }
       if(sv<=0 || !rr.date) return;
       const d = new Date(rr.date+'T12:00:00');
       savTotal += sv;
@@ -1802,7 +1831,13 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
       const mk = d.getMonth()+'-'+d.getFullYear();
       byMonth[mk]=(byMonth[mk]||0)+sv;
     });
-    if(savTotal>0){
+    if(savTotal<=0){
+      html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
+        + '<div style="font-size:.78rem;color:#c9cede;line-height:1.6">Zatím <b>0 Kč</b> — na žádné z ' + receipts.length + ' účtenek není zaznamenaná sleva.</div>'
+        + '<div style="font-size:.72rem;color:#a8aec8;line-height:1.6;margin-top:6px">Slevu appka čte ze záporných řádků na účtence („Tvoje cena s Kaufland Card", „Sleva věrnosti"…). '
+        + 'Když ji analyzér přehlédne, ukáže se u účtenky žluté upozornění, že součet položek přesahuje částku — tam jde rozdíl <b>jedním klikem přiřadit jako slevu</b> k položce a započítá se sem.</div>'
+        + '</div></div>';
+    } else {
       const bars=[];
       for(let i2=5;i2>=0;i2--){
         let m=now.getMonth()-i2, y=now.getFullYear(); while(m<0){m+=12;y--;}
@@ -1821,7 +1856,30 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
               + '<div style="width:100%;max-width:34px;height:'+Math.max(3,Math.round(b.v/maxB*30))+'px;background:linear-gradient(180deg,#4ade80,#22c55e);border-radius:4px 4px 0 0;opacity:'+(b.v?'1':'.25')+'"></div>'
               + '<div style="font-size:.6rem;color:#a8aec8">'+b.label+'</div>'
             + '</div>').join('')
-        + '</div></div></div>';
+        + '</div>'
+        + (()=>{
+            const rows = Object.values(byStore).filter(x=>x.sv>0).sort((a,b)=>b.sv-a.sv);
+            if(!rows.length) return '';
+            const th = 'padding:6px 8px;font-size:.64rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.04em;font-weight:700';
+            const td = 'padding:7px 8px;font-size:.76rem;border-top:1px solid var(--border)';
+            return '<div style="margin-top:14px;font-size:.72rem;font-weight:700;color:#c9cede">🏪 Kde jsi ušetřil</div>'
+              + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>'
+              + '<th style="'+th+';text-align:left">Obchod</th><th style="'+th+';text-align:right">Ušetřeno</th>'
+              + '<th style="'+th+';text-align:right">% z plné ceny</th><th style="'+th+';text-align:right">Položek ve slevě</th>'
+              + '<th style="'+th+';text-align:right">Účtenek</th></tr></thead><tbody>'
+              + rows.map(x=>{
+                  const plna = x.spent + x.sv;
+                  const pct = plna>0 ? (x.sv/plna*100) : 0;
+                  return '<tr><td style="'+td+';color:#e8eaf2">'+x.store+'</td>'
+                    + '<td style="'+td+';text-align:right;color:var(--income);font-weight:700">'+_cNum(x.sv)+'</td>'
+                    + '<td style="'+td+';text-align:right;color:#c9cede">'+pct.toFixed(1).replace('.',',')+' %</td>'
+                    + '<td style="'+td+';text-align:right;color:#c9cede">'+x.polozek+'</td>'
+                    + '<td style="'+td+';text-align:right;color:#a8aec8">'+x.nSlev+' z '+x.n+'</td></tr>';
+                }).join('')
+              + '</tbody></table></div>'
+              + '<div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">% z plné ceny = sleva ÷ (zaplaceno + sleva) za všechny účtenky z obchodu.</div>';
+          })()
+        + '</div></div>';
     }
   }
 
@@ -2282,6 +2340,7 @@ function buildReceiptPreviewHTML(receipt, n) {
   if(!receipt.category || receipt.category === 'Jiné') {
     receipt.category = guessReceiptCategory(receipt);
   }
+  if(typeof rpApplyNegativeLines==='function') rpApplyNegativeLines(receipt);   // S23
   window._editReceipt = JSON.parse(JSON.stringify(receipt));
   // Session 12.1: předvyplň 🏷️ tagy položek z produktové DB (ČSÚ spotřební koš) – jen kde tag chybí
   if(typeof productGroupPrefill === 'function') productGroupPrefill(window._editReceipt);
@@ -2315,6 +2374,18 @@ function buildReceiptPreviewHTML(receipt, n) {
             })()}
           </select>
         </div>
+        <!--  S23 (Milan): „PO ÚTRATĚ 2 500 Kč UKAZUJE MAJETEK JEN −300."
+              Transakce z účtenky neměla peněženku, takže ji zůstatek žádné
+              peněženky neviděl – v Souhrnu výdajů byla, v majetku ne. -->
+        ${(()=>{
+          const ws = (typeof getWallets==='function') ? getWallets(getData()) : (S.wallets||[]);
+          if(!ws.length) return '';
+          if(!r.wallet || !ws.some(w=>w.id===r.wallet)) r.wallet = rpDefaultWalletId();
+          return `<select id="rp_wallet" class="fi" style="font-size:.8rem;margin-top:6px" title="Z které peněženky se platilo"
+            onchange="window._editReceipt.wallet=this.value">
+            ${ws.map(w=>`<option value="${w.id}" ${r.wallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}${w.currency&&w.currency!=='CZK'?' ('+w.currency+')':''}</option>`).join('')}
+          </select>`;
+        })()}
         <div id="rp_future_warn" style="display:${(r.date && new Date(r.date) > new Date(new Date().setHours(23,59,59,999)))?'flex':'none'};gap:8px;align-items:center;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);font-size:.74rem;color:var(--expense)">
           <span>⚠️</span><span>Datum je v budoucnosti – zkontroluj, jestli analyzér nepřečetl datum špatně. Transakce by spadla mimo aktuální měsíc.</span>
         </div>
@@ -2397,7 +2468,24 @@ function getRpCatId(itemCatName) {
   return fuzzy?.id || '';
 }
 
-// Vrátí {catName, catId} pro položku – priority: 1) AI mappings, 2) keyword match, 3) Ostatní
+//  S23 (Milan): „V ANALÝZE ÚČTENEK JE 2× KATEGORIE NÁKUP – PROČ?"
+//  Protože existovaly dvě různé věci se stejným jménem: skutečná kategorie
+//  🛍️ Nákup (cat23, výchozí sada) a VIRTUÁLNÍ 📦 Nákup = prázdné itemCatId,
+//  kterou jsem v S22 zavedl jako náhradu za „Ostatní". Položky z AI paměti
+//  padaly do první, nezařazené do druhé, a editor je poctivě seskupil zvlášť.
+//  Nově je Nákup JEDEN: nezařazená položka dostane rovnou id skutečné
+//  kategorie. Virtuální 📦 zůstává jen jako nouzovka pro uživatele, který
+//  si kategorii Nákup smazal.
+function rpNakupCat(D){
+  D = D || getData();
+  const cats = (D.categories||[]).filter(c => c.type==='expense' || c.type==='both' || !c.type);
+  return cats.find(c => c.id==='cat23' && /^n[aá]kup$/i.test((c.name||'').trim()))
+      || cats.find(c => /^n[aá]kup$/i.test((c.name||'').trim()))
+      || null;
+}
+window.rpNakupCat = rpNakupCat;
+
+// Vrátí {catName, catId} pro položku – priority: 1) AI mappings, 2) keyword match, 3) Nákup
 function guessItemCatId(itemName, receiptCat) {
   const D = getData();
   // 1. AI mappings cache
@@ -2419,10 +2507,12 @@ function guessItemCatId(itemName, receiptCat) {
   //    přepnout. Nově se nejdřív zkusí kategorie celé účtenky (Kaufland →
   //    Jídlo & Nákupy), takže položky rovnou sednou tam, kam patří.
   //    Teprve když ani ta není, použije se obecný „Nákup" místo „Ostatní“.
-  if(receiptCat){
-    const rc = (D.categories||[]).find(c=>c.name===receiptCat);
-    if(rc) return {catId: rc.id, catName: rc.name, fromMemory: false};
-  }
+  //    S23 (Milan): nezařazené položky jdou PRIMÁRNĚ do 🛍️ Nákup – ne do
+  //    kategorie celé účtenky. Účtenka z Kauflandu má kategorii Jídlo & Nákupy,
+  //    ale položka, kterou appka nepoznala, může být klidně prací prášek;
+  //    tvrdit o ní „jídlo" je odhad vydávaný za fakt. Nákup je poctivé „nevím".
+  const nk = rpNakupCat(D);
+  if(nk) return {catId: nk.id, catName: nk.name, fromMemory: false};
   return {catId:'', catName:'Nákup', fromMemory: false};
 }
 
@@ -2570,8 +2660,12 @@ function rpRender() {
   // Sestavení option listu z uživatelských kategorií
   const userCats = (D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
   const catOptions = userCats.map(c=>`<option value="${c.id}" data-name="${c.name}">${c.icon} ${c.name}</option>`).join('');
-  // Přidat fallback "Ostatní" pokud není v user cats
-  const catOptionsAll = `<option value="">📦 Nákup</option>` + catOptions;
+  //  S23: virtuální 📦 Nákup se nabízí JEN když skutečná kategorie Nákup chybí.
+  const _nk = rpNakupCat(D);
+  const catOptionsAll = (_nk ? '' : `<option value="">📦 Nákup</option>`) + catOptions;
+  //  Starší účtenky mají nezařazené položky s prázdným id → převést na skutečný
+  //  Nákup, jinak by se dál kreslily jako druhá skupina. Uloží se s účtenkou.
+  if(_nk) r.items.forEach(it => { if(!it.itemCatId){ it.itemCatId = _nk.id; it.itemCat = _nk.name; } });
 
   // Seskup položky dle itemCatId/itemCat pro přehlednost
   const groups = {};
@@ -2585,6 +2679,7 @@ function rpRender() {
   let html = '';
   for(const [key, group] of Object.entries(groups)) {
     const cat = userCats.find(c=>c.id===key);
+    if(cat) group.label = cat.name;
     const icon = cat?.icon || '📦';
     const color = cat?.color || '#6b7280';
     const catTotal = group.items.reduce((a,{it})=>a+lineAmt(it),0);
@@ -2678,7 +2773,7 @@ function rpRender() {
         const D2 = getData();
         const selectedCat = D2.categories?.find(c=>c.id===selectedId);
         r.items[i].itemCatId = selectedId;
-        r.items[i].itemCat = selectedCat?.name || 'Ostatní';
+        r.items[i].itemCat = selectedCat?.name || 'Nákup';
         r.items[i]._fromMemory = false;
         r.items[i].itemSubcat = ''; // reset subcat při změně kategorie
         if(r.items[i].name && selectedId) {
@@ -2778,7 +2873,8 @@ function rpUpdateTotal() {
 
 function rpAddItem() {
   if(!window._editReceipt.items) window._editReceipt.items = [];
-  window._editReceipt.items.push({name:'', price:0, qty:1});
+  const _nk = rpNakupCat();
+  window._editReceipt.items.push({name:'', price:0, qty:1, itemCatId:_nk?.id||'', itemCat:_nk?.name||'Nákup'});
   rpRender();
   // Focus na nový input
   setTimeout(()=>{
@@ -3028,6 +3124,31 @@ async function analyzeReceipt(file) {
 //  a statistiky i Inflace z nich čtou stejně jako dřív. Učení mapování zůstává
 //  beze změny: ukládá se za každou položku i za obchod.
 // ══════════════════════════════════════════════════════
+//  S23: výchozí peněženka pro účtenku – stejná logika jako u ruční transakce
+//  (Nastavení → výchozí peněženka, jinak první aktivní).
+function rpDefaultWalletId(){
+  const ws = (typeof getWallets==='function') ? getWallets(getData()) : (S.wallets||[]);
+  if(!ws.length) return '';
+  const pref = (typeof _settings!=='undefined' && _settings && _settings.defWallet) || '';
+  return ws.some(w=>w.id===pref) ? pref : ws[0].id;
+}
+window.rpDefaultWalletId = rpDefaultWalletId;
+
+//  S23: JEDNORÁZOVÁ OPRAVA starších transakcí z účtenek bez peněženky.
+//  Doplní se JEN když je peněženka jediná – pak není o čem rozhodovat.
+//  Při více peněženkách appka neví, čím se platilo, a hádat nebude (SKILL 31);
+//  doplní se při nejbližším uložení účtenky z editoru.
+function rpFixReceiptTxWallets(){
+  const ws = (typeof getWallets==='function') ? getWallets(getData(), true) : (S.wallets||[]);
+  if(ws.length !== 1 || !Array.isArray(S.transactions)) return 0;
+  let n = 0;
+  S.transactions.forEach(t => {
+    if(t && !t.wallet && (t.receiptItems || t.receiptStore) && t.type==='expense'){ t.wallet = ws[0].id; n++; }
+  });
+  return n;
+}
+window.rpFixReceiptTxWallets = rpFixReceiptTxWallets;
+
 function addReceiptAsTx(receipt) {
   const D = getData();
   if(!S.transactions) S.transactions=[];
@@ -3082,6 +3203,8 @@ function addReceiptAsTx(receipt) {
     name: store,
     amount: castka, amt: castka,
     type: 'expense',
+    wallet: (receipt.wallet && (S.wallets||[]).some(w=>w.id===receipt.wallet)) ? receipt.wallet
+      : ((typeof rpDefaultWalletId==='function' && rpDefaultWalletId()) || undefined),
     date, catId: hlavniCatId, category: hlavniCatId,
     subcat: polozky.find(it=>it.itemSubcat)?.itemSubcat || '',
     tags: [...new Set(polozky.map(it=>it.tag).filter(Boolean))].join(' '),
@@ -3092,7 +3215,7 @@ function addReceiptAsTx(receipt) {
     //  i Detektor. Rozpad se neztrácí, jen nezakládá vlastní transakce.
     receiptItems: polozky.map(it=>({
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
-      lineTotal: it.lineTotal, tag: it.tag||'',
+      lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
     })),
     receiptDate: receipt.date || '',
@@ -3342,9 +3465,12 @@ function syncReceiptToTransactions(r) {
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
       lineTotal: (it.lineTotal != null && isFinite(it.lineTotal))
         ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
-      tag: it.tag||'',
+      tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
     }));
+    //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
+    if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;
+    else if(!t.wallet && typeof rpDefaultWalletId==='function'){ const dw = rpDefaultWalletId(); if(dw) t.wallet = dw; }
     if(r.total != null && isFinite(r.total) && r.total > 0){
       const nova = Math.round(r.total*100)/100;
       t.amount = nova; t.amt = nova;
@@ -3425,6 +3551,29 @@ function rpRenderCheck(){
                   : 'Nejspíš analyzér nezapočítal slevu, nebo přečetl nějakou cenu dvakrát.'}
           Projdi položky níž — appka sama nic nepřepisuje.
         </div>
+        ${(()=>{
+          //  S23 (Milan): Kaufland i po novém skenu slevu nezachytil. Prompt
+          //  můžu ladit donekonečna, ale čtení z fotky nikdy nebude stoprocentní –
+          //  takže musí jít chyba opravit TAK, ABY SE SLEVA ZAPOČÍTALA, ne jen
+          //  aby seděl součet. „Doplnit rozdíl jako položku" součet srovná, ale
+          //  do „Ušetřeno slevami" ani do ceny položky se nic nedostane.
+          if(chybi) return '';
+          const kand = rpDiscountCandidates(r, rozdil);
+          if(!kand.length) return '';
+          const silny = kand[0].silny;
+          return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3)">
+            <div style="font-size:.72rem;color:#e8eaf2;line-height:1.5;margin-bottom:6px">
+              ${silny ? `💡 Rozdíl <b>${fmtP(rozdil)} Kč</b> odpovídá ceně jednoho kusu u „<b>${kand[0].name}</b>" — vypadá to na slevu typu „Tvoje cena" / 1+1.`
+                      : `💡 Je rozdíl <b>${fmtP(rozdil)} Kč</b> sleva? Vyber položku, ke které patří:`}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <select id="rp_disc_item" class="fi" style="font-size:.74rem;flex:1 1 170px;min-width:150px;padding:6px 8px">
+                ${kand.map(k=>`<option value="${k.i}">${k.silny?'⭐ ':''}${(k.name||'bez názvu').replace(/</g,'&lt;')} · ${fmtP(k.amt)} Kč</option>`).join('')}
+              </select>
+              <button class="btn btn-accent btn-sm" style="font-size:.72rem" onclick="rpApplyDiffAsDiscount()">Započítat jako slevu</button>
+            </div>
+          </div>`;
+        })()}
         <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">
           <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="rpUseReceiptTotal()">
             Použít částku z účtenky</button>
@@ -3471,6 +3620,75 @@ function rpAddDiffItem(){
   rpRenderCheck();
   if(typeof showToast==='function') showToast('Rozdíl doplněn jako položka — uprav jí název');
 }
+
+//  Komu rozdíl nejspíš patří. Silný kandidát = položka s 2+ kusy, jejíž
+//  jednotková cena se rovná rozdílu (na haléře) – přesně tvar kauflandské
+//  „OYAKATA 2 × 49,90 … Tvoje cena s −49,90". Ostatní se jen nabídnou.
+function rpDiscountCandidates(r, rozdil){
+  const out = [];
+  ((r && r.items) || []).forEach((it, i) => {
+    const amt = lineAmt(it);
+    if(!(amt > rozdil + 0.005)) return;               // sleva nemůže být větší než řádek
+    const price = parseFloat(it.price) || 0, qty = parseFloat(it.qty) || 1;
+    const bezSlevy = !(parseFloat(it.discount) > 0);
+    const silny = bezSlevy && qty >= 2 && Math.abs(price - rozdil) <= 0.06;
+    out.push({ i, name: it.name || '', amt, silny, bezSlevy });
+  });
+  out.sort((a,b) => (b.silny - a.silny) || (b.bezSlevy - a.bezSlevy) || (b.amt - a.amt));
+  return out;
+}
+
+function rpApplyDiffAsDiscount(){
+  const r = window._editReceipt; if(!r) return;
+  const c = (typeof receiptCompleteness==='function') ? receiptCompleteness(r) : null;
+  if(!c || c.ok || c.chybi) return;
+  const idx = parseInt(document.getElementById('rp_disc_item')?.value, 10);
+  const it = r.items && r.items[idx]; if(!it) return;
+  let rozdil = Math.abs(c.diff);
+  //  Silný kandidát: sleva = cena kusu (49,90), ne rozdíl po zaokrouhlení (49,89).
+  const _pr = parseFloat(it.price) || 0;
+  if((parseFloat(it.qty)||1) >= 2 && Math.abs(_pr - rozdil) <= 0.06) rozdil = _pr;
+  const nova = Math.round((lineAmt(it) - rozdil) * 100) / 100;
+  if(nova < 0) return;
+  it.discount = Math.round(((parseFloat(it.discount)||0) + rozdil) * 100) / 100;
+  it.lineTotal = nova;
+  it._discountManual = true;
+  if(typeof rpRender==='function') rpRender();
+  if(typeof rpUpdateTotal==='function') rpUpdateTotal();
+  rpRenderCheck();
+  if(typeof showToast==='function') showToast('Sleva ' + fmtP(rozdil) + ' Kč započítána u „' + (it.name||'položky') + '"');
+}
+window.rpDiscountCandidates = rpDiscountCandidates;
+window.rpApplyDiffAsDiscount = rpApplyDiffAsDiscount;
+
+//  S23: POJISTKA PROTI PŘEHLÉDNUTÉ SLEVĚ. Worker od v10.84 vrací i pole
+//  `negativeLines` = VŠECHNY záporné řádky, které na účtence viděl, s indexem
+//  položky, ke které patří. Když analyzér slevu vidí, ale do položky ji
+//  nepromítne (přesně kauflandský případ), appka ji doplní sama – ovšem JEN
+//  tehdy, když tím součet položek dojde PŘESNĚ na natištěnou částku. To není
+//  hádání: obě čísla jsou z účtenky a sedí na haléř. Jinak se nic nemění.
+function rpApplyNegativeLines(receipt){
+  if(!receipt || receipt._negApplied || !Array.isArray(receipt.negativeLines) || !Array.isArray(receipt.items)) return 0;
+  receipt._negApplied = true;
+  const proti = parseFloat(receipt.subtotal != null ? receipt.subtotal : receipt.total) || 0;
+  if(!proti) return 0;
+  const soucet = () => receipt.items.reduce((a,it)=>a+lineAmt(it),0);
+  let diff = Math.round((soucet() - proti)*100)/100;
+  if(diff <= RECEIPT_TOLERANCE) return 0;                      // nic nepřesahuje
+  const cekajici = receipt.negativeLines
+    .map(n => ({ i: parseInt(n && n.itemIndex, 10), a: Math.abs(parseFloat(n && n.amount) || 0) }))
+    .filter(n => n.a > 0 && receipt.items[n.i] && !(parseFloat(receipt.items[n.i].discount) > 0));
+  const celkem = Math.round(cekajici.reduce((a,n)=>a+n.a,0)*100)/100;
+  if(!cekajici.length || Math.abs(celkem - diff) > 0.5) return 0;   // nesedí (víc než haléřové zaokrouhlení) → nesahat
+  cekajici.forEach(n => {
+    const it = receipt.items[n.i];
+    const nova = Math.round((lineAmt(it) - n.a)*100)/100;
+    if(nova < 0) return;
+    it.discount = n.a; it.lineTotal = nova; it._discountAuto = true;
+  });
+  return cekajici.length;
+}
+window.rpApplyNegativeLines = rpApplyNegativeLines;
 
 window.rpRenderCheck = rpRenderCheck;
 window.rpUseReceiptTotal = rpUseReceiptTotal;

@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.72 · 2026-09-16  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.84 · 2026-09-18  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -408,6 +408,15 @@ PRAVIDLO 5 – ČÍSLA NIKDY NEUPRAVUJ, ABY SI ODPOVÍDALA. Opiš je tak, jak js
 Když ti sum(items.lineTotal) nesedí se subtotal/total, je to DŮLEŽITÁ INFORMACE pro appku
 (nejspíš unikla sleva, záloha na lahve nebo celá položka) – appka si s tím poradí a zeptá se
 uživatele. Kdybys čísla srovnal, rozpor zmizí a chyba se nikdy nenajde.
+
+PRAVIDLO 7 – SOUPIS ZÁPORNÝCH ŘÁDKŮ (pojistka). Do JSON přidej navíc pole
+"negativeLines": [{"label":"text řádku","amount":ČÍSLO_KLADNĚ,"itemIndex":INDEX_POLOŽKY_V_items}]
+a vypiš do něj KAŽDÝ řádek se zápornou částkou, který na účtence vidíš – i ten, který jsi už
+promítl do discount/lineTotal podle pravidla 3. itemIndex = pořadí (od 0) položky v items,
+ke které řádek patří (ta bezprostředně nad ním). Než odpovíš, projdi účtenku ještě jednou
+odshora dolů JEN kvůli záporným částkám: počet záznamů v negativeLines musí odpovídat počtu
+záporných řádků na účtence. Kaufland tiskne slevu jako "Tvoje cena s Kaufland Card  -49,90"
+malým písmem pod položkou – snadno se přehlédne. Když žádný záporný řádek není, vrať [].
 
 PRAVIDLO 6 – Nezahrnuj do items: záhlaví, daňové řádky (DPH, 21%), platební způsoby, věrnostní body.`
               }

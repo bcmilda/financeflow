@@ -1,4 +1,4 @@
-// FinanceFlow · v10.83 · admin.js · 2026-09-16
+// FinanceFlow · v10.84 · admin.js · 2026-09-18
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,21 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.84',
+    datum: '2026-09-18',
+    zmeny: [
+      '🌡️ FIX (Milan): STUPNICE OBRAZU BYLA POŘÁD ŠEDÁ. Barevnou škálu jsem ve v10.83 přidal jen pro stav S HODNOTOU – prázdný stav zůstal šrafovaný bez barvy. Milan testuje na čerstvém účtu, takže viděl právě ten, a oprava pro něj neexistovala. Škála červená → žlutá → zelená je teď vždy (bez dat ztlumená a bez jezdce). Na spodním lemu je PRAVÍTKO: čárka po 1 bodu, delší po 5, nejdelší po 10, přes celou výšku po 50.',
+      '🏠 FIX (Milan): SEKCE 4 LIFESTYLE BYLA PRÁZDNÁ. Karta bez verdiktu vracela prázdný řetězec – a s ní zmizely i „Kam růst přistál\", reálný růst a „Rezerva vydrží\", které žijí uvnitř ní. Tentýž vzor tichého selhání jako sekce 3 a 8 ve v10.83; tuhle jsem přehlédl. Nově ukáže, co spočítat jde (Expense Ratio, Rezerva), a řekne, proč zbytek chybí.',
+      '🛍️ FIX (Milan): DVAKRÁT KATEGORIE „NÁKUP\" V EDITORU ÚČTENKY. Existovala skutečná 🛍️ Nákup (cat23) a virtuální 📦 Nákup = prázdné id, zavedená v S22 místo „Ostatní\". Nově je jedna: nezařazené položky dostanou rovnou id skutečné kategorie, staré se převedou při otevření účtenky. ROZHODNUTÍ (Milan): nezařazené jdou primárně do Nákupu, ne do kategorie celé účtenky (ruší pravidlo z v10.7x).',
+      '💰 FIX (Milan): MAJETEK −300 Kč PO ÚTRATĚ 2 400 Kč. Transakce z účtenky vznikala BEZ PENĚŽENKY, takže ji zůstatek žádné peněženky neviděl – v Souhrnu výdajů byla, v majetku ne. Editor účtenky má nově výběr peněženky (výchozí z Nastavení), zapisuje ji do transakce a při úpravě účtenky ji doplní. Starší transakce se opraví samy JEN při jediné peněžence; při více appka neví, čím se platilo, a nehádá.',
+      '💸 FIX: PŘEHLÉDNUTÁ SLEVA (Kaufland, i po novém skenu). Tři vrstvy: (1) worker nově vrací soupis VŠECH záporných řádků (`negativeLines`) a druhý průchod účtenkou jen kvůli nim; (2) appka slevu doplní sama, ale JEN když tím součet dojde přesně na natištěnou částku; (3) ve žlutém upozornění jde rozdíl JEDNÍM KLIKEM PŘIŘADIT JAKO SLEVU k položce – appka pozná tvar „2 × 49,90, rozdíl 49,90\" a položku předvybere. „Doplnit rozdíl jako položku\" součet srovnalo, ale sleva se nikam nezapočítala. ⚠️ worker.js → Cloudflare.',
+      '🏪 KARTA „UŠETŘENO SLEVAMI\" JE VIDĚT VŽDY + ROZPAD PODLE OBCHODŮ (Milan: „kolik a kde jsme ušetřili – nikde to nevidím\"). Karta existovala, ale při nule se schovala – a nula tam byla právě kvůli přehlédnuté slevě. Dvě chyby se kryly. Nově tabulka: obchod · ušetřeno · % z plné ceny · položek ve slevě · účtenek. Sleva se nově přenáší i do `receiptItems` na transakci.',
+      '⚖️ FIX (Milan): SOJOVÉ KOSTKY 100 g A 300 g SE SLILY – karta hlásila „↑ 201 %\", přestože Kč/kg vyšlo 0 %. Klíč položky odřezává gramáž (kvůli shrinkflaci) a slil tím i nesouvisející balení. Skupina se nově dělí podle velikosti balení: spolu zůstávají jen balení lišící se do 25 % (100 → 90 g je shrinkflace, 100 → 300 g jiný výrobek). SKILL 33.',
+      '🆕 FIX (Milan): „null% vs Srpen\" a „Výdaje stabilní. Odchylka null%\". Bez výdajů v minulém měsíci je rozdíl `null` a v JS platí `null <= 5`, takže to propadlo do větve „stabilní\". Nově: „Zatím není s čím srovnávat.\" (SKILL 31).',
+      '🧪 tools/smoke_s23.js – 17 testů chování (kontrola účtenky, negativeLines, Nákup, dělení podle balení).',
+    ]
+  },
   {
     verze: 'v10.83',
     datum: '2026-09-16',

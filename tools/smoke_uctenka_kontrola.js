@@ -116,8 +116,11 @@ check('výchozí kategorie položek je Nákup, ne Ostatní',()=>{
   assert(/catName:\s*'Nákup'/.test(src), 'fallback pořád Ostatní');
   assert(/📦 Nákup<\/option>/.test(src), 'rozbalovátko pořád nabízí Ostatní');
 });
-check('položky nejdřív zkusí kategorii celé účtenky (ušetří proklikávání)',()=>{
-  assert(/if\(receiptCat\)/.test(src), 'nevyužívá kategorii účtenky');
+check('S23 (Milan) · nezařazená položka jde do SKUTEČNÉ kategorie Nákup, ne do kategorie účtenky',()=>{
+  //  Ruší pravidlo z S22. Účtenka z Kauflandu je „Jídlo & Nákupy", ale nepoznaná
+  //  položka může být prací prášek. Chování měří tools/smoke_s23.js.
+  assert(!/if\(receiptCat\)/.test(src), 'pořád se sahá po kategorii účtenky');
+  assert(/rpNakupCat\(D\)/.test(src), 'fallback nejde přes skutečnou kategorii Nákup');
 });
 check('hlavička se na mobilu zalomí místo mačkání',()=>{
   assert(/flex-wrap:wrap[\s\S]{0,400}rp_date/.test(src), 'datum a kategorie se pořád mačkají');

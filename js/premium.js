@@ -1,4 +1,4 @@
-// FinanceFlow · v10.61 · premium.js · 2026-09-12
+// FinanceFlow · v10.84 · premium.js · 2026-09-18
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -951,8 +951,11 @@ function useSablonaNow() {
 // splatnosti v TOMTO měsíci a už nastal (≤ dnes), a transakce ještě není, doplň ji. Pokrývá
 // přesně případ „přidám opakování s datem před dneškem → zapiš i na aktuální měsíc".
 function processAutoSablony() {
-  if(!S.sablony)return;
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
+  //  S23: transakce z účtenek vznikaly BEZ peněženky → zůstatek je neviděl.
+  //  Doplní se jen při jediné peněžence (viz rpFixReceiptTxWallets v receipts.js).
+  try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }
+  if(!S.sablony)return;
   const today=new Date(); today.setHours(0,0,0,0);
   const iso=d=>d.toISOString().slice(0,10);
   S.transactions=S.transactions||[];
