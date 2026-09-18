@@ -1,4 +1,4 @@
-// FinanceFlow · v10.82 · projects.js · 2026-09-16
+// FinanceFlow · v10.83 · projects.js · 2026-09-16
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3817,25 +3817,41 @@ function _obrazTeplomer(v1){
   const pct = Math.max(0, Math.min(100, (Math.min(h, max) - min) / (max - min) * 100));
   const barva = prazdny ? 'rgba(168,174,200,.35)' : v1.znamka.color;
 
-  //  Dělicí rysky po 50 bodech + zvýrazněný základ (100 = „nic se nezměnilo").
-  const rysky = [0, 50, 100, 150, 200].map(b => {
+  //  S22 (Milan): RYSKY PO 10 BODECH + BAREVNÁ ŠKÁLA jako u staré verze.
+  //  Původní teploměr byl jednobarevný pruh se čtyřmi ryskami – nešlo z něj
+  //  odečíst, kde přesně hodnota leží, ani jestli je to dobře nebo špatně.
+  //  Teď je podklad přechod červená → žlutá → zelená (stejná logika jako
+  //  starý pruh 0–100), malé rysky po 10 bodech a velké po 50 s popiskem.
+  const rysky = [];
+  for(let b = min; b <= max; b += 10){
     const l = (b - min) / (max - min) * 100;
-    const zaklad = b === CFG.zaklad;
-    return `<div style="position:absolute;left:${l}%;top:0;bottom:0;width:${zaklad?2:1}px;
-      background:${zaklad?'rgba(255,255,255,.55)':'rgba(255,255,255,.18)'}"></div>`;
-  }).join('');
+    const velka = (b % 50 === 0);
+    const zaklad = (b === CFG.zaklad);
+    rysky.push(`<div style="position:absolute;left:${l}%;${zaklad?'top:0;bottom:0':velka?'top:0;bottom:0':'top:35%;bottom:35%'};
+      width:${zaklad?2:1}px;background:${zaklad?'rgba(255,255,255,.75)':velka?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)'}"></div>`);
+  }
+
+  //  Ručička – bílý jezdec jako u staré škály, ať je přesně vidět, kde hodnota leží.
+  const rucicka = prazdny ? '' : `
+    <div style="position:absolute;top:-4px;left:${pct}%;transform:translateX(-50%);width:8px;height:24px;
+      background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.45);transition:left .6s"></div>`;
 
   return `
-  <div style="margin:10px 0 4px">
-    <div style="position:relative;height:16px;background:var(--surface3);border-radius:99px;overflow:hidden;border:1px solid var(--border)">
+  <div style="margin:10px 0 4px;position:relative">
+    <div style="position:relative;height:16px;border-radius:99px;border:1px solid var(--border);
+      background:${prazdny
+        ? 'var(--surface3)'
+        : 'linear-gradient(90deg,var(--expense) 0%,var(--debt) 50%,var(--income) 100%)'};
+      ${prazdny?'':'opacity:.9'}">
       ${prazdny
-        ? `<div style="position:absolute;left:0;right:0;top:0;bottom:0;
-             background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 6px,transparent 6px 12px)"></div>`
-        : `<div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:${barva};opacity:.85"></div>`}
-      ${rysky}
+        ? `<div style="position:absolute;left:0;right:0;top:0;bottom:0;border-radius:99px;
+             background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px)"></div>`
+        : ''}
+      ${rysky.join('')}
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#8b93ad;margin-top:3px">
-      <span>0 · propad</span><span>100 · beze změny</span><span>200 · posun</span>
+    ${rucicka}
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#8b93ad;margin-top:6px">
+      <span>0 · propad</span><span>50</span><span>100 · beze změny</span><span>150</span><span>200 · posun</span>
     </div>
     ${zaNormalem ? `<div style="font-size:.7rem;color:var(--income);margin-top:5px">
       🎉 <b>${h}</b> je nad běžným pásmem — takový posun se stupnice už nevejde.</div>` : ''}
@@ -3897,9 +3913,9 @@ function _obrazV1Card(D, mesicu, oknoTxt, hotove){
       </div>
 
       ${v1.hodnota === null ? `
-        <div style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:#a8aec8;margin:8px 0 2px">
-          ${v1.znamka.emoji} ${v1.znamka.label}</div>
-        ${_obrazTeplomer(v1)}
+        <!--  S22: karta je DETAIL, ne druhé skóre. Dřív opakovala nadpis
+              i stupnici z úvodního bloku, takže na stránce stálo dvakrát
+              totéž pod sebou. -->
         <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
           Až budeš mít pár měsíců zápisů, ukáže se tu, kam se tvoje finance hnuly.
           ${v1.chybi.length ? `Zatím chybí: ${v1.chybi.join(', ')}.` : ''}</div>`
@@ -3908,7 +3924,6 @@ function _obrazV1Card(D, mesicu, oknoTxt, hotove){
           <span style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${v1.znamka.color}">${v1.hodnota}</span>
           <span style="font-size:.9rem;color:${v1.znamka.color}">${v1.znamka.emoji} ${v1.znamka.label}</span>
         </div>
-        ${_obrazTeplomer(v1)}
         ${v1.bonus > 0 ? `<div style="font-size:.7rem;color:var(--income);margin-top:2px">
           💪 Práce navíc: +${v1.bonus} bodů${v1.bonusDetail && v1.bonusDetail.prumer!=null?` (Ø ${v1.bonusDetail.prumer} h/měs)`:''}</div>` : ''}
         ${v1.pokryti < 100 ? `<div style="font-size:.68rem;color:#8b93ad;margin-top:5px;line-height:1.5">
@@ -4569,6 +4584,16 @@ function renderObraz() {
   </div>`;
   const res6=proj.months.length?proj.months[proj.months.length-1].reserve:proj.wallets;
   const debt6=proj.months.length?proj.months[proj.months.length-1].debt:proj.debtNow;
+  //  S22 (Milan): „ZMIZELY NĚKTERÉ KARTY." Nezmizely – schovaly se, protože
+  //  bez dat nemají co spočítat. Jenže prázdno vypadá jako chyba appky.
+  //  Stejný vzor tichého selhání jako u teploměru (SKILL 47): když to nejde
+  //  spočítat, řekni proč, nemlč.
+  const _sekcePrazdna = (cislo, ikona, nazev, duvod) => `
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:18px 0 10px">${ikona} ${cislo} · ${nazev}</div>
+    <div class="card" style="margin-bottom:12px;opacity:.75"><div class="card-body" style="padding:13px">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55">${duvod}</div>
+    </div></div>`;
+
   const smerujCard = proj.hasData ? `
     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin-bottom:10px">🧭 3 · Kam směřuju – příštích 6 měsíců</div>
     <div class="card" style="margin-bottom:16px">
@@ -4583,7 +4608,8 @@ function renderObraz() {
         ${_obrazProjDebtChart(proj)}
         <div style="font-size:.68rem;color:#a8aec8;margin-top:8px;padding:7px 9px;background:var(--surface3);border-radius:7px">ℹ️ Orientační predikce: příjem = 12M klouzavý průměr; výdaje = engine karty Predikce (historie kategorií + sezónnost + narozeniny); cashflow = příjem − predikce výdajů; rezerva = dnešní hotovost + kumulovaný cashflow (v tooltipu). <strong>Známé platby</strong> = šablony a splátky, které už znáš – jsou to jen ČÁSTI predikce výdajů (opakované platby už predikce obsahuje z historie), proto se k výdajům NEPŘIČÍTAJÍ, jinak by se počítaly dvakrát. <strong>Rezerva</strong> (žlutá čára) = dnešní zůstatek peněženek + kumulovaný cashflow. První sloupec je AKTUÁLNÍ měsíc se skutečnými čísly, ostatní jsou predikce. Dluh = rovnoměrné umořování dle splátek. Najeď na měsíc pro všechny hodnoty.</div>
       </div>
-    </div>` : '';
+    </div>` : _sekcePrazdna(3,'🧭','Kam směřuju – příštích 6 měsíců',
+      'Výhled se počítá z příjmů a výdajů za minulé měsíce. Až budeš mít zápisy aspoň za jeden celý měsíc, ukáže se tu, kam tvoje finance míří.');
 
   // ── S16 (TODO-167): karta historie payday cyklů ──
   const _cfD=d=>`${d.getDate()}.${d.getMonth()+1}.`;
@@ -4649,7 +4675,10 @@ function renderObraz() {
           <div style="font-size:.68rem;color:#a8aec8;margin-top:8px;line-height:1.5">Cyklus = od výplaty k výplatě. Barvy týdnů = srovnání se <strong style="color:#a8aec8">stejným týdnem předchozího cyklu</strong> (🟢↓ méně, 🔴↑ více, ±10 % tolerance). <strong style="color:#a8aec8">Δ výdajů</strong> = celý cyklus vs předchozí – zelená = zlepšuješ se. Saldo = příjmy − výdaje cyklu.</div>`;
         })()}
       </div>
-    </div>` : '';
+    </div>` : _sekcePrazdna(8,'💶','Od výplaty k výplatě – historie cyklů',
+      cycles.length===1
+        ? 'Zatím je zaznamenaný jeden výplatní cyklus. Porovnávat půjde, až přijde druhá výplata.'
+        : 'Historie cyklů se skládá z výplat a útrat mezi nimi. Zapiš výplatu a za měsíc se tu ukáže, jak ti peníze docházejí.');
 
   el.innerHTML=tabIntro('obraz','🖼️','Finanční obraz',
     'Dlouhodobý pohled na celkové směřování. Zatímco report řeší jednotlivé měsíce, obraz ukazuje trendy za 6 měsíců a pokročilé metriky: Financial Freedom Ratio (jak blízko jsi finanční nezávislosti), inflaci životního stylu, diverzifikaci příjmů a Wealth Momentum. Slouží ke strategickému rozhodování – kam tvé finance dlouhodobě míří.')

@@ -177,10 +177,66 @@ check('skóre se počítá JEDNOU a sdílí se mezi blokem a kartou',()=>{
   //  Dvojí výpočet by při rozdílu vyrobil dvě různá čísla na jedné stránce.
   assert(/_obrazV1Card\(D, months, _winTxt, _v1\)/.test(src),'karta si počítá vlastní výsledek');
 });
+check('KLÍČOVÉ · stupnice se ukáže i BEZ DAT, jen prázdná',()=>{
+  //  Milan po vymazání dat hlásil „stupnice se ani nezobrazila". Obraz měří
+  //  ZMĚNU, takže bez historie nemá co spočítat – jenže pak není poznat, jestli
+  //  je funkce vůbec nasazená, ani co se od ní čekat.
+  const prazdny = vm.runInContext("_obrazTeplomer({hodnota:null,znamka:{color:'#a8aec8'}})",sb);
+  assert(prazdny.length>200,'prázdná stupnice se nevykreslí');
+  assert(/repeating-linear-gradient/.test(prazdny),'prázdný stav není odlišený šrafováním');
+  assert(/100 · beze změny/.test(prazdny),'chybí rysky se základem');
+});
+check('prázdná stupnice nemá výplň (nevypadá jako výsledek)',()=>{
+  const prazdny = vm.runInContext("_obrazTeplomer({hodnota:null,znamka:{color:'#a8aec8'}})",sb);
+  assert(!/width:50%;background:#a8aec8/.test(prazdny),'kreslí výplň, jako by hodnota existovala');
+});
+check('bez dat se řekne, co s tím',()=>{
+  assert(/stačí pár měsíců zápisů/.test(src),'uživatel neví, kdy se stupnice rozjede');
+});
 check('selhání výpočtu se PŘIZNÁ, karta mlčky nezmizí',()=>{
   assert(/_chyba:true/.test(src),'chybí příznak selhání');
   assert(/nepodařilo spočítat/.test(src),'uživatel se nedozví, že se něco nepovedlo');
   assert(/_OBRAZ_V1<\/code> v helpers\.js/.test(src),'neřekne, co zkontrolovat');
 });
+console.log('\n── Teploměr: rysky a barevná škála (S22, Milan) ──');
+const tep = (h) => vm.runInContext("_obrazTeplomer("+JSON.stringify({hodnota:h,znamka:{color:'#4ade80'}})+")",sb);
+check('rysky po 10 bodech, velké po 50',()=>{
+  const s = tep(141);
+  const male = (s.match(/top:35%/g)||[]).length;
+  assert(male >= 15, 'malých rysek jen '+male+' – po deseti bodech jich má být 16');
+  assert((s.match(/top:0;bottom:0/g)||[]).length >= 5, 'chybí velké rysky po 50');
+});
+check('barevná škála místo jednobarevného pruhu',()=>{
+  assert(/linear-gradient\(90deg,var\(--expense\)/.test(tep(141)),'není přechod červená → žlutá → zelená');
+});
+check('ručička ukazuje přesnou polohu',()=>{
+  assert(/background:white/.test(tep(141)),'chybí jezdec');
+  assert(!/background:white/.test(tep(null)),'jezdec se kreslí i bez hodnoty');
+});
+check('popisky osy po 50 bodech',()=>{
+  const s = tep(141);
+  ['0 · propad','50','100 · beze změny','150','200 · posun'].forEach(t=>
+    assert(s.includes(t),'chybí popisek '+t));
+});
+check('prázdný stav má šrafování, ne barevnou škálu',()=>{
+  const s = tep(null);
+  assert(/repeating-linear-gradient/.test(s),'chybí šrafování');
+  assert(!/linear-gradient\(90deg,var\(--expense\)/.test(s),'prázdný stav má barevnou škálu – vypadá jako výsledek');
+});
+
+console.log('\n── Sekce se neschovávají bez vysvětlení (S22, Milan) ──');
+check('sekce 3 řekne, proč tu není',()=>{
+  assert(/_sekcePrazdna\(3,/.test(src),'sekce 3 pořád mlčky mizí');
+});
+check('sekce 8 řekne, proč tu není',()=>{
+  assert(/_sekcePrazdna\(8,/.test(src),'sekce 8 pořád mlčky mizí');
+  assert(/jeden výplatní cyklus/.test(src),'nerozlišuje „jeden cyklus" od „žádný"');
+});
+check('karta neopakuje nadpis ani stupnici z úvodního bloku',()=>{
+  const i = src.indexOf('function _obrazV1Card');
+  const usek = src.slice(i, i + 2600);
+  assert(!/_obrazTeplomer\(v1\)/.test(usek),'karta kreslí druhou stupnici pod první');
+});
+
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ OBRAZ v1 OVĚŘEN');
 process.exit(fails?1:0);

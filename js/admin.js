@@ -1,4 +1,4 @@
-// FinanceFlow · v10.82 · admin.js · 2026-09-16
+// FinanceFlow · v10.83 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.83',
+    datum: '2026-09-16',
+    zmeny: [
+      '🌡️ STUPNICE OBRAZU: RYSKY PO 10 BODECH A BAREVNÁ ŠKÁLA (Milan). Původní teploměr byl jednobarevný pruh se čtyřmi ryskami – nešlo z něj odečíst, kde přesně hodnota leží, ani jestli je to dobře nebo špatně. Nově je podklad přechod červená → žlutá → zelená (stejná logika jako starý pruh 0–100), malé rysky po 10 bodech, velké po 50 s popiskem, a bílý jezdec ukazuje přesnou polohu. Prázdný stav zůstává šrafovaný bez barvy, aby nevypadal jako výsledek.',
+      '🔍 FIX: SEKCE 3 A 8 MLČKY MIZELY. „Kam směřuju" a „Od výplaty k výplatě" se bez dat nevykreslily vůbec – Milan to hlásil jako zmizelé karty. Nezmizely, jen neměly co spočítat, ale prázdno vypadá jako chyba appky. Nově obě řeknou, proč tu nejsou a co je rozjede; u cyklů se rozlišuje „zatím jeden cyklus" od „žádný". Tentýž vzor tichého selhání jako u teploměru (SKILL 47).',
+      '🧹 Karta Finančního obrazu přestala opakovat nadpis a stupnici z úvodního bloku – na stránce stálo dvakrát totéž pod sebou. Karta je detail (rozpad složek), ne druhé skóre.',
+      'ℹ️ Sloupcový graf vývoje bodů nikam nezmizel – je v kartě „1 · Cesta finančního zdraví", jen o kus níž. Patří ke starému skóre 0–100 a přestěhuje se s ním při TODO-264.',
+      '🧪 tools/smoke_obrazv1.js – 35 testů.',
+    ]
+  },
   {
     verze: 'v10.82',
     datum: '2026-09-16',
