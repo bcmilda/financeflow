@@ -1,4 +1,4 @@
-// FinanceFlow · v10.81 · projects.js · 2026-09-16
+// FinanceFlow · v10.82 · projects.js · 2026-09-16
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3810,11 +3810,12 @@ function _obrazTeplomer(v1){
   const CFG = (typeof _OBRAZ_V1 !== 'undefined') ? _OBRAZ_V1 : null;
   if(!CFG) return '';
   const min = CFG.min, max = CFG.max;
-  const h = (v1.hodnota == null) ? CFG.zaklad : v1.hodnota;
+  const prazdny = (v1.hodnota == null);
+  const h = prazdny ? CFG.zaklad : v1.hodnota;
   const zaNormalem = h > max;
   //  Nad rámec stupnice: ručička jde za hranici, ale drží se v kresbě.
   const pct = Math.max(0, Math.min(100, (Math.min(h, max) - min) / (max - min) * 100));
-  const barva = v1.hodnota == null ? '#a8aec8' : v1.znamka.color;
+  const barva = prazdny ? 'rgba(168,174,200,.35)' : v1.znamka.color;
 
   //  Dělicí rysky po 50 bodech + zvýrazněný základ (100 = „nic se nezměnilo").
   const rysky = [0, 50, 100, 150, 200].map(b => {
@@ -3827,7 +3828,10 @@ function _obrazTeplomer(v1){
   return `
   <div style="margin:10px 0 4px">
     <div style="position:relative;height:16px;background:var(--surface3);border-radius:99px;overflow:hidden;border:1px solid var(--border)">
-      <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:${barva};opacity:.85"></div>
+      ${prazdny
+        ? `<div style="position:absolute;left:0;right:0;top:0;bottom:0;
+             background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 6px,transparent 6px 12px)"></div>`
+        : `<div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:${barva};opacity:.85"></div>`}
       ${rysky}
     </div>
     <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#8b93ad;margin-top:3px">
@@ -3895,10 +3899,10 @@ function _obrazV1Card(D, mesicu, oknoTxt, hotove){
       ${v1.hodnota === null ? `
         <div style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:#a8aec8;margin:8px 0 2px">
           ${v1.znamka.emoji} ${v1.znamka.label}</div>
+        ${_obrazTeplomer(v1)}
         <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
-          Obraz měří, kam se hýbeš — potřebuje tedy dva body v čase.
-          Zatím umím změřit ${v1.pokryti} % z toho, co do něj patří.
-          ${v1.chybi.length ? `Chybí: ${v1.chybi.join(', ')}.` : ''}</div>`
+          Až budeš mít pár měsíců zápisů, ukáže se tu, kam se tvoje finance hnuly.
+          ${v1.chybi.length ? `Zatím chybí: ${v1.chybi.join(', ')}.` : ''}</div>`
       : `
         <div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 0;flex-wrap:wrap">
           <span style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${v1.znamka.color}">${v1.hodnota}</span>
@@ -4666,9 +4670,19 @@ function renderObraz() {
             v kartě „Cesta finančního zdraví" jako detail. -->
       <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${_v1.znamka.color}">${_v1.hodnota===null?_v1.znamka.emoji+' '+_v1.znamka.label:_v1.hodnota}</div>
       ${_v1.hodnota===null ? `
-        <div style="font-size:.76rem;color:#a8aec8;line-height:1.55;max-width:420px;margin:6px auto 0">
-          Obraz měří, kam se hýbeš — potřebuje tedy dva body v čase.
-          Zatím umím změřit ${_v1.pokryti} % z toho, co do něj patří.${_v1.chybi.length?` Chybí: ${_v1.chybi.join(', ')}.`:''}
+        <!--  S22: STUPNICE SE UKÁŽE I BEZ DAT, jen prázdná.
+              Milan po vymazání dat hlásil „stupnice se ani nezobrazila" – a měl
+              pravdu v tom, co viděl: Obraz měří ZMĚNU, takže bez historie nemá
+              co spočítat a stupnice se vůbec nekreslila. Jenže pak není poznat,
+              jestli je funkce vůbec nasazená, ani co se od ní čekat.
+              Prázdná stupnice s ryskami ukáže, kam to směřuje. -->
+        <div style="max-width:420px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        <div style="font-size:.76rem;color:#a8aec8;line-height:1.55;max-width:420px;margin:2px auto 0">
+          Obraz měří, <b style="color:#c9cede">kam se hýbeš</b> — potřebuje tedy dva body v čase.
+          ${_v1.pokryti>0
+            ? `Zatím umím změřit ${_v1.pokryti} % z toho, co do něj patří.`
+            : `Zatím nemám s čím porovnávat — stačí pár měsíců zápisů a stupnice se rozjede.`}
+          ${_v1.chybi.length?`<br><span style="font-size:.7rem;color:#8b93ad">Chybí: ${_v1.chybi.join(', ')}.</span>`:''}
         </div>`
       : `
         <div style="font-size:.86rem;color:${_v1.znamka.color};margin-top:2px">${_v1.znamka.emoji} ${_v1.znamka.label}</div>

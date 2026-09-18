@@ -1,4 +1,4 @@
-// FinanceFlow · v10.81 · admin.js · 2026-09-16
+// FinanceFlow · v10.82 · admin.js · 2026-09-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -558,13 +558,21 @@ function switchAdminTab(tab, btn) {
 
 const VERZE_LOG = [
   {
+    verze: 'v10.82',
+    datum: '2026-09-16',
+    zmeny: [
+      '🌡️ FIX (nahlásil Milan): „STUPNICE SE ANI NEZOBRAZILA." Nebyla to chyba nasazení – Milan krátce předtím vymazal data. Finanční obraz měří ZMĚNU za okno, takže bez historie nešla změřit ani jedna ze čtyř složek, pokrytí bylo 0 % a stupnice se vůbec nekreslila. Logicky správné, prakticky špatné: novou funkci nešlo uvidět a nešlo poznat, jestli je vůbec nasazená.',
+      '📊 Stupnice se nově kreslí VŽDY – bez dat jako prázdná, šrafovaná, s ryskami a zvýrazněným základem 100. Je vidět, kam to směřuje, a text řekne, kdy se rozjede („stačí pár měsíců zápisů"). Prázdná stupnice záměrně nemá výplň, aby nevypadala jako výsledek.',
+      '🧪 tools/smoke_obrazv1.js – 27 testů.',
+    ]
+  },
+  {
     verze: 'v10.81',
     datum: '2026-09-16',
     zmeny: [
-      '🖼️ FIX (nahlásil Milan): „FINANČNÍ OBRAZ JE POŘÁD NEZMĚNĚN, ŠKÁLA 0–100." Měl pravdu, i když nová karta fungovala: vykreslovala se AŽ POD úvodním blokem stránky, ve kterém zůstal starý pruh 0–100. První, co bylo na stránce vidět, tedy bylo staré skóre – a dvě skóre nad sebou stejně nedávají smysl. Úvodní blok nyní ukazuje nový Obraz (0–200) s teploměrovou stupnicí; přepínač oken 6M/12M/Celkově zůstává nad ním. Starý údaj 0–100 žije dál níž v kartě „Cesta finančního zdraví" jako detail.',
-      '🔢 Skóre se počítá JEDNOU a sdílí se mezi úvodním blokem a kartou. Dvojí výpočet by při sebemenším rozdílu vyrobil dvě různá čísla na jedné stránce.',
-      '🔇 FIX: KARTA PŘI SELHÁNÍ MLČKY MIZELA. `_obrazV1Card()` vracela prázdný řetězec, když se výpočet nepovedl – uživatel pak hlásí „Obraz se nezměnil" a nikdo neví proč. Teď se selhání přizná a rovnou řekne, co zkontrolovat (nejčastěji chybějící `_OBRAZ_V1` v helpers.js). Je to tentýž vzor tichého selhání, který se v téhle session opravoval u promptu účtenek a u bumpu Service Workeru.',
-      '🧪 tools/smoke_obrazv1.js rozšířen na 24 testů.',
+      '🖼️ FIX (nahlásil Milan): „FINANČNÍ OBRAZ JE POŘÁD NEZMĚNĚN, ŠKÁLA 0–100." Měl pravdu, i když nová karta fungovala: vykreslovala se AŽ POD úvodním blokem stránky, ve kterém zůstal starý pruh 0–100. První, co bylo vidět, tedy bylo staré skóre – a dvě skóre nad sebou stejně nedávají smysl. Úvodní blok nyní ukazuje nový Obraz (0–200) s teploměrovou stupnicí; přepínač oken 6M/12M/Celkově zůstává nad ním. Starý údaj 0–100 žije dál níž v kartě „Cesta finančního zdraví".',
+      '🔢 Skóre se počítá JEDNOU a sdílí mezi úvodním blokem a kartou – dvojí výpočet by při sebemenším rozdílu vyrobil dvě různá čísla na jedné stránce.',
+      '🔇 FIX: KARTA PŘI SELHÁNÍ MLČKY MIZELA. `_obrazV1Card()` vracela prázdný řetězec – uživatel pak hlásí „Obraz se nezměnil" a nikdo neví proč. Teď se selhání přizná a řekne, co zkontrolovat. Tentýž vzor tichého selhání jako u promptu účtenek a u bumpu Service Workeru.',
     ]
   },
   {
