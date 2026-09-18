@@ -1,4 +1,4 @@
-// FinanceFlow · v9.94 · pristi.js · 2026-08-19
+// FinanceFlow · v10.85 · pristi.js · 2026-09-19
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -502,7 +502,7 @@ function pristiRow(r, sign) {
     <td style="padding:9px 6px">
       <div style="display:flex;align-items:center;gap:7px">
         <span style="font-size:1rem">${r.icon}</span>
-        <span style="font-size:.85rem;font-weight:600;color:#e8eaf2">${escHtml(r.name)}${r.off ? ' <span style="font-size:.72rem;color:#a8aec8">(vypnuto)</span>' : ''}</span>
+        <span style="font-size:.85rem;font-weight:600;color:#e8eaf2;min-width:0;overflow-wrap:anywhere">${escHtml(r.name)}${r.off ? ' <span style="font-size:.72rem;color:#a8aec8">(vypnuto)</span>' : ''}</span>
       </div>
       <div style="font-size:.73rem;color:#a8aec8;margin-top:2px">${L.dot} ${L.label}${r.note ? ' · ' + escHtml(r.note) : ''}${r.edited ? ` · <span style="color:#60a5fa">ručně upraveno${r.autoAmount != null ? ` (odhad byl ${fmtB(r.autoAmount)})` : ''}</span>` : ''}</div>
     </td>
@@ -517,7 +517,7 @@ function pristiRow(r, sign) {
 function pristiTable(title, rows, sign, emptyMsg, totalLabel, totalVal) {
   const ro = (typeof viewingUid !== 'undefined' && viewingUid);
   if (!rows.length) return `<div style="padding:14px 2px;font-size:.8rem;color:#a8aec8;line-height:1.6">${emptyMsg}</div>`;
-  return `<table style="width:100%;border-collapse:collapse">
+  return `<table class="pristi-tbl" style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid var(--border2)">
         <th style="text-align:left;padding:0 6px 6px 0;font-size:.72rem;color:#a8aec8;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Datum</th>
         <th style="text-align:left;padding:0 6px 6px;font-size:.72rem;color:#a8aec8;font-weight:600;text-transform:uppercase;letter-spacing:.05em">${title}</th>
@@ -527,7 +527,7 @@ function pristiTable(title, rows, sign, emptyMsg, totalLabel, totalVal) {
       <tbody>${rows.map(r => pristiRow(r, sign)).join('')}</tbody>
       <tfoot><tr>
         <td colspan="2" style="padding:10px 6px 0 0;font-size:.8rem;font-weight:700;color:#e8eaf2">${totalLabel}</td>
-        <td style="padding:10px 0 0 6px;text-align:right;font-family:Syne,sans-serif;font-weight:800;font-size:1rem;color:${sign > 0 ? 'var(--income)' : 'var(--expense)'}">${sign > 0 ? '+' : '−'}${fmtB(totalVal)}</td>
+        <td style="padding:10px 0 0 6px;text-align:right;white-space:nowrap;font-family:Syne,sans-serif;font-weight:800;font-size:1rem;color:${sign > 0 ? 'var(--income)' : 'var(--expense)'}">${sign > 0 ? '+' : '−'}${fmtB(totalVal)}</td>
         ${ro ? '' : '<td></td>'}
       </tr></tfoot>
     </table>`;
@@ -593,10 +593,12 @@ function pristiRenderHTML(P) {
   const incCard = sectionCard('💰 Příjmy', `
     ${pristiAddBtn('income')}
     ${pristiTable('Zdroj', incRows, 1,
-      `Zatím neumím říct, kolik ti přijde. Appka bere příjmy ze dvou míst:
-       <strong style="color:#c9cede">opakovaných šablon</strong> (přesné datum i částka) a z <strong style="color:#c9cede">historie příjmových kategorií</strong>
-       označených jako stabilní. Nastav si výplatu jako šablonu v <a href="#" onclick="showPage('sablony');return false" style="color:#60a5fa;text-decoration:none">Opakovaných šablonách</a>
-       a v <a href="#" onclick="showPage('kategorie');return false" style="color:#60a5fa;text-decoration:none">Kategoriích</a> nastav u příjmů charakter a stabilitu.`,
+      `Zatím neumím říct, kolik ti přijde — nemám žádnou historii příjmů.
+       <strong style="color:#c9cede">Zapiš výplatu do transakcí</strong>; od příštího měsíce ji appka odhadne sama
+       z průměru posledních výplat. U mzdy, která je každý měsíc jiná, je průměr poctivější než pevná částka.
+       <br><span style="color:#8b93ad">Příjem s pevnou částkou (nájem, renta, výživné) jde zadat přesně v
+       <a href="#" onclick="showPage('sablony');return false" style="color:#60a5fa;text-decoration:none">Opakovaných šablonách</a>.
+       Jednorázový příjem přidej tlačítkem výše.</span>`,
       'Příjmy, se kterými počítám', P.incPlanned)}
     ${riskyRows.length ? `
       <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--border2)">

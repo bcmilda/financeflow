@@ -1,4 +1,4 @@
-// FinanceFlow · v10.84 · receipts.js · 2026-09-18
+// FinanceFlow · v10.85 · receipts.js · 2026-09-19
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -19,6 +19,31 @@ function lineAmt(it) {
   if(it && it.lineTotal != null) return parseFloat(it.lineTotal) || 0;
   return (parseFloat(it?.price) || 0) * (parseFloat(it?.qty) || 1);
 }
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): OBECNÝ NÁZEV POLOŽKY („Uzeniny", „Pečivo", „Zboží 21%")
+//  Typické u řezníka, v trafice nebo na obecně nastaveném terminálu: na účtence
+//  není výrobek, ale ODDĚLENÍ. Čtyři různé salámy pak vypadají jako jedna
+//  položka „Uzeniny", která „zdražila o 35 %". Nejde z toho poznat výrobek,
+//  gramáž ani cena za kilo – takže se to nesmí hodnotit ve zdražování, inflaci
+//  ani v počtu kusů. Falešná shoda je horší než žádná (SKILL 33).
+//  Útrata se počítá dál normálně; vyřazuje se jen POROVNÁVÁNÍ CEN.
+//  Uživatel může název v editoru účtenky upřesnit – pak položka obecná není.
+// ══════════════════════════════════════════════════════
+const RP_GENERIC_NAMES = ['uzeniny','uzenina','maso','masne vyrobky','maso a uzeniny','pecivo','bezne pecivo','jemne pecivo','cukrovinky',
+  'ovoce','zelenina','ovoce a zelenina','ovoce zelenina','lahudky','lahudka','mlecne vyrobky','mlecne','syry','napoje','nealko','alkohol',
+  'potraviny','zbozi','ruzne','ruzne zbozi','ostatni','ostatni zbozi','prodej','prodej zbozi','polozka','sortiment','drogerie','tabak',
+  'tabakove vyrobky','tisk','noviny','casopisy','kvetiny','darkove zbozi','textil','obuv','hracky','papirnictvi','domaci potreby','zelezarstvi',
+  'obcerstveni','jidlo','hotova jidla','hotove jidlo','menu','obed','polevka','hlavni jidlo','sluzba','sluzby','oddeleni'];
+function rpIsGenericName(name){
+  let n = String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  n = n.replace(/\b\d{1,2}\s*%/g,' ')                 // sazba DPH: „Zboží 21%"
+       .replace(/\bdph\b|\bsazba\b|\bodd\.?\b|\bzakladni\b|\bsnizena\b/g,' ')
+       .replace(/[^a-z ]+/g,' ').replace(/\s+/g,' ').trim();
+  if(!n) return true;                                  // jen čísla/znaky = žádný název
+  return RP_GENERIC_NAMES.includes(n);
+}
+window.rpIsGenericName = rpIsGenericName;
+
 // ── COICOP globální konstanty a engine ──
 // CZ-COICOP 2018 (platná od 1.1.2024) – 13 oddílů spotřebních výdajů domácností.
 // avg_osoba = odhad Kč/osoba/měsíc (kalibrováno na ověřené kotvy ČSÚ 2024:
@@ -177,7 +202,10 @@ function renderUctenky() {
   }
 
   const itemPrices = {};
+  let _genericSkipped = 0; const _genericNames = new Set();
   allItems.forEach(it => {
+    //  S23: obecný název (oddělení místo výrobku) se do sledování cen nepouští.
+    if(rpIsGenericName(it.name)){ _genericSkipped++; _genericNames.add(it.name||'bez názvu'); return; }
     const rawName = (it.name||'').toLowerCase().trim();
     const key = rawName
       .replace(/\d+\s*(g|kg|ml|l|ks|cm|mm)\b/g, '')
@@ -259,6 +287,7 @@ function renderUctenky() {
     mergedPrices[n] = g.vals;
   });
 
+  window._rpGenericSkipped = { n:_genericSkipped, names:[..._genericNames].slice(0,6) };
   const priceChanges = Object.entries(mergedPrices)
     .filter(([,v]) => v.length >= 2)
     .map(([name, prices]) => {
@@ -366,6 +395,7 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-compare" onclick="switchUctenkyTab(\'compare\',this)">🇨🇿 Srovnání ČR</button>'
     + '<button class="tx-filt-btn" id="utab-trend" onclick="switchUctenkyTab(\'trend\',this)">📈 Trend</button>'
     + '<button class="tx-filt-btn" id="utab-prices" onclick="switchUctenkyTab(\'prices\',this)">💹 Zdražování</button>'
+    + '<button class="tx-filt-btn" id="utab-discounts" onclick="switchUctenkyTab(\'discounts\',this)">💸 Slevy</button>'
     + '<button class="tx-filt-btn" id="utab-stores" onclick="switchUctenkyTab(\'stores\',this)">🏪 Obchody</button>'
     + '<button class="tx-filt-btn" id="utab-history" onclick="switchUctenkyTab(\'history\',this)">📋 Historie</button>'
     + '</div>'
@@ -379,6 +409,7 @@ function renderUctenky() {
     + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, uniqueReceipts, catStats, householdSize)
     + buildTrendTab(coicopMonthly, COICOP_GROUPS_DEF, last6Months)
     + buildPricesTab(priceChanges)
+    + buildDiscountsTab(uniqueReceipts)
     + buildStoresTab(storeStats, totalSpent, uniqueReceipts)
     + buildHistoryTab(uniqueReceipts);
 
@@ -1087,8 +1118,123 @@ function buildTrendTab(coicopMonthly, coicopGroups, last6Months) {
   </div>`;
 }
 
+
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): SAMOSTATNÁ ZÁLOŽKA 💸 SLEVY
+//  Karta „Ušetřeno slevami" byla utopená uprostřed Statistik. Tady má vlastní
+//  místo: souhrn měsíc / rok / celkem, rozpad podle obchodů a seznam položek,
+//  na kterých se ušetřilo nejvíc.
+// ══════════════════════════════════════════════════════
+function buildDiscountsTab(receipts){
+  receipts = receipts || [];
+  let html = '<div id="utab-discounts-content" style="display:none">';
+    const now = new Date();
+    let savMonth=0, savYear=0, savTotal=0;
+    const byMonth = {};
+    //  S23 (Milan): „MÁME SLEDOVAT, KOLIK A KDE JSME UŠETŘILI – NIKDE TO NEVIDÍM."
+    //  Karta existovala, ale při nule se mlčky schovala – a nula tam byla právě
+    //  proto, že analyzér slevu přehlédl. Dvě chyby se navzájem kryly (SKILL 47).
+    //  Nově je vidět vždy a přibyl rozpad PODLE OBCHODŮ.
+    const byStore = {};
+    const _stKey = x => String(x||'Neznámý').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    receipts.forEach(rr=>{
+      const sk = _stKey(rr.store);
+      if(!byStore[sk]) byStore[sk] = {store: rr.store||'Neznámý', sv:0, spent:0, n:0, nSlev:0, polozek:0};
+      byStore[sk].spent += (parseFloat(rr.total)||0); byStore[sk].n++;
+      const sv = receiptSavings(rr);
+      if(sv>0){ byStore[sk].sv += sv; byStore[sk].nSlev++;
+        byStore[sk].polozek += (rr.items||[]).filter(it=>(parseFloat(it&&it.discount)||0)>0).length; }
+      if(sv<=0 || !rr.date) return;
+      const d = new Date(rr.date+'T12:00:00');
+      savTotal += sv;
+      if(d.getFullYear()===now.getFullYear()){ savYear+=sv; if(d.getMonth()===now.getMonth()) savMonth+=sv; }
+      const mk = d.getMonth()+'-'+d.getFullYear();
+      byMonth[mk]=(byMonth[mk]||0)+sv;
+    });
+    if(savTotal<=0){
+      html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
+        + '<div style="font-size:.78rem;color:#c9cede;line-height:1.6">Zatím <b>0 Kč</b> — na žádné z ' + receipts.length + ' účtenek není zaznamenaná sleva.</div>'
+        + '<div style="font-size:.72rem;color:#a8aec8;line-height:1.6;margin-top:6px">Slevu appka čte ze záporných řádků na účtence („Tvoje cena s Kaufland Card", „Sleva věrnosti"…). '
+        + 'Když ji analyzér přehlédne, ukáže se u účtenky žluté upozornění, že součet položek přesahuje částku — tam jde rozdíl <b>jedním klikem přiřadit jako slevu</b> k položce a započítá se sem.</div>'
+        + '</div></div>';
+    } else {
+      const bars=[];
+      for(let i2=5;i2>=0;i2--){
+        let m=now.getMonth()-i2, y=now.getFullYear(); while(m<0){m+=12;y--;}
+        bars.push({label:(m+1)+'/'+String(y).slice(2), v:Math.round(byMonth[m+'-'+y]||0)});
+      }
+      const maxB=Math.max(...bars.map(b=>b.v),1);
+      html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
+        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
+        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savMonth)+'</div><div class="stat-label-h">tento měsíc ('+curSym()+')</div></div>'
+        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savYear)+'</div><div class="stat-label-h">letos ('+curSym()+')</div></div>'
+        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savTotal)+'</div><div class="stat-label-h">celkem ('+curSym()+')</div></div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:flex-end;gap:6px;height:58px">'
+        +   bars.map(b=>'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0">'
+              + '<div style="font-size:.6rem;color:var(--income);font-weight:700">'+(b.v?_cNum(b.v):'')+'</div>'
+              + '<div style="width:100%;max-width:34px;height:'+Math.max(3,Math.round(b.v/maxB*30))+'px;background:linear-gradient(180deg,#4ade80,#22c55e);border-radius:4px 4px 0 0;opacity:'+(b.v?'1':'.25')+'"></div>'
+              + '<div style="font-size:.6rem;color:#a8aec8">'+b.label+'</div>'
+            + '</div>').join('')
+        + '</div>'
+        + (()=>{
+            const rows = Object.values(byStore).filter(x=>x.sv>0).sort((a,b)=>b.sv-a.sv);
+            if(!rows.length) return '';
+            const th = 'padding:6px 8px;font-size:.64rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.04em;font-weight:700';
+            const td = 'padding:7px 8px;font-size:.76rem;border-top:1px solid var(--border)';
+            return '<div style="margin-top:14px;font-size:.72rem;font-weight:700;color:#c9cede">🏪 Kde jsi ušetřil</div>'
+              + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>'
+              + '<th style="'+th+';text-align:left">Obchod</th><th style="'+th+';text-align:right">Ušetřeno</th>'
+              + '<th style="'+th+';text-align:right">% z plné ceny</th><th style="'+th+';text-align:right">Položek ve slevě</th>'
+              + '<th style="'+th+';text-align:right">Účtenek</th></tr></thead><tbody>'
+              + rows.map(x=>{
+                  const plna = x.spent + x.sv;
+                  const pct = plna>0 ? (x.sv/plna*100) : 0;
+                  return '<tr><td style="'+td+';color:#e8eaf2">'+x.store+'</td>'
+                    + '<td style="'+td+';text-align:right;color:var(--income);font-weight:700">'+_cNum(x.sv)+'</td>'
+                    + '<td style="'+td+';text-align:right;color:#c9cede">'+pct.toFixed(1).replace('.',',')+' %</td>'
+                    + '<td style="'+td+';text-align:right;color:#c9cede">'+x.polozek+'</td>'
+                    + '<td style="'+td+';text-align:right;color:#a8aec8">'+x.nSlev+' z '+x.n+'</td></tr>';
+                }).join('')
+              + '</tbody></table></div>'
+              + '<div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">% z plné ceny = sleva ÷ (zaplaceno + sleva) za všechny účtenky z obchodu.</div>';
+          })()
+        + '</div></div>';
+    }
+  
+  //  Položky se slevou – kde to bylo znát nejvíc.
+  const pol = [];
+  receipts.forEach(rr => (rr.items||[]).forEach(it => {
+    const d = parseFloat(it && it.discount) || 0;
+    if(d > 0) pol.push({ name: it.name||'—', d, zaplaceno: lineAmt(it), store: rr.store||'', date: rr.date||'', rucne: !!it._discountManual });
+  }));
+  if(pol.length){
+    pol.sort((x,y) => (y.date||'').localeCompare(x.date||'') || y.d - x.d);
+    html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">🏷️ Položky ve slevě</span>'
+      + '<span style="font-size:.68rem;color:#a8aec8">' + pol.length + ' položek</span></div><div class="card-body" style="padding:6px 14px">'
+      + pol.slice(0,40).map(p => {
+          const plna = p.zaplaceno + p.d, pct = plna>0 ? Math.round(p.d/plna*100) : 0;
+          return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);min-width:0">'
+            + '<div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600;color:#e8eaf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(p.name) + '</div>'
+            + '<div style="font-size:.68rem;color:#a8aec8">' + escHtml(p.store) + (p.date?' · '+p.date:'') + (p.rucne?' · doplněno ručně':'') + '</div></div>'
+            + '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><div style="font-size:.82rem;font-weight:700;color:var(--income)">−' + _cNum(p.d) + '</div>'
+            + '<div style="font-size:.66rem;color:#a8aec8">−' + pct + ' % · zaplaceno ' + _cNum(p.zaplaceno) + '</div></div></div>';
+        }).join('')
+      + (pol.length>40 ? '<div style="font-size:.7rem;color:#a8aec8;padding:8px 0">… a dalších ' + (pol.length-40) + '</div>' : '')
+      + '</div></div>';
+  }
+  return html + '</div>';
+}
+
 function buildPricesTab(priceChanges) {
+  //  S23: řekni, co se do porovnání nedostalo a proč – ať to nevypadá, že appka položky ztratila.
+  const _gs = window._rpGenericSkipped || {n:0,names:[]};
+  const _genericNote = _gs.n ? '<div style="margin-bottom:12px;padding:9px 12px;border-radius:10px;background:var(--surface2);border-left:3px solid #60a5fa;font-size:.72rem;color:#a8aec8;line-height:1.55">'
+    + 'ℹ️ <b style="color:#c9cede">' + _gs.n + ' položek s obecným názvem</b> (' + _gs.names.map(x=>escHtml(x)).join(', ') + ') tu není. '
+    + 'Na účtence je jen oddělení, ne výrobek – nejde poznat gramáž ani cena za kilo, takže by porovnání cen lhalo. '
+    + 'Do útraty se počítají dál. Když v Historii u účtenky přepíšeš název na konkrétní („Vysočina 100g"), začne se sledovat.</div>' : '';
   let html = '<div id="utab-prices-content" style="display:none">';
+  html += _genericNote;
   if(!priceChanges.length) {
     html += `<div class="card"><div class="card-body"><div class="empty">
       <div class="ei">📈</div>
@@ -1643,7 +1789,7 @@ function switchUctenkyTab(tab, btn) {
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
   window._receiptEditorOpen = false;
   window._editReceipt = null;
-  ['scan','learn','stats','compare','trend','prices','stores','history'].forEach(t=>{
+  ['scan','learn','stats','compare','trend','prices','discounts','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
     if(c)c.style.display='none';
@@ -1806,82 +1952,7 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
     html += '</tbody></table></div></div></div>';
   }
 
-  // ── S12.1j: SČÍTAČ SLEV – kolik jsi ušetřil slevami (měsíc / rok / celkem + průběh) ──
-  {
-    const now = new Date();
-    let savMonth=0, savYear=0, savTotal=0;
-    const byMonth = {};
-    //  S23 (Milan): „MÁME SLEDOVAT, KOLIK A KDE JSME UŠETŘILI – NIKDE TO NEVIDÍM."
-    //  Karta existovala, ale při nule se mlčky schovala – a nula tam byla právě
-    //  proto, že analyzér slevu přehlédl. Dvě chyby se navzájem kryly (SKILL 47).
-    //  Nově je vidět vždy a přibyl rozpad PODLE OBCHODŮ.
-    const byStore = {};
-    const _stKey = x => String(x||'Neznámý').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-    receipts.forEach(rr=>{
-      const sk = _stKey(rr.store);
-      if(!byStore[sk]) byStore[sk] = {store: rr.store||'Neznámý', sv:0, spent:0, n:0, nSlev:0, polozek:0};
-      byStore[sk].spent += (parseFloat(rr.total)||0); byStore[sk].n++;
-      const sv = receiptSavings(rr);
-      if(sv>0){ byStore[sk].sv += sv; byStore[sk].nSlev++;
-        byStore[sk].polozek += (rr.items||[]).filter(it=>(parseFloat(it&&it.discount)||0)>0).length; }
-      if(sv<=0 || !rr.date) return;
-      const d = new Date(rr.date+'T12:00:00');
-      savTotal += sv;
-      if(d.getFullYear()===now.getFullYear()){ savYear+=sv; if(d.getMonth()===now.getMonth()) savMonth+=sv; }
-      const mk = d.getMonth()+'-'+d.getFullYear();
-      byMonth[mk]=(byMonth[mk]||0)+sv;
-    });
-    if(savTotal<=0){
-      html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
-        + '<div style="font-size:.78rem;color:#c9cede;line-height:1.6">Zatím <b>0 Kč</b> — na žádné z ' + receipts.length + ' účtenek není zaznamenaná sleva.</div>'
-        + '<div style="font-size:.72rem;color:#a8aec8;line-height:1.6;margin-top:6px">Slevu appka čte ze záporných řádků na účtence („Tvoje cena s Kaufland Card", „Sleva věrnosti"…). '
-        + 'Když ji analyzér přehlédne, ukáže se u účtenky žluté upozornění, že součet položek přesahuje částku — tam jde rozdíl <b>jedním klikem přiřadit jako slevu</b> k položce a započítá se sem.</div>'
-        + '</div></div>';
-    } else {
-      const bars=[];
-      for(let i2=5;i2>=0;i2--){
-        let m=now.getMonth()-i2, y=now.getFullYear(); while(m<0){m+=12;y--;}
-        bars.push({label:(m+1)+'/'+String(y).slice(2), v:Math.round(byMonth[m+'-'+y]||0)});
-      }
-      const maxB=Math.max(...bars.map(b=>b.v),1);
-      html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
-        + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
-        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savMonth)+'</div><div class="stat-label-h">tento měsíc ('+curSym()+')</div></div>'
-        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savYear)+'</div><div class="stat-label-h">letos ('+curSym()+')</div></div>'
-        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savTotal)+'</div><div class="stat-label-h">celkem ('+curSym()+')</div></div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:flex-end;gap:6px;height:58px">'
-        +   bars.map(b=>'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0">'
-              + '<div style="font-size:.6rem;color:var(--income);font-weight:700">'+(b.v?_cNum(b.v):'')+'</div>'
-              + '<div style="width:100%;max-width:34px;height:'+Math.max(3,Math.round(b.v/maxB*30))+'px;background:linear-gradient(180deg,#4ade80,#22c55e);border-radius:4px 4px 0 0;opacity:'+(b.v?'1':'.25')+'"></div>'
-              + '<div style="font-size:.6rem;color:#a8aec8">'+b.label+'</div>'
-            + '</div>').join('')
-        + '</div>'
-        + (()=>{
-            const rows = Object.values(byStore).filter(x=>x.sv>0).sort((a,b)=>b.sv-a.sv);
-            if(!rows.length) return '';
-            const th = 'padding:6px 8px;font-size:.64rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.04em;font-weight:700';
-            const td = 'padding:7px 8px;font-size:.76rem;border-top:1px solid var(--border)';
-            return '<div style="margin-top:14px;font-size:.72rem;font-weight:700;color:#c9cede">🏪 Kde jsi ušetřil</div>'
-              + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;margin-top:4px"><thead><tr>'
-              + '<th style="'+th+';text-align:left">Obchod</th><th style="'+th+';text-align:right">Ušetřeno</th>'
-              + '<th style="'+th+';text-align:right">% z plné ceny</th><th style="'+th+';text-align:right">Položek ve slevě</th>'
-              + '<th style="'+th+';text-align:right">Účtenek</th></tr></thead><tbody>'
-              + rows.map(x=>{
-                  const plna = x.spent + x.sv;
-                  const pct = plna>0 ? (x.sv/plna*100) : 0;
-                  return '<tr><td style="'+td+';color:#e8eaf2">'+x.store+'</td>'
-                    + '<td style="'+td+';text-align:right;color:var(--income);font-weight:700">'+_cNum(x.sv)+'</td>'
-                    + '<td style="'+td+';text-align:right;color:#c9cede">'+pct.toFixed(1).replace('.',',')+' %</td>'
-                    + '<td style="'+td+';text-align:right;color:#c9cede">'+x.polozek+'</td>'
-                    + '<td style="'+td+';text-align:right;color:#a8aec8">'+x.nSlev+' z '+x.n+'</td></tr>';
-                }).join('')
-              + '</tbody></table></div>'
-              + '<div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">% z plné ceny = sleva ÷ (zaplaceno + sleva) za všechny účtenky z obchodu.</div>';
-          })()
-        + '</div></div>';
-    }
-  }
+  //  S23: karta „Ušetřeno slevami" se přestěhovala do vlastní záložky 💸 Slevy (buildDiscountsTab).
 
   // ── S12.1d: TREND OBCHODŮ – spojnicový graf útrat po měsících (top 4) ──
   const storeTrend = buildStoreTrendData(receipts);
@@ -2697,7 +2768,8 @@ function rpRender() {
           <input id="rp_name_${i}"
             value="${(it.name||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
             placeholder="Název položky"
-            style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem;min-width:130px"
+            title="${rpIsGenericName(it.name)?'Obecný název (oddělení, ne výrobek) – do sledování cen se nepočítá. Přepiš na konkrétní výrobek s gramáží.':''}"
+            style="flex:1;background:var(--surface2);border:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'solid var(--border)'};border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem;min-width:130px"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
           <div style="position:relative;flex-shrink:0;display:flex;gap:3px">
             <select id="rp_cat_${i}"

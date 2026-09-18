@@ -1,4 +1,4 @@
-// FinanceFlow · v10.84 · ui.js · 2026-09-18
+// FinanceFlow · v10.85 · ui.js · 2026-09-19
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -447,6 +447,24 @@ function saveOnboarding(){
 //  kroků nebo ručním zavřením (localStorage ff_onboardHide).
 //  Kvalitní vstupní data = přesný radar, runway i COICOP.
 // ══════════════════════════════════════════════════════
+//  S23 (Milan): HOTOVÉ POLOŽKY CHECKLISTU SE SBALÍ. Přeškrtnuté řádky zabíraly
+//  půl karty a to, co zbývá udělat, se mezi nimi ztrácelo. Výchozí = sbaleno,
+//  jedním klepnutím jdou rozbalit; volba se pamatuje zvlášť pro každý checklist.
+function _chkFoldOpen(key){ try{ return localStorage.getItem('ff_chkDone_'+key)==='1'; }catch(e){ return false; } }
+function chkFoldToggle(key){
+  try{ localStorage.setItem('ff_chkDone_'+key, _chkFoldOpen(key)?'0':'1'); }catch(e){}
+  if(typeof forceRender==='function') forceRender(); else if(typeof renderPage==='function') renderPage();
+}
+window.chkFoldToggle = chkFoldToggle;
+function _chkFoldHTML(key, doneRows){
+  if(!doneRows.length) return '';
+  const open = _chkFoldOpen(key);
+  return `<div onclick="chkFoldToggle('${key}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-top:4px;border-radius:9px;cursor:pointer;color:#a8aec8;font-size:.74rem;font-weight:600;border:1px dashed var(--border)">
+      <span>✅ Hotovo (${doneRows.length})</span>
+      <span style="margin-left:auto;font-size:.7rem">${open?'skrýt ▴':'zobrazit ▾'}</span>
+    </div>${open?`<div style="margin-top:5px">${doneRows.join('')}</div>`:''}`;
+}
+
 function renderOnboardingCard(D){
   const el = document.getElementById('onboardCard'); if(!el) return;
   let hidden = false;
@@ -469,6 +487,19 @@ function renderOnboardingCard(D){
       go:"openAutoLimitsModal()" },
     { icon:'👨‍👩‍👧', label:'Vyplň složení domácnosti', sub:'pro srovnání s průměry ČSÚ',
       done: (parseInt(st.household_adults)||0) > 0, go:"showPage('nastaveni')" },
+    //  S23 (Milan): „nastav u příjmů charakter a stabilitu" patří sem, ne do
+    //  textu na kartě Příští měsíc. Hlídají se jen příjmové kategorie, do kterých
+    //  už něco PŘIŠLO – výchozí sada stabilitu má, chybí typicky u vlastních.
+    //  Bez ní Příští měsíc neví, jestli s příjmem počítat.
+    (()=>{
+      const pouzite = new Set((D.transactions||[]).filter(t=>t && t.type==='income').map(t=>t.catId||t.category));
+      const bez = (D.categories||[]).filter(c=>c && (c.type==='income'||c.type==='both') && pouzite.has(c.id)
+        && c.stable===undefined && (c.stabilityWeight===undefined || c.stabilityWeight===null));
+      return { icon:'💼', label:'Nastav stabilitu u příjmových kategorií',
+        sub: bez.length ? `chybí u „${bez.slice(0,2).map(c=>c.name).join('“, „')}“ — Příští měsíc neví, jestli s tím příjmem počítat`
+                        : 'podle ní Příští měsíc pozná, s jakým příjmem počítat',
+        done: bez.length===0, go:"showPage('kategorie')" };
+    })(),
     // TODO-236 (S21, Milan): co se v onboardingu přeskočí, má skončit tady.
     //   Pro uživatele, kteří onboardingem nikdy neprošli, je `onboardingSkipped`
     //   undefined → krok je rovnou hotový a nikoho neotravuje (SKILL 31:
@@ -496,7 +527,7 @@ function renderOnboardingCard(D){
       <div style="height:7px;background:var(--surface3);border-radius:5px;overflow:hidden;margin-bottom:12px">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#60a5fa,#4ade80);transition:width .3s"></div>
       </div>
-      ${steps.map(s=>`
+      ${(()=>{ const _r = s=>`
       <div onclick="${s.done?'':s.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${s.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}">
         <span style="font-size:1rem;flex-shrink:0">${s.done?'✅':s.icon}</span>
         <div style="flex:1;min-width:0">
@@ -504,7 +535,8 @@ function renderOnboardingCard(D){
           ${s.done?'':`<div style="font-size:.68rem;color:#a8aec8">${s.sub}</div>`}
         </div>
         ${s.done?'':'<span style="color:var(--text3);flex-shrink:0">›</span>'}
-      </div>`).join('')}
+      </div>`;
+        return steps.filter(s=>!s.done).map(_r).join('') + _chkFoldHTML('onboard', steps.filter(s=>s.done).map(_r)); })()}
     </div>
   </div>`;
 }
@@ -564,7 +596,7 @@ function renderMonthlyChecklist(D){
       <div style="height:7px;background:var(--surface3);border-radius:5px;overflow:hidden;margin-bottom:12px">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4ade80,#22c55e);transition:width .3s"></div>
       </div>
-      ${tasks.map(t=>{
+      ${(()=>{ const _r = t=>{
         //  Úkol s volbami se neproklikává jinam – odpovídá se rovnou tady.
         if(t.otask && !t.done) return `
       <div style="padding:8px 10px;border-radius:9px;margin-bottom:5px;background:var(--surface2)">
@@ -588,7 +620,8 @@ function renderMonthlyChecklist(D){
           ${t.done?'':`<div style="font-size:.68rem;color:#a8aec8">${t.sub}</div>`}
         </div>
         ${t.done?(t.otask?'<span style="color:#a8aec8;font-size:.66rem;flex-shrink:0">změnit</span>':''):'<span style="color:var(--text3);flex-shrink:0">›</span>'}
-      </div>`;}).join('')}
+      </div>`;};
+        return tasks.filter(t=>!t.done).map(_r).join('') + _chkFoldHTML('monthly', tasks.filter(t=>t.done).map(_r)); })()}
     </div>
   </div>`;
 }

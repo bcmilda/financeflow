@@ -1,4 +1,4 @@
-// FinanceFlow · v10.84 · admin.js · 2026-09-18
+// FinanceFlow · v10.85 · admin.js · 2026-09-19
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,21 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.85',
+    datum: '2026-09-19',
+    zmeny: [
+      '📊 FIX (Milan): „DASHBOARD KECÁ\" – 310 / 310 A ZÁROVEŇ „REZERVU A SPOŘENÍ NEPOČÍTÁM\". Ve v10.60 jsem půlkruhu vrátil pevných 310 kvůli nesmyslu „285 / 171\", jenže ten vznikl tím, že se zúžil JEN jmenovatel. Správně se na dosažitelnou škálu převádějí OBĚ čísla: při 65% pokrytí je ve hře 202 bodů a uživatel má 202 z 202. Poměr, známka i ručička zůstávají; číslo přestane tvrdit plný počet. Text nově říká, kolik bodů je mimo hru a že nejsou přičtené ani stržené. Navazuje na FIX-309.',
+      '💸 NOVÁ ZÁLOŽKA „SLEVY\" V ANALÝZE ÚČTENEK (Milan). Karta „Ušetřeno slevami\" byla utopená uprostřed Statistik. Má vlastní místo: měsíc / rok / celkem, rozpad podle obchodů a seznam položek ve slevě (kolik, kolik %, kde, kdy; ručně doplněné slevy jsou označené).',
+      '🥩 OBECNÉ NÁZVY POLOŽEK SE NEPOROVNÁVAJÍ (Milan: „Uzeniny\"). U řezníka nebo na obecně nastaveném terminálu je na účtence oddělení, ne výrobek – čtyři různé salámy pak vypadaly jako jedna položka, která „zdražila o 35 %\". Položky jako Uzeniny, Pečivo, Ovoce a zelenina, „Zboží 21%\" se do sledování cen nepouštějí; do útraty se počítají dál. Záložka Zdražování řekne, kolik jich vynechala a proč. V editoru účtenky má takový název modrý čárkovaný rámeček – po přepsání na konkrétní výrobek se začne sledovat.',
+      '✅ CHECKLISTY: HOTOVÉ POLOŽKY SE SBALÍ (Milan). Přeškrtnuté řádky zabíraly půl karty. Výchozí stav je sbaleno („✅ Hotovo (4) · zobrazit\"), volba se pamatuje zvlášť pro úvodní a měsíční checklist.',
+      '💼 Nový krok úvodního checklistu: „Nastav stabilitu u příjmových kategorií\" (Milan: patří do checklistu, ne do textu na kartě). Hlídá jen příjmové kategorie, do kterých už něco přišlo a stabilitu nemají – typicky vlastní. Výchozí sada ji má, takže nového uživatele krok neotravuje.',
+      '📅 PŘÍŠTÍ MĚSÍC: přepsaná rada u prázdných příjmů (Milan: „výplata jako šablona\" nedává smysl, částka je pokaždé jiná). Nově: zapiš výplatu, appka ji odhadne z průměru; šablona jen pro příjem s pevnou částkou.',
+      '📱 PŘETÉKÁNÍ NA MOBILU (Milan, 4 screenshoty): karty Finančního obrazu jdou pod 560 px pod sebe a velká čísla se nelámou uprostřed („+27 60 / 8 Kč/mě / s\") · tabulka „Měsíc po měsíci\" se posouvá do strany místo slitých hlaviček · tabulka v Příštím měsíci se na mobilu skládá do řádků (datum nahoře, název + částka + tlačítka pod ním) · záložky grafu predikce se lámou 2 × 2 místo oříznutí „Kumulativr\".',
+      'ℹ️ Názvy Wealth Momentum / Net Worth Momentum / Momentum zůstávají BEZE ZMĚNY (rozhodnutí Milana) – šlo jen o dotaz na rozdíl.',
+      '🧪 tools/smoke_s23.js rozšířen na 46 testů chování.',
+    ]
+  },
   {
     verze: 'v10.84',
     datum: '2026-09-18',

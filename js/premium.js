@@ -1,4 +1,4 @@
-// FinanceFlow · v10.84 · premium.js · 2026-09-18
+// FinanceFlow · v10.85 · premium.js · 2026-09-19
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1883,6 +1883,17 @@ function renderFinancialScore(D) {
 
   const barColor = (score, max) => score/max>=0.8?'var(--income)':score/max>=0.5?'var(--debt)':'var(--expense)';
 
+  //  S23 (Milan): „DASHBOARD KECÁ – ŘÍKÁ, ŽE REZERVU A SPOŘENÍ NEPOČÍTÁ, A PŘITOM
+  //  UKAZUJE 310 / 310." Měl pravdu. V10.60 jsem půlkruhu vrátil pevných 310 kvůli
+  //  nesmyslu „285 / 171" – jenže ten vznikl tím, že se ZÚŽIL JEN JMENOVATEL.
+  //  Správně se musí na dosažitelnou škálu převést OBĚ čísla: při 65% pokrytí je
+  //  ve hře 202 bodů a uživatel má 202 z nich. Poměr (a tím známka i ručička)
+  //  zůstává stejný, jen číslo přestane tvrdit, že je plný počet. Zbylé body se
+  //  „odemknou", až půjde změřit, co chybí. Navazuje na FIX-309.
+  const _zuzeno = (sc.total!==null && sc.coverage<100 && sc.availMax>0);
+  const gMax = _zuzeno ? sc.availMax : sc.rawMax;
+  const gTot = _zuzeno ? Math.min(gMax, Math.round(sc.rawTotal * gMax / sc.rawMax)) : sc.rawTotal;
+
   el.innerHTML = `<div class="fscore-card" style="background:linear-gradient(135deg,${bgColor},var(--surface));border-color:${borderColor}">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <!-- v9.43: obloukový ukazatel s pásmy známek -->
@@ -1892,7 +1903,7 @@ function renderFinancialScore(D) {
              availMax byl správný jmenovatel. V v2 je rawTotal už
              znormalizovaný vážený průměr ×3,1 – leží vždy na plné škále.
              Podávat mu availMax znamenalo „285 / 171" a ručičku na dorazu. -->
-        ${_scoreArcGauge(sc.rawTotal, sc.rawMax, grade.color)}
+        ${_scoreArcGauge(gTot, gMax, grade.color)}
         <div class="fscore-zones">
           ${_FSCORE_ZONES.map(([a,b,c,lbl])=>{
             const on = lbl===grade.label;
@@ -1905,9 +1916,9 @@ function renderFinancialScore(D) {
         <div style="font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Finanční skóre</div>
         <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:${grade.color}">${grade.emoji} ${grade.label}</div>
         <div style="font-size:.74rem;color:#a8aec8;margin-top:4px">Celkové hodnocení vaší finanční situace</div>
-        ${sc.total===null ? '' : (()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.rawMax);
+        ${sc.total===null ? '' : (()=>{ const nx=_scoreNextGrade(gTot, gMax);
           return nx ? `<div style="font-size:.72rem;margin-top:5px;color:#c9cede">Do známky <b style="color:var(--text)">${nx.label}</b> chybí <b style="color:var(--text)">${nx.need}</b> ${nx.need===1?'bod':nx.need<5?'body':'bodů'}</div>`
-                    : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení</div>`; })()}
+                    : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení${_zuzeno?' — z toho, co jde změřit':''}</div>`; })()}
         ${(sc.total!==null && consistencyBonus>0)?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
         <!-- v10.60 (TODO-228): škála se už nezužuje (rawMax je vždy 310) –
              místo toho se říká, z KOLIKA PROCENT je skóre podložené. -->
@@ -1919,9 +1930,9 @@ function renderFinancialScore(D) {
           if(sc.total===null) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
              Zatím nemám co měřit. Začni tím, že zapíšeš příjem a výdaje za tenhle měsíc.</div>`;
           if(sc.coverage<100) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
-             Skóre je podložené z ${sc.coverage} % — ${sc.missing.length===1?'složka':'složky'} <b style="color:#c9cede">${chybi}</b>
-             se ${sc.missing.length===1?'zatím nedá':'zatím nedají'} změřit, tak ${sc.missing.length===1?'ji':'je'} appka do hodnocení nepočítá.
-             Doplň, co chybí, a hodnocení bude přesnější.</div>`;
+             Ve hře je zatím <b style="color:#c9cede">${gMax} z ${sc.rawMax} bodů</b> (${sc.coverage} %) — ${sc.missing.length===1?'složka':'složky'} <b style="color:#c9cede">${chybi}</b>
+             se ${sc.missing.length===1?'zatím nedá':'zatím nedají'} změřit, takže ${sc.missing.length===1?'její':'jejich'} body (${sc.rawMax-gMax}) nejsou ani přičtené, ani stržené.
+             Doplň, co chybí, a škála se rozšíří na plných ${sc.rawMax}.</div>`;
           return '';
         })()}
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:.72rem" onclick="showPage('obraz',null)">📈 Podrobná analýza →</button>

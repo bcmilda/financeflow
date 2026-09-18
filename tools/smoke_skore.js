@@ -141,7 +141,7 @@ check('bonus za konzistenci: 6 po sobě jdoucích měsíců poklesu výdajů →
   assert(r.consistencyBonus<=16, 'bonus přesahuje +5 na 100 škále (×3,1 ≈ 15,5): '+r.consistencyBonus);
 });
 
-check('FIX · gauge dostává plnou škálu 310, ne availMax (nepřetéká)', () => {
+check('S23 · gauge převádí na dosažitelnou škálu OBĚ čísla (ne „285 / 171", ne „310 / 310" při 65 %)', () => {
   resetSettings(); setHasDebts(false);
   const D = { transactions: txMonths(0,(iso)=>[
       {date:iso,type:'income',amount:40000,name:'Výplata',catId:'vyplata'},
@@ -154,10 +154,13 @@ check('FIX · gauge dostává plnou škálu 310, ne availMax (nepřetéká)', ()
   assert(r.rawTotal > r.availMax, 'test pozbyl smysl – rawTotal se vejde i do availMax');
   const h = render(D);
   const g = h.match(/>(\d+)<\/tspan><tspan[^>]*> \/ (\d+)</);
-  assert(g, 'gauge se nevykreslil');
-  assert(+g[1] <= +g[2], `gauge přetéká: ${g[1]} / ${g[2]}`);
-  assert(+g[2] === 310, 'gauge nemá plnou škálu 310, má '+g[2]);
-  assert(!/nejvyšším pásmu/.test(h) || +g[1] >= 279, 'tvrdí „nejvyšší pásmo" mimo nejvyšší pásmo');
+  assert(g, 'gauge nenalezen');
+  //  V10.60 tu stálo „jmenovatel musí být 310". Milan (S23): 310 / 310 vedle věty
+  //  „rezervu a spoření nepočítám" je lež. Chyba v10.59 nebyla v zúžení škály,
+  //  ale v tom, že se zúžil JEN jmenovatel. Správně: obě čísla, poměr zachován.
+  assert(+g[2] === r.availMax, 'jmenovatel '+g[2]+' není dosažitelné maximum '+r.availMax);
+  assert(+g[1] <= +g[2], 'gauge přetéká: '+g[1]+' / '+g[2]);
+  assert(Math.abs(+g[1]/+g[2] - r.rawTotal/r.rawMax) < 0.01, 'poměr se změnil – ručička a známka by neseděly');
 });
 
 check('FIX · pod prahem se netvrdí „do známky chybí X bodů" ani se neukazuje bonus', () => {

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.84 · projects.js · 2026-09-18
+// FinanceFlow · v10.85 · projects.js · 2026-09-19
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -4803,12 +4803,12 @@ function renderObraz() {
     <!-- Měsíční přehled tabulka -->
     <div class="card">
       <div class="card-header"><span class="card-title">📅 7 · Měsíc po měsíci</span></div>
-      <div class="card-body" style="padding:0">
-        <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));font-size:.66rem;font-weight:700;color:#a8aec8;text-transform:uppercase;padding:8px 10px;background:var(--surface3)">
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));font-size:.66rem;font-weight:700;color:#a8aec8;text-transform:uppercase;padding:8px 10px;background:var(--surface3)">
           <span>Měsíc</span><span style="text-align:right">Příjmy</span><span style="text-align:right">Výdaje</span><span style="text-align:right">Momentum</span><span style="text-align:right" title="Výdaje ÷ příjmy">Exp.&nbsp;Ratio</span><span style="text-align:right" title="Skóre Finančního obrazu 0–100">Skóre</span><span style="text-align:right">Dluh</span>
         </div>
         ${series.map((s,i)=>`
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:8px 10px;border-bottom:1px solid var(--border);font-size:.73rem;${i===series.length-1?'font-weight:600':''}">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:8px 10px;border-bottom:1px solid var(--border);font-size:.73rem;${i===series.length-1?'font-weight:600':''}">
             <span style="color:#a8aec8">${s.month}</span>
             <span style="text-align:right;color:var(--income)">${fmtB(s.inc)}</span>
             <span style="text-align:right;color:var(--expense)">${fmtB(s.exp)}</span>
@@ -4831,7 +4831,7 @@ function renderObraz() {
           const sErAvg = sInc>0 ? sExp/sInc : null;
           const sScore = computeObrazScore(series);
           const lastDebt = series.length ? series[series.length-1].debt : 0;
-          return `<div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:9px 10px;border-top:2px solid var(--border2);font-size:.72rem;font-weight:700;background:var(--surface2)">
+          return `<div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:9px 10px;border-top:2px solid var(--border2);font-size:.72rem;font-weight:700;background:var(--surface2)">
             <span style="color:#c9cede">Σ ${n}m</span>
             <span style="text-align:right;color:var(--income)">${fmtB(sInc)}</span>
             <span style="text-align:right;color:var(--expense)">${fmtB(sExp)}</span>
@@ -4840,7 +4840,7 @@ function renderObraz() {
             <span style="text-align:right;color:#a8aec8">·</span>
             <span style="text-align:right;color:#a8aec8">·</span>
           </div>
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:6px 10px;font-size:.66rem;color:#a8aec8">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:6px 10px;font-size:.66rem;color:#a8aec8">
             <span>Ø/měs</span>
             <span style="text-align:right">${fmtB(Math.round(sInc/n))}</span>
             <span style="text-align:right">${fmtB(Math.round(sExp/n))}</span>
@@ -4849,7 +4849,7 @@ function renderObraz() {
             <span style="text-align:right">${sScore.hasData?sScore.score:'–'}</span>
             <span style="text-align:right">${fmtB(Math.round(lastDebt))}</span>
           </div>
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:7px 10px;font-size:.68rem;font-weight:700;border-top:1px solid var(--border)" title="Ø posledních 3 měsíců vs Ø předchozích 3 měsíců">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:7px 10px;font-size:.68rem;font-weight:700;border-top:1px solid var(--border)" title="Ø posledních 3 měsíců vs Ø předchozích 3 měsíců">
             <span style="color:#a8aec8">Trend 3v3</span>
             <span style="text-align:right;color:${trInc.dir>=0?'var(--income)':'var(--expense)'}">${trInc.txt}</span>
             <span style="text-align:right;color:${trExp.dir<=0?'var(--income)':'var(--expense)'}">${trExp.txt}</span>

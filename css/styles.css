@@ -727,3 +727,24 @@ img, svg, canvas { max-width: 100%; }
   .report-matrix td,.report-matrix th{padding:5px 6px}
   .report-matrix th:first-child,.report-matrix td:first-child{min-width:132px}
 }
+
+
+/* ── S23 (Milan): PŘETÉKÁNÍ NA MOBILU ──
+   Velká čísla v písmu Syne se ve dvousloupcové mřížce lámala uprostřed
+   („+27 60 / 8 Kč/mě / s"). Pod 560 px jdou karty Obrazu pod sebe a čísla
+   se nelámou. Mřížky mají styl inline, proto atributový selektor + !important. */
+@media (max-width:560px){
+  #page-obraz [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important}
+  #page-obraz [style*="font-family:Syne"]{overflow-wrap:normal;word-break:keep-all}
+  /* Příští měsíc: tabulka → řádky pod sebou (datum nahoře, název + částka + tlačítka pod ním) */
+  .pristi-tbl,.pristi-tbl tbody,.pristi-tbl tfoot{display:block;width:100%}
+  .pristi-tbl thead{display:none}
+  .pristi-tbl tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:8px;align-items:center}
+  .pristi-tbl tbody td:nth-child(1){grid-column:1/-1;padding:9px 0 0 !important;font-size:.68rem !important}
+  .pristi-tbl tbody td:nth-child(2){grid-column:1;padding:2px 0 10px !important;min-width:0}
+  .pristi-tbl tbody td:nth-child(3){grid-column:2;padding:0 0 10px !important}
+  .pristi-tbl tbody td:nth-child(4){grid-column:3;padding:0 0 10px 4px !important}
+  .pristi-tbl tfoot td:nth-child(1){grid-column:1}
+  .pristi-tbl tfoot td:nth-child(2){grid-column:2/-1}
+  .pristi-tbl tfoot td:nth-child(3){display:none}
+}
