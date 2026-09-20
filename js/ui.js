@@ -1,4 +1,4 @@
-// FinanceFlow · v10.85 · ui.js · 2026-09-19
+// FinanceFlow · v10.86 · ui.js · 2026-09-20
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1539,7 +1539,13 @@ function renderTxMonthTable(){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+    <!--  S23 (Milan): TABULKA NA MOBILU BYLA USEKNUTÁ A NEŠLA POSUNOUT.
+          Pět sloupců potřebuje minimálně 460 px, telefon má ~380 px. Mřížka
+          přetekla z karty a uřízla sloupec Saldo. Nově je hlavička, řádky
+          i součtový řádek v JEDNOM posuvném rámu – posouvají se společně,
+          takže hlavička nad daty pořád sedí. -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px">
+    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                 background:var(--surface2);border-radius:9px 9px 0 0;border:1px solid var(--border);border-bottom:none;font-weight:700;font-size:.72rem;color:#c9cede">
       ${bunka(`<span onclick="setTxTableDir()" style="cursor:pointer;user-select:none" title="Přepnout řazení">📅 Měsíc ${_txTableDir==='desc'?'↓':'↑'}</span>`)}
       ${bunka('Záznamů', 'text-align:right')}
@@ -1551,7 +1557,7 @@ function renderTxMonthTable(){
       ${rows.map((r,i)=>{
         const saldo = r.inc - r.exp;
         const podil = Math.round(r.n/maxN*100);
-        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                      align-items:center;background:${i%2?'transparent':'rgba(255,255,255,.02)'}">
           ${bunka(`<span style="font-weight:600">${CZ_M[r.m]} ${r.y}</span>`)}
           ${bunka(`<span style="display:inline-block;min-width:26px;text-align:right;font-weight:700">${r.n}</span>
@@ -1562,7 +1568,7 @@ function renderTxMonthTable(){
           ${bunka(`<span style="font-weight:700;color:${saldo>=0?'var(--income)':'var(--expense)'}">${fmtB(saldo)}</span>`, 'text-align:right')}
         </div>`;
       }).join('')}
-      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                   align-items:center;background:var(--surface2);border-top:1px solid var(--border);font-weight:700">
         ${bunka('Celkem')}
         ${bunka(String(celkemN), 'text-align:right')}
@@ -1571,7 +1577,9 @@ function renderTxMonthTable(){
         ${bunka(`<span style="color:${celkemInc-celkemExp>=0?'var(--income)':'var(--expense)'}">${fmtB(celkemInc-celkemExp)}</span>`, 'text-align:right')}
       </div>
     </div>
+    </div>
     <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+      <span style="color:#8b93ad">← potáhni tabulku do stran →</span><br>
       Jde napříč všemi daty, ne jen zobrazeným měsícem. Příjmy a výdaje jsou bez přesunů,
       rozpadů a vyrovnání; sloupec <strong>Záznamů</strong> naopak počítá všechno, co jsi zapsal.
     </div>`;

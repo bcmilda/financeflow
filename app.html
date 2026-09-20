@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v10.85</title>
+<title>FinanceFlow v10.86</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -261,7 +261,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.85 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.86 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -497,7 +497,7 @@
         <button class="tx-filt-btn" id="filt-dup" onclick="toggleDupFilter(this)" title="Zobrazit jen podezřelé">⚠️ Podezřelé</button>
         <button class="tx-filt-btn" id="filt-date" onclick="toggleTxDateFilter()" title="Filtr podle měsíců / roku">📅 Období</button>
         <button class="tx-filt-btn" id="filt-tabulka" onclick="toggleTxTable(this)" title="Souhrn měsíc po měsíci">📊 Tabulka</button>
-        <button class="tx-filt-btn" id="filt-sablona" onclick="openSablonaModal()" title="Přidat opakovanou šablonu" style="margin-left:auto">🔄 + Šablona</button>
+        <button class="tx-filt-btn" id="filt-sablona" onclick="openSablonaModal()" title="Přidat opakovanou nebo jednorázovou platbu">🔄 + Šablona</button>
         <button class="tx-filt-btn" id="filt-adv" onclick="toggleAdvFilter()">⚙️ Filtr</button>
       </div>
       <!-- Rozšířený filtr – skrytý -->
@@ -1062,7 +1062,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.85</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.86</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1455,15 +1455,19 @@
       <div class="frow">
         <div class="fg">
           <label>Frekvence</label>
-          <select class="fi" id="sablonaFreq">
+          <select class="fi" id="sablonaFreq" onchange="sablonaFreqChange()">
             <option value="weekly">Týdně</option>
             <option value="biweekly">Každé 2 týdny</option>
             <option value="monthly" selected>Měsíčně</option>
             <option value="quarterly">Čtvrtletně</option>
             <option value="yearly">Ročně</option>
+            <option value="once">1× jednorázově (k datu)</option>
           </select>
         </div>
-        <div class="fg"><label>Den v měsíci</label><input class="fi" type="number" id="sablonaDen" placeholder="1-31" min="1" max="31"></div>
+        <div class="fg" id="sablonaDenWrap"><label>Den v měsíci</label><input class="fi" type="number" id="sablonaDen" placeholder="1-31" min="1" max="31"></div>
+        <!--  S23 (Milan): JEDNORÁZOVÁ PLATBA – u „1×" nedává „den v měsíci" smysl,
+              potřebuje celé datum. Přepíná se v sablonaFreqChange(). -->
+        <div class="fg" id="sablonaOnceWrap" style="display:none"><label>Datum platby</label><input class="fi" type="date" id="sablonaOnceDate"></div>
       </div>
       <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="sablonaAuto" style="width:18px;height:18px;cursor:pointer">
@@ -2199,7 +2203,7 @@ window.addEventListener('error', function(e){
 </script>
 <script src="js/app.js?v=ca93b69ba2dde33b" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
 <script src="js/helpers.js?v=b14f43d465ee8cde" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
-<script src="js/ui.js?v=3947ff1ea94d09cc" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/ui.js?v=f0debeecb4334e94" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
 <script src="js/transactions.js?v=7b634102182908c6" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
 <script src="js/report.js?v=79ef757e4873b28a" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
 <script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
@@ -2208,11 +2212,11 @@ window.addEventListener('error', function(e){
 <script src="js/stats.js?v=d5037a65652c234c" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
 <script src="js/debts.js?v=24bdde63e7a85df8" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
 <script src="js/ai.js?v=37bb426330825729" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
-<script src="js/premium.js?v=0019d5b8b95007aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=754e68cc97924630" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
-<script src="js/projects.js?v=846169927b41d1a6" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
+<script src="js/projects.js?v=f458eeb0132a9ab5" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
-<script src="js/receipts.js?v=6bf9effa95635432" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/receipts.js?v=b516b09760b98795" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
 <script src="js/offline-sync.js?v=c09e6894cf9376e3" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
 <script src="js/settings.js?v=a8788e3d9ce22040" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
 <script src="js/share.js?v=efcaa25444b40838" onerror="window._ffScriptFail&&window._ffScriptFail('js/share.js')"></script>
@@ -2221,8 +2225,8 @@ window.addEventListener('error', function(e){
 <script src="js/nakup.js?v=29c6718d79f75fcc" onerror="window._ffScriptFail&&window._ffScriptFail('js/nakup.js')"></script>
 <script src="js/product-db.js?v=cf05ed32d6fc3ee2" onerror="window._ffScriptFail&&window._ffScriptFail('js/product-db.js')"></script>
 <script src="js/coicop.js?v=c4c3b89e8c3bba5c" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop.js')"></script>
-<script src="js/budouci.js?v=74a41855d55a20b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
-<script src="js/pristi.js?v=1c2393ed1dd35d9b" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
+<script src="js/budouci.js?v=ab80dd76e288ba03" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
+<script src="js/pristi.js?v=92ce4eca70db34b6" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
 <script src="js/assets.js?v=b4cea9a43a05bcd7" onerror="window._ffScriptFail&&window._ffScriptFail('js/assets.js')"></script>
 <script src="js/advisor.js?v=dab3896c82038bc7" onerror="window._ffScriptFail&&window._ffScriptFail('js/advisor.js')"></script>
 <script src="js/kalendar.js?v=cb2332466e30c8dc" onerror="window._ffScriptFail&&window._ffScriptFail('js/kalendar.js')"></script>
@@ -2230,7 +2234,7 @@ window.addEventListener('error', function(e){
 <script src="js/donate.js?v=832cd19c4ee60fc5" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=f006e57f978b56e6" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=33c4afbb26d5d922" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
-<script src="js/admin.js?v=f5628b54990e0854" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=d3c90eeb4039b001" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=8d2d4ca436edfc88" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=c372947f013a8e1a" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

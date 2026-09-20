@@ -1,4 +1,4 @@
-// FinanceFlow · v10.85 · admin.js · 2026-09-19
+// FinanceFlow · v10.86 · admin.js · 2026-09-20
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.86',
+    datum: '2026-09-20',
+    zmeny: [
+      '🔀 ZMĚNA (Milan): TLAČÍTKA „PŘIDAT VLASTNÍ PŘÍJEM/VÝDAJ" V PŘÍŠTÍM MĚSÍCI VEDOU DO TRANSAKCÍ. Od S19 zapisovala vlastní evidenci do S.pristiCfg[ym].custom – nepropsala se do transakcí, Dashboardu ani skóre a po přechodu měsíce zůstala viset u starého měsíce. Milan na to narazil a měl pravdu. Navíc to byl můj nápad: v zadání PLAN-prijmy-pristi-mesic.md vlastní položky nikdy nebyly. Nově se otevře normální modal transakce s datem předvyplněným na 15. zobrazeného měsíce. Položky zapsané před v10.86 se dál zobrazují a jdou smazat; nové se nezakládají.',
+      '🐛 FIX (Milan): PŘEPNUTÍ VÝDAJ → PŘÍJEM V ŠABLONĚ NECHÁVALO VÝDAJOVÉ KATEGORIE. setSablonaType přepnul typ a zobrazení sekcí, ale seznam kategorií nikdo nepřekreslil – změnil se až po kliknutí na kategorii, protože teprve ten onclick volá renderSablonaCatPicker(). Nově se překreslí hned a vybraná kategorie nesprávného typu se zahodí (kategorie typu „both" zůstává).',
+      '1️⃣ NOVÁ FREKVENCE „1× JEDNORÁZOVĚ (K DATU)" u opakovaných šablon (Milan). Místo „den v měsíci" se ptá na celé datum. Do dne D je platba vidět v Budoucích platbách i v Příštím měsíci, v den D vznikne transakce a šablona se označí „✅ provedeno" – nezůstane viset mezi opakovanými. Automatické vytváření je u ní zaškrtnuté a zamčené, jinak by v den D nenastalo nic a byla by to stejná past jako zrušené vlastní položky.',
+      '📱 FIX (Milan): TABULKA V TRANSAKCÍCH BYLA NA MOBILU USEKNUTÁ A NEŠLA POSUNOUT. Pět sloupců potřebuje min. 460 px, telefon má ~380 px – mřížka přetekla z karty a uřízla sloupec Saldo. Hlavička, řádky i součtový řádek jsou nově v JEDNOM posuvném rámu (posouvají se společně, hlavička nad daty sedí) + nápověda „← potáhni do stran →".',
+      '📱 FIX (Milan): tlačítka „+ Šablona" a „Filtr" odlétala doprava. Způsoboval to margin-left:auto na tlačítku Šablona – při zalomení lišty na mobilu odsunul poslední dvě tlačítka na vlastní řádek k pravému okraji. Odstraněno, lišta teče zleva doprava.',
+      '🧪 tools/smoke_s23b.js – 28 testů chování (kategorie šablony, jednorázová platba napříč premium/budouci/pristi, přesměrování tlačítek, mobilní tabulka).',
+    ]
+  },
   {
     verze: 'v10.85',
     datum: '2026-09-19',

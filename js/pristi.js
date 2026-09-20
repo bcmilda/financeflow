@@ -1,4 +1,4 @@
-// FinanceFlow · v10.85 · pristi.js · 2026-09-19
+// FinanceFlow · v10.86 · pristi.js · 2026-09-20
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -93,8 +93,16 @@ function pristiDayInWindow(day, W) {
 
 // Výskyty opakované šablony uvnitř libovolného okna [from, to].
 // (budouciGetOccurrences umí jen „od dneška dopředu", proto vlastní varianta nad oknem.)
-function pristiOccurrences(freq, den, from, to) {
+function pristiOccurrences(freq, den, from, to, sablona) {
   const out = [], DAY = 86400000;
+  //  S23 (Milan): jednorázová platba – jediný výskyt k uloženému datu, a jen
+  //  když spadne do zobrazeného měsíce a ještě nebyla provedena.
+  if (freq === 'once') {
+    const od = sablona && sablona.onceDate ? new Date(sablona.onceDate) : null;
+    if (od) od.setHours(0, 0, 0, 0);
+    if (!od || sablona.done || od < from || od > to) return out;
+    return [od];
+  }
   if (freq === 'weekly' || freq === 'biweekly') {
     const step = freq === 'weekly' ? 7 : 14;
     let cur = new Date(); cur.setHours(0, 0, 0, 0);
@@ -174,7 +182,7 @@ function pristiIncomeRows(D, W, cfg) {
   (D.sablony || []).forEach(s => {
     if (!s || s.type !== 'income') return;
     if (s.endDate && new Date(s.endDate) < W.from) return;
-    pristiOccurrences(s.freq || 'monthly', s.den || 1, W.from, W.to).forEach(d => {
+    pristiOccurrences(s.freq || 'monthly', s.den || 1, W.from, W.to, s).forEach(d => {
       inc.push({
         key: 's:' + s.id + ':' + _pIso(d), level: 1, icon: '🔄',
         name: s.name || 'Příjem', amount: s.amount || 0, date: d,
@@ -443,7 +451,32 @@ function pristiSetStart() {
 // S19.2 (Milan): VLASTNÍ ZÁPIS PŘÍJMU / VÝDAJE. Historie ani šablony nepokryjí všechno –
 //  vratka daní, jednorázová zakázka, plánovaný zubař. Uživatel to ví, appka ne.
 //  Zapsané řádky jsou 🟢 jisté (uživatel je zadal vědomě) a platí jen pro daný měsíc.
+//  S23 (Milan): TLAČÍTKA VEDOU DO TRANSAKCÍ, NE DO VLASTNÍ EVIDENCE.
+//  Od S19 tady byla „vlastní položka": tři okna prompt(), uložení do
+//  S.pristiCfg[ym].custom a nic víc. Do transakcí, Dashboardu ani skóre se
+//  nepropsala a po přechodu měsíce zůstala viset u starého měsíce. Milan
+//  (S23) na to narazil a měl pravdu. Vlastní evidence byla navíc můj nápad –
+//  v zadání PLAN-prijmy-pristi-mesic.md nikdy nebyla (SKILL 53).
+//  Nově se otevře normální modal transakce s předvyplněným budoucím datem:
+//  platba se propíše všude a zapisuje se jedinou cestou, kterou appka má.
 function pristiAddCustom(type) {
+  if (typeof viewingUid !== 'undefined' && viewingUid) return;
+  if (typeof openAddTx !== 'function') return;
+  openAddTx();
+  if (typeof setTxType === 'function') setTxType(type === 'income' ? 'income' : 'expense');
+  //  Datum: 15. dne ZOBRAZENÉHO měsíce. Uživatel si ho upraví, ale nemusí
+  //  přepisovat měsíc ani rok – to je na mobilu ta nejotravnější část.
+  const ym = _pristiLast && _pristiLast.ym;
+  const el = document.getElementById('txDate');
+  if (ym && el) el.value = ym + '-15';
+  const t = document.getElementById('modalAddTitle');
+  if (t) t.textContent = type === 'income' ? 'Příjem, se kterým počítáš' : 'Výdaj, se kterým počítáš';
+}
+
+//  Původní zadávání do vlastní evidence. Nové položky se už nezakládají;
+//  funkce zůstává kvůli datům zapsaným před v10.86 – ta jde dál zobrazit
+//  a smazat přes pristiDelCustom.
+function pristiAddCustomLegacy(type) {
   if (typeof viewingUid !== 'undefined' && viewingUid) return;
   if (!_pristiLast) return;
   const jeP = type === 'income';
@@ -539,7 +572,7 @@ function pristiAddBtn(type) {
   return `<div style="margin-bottom:10px">
     <button type="button" onclick="pristiAddCustom('${type}')" style="background:var(--surface3);border:1px dashed var(--border2);border-radius:9px;color:#c9cede;font-size:.76rem;padding:7px 12px;cursor:pointer">
       ✍️ Přidat vlastní ${jeP ? 'příjem' : 'výdaj'}</button>
-    <span style="font-size:.73rem;color:#a8aec8;margin-left:9px">${jeP ? 'vratka daní, zakázka, dar — co historie neví' : 'zubař, servis, jednorázová platba'}</span>
+    <span style="font-size:.73rem;color:#a8aec8;margin-left:9px">${jeP ? 'vratka daní, zakázka — zapíše se do transakcí' : 'zubař, servis — zapíše se do transakcí'}</span>
   </div>`;
 }
 

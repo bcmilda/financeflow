@@ -1,4 +1,4 @@
-// FinanceFlow · v10.85 · projects.js · 2026-09-19
+// FinanceFlow · v10.86 · projects.js · 2026-09-20
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.85 · premium.js · 2026-09-19
+// FinanceFlow · v10.86 · premium.js · 2026-09-20
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -765,7 +765,7 @@ function deletePayType(id) {
 // ══════════════════════════════════════════════════════
 //  OPAKOVANÉ ŠABLONY
 // ══════════════════════════════════════════════════════
-const FREQ_LABELS={weekly:'Týdně',biweekly:'Každé 2 týdny',monthly:'Měsíčně',quarterly:'Čtvrtletně',yearly:'Ročně'};
+const FREQ_LABELS={weekly:'Týdně',biweekly:'Každé 2 týdny',monthly:'Měsíčně',quarterly:'Čtvrtletně',yearly:'Ročně',once:'1× jednorázově'};
 let _sablonaType='expense';
 
 function setSablonaType(t) {
@@ -789,7 +789,34 @@ function setSablonaType(t) {
   document.getElementById('stt-expense').className='tt'+(t==='expense'?' sel-expense':'');
   const stDebt=document.getElementById('stt-debt');
   if(stDebt) stDebt.className='tt'+(isDebt?' sel-expense':'');
+  //  S23 (Milan): PŘEPNUTÍ VÝDAJ → PŘÍJEM NECHÁVALO VÝDAJOVÉ KATEGORIE.
+  //  setSablonaType přepnul jen _sablonaType a zobrazení sekcí, ale seznam
+  //  kategorií nikdo nepřekreslil – změnil se až při kliknutí na kategorii,
+  //  protože teprve ten onclick volá renderSablonaCatPicker(). Vybraná
+  //  kategorie se navíc musí zahodit: příjmová šablona nesmí zůstat viset
+  //  na kategorii Nájem jen proto, že byla vybraná před přepnutím.
+  if(!(t==='transfer'||isDebt)){
+    const _sel=(S.categories||[]).find(c=>c.id===selCatId);
+    if(_sel && _sel.type!==t && _sel.type!=='both') selCatId='';
+    if(typeof renderSablonaCatPicker==='function') renderSablonaCatPicker();
+  }
 }
+
+//  S23: u jednorázové platby se místo „den v měsíci" ptáme na celé datum.
+function sablonaFreqChange(){
+  const f=document.getElementById('sablonaFreq')?.value;
+  const den=document.getElementById('sablonaDenWrap');
+  const once=document.getElementById('sablonaOnceWrap');
+  if(den)  den.style.display  = f==='once' ? 'none'  : 'block';
+  if(once) once.style.display = f==='once' ? 'block' : 'none';
+  const auto=document.getElementById('sablonaAuto');
+  //  Jednorázová platba bez automatického vytvoření by jen visela v seznamu
+  //  a v den D se nic nestalo – to by byla stejná past jako „vlastní položky"
+  //  v Příštím měsíci. Proto se zaškrtne a zamkne.
+  if(auto && f==='once'){ auto.checked=true; auto.disabled=true; }
+  else if(auto){ auto.disabled=false; }
+}
+window.sablonaFreqChange = sablonaFreqChange;
 // S17.7: naplnit select dluhů v šablonovém modalu
 function renderSablonaDebts() {
   const sel=document.getElementById('sablonaDebtId'); if(!sel) return;
@@ -812,7 +839,7 @@ function renderSablonaList() {
         <div style="font-weight:600;font-size:.88rem">${s.name}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
           <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(s.amount)}</span>
-          <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}</span>
+          <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}${s.freq==='once'&&s.done?' · ✅ provedeno':''}</span>
           ${cat?`<span style="font-size:.74rem;color:var(--text3)">${cat.icon} ${cat.name}</span>`:''}
           ${s.auto?'<span style="font-size:.7rem;background:var(--income-bg);color:var(--income);padding:1px 6px;border-radius:5px">auto</span>':''}
         </div>
@@ -831,6 +858,8 @@ function getNextSablonaDate(s) {
   const day=s.den||1;
   let next=new Date(today.getFullYear(),today.getMonth(),day);
   if(next<=today){
+    //  S23: jednorázová platba má datum uložené, nic se nedopočítává.
+    if(s.freq==='once') return s.onceDate ? new Date(s.onceDate).toLocaleDateString('cs-CZ') : '—';
     if(s.freq==='weekly')next=new Date(today.getTime()+7*86400000);
     else if(s.freq==='biweekly')next=new Date(today.getTime()+14*86400000);
     else if(s.freq==='monthly')next=new Date(today.getFullYear(),today.getMonth()+1,day);
@@ -879,6 +908,8 @@ function editSablona(id) {
   document.getElementById('sablonaName').value=s.name;
   moneyInFill('sablonaAmt', s.amount);   // TODO-216
   document.getElementById('sablonaFreq').value=s.freq||'monthly';
+  const _od=document.getElementById('sablonaOnceDate'); if(_od) _od.value=s.onceDate||'';
+  if(typeof sablonaFreqChange==='function') sablonaFreqChange();
   document.getElementById('sablonaDen').value=s.den||1;
   document.getElementById('sablonaAuto').checked=!!s.auto;
   document.getElementById('sablonaEnd').value=s.endDate||'';
@@ -898,6 +929,10 @@ function saveSablona() {
   const amount=moneyInRead('sablonaAmt');   // TODO-216
   if(!name){alert('Zadej název');return;}
   if(!amount){alert('Zadej částku');return;}
+  //  S23: jednorázová platba bez data by se nikdy neprovedla.
+  const _freq=document.getElementById('sablonaFreq').value;
+  const _onceDate=(document.getElementById('sablonaOnceDate')?.value)||'';
+  if(_freq==='once' && !_onceDate){alert('U jednorázové platby vyber datum');return;}
   const s={id:eid||uid(),name,amount,type:_sablonaType,catId:selCatId,freq:document.getElementById('sablonaFreq').value,den:parseInt(document.getElementById('sablonaDen').value)||1,auto:document.getElementById('sablonaAuto').checked,endDate:document.getElementById('sablonaEnd').value||null,wallet:document.getElementById('sablonaWallet').value||null,walletTo:document.getElementById('sablonaWalletTo')?.value||null,note:document.getElementById('sablonaNote').value.trim()};
   if(_sablonaType==='transfer'){
     if(!s.wallet||!s.walletTo){alert('U přesunu vyber obě peněženky');return;}
@@ -911,6 +946,7 @@ function saveSablona() {
     s.debtId=did; s.type='expense'; s.catId='';   // splátka = výdaj vázaný na debtId
   }
   if(!S.sablony)S.sablony=[];
+  if(_freq==='once'){ s.onceDate=_onceDate; s.auto=true; s.den=parseInt(_onceDate.slice(8,10))||1; }
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
   else S.sablony.push(s);
   save(); closeModal('modalSablona'); renderSablonaList();
@@ -964,6 +1000,27 @@ function processAutoSablony() {
   S.sablony.filter(s=>s.auto).forEach(s=>{
     // jen měsíční šablony mají „den v měsíci" – u týdenních/dalších řeší výskyty Budoucí platby
     const freq=s.freq||'monthly';
+    //  S23 (Milan): JEDNORÁZOVÁ PLATBA. Vytvoří se v den D a šablona se pak
+    //  označí jako vyřízená (done), aby nezůstala viset v seznamu opakovaných.
+    //  Do té doby je vidět v Budoucích platbách i v Příštím měsíci – přesně
+    //  proto Milan tuhle volbu chtěl: zviditelnit budoucí jednorázový výdaj.
+    if(freq==='once'){
+      if(s.done || !s.onceDate) return;
+      const iso_today=iso(today);
+      if(s.onceDate > iso_today) return;                       // ještě nenastalo
+      if(S.transactions.some(t=>t.date===s.onceDate && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.done=true; return; }
+      const tx1={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+      if(s.debtId) tx1.debtId=s.debtId;
+      if(s.type==='transfer'){
+        const trid=uid();
+        S.transactions.push(
+          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:s.onceDate,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'},
+          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:s.onceDate,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'}
+        );
+      } else S.transactions.push(tx1);
+      s.done=true; added++;
+      return;
+    }
     if(freq!=='monthly') return;
     const den=Math.min(31, Math.max(1, s.den||1));
     const dueDay=Math.min(den, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate()); // ošetři krátké měsíce
