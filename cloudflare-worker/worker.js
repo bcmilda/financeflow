@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.95 · 2026-09-21  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.96 · 2026-09-21  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -11,6 +11,9 @@
  *
  * Bindings (Settings → Bindings → R2 bucket):
  *   ARCHIV                   = ff-uctenky   (R2 bucket, jurisdikce EU)
+ *
+ * Variables (Settings → Variables, volitelné):
+ *   CSU_VYBER_URL            = odkaz na vlastní výběr v DataStatu ČSÚ (meziroční index, posledních 13+ měsíců)
  */
 
 // === FIREBASE ADMIN – Rate Limiting (ADR-041) ===
@@ -370,7 +373,7 @@ export default {
     //  vrátil holou 500 bez CORS → prohlížeč hlásil „chybí Access-Control-Allow-Origin".
     //  Oficiální inflace se proto od S22 nenačítala vůbec.
     if (request.method === 'GET' && new URL(request.url).pathname === '/inflace') {
-      return handleInflace(corsHeaders);
+      return handleInflace(corsHeaders, env);
     }
 
     // S14: ČNB denní kurzovní lístek (veřejný, bez klíče) – proxy s denní cache + CORS
@@ -903,86 +906,160 @@ function csvRadek(line) {
 //  Vrací: inflace (úhrn, poslední měsíc), rok, mesic, oddily {kod:{mira,nazev}},
 //         rada [{obd, inflace}] a radaOddily {kod:[{obd, mira}]} – 13 měsíců.
 // ══════════════════════════════════════════════════════
-const CSU_API = 'https://data.csu.gov.cz/api/dotaz/v1/data/sady/CEN0101E/vlastni?verzeSady=1&format=CSV&kodZvlast=true';
 const CSU_ODDILY = ['0','01','02','03','04','05','06','07','08','09','10','11','12','13'];
 
-//  Rozbor CSV podle HLAVIČKY, ne podle pořadí sloupců – ČSÚ ho už jednou
-//  změnil. Sloupec měsíce, oddílu a hodnoty se hledá podle názvu i obsahu.
+//  Rozbor CSV podle HLAVIČKY, ne podle pořadí sloupců (ČSÚ ho už jednou
+//  změnil). Vrací VŠECHNY řádky s typem indexu; co z nich spočítat, rozhodne
+//  csuInflaceZRadku – umí meziroční index (IR) i dopočet z bazického (IZ…).
+//  Formát ověřen na předdefinovaném výběru CEN0101ET03 (S23, Milan):
+//    "Ukazatel","IndicatorType","Typ indexu","TYPUDAJE4A","Území","UZ02P",
+//    "Skupiny domácností","EKAKTIOCDS","Klasifikace COICOP 2018-Oddíl",
+//    "CZCOICOP2.CZCOP1","…-Skupina a třída","CZCOICOP2.CZCOP23","Měsíce",
+//    "CasM","Hodnota",…   hodnota s desetinnou TEČKOU („100.7").
 function csuRozeber(txt) {
   const lines = txt.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return { chyba: 'prazdna odpoved' };
   const H = csvRadek(lines[0]).map(x => x.trim());
-  const najdi = (...vzory) => H.findIndex(h => vzory.some(v => v.test(h)));
-  const iHod = najdi(/^hodnota$/i);
-  const iObd = najdi(/^CasM$/i);
-  let iOdd = najdi(/CZCOP1$/i, /^CZCOICOP2$/i);
-  const iOddTxt = najdi(/COICOP 2018-Oddíl$/i, /^Klasifikace COICOP 2018$/i);
-  const iTyp = najdi(/^TYPUDAJE4A$/i);
-  if (iHod < 0 || iObd < 0 || iOdd < 0) return { chyba: 'neznama hlavicka', hlavicka: H };
-  const body = [];
+  const najdi = (...vz) => H.findIndex(h => vz.some(v => v.test(h)));
+  const iHod = najdi(/^hodnota$/i), iObd = najdi(/^CasM$/i), iObdT = najdi(/^Měsíce$/i);
+  const iOdd = najdi(/CZCOP1$/i), iOddT = najdi(/COICOP 2018-Oddíl$/i);
+  const iSkup = najdi(/CZCOP23$/i), iSkupT = najdi(/Skupina a třída$/i);
+  const iTyp = najdi(/^TYPUDAJE4A$/i), iTypT = najdi(/^Typ indexu$/i);
+  const iDom = najdi(/^EKAKTIOCDS$/i), iDomT = najdi(/^Skupiny domácností$/i);
+  const iUz = najdi(/^UZ02P$/i), iUzT = najdi(/^Území$/i);
+  if (iHod < 0 || (iObd < 0 && iObdT < 0) || (iOdd < 0 && iOddT < 0)) return { chyba: 'neznama hlavicka', hlavicka: H, ukazka: lines.slice(1, 3) };
+  const c = (p, i) => i >= 0 ? String(p[i] || '').trim() : '';
+  const rows = [];
   for (let k = 1; k < lines.length; k++) {
     const p = csvRadek(lines[k]);
-    if (iTyp >= 0 && (p[iTyp] || '').trim() !== 'IR') continue;
-    const obd = (p[iObd] || '').trim();
-    if (!/^\d{4}-\d{2}$/.test(obd)) continue;
-    const kod = (p[iOdd] || '').trim();
+    //  jen oddíly – řádky skupin/tříd (vyplněný CZCOP23) přeskočit
+    if (c(p, iSkup) || c(p, iSkupT)) continue;
+    if (iDom >= 0 ? c(p, iDom) !== '0' : (iDomT >= 0 && !/celkem/i.test(c(p, iDomT)))) continue;
+    if (iUz >= 0 ? c(p, iUz) !== 'CZ' : (iUzT >= 0 && !/^česko$/i.test(c(p, iUzT)))) continue;
+    const obd = /^\d{4}-\d{2}$/.test(c(p, iObd)) ? c(p, iObd) : csuMesicZTextu(c(p, iObdT));
+    if (!obd) continue;
+    const kod = iOdd >= 0 ? c(p, iOdd) : csuOddilZNazvu(c(p, iOddT));
     if (!CSU_ODDILY.includes(kod)) continue;
-    const hod = parseFloat(String(p[iHod] || '').replace(/\s/g, '').replace(',', '.'));
+    let typ = c(p, iTyp);
+    if (!typ) { const t = c(p, iTypT); typ = /^meziroční index/i.test(t) ? 'IR' : /bazický index \(2025/i.test(t) ? 'IZ2025' : /bazický index \(2015/i.test(t) ? 'IZ2015' : t; }
+    const hod = parseFloat(c(p, iHod).replace(/\s/g, '').replace(',', '.'));
     if (!isFinite(hod)) continue;
-    body.push({ obd, kod, mira: Math.round((hod - 100) * 10) / 10, nazev: iOddTxt >= 0 ? (p[iOddTxt] || '').trim() : '' });
+    rows.push({ obd, kod, typ, hod, nazev: c(p, iOddT) });
   }
-  if (!body.length) return { chyba: 'zadne radky', hlavicka: H, ukazka: lines.slice(1, 4) };
-  return { body };
+  if (!rows.length) return { chyba: 'zadne radky', hlavicka: H, ukazka: lines.slice(1, 3) };
+  return { rows };
 }
 
-async function handleInflace(cors) {
-  try {
-    //  Posledních 15 měsíců – ČSÚ vydává s měsíčním zpožděním, takže z nich
-    //  reálně přijde 13–14. Odpověď si Cloudflare drží den.
-    const ted = new Date(), mesice = [];
-    for (let k = 0; k < 15; k++) {
-      const d = new Date(ted.getFullYear(), ted.getMonth() - k, 1);
-      mesice.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-    }
-    const dotaz = {
-      sloupce: [
-        { kodDimenze: 'IndicatorType', filtr: [{ zobrazitPolozky: ['6134'] }] },
-        { kodDimenze: 'TYPUDAJE4A',    filtr: [{ zobrazitPolozky: ['IR'] }] },
-        { kodDimenze: 'CZCOICOP2',     filtr: [{ zobrazitPolozky: CSU_ODDILY }] },
-        { kodDimenze: 'EKAKTIOCDS',    filtr: [{ zobrazitPolozky: ['0'] }] },
-        { kodDimenze: 'UZ02P',         filtr: [{ zobrazitPolozky: ['CZ'] }] },
-        { kodDimenze: 'CasM',          filtr: [{ zobrazitPolozky: mesice }] },
-      ],
-      radky: [], filtryTabulky: [],
-    };
-    const r = await fetch(CSU_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'text/csv, application/json', 'Accept-Language': 'cs' },
-      body: JSON.stringify(dotaz),
-      cf: { cacheTtl: 86400, cacheEverything: true },
-    });
-    const txt = await r.text();
-    if (!r.ok) return json({ error: 'CSU nedostupne', status: r.status, detail: txt.slice(0, 300) }, 502, cors);
-    const R = csuRozeber(txt);
-    //  Když ČSÚ zase něco změní, radši to přiznej (i s ukázkou), než vrátit nesmysl.
-    if (R.chyba) return json({ error: 'CSU: ' + R.chyba, hlavicka: R.hlavicka, ukazka: R.ukazka || txt.slice(0, 400) }, 502, cors);
+//  Z řádků udělá meziroční inflaci po měsících a oddílech.
+//   1) Když jsou řádky meziročního indexu (IR): inflace = hodnota − 100.
+//   2) Jinak z BAZICKÉHO indexu: inflace(m) = I(m) / I(m − 12) × 100 − 100.
+//      Předdefinovaný výběr má jen 13 měsíců → spočítá se jen poslední měsíc.
+function csuInflaceZRadku(rows) {
+  const ir = rows.filter(r => r.typ === 'IR');
+  if (ir.length) return { zdroj: 'IR', body: ir.map(r => ({ obd: r.obd, kod: r.kod, nazev: r.nazev, mira: Math.round((r.hod - 100) * 10) / 10 })) };
+  const baz = ['IZ2025', 'IZ2015'].map(t => rows.filter(r => r.typ === t)).find(x => x.length);
+  if (!baz) return { zdroj: null, body: [] };
+  const mapa = {}; baz.forEach(r => { (mapa[r.kod] = mapa[r.kod] || {})[r.obd] = r; });
+  const minus12 = o => { const [y, m] = o.split('-').map(Number); return `${y - 1}-${String(m).padStart(2, '0')}`; };
+  const body = [];
+  Object.keys(mapa).forEach(kod => Object.keys(mapa[kod]).forEach(o => {
+    const a = mapa[kod][o], z = mapa[kod][minus12(o)];
+    if (z && z.hod > 0) body.push({ obd: o, kod, nazev: a.nazev, mira: Math.round((a.hod / z.hod * 100 - 100) * 10) / 10 });
+  }));
+  return { zdroj: baz[0].typ, body };
+}
 
-    const obdobi = [...new Set(R.body.map(b => b.obd))].sort();
-    const posledni = [...obdobi].reverse().find(o => R.body.some(b => b.obd === o && b.kod === '0'));
-    if (!posledni) return json({ error: 'CSU: souhrnny index nenalezen' }, 502, cors);
-    const rada = obdobi.map(o => { const b = R.body.find(x => x.obd === o && x.kod === '0'); return b ? { obd: o, inflace: b.mira } : null; }).filter(Boolean).slice(-13);
+const CSU_MESICE = ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
+function csuMesicZTextu(t) {                          // „srpen 2026" → „2026-08"
+  const m = String(t || '').trim().toLowerCase().match(/^([a-zá-ž]+)\s+(\d{4})$/);
+  if (!m) return '';
+  const i = CSU_MESICE.indexOf(m[1]); return i < 0 ? '' : `${m[2]}-${String(i + 1).padStart(2, '0')}`;
+}
+//  Oficiální názvy oddílů CZ-COICOP 2018 → kód (když výběr nemá kódový sloupec).
+function csuOddilZNazvu(t) {
+  const x = String(t || '').trim().toLowerCase().replace(/^\d{2}\s*/, '');
+  if (!x) return '';
+  if (/^úhrn|^celkem/.test(x)) return '0';
+  const V = [['01',/^potraviny/],['02',/^alkohol/],['03',/^od[ěí]v/],['04',/^bydlení/],['05',/^vybavení/],['06',/^zdraví/],
+             ['07',/^doprava/],['08',/^informace/],['09',/^rekreace/],['10',/^vzdělávání/],['11',/^stravov/],['12',/^pojištění/],['13',/^osobní/]];
+  const h = V.find(([, re]) => re.test(x)); return h ? h[0] : '';
+}
+
+//  ZDROJE (S23, ověřeno Milanem): POST /vlastni vrací z workeru vždy 500
+//  „Interní chyba serveru" (9 tvarů dotazu) → nepoužívá se. Funguje GET na výběr:
+//   U – VLASTNÍ VÝBĚR v DataStatu (proměnná workeru CSU_VYBER_URL): meziroční
+//       index, posledních 13+ měsíců, posouvá se sám → plný graf.
+//   P – předdefinovaný výběr CEN0101ET03: bazický index za 13 měsíců →
+//       spočítá se jen poslední měsíc (celkem + oddíly).
+function csuZdroje(env) {
+  const z = [];
+  const u = env && env.CSU_VYBER_URL ? String(env.CSU_VYBER_URL).trim() : '';
+  if (u) {
+    //  Uživatel vloží buď webový odkaz (…/datastat/data/UZIVATELSKY_VYBER/<id>),
+    //  nebo rovnou API odkaz – obojí převedeme na API CSV s kódy.
+    const id = (u.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0];
+    //  Dokumentace u vlastních výběrů uvádí jen ?format=CSV – kodZvlast nemusí
+    //  brát. Zkusíme obojí (s kódy je rozbor jistější, bez nich funguje přes názvy).
+    if (id) {
+      z.push({ n: 'U1: vlastni vyber (kody)', url: `https://data.csu.gov.cz/api/dotaz/v1/data/vybery/uzivatelske/${id}?format=CSV&kodZvlast=true` });
+      z.push({ n: 'U2: vlastni vyber', url: `https://data.csu.gov.cz/api/dotaz/v1/data/vybery/uzivatelske/${id}?format=CSV` });
+    }
+  } else {
+    z.diag = 'CSU_VYBER_URL neni nastavena';
+  }
+  z.push({ n: 'P: vyber CEN0101ET03', url: 'https://data.csu.gov.cz/api/dotaz/v1/data/vybery/CEN0101ET03?format=CSV&kodZvlast=true' });
+  return z;
+}
+
+async function handleInflace(cors, env) {
+  //  Cache 24 h přes Cache API; klíč obsahuje zdroj, aby se po vložení
+  //  vlastního výběru hned použil a nečekalo se na vypršení staré odpovědi.
+  const zdroje = csuZdroje(env);
+  const CKEY = new Request('https://cache.financeflow.internal/inflace-v5/' + encodeURIComponent(zdroje[0].url));
+  const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
+  try {
+    if (cache) { const hit = await cache.match(CKEY); if (hit) { const t = await hit.text(); return new Response(t, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400', 'X-FF-Cache': 'HIT' } }); } }
+    const pokusy = [];
+    let V = null, pouzity = null;
+    for (const z of zdroje) {
+      let r, txt;
+      try { r = await fetch(z.url, { headers: { 'Accept': 'text/csv, application/json', 'Accept-Language': 'cs' } }); txt = await r.text(); }
+      catch (e) { pokusy.push({ zdroj: z.n, chyba: String(e && e.message || e) }); continue; }
+      if (!r.ok) { pokusy.push({ zdroj: z.n, status: r.status, detail: txt.slice(0, 200) }); continue; }
+      const X = csuRozeber(txt);
+      if (X.chyba) { pokusy.push({ zdroj: z.n, status: r.status, chyba: X.chyba, hlavicka: X.hlavicka, ukazka: X.ukazka }); continue; }
+      const I = csuInflaceZRadku(X.rows);
+      if (!I.body.some(b => b.kod === '0')) { pokusy.push({ zdroj: z.n, chyba: 'nelze spocitat mezirocni inflaci', typy: [...new Set(X.rows.map(r => r.typ))], mesice: [...new Set(X.rows.map(r => r.obd))].sort() }); continue; }
+      V = I; pouzity = z.n; break;
+    }
+    if (!V) return json({ error: 'CSU: zadny zdroj neprosel', pokusy }, 502, cors);
+
+    const body = V.body;
+    const obdobi = [...new Set(body.map(b => b.obd))].sort();
+    const posledni = [...obdobi].reverse().find(o => body.some(b => b.obd === o && b.kod === '0'));
+    const rada = obdobi.map(o => { const b = body.find(x => x.obd === o && x.kod === '0'); return b ? { obd: o, inflace: b.mira } : null; }).filter(Boolean).slice(-13);
     const oddily = {}, radaOddily = {};
-    R.body.filter(b => b.kod !== '0').forEach(b => {
+    body.filter(b => b.kod !== '0').forEach(b => {
       (radaOddily[b.kod] = radaOddily[b.kod] || []).push({ obd: b.obd, mira: b.mira });
       if (b.obd === posledni) oddily[b.kod] = { mira: b.mira, nazev: b.nazev };
     });
     Object.keys(radaOddily).forEach(k => { radaOddily[k].sort((a, b) => a.obd < b.obd ? -1 : 1); radaOddily[k] = radaOddily[k].slice(-13); });
-    const celkem = rada[rada.length - 1].inflace;
-    return json({
-      inflace: celkem, rok: +posledni.slice(0, 4), mesic: +posledni.slice(5, 7), obdobi: posledni,
-      oddily, rada, radaOddily,
-      source: 'CSU DataStat CEN0101E (COICOP 2018), meziroční index',
-    }, 200, { ...cors, 'Cache-Control': 'public, max-age=86400' });
+    const out = JSON.stringify({
+      inflace: rada[rada.length - 1].inflace, rok: +posledni.slice(0, 4), mesic: +posledni.slice(5, 7), obdobi: posledni,
+      oddily, rada, radaOddily, zdroj: pouzity, typIndexu: V.zdroj,
+      //  S23: i při úspěchu vrátit, co selhalo – záloha nesmí tiše zakrýt
+      //  nefunkční vlastní výběr (přesně to se stalo při prvním nastavení).
+      vlastniVyber: zdroje.diag || (pokusy.some(p => /^U/.test(p.zdroj)) ? 'selhal – viz pokusy' : (/^U/.test(pouzity) ? 'ok' : '')),
+      pokusy: pokusy.length ? pokusy : undefined,
+      //  Předdefinovaný výběr dá jen poslední měsíc – appka podle toho pozná,
+      //  že graf vývoje zatím nemá z čeho kreslit.
+      radaNeuplna: rada.length < 13,
+      source: 'CSU DataStat CEN0101E (COICOP 2018)',
+    });
+    //  Kešovat jen čistý úspěch prvního zdroje. Záložní odpověď se nekešuje,
+    //  aby se opravený vlastní výběr projevil hned a ne až za 24 h.
+    if (cache && !pokusy.length) { try { await cache.put(CKEY, new Response(out, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' } })); } catch (e) {} }
+    return new Response(out, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' } });
   } catch (e) {
     return json({ error: 'CSU fetch failed', detail: String((e && e.message) || e) }, 502, cors);
   }
