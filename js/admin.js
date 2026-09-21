@@ -1,4 +1,4 @@
-// FinanceFlow · v10.88 · admin.js · 2026-09-20
+// FinanceFlow · v10.89 · admin.js · 2026-09-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.89',
+    datum: '2026-09-21',
+    zmeny: [
+      '📅 ZMĚNA (Milan) · cesta: Finanční radar → 📅 Měsíc → „Výdaje po týdnech" (dříve „Výdaje po týdnech od výplaty"). Záložka Měsíc nově ukazuje KALENDÁŘNÍ týdny pondělí–neděle, oříznuté hranicí měsíce – týdny od výplaty má záložka Do výplaty (karta „Od výplaty k výplatě"). Sloupce = týdenní částka s rozpadem fixní / variabilní / jednoráz. / neurčeno podle charakteru kategorie. Tabulka: Fixní · Variab. · Ostatní · Celkem · Dní · Kč/den (částka ÷ dny v týdnu; první a poslední týden bývají kratší). Přesuny, vyrovnání a split-rodiče se nepočítají.',
+      '♻️ Rozpad podle charakteru vytažen do sdíleného helperu radarCharGroupOf() + RADAR_CHAR_GROUPS, aby Měsíc i Do výplaty počítaly skupiny stejně.',
+      '🧪 tools/smoke_s23e.js – 17 testů (hranice týdnů září 2026, součet dní = dny měsíce, rozpad, vyloučení přesunů/vyrovnání, jiný měsíc).',
+    ]
+  },
   {
     verze: 'v10.88',
     datum: '2026-09-20',

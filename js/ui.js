@@ -1,4 +1,4 @@
-// FinanceFlow · v10.88 · ui.js · 2026-09-20
+// FinanceFlow · v10.89 · ui.js · 2026-09-21
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage

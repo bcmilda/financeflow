@@ -1,4 +1,4 @@
-// FinanceFlow · v10.88 · helpers.js · 2026-09-20
+// FinanceFlow · v10.89 · helpers.js · 2026-09-21
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);

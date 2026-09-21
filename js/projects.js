@@ -1,4 +1,4 @@
-// FinanceFlow · v10.88 · projects.js · 2026-09-20
+// FinanceFlow · v10.89 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2529,7 +2529,10 @@ function renderRadarDailyChart(txs, monthInc, avgInc, avgExp, D){
   canvas._radarData = {daysInMonth, todayDay, cumolEnd, cumExp, dailyExp, incomeTarget, incomeIsReal, predEnd, incomeDay, weeks, idealPace, isCurrent};
   drawRadarDaily(canvas);
   // vykresli tabulku týdnů od výplaty
-  renderPaydayWeeksTable(weeks, payday);
+  //  S23 (Milan): v záložce Měsíc patří KALENDÁŘNÍ týdny. Týdny od výplaty
+  //  má záložka Do výplaty (karta „Od výplaty k výplatě"); dva grafy měřící
+  //  totéž každý jinak byly zdrojem nejasností (73 vs 128 Kč/den).
+  renderMonthWeeks(getData(), S.curMonth, S.curYear);
   // interaktivita: tooltip na hover
   if(!canvas._radarBound){
     canvas._radarBound = true;
@@ -2647,7 +2650,94 @@ function radarDailyHover(e, canvas){
     + (isCurrent && day===days ? `<br><span style="color:#fb923c">●</span> odhad konce: ${fmtB(Math.round(predEnd))}` : '');
 }
 
-// Trend výdajů po týdnech od výplaty – sloupcový graf (Kč/den) + tabulka
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): VÝDAJE PO TÝDNECH – kalendářní týdny zvoleného měsíce
+//  cesta: Finanční radar → 📅 Měsíc → Výdaje po týdnech
+//  Týden = pondělí–neděle, oříznutý hranicí měsíce (první a poslední týden
+//  bývají kratší – proto sloupec „Dní"). Rozpad fixní / variabilní /
+//  ostatní podle charakteru kategorie, stejně jako „Od výplaty k výplatě".
+//  Sloupce = týdenní částka; Kč/den = částka ÷ dny v týdnu (orientačně).
+// ══════════════════════════════════════════════════════
+const RADAR_CHAR_GROUPS=[
+  {key:'regular', label:'Fixní',               color:'#60a5fa'},
+  {key:'variable',label:'Variabilní',          color:'#fbbf24'},
+  {key:'other',   label:'Jednoráz./nepravid.', color:'#a78bfa'},
+  {key:'none',    label:'Neurčeno',            color:'#7e84a0'},
+];
+function radarCharGroupOf(D){
+  const charBy={}; (D.categories||[]).forEach(c=>{ charBy[c.id]=c.expenseChar||''; });
+  const fn=t=>{ const ch=charBy[t.catId]||''; if(ch==='regular')return'regular'; if(ch==='variable')return'variable'; if(ch==='irregular'||ch==='onetime')return'other'; return'none'; };
+  fn.hasChar=Object.values(charBy).some(v=>v&&v!=='none');
+  return fn;
+}
+function radarMonthWeeks(D, m, y){
+  const dim=new Date(y,m+1,0).getDate();
+  const grpOf=radarCharGroupOf(D);
+  const tx=(getTx(m,y,D)||[]).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!(typeof isTransferTx==='function'&&isTransferTx(t)));
+  const today=new Date(); today.setHours(0,0,0,0);
+  const weeks=[]; let d=1;
+  while(d<=dim){
+    const start=new Date(y,m,d);
+    const dow=(start.getDay()+6)%7;                 // 0 = pondělí
+    const endDay=Math.min(dim, d+(6-dow));
+    const end=new Date(y,m,endDay);
+    const sums={regular:0,variable:0,other:0,none:0};
+    tx.forEach(t=>{ const td=new Date(t.date).getDate(); if(td>=d&&td<=endDay) sums[grpOf(t)]+=txCZK(t,D); });
+    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
+    const dnu=endDay-d+1;
+    weeks.push({label:`${weeks.length+1}. týden`, range:`${d}.–${endDay}. ${m+1}.`, sums, total, dnu,
+      perDay:Math.round(total/dnu), future:start>today});
+    d=endDay+1;
+  }
+  return {weeks, hasChar:grpOf.hasChar};
+}
+function renderMonthWeeks(D, m, y){
+  const box=document.getElementById('paydayWeeksBox'); if(!box) return;
+  const {weeks, hasChar}=radarMonthWeeks(D, m, y);
+  if(!weeks.length){ box.innerHTML=''; return; }
+  const maxW=Math.max(...weeks.map(w=>w.total),1);
+  const bars=weeks.map(w=>{
+    const segs=RADAR_CHAR_GROUPS.map(g=>{ const v=w.sums[g.key]; if(v<=0) return ''; const h=Math.max(2,Math.round(v/maxW*100));
+      return `<div style="width:100%;height:${h}px;background:${g.color}" title="${g.label}: ${fmtB(Math.round(v))}"></div>`; }).join('');
+    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div style="font-size:.68rem;font-weight:700;color:#c2c7da;font-family:Syne">${w.total>0?fmtB(w.total):(w.future?'·':'0')}</div>
+      <div style="width:100%;max-width:46px;display:flex;flex-direction:column-reverse;border-radius:6px 6px 0 0;overflow:hidden;min-height:2px">${segs||'<div style="height:2px;background:var(--border)"></div>'}</div>
+      <div style="font-size:.64rem;color:#a8aec8;text-align:center;line-height:1.3">${w.label}<br><span style="color:var(--text3)">${w.range}</span></div>
+    </div>`;
+  }).join('');
+  const rows=weeks.map(w=>`<tr style="border-top:1px solid var(--border);${w.future?'opacity:.45':''}">
+    <td style="padding:5px 6px;white-space:nowrap">${w.label}</td>
+    <td style="padding:5px 6px;text-align:right;color:#60a5fa">${fmtB(Math.round(w.sums.regular))}</td>
+    <td style="padding:5px 6px;text-align:right;color:#fbbf24">${fmtB(Math.round(w.sums.variable))}</td>
+    <td style="padding:5px 6px;text-align:right;color:#a78bfa">${fmtB(Math.round(w.sums.other+w.sums.none))}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700">${fmtB(w.total)}</td>
+    <td style="padding:5px 6px;text-align:right;color:var(--text3)">${w.dnu}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700;color:#e8eaf2">${w.future?'–':fmtB(w.perDay)}</td>
+  </tr>`).join('');
+  box.innerHTML=`
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">📅 Výdaje po týdnech</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Kalendářní týdny pondělí–neděle; první a poslední týden měsíce bývají kratší. Sloupce ukazují, <strong>kolik stál celý týden</strong>, barvy rozpad podle charakteru výdaje.</div>
+    ${hasChar?'':`<div style="font-size:.7rem;color:#c9cede;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">💡 Žádná kategorie nemá nastavený <strong>charakter výdaje</strong> – vše spadá do „Neurčeno". Nastav ho u kategorií a rozpad ožije.</div>`}
+    <div style="display:flex;align-items:flex-end;gap:8px;height:150px;margin-bottom:8px;padding:0 4px">${bars}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:.66rem;color:#a8aec8;margin-bottom:10px">
+      ${RADAR_CHAR_GROUPS.map(g=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${g.color};display:inline-block"></span>${g.label}</span>`).join('')}
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:.76rem;min-width:460px">
+      <thead><tr style="color:var(--text3);text-align:left">
+        <th style="padding:5px 6px">Týden</th>
+        <th style="padding:5px 6px;text-align:right">Fixní</th>
+        <th style="padding:5px 6px;text-align:right">Variab.</th>
+        <th style="padding:5px 6px;text-align:right">Ostatní</th>
+        <th style="padding:5px 6px;text-align:right">Celkem</th>
+        <th style="padding:5px 6px;text-align:right">Dní</th>
+        <th style="padding:5px 6px;text-align:right">${curSym()}/den</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.5">${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>`;
+}
+
+// Trend výdajů po týdnech od výplaty – sloupcový graf + tabulka
+//  S23: v záložce Měsíc ji nahradil renderMonthWeeks (kalendářní týdny).
+//  Funkce zůstává pro případ, že by se týdny od výplaty chtěly vrátit jinam.
 function renderPaydayWeeksTable(weeks, payday){
   const box=document.getElementById('paydayWeeksBox'); if(!box) return;
   if(!weeks || !weeks.length){ box.innerHTML=''; return; }
