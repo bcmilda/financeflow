@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · admin.js · 2026-09-21
+// FinanceFlow · v10.90 · admin.js · 2026-09-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.90',
+    datum: '2026-09-21',
+    zmeny: [
+      '🔀 FIX (Milan) · cesta: Finanční radar → 💸 Do výplaty. ZÁLOŽKA NEREAGOVALA NA PŘEPNUTÍ MĚSÍCE – radarPaydayInfo() počítal cyklus vždy od dnešního data. Nově má volitelné referenční datum (bez něj se chová jako dřív, takže Příští měsíc a Radar-Měsíc zůstávají beze změny). Aktuální měsíc = cyklus, ve kterém jsi dnes. Minulý měsíc = CELÝ UZAVŘENÝ cyklus, který výplatou v tom měsíci začal (např. srpen = 18. 8. → 17. 9.): „✅ uzavřen", „Zbylo z cyklu", „Průměr za den", „Cyklus skončil s…", bez budoucích plateb. Budoucí měsíc = srozumitelná hláška, že cyklus ještě nezačal, s odkazem na Příští měsíc.',
+      '🐛 FIX (TODO-286) · cesta: Finanční radar → 💸 Do výplaty → Od výplaty k výplatě. Týdny cyklu počítaly i přesuny mezi peněženkami, souhrn cyklu a „Výdaje po týdnech" v Měsíci ne – za stejné dny mohly vyjít jiné součty. Sjednoceno.',
+      '📦 Bump jen skutečně změněných souborů (Milan + VERSIONING.md: „Aktualizovat jen ve skutečně změněných souborech"). Předchozí dávky přepisovaly hlavičky i nezměněným souborům, takže se měnil jejich hash a Milan je musel zbytečně nahrávat.',
+      '🧪 tools/smoke_s23f.js – 14 testů.',
+    ]
+  },
   {
     verze: 'v10.89',
     datum: '2026-09-21',

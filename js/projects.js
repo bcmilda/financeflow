@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · projects.js · 2026-09-21
+// FinanceFlow · v10.90 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2805,7 +2805,11 @@ function radarDetectPaydayDay(D){
 // Výplata připadající na víkend chodí dřív → posun na pátek (CZ konvence)
 function radarAdjustWeekend(dt){ const wd=dt.getDay(); if(wd===6) dt.setDate(dt.getDate()-1); else if(wd===0) dt.setDate(dt.getDate()-2); return dt; }
 
-function radarPaydayInfo(D){
+//  S23 (Milan): ZÁLOŽKA DO VÝPLATY NEREAGOVALA NA PŘEPNUTÍ MĚSÍCE.
+//  Celý výpočet cyklu stál na `today = new Date()`. Nově volitelný druhý
+//  parametr `refDate` – den, VŮČI KTERÉMU se cyklus hledá. Bez něj se chová
+//  přesně jako dřív (volá ho i Příští měsíc a Radar-Měsíc, ty zůstávají).
+function radarPaydayInfo(D, refDate){
   const setting=(typeof _settings!=='undefined'&&_settings)?(parseInt(_settings.firstDay)||0):0;
   const freq=(typeof _settings!=='undefined'&&_settings&&_settings.payFreq)?_settings.payFreq:'monthly';
   const detected=radarDetectPaydayDay(D);
@@ -2813,7 +2817,7 @@ function radarPaydayInfo(D){
   if(setting>0){ anchor=setting; source='setting'; }
   else if(detected){ anchor=detected; source='auto'; }
   else { anchor=1; source='fallback'; }
-  const today=new Date(); today.setHours(0,0,0,0);
+  const today=refDate?new Date(refDate):new Date(); today.setHours(0,0,0,0);
   const MS=86400000;
 
   // ── NEPRAVIDELNÝ režim: cyklus = od poslední reálné příjmové transakce do příští očekávané
@@ -2911,14 +2915,47 @@ function radarPaydayInfo(D){
   return {anchor,source,detected,lastPayday,nextPayday,daysLeft,cycleDays,dayInCycle,paydayReal,today,freq:'monthly'};
 }
 
+//  Který cyklus patří ke zvolenému měsíci:
+//   • aktuální měsíc → cyklus, ve kterém jsi dnes (jako dřív),
+//   • minulý měsíc  → CELÝ cyklus, který výplatou v tom měsíci začal
+//                      (např. srpen = 18. 8. → 17. 9.), uzavřený,
+//   • budoucí měsíc → cyklus ještě nezačal, nic se nepředstírá.
+function radarPaydayForMonth(D){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const sel=new Date(S.curYear,S.curMonth,1), cur=new Date(now.getFullYear(),now.getMonth(),1);
+  if(sel>cur) return {mode:'future'};
+  if(sel.getTime()===cur.getTime()) return {mode:'current', P:radarPaydayInfo(D)};
+  //  Referencí je poslední den měsíce: najde cyklus, který v něm běžel.
+  let P=radarPaydayInfo(D, new Date(S.curYear,S.curMonth+1,0));
+  const konec=new Date(P.nextPayday); konec.setDate(konec.getDate()-1);
+  if(konec>=now) return {mode:'current', P:radarPaydayInfo(D)};   // ten cyklus ještě běží = aktuální
+  P=radarPaydayInfo(D, konec);                                        // celý cyklus, do dne před výplatou
+  P.daysLeft=0; P.dayInCycle=P.cycleDays; P.closed=true;
+  return {mode:'past', P};
+}
+
 function renderRadarPayday(el, D){
-  const P=radarPaydayInfo(D);
+  const _pm=radarPaydayForMonth(D);
+  if(_pm.mode==='future'){
+    el.innerHTML = tabIntro('radar-payday','💸','Runway do výplaty',
+      'Místo kalendářního měsíce počítá cyklus od výplaty k výplatě.')
+      + radarViewTabs('payday')
+      + `<div class="card"><div class="card-body" style="padding:16px">
+          <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:6px">⏳ Cyklus s výplatou v měsíci ${CZ_M[S.curMonth]} ještě nezačal</div>
+          <div style="font-size:.76rem;color:#a8aec8;line-height:1.6">Do výplaty ukazuje, jak ti vychází skutečný cyklus – z budoucnosti zatím nejsou žádné výdaje.
+            Co tě v tom měsíci čeká, najdeš v <a href="#" onclick="showPage('pristi');return false" style="color:#60a5fa;text-decoration:none">Příštím měsíci</a>
+            nebo v záložce <a href="#" onclick="switchRadarView('mesic');return false" style="color:#60a5fa;text-decoration:none">📅 Měsíc</a>.</div>
+        </div></div>`;
+    return;
+  }
+  const P=_pm.P;
   const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
   // transakce cyklu (od výplaty do dneška)
   const cycSoFar=getTxByRange(P.lastPayday,P.today,D);
   const cycInc=incSum(cycSoFar), cycExp=expSum(cycSoFar);
   // budoucí platby do další výplaty (platby V den výplaty už pokryje nová výplata)
-  const bud=(typeof budouciGetAll==='function'?budouciGetAll(D,P.daysLeft+1):[]).filter(b=>{const bd=new Date(b.date);bd.setHours(0,0,0,0);return bd<P.nextPayday;});
+  //  U uzavřeného cyklu budoucí platby nedávají smysl – všechno už proběhlo.
+  const bud=P.closed?[]:(typeof budouciGetAll==='function'?budouciGetAll(D,P.daysLeft+1):[]).filter(b=>{const bd=new Date(b.date);bd.setHours(0,0,0,0);return bd<P.nextPayday;});
   const budTotal=Math.round(bud.reduce((a,b)=>a+(b.amount||0),0));
   const incomeBase=cycInc;
   const free=Math.round(incomeBase-cycExp-budTotal);
@@ -2941,7 +2978,9 @@ function renderRadarPayday(el, D){
     {key:'none',    label:'Neurčeno',             color:'#7e84a0'},
   ];
   const grpOf=t=>{ const ch=charBy[t.catId]||''; if(ch==='regular')return'regular'; if(ch==='variable')return'variable'; if(ch==='irregular'||ch==='onetime')return'other'; return'none'; };
-  const cycAllExp=getTxByRange(P.lastPayday,P.nextPayday,D).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent);
+  //  S23 (TODO-286): přesuny mezi peněženkami nejsou výdaj – dřív je tu graf
+  //  počítal, zatímco „Výdaje po týdnech" v Měsíci a souhrn cyklu ne.
+  const cycAllExp=getTxByRange(P.lastPayday,P.nextPayday,D).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t));
   const weeks=[];
   for(let w=0; w*7<P.cycleDays; w++){
     const ws=new Date(P.lastPayday); ws.setDate(ws.getDate()+w*7);
@@ -3042,6 +3081,7 @@ function renderRadarPayday(el, D){
   el.innerHTML = tabIntro('radar-payday','💸','Runway do výplaty',
     'Místo kalendářního měsíce počítá cyklus od výplaty k výplatě: kolik ti reálně zbývá do další výplaty po odečtení známých plateb, jaký je bezpečný denní limit a jak rychle utrácíš fixní vs variabilní výdaje v jednotlivých týdnech cyklu.')
     + radarViewTabs('payday')
+    + (P.closed?`<div style="padding:10px 14px;border-radius:10px;background:var(--surface2);border-left:3px solid #60a5fa;font-size:.78rem;color:#c9cede;margin-bottom:14px;line-height:1.5">📅 ${CZ_M[S.curMonth]} ${S.curYear}: zobrazuji <strong>uzavřený cyklus ${fmtD(P.lastPayday)} → ${fmtD(new Date(P.nextPayday.getTime()-86400000))}</strong>, který výplatou v tomto měsíci začal.</div>`:'')
     + (anchorHint?`<div style="padding:10px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:.78rem;color:var(--text2);margin-bottom:14px;line-height:1.5">${anchorHint}</div>`:'')
     + `
     <!-- HLAVNÍ KARTA RUNWAY -->
@@ -3052,18 +3092,18 @@ function renderRadarPayday(el, D){
           <div style="font-weight:700;font-size:1rem">Do výplaty</div>
           <div style="font-size:.76rem;color:#a8aec8">cyklus ${fmtD(P.lastPayday)} → ${fmtD(P.nextPayday)}${P.paydayReal?'':' (odhad)'} · den ${P.dayInCycle}/${P.cycleDays}</div>
         </div>
-        <div style="margin-left:auto;font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:${stColor};white-space:nowrap">⏳ ${P.daysLeft} ${P.daysLeft===1?'den':P.daysLeft>=2&&P.daysLeft<=4?'dny':'dní'}</div>
+        <div style="margin-left:auto;font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:${stColor};white-space:nowrap">${P.closed?'✅ uzavřen':`⏳ ${P.daysLeft} ${P.daysLeft===1?'den':P.daysLeft>=2&&P.daysLeft<=4?'dny':'dní'}`}</div>
       </div>
       <div class="radar-stat-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
         <div class="stat-card ${free>=0?'balance':'expense'}">
-          <div class="stat-label">Volné do výplaty</div>
+          <div class="stat-label">${P.closed?'Zbylo z cyklu':'Volné do výplaty'}</div>
           <div class="stat-value ${free>=0?'up':'down'}">${fmtB(free)}</div>
-          <div class="stat-sub" style="font-size:.66rem">po rezervě ${fmtB(budTotal)} na platby</div>
+          <div class="stat-sub" style="font-size:.66rem">${P.closed?'příjem − výdaje cyklu':`po rezervě ${fmtB(budTotal)} na platby`}</div>
         </div>
         <div class="stat-card income">
-          <div class="stat-label">Denní limit</div>
-          <div class="stat-value">${P.daysLeft>0?fmtB(dailyLimit):'–'}</div>
-          <div class="stat-sub" style="font-size:.66rem">${minReserve>0?`po rezervě ${fmtB(minReserve)} 🛡️`:'bezpečné tempo/den'}</div>
+          <div class="stat-label">${P.closed?'Průměr za den':'Denní limit'}</div>
+          <div class="stat-value">${P.closed?fmtB(Math.round(cycExp/Math.max(1,P.cycleDays))):(P.daysLeft>0?fmtB(dailyLimit):'–')}</div>
+          <div class="stat-sub" style="font-size:.66rem">${P.closed?'skutečné tempo/den':(minReserve>0?`po rezervě ${fmtB(minReserve)} 🛡️`:'bezpečné tempo/den')}</div>
         </div>
         <div class="stat-card expense">
           <div class="stat-label">Utraceno v cyklu</div>
@@ -3084,7 +3124,7 @@ function renderRadarPayday(el, D){
       </div>`:`<div style="font-size:.76rem;color:var(--text2)">V tomto cyklu zatím nemáš zapsaný příjem – volné peníze spočítám po připsání výplaty.</div>`}
       ${free<0?`<div style="margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);font-size:.8rem;color:var(--text2)">🔴 Při známých platbách (${fmtB(budTotal)}) ti do výplaty chybí <strong>${fmtB(Math.abs(free))}</strong>. Zvaž odklad nefixních výdajů.</div>`:''}
       ${P.dayInCycle>=3&&incomeBase>0?`<div style="margin-top:10px;padding:9px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:.78rem;color:var(--text2)">
-        📉 Dosavadním flexibilním tempem (${fmtB(Math.round(flexPace))}/den) skončíš cyklus s <strong style="color:${projColor}">${fmtB(projEnd)}</strong>${minReserve>0?` <span style="color:var(--text3)">(rezerva ${fmtB(minReserve)} ${projEnd>=minReserve?'zůstane nedotčená ✓':'bude nahlodaná!'})</span>`:''}
+        ${P.closed?'🏁 Cyklus skončil s':`📉 Dosavadním flexibilním tempem (${fmtB(Math.round(flexPace))}/den) skončíš cyklus s`} <strong style="color:${projColor}">${fmtB(projEnd)}</strong>${minReserve>0?` <span style="color:var(--text3)">(rezerva ${fmtB(minReserve)} ${projEnd>=minReserve?'zůstane nedotčená ✓':'bude nahlodaná!'})</span>`:''}
       </div>`:''}
     </div>
 
