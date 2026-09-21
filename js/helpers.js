@@ -1,4 +1,4 @@
-// FinanceFlow · v10.68 · helpers.js · 2026-09-12
+// FinanceFlow · v10.87 · helpers.js · 2026-09-20
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -226,13 +226,19 @@ window.parseTxTags = parseTxTags;
 //   Pravidlo: ptá-li se volající PŘÍMO na přesunovou kategorii, chce vidět, co do ní
 //   přiteklo → nefiltruj. Ptá-li se na výdajovou kategorii → přesun tam nepatří.
 //   Rozhoduje se podle ARGUMENTU, ne podle volajícího → žádné z 37 volání se nemění.
-const getActual=(catId,sub,m,y,data)=>{
+//  S23 (Milan, bod A plánu): PREDIKCE UMÍ I PŘÍJMY.
+//  getActual / getHistAvg / predictCat / computeYearForecast měly typ
+//  'expense' natvrdo, takže tabulka Predikce uměla jen výdaje. Přidán
+//  VOLITELNÝ poslední parametr `type` s výchozí hodnotou 'expense' –
+//  všechna stávající volání (desítky míst) se chovají úplně stejně.
+const getActual=(catId,sub,m,y,data,type)=>{
+  type = type || 'expense';
   const D=data||getData();
   const txs=D.transactions||[];
   // Split parents s children → exclude (children už pokrývají celou sumu ve svých kategoriích)
   const splitIdsWithChildren=new Set(txs.filter(t=>t.splitId&&t.splitParent).map(t=>t.splitId).filter(sid=>txs.some(c=>c.splitId===sid&&!c.splitParent)));
   const askedForTransferCat=!!(window._transferCatIds&&window._transferCatIds.has(catId));
-  return txs.filter(t=>t.type==='expense'&&!t.isBalancing&&t.catId===catId&&(!sub||t.subcat===sub)).filter(t=>askedForTransferCat||!isTransferTx(t)).filter(t=>{const d=new Date(t.date);return d.getMonth()===m&&d.getFullYear()===y;}).filter(t=>!(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))).reduce((a,t)=>a+txCZK(t,D),0);};
+  return txs.filter(t=>t.type===type&&!t.isBalancing&&t.catId===catId&&(!sub||t.subcat===sub)).filter(t=>askedForTransferCat||!isTransferTx(t)).filter(t=>{const d=new Date(t.date);return d.getMonth()===m&&d.getFullYear()===y;}).filter(t=>!(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))).reduce((a,t)=>a+txCZK(t,D),0);};
 // ══════════════════════════════════════════════════════
 //  v8.73 (TODO-158): MILANOVY BODOVACÍ TABULKY (dashboard_body.xlsx 1:1)
 //  S1 Cash flow 0–75 · DTI 0–60 · DSTI 0–40 · S3 Rezerva 0–50 · S4 Aktivní spoření 0–35.
@@ -606,7 +612,8 @@ function fxLossSummary(txs, D){
 //   plošné `!t.splitParent` by zahodilo i rodiče bez dětí, což je normální výdaj.
 //   ⚠️ isTransferTx se ZÁMĚRNĚ nefiltruje ani zde, ani v getActual() – obě funkce musí
 //   zůstat zrcadlové. Přesuny uvnitř kategorií typu 'both' řeší TODO-212 pro OBĚ najednou.
-function getHistAvg(catId,sub,forM,forY,data){
+function getHistAvg(catId,sub,forM,forY,data,type){
+  type = type || 'expense';
   const D=data||getData();
   const txs=D.transactions||[];
   const splitIdsWithChildren=new Set(txs.filter(t=>t&&t.splitId&&t.splitParent).map(t=>t.splitId)
@@ -614,7 +621,7 @@ function getHistAvg(catId,sub,forM,forY,data){
   const askedForTransferCat=!!(window._transferCatIds&&window._transferCatIds.has(catId));
   const byMonth={};
   txs.filter(t=>{
-    if(!t||t.type!=='expense'||t.catId!==catId)return false;
+    if(!t||t.type!==type||t.catId!==catId)return false;
     if(t.isBalancing)return false;
     if(!askedForTransferCat&&isTransferTx(t))return false;   // TODO-212 – stejné pravidlo jako getActual
     if(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))return false;
@@ -630,19 +637,23 @@ function getHistAvg(catId,sub,forM,forY,data){
   if(!vals.length)return null;
   return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
-function predictCat(catId,sub,m,y,data){
+function predictCat(catId,sub,m,y,data,type){
+  type = type || 'expense';
   const D=data||getData();
-  let avg=getHistAvg(catId,sub,m,y,D);
+  let avg=getHistAvg(catId,sub,m,y,D,type);
   if(avg===null){
     // FIX-252: i fallback (kategorie bez historie) musí přes txCZK a bez vyrovnání
-    const curExp=getActual(catId,sub,S.curMonth,S.curYear,D);
+    const curExp=getActual(catId,sub,S.curMonth,S.curYear,D,type);
     if(!curExp)return null;
     avg=curExp;
   }
-  const seasMult=SEASON[m]?.mult||1;
+  //  S23: sezónnost je kalibrovaná na VÝDAJE (prosinec dražší apod.).
+  //  Na příjmy ji pouštět nesmíme – výplata v prosinci není o 12 % vyšší jen
+  //  proto, že je prosinec. Stejně tak dárky k narozeninám jsou výdaj.
+  const seasMult = type==='income' ? 1 : (SEASON[m]?.mult||1);
   let bdayBoost=0;
   const cat=getCat(catId,D.categories);
-  if(cat.name&&cat.name.toLowerCase().includes('dárek')){
+  if(type!=='income' && cat.name&&cat.name.toLowerCase().includes('dárek')){
     const bdays=(D.birthdays||[]).filter(b=>b.month-1===m);
     bdayBoost=bdays.reduce((a,b)=>a+(b.gift||0),0);
   }
@@ -653,7 +664,8 @@ function predictCat(catId,sub,m,y,data){
 //  YEAR FORECAST – součet skutečnosti (minulé+aktuální měsíce) + predikce (budoucí měsíce)
 //  Vrací "Předpoklad YTD" – kolik kategorie utratí za celý rok
 // ══════════════════════════════════════════════════════
-function computeYearForecast(catId, sub, year, data) {
+function computeYearForecast(catId, sub, year, data, type) {
+  type = type || 'expense';
   const D = data || getData();
   let total = 0;
   for (let m = 0; m < 12; m++) {
@@ -661,10 +673,10 @@ function computeYearForecast(catId, sub, year, data) {
     const cur = isCur(m, year);
     if (past || cur) {
       // Použij skutečnost
-      total += getActual(catId, sub, m, year, D) || 0;
+      total += getActual(catId, sub, m, year, D, type) || 0;
     } else {
       // Použij predikci pro budoucí měsíce
-      total += predictCat(catId, sub, m, year, D) || 0;
+      total += predictCat(catId, sub, m, year, D, type) || 0;
     }
   }
   return Math.round(total);

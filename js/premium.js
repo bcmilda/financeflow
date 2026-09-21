@@ -1,4 +1,4 @@
-// FinanceFlow · v10.86 · premium.js · 2026-09-20
+// FinanceFlow · v10.87 · premium.js · 2026-09-20
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,

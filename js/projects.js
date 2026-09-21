@@ -1,4 +1,4 @@
-// FinanceFlow · v10.86 · projects.js · 2026-09-20
+// FinanceFlow · v10.87 · projects.js · 2026-09-20
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3248,6 +3248,17 @@ function _obrazProjection(D){
     expCats.forEach(c=>{ const v=predictCat(c.id,null,mm,yy,D); if(v!==null&&!isNaN(v)){sum+=v;hit++;} });
     return hit?Math.round(sum):avgExp;
   };
+  //  S23 (Milan, bod B plánu): PŘÍJEM UŽ NENÍ PLOCHÝ PRŮMĚR PRO VŠECHNY MĚSÍCE.
+  //  Dosud se do všech 6 měsíců dosazoval jeden 12M průměr. Nově se zkouší
+  //  predikce po kategoriích (predictCat s type='income' – umožnil bod A),
+  //  průměr zůstává jako záloha, když příjmová historie chybí.
+  const incCats=(D.categories||[]).filter(c=>c.type==='income'||c.type==='both');
+  const predIncOf=(mm,yy)=>{
+    if(typeof predictCat!=='function') return avgInc;
+    let sum=0,hit=0;
+    incCats.forEach(c=>{ const v=predictCat(c.id,null,mm,yy,D,'income'); if(v!==null&&!isNaN(v)){sum+=v;hit++;} });
+    return hit?Math.round(sum):avgInc;
+  };
   const saldo = avgInc - avgExp; // orientační Ø (fallback); po měsících viz months[].cash
   const wallets = (typeof assetLiqTotals==='function') ? Math.round(assetLiqTotals(D).wallets||0) : 0;
   const debts = D.debts||[];
@@ -3255,13 +3266,35 @@ function _obrazProjection(D){
   const mPay = (typeof computeMonthlyDebtPayments==='function') ? computeMonthlyDebtPayments(D) : 0;
   const mInt = debts.reduce((a,d)=>a+(d.remaining||0)*(d.interest||0)/100/12,0);
   const mPrin = Math.max(0, mPay - mInt);
+  //  Rozptyl měsíčního salda za posledních 6 uzavřených měsíců = míra toho,
+  //  jak moc se uživateli měsíc od měsíce liší. Minimum 8 % příjmu, aby
+  //  rozpětí nebylo nulové u někoho, kdo má zatím jen dva stejné měsíce.
+  const _sald=[];
+  for(let i=1;i<=6;i++){ let m=S.curMonth-i,y=S.curYear; while(m<0){m+=12;y--;}
+    const tx=getTx(m,y,D); const e=expSum(tx,D), inc2=incSum(tx,D);
+    if(e>0||inc2>0) _sald.push(inc2-e); }
+  let volat = Math.round(avgInc*0.08);
+  if(_sald.length>=2){
+    const pr=_sald.reduce((a,b)=>a+b,0)/_sald.length;
+    const sd=Math.sqrt(_sald.reduce((a,b)=>a+(b-pr)*(b-pr),0)/_sald.length);
+    volat=Math.max(volat, Math.round(sd));
+  }
   const months=[]; let cum=0;
   for(let k=1;k<=6;k++){
     let m=S.curMonth+k, y=S.curYear; while(m>11){m-=12;y++;}
     const pe=predExpOf(m,y);
-    const cash=avgInc-pe; cum+=cash;
-    months.push({label:CZ_M[m].slice(0,3), y, exp:pe, cash,
+    const pi=predIncOf(m,y);
+    const cash=pi-pe; cum+=cash;
+    //  ROZPĚTÍ MÍSTO FALEŠNÉ PŘESNOSTI (Milan schválil v S23).
+    //  Čím dál do budoucna, tím míň appka ví. Nejistota roste s odmocninou
+    //  horizontu (ne lineárně – chyby se částečně vyruší) a vychází ze
+    //  SKUTEČNÉHO rozptylu měsíčních sald, ne z vymyšleného procenta.
+    //  První měsíc (k=1) rozpětí nedostává – tam se ukazují konkrétní data.
+    const sirka = k===1 ? 0 : Math.round(volat * Math.sqrt(k));
+    months.push({label:CZ_M[m].slice(0,3), y, m, exp:pe, inc:pi, cash,
+      cashLo: cash-sirka, cashHi: cash+sirka, sirka,
       reserve: Math.round(wallets + cum),
+      reserveLo: Math.round(wallets + cum - sirka), reserveHi: Math.round(wallets + cum + sirka),
       debt: Math.round(Math.max(0, debtNow - mPrin*k))});
   }
   const avgCash=Math.round(months.reduce((a,mo)=>a+mo.cash,0)/months.length);
@@ -3276,7 +3309,96 @@ function _obrazProjection(D){
     }catch(e){}
   }
   months.forEach(mo=>{ mo.bud=Math.round(mo.bud||0); });
-  return {avgInc, avgExp, saldo, avgCash, wallets, months, debtNow, mPrin, hasData: avgInc>0||avgExp>0};
+
+  //  KALENDÁŘ NEJBLIŽŠÍHO MĚSÍCE – konkrétní data, ne průměr.
+  //  Příjmy ze šablon (Budoucí platby je záměrně neobsahují, viz ADR z S19:
+  //  sekce se jmenuje „platby" a příjmy by zkreslily součty i grafy), výdaje
+  //  z budouciGetAll. Zbytek predikce = běžný život, rozpuštěný přes měsíc.
+  const dny=[];
+  if(months.length){
+    let m1=S.curMonth+1, y1=S.curYear; if(m1>11){m1-=12;y1++;}
+    const od=new Date(y1,m1,1), doo=new Date(y1,m1+1,0);
+    (D.sablony||[]).forEach(sb=>{
+      if(!sb || sb.type!=='income') return;
+      if(sb.endDate && new Date(sb.endDate) < od) return;
+      const occ = (typeof pristiOccurrences==='function') ? pristiOccurrences(sb.freq||'monthly', sb.den||1, od, doo, sb) : [];
+      occ.forEach(d=>dny.push({date:new Date(d), name:sb.name||'Příjem', amount:sb.amount||0, kind:'income'}));
+    });
+    if(typeof budouciGetAll==='function'){
+      try{ (budouciGetAll(D,200)||[]).forEach(b=>{
+        const bd=new Date(b.date); bd.setHours(0,0,0,0);
+        if(bd>=od && bd<=doo) dny.push({date:bd, name:b.name||'Platba', amount:-(b.amount||0), kind:'expense'});
+      }); }catch(e){}
+    }
+    dny.sort((a,b)=>a.date-b.date);
+    const znamoVyd = dny.filter(x=>x.amount<0).reduce((a,x)=>a-x.amount,0);
+    months[0].zbytek = Math.max(0, Math.round(months[0].exp - znamoVyd));   // běžný život
+    months[0].dny = dny;
+  }
+  return {avgInc, avgExp, saldo, avgCash, wallets, months, debtNow, mPrin, volat, hasData: avgInc>0||avgExp>0};
+}
+
+//  S23 (Milan, bod B): NEJBLIŽŠÍ MĚSÍC S KONKRÉTNÍMI DATY, DALŠÍ JEN V ROZPĚTÍ.
+//  Milanův princip: appka nesmí tvrdit přesnost, kterou nemá. U příštího měsíce
+//  zná data výplat i plateb, takže ukáže „10. 10. výplata +30 000 → zůstatek
+//  42 000". U března ví jen „zhruba +6 000 za měsíc", a tak to i napíše.
+function _obrazProjKalendar(proj){
+  const m1 = proj.months && proj.months[0];
+  if(!m1) return '';
+  const dny = m1.dny || [];
+  const nazev = `${CZ_M[m1.m]} ${m1.y}`;
+  if(!dny.length){
+    return `<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-left:3px solid #60a5fa;border-radius:0 10px 10px 0">
+      <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:3px">📅 ${nazev} den po dni</div>
+      <div style="font-size:.72rem;color:#a8aec8;line-height:1.55">Zatím neznám žádné konkrétní datum. Přidej si výplatu a pravidelné platby jako
+        <a href="#" onclick="showPage('sablony');return false" style="color:#60a5fa;text-decoration:none">opakované šablony</a> a ukáže se tu průběh měsíce den po dni.</div>
+    </div>`;
+  }
+  let zustatek = proj.wallets;
+  const radky = dny.map(d=>{
+    zustatek += d.amount;
+    const kladny = d.amount>=0;
+    return `<div style="display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:.72rem;color:#a8aec8;white-space:nowrap">${d.date.getDate()}. ${d.date.getMonth()+1}.</div>
+      <div style="font-size:.78rem;color:#e8eaf2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:.8rem;font-weight:700;color:${kladny?'var(--income)':'var(--expense)'}">${kladny?'+':'−'}${fmtB(Math.abs(d.amount))}</div>
+        <div style="font-size:.66rem;color:${zustatek>=0?'#a8aec8':'var(--expense)'}">zůstatek ${fmtB(zustatek)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:6px">📅 ${nazev} den po dni <span style="font-weight:400;color:#a8aec8">· jen to, co má konkrétní datum</span></div>
+    ${radky}
+    ${m1.zbytek>0?`<div style="display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;padding:7px 0;opacity:.75">
+      <div style="font-size:.72rem;color:#a8aec8">průběžně</div>
+      <div style="font-size:.78rem;color:#c9cede">Běžný život (jídlo, doprava, drobnosti)</div>
+      <div style="text-align:right;font-size:.8rem;font-weight:700;color:var(--expense);white-space:nowrap">−${fmtB(m1.zbytek)}</div>
+    </div>`:''}
+    <div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">Zůstatek počítá od dnešních ${fmtB(proj.wallets)} v peněženkách. Běžný život nemá datum, rozpouští se přes celý měsíc.</div>
+  </div>`;
+}
+
+//  Měsíce 2–6: rozpětí místo jednoho čísla.
+function _obrazProjRozpeti(proj){
+  const dalsi = (proj.months||[]).slice(1);
+  if(!dalsi.length) return '';
+  return `<div style="margin-top:14px">
+    <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:6px">📈 Další měsíce <span style="font-weight:400;color:#a8aec8">· odhad v rozpětí, ne na korunu</span></div>
+    ${dalsi.map(mo=>`
+      <div style="display:grid;grid-template-columns:58px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:.74rem;color:#c9cede;font-weight:600">${mo.label} ${String(mo.y).slice(2)}</div>
+        <div style="font-size:.7rem;color:#a8aec8;min-width:0">příjem ~${fmtB(mo.inc)} · výdaje ~${fmtB(mo.exp)}</div>
+        <div style="text-align:right;white-space:nowrap">
+          <div style="font-size:.8rem;font-weight:700;color:${mo.cash>=0?'var(--income)':'var(--expense)'}">${mo.cashLo>=0?'+':''}${fmtB(mo.cashLo)} až ${mo.cashHi>=0?'+':''}${fmtB(mo.cashHi)}</div>
+          <div style="font-size:.66rem;color:#a8aec8">rezerva ${fmtB(mo.reserveLo)}–${fmtB(mo.reserveHi)}</div>
+        </div>
+      </div>`).join('')}
+    <div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">
+      Rozpětí roste s tím, jak daleko se díváme — vychází z toho, o kolik se ti měsíce dosud lišily (±${fmtB(proj.volat)} za měsíc).
+      Konkrétní data mají smysl jen u nejbližšího měsíce; dál by to byla přesnost, kterou appka nemá.
+    </div>
+  </div>`;
 }
 
 // S16.2 (Milan): predikční graf 6 měsíců – příjem/výdaje/budoucí platby (sloupce),
@@ -3294,7 +3416,7 @@ function _obrazProjChart(proj){
 
   const W=900,H=330,pad={l:64,r:18,t:40,b:52};
   const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
-  const incOf=r=>r.isNow?r.inc:proj.avgInc;
+  const incOf=r=>r.isNow?r.inc:(r.inc!=null?r.inc:proj.avgInc);   // S23: příjem po měsících
   const vMax=Math.max(...all.map(r=>Math.max(incOf(r),r.exp,r.bud||0)),1);
   const vMin=Math.min(0,...all.map(r=>Math.min(r.cash, r.reserve||0)));
   const span=Math.max(1,vMax-vMin);
@@ -4635,6 +4757,8 @@ function renderObraz() {
         </div>
         ${typeof _obrazProjVerdict==='function'?_obrazProjVerdict(proj):''}
         ${_obrazProjChart(proj)}
+        ${_obrazProjKalendar(proj)}
+        ${_obrazProjRozpeti(proj)}
         ${_obrazProjDebtChart(proj)}
         <div style="font-size:.68rem;color:#a8aec8;margin-top:8px;padding:7px 9px;background:var(--surface3);border-radius:7px">ℹ️ Orientační predikce: příjem = 12M klouzavý průměr; výdaje = engine karty Predikce (historie kategorií + sezónnost + narozeniny); cashflow = příjem − predikce výdajů; rezerva = dnešní hotovost + kumulovaný cashflow (v tooltipu). <strong>Známé platby</strong> = šablony a splátky, které už znáš – jsou to jen ČÁSTI predikce výdajů (opakované platby už predikce obsahuje z historie), proto se k výdajům NEPŘIČÍTAJÍ, jinak by se počítaly dvakrát. <strong>Rezerva</strong> (žlutá čára) = dnešní zůstatek peněženek + kumulovaný cashflow. První sloupec je AKTUÁLNÍ měsíc se skutečnými čísly, ostatní jsou predikce. Dluh = rovnoměrné umořování dle splátek. Najeď na měsíc pro všechny hodnoty.</div>
       </div>

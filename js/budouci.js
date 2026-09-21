@@ -1,4 +1,4 @@
-// FinanceFlow · v10.86 · budouci.js · 2026-09-20
+// FinanceFlow · v10.87 · budouci.js · 2026-09-20
 // ══════════════════════════════════════════════════════
 //  BUDOUCÍ PLATBY – FinanceFlow v6.50
 //  TODO-058 · Zdroje: šablony + narozeniny + cíle + dluhy

@@ -1,4 +1,4 @@
-//  FinanceFlow · v10.65 · transactions.js · 2026-09-12
+// FinanceFlow · v10.87 · transactions.js · 2026-09-20
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -45,16 +45,33 @@ function togglePredEmptySubs(){
   try{ localStorage.setItem('ff_predHideEmptySubs', _hideEmptyPredSubs?'1':'0'); }catch(e){}
   renderPredTable(S.curYear, getData());
 }
+//  S23 (Milan, bod A plánu): PŘEPÍNAČ VÝDAJE / PŘÍJMY V TABULCE PREDIKCE.
+//  Milan výslovně chtěl přepínač, ne obě čísla v jedné tabulce – jinak se
+//  ztratí přehled, co je co. Volba se pamatuje přes localStorage.
+let _predMode = (function(){ try{ return localStorage.getItem('ff_predMode')==='income'?'income':'expense'; }catch(e){ return 'expense'; } })();
+function setPredMode(m){
+  _predMode = (m==='income') ? 'income' : 'expense';
+  try{ localStorage.setItem('ff_predMode', _predMode); }catch(e){}
+  renderPredTable(S.curYear, getData());
+  if(typeof renderPredLineChartSimple==='function') renderPredLineChartSimple(S.curYear, getData());
+}
+window.setPredMode = setPredMode;
+
 function renderPredTable(year,D){
   const el=document.getElementById('predTable');if(!el)return;
-  const expCats=(D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
-  if(!expCats.length){el.innerHTML='<div class="empty"><div class="et">Nejprve přidej kategorie výdajů</div></div>';return;}
+  const jeP = _predMode==='income';
+  const expCats=(D.categories||[]).filter(c=> jeP ? (c.type==='income'||c.type==='both') : (c.type==='expense'||c.type==='both'));
+  const prepinac = `<div style="display:flex;gap:3px;background:var(--surface2);border-radius:9px;padding:3px;margin-bottom:12px">
+    <button class="tx-filt-btn ${jeP?'':'active'}" onclick="setPredMode('expense')" style="flex:1;font-size:.78rem">💸 Výdaje</button>
+    <button class="tx-filt-btn ${jeP?'active':''}" onclick="setPredMode('income')" style="flex:1;font-size:.78rem">💰 Příjmy</button>
+  </div>`;
+  if(!expCats.length){el.innerHTML=prepinac+`<div class="empty"><div class="et">Nejprve přidej kategorie ${jeP?'příjmů':'výdajů'}</div></div>`;return;}
   const months=Array.from({length:12},(_,m)=>({m,y:year}));
   // Session 10: viditelná legenda 3 sloupců (dříve jen title tooltip)
-  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+  let html=prepinac+`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <div style="flex:1;min-width:150px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--debt);border-radius:8px;padding:8px 10px">
       <div style="font-size:.74rem;font-weight:700;color:var(--debt)">YTD</div>
-      <div style="font-size:.68rem;color:var(--text2);line-height:1.4">Skutečně utraceno od ledna do teď</div>
+      <div style="font-size:.68rem;color:var(--text2);line-height:1.4">Skutečně ${jeP?'přijato':'utraceno'} od ledna do teď</div>
     </div>
     <div style="flex:1;min-width:150px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid #a78bfa;border-radius:8px;padding:8px 10px">
       <div style="font-size:.74rem;font-weight:700;color:#a78bfa">Předpoklad YTD</div>
@@ -76,7 +93,7 @@ function renderPredTable(year,D){
     <div style="font-weight:700;color:var(--text2);margin-bottom:4px">Jak číst tabulku:</div>
     <span style="color:var(--text)">■ tučné</span> = skutečně utraceno ·
     <span style="color:var(--bank)">■ modré</span> = predikce aplikace (kolik podle historie utratíš) ·
-    <span style="color:#4ade80">■ zelené</span> / <span style="color:var(--expense)">■ červené</span> = u minulých měsíců rozdíl skutečnost vs. predikce (zelená = utratil jsi míň, červená = víc) ·
+    <span style="color:#4ade80">■ zelené</span> / <span style="color:var(--expense)">■ červené</span> = u minulých měsíců rozdíl skutečnost vs. predikce ${jeP?'(zelená = přišlo víc, než appka čekala) ·':'(zelená = utratil'} jsi míň, červená = víc) ·
     <span style="color:var(--debt)">„+12% sez."</span> = sezónní přirážka pro daný měsíc (např. prosinec bývá dražší)
   </div>`;
   html+=`<div style="overflow-x:auto"><table class="pred-tbl"><thead><tr>
@@ -89,8 +106,8 @@ function renderPredTable(year,D){
   expCats.forEach(cat=>{
     let ytd=0;
     const cells=months.map(({m,y})=>{
-      const actual=getActual(cat.id,null,m,y,D);
-      const pred=predictCat(cat.id,null,m,y,D);
+      const actual=getActual(cat.id,null,m,y,D,_predMode);
+      const pred=predictCat(cat.id,null,m,y,D,_predMode);
       const past=isPast(m,y),cur=isCur(m,y);
       if(past||cur)ytd+=actual;
       if(cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred">${fmtB(pred)}</div>`:''}</td>`;
@@ -106,36 +123,36 @@ function renderPredTable(year,D){
       const seasPct=Math.round((globalS-1)*100);
       return`<td>${pred?`<div class="cell-pred">${fmtB(pred)}</div>`:'<div style="color:var(--text3)">–</div>'}${isSeas?`<div style="font-size:.64rem;color:var(--debt)">${seasPct>0?'+':''}${seasPct}% sez.</div>`:''}</td>`;
     });
-    const decPred=computeYearForecast(cat.id,null,year,D);
-    const yearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,null,mi,year,D)||0).reduce((a,b)=>a+b,0);
+    const decPred=computeYearForecast(cat.id,null,year,D,_predMode);
+    const yearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,null,mi,year,D,_predMode)||0).reduce((a,b)=>a+b,0);
     html+=`<tr><td style="position:sticky;left:0;background:var(--surface);z-index:1;font-weight:600;text-align:left">${cat.icon} ${cat.name}</td>${cells.join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${ytd?fmtB(ytd):'–'}</td><td class="pred-dec">${decPred?fmtB(decPred):'–'}</td><td style="color:#7c6fcd;font-weight:600;border-left:1px solid var(--border)">${yearEst?fmtB(yearEst):'–'}</td></tr>`;
     (cat.subs||[]).forEach(sub=>{
       // Session 10: přeskoč prázdné podkategorie (bez skutečné transakce v roce)
       if(_hideEmptyPredSubs){
-        const hasReal = months.some(({m,y})=>(isPast(m,y)||isCur(m,y)) && getActual(cat.id,sub,m,y,D)>0);
+        const hasReal = months.some(({m,y})=>(isPast(m,y)||isCur(m,y)) && getActual(cat.id,sub,m,y,D,_predMode)>0);
         if(!hasReal) return;
       }
       let sytd=0;
       const scells=months.map(({m,y})=>{
-        const actual=getActual(cat.id,sub,m,y,D);
-        const pred=predictCat(cat.id,sub,m,y,D);
+        const actual=getActual(cat.id,sub,m,y,D,_predMode);
+        const pred=predictCat(cat.id,sub,m,y,D,_predMode);
         const past=isPast(m,y),cur=isCur(m,y);
         if(past||cur)sytd+=actual;
         if(cur)return`<td style="background:rgba(74,222,128,.04)"><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred" style="font-size:.68rem">${fmtB(pred)}</div>`:''}</td>`;
         if(past)return`<td><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div></td>`;
         return`<td>${pred?`<div style="font-size:.76rem;color:var(--bank)">${fmtB(pred)}</div>`:'–'}</td>`;
       });
-      const subYearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,sub,mi,year,D)||0).reduce((a,b)=>a+b,0);
-      html+=`<tr class="sub-row"><td style="position:sticky;left:0;background:var(--surface);z-index:1;text-align:left">↳ ${sub}</td>${scells.join('')}<td style="border-left:2px solid var(--border);font-size:.76rem;color:var(--debt)">${sytd?fmtB(sytd):'–'}</td><td style="font-size:.76rem;color:#a78bfa">${computeYearForecast(cat.id,sub,year,D)?fmtB(computeYearForecast(cat.id,sub,year,D)):'–'}</td><td style="font-size:.76rem;color:#7c6fcd;border-left:1px solid var(--border)">${subYearEst?fmtB(subYearEst):'–'}</td></tr>`;
+      const subYearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,sub,mi,year,D,_predMode)||0).reduce((a,b)=>a+b,0);
+      html+=`<tr class="sub-row"><td style="position:sticky;left:0;background:var(--surface);z-index:1;text-align:left">↳ ${sub}</td>${scells.join('')}<td style="border-left:2px solid var(--border);font-size:.76rem;color:var(--debt)">${sytd?fmtB(sytd):'–'}</td><td style="font-size:.76rem;color:#a78bfa">${computeYearForecast(cat.id,sub,year,D,_predMode)?fmtB(computeYearForecast(cat.id,sub,year,D,_predMode)):'–'}</td><td style="font-size:.76rem;color:#7c6fcd;border-left:1px solid var(--border)">${subYearEst?fmtB(subYearEst):'–'}</td></tr>`;
     });
   });
-  const totals=months.map(({m,y})=>({act:expCats.reduce((a,c)=>a+getActual(c.id,null,m,y,D),0),pred:expCats.reduce((a,c)=>{const p=predictCat(c.id,null,m,y,D);return a+(p||0);},0),past:isPast(m,y),cur:isCur(m,y)}));
+  const totals=months.map(({m,y})=>({act:expCats.reduce((a,c)=>a+getActual(c.id,null,m,y,D,_predMode),0),pred:expCats.reduce((a,c)=>{const p=predictCat(c.id,null,m,y,D,_predMode);return a+(p||0);},0),past:isPast(m,y),cur:isCur(m,y)}));
   const totalYTD=totals.filter(t=>t.past||t.cur).reduce((a,t)=>a+t.act,0);
   html+=`<tr class="total-row"><td style="position:sticky;left:0;background:var(--surface2);z-index:1;text-align:left">CELKEM</td>${totals.map(t=>{
     if(t.cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${t.act?fmtB(t.act):'–'}</div>${t.pred?`<div class="cell-pred" style="font-size:.71rem">${fmtB(t.pred)}</div>`:''}</td>`;
     if(t.past)return`<td><div class="cell-real">${t.act?fmtB(t.act):'–'}</div></td>`;
     return`<td><div class="cell-pred">${t.pred?fmtB(t.pred):'–'}</div></td>`;
-  }).join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${fmtB(totalYTD)}</td><td class="pred-dec">${fmtB(expCats.reduce((a,c)=>a+(computeYearForecast(c.id,null,year,D)||0),0))}</td><td style="color:#7c6fcd;font-weight:700;border-left:1px solid var(--border)">${fmtB(expCats.reduce((a,c)=>a+(Array.from({length:12},(_,mi)=>predictCat(c.id,null,mi,year,D)||0).reduce((x,y)=>x+y,0)),0))}</td></tr>`;
+  }).join('')}<td class="ytd-val" style="border-left:2px solid var(--border)">${fmtB(totalYTD)}</td><td class="pred-dec">${fmtB(expCats.reduce((a,c)=>a+(computeYearForecast(c.id,null,year,D,_predMode)||0),0))}</td><td style="color:#7c6fcd;font-weight:700;border-left:1px solid var(--border)">${fmtB(expCats.reduce((a,c)=>a+(Array.from({length:12},(_,mi)=>predictCat(c.id,null,mi,year,D,_predMode)||0).reduce((x,y)=>x+y,0)),0))}</td></tr>`;
   html+=`</tbody></table></div>`;
   const bdays=(D.birthdays||[]).filter(b=>b.month-1===S.curMonth);
   if(bdays.length)html+=`<div style="margin-top:10px;padding:9px 12px;background:var(--bday-bg);border-radius:9px;font-size:.78rem;color:var(--bday)">🎂 Narozeniny v ${CZ_M[S.curMonth]}: ${bdays.map(b=>`<strong>${b.name}</strong>`).join(', ')}</div>`;
@@ -144,14 +161,16 @@ function renderPredTable(year,D){
 function renderPredLineChartSimple(year,D){
   const canvas=document.getElementById('yearPredChart') || document.getElementById('predLineCanvas');
   if(!canvas)return;
-  const expCats=(D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
+  //  S23: graf respektuje přepínač Výdaje / Příjmy nad tabulkou.
+  const _pm = (typeof _predMode!=='undefined') ? _predMode : 'expense';
+  const expCats=(D.categories||[]).filter(c=> _pm==='income' ? (c.type==='income'||c.type==='both') : (c.type==='expense'||c.type==='both'));
   // Session 10: 3 kumulativní křivky – YTD (skutečnost), Předpoklad (skut+pred), Odhad (čistá predikce)
   const labels=[], ytdCum=[], predpCum=[], odhadCum=[];
   let ytdRun=0, predpRun=0, odhadRun=0, ytdEnded=false;
   for(let m=0;m<12;m++){
     labels.push(CZ_M[m].slice(0,3));
-    const act=getTx(m,year,D).filter(t=>t.type==='expense').reduce((a,t)=>a+txCZK(t,D),0); // v8.61 (TODO-151)
-    const pred=expCats.reduce((a,cat)=>{const p=predictCat(cat.id,null,m,year,D);return a+(p||0);},0);
+    const act=getTx(m,year,D).filter(t=>t.type===_pm && !t.isBalancing).reduce((a,t)=>a+txCZK(t,D),0); // v8.61 (TODO-151) · S23: typ dle přepínače
+    const pred=expCats.reduce((a,cat)=>{const p=predictCat(cat.id,null,m,year,D,_pm);return a+(p||0);},0);
     const isRealMonth = isPast(m,year)||isCur(m,year);
     // YTD: jen skutečnost, končí aktuálním měsícem
     if(isRealMonth){ ytdRun+=act; ytdCum.push(ytdRun); } else { ytdCum.push(null); ytdEnded=true; }

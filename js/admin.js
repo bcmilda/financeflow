@@ -1,4 +1,4 @@
-// FinanceFlow · v10.86 · admin.js · 2026-09-20
+// FinanceFlow · v10.87 · admin.js · 2026-09-20
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.87',
+    datum: '2026-09-20',
+    zmeny: [
+      '\u{1F4B0} A) PŘEPÍNAČ VÝDAJE / PŘÍJMY V TABULCE PREDIKCE (Milan, bod A plánu S18). Predikční engine měl typ „expense" natvrdo ve čtyřech funkcích (getActual, getHistAvg, predictCat, computeYearForecast) – přidán VOLITELNÝ parametr `type` s výchozí hodnotou „expense", takže všech 55 stávajících volání se chová beze změny. Tabulka i graf pod ní sledují přepínač, volba se pamatuje. Přepínač, ne obě čísla v jedné tabulce – podle Milanova zadání.',
+      '🚫 Sezónnost a narozeninová přirážka se na PŘÍJMY nepouštějí. Jsou kalibrované na výdaje; výplata v prosinci není o 12 % vyšší jen proto, že je prosinec.',
+      '📅 B) „KAM SMĚŘUJU" S DATY PŘÍJMŮ (Milan, bod B plánu S18). Dosud se do všech 6 měsíců dosazoval jeden 12M průměr příjmu. Nově: (1) příjem po měsících z predikce příjmových kategorií, průměr jen jako záloha; (2) NEJBLIŽŠÍ MĚSÍC DEN PO DNI – konkrétní data výplat (ze šablon) i plateb (z Budoucích plateb) s průběžným zůstatkem; (3) DALŠÍ MĚSÍCE JEN V ROZPĚTÍ („+4 000 až +8 000"), ne na korunu.',
+      '📐 Rozpětí vychází ze SKUTEČNÉHO rozptylu měsíčních sald za posledních 6 měsíců (směrodatná odchylka, minimum 8 % příjmu) a roste s odmocninou horizontu, ne lineárně – chyby se přes měsíce částečně vyruší. Princip: appka nesmí tvrdit přesnost, kterou nemá.',
+      '🔒 Příjmy se do Budoucích plateb NEPŘIDALY (ADR-160). Milan při čtení plánu S18 potvrdil původní rozhodnutí: sekce se jmenuje „platby" a příjmy by zkreslily součty i grafy Radaru. Kalendář v „Kam směřuju" si příjmové šablony načítá sám přímo z D.sablony – stejný vzor jako pristiIncomeRows.',
+      '🧪 tools/smoke_s23c.js – 31 testů (typový parametr a zpětná kompatibilita, sezónnost jen na výdaje, rozpětí, kalendář, běžný život bez dvojího počítání).',
+    ]
+  },
   {
     verze: 'v10.86',
     datum: '2026-09-20',
