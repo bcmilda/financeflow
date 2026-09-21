@@ -1,4 +1,4 @@
-// FinanceFlow · v10.90 · admin.js · 2026-09-21
+// FinanceFlow · v10.91 · admin.js · 2026-09-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.91',
+    datum: '2026-09-21',
+    zmeny: [
+      '🪟 NOVÉ OKNO ZÁLOŽKY (Milan) · cesta: Finanční radar → 💸 Do výplaty. Grafy už nekončí na další výplatě. Okno začíná výplatou, ze které žiješ 1. dne zvoleného měsíce (u září cca 17. 8.), a jede do posledního dne měsíce (30. 9.) – přes další výplatu bez přerušení. Po dnešku odhad: známé platby z Budoucích plateb + očekávaná výplata (výše minulé) + běžné tempo nefixních výdajů. Horní souhrn (volné do výplaty, denní limit) dál ukazuje aktuální cyklus.',
+      '📈 NOVÁ KARTA · cesta: Finanční radar → 💸 Do výplaty → Od výplaty den po dni. Zůstatek z výplaty den po dni přes celé okno: plná čára skutečnost, čárkovaná odhad, 💰 svislé čáry výplat, tečkovaně začátek měsíce, bod „dnes". Pod grafem kolik zbude (zbylo) na konci měsíce a z čeho je odhad složený.',
+      '📊 ZMĚNA · cesta: Finanční radar → 💸 Do výplaty → Od výplaty k výplatě. Týdny běží přes celé okno (17. 8. → 30. 9.), týden s výplatou má 💰. Tabulka ukazuje jen skutečnost – odhad se do ní nemíchá.',
+      '🧭 NOVÁ KARTA · cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech. Pro každý týden dva sloupce (Milanovo zadání): vlevo zelená = stav na začátku týdne + modrá = přírůstek (šrafovaně úbytek) → horní hrana = stav na konci; vpravo oranžová = plánovaný výdej + fialová = budoucí platby. Tabulka Na začátku · Změna · Na konci · Plán. výdej · Budoucí platby.',
+      '🔁 NOVÁ KARTA · cesta: Finanční radar → 📅 Měsíc → Srovnání s minulým měsícem. Obdoba srovnání s cyklem: výdaje do stejného dne letos vs minulý měsíc, procento a celkem minule. U uplynulého měsíce celý měsíc proti celému.',
+      '🧪 tools/smoke_s23g.js – 28 testů (hranice okna, výplaty v okně, zůstatek přes výplatu, navazování týdnů, odhad, vyloučení přesunů, srovnání s měsícem).',
+    ]
+  },
   {
     verze: 'v10.90',
     datum: '2026-09-21',

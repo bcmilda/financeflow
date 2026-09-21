@@ -1,4 +1,4 @@
-// FinanceFlow · v10.90 · projects.js · 2026-09-21
+// FinanceFlow · v10.91 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2213,6 +2213,7 @@ function renderRadar() {
         <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Bílá čára = kolik jsi celkem utratil (kumulativně). Zelená = úroveň příjmu měsíce. Žlutá = ideální rovnoměrné tempo (příjem ÷ dny). Když je bílá nad žlutou, utrácíš rychleji než rovnoměrně. Modré sloupce = denní výdaj. Najeď myší pro detail dne.</div>
         <!-- Trend po týdnech od výplaty (Session 10) -->
         <div id="paydayWeeksBox" style="margin-top:16px"></div>
+        <div id="monthCompareBox" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -2533,6 +2534,7 @@ function renderRadarDailyChart(txs, monthInc, avgInc, avgExp, D){
   //  má záložka Do výplaty (karta „Od výplaty k výplatě"); dva grafy měřící
   //  totéž každý jinak byly zdrojem nejasností (73 vs 128 Kč/den).
   renderMonthWeeks(getData(), S.curMonth, S.curYear);
+  renderMonthCompare(getData(), S.curMonth, S.curYear);
   // interaktivita: tooltip na hover
   if(!canvas._radarBound){
     canvas._radarBound = true;
@@ -2735,6 +2737,46 @@ function renderMonthWeeks(D, m, y){
     <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.5">${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>`;
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): SROVNÁNÍ S MINULÝM MĚSÍCEM
+//  cesta: Finanční radar → 📅 Měsíc → Srovnání s minulým měsícem
+//  Obdoba „Srovnání s minulým cyklem" z Do výplaty. Férové srovnání tempa:
+//  u rozběhnutého měsíce se porovnává DO STEJNÉHO DNE, ne celý minulý měsíc
+//  s půlkou letošního.
+// ══════════════════════════════════════════════════════
+function radarMonthCompare(D, m, y){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const isCur=(m===now.getMonth()&&y===now.getFullYear());
+  const dim=new Date(y,m+1,0).getDate();
+  const doDne=isCur?now.getDate():dim;
+  let pm=m-1, py=y; if(pm<0){pm=11;py--;}
+  const pdim=new Date(py,pm+1,0).getDate();
+  const vyd=(mm,yy,do_)=> (getTx(mm,yy,D)||[]).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)&&new Date(t.date).getDate()<=do_).reduce((a,t)=>a+txCZK(t,D),0);
+  const ted=Math.round(vyd(m,y,doDne));
+  const minuleStejne=Math.round(vyd(pm,py,Math.min(doDne,pdim)));
+  const minuleCelkem=Math.round(vyd(pm,py,pdim));
+  const pct=minuleStejne>0?Math.round((ted-minuleStejne)/minuleStejne*100):null;
+  return {ted, minuleStejne, minuleCelkem, pct, doDne, isCur, pm, py};
+}
+function renderMonthCompare(D, m, y){
+  const box=document.getElementById('monthCompareBox'); if(!box) return;
+  const c=radarMonthCompare(D, m, y);
+  if(c.minuleCelkem<=0 && c.ted<=0){ box.innerHTML=''; return; }
+  const barva=c.pct===null?'#a8aec8':c.pct<=0?'var(--income)':'var(--expense)';
+  const tile=(v,sub,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center">
+      <div style="font-family:Syne,sans-serif;font-size:1.05rem;font-weight:800;color:${col}">${v}</div>
+      <div style="font-size:.66rem;color:#a8aec8;margin-top:3px">${sub}</div></div>`;
+  box.innerHTML=`
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">🔁 Srovnání s minulým měsícem</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">${c.isCur?`Výdaje do ${c.doDne}. dne – letos i v měsíci ${CZ_M[c.pm]}, ať se srovnává stejně dlouhý úsek.`:`Celý měsíc proti měsíci ${CZ_M[c.pm]} ${c.py}.`}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      ${tile(fmtB(c.minuleStejne), `${CZ_M[c.pm]} do ${c.doDne}. dne`, '#c9cede')}
+      ${tile(c.pct===null?'–':`${c.pct>0?'+':''}${c.pct} %`, `teď ${fmtB(c.ted)}`, barva)}
+      ${tile(fmtB(c.minuleCelkem), `${CZ_M[c.pm]} celkem`, '#c9cede')}
+    </div>
+    ${c.pct!==null?`<div style="font-size:.7rem;color:#c9cede;margin-top:8px">${c.pct<=0?`✅ Utrácíš o ${Math.abs(c.pct)} % méně než minule ve stejném bodě měsíce.`:`⚠️ Utrácíš o ${c.pct} % více než minule ve stejném bodě měsíce.`}</div>`:`<div style="font-size:.7rem;color:#a8aec8;margin-top:8px">Minulý měsíc do ${c.doDne}. dne nemá výdaje, procento spočítat nejde.</div>`}`;
+}
+
 // Trend výdajů po týdnech od výplaty – sloupcový graf + tabulka
 //  S23: v záložce Měsíc ji nahradil renderMonthWeeks (kalendářní týdny).
 //  Funkce zůstává pro případ, že by se týdny od výplaty chtěly vrátit jinam.
@@ -2915,6 +2957,176 @@ function radarPaydayInfo(D, refDate){
   return {anchor,source,detected,lastPayday,nextPayday,daysLeft,cycleDays,dayInCycle,paydayReal,today,freq:'monthly'};
 }
 
+//  S23 (Milan): OKNO ZÁLOŽKY DO VÝPLATY PRO GRAFY
+//  „Chci vidět celý cyklus, ne jen od 1. 9., ale od cca 17. 8. … až do 30. 9."
+//  Začátek = výplata, ze které uživatel žije 1. dne zvoleného měsíce.
+//  Konec   = poslední den zvoleného měsíce – i když mezitím přijde další
+//            výplata (graf se na ní nezastaví, zůstatek vyskočí a jede dál).
+//  Po dnešku se dopočítává ODHAD (čárkovaně): známé platby z Budoucích
+//  plateb, očekávaná výplata a běžné tempo nepravidelných výdajů.
+//  Čtou ho: Od výplaty den po dni, Od výplaty k výplatě, Kam směřuju po týdnech.
+function radarPaydayWindow(D, m, y){
+  const MS=86400000;
+  const now=new Date(); now.setHours(0,0,0,0);
+  const first=new Date(y,m,1);
+  const P0=radarPaydayInfo(D, first);
+  const start=new Date(P0.lastPayday); start.setHours(0,0,0,0);
+  const end=new Date(y,m+1,0); end.setHours(0,0,0,0);
+  //  výplaty v okně (začátek + všechny další do konce měsíce)
+  const paydays=[new Date(start)];
+  let nx=new Date(P0.nextPayday), guard=0;
+  while(nx<=end && guard++<8){ paydays.push(new Date(nx)); nx=new Date(radarPaydayInfo(D, nx).nextPayday); }
+  const nDays=Math.round((end-start)/MS)+1;
+  const days=[];
+  for(let i=0;i<nDays;i++){ const d=new Date(start.getTime()+i*MS); days.push({date:d, inc:0, exp:0, sums:{regular:0,variable:0,other:0,none:0}, known:0, forecast:d>now}); }
+  const idx=d=>{ const x=new Date(d); x.setHours(0,0,0,0); return Math.round((x-start)/MS); };
+  const grpOf=radarCharGroupOf(D);
+  getTxByRange(start, end, D).forEach(t=>{
+    if(t.isBalancing||t.splitParent||isTransferTx(t)) return;
+    const i=idx(t.date); if(i<0||i>=nDays||days[i].forecast) return;
+    const a=txCZK(t,D);
+    if(t.type==='income') days[i].inc+=a;
+    else if(t.type==='expense'){ days[i].exp+=a; days[i].sums[grpOf(t)]+=a; }
+  });
+  //  ── odhad po dnešku ──
+  const lived=days.filter(x=>!x.forecast);
+  //  tempo běžného života = nepravidelné výdaje (bez fixních) za odžité dny okna
+  const flex=lived.reduce((a,x)=>a+x.exp-x.sums.regular,0);
+  const flexPace=lived.length?flex/lived.length:0;
+  //  očekávaná výplata = největší skutečný příjem v okně (nejčastěji minulá výplata)
+  const estInc=Math.round(Math.max(0,...lived.map(x=>x.inc)));
+  if(days.some(x=>x.forecast)){
+    if(typeof budouciGetAll==='function'){
+      try{ (budouciGetAll(D, Math.round((end-now)/MS)+2)||[]).forEach(b=>{
+        const i=idx(b.date); if(i>=0&&i<nDays&&days[i].forecast){ days[i].known+=(b.amount||0); days[i].exp+=(b.amount||0); days[i].sums.regular+=(b.amount||0); }
+      }); }catch(e){}
+    }
+    paydays.forEach(pd=>{ const i=idx(pd); if(i>=0&&i<nDays&&days[i].forecast) days[i].inc+=estInc; });
+    days.forEach(x=>{ if(x.forecast){ x.exp+=flexPace; x.sums.variable+=flexPace; } });
+  }
+  let bal=0; days.forEach(x=>{ bal+=x.inc-x.exp; x.bal=Math.round(bal); });
+  //  týdny od začátku okna po 7 dnech, poslední zkrácený koncem měsíce
+  const weeks=[];
+  for(let i=0;i<nDays;i+=7){
+    const chunk=days.slice(i,i+7);
+    const sums={regular:0,variable:0,other:0,none:0}; let inc=0, known=0, plan=0;
+    chunk.forEach(x=>{ Object.keys(sums).forEach(k=>sums[k]+=x.sums[k]); inc+=x.inc; known+=x.known;
+      plan+= x.forecast ? (x.exp-x.known) : x.exp; });
+    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
+    //  jen SKUTEČNOST (bez odhadu) – pro tabulku „Od výplaty k výplatě"
+    const actSums={regular:0,variable:0,other:0,none:0};
+    chunk.filter(x=>!x.forecast).forEach(x=>Object.keys(actSums).forEach(k=>actSums[k]+=x.sums[k]));
+    const actTotal=Math.round(actSums.regular+actSums.variable+actSums.other+actSums.none);
+    const startBal=i===0?0:days[i-1].bal, endBal=chunk[chunk.length-1].bal;
+    const ws=chunk[0].date, we=chunk[chunk.length-1].date;
+    weeks.push({ws, we, sums, total, actSums, actTotal, inc:Math.round(inc), dnu:chunk.length,
+      perDay:Math.round(total/chunk.length), startBal, endBal, change:endBal-startBal,
+      plan:Math.round(plan), known:Math.round(known),
+      future:chunk.every(x=>x.forecast), partial:chunk.some(x=>x.forecast)&&!chunk.every(x=>x.forecast),
+      payday:paydays.some(pd=>pd>=ws&&pd<=we)});
+  }
+  return {start, end, now, paydays, days, weeks, flexPace:Math.round(flexPace), estInc, monthStart:first};
+}
+
+//  cesta: Finanční radar → 💸 Do výplaty → Od výplaty den po dni
+//  Zůstatek z výplaty den po dni přes celé okno. Plná čára = skutečnost,
+//  čárkovaná = odhad. Svislé čáry = výplaty, tečkovaná = začátek měsíce.
+function radarPaydayDailyCard(W){
+  const days=W.days; if(!days.length) return '';
+  const Wd=900,H=240,pl=58,pr=14,pt=22,pb=34, cw=Wd-pl-pr, ch=H-pt-pb;
+  const vals=days.map(x=>x.bal);
+  const vMax=Math.max(1,...vals), vMin=Math.min(0,...vals), span=Math.max(1,vMax-vMin);
+  const X=i=>pl+(days.length<2?cw/2:i/(days.length-1)*cw), Y=v=>pt+(vMax-v)/span*ch;
+  const lastReal=days.reduce((a,x,i)=>x.forecast?a:i,-1);
+  const path=(from,to)=>days.slice(from,to+1).map((x,k)=>`${k?'L':'M'}${X(from+k).toFixed(1)},${Y(x.bal).toFixed(1)}`).join('');
+  const solid= lastReal>=0 ? `<path d="${path(0,lastReal)}" fill="none" stroke="#4ade80" stroke-width="2.5"/>` : '';
+  const dashed= lastReal<days.length-1 ? `<path d="${path(Math.max(0,lastReal),days.length-1)}" fill="none" stroke="#4ade80" stroke-width="2" stroke-dasharray="6 5" opacity=".75"/>` : '';
+  const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
+  const iOf=d=>Math.round((d-W.start)/86400000);
+  const pays=W.paydays.map(pd=>{ const i=iOf(pd); if(i<0||i>=days.length) return ''; const x=X(i).toFixed(1);
+    return `<line x1="${x}" x2="${x}" y1="${pt}" y2="${pt+ch}" stroke="#fbbf24" stroke-width="1.5" opacity=".7"/>
+      <text x="${x}" y="${pt-7}" text-anchor="middle" font-size="11" fill="#fbbf24">💰 ${fmtD(pd)}</text>`; }).join('');
+  const mi=iOf(W.monthStart);
+  const mline= mi>0&&mi<days.length ? `<line x1="${X(mi).toFixed(1)}" x2="${X(mi).toFixed(1)}" y1="${pt}" y2="${pt+ch}" stroke="#a8aec8" stroke-dasharray="2 4" opacity=".6"/>
+      <text x="${(X(mi)+4).toFixed(1)}" y="${pt+ch-6}" font-size="10" fill="#a8aec8">1. ${W.monthStart.getMonth()+1}.</text>` : '';
+  const ti=iOf(W.now);
+  const tline= ti>=0&&ti<days.length ? `<circle cx="${X(ti).toFixed(1)}" cy="${Y(days[ti].bal).toFixed(1)}" r="5" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+      <text x="${X(ti).toFixed(1)}" y="${(Y(days[ti].bal)-10).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#e8eaf2">dnes ${fmtB(days[ti].bal)}</text>` : '';
+  const zero= vMin<0 ? `<line x1="${pl}" x2="${Wd-pr}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#f87171" stroke-dasharray="3 3" opacity=".6"/>` : '';
+  const ticks=[vMax,(vMax+vMin)/2,vMin].map(v=>`<text x="${pl-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#a8aec8">${fmtB(Math.round(v))}</text>`).join('');
+  const xl=[0,Math.floor((days.length-1)/2),days.length-1].map(i=>`<text x="${X(i).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="11" fill="#a8aec8">${fmtD(days[i].date)}</text>`).join('');
+  const konec=days[days.length-1];
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📈 Od výplaty den po dni</span><span style="font-size:.68rem;color:#a8aec8">${fmtD(W.start)} → ${fmtD(W.end)}</span></div>
+    <div class="card-body" style="padding:12px 14px">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${Wd} ${H}" style="width:100%;min-width:520px;height:auto;display:block">
+        ${ticks}${zero}${mline}${pays}${solid}${dashed}${tline}${xl}
+      </svg></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.66rem;color:#a8aec8;margin-top:6px">
+        <span><span style="display:inline-block;width:18px;border-top:2.5px solid #4ade80;vertical-align:middle"></span> skutečný zůstatek z výplaty</span>
+        <span><span style="display:inline-block;width:18px;border-top:2px dashed #4ade80;vertical-align:middle"></span> odhad</span>
+        <span style="color:#fbbf24">💰 výplata</span>
+      </div>
+      <div style="font-size:.7rem;color:#c9cede;margin-top:8px;line-height:1.55">
+        ${konec.forecast?`Na konci měsíce ti podle odhadu zbude <strong style="color:${konec.bal>=0?'var(--income)':'var(--expense)'}">${fmtB(konec.bal)}</strong>.`:`Na konci měsíce ti zbylo <strong style="color:${konec.bal>=0?'var(--income)':'var(--expense)'}">${fmtB(konec.bal)}</strong>.`}
+        ${konec.forecast?`<span style="color:#8b93ad"> Odhad = známé platby + očekávaná výplata ${fmtB(W.estInc)} + běžné tempo ${fmtB(W.flexPace)}/den.</span>`:''}
+      </div>
+    </div></div>`;
+}
+
+//  cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech
+//  Milanovo zadání (S23): pro každý týden DVA sloupce.
+//   vlevo  = zelená (stav na začátku týdne) + modrá (změna za týden)
+//            → dohromady stav na konci týdne; úbytek se ukáže jako ztlumený
+//              horní díl, aby výška vlevo vždy odpovídala většímu ze stavů,
+//   vpravo = oranžová (plánovaný výdej) + fialová (budoucí platby).
+function radarPaydayWeeksPlanCard(W){
+  const ws=W.weeks; if(!ws.length) return '';
+  const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
+  const mx=Math.max(1,...ws.map(w=>Math.max(w.startBal,w.endBal,w.plan+w.known)));
+  const hh=v=>Math.max(0,Math.round(Math.max(0,v)/mx*120));
+  const col=(segs,label)=>`<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="font-size:.6rem;font-weight:700;color:#c2c7da;white-space:nowrap">${label}</div>
+      <div style="width:100%;max-width:26px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;min-height:2px">${segs}</div></div>`;
+  const bars=ws.map((w,i)=>{
+    const zakl=Math.min(w.startBal,w.endBal);
+    const zmena=w.change;
+    const left = `<div style="height:${hh(zakl)}px;background:#4ade80"></div>`
+      + (zmena>=0 ? `<div style="height:${hh(zmena)}px;background:#60a5fa"></div>`
+                  : `<div style="height:${hh(-zmena)}px;background:repeating-linear-gradient(45deg,rgba(96,165,250,.35) 0 4px,transparent 4px 8px);border-top:1px solid #60a5fa"></div>`);
+    const right = `<div style="height:${hh(w.plan)}px;background:#fb923c"></div><div style="height:${hh(w.known)}px;background:#a78bfa"></div>`;
+    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;${w.future?'opacity:.8':''}">
+      <div style="display:flex;align-items:flex-end;gap:3px;width:100%;height:140px">
+        ${col(left, fmtB(w.endBal))}${col(right, fmtB(w.plan+w.known))}
+      </div>
+      <div style="font-size:.62rem;color:#a8aec8;text-align:center;line-height:1.3">${i+1}. týden${w.payday?' 💰':''}<br><span style="color:var(--text3)">${fmtD(w.ws)}–${fmtD(w.we)}</span>${w.future||w.partial?'<br><span style="color:#8b93ad">odhad</span>':''}</div>
+    </div>`;
+  }).join('');
+  const rows=ws.map((w,i)=>`<tr style="border-top:1px solid var(--border);${w.future?'opacity:.6':''}">
+    <td style="padding:5px 6px;white-space:nowrap">${i+1}. týden${w.payday?' 💰':''}</td>
+    <td style="padding:5px 6px;text-align:right;color:#4ade80">${fmtB(w.startBal)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#60a5fa">${w.change>=0?'+':''}${fmtB(w.change)}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700">${fmtB(w.endBal)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#fb923c">${fmtB(w.plan)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#a78bfa">${fmtB(w.known)}</td>
+  </tr>`).join('');
+  const lg=(c,t,striped)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;display:inline-block;${striped?'background:repeating-linear-gradient(45deg,rgba(96,165,250,.5) 0 3px,transparent 3px 6px);border:1px solid #60a5fa':'background:'+c}"></span>${t}</span>`;
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">🧭 Kam směřuju po týdnech</span><span style="font-size:.68rem;color:#a8aec8">${fmtD(W.start)} → ${fmtD(W.end)}</span></div>
+    <div class="card-body" style="padding:12px 14px">
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px">${bars}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:.64rem;color:#a8aec8;margin-bottom:10px">
+        ${lg('#4ade80','Stav na začátku týdne')}${lg('#60a5fa','Přírůstek za týden')}${lg('','Úbytek za týden',true)}${lg('#fb923c','Plánovaný výdej')}${lg('#a78bfa','Budoucí platby')}
+      </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:520px">
+        <thead><tr style="color:var(--text3);text-align:left">
+          <th style="padding:5px 6px">Týden</th><th style="padding:5px 6px;text-align:right">Na začátku</th><th style="padding:5px 6px;text-align:right">Změna</th>
+          <th style="padding:5px 6px;text-align:right">Na konci</th><th style="padding:5px 6px;text-align:right">Plán. výdej</th><th style="padding:5px 6px;text-align:right">Budoucí platby</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.5">Vlevo zůstatek z výplaty: zelená = stav na začátku týdne, modrá = o kolik přibylo (šrafovaně = o kolik ubylo) → horní hrana = stav na konci. Vpravo výdaje týdne: oranžová = běžné výdaje (u minulých týdnů skutečné, u budoucích tempem ${fmtB(W.flexPace)}/den), fialová = známé budoucí platby. 💰 = týden s výplatou.</div>
+    </div></div>`;
+}
+
 //  Který cyklus patří ke zvolenému měsíci:
 //   • aktuální měsíc → cyklus, ve kterém jsi dnes (jako dřív),
 //   • minulý měsíc  → CELÝ cyklus, který výplatou v tom měsíci začal
@@ -2981,25 +3193,12 @@ function renderRadarPayday(el, D){
   //  S23 (TODO-286): přesuny mezi peněženkami nejsou výdaj – dřív je tu graf
   //  počítal, zatímco „Výdaje po týdnech" v Měsíci a souhrn cyklu ne.
   const cycAllExp=getTxByRange(P.lastPayday,P.nextPayday,D).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t));
-  const weeks=[];
-  for(let w=0; w*7<P.cycleDays; w++){
-    const ws=new Date(P.lastPayday); ws.setDate(ws.getDate()+w*7);
-    let we=new Date(ws); we.setDate(we.getDate()+6);
-    const cycEnd=new Date(P.nextPayday); cycEnd.setDate(cycEnd.getDate()-1);
-    if(we>cycEnd) we=cycEnd;
-    const sums={regular:0,variable:0,other:0,none:0};
-    cycAllExp.forEach(t=>{ const d=new Date(t.date); d.setHours(0,0,0,0); if(d>=ws&&d<=we) sums[grpOf(t)]+=txCZK(t,D); });
-    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
-    const lastLived=P.today<we?P.today:we;
-    const lived=lastLived>=ws?Math.round((lastLived-ws)/86400000)+1:0;
-    //  S23 (Milan): Kč/DEN = ČÁSTKA ÷ DNY V TÝDNU (většinou 7), ne ÷ odžité dny.
-    //  Stejný týden ukazoval 73 Kč/den v Měsíci a 128 Kč/den tady, protože
-    //  každý graf dělil jinak. Milan zvolil jednotný přepočet dny týdne –
-    //  je to orientační údaj do tabulky, graf ukazuje týdenní částku.
-    const dnuVTydnu=Math.round((we-ws)/86400000)+1;
-    weeks.push({label:`${w+1}. týden`, range:`${fmtD(ws)}–${fmtD(we)}`, sums, total, lived, dnuVTydnu,
-      perDay:dnuVTydnu>0?Math.round(total/dnuVTydnu):0, future:lived===0});
-  }
+  //  S23 (Milan): týdny běží přes celé okno 17. 8. → 30. 9., ne jen přes
+  //  jeden cyklus. Kč/den = částka ÷ dny v týdnu. Budoucí týdny ztlumené.
+  const W=radarPaydayWindow(D, S.curMonth, S.curYear);
+  const weeks=W.weeks.map((w,i)=>({label:`${i+1}. týden${w.payday?' 💰':''}`, range:`${fmtD(w.ws)}–${fmtD(w.we)}`,
+    sums: w.actSums, total: w.actTotal,
+    lived: w.future?0:1, dnuVTydnu:w.dnu, perDay: Math.round(w.actTotal/w.dnu), future:w.future}));
   const maxWeek=Math.max(...weeks.map(w=>w.total),1);
 
   // ── Top variabilní kategorie cyklu ──
@@ -3129,6 +3328,8 @@ function renderRadarPayday(el, D){
     </div>
 
     <!-- SROVNÁNÍ S MINULÝM CYKLEM + TEMPO (S12.1b) -->
+    ${radarPaydayDailyCard(W)}
+    ${radarPaydayWeeksPlanCard(W)}
     ${prevTotal>0?`
     <div class="card" style="margin-bottom:14px">
       <div class="card-header"><span class="card-title">🔁 Srovnání s minulým cyklem</span><span style="font-size:.68rem;color:#a8aec8">do ${P.dayInCycle}. dne</span></div>
@@ -3173,7 +3374,7 @@ function renderRadarPayday(el, D){
             <th style="padding:5px 6px;text-align:right">Celkem</th>
             <th style="padding:5px 6px;text-align:right">${curSym()}/den</th>
           </tr></thead><tbody>${weekRows}</tbody></table></div>
-        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty (${fmtD(P.lastPayday)}), ne od 1. dne měsíce. ${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
+        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty ${fmtD(W.start)} do konce měsíce (${fmtD(W.end)}), přes další výplatu (💰) bez přerušení. ${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
       </div>
     </div>
 

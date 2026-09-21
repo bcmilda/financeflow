@@ -11,7 +11,8 @@ T('tabulka přepočet na den ponechala', /73 Kč/.test(tab) && /\/den/.test(tab)
 T('nadpis je výraznější (ne malé šedé verzálky)', /font-size:\.9rem;font-weight:700;color:#e8eaf2[^>]*>📅 Výdaje po týdnech od výplaty/.test(h));
 T('popisek netvrdí, že sloupce jsou Kč/den', !/Sloupce ukazují <strong>průměr/.test(h) && /kolik stál celý týden/.test(h));
 T('Tempo přejmenováno na „Od výplaty k výplatě“', /card-title">📊 Od výplaty k výplatě</.test(PJ) && !/Tempo po týdnech cyklu<\/span>/.test(PJ));
-T('Kč/den v Od výplaty k výplatě dělí dny týdne', /perDay:dnuVTydnu>0\?Math\.round\(total\/dnuVTydnu\)/.test(PJ));
+//  v10.91: týdny se berou z radarPaydayWindow – Kč/den = skutečná částka ÷ dny v týdnu
+T('Kč/den v Od výplaty k výplatě dělí dny týdne', /perDay: Math\.round\(w\.actTotal\/w\.dnu\)/.test(PJ) && /dnuVTydnu:w\.dnu/.test(PJ));
 // ověření na čísle: 511 Kč, týden 18.–24. (7 dní), odžito 4 dny → 73, ne 128
 const ws=new Date(2026,8,18), we=new Date(2026,8,24); const dnu=Math.round((we-ws)/86400000)+1;
 T('511 Kč za 7denní týden = 73 Kč/den (dřív 128)', Math.round(511/dnu)===73);
