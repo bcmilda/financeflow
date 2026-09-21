@@ -1,4 +1,4 @@
-// FinanceFlow · v10.87 · transactions.js · 2026-09-20
+// FinanceFlow · v10.88 · transactions.js · 2026-09-20
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){

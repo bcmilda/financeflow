@@ -1,4 +1,4 @@
-// FinanceFlow · v10.87 · receipts.js · 2026-09-20
+// FinanceFlow · v10.88 · receipts.js · 2026-09-20
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam

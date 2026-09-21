@@ -1,4 +1,4 @@
-// FinanceFlow · v10.87 · admin.js · 2026-09-20
+// FinanceFlow · v10.88 · admin.js · 2026-09-20
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.88',
+    datum: '2026-09-20',
+    zmeny: [
+      '📊 FIX (Milan) · cesta: Finanční radar → 📅 Měsíc → „Výdaje po týdnech od výplaty". Sloupce ukazovaly Kč/den (73 Kč), přitom týden stál 511 Kč – graf a tabulka vedle sebe vypadaly jako dvě různá čísla. Sloupce nově ukazují TÝDENNÍ ČÁSTKU; přepočet na den zůstal v tabulce jako orientační údaj. Nadpis zvýrazněn (dřív malé šedé verzálky zapadaly mezi ostatními kartami).',
+      '📊 ZMĚNA (Milan) · cesta: Finanční radar → 💸 Do výplaty → „Tempo po týdnech cyklu" PŘEJMENOVÁNO na „Od výplaty k výplatě". Kč/den se nově dělí POČTEM DNÍ V TÝDNU (většinou 7), ne odžitými dny – stejný týden dřív ukazoval 73 Kč/den v jedné záložce a 128 Kč/den v druhé. Graf ukazuje týdenní částku beze změny.',
+      '📝 Nové pravidlo hlášení (Milan): u každé změny uvádět CESTU v appce („cesta: Finanční obraz → Kam směřuju"). V appce jsou dvě sekce „Kam směřuju" (Radar a Obraz) a v10.87 upravila jinou, než Milan čekal.',
+      '🧪 tools/smoke_s23d.js – 9 testů.',
+    ]
+  },
   {
     verze: 'v10.87',
     datum: '2026-09-20',

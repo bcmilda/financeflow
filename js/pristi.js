@@ -1,4 +1,4 @@
-// FinanceFlow · v10.87 · pristi.js · 2026-09-20
+// FinanceFlow · v10.88 · pristi.js · 2026-09-20
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").

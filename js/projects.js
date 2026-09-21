@@ -1,4 +1,4 @@
-// FinanceFlow · v10.87 · projects.js · 2026-09-20
+// FinanceFlow · v10.88 · projects.js · 2026-09-20
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2651,12 +2651,15 @@ function radarDailyHover(e, canvas){
 function renderPaydayWeeksTable(weeks, payday){
   const box=document.getElementById('paydayWeeksBox'); if(!box) return;
   if(!weeks || !weeks.length){ box.innerHTML=''; return; }
-  const maxPerDay=Math.max(...weeks.map(w=>w.perDay),1);
-  // graf: sloupce = průměr Kč/den v daném týdnu (férové i pro neúplný poslední týden)
+  //  S23 (Milan): SLOUPCE UKAZUJÍ TÝDENNÍ ČÁSTKU, NE Kč/DEN.
+  //  Graf hlásil 73 Kč, přitom v týdnu padlo 511 Kč – sloupec a tabulka
+  //  vedle sebe vypadaly jako dvě různá čísla. Přepočet na den zůstává
+  //  v tabulce jako orientační údaj, graf ukazuje, kolik týden stál.
+  const maxTotal=Math.max(...weeks.map(w=>w.total),1);
   const bars = weeks.map(w=>{
-    const h=Math.round(w.perDay/maxPerDay*90)+4;
+    const h=Math.round(w.total/maxTotal*90)+4;
     return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
-      <div style="font-size:.7rem;font-weight:700;color:#60a5fa;font-family:Syne">${fmtB(w.perDay)}</div>
+      <div style="font-size:.7rem;font-weight:700;color:#60a5fa;font-family:Syne">${fmtB(w.total)}</div>
       <div style="width:100%;max-width:46px;height:${h}px;background:#60a5fa;opacity:.8;border-radius:6px 6px 0 0"></div>
       <div style="font-size:.64rem;color:#a8aec8;text-align:center">${w.label}</div>
     </div>`;
@@ -2668,8 +2671,8 @@ function renderPaydayWeeksTable(weeks, payday){
     <td style="padding:5px 6px;text-align:right;font-weight:700;color:#60a5fa">${fmtB(w.perDay)}</td>
   </tr>`).join('');
   box.innerHTML = `
-    <div style="font-size:.72rem;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">📅 Výdaje po týdnech od výplaty</div>
-    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Referenční bod = den výplaty (${payday}. den). Sloupce ukazují <strong>průměr ${curSym()}/den</strong> v každém týdnu – férové i pro kratší poslední týden. Vysoký 1. týden = utrácíš hned po výplatě.</div>
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">📅 Výdaje po týdnech od výplaty</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Referenční bod = den výplaty (${payday}. den). Sloupce ukazují, <strong>kolik stál celý týden</strong>; přepočet na den je v tabulce. Vysoký 1. týden = utrácíš hned po výplatě.</div>
     <div style="display:flex;align-items:flex-end;gap:8px;height:130px;margin-bottom:12px;padding:0 4px">${bars}</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead><tr style="color:var(--text3);text-align:left">
@@ -2860,7 +2863,13 @@ function renderRadarPayday(el, D){
     const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
     const lastLived=P.today<we?P.today:we;
     const lived=lastLived>=ws?Math.round((lastLived-ws)/86400000)+1:0;
-    weeks.push({label:`${w+1}. týden`, range:`${fmtD(ws)}–${fmtD(we)}`, sums, total, lived, perDay:lived>0?Math.round(total/lived):0, future:lived===0});
+    //  S23 (Milan): Kč/DEN = ČÁSTKA ÷ DNY V TÝDNU (většinou 7), ne ÷ odžité dny.
+    //  Stejný týden ukazoval 73 Kč/den v Měsíci a 128 Kč/den tady, protože
+    //  každý graf dělil jinak. Milan zvolil jednotný přepočet dny týdne –
+    //  je to orientační údaj do tabulky, graf ukazuje týdenní částku.
+    const dnuVTydnu=Math.round((we-ws)/86400000)+1;
+    weeks.push({label:`${w+1}. týden`, range:`${fmtD(ws)}–${fmtD(we)}`, sums, total, lived, dnuVTydnu,
+      perDay:dnuVTydnu>0?Math.round(total/dnuVTydnu):0, future:lived===0});
   }
   const maxWeek=Math.max(...weeks.map(w=>w.total),1);
 
@@ -3018,7 +3027,7 @@ function renderRadarPayday(el, D){
 
     <!-- TÝDNY OD VÝPLATY – stacked fixní/variabilní -->
     <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">📊 Tempo po týdnech cyklu</span><span style="font-size:.68rem;color:#a8aec8">fixní vs variabilní</span></div>
+      <div class="card-header"><span class="card-title">📊 Od výplaty k výplatě</span><span style="font-size:.68rem;color:#a8aec8">fixní vs variabilní</span></div>
       <div class="card-body">
         ${hasChar?'':`<div style="padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-size:.74rem;color:var(--text2);margin-bottom:10px">💡 Žádná kategorie nemá nastavený <strong>charakter výdaje</strong> – vše spadá do „Neurčeno". Nastav charakter u kategorií (✎ Upravit kategorii) a rozpad ožije.</div>`}
         <div style="display:flex;align-items:flex-end;gap:8px;min-height:150px;padding:0 2px;margin-bottom:8px">${weekBars}</div>
@@ -3034,7 +3043,7 @@ function renderRadarPayday(el, D){
             <th style="padding:5px 6px;text-align:right">Celkem</th>
             <th style="padding:5px 6px;text-align:right">${curSym()}/den</th>
           </tr></thead><tbody>${weekRows}</tbody></table></div>
-        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty (${fmtD(P.lastPayday)}), ne od 1. dne měsíce. ${curSym()}/den dělí jen odžité dny týdne. „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
+        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty (${fmtD(P.lastPayday)}), ne od 1. dne měsíce. ${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
       </div>
     </div>
 
