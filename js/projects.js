@@ -1,4 +1,4 @@
-// FinanceFlow · v10.92 · projects.js · 2026-09-21
+// FinanceFlow · v10.93 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -6615,19 +6615,23 @@ async function nactiInflaciCSU(){
     //  příštím přesunu tiše rozbije (přesně to se stalo u FIX-057).
     const wu = (typeof WORKER_URL !== 'undefined') ? WORKER_URL : 'https://misty-limit-0523.bc-milda.workers.dev';
     const r = await fetch(wu + '/inflace');
-    if(!r.ok) return;
+    if(!r.ok){ S.cnbInflaceChyba = Date.now(); if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace(); return; }
     const d = await r.json();
     if(!d || typeof d.inflace !== 'number' || !isFinite(d.inflace)) return;
     S.cnbInflace   = d.inflace;          // čte ji obrazInflaceRef() jako 2. zdroj
     S.cnbInflaceAt = Date.now();
     S.cnbInflaceObd = (d.rok && d.mesic) ? `${d.rok}-${String(d.mesic).padStart(2,'0')}` : '';
     S.cnbInflaceOddily = d.oddily || null;   // COICOP oddíly – pro srovnání „ty vs. průměr"
+    //  S23 (TODO-290): 13měsíční řady pro graf „tvoje vs. oficiální" na stránce Inflace.
+    S.cnbInflaceRada = Array.isArray(d.rada) ? d.rada : null;
+    S.cnbInflaceRadaOddily = d.radaOddily || null;
+    if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace();
     //  ZÁMĚRNĚ SE NEUKLÁDÁ do Firebase a NENÍ v _DW_META (TODO-257).
     //  Je to veřejný údaj, který jde kdykoli stáhnout znovu – ukládat ho ke
     //  každému uživateli zvlášť by byl jen odpad v databázi. Cache tedy žije
     //  jen po dobu sezení; Worker si stejně drží odpověď 7 dní, takže to
     //  stojí jeden dotaz při startu.
-  }catch(e){ /* bez sítě se prostě použije záloha */ }
+  }catch(e){ S.cnbInflaceChyba = Date.now(); /* bez sítě se prostě použije záloha */ }
 }
 
 function obrazInflaceRef(){

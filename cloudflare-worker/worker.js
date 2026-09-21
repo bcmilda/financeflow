@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.84 · 2026-09-18  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.95 · 2026-09-21  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -8,6 +8,9 @@
  *   RESEND_API_KEY           = re_váš-klíč             (Secret)
  *   FIREBASE_SERVICE_ACCOUNT = {...}                   (Secret – Service Account JSON)
  *   FIREBASE_DB_URL          = https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app
+ *
+ * Bindings (Settings → Bindings → R2 bucket):
+ *   ARCHIV                   = ff-uctenky   (R2 bucket, jurisdikce EU)
  */
 
 // === FIREBASE ADMIN – Rate Limiting (ADR-041) ===
@@ -201,6 +204,140 @@ async function refundQuota(uid, type, env) {
     });
   } catch (e) { console.log('refundQuota error:', e.message); }
 }
+// ══════════════════════════════════════════════════════
+//  S24 (Milan, TODO-277): ARCHIV FOTEK ÚČTENEK (Cloudflare R2)
+//  Fotka dosud jen proletěla workerem k analýze a zmizela. Pro hlídání záruk
+//  (spotřebiče) je potřeba ji uschovat. Zvoleno R2, ne Firebase Storage (ADR-156).
+//
+//  BEZPEČNOST – proč to je postavené takhle:
+//   • Klíč v R2 se skládá z uid Z OVĚŘENÉHO TOKENU, nikdy z těla požadavku.
+//     Kdyby uid posílal prohlížeč, stačilo by ho přepsat a číst cizí účtenky.
+//   • Každý klíč se před čtením i mazáním porovnává s prefixem volajícího.
+//   • Bucket zůstává PRIVÁTNÍ (žádná veřejná r2.dev doména). Fotku vydává jen
+//     tento endpoint po ověření tokenu.
+//   • Kvóty na uživatele drží útratu u nuly i kdyby endpoint někdo našel:
+//     ARCHIV_MAX_FILE na soubor, ARCHIV_MAX_FILES na účet.
+// ══════════════════════════════════════════════════════
+const ARCHIV_MAX_FILE  = 2 * 1024 * 1024;   // 2 MB – appka posílá ~250 kB zmenšenou fotku
+const ARCHIV_MAX_FILES = 300;               // na uživatele; 300 × 250 kB ≈ 75 MB
+const ARCHIV_MIME = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' };
+
+//  Ověření tokenu + prefix uživatele. Vrací {uid, prefix} nebo {err}.
+async function archivAuth(request) {
+  const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+  if (!idToken) return { err: json({ error: 'Chybí Authorization header' }, 401) };
+  const vr = await fetch(
+    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+  );
+  if (!vr.ok) return { err: json({ error: 'Neplatný Firebase token' }, 401) };
+  const vd = await vr.json();
+  const uid = vd.users?.[0]?.localId;
+  if (!uid) return { err: json({ error: 'Uživatel nenalezen' }, 401) };
+  return { uid, prefix: `u/${uid}/` };
+}
+
+//  Klíč smí ukazovat JEN do vlastní složky. Bez téhle kontroly by „../" nebo
+//  cizí uid v těle požadavku otevřely cizí archiv.
+function archivKeyOk(key, prefix) {
+  return typeof key === 'string' && key.startsWith(prefix) && !key.includes('..') && key.length < 200;
+}
+
+async function handleArchiv(request, env, corsHeaders, akce) {
+  try {
+    if (!env.ARCHIV) {
+      return json({ error: 'R2 bucket ARCHIV není nabindovaný ve workeru' }, 500, corsHeaders);
+    }
+    const a = await archivAuth(request);
+    if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+
+    // ── NAHRÁNÍ ──
+    if (akce === 'upload') {
+      const mime = String(body.mime || 'image/jpeg');
+      if (!ARCHIV_MIME[mime]) return json({ error: 'Povolené jsou jen JPG, PNG a WebP' }, 400, corsHeaders);
+
+      const b64 = String(body.photo || '').replace(/^data:[^,]+,/, '');
+      if (!b64) return json({ error: 'Chybí fotka' }, 400, corsHeaders);
+      let bytes;
+      try {
+        const bin = atob(b64);
+        bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      } catch (e) { return json({ error: 'Fotku se nepodařilo dekódovat' }, 400, corsHeaders); }
+      if (bytes.length > ARCHIV_MAX_FILE) {
+        return json({ error: `Fotka má ${Math.round(bytes.length/1024)} kB, limit je ${ARCHIV_MAX_FILE/1024/1024} MB` }, 413, corsHeaders);
+      }
+
+      //  Kvóta – kolik už jich uživatel má. List je Class A operace, ale běží
+      //  jen při ukládání, ne při každém čtení.
+      const list = await env.ARCHIV.list({ prefix: a.prefix, limit: ARCHIV_MAX_FILES + 1 });
+      if (list.objects.length >= ARCHIV_MAX_FILES) {
+        return json({ error: `Archiv je plný (${ARCHIV_MAX_FILES} účtenek). Smaž některé starší.`, full: true }, 409, corsHeaders);
+      }
+
+      const rid = String(body.receiptId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'u';
+      const key = `${a.prefix}${Date.now().toString(36)}-${rid}.${ARCHIV_MIME[mime]}`;
+      await env.ARCHIV.put(key, bytes, {
+        httpMetadata: { contentType: mime, cacheControl: 'private, max-age=31536000' }
+      });
+      return json({ ok: true, key, size: bytes.length, pocet: list.objects.length + 1, limit: ARCHIV_MAX_FILES }, 200, corsHeaders);
+    }
+
+    // ── VÝDEJ FOTKY ──
+    //  Vrací binárku, ne JSON. Prohlížeč si z ní udělá blob URL – <img src> sám
+    //  Authorization hlavičku poslat neumí, proto to appka tahá fetchem.
+    if (akce === 'get') {
+      if (!archivKeyOk(body.key, a.prefix)) return json({ error: 'Cizí nebo neplatný klíč' }, 403, corsHeaders);
+      const obj = await env.ARCHIV.get(body.key);
+      if (!obj) return json({ error: 'Fotka nenalezena' }, 404, corsHeaders);
+      return new Response(obj.body, { status: 200, headers: {
+        ...corsHeaders,
+        'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
+        'Cache-Control': 'private, max-age=3600'
+      }});
+    }
+
+    // ── SEZNAM ──
+    if (akce === 'list') {
+      const list = await env.ARCHIV.list({ prefix: a.prefix, limit: 1000 });
+      return json({
+        ok: true, limit: ARCHIV_MAX_FILES, pocet: list.objects.length,
+        bajtu: list.objects.reduce((s, o) => s + (o.size || 0), 0),
+        soubory: list.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+      }, 200, corsHeaders);
+    }
+
+    // ── MAZÁNÍ ──
+    //  {key} smaže jednu, {all:true} celý archiv volajícího. „all" potřebuje
+    //  smazání účtu (FIX-324): nevratné smazání musí uklidit i fotky, jinak by
+    //  zůstaly ležet v R2 i po odchodu uživatele.
+    if (akce === 'delete') {
+      if (body.all === true) {
+        let smazano = 0, cursor;
+        do {
+          const list = await env.ARCHIV.list({ prefix: a.prefix, limit: 1000, cursor });
+          if (list.objects.length) {
+            await env.ARCHIV.delete(list.objects.map(o => o.key));
+            smazano += list.objects.length;
+          }
+          cursor = list.truncated ? list.cursor : null;
+        } while (cursor);
+        return json({ ok: true, smazano }, 200, corsHeaders);
+      }
+      if (!archivKeyOk(body.key, a.prefix)) return json({ error: 'Cizí nebo neplatný klíč' }, 403, corsHeaders);
+      await env.ARCHIV.delete(body.key);
+      return json({ ok: true, smazano: 1 }, 200, corsHeaders);
+    }
+
+    return json({ error: 'Neznámá akce' }, 400, corsHeaders);
+  } catch (e) {
+    console.log('archiv error:', e.message);
+    return json({ error: 'Archiv selhal: ' + e.message }, 500, corsHeaders);
+  }
+}
+
 // ===================================================
 export default {
   async fetch(request, env) {
@@ -227,10 +364,16 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // S14: ČNB denní kurzovní lístek (veřejný, bez klíče) – proxy s denní cache + CORS
+    //  S22: oficiální inflace z ČSÚ (veřejná, bez klíče).
+    //  S23 FIX: volalo se handleInflace(cors) – proměnná `cors` neexistuje, jmenuje
+    //  se corsHeaders. ReferenceError shodil worker dřív, než odpověděl, a Cloudflare
+    //  vrátil holou 500 bez CORS → prohlížeč hlásil „chybí Access-Control-Allow-Origin".
+    //  Oficiální inflace se proto od S22 nenačítala vůbec.
     if (request.method === 'GET' && new URL(request.url).pathname === '/inflace') {
-      return handleInflace(cors);
+      return handleInflace(corsHeaders);
     }
+
+    // S14: ČNB denní kurzovní lístek (veřejný, bez klíče) – proxy s denní cache + CORS
 
     if (request.method === 'GET' && new URL(request.url).pathname === '/cnb') {
       // S19 (TODO-215): volitelný ?date=DD.MM.RRRR → historický lístek pro daný den.
@@ -262,6 +405,16 @@ export default {
     //   hotový agregát bez uid. Syrové záznamy nevidí nikdo kromě serveru.
     if (request.method === 'POST' && new URL(request.url).pathname === '/community-agg') {
       return handleCommunityAgg(request, env, corsHeaders);
+    }
+
+    //  S24 (TODO-277): archiv fotek účtenek v R2. Vlastní ověření tokenu uvnitř
+    //  handleArchiv, proto musí být PŘED obecnou POST větví pro Claude API –
+    //  ta by požadavek poslala do analýzy účtenky.
+    {
+      const _p = new URL(request.url).pathname;
+      if (request.method === 'POST' && _p.startsWith('/archiv/')) {
+        return handleArchiv(request, env, corsHeaders, _p.slice('/archiv/'.length));
+      }
     }
 
     if (request.method !== 'POST') {
@@ -736,58 +889,99 @@ function csvRadek(line) {
   return out;
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-290): OFICIÁLNÍ INFLACE Z DataStatu ČSÚ  →  GET /inflace
+//  ČSÚ ukončil Veřejnou databázi; indexy jsou v DataStatu (sada CEN0101E,
+//  COICOP 2018 od 1/2026). Celé CSV má přes 48 MB, proto se API ptáme JEN
+//  na potřebné řádky (POST /vlastni) – odpověď má pár kB.
+//  Kódy ověřeny z katalogu ČSÚ (diagnostika S23, Milan):
+//    ukazatel 6134 = Index spotřebitelských cen
+//    TYPUDAJE4A  IR = meziroční index (stejný měsíc loni = 100)
+//    CZCOICOP2   0 = úhrn, 01–13 = oddíly (shodné s coicop 1–13 v appce)
+//    EKAKTIOCDS  0 = domácnosti celkem · UZ02P CZ = Česko · CasM „RRRR-MM"
+//  Hodnota je index v %, inflace = hodnota − 100.
+//  Vrací: inflace (úhrn, poslední měsíc), rok, mesic, oddily {kod:{mira,nazev}},
+//         rada [{obd, inflace}] a radaOddily {kod:[{obd, mira}]} – 13 měsíců.
+// ══════════════════════════════════════════════════════
+const CSU_API = 'https://data.csu.gov.cz/api/dotaz/v1/data/sady/CEN0101E/vlastni?verzeSady=1&format=CSV&kodZvlast=true';
+const CSU_ODDILY = ['0','01','02','03','04','05','06','07','08','09','10','11','12','13'];
+
+//  Rozbor CSV podle HLAVIČKY, ne podle pořadí sloupců – ČSÚ ho už jednou
+//  změnil. Sloupec měsíce, oddílu a hodnoty se hledá podle názvu i obsahu.
+function csuRozeber(txt) {
+  const lines = txt.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return { chyba: 'prazdna odpoved' };
+  const H = csvRadek(lines[0]).map(x => x.trim());
+  const najdi = (...vzory) => H.findIndex(h => vzory.some(v => v.test(h)));
+  const iHod = najdi(/^hodnota$/i);
+  const iObd = najdi(/^CasM$/i);
+  let iOdd = najdi(/CZCOP1$/i, /^CZCOICOP2$/i);
+  const iOddTxt = najdi(/COICOP 2018-Oddíl$/i, /^Klasifikace COICOP 2018$/i);
+  const iTyp = najdi(/^TYPUDAJE4A$/i);
+  if (iHod < 0 || iObd < 0 || iOdd < 0) return { chyba: 'neznama hlavicka', hlavicka: H };
+  const body = [];
+  for (let k = 1; k < lines.length; k++) {
+    const p = csvRadek(lines[k]);
+    if (iTyp >= 0 && (p[iTyp] || '').trim() !== 'IR') continue;
+    const obd = (p[iObd] || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(obd)) continue;
+    const kod = (p[iOdd] || '').trim();
+    if (!CSU_ODDILY.includes(kod)) continue;
+    const hod = parseFloat(String(p[iHod] || '').replace(/\s/g, '').replace(',', '.'));
+    if (!isFinite(hod)) continue;
+    body.push({ obd, kod, mira: Math.round((hod - 100) * 10) / 10, nazev: iOddTxt >= 0 ? (p[iOddTxt] || '').trim() : '' });
+  }
+  if (!body.length) return { chyba: 'zadne radky', hlavicka: H, ukazka: lines.slice(1, 4) };
+  return { body };
+}
+
 async function handleInflace(cors) {
   try {
-    const r = await fetch(CSU_ISC_CSV, { cf: { cacheTtl: 604800, cacheEverything: true } });
-    if (!r.ok) return json({ error: 'CSU nedostupne', status: r.status }, 502, cors);
+    //  Posledních 15 měsíců – ČSÚ vydává s měsíčním zpožděním, takže z nich
+    //  reálně přijde 13–14. Odpověď si Cloudflare drží den.
+    const ted = new Date(), mesice = [];
+    for (let k = 0; k < 15; k++) {
+      const d = new Date(ted.getFullYear(), ted.getMonth() - k, 1);
+      mesice.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const dotaz = {
+      sloupce: [
+        { kodDimenze: 'IndicatorType', filtr: [{ zobrazitPolozky: ['6134'] }] },
+        { kodDimenze: 'TYPUDAJE4A',    filtr: [{ zobrazitPolozky: ['IR'] }] },
+        { kodDimenze: 'CZCOICOP2',     filtr: [{ zobrazitPolozky: CSU_ODDILY }] },
+        { kodDimenze: 'EKAKTIOCDS',    filtr: [{ zobrazitPolozky: ['0'] }] },
+        { kodDimenze: 'UZ02P',         filtr: [{ zobrazitPolozky: ['CZ'] }] },
+        { kodDimenze: 'CasM',          filtr: [{ zobrazitPolozky: mesice }] },
+      ],
+      radky: [], filtryTabulky: [],
+    };
+    const r = await fetch(CSU_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'text/csv, application/json', 'Accept-Language': 'cs' },
+      body: JSON.stringify(dotaz),
+      cf: { cacheTtl: 86400, cacheEverything: true },
+    });
     const txt = await r.text();
-    const lines = txt.split('\n');
-    if (lines.length < 2) return json({ error: 'CSU prazdna odpoved' }, 502, cors);
+    if (!r.ok) return json({ error: 'CSU nedostupne', status: r.status, detail: txt.slice(0, 300) }, 502, cors);
+    const R = csuRozeber(txt);
+    //  Když ČSÚ zase něco změní, radši to přiznej (i s ukázkou), než vrátit nesmysl.
+    if (R.chyba) return json({ error: 'CSU: ' + R.chyba, hlavicka: R.hlavicka, ukazka: R.ukazka || txt.slice(0, 400) }, 502, cors);
 
-    const hlavicka = csvRadek(lines[0]).map(s => s.trim().toLowerCase());
-    const ix = {};
-    ['hodnota', 'ucel_kod', 'casz_kod', 'mesic', 'rok', 'ucel_txt'].forEach(k => { ix[k] = hlavicka.indexOf(k); });
-    if (ix.hodnota < 0 || ix.casz_kod < 0 || ix.rok < 0 || ix.mesic < 0) {
-      //  Když ČSÚ změní strukturu, radši to přiznej, než abys vrátil nesmysl.
-      return json({ error: 'CSU zmenilo strukturu CSV', hlavicka }, 502, cors);
-    }
-
-    let nejRok = 0, nejMesic = 0;
-    let celkem = null;
-    const oddily = {};
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line || line.length < 10) continue;
-      if (line.indexOf('"C"') < 0 && line.indexOf(',C,') < 0) continue;   // hrubý předfiltr, ať se neparsuje vše
-      const p = csvRadek(line);
-      if ((p[ix.casz_kod] || '').trim() !== 'C') continue;
-
-      const rok = parseInt(p[ix.rok], 10);
-      const mesic = parseInt(p[ix.mesic], 10);
-      const hodnota = parseFloat(p[ix.hodnota]);
-      if (!rok || !mesic || !isFinite(hodnota)) continue;
-
-      if (rok > nejRok || (rok === nejRok && mesic > nejMesic)) {
-        nejRok = rok; nejMesic = mesic; celkem = null; 
-        for (const k in oddily) delete oddily[k];
-      }
-      if (rok !== nejRok || mesic !== nejMesic) continue;
-
-      const kod = (p[ix.ucel_kod] || '').trim();
-      const mira = Math.round((hodnota - 100) * 10) / 10;   // index v % → míra inflace
-      if (!kod) celkem = mira;                               // prázdný kód = souhrn
-      else oddily[kod] = { mira, nazev: ix.ucel_txt >= 0 ? (p[ix.ucel_txt] || '').trim() : '' };
-    }
-
-    if (celkem === null) return json({ error: 'CSU: souhrnny index nenalezen' }, 502, cors);
-
+    const obdobi = [...new Set(R.body.map(b => b.obd))].sort();
+    const posledni = [...obdobi].reverse().find(o => R.body.some(b => b.obd === o && b.kod === '0'));
+    if (!posledni) return json({ error: 'CSU: souhrnny index nenalezen' }, 502, cors);
+    const rada = obdobi.map(o => { const b = R.body.find(x => x.obd === o && x.kod === '0'); return b ? { obd: o, inflace: b.mira } : null; }).filter(Boolean).slice(-13);
+    const oddily = {}, radaOddily = {};
+    R.body.filter(b => b.kod !== '0').forEach(b => {
+      (radaOddily[b.kod] = radaOddily[b.kod] || []).push({ obd: b.obd, mira: b.mira });
+      if (b.obd === posledni) oddily[b.kod] = { mira: b.mira, nazev: b.nazev };
+    });
+    Object.keys(radaOddily).forEach(k => { radaOddily[k].sort((a, b) => a.obd < b.obd ? -1 : 1); radaOddily[k] = radaOddily[k].slice(-13); });
+    const celkem = rada[rada.length - 1].inflace;
     return json({
-      inflace: celkem,          // meziroční, v procentech
-      rok: nejRok, mesic: nejMesic,
-      oddily,
-      typ: 'mezirocni',
-      source: 'CSU CEN0101E',
+      inflace: celkem, rok: +posledni.slice(0, 4), mesic: +posledni.slice(5, 7), obdobi: posledni,
+      oddily, rada, radaOddily,
+      source: 'CSU DataStat CEN0101E (COICOP 2018), meziroční index',
     }, 200, { ...cors, 'Cache-Control': 'public, max-age=86400' });
   } catch (e) {
     return json({ error: 'CSU fetch failed', detail: String((e && e.message) || e) }, 502, cors);

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.92 · admin.js · 2026-09-21
+// FinanceFlow · v10.93 · admin.js · 2026-09-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.93',
+    datum: '2026-09-21',
+    zmeny: [
+      '🇨🇿 NOVÁ KARTA (Milan) · cesta: Inflace → Tvoje inflace vs. oficiální. Oficiální meziroční inflace ČSÚ za posledních 13 měsíců jako graf, vedle ní tvoje inflace z účtenek spočítaná ke konci každého měsíce (čára jen tam, kde je aspoň 5 srovnatelných položek – méně je šum). Tři dlaždice: oficiální, tvoje, rozdíl. Pod grafem srovnání po skupinách výdajů COICOP (ČSÚ vs. ty, u tebe od 3 položek v oddílu). Karta se ukáže i bez účtenek – oficiální data mají smysl sama o sobě.',
+      '🔧 FIX (Milan, konzole) · Oficiální inflace se od S22 nenačítala. Dvě příčiny: (1) worker volal handleInflace(cors) místo corsHeaders → pád bez CORS (opraveno ve workeru v10.93); (2) ČSÚ ukončil Veřejnou databázi, indexy přešly do DataStatu (COICOP 2018 od 1/2026) a celé CSV má přes 48 MB. Worker v10.95 se nově ptá DataStat API jen na potřebné řádky (meziroční index, ČR, domácnosti celkem, úhrn + 13 oddílů, 15 měsíců) – odpověď pár kB. Kódy ověřeny z katalogu ČSÚ přes dočasnou diagnostiku (Milan), ta je odstraněná.',
+      '♻️ _inflCompute(obs, nowTs) umí spočítat osobní inflaci k libovolnému datu (pro graf po měsících); bez data beze změny. _inflCollect přiřazuje každé položce oddíl COICOP z kategorie položky (fallback kategorie účtenky) – oddíly 1–13 v appce odpovídají kódům ČSÚ 01–13.',
+      'ℹ️ COICOP kategorizace a průměrné výdaje (coicop / COICOP_GROUPS_DEF, data ČSÚ 2024) jsou pevně v kódu a změnou u ČSÚ nejsou dotčené (Milan se ptal).',
+      '🧪 tools/smoke_worker_inflace.mjs (13 testů, přes skutečný fetch() workeru) + tools/smoke_inflace_oficialni.js (14 testů).',
+    ]
+  },
   {
     verze: 'v10.92',
     datum: '2026-09-21',

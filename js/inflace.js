@@ -1,4 +1,4 @@
-// FinanceFlow · v10.02 · inflace.js · 2026-08-24
+// FinanceFlow · v10.93 · inflace.js · 2026-09-21
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -41,6 +41,14 @@ let _inflSort = 'impact';
 function _inflCollect() {
   const receipts = S.receipts || [];
   const seen = new Set(), obs = [];
+  //  S23 (TODO-290): oddíl COICOP 1–13 z kategorie položky (fallback kategorie
+  //  účtenky) – aby šla osobní inflace porovnat s oficiální po oddílech.
+  const _cats = S.categories || [];
+  const _oddil = (it, r) => {
+    const c = (it && it.itemCatId && _cats.find(x => x.id === it.itemCatId)) || _cats.find(x => x.name === r.category);
+    const n = c && c.coicop != null ? parseInt(c.coicop, 10) : NaN;
+    return (n >= 1 && n <= 13) ? n : null;
+  };
   receipts.forEach(r => {
     // deduplikace účtenek (stejná logika jako v Analýze účtenek)
     const store = (typeof normalizeStoreName === 'function') ? normalizeStoreName(r.store) : (r.store || '');
@@ -117,6 +125,7 @@ function _inflCollect() {
         unitPrice: Math.round(unitPrice * 100) / 100,
         perKg, perKgUnit,
         spend, discounted: !!(it.discount && it.discount > 0),
+        oddil: _oddil(it, r),
       });
     });
   });
@@ -129,8 +138,11 @@ const _median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => 
 
 // ── Jádro: spočítá oba indexy nad zadanou množinou pozorování ──
 // Vrací {yoy, firstLast, rows:[{key,name,unit,firstP,lastP,pctFL,medOld,medNew,pctYoY,spend,n,stores,anyDisc}]}
-function _inflCompute(obs) {
-  const now = Date.now(), Y = 365 * 86400000;
+//  S23: volitelný `nowTs` – spočítá osobní inflaci K ZADANÉMU DATU (pro graf
+//  po měsících). Bez něj se chová přesně jako dřív.
+function _inflCompute(obs, nowTs) {
+  const now = nowTs || Date.now(), Y = 365 * 86400000;
+  if (nowTs) obs = obs.filter(o => o.ts <= nowTs);
   const byItem = {};
   obs.forEach(o => { (byItem[o.key] = byItem[o.key] || []).push(o); });
 
@@ -189,12 +201,103 @@ function _inflByStore(obs) {
   }).filter(x => x.items > 0).sort((a, b) => b.spend - a.spend);
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-290, Milan: „verze s grafem"): TVOJE INFLACE VS. OFICIÁLNÍ (ČSÚ)
+//  Oficiální meziroční inflace z DataStatu ČSÚ (worker /inflace) za 13 měsíců
+//  a vedle ní osobní inflace z účtenek spočítaná ke konci každého měsíce.
+//  Osobní čára se kreslí jen tam, kde je aspoň 5 srovnatelných položek –
+//  méně je šum, ne měření (stejný práh jako obrazInflaceRef).
+//  Po oddílech COICOP: oficiální vs. tvoje (od 3 položek v oddílu).
+// ══════════════════════════════════════════════════════
+const INFL_MIN_POLOZEK = 5, INFL_MIN_ODDIL = 3;
+function _inflOficialniCard(allObs) {
+  const rada = S.cnbInflaceRada;
+  const f1 = v => v == null ? '–' : (v > 0 ? '+' : '') + (Math.round(v * 10) / 10).toLocaleString('cs-CZ') + ' %';
+  const hlav = `<div class="card-header"><span class="card-title">🇨🇿 Tvoje inflace vs. oficiální</span><span style="font-size:.7rem;color:#a8aec8">ČSÚ · meziročně</span></div>`;
+  if (!Array.isArray(rada) || !rada.length) {
+    if (!S.cnbInflaceChyba && typeof nactiInflaciCSU === 'function') nactiInflaciCSU();
+    return `<div class="card" style="margin-bottom:14px">${hlav}<div class="card-body"><div style="font-size:.78rem;color:#a8aec8;line-height:1.55">
+      ${S.cnbInflaceChyba ? '⚠️ Oficiální data ČSÚ se teď nepodařilo načíst. Zkusím to znovu při příštím otevření.' : '⏳ Načítám oficiální data ČSÚ…'}</div></div></div>`;
+  }
+  const MES = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+  const body = rada.map(x => {
+    const [y, m] = x.obd.split('-').map(Number);
+    const konec = new Date(y, m, 0, 23, 59, 59).getTime();
+    const c = allObs.length ? _inflCompute(allObs, konec) : null;
+    const osobni = (c && c.yoy != null && isFinite(c.yoy) && c.yoyCount >= INFL_MIN_POLOZEK) ? c.yoy : null;
+    return { obd: x.obd, lbl: `${MES[m - 1]} ${String(y).slice(2)}`, oficialni: x.inflace, osobni };
+  });
+  const posl = body[body.length - 1];
+  const tedC = allObs.length ? _inflCompute(allObs) : null;
+  const ted = (tedC && tedC.yoy != null && tedC.yoyCount >= INFL_MIN_POLOZEK) ? tedC.yoy : null;
+
+  // ── graf (SVG) ──
+  const W = 640, Hh = 210, pl = 40, pr = 12, pt = 16, pb = 26, cw = W - pl - pr, ch = Hh - pt - pb;
+  const vals = body.flatMap(b => [b.oficialni, b.osobni]).filter(v => v != null);
+  const mx = Math.max(1, ...vals) + 0.5, mn = Math.min(0, ...vals) - 0.5;
+  const X = i => pl + (body.length < 2 ? cw / 2 : i / (body.length - 1) * cw), Y = v => pt + (mx - v) / (mx - mn) * ch;
+  const cara = (key, col, w, dash) => {
+    let d = '', pen = false;
+    body.forEach((b, i) => { const v = b[key]; if (v == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`; pen = true; });
+    const tecky = body.map((b, i) => b[key] == null ? '' : `<circle cx="${X(i).toFixed(1)}" cy="${Y(b[key]).toFixed(1)}" r="2.6" fill="${col}"/>`).join('');
+    return d ? `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? 'stroke-dasharray="5 4"' : ''} stroke-linejoin="round"/>${tecky}` : '';
+  };
+  const mrizka = [mn + 0.5, (mx + mn) / 2, mx - 0.5].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--border)"/><text x="${pl - 6}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end" font-size="10" fill="#a8aec8">${(Math.round(v * 10) / 10).toLocaleString('cs-CZ')} %</text>`).join('');
+  const nula = (mn < 0 && mx > 0) ? `<line x1="${pl}" x2="${W - pr}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#a8aec8" stroke-dasharray="2 3" opacity=".6"/>` : '';
+  const popisky = body.map((b, i) => (i % 2 === 0 || i === body.length - 1) ? `<text x="${X(i).toFixed(1)}" y="${Hh - 8}" text-anchor="middle" font-size="10" fill="#a8aec8">${b.lbl}</text>` : '').join('');
+  const maOsobni = body.some(b => b.osobni != null);
+  const svg = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${W} ${Hh}" style="width:100%;min-width:420px;height:auto;display:block" role="img" aria-label="Oficiální a osobní inflace za 13 měsíců">
+    ${mrizka}${nula}${cara('oficialni', '#60a5fa', 2.4)}${cara('osobni', '#fb923c', 2.2, true)}${popisky}</svg></div>`;
+
+  // ── oddíly ──
+  const odd = S.cnbInflaceOddily || {};
+  const nazevOdd = n => { const g = (typeof COICOP_GROUPS_DEF !== 'undefined' ? COICOP_GROUPS_DEF : []).find(x => x.id === n); return g ? `${g.icon} ${g.name}` : ((odd[String(n).padStart(2, '0')] || {}).nazev || `Oddíl ${n}`); };
+  const radkyOdd = Object.keys(odd).map(k => {
+    const n = parseInt(k, 10);
+    const sub = allObs.filter(o => o.oddil === n);
+    const c = sub.length ? _inflCompute(sub) : null;
+    const tv = (c && c.yoy != null && c.yoyCount >= INFL_MIN_ODDIL) ? c.yoy : null;
+    return { n, of: odd[k].mira, tv, pol: c ? c.yoyCount : 0 };
+  }).filter(x => x.of != null).sort((a, b) => (b.tv != null) - (a.tv != null) || b.of - a.of);
+  const mxO = Math.max(1, ...radkyOdd.flatMap(x => [Math.abs(x.of), Math.abs(x.tv || 0)]));
+  const bar = (v, col) => v == null ? '' : `<div style="height:5px;border-radius:3px;background:${col};width:${Math.max(2, Math.abs(v) / mxO * 100).toFixed(0)}%;opacity:${v < 0 ? .5 : 1}"></div>`;
+  const tabOdd = radkyOdd.map(x => `<div style="display:grid;grid-template-columns:minmax(0,1.5fr) 1fr 62px 62px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.74rem">
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e8eaf2">${nazevOdd(x.n)}</span>
+      <div style="display:flex;flex-direction:column;gap:3px">${bar(x.of, '#60a5fa')}${bar(x.tv, '#fb923c')}</div>
+      <span style="text-align:right;color:#60a5fa;font-weight:600">${f1(x.of)}</span>
+      <span style="text-align:right;color:${x.tv == null ? 'var(--text3)' : '#fb923c'};font-weight:600" title="${x.tv == null ? 'Málo srovnatelných položek v tomto oddílu' : x.pol + ' položek'}">${f1(x.tv)}</span>
+    </div>`).join('');
+
+  const rozdil = (ted != null && posl.oficialni != null) ? ted - posl.oficialni : null;
+  const tile = (lab, val, sub, col) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:0">
+      <div style="font-size:.66rem;color:#a8aec8">${lab}</div><div class="stat-value-h" style="color:${col}">${val}</div><div style="font-size:.64rem;color:#a8aec8">${sub}</div></div>`;
+  const [py, pm] = posl.obd.split('-').map(Number);
+  return `<div class="card" style="margin-bottom:14px">${hlav}<div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
+      ${tile('Oficiální inflace ČSÚ', f1(posl.oficialni), `${MES[pm - 1]} ${py} proti ${MES[pm - 1]} ${py - 1}`, '#60a5fa')}
+      ${tile('Tvoje inflace', f1(ted), ted == null ? 'málo srovnatelných položek' : `${tedC.yoyCount} položek z účtenek`, ted == null ? 'var(--text3)' : '#fb923c')}
+      ${tile('Rozdíl', rozdil == null ? '–' : f1(rozdil), rozdil == null ? 'až bude tvoje inflace' : rozdil > 0 ? 'zdražuje ti to víc než průměru' : 'zdražuje ti to méně než průměru', rozdil == null ? 'var(--text3)' : rozdil > 0 ? 'var(--expense)' : 'var(--income)')}
+    </div>
+    ${svg}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.68rem;color:#a8aec8;margin:6px 0 4px">
+      <span><span style="display:inline-block;width:16px;border-top:2.4px solid #60a5fa;vertical-align:middle"></span> oficiální (ČSÚ)</span>
+      <span><span style="display:inline-block;width:16px;border-top:2.2px dashed #fb923c;vertical-align:middle"></span> tvoje z účtenek</span>
+    </div>
+    ${maOsobni ? '' : `<div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin-top:4px">Tvoje čára se objeví, až budeš mít ceny aspoň ${INFL_MIN_POLOZEK} stejných položek s ročním odstupem – meziroční inflace porovnává stejný nákup dnes a před rokem.</div>`}
+    ${tabOdd ? `<div style="font-size:.78rem;font-weight:700;color:#c9cede;margin:14px 0 4px">Po skupinách výdajů (COICOP)</div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 1fr 62px 62px;gap:8px;font-size:.64rem;color:#a8aec8;padding-bottom:4px">
+        <span>Skupina</span><span></span><span style="text-align:right">ČSÚ</span><span style="text-align:right">Ty</span></div>
+      ${tabOdd}` : ''}
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Zdroj: ČSÚ, sada CEN0101E (COICOP 2018), meziroční index – o kolik jsou ceny dražší než ve stejném měsíci před rokem. ČSÚ vydává nová čísla kolem 10. dne za předchozí měsíc. Tvoje inflace: vážený průměr změn cen položek z tvých účtenek, váha = kolik za položku utrácíš.</div>
+  </div></div>`;
+}
+
 // ══ RENDER ══
 function renderInflace() {
   const el = document.getElementById('inflaceContent'); if (!el) return;
   const all = _inflCollect();
   if (!all.obs.length) {
-    el.innerHTML = `<div class="card"><div class="card-body"><div class="empty" style="padding:24px">
+    el.innerHTML = _inflOficialniCard([]) + `<div class="card"><div class="card-body"><div class="empty" style="padding:24px">
       <div class="ei">🧾</div><div class="et">Zatím žádné účtenky</div>
       <div style="font-size:.76rem;color:#a8aec8;margin-top:8px;line-height:1.5">Inflace se počítá z položek na účtenkách. Naskenuj pár účtenek v <strong>Analýze účtenek</strong> – čím delší historie, tím spolehlivější číslo. Plnou vypovídací hodnotu má index po roce nákupů.</div>
     </div></div></div>`;
@@ -215,7 +318,9 @@ function renderInflace() {
   const col = v => v == null ? 'var(--text3)' : v > 0.5 ? 'var(--expense)' : v < -0.5 ? 'var(--income)' : 'var(--debt)';
 
   // ── hlavní čísla ──
-  let h = `<div class="card" style="margin-bottom:14px">
+  //  S23: nahoře srovnání s oficiální inflací ČSÚ (počítá se ze VŠECH účtenek,
+  //  filtry níže se ho netýkají – oficiální číslo je taky za celý koš).
+  let h = _inflOficialniCard(all.obs) + `<div class="card" style="margin-bottom:14px">
     <div class="card-header">
       <span class="card-title">🧮 Tvoje inflace</span>
       <span style="font-size:.7rem;color:#a8aec8">z ${obs.length} cen · ${comp.rows.length} položek</span>
