@@ -1,4 +1,4 @@
-// FinanceFlow · v10.91 · admin.js · 2026-09-21
+// FinanceFlow · v10.92 · admin.js · 2026-09-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -557,6 +557,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.92',
+    datum: '2026-09-21',
+    zmeny: [
+      '🐛 FIX (Milan) · cesta: Admin panel → Verze. „Chyba: SyntaxError: illegal character U+2026". Záznam v10.62 popisuje XSS opravu a obsahuje doslova text <img src=x onerror=…>. Panel vkládal changelog do innerHTML BEZ ESCAPOVÁNÍ – prohlížeč z textu vyrobil skutečný obrázek, spustil jeho onerror a na znaku „…" spadl. Stejně mizely z textu značky <loni>, <typ>, <option>. Changelog je text, ne HTML: nově se escapuje vždy.',
+      '🔒 FIX · cesta: O aplikaci → Poznámky k vydání. Stejné escapování i zde (vidí všichni uživatelé) – jakýkoli HTML v textu záznamu se zobrazí jako text a nespustí se.',
+      '📏 ZMĚNA (Milan) · cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech. Graf zvětšen pro přehlednost: sloupce až 230 px (dřív 120), širší sloupce (44 px), týden min. 112 px, větší popisky a legenda. Na mobilu se graf posouvá do strany místo mačkání sloupců.',
+      '🧪 tools/smoke_s23h.js – 8 testů (žádný spustitelný atribut v panelu Verze, escapování v Poznámkách k vydání, rozměry grafu).',
+    ]
+  },
   {
     verze: 'v10.91',
     datum: '2026-09-21',
@@ -5087,6 +5097,12 @@ const VERZE_LOG = [
   }
 ];
 
+//  S23 (Milan): „CHYBA: SyntaxError: illegal character U+2026" v panelu Verze.
+//  Záznam v10.62 popisuje XSS opravu a obsahuje doslova `<img src=x onerror=…>`.
+//  Texty šly do innerHTML BEZ ESCAPOVÁNÍ, takže prohlížeč vyrobil skutečný
+//  obrázek, spustil jeho onerror a na znaku „…" spadl. Stejně mizely z textu
+//  `<loni>`, `<typ>`, `<option>`. Changelog je TEXT, ne HTML → escapovat vždy.
+const _vzEsc = s => (typeof escHtml==='function') ? escHtml(String(s)) : String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function loadVerze() {
   const el = document.getElementById('adminVerzeList'); if(!el) return;
   if(!VERZE_LOG.length) {
@@ -5096,11 +5112,11 @@ function loadVerze() {
   el.innerHTML = VERZE_LOG.map(v => `
     <div style="border-bottom:1px solid var(--border);padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:1rem;font-weight:800;color:var(--accent)">${v.verze}</span>
-        <span style="font-size:.74rem;color:var(--text3)">${v.datum}</span>
+        <span style="font-size:1rem;font-weight:800;color:var(--accent)">${_vzEsc(v.verze)}</span>
+        <span style="font-size:.74rem;color:var(--text3)">${_vzEsc(v.datum)}</span>
       </div>
       <ul style="margin:0;padding-left:18px;list-style:none">
-        ${v.zmeny.map(z => `<li style="font-size:.82rem;color:var(--text2);margin-bottom:5px;padding-left:2px">${z}</li>`).join('')}
+        ${v.zmeny.map(z => `<li style="font-size:.82rem;color:var(--text2);margin-bottom:5px;padding-left:2px">${_vzEsc(z)}</li>`).join('')}
       </ul>
     </div>
   `).join('');

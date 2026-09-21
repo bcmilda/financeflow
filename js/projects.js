@@ -1,4 +1,4 @@
-// FinanceFlow · v10.91 · projects.js · 2026-09-21
+// FinanceFlow · v10.92 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -3084,10 +3084,11 @@ function radarPaydayWeeksPlanCard(W){
   const ws=W.weeks; if(!ws.length) return '';
   const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
   const mx=Math.max(1,...ws.map(w=>Math.max(w.startBal,w.endBal,w.plan+w.known)));
-  const hh=v=>Math.max(0,Math.round(Math.max(0,v)/mx*120));
+  //  S23 (Milan): graf zvětšen pro přehlednost – vyšší sloupce, širší týdny.
+  const hh=v=>Math.max(0,Math.round(Math.max(0,v)/mx*230));
   const col=(segs,label)=>`<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px">
-      <div style="font-size:.6rem;font-weight:700;color:#c2c7da;white-space:nowrap">${label}</div>
-      <div style="width:100%;max-width:26px;display:flex;flex-direction:column-reverse;border-radius:4px 4px 0 0;overflow:hidden;min-height:2px">${segs}</div></div>`;
+      <div style="font-size:.7rem;font-weight:700;color:#e8eaf2;white-space:nowrap">${label}</div>
+      <div style="width:100%;max-width:44px;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;min-height:2px">${segs}</div></div>`;
   const bars=ws.map((w,i)=>{
     const zakl=Math.min(w.startBal,w.endBal);
     const zmena=w.change;
@@ -3095,11 +3096,11 @@ function radarPaydayWeeksPlanCard(W){
       + (zmena>=0 ? `<div style="height:${hh(zmena)}px;background:#60a5fa"></div>`
                   : `<div style="height:${hh(-zmena)}px;background:repeating-linear-gradient(45deg,rgba(96,165,250,.35) 0 4px,transparent 4px 8px);border-top:1px solid #60a5fa"></div>`);
     const right = `<div style="height:${hh(w.plan)}px;background:#fb923c"></div><div style="height:${hh(w.known)}px;background:#a78bfa"></div>`;
-    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;${w.future?'opacity:.8':''}">
-      <div style="display:flex;align-items:flex-end;gap:3px;width:100%;height:140px">
+    return `<div style="flex:1;min-width:112px;display:flex;flex-direction:column;align-items:center;gap:6px;${w.future?'opacity:.8':''}">
+      <div style="display:flex;align-items:flex-end;gap:5px;width:100%;height:256px">
         ${col(left, fmtB(w.endBal))}${col(right, fmtB(w.plan+w.known))}
       </div>
-      <div style="font-size:.62rem;color:#a8aec8;text-align:center;line-height:1.3">${i+1}. týden${w.payday?' 💰':''}<br><span style="color:var(--text3)">${fmtD(w.ws)}–${fmtD(w.we)}</span>${w.future||w.partial?'<br><span style="color:#8b93ad">odhad</span>':''}</div>
+      <div style="font-size:.72rem;color:#c9cede;text-align:center;line-height:1.35;font-weight:600">${i+1}. týden${w.payday?' 💰':''}<br><span style="color:var(--text3)">${fmtD(w.ws)}–${fmtD(w.we)}</span>${w.future||w.partial?'<br><span style="color:#8b93ad">odhad</span>':''}</div>
     </div>`;
   }).join('');
   const rows=ws.map((w,i)=>`<tr style="border-top:1px solid var(--border);${w.future?'opacity:.6':''}">
@@ -3114,8 +3115,8 @@ function radarPaydayWeeksPlanCard(W){
   return `<div class="card" style="margin-bottom:14px">
     <div class="card-header"><span class="card-title">🧭 Kam směřuju po týdnech</span><span style="font-size:.68rem;color:#a8aec8">${fmtD(W.start)} → ${fmtD(W.end)}</span></div>
     <div class="card-body" style="padding:12px 14px">
-      <div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:8px">${bars}</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:.64rem;color:#a8aec8;margin-bottom:10px">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px"><div style="display:flex;gap:10px;align-items:flex-end;padding:4px 2px">${bars}</div></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:.72rem;color:#c9cede;margin-bottom:12px">
         ${lg('#4ade80','Stav na začátku týdne')}${lg('#60a5fa','Přírůstek za týden')}${lg('','Úbytek za týden',true)}${lg('#fb923c','Plánovaný výdej')}${lg('#a78bfa','Budoucí platby')}
       </div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:520px">
