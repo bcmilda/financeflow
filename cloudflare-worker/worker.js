@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.96 · 2026-09-21  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v10.97 · 2026-09-22  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -246,6 +246,66 @@ function archivKeyOk(key, prefix) {
   return typeof key === 'string' && key.startsWith(prefix) && !key.includes('..') && key.length < 200;
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-295): HROMADNÁ ZPRÁVA
+//  Posílá se JEN na adresy, které přijdou z adminu (ten filtruje podle
+//  souhlasu). Worker navíc:
+//   • pustí dál jen admina (ověřený Firebase token + ADMIN_UIDS),
+//   • ke každému e-mailu PŘIPOJÍ ODKAZ NA ODHLÁŠENÍ – obchodní sdělení ho
+//     musí mít vždy a nesmí záležet na tom, jestli si ho Milan dopsal,
+//   • posílá po jednom s malou pauzou (Resend má limit na počet za sekundu)
+//     a vrací, kolik skutečně odešlo.
+// ══════════════════════════════════════════════════════
+async function handleMassMail(request, env, corsHeaders) {
+  try {
+    const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+    if (!idToken) return json({ error: 'Chybí Authorization header' }, 401, corsHeaders);
+    const vr = await fetch(
+      'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
+    );
+    if (!vr.ok) return json({ error: 'Neplatný Firebase token' }, 401, corsHeaders);
+    const uid = (await vr.json()).users?.[0]?.localId;
+    if (!uid || !ADMIN_UIDS.includes(uid)) return json({ error: 'Jen pro admina' }, 403, corsHeaders);
+    if (!env.RESEND_API_KEY) return json({ error: 'RESEND_API_KEY není nastaven' }, 500, corsHeaders);
+
+    const body = await request.json().catch(() => ({}));
+    const subject = String(body.subject || '').trim();
+    const text = String(body.text || '').trim();
+    const to = Array.isArray(body.to) ? body.to.filter(e => typeof e === 'string' && e.includes('@')).slice(0, 200) : [];
+    if (!subject || !text) return json({ error: 'Chybí předmět nebo text' }, 400, corsHeaders);
+    if (!to.length) return json({ error: 'Žádní příjemci' }, 400, corsHeaders);
+
+    const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const odhlaseni = 'Novinky si vypneš v aplikaci: Nastavení → Novinky a nabídky e-mailem.';
+    let odeslano = 0; const chyby = [];
+    for (const adresa of to) {
+      try {
+        const r = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'FinanceFlow <info@financeflow.cz>',
+            to: [adresa],
+            subject,
+            text: `${text}\n\n—\n${odhlaseni}`,
+            html: `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#1c2333">
+                     ${esc(text).replace(/\n/g, '<br>')}
+                     <hr style="border:none;border-top:1px solid #e3e7ee;margin:24px 0">
+                     <div style="font-size:12px;color:#6b7488">${esc(odhlaseni)}</div>
+                   </div>`,
+          }),
+        });
+        if (r.ok) odeslano++; else chyby.push(`${adresa}: HTTP ${r.status}`);
+      } catch (e) { chyby.push(`${adresa}: ${e.message}`); }
+      await new Promise(res => setTimeout(res, 120));   // Resend: limit na počet za sekundu
+    }
+    return json({ ok: true, odeslano, celkem: to.length, chyby: chyby.slice(0, 10) }, 200, corsHeaders);
+  } catch (e) {
+    return json({ error: 'Hromadná zpráva selhala: ' + ((e && e.message) || e) }, 500, corsHeaders);
+  }
+}
+
 async function handleArchiv(request, env, corsHeaders, akce) {
   try {
     if (!env.ARCHIV) {
@@ -413,6 +473,11 @@ export default {
     //  S24 (TODO-277): archiv fotek účtenek v R2. Vlastní ověření tokenu uvnitř
     //  handleArchiv, proto musí být PŘED obecnou POST větví pro Claude API –
     //  ta by požadavek poslala do analýzy účtenky.
+    //  S23 (TODO-295): hromadná zpráva uživatelům se souhlasem. Jen pro admina.
+    if (request.method === 'POST' && new URL(request.url).pathname === '/mass-mail') {
+      return handleMassMail(request, env, corsHeaders);
+    }
+
     {
       const _p = new URL(request.url).pathname;
       if (request.method === 'POST' && _p.startsWith('/archiv/')) {
