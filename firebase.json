@@ -6,7 +6,12 @@
     "public": ".",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.git/**",
+      "**/.github/**",
+      "**/.firebase/**",
+      "**/.DS_Store",
+      "**/.vscode/**",
+      "**/.idea/**",
       "**/node_modules/**",
       "**/*.md",
       "worker*.js",
@@ -70,10 +75,6 @@
       {
         "source": "/o-zakladateli",
         "destination": "/o-zakladateli.html"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
       }
     ],
     "headers": [
@@ -126,6 +127,28 @@
           {
             "key": "X-XSS-Protection",
             "value": "1; mode=block"
+          }
+        ]
+      },
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|webp|svg|ico)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
           }
         ]
       }
