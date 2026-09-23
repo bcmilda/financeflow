@@ -1,4 +1,4 @@
-// FinanceFlow · v10.93 · inflace.js · 2026-09-21
+// FinanceFlow · v10.96 · inflace.js · 2026-09-21
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -246,6 +246,9 @@ function _inflOficialniCard(allObs) {
   const nula = (mn < 0 && mx > 0) ? `<line x1="${pl}" x2="${W - pr}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#a8aec8" stroke-dasharray="2 3" opacity=".6"/>` : '';
   const popisky = body.map((b, i) => (i % 2 === 0 || i === body.length - 1) ? `<text x="${X(i).toFixed(1)}" y="${Hh - 8}" text-anchor="middle" font-size="10" fill="#a8aec8">${b.lbl}</text>` : '').join('');
   const maOsobni = body.some(b => b.osobni != null);
+  //  S23 (TODO-293): když ČSÚ dal jen poslední měsíc (záložní zdroj), graf
+  //  s jedním bodem nic neřekne – radši napsat proč.
+  const kratka = body.length < 3;
   const svg = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${W} ${Hh}" style="width:100%;min-width:420px;height:auto;display:block" role="img" aria-label="Oficiální a osobní inflace za 13 měsíců">
     ${mrizka}${nula}${cara('oficialni', '#60a5fa', 2.4)}${cara('osobni', '#fb923c', 2.2, true)}${popisky}</svg></div>`;
 
@@ -278,8 +281,10 @@ function _inflOficialniCard(allObs) {
       ${tile('Tvoje inflace', f1(ted), ted == null ? 'málo srovnatelných položek' : `${tedC.yoyCount} položek z účtenek`, ted == null ? 'var(--text3)' : '#fb923c')}
       ${tile('Rozdíl', rozdil == null ? '–' : f1(rozdil), rozdil == null ? 'až bude tvoje inflace' : rozdil > 0 ? 'zdražuje ti to víc než průměru' : 'zdražuje ti to méně než průměru', rozdil == null ? 'var(--text3)' : rozdil > 0 ? 'var(--expense)' : 'var(--income)')}
     </div>
-    ${svg}
-    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.68rem;color:#a8aec8;margin:6px 0 4px">
+    ${kratka ? `<div style="background:var(--surface2);border-radius:10px;padding:12px 14px;font-size:.74rem;color:#a8aec8;line-height:1.55">
+      📉 Vývoj za 13 měsíců se ukáže, jakmile appka dostane od ČSÚ celou řadu — teď má k dispozici jen poslední měsíc.
+    </div>` : svg}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.68rem;color:#a8aec8;margin:6px 0 4px;${kratka?'display:none':''}">
       <span><span style="display:inline-block;width:16px;border-top:2.4px solid #60a5fa;vertical-align:middle"></span> oficiální (ČSÚ)</span>
       <span><span style="display:inline-block;width:16px;border-top:2.2px dashed #fb923c;vertical-align:middle"></span> tvoje z účtenek</span>
     </div>

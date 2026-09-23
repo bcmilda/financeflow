@@ -1,4 +1,4 @@
-// FinanceFlow · v10.93 · projects.js · 2026-09-21
+// FinanceFlow · v10.96 · projects.js · 2026-09-21
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -6625,6 +6625,7 @@ async function nactiInflaciCSU(){
     //  S23 (TODO-290): 13měsíční řady pro graf „tvoje vs. oficiální" na stránce Inflace.
     S.cnbInflaceRada = Array.isArray(d.rada) ? d.rada : null;
     S.cnbInflaceRadaOddily = d.radaOddily || null;
+    S.cnbInflaceNeuplna = !!d.radaNeuplna;   // S23: záložní zdroj ČSÚ umí jen poslední měsíc
     if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace();
     //  ZÁMĚRNĚ SE NEUKLÁDÁ do Firebase a NENÍ v _DW_META (TODO-257).
     //  Je to veřejný údaj, který jde kdykoli stáhnout znovu – ukládat ho ke

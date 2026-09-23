@@ -1,4 +1,4 @@
-// FinanceFlow · v10.93 · admin.js · 2026-09-21
+// FinanceFlow · v10.97 · admin.js · 2026-09-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -213,7 +213,12 @@ async function renderAdmin() {
     <!-- USERS -->
     <div id="atab-users-content">
       <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">👥 Uživatelé</span><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
+        <div class="card-header"><span class="card-title">👥 Uživatelé</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="adminEmaily('souhlas')" title="Jen ti, kdo zapnuli novinky v Nastavení">✉️ E-maily se souhlasem</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="adminEmaily('vse')" title="Všechny adresy – jen pro provozní účely, ne pro nabídky">📋 Všechny e-maily</button>
+            <button class="btn btn-accent btn-sm" style="font-size:.7rem" onclick="adminHromadnyMail()">📨 Hromadná zpráva</button>
+          </div><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
         <div id="adminUserStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
       <!-- TODO-023: Správa členství – seznam uživatelů s filtrováním a editací -->
@@ -517,11 +522,11 @@ async function loadAdminReviews(){
         <div style="padding:10px 0;border-top:1px solid var(--border)">
           <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
             <span style="color:var(--debt)">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span>
-            <span style="font-size:.78rem;font-weight:600">${(r.name||'Bez jména').replace(/</g,'&lt;')}</span>
+            <span style="font-size:.78rem;font-weight:600">${_vzEsc(r.name||'Bez jména')}</span>
             <span style="font-size:.68rem;color:#a8aec8">${r.at?new Date(r.at).toLocaleDateString('cs-CZ'):''}${r.ver?' · v'+r.ver:''}</span>
             <span style="margin-left:auto;font-size:.64rem;color:#7e84a0">${r.uid.slice(0,8)}…</span>
           </div>
-          ${r.text?`<div style="font-size:.8rem;color:#c9cede;line-height:1.55;margin-top:4px">${String(r.text).replace(/</g,'&lt;')}</div>`:'<div style="font-size:.74rem;color:#7e84a0;margin-top:3px">(bez textu)</div>'}
+          ${r.text?`<div style="font-size:.8rem;color:#c9cede;line-height:1.55;margin-top:4px">${_vzEsc(r.text)}</div>`:'<div style="font-size:.74rem;color:#7e84a0;margin-top:3px">(bez textu)</div>'}
         </div>`).join('')}`;
   }catch(e){
     box.innerHTML = `<div style="font-size:.8rem;color:var(--expense)">Chyba: ${e.message}</div>`;
@@ -557,6 +562,27 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.97',
+    datum: '2026-09-22',
+    zmeny: [
+      '✉️ SOUHLAS SE ZASÍLÁNÍM NOVINEK (Milan) · cesta: Nastavení → Novinky a nabídky e-mailem. Výchozí stav VYPNUTO, ukládá se hned i s datem souhlasu (a datem odvolání). E-mail je v appce kvůli vedení účtu – posílat na něj nabídky je jiný účel, na který je potřeba souhlas. Doplněno i do Zásad ochrany údajů (legal.html).',
+      '📋 cesta: Admin panel → Uživatelé. Tři nová tlačítka: „E-maily se souhlasem" (CSV jen těch, kdo novinky zapnuli), „Všechny e-maily" (CSV s varováním v hlavičce, že smí sloužit jen k provozním sdělením o službě, ne k nabídkám) a „Hromadná zpráva" (předmět + text, zkušební odeslání jen sobě, pak všem se souhlasem). Duplicitní adresy se slučují bez ohledu na velikost písmen.',
+      '📨 Worker: nový endpoint /mass-mail (jen pro admina – ověřený Firebase token + ADMIN_UIDS). Do každého e-mailu sám přidá informaci, jak novinky vypnout; text se escapuje; posílá po jednom s pauzou kvůli limitu Resendu a vrací počet skutečně odeslaných. ⚠️ nasadit worker do Cloudflare.',
+      '📄 GDPR EXPORT JE NOVĚ ČITELNÝ (Milan: „není v uživatelsky přívětivé podobě"). Kromě JSONu se otevře přehled k vytištění do PDF: kdo, proč, jaké kategorie údajů a kolik záznamů, komu se předávají, jak dlouho se uchovávají a jaká má uživatel práva včetně stížnosti u ÚOOÚ. JSON zůstává – je správný pro přenositelnost podle čl. 20, ale odpověď podle čl. 15 musí být podle čl. 12 srozumitelná.',
+      '🧪 tools/smoke_s23_emaily.js – 20 testů (výběr adres, varování v exportu, admin-only endpoint, povinné odhlášení v e-mailu, čitelnost GDPR přehledu).',
+    ]
+  },
+  {
+    verze: 'v10.96',
+    datum: '2026-09-21',
+    zmeny: [
+      '🔒 BEZPEČNOST (TODO-289) · cesta: Admin panel → Uživatelé, Recenze, Leady, Audit plateb, AI náklady. Texty od uživatelů (jméno, e-mail, telefon, text recenze) se vkládaly do stránky BEZ ESCAPOVÁNÍ – kdokoli se mohl zaregistrovat se jménem obsahujícím HTML a spustit kód v admin panelu. Nejhorší místo: telefon z formuláře úvěru šel přímo do onclick=\"…writeText(\'…\')\", kde stačila jedna uvozovka. Nově vše přes _vzEsc (HTML) a _onEsc (HTML + JS řetězec), telefon a e-mail v odkazech přes encodeURIComponent. Navazuje na v10.92 (changelog).',
+      '📉 cesta: Inflace → Tvoje inflace vs. oficiální. Když ČSÚ dá jen poslední měsíc (záložní zdroj), místo grafu s jedním bodem se napíše, že se vývoj ukáže po doplnění celé řady.',
+      '🇨🇿 Oficiální inflace znovu funguje (worker, nasazuje se zvlášť do Cloudflare). ČSÚ ukončil Veřejnou databázi a převedl indexy do DataStatu (COICOP 2018); celé CSV má přes 48 MB a POST dotaz na jejich API vrací z workeru vždy 500. Worker proto čte GET výběr: přednostně vlastní výběr uživatele (proměnná CSU_VYBER_URL, meziroční index, 13+ měsíců), záložně předdefinovaný CEN0101ET03, ze kterého dopočte poslední měsíc z bazického indexu. Před tím ještě FIX volání handleInflace(cors → corsHeaders), kvůli kterému worker od S22 padal bez CORS hlavičky.',
+      '🧪 tools/smoke_escape_admin.js (11 testů, hlídá i budoucí neescapovaná místa) · tools/smoke_worker_inflace.mjs (20) · tools/smoke_inflace_oficialni.js (14).',
+    ]
+  },
   {
     verze: 'v10.93',
     datum: '2026-09-21',
@@ -5114,6 +5140,11 @@ const VERZE_LOG = [
 //  obrázek, spustil jeho onerror a na znaku „…" spadl. Stejně mizely z textu
 //  `<loni>`, `<typ>`, `<option>`. Changelog je TEXT, ne HTML → escapovat vždy.
 const _vzEsc = s => (typeof escHtml==='function') ? escHtml(String(s)) : String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+//  S23 (TODO-289): text od UŽIVATELE uvnitř onclick="…('sem')" je dvojitý kontext –
+//  nejdřív HTML atribut, pak JS řetězec. Stačí jedna uvozovka v telefonu u leadu
+//  a spustí se cizí kód v admin panelu. _jsEsc nejdřív zneškodní JS, _vzEsc pak HTML.
+const _jsEsc = s => String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\r?\n/g, ' ').replace(/</g, '\\x3c');
+const _onEsc = s => _vzEsc(_jsEsc(s));
 function loadVerze() {
   const el = document.getElementById('adminVerzeList'); if(!el) return;
   if(!VERZE_LOG.length) {
@@ -5222,6 +5253,97 @@ let _cachedLeads = [];
 // ══════════════════════════════════════════════════════
 //  TODO-023 · ADMIN – SPRÁVA ČLENSTVÍ
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-295): E-MAILY UŽIVATELŮ – export a hromadná zpráva
+//  Právní rozdíl, který kód hlídá za Milana:
+//   • „Všechny e-maily" = provozní účel (informace o službě, bezpečnost).
+//     NESMÍ se použít na nabídky – appka na to upozorní a do souboru to napíše.
+//   • „E-maily se souhlasem" = jen ti, kdo si v Nastavení zapnuli novinky
+//     (settings.newsletter). Jen tyhle adresy smí dostat obchodní sdělení.
+//  Každý hromadný e-mail musí nést odkaz na odhlášení – doplní se automaticky.
+// ══════════════════════════════════════════════════════
+function _adminEmailSeznam(rezim) {
+  const src = (_cachedUsers || []).filter(u => (u.email || '').includes('@'));
+  const list = rezim === 'souhlas' ? src.filter(u => u.newsletter) : src;
+  //  stejná adresa může být u víc účtů (smazaný a znovu založený)
+  const videl = new Set(), out = [];
+  list.forEach(u => { const e = u.email.trim().toLowerCase(); if (!videl.has(e)) { videl.add(e); out.push(u); } });
+  return out;
+}
+
+function adminEmaily(rezim) {
+  const list = _adminEmailSeznam(rezim);
+  if (!list.length) { alert(rezim === 'souhlas' ? 'Zatím nikdo nezapnul novinky v Nastavení.' : 'Žádné e-maily.'); return; }
+  const hlavicka = rezim === 'souhlas'
+    ? `# FinanceFlow · e-maily se souhlasem se zasíláním novinek (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# Tyto adresy smí dostat obchodní sdělení. Každý e-mail musí mít odkaz na odhlášení.\n`
+    : `# FinanceFlow · VŠECHNY e-maily (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# POZOR: tyto adresy jsou v appce kvůli vedení účtu. Smí se použít jen k provozním\n# sdělením o službě (výpadek, změna podmínek, bezpečnost) – NE k nabídkám.\n# Na nabídky použij export „e-maily se souhlasem".\n`;
+  const csv = hlavicka + 'email;jmeno;souhlas;souhlas_od\n' + list.map(u =>
+    `${u.email};${(u.displayName || '').replace(/[;\n]/g, ' ')};${u.newsletter ? 'ano' : 'ne'};${u.newsletterAt ? new Date(u.newsletterAt).toISOString().slice(0, 10) : ''}`).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `financeflow-emaily-${rezim === 'souhlas' ? 'se-souhlasem' : 'vsechny'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  if (typeof showToast === 'function') showToast(`Staženo ${list.length} adres`);
+}
+window.adminEmaily = adminEmaily;
+
+function adminHromadnyMail() {
+  const list = _adminEmailSeznam('souhlas');
+  const el = document.getElementById('adminModalBox') || document.body;
+  if (!list.length) { alert('Zatím nikdo nezapnul novinky v Nastavení – hromadnou zprávu není komu poslat.'); return; }
+  const box = document.createElement('div');
+  box.id = 'ffMassMail';
+  box.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px';
+  box.innerHTML = `<div class="card" style="max-width:560px;width:100%;max-height:90vh;overflow:auto">
+    <div class="card-header"><span class="card-title">📨 Hromadná zpráva</span>
+      <button class="btn btn-ghost btn-icon btn-sm" style="margin-left:auto" onclick="document.getElementById('ffMassMail')?.remove()">✕</button></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#c9cede;margin-bottom:10px">Odejde na <b>${list.length}</b> adres se souhlasem. Odkaz na odhlášení se přidá automaticky.</div>
+      <div class="fg"><label>Předmět</label><input class="fi" id="mmSubj" placeholder="Co je nového ve FinanceFlow"></div>
+      <div class="fg"><label>Text</label><textarea class="fi" id="mmBody" rows="8" placeholder="Ahoj,&#10;&#10;…"></textarea></div>
+      <div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">Odesílá se po dávkách. Posílej z adresy na ověřené doméně, jinak to skončí ve spamu.</div>
+      <div id="mmStav" style="font-size:.78rem;color:#c9cede;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="adminHromadnyMailOdeslat(true)">✉️ Zkušebně jen mně</button>
+        <button class="btn btn-accent btn-sm" onclick="adminHromadnyMailOdeslat(false)">📨 Odeslat všem (${list.length})</button>
+      </div>
+    </div></div>`;
+  document.body.appendChild(box);
+}
+window.adminHromadnyMail = adminHromadnyMail;
+
+async function adminHromadnyMailOdeslat(test) {
+  const subj = (document.getElementById('mmSubj')?.value || '').trim();
+  const body = (document.getElementById('mmBody')?.value || '').trim();
+  const stav = document.getElementById('mmStav');
+  if (!subj || !body) { if (stav) stav.textContent = '⚠️ Vyplň předmět i text.'; return; }
+  const list = test
+    ? [{ email: (window._currentUser?.email) || '', displayName: 'test' }]
+    : _adminEmailSeznam('souhlas');
+  if (!list[0]?.email) { if (stav) stav.textContent = '⚠️ Není kam poslat.'; return; }
+  if (!test && !confirm(`Odeslat ${list.length} příjemcům? Zpět to vzít nejde.`)) return;
+  if (stav) stav.textContent = '⏳ Odesílám…';
+  let ok = 0, chyb = 0;
+  try {
+    const token = await window._currentUser?.getIdToken?.();
+    const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
+    for (let i = 0; i < list.length; i += 50) {
+      const davka = list.slice(i, i + 50).map(u => u.email);
+      const r = await fetch(wu + '/mass-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ subject: subj, text: body, to: davka, test: !!test }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) ok += d.odeslano || davka.length; else { chyb += davka.length; if (stav) stav.textContent = '⚠️ ' + (d.error || ('HTTP ' + r.status)); }
+      if (stav && !chyb) stav.textContent = `⏳ Odesláno ${ok} z ${list.length}…`;
+    }
+  } catch (e) { if (stav) stav.textContent = '⚠️ ' + e.message; return; }
+  if (stav) stav.textContent = chyb ? `Hotovo s chybami: ${ok} odesláno, ${chyb} selhalo.` : `✅ Odesláno ${ok} příjemcům.`;
+}
+window.adminHromadnyMailOdeslat = adminHromadnyMailOdeslat;
+
 let _cachedUsers = []; // {uid, displayName, email, photoURL, premium, referral, createdAt, transactionsCount, lastActivity}
 
 // ══════════════════════════════════════════════════════
@@ -5338,17 +5460,20 @@ async function loadUsersList() {
     async function pool() {
       while (idx < uids.length) {
         const uid = uids[idx++];
-        const [prof, p, ref, ai, txCount, act] = await Promise.all([
+        const [prof, p, ref, ai, txCount, act, nast] = await Promise.all([
           fj(`users/${uid}/profile`), fj(`users/${uid}/premium`),
           fj(`users/${uid}/referral`), fj(`users/${uid}/aiUsage`),
           fCount(`users/${uid}/data/transactions`),
           fj(`users/${uid}/activity`),   // v9.85 (TODO-213)
+          fj(`users/${uid}/settings`),   // S23 (TODO-295): souhlas se zasíláním novinek
         ]);
         const pp = p || {};
         out.push({
           uid,
           displayName: prof?.displayName || '',
           email: prof?.email || '',
+          newsletter: nast?.newsletter === true,
+          newsletterAt: nast?.newsletterAt || 0,
           photoURL: prof?.photoURL || '',
           premium: {
             type: pp.type || 'free',
@@ -5485,10 +5610,10 @@ function filterUsersList() {
           ${ava}
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${u.displayName || u.email || '<i style="color:var(--text3)">Bez jména</i>'}</div>
+              <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${u.displayName || u.email ? _vzEsc(u.displayName || u.email) : '<i style="color:var(--text3)">Bez jména</i>'}</div>
               ${badge(u)}
             </div>
-            <div style="font-size:.7rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.email || u.uid}</div>
+            <div style="font-size:.7rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_vzEsc(u.email || u.uid)}</div>
             <div style="font-size:.65rem;color:#a8aec8;margin-top:2px">
               📅 Reg: ${fmtDate(u.premium.createdAt)} · 💸 ${u.transactionsCount} tx · ⏰ ${fmtRel(u.lastActivity)}
               ${u.referral.code ? ` · 🔗 <span style="color:var(--bank)">${u.referral.conversions}</span>` : ''}
@@ -5523,8 +5648,8 @@ function openUserDetail(uid) {
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
           ${u.photoURL ? `<img src="${u.photoURL}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">` : `<div style="width:56px;height:56px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${(u.displayName||u.email||'?').charAt(0).toUpperCase()}</div>`}
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:1rem">${u.displayName || '<i style="color:var(--text3)">Bez jména</i>'}</div>
-            <div style="font-size:.78rem;color:var(--text2)">${u.email || '—'}</div>
+            <div style="font-weight:700;font-size:1rem">${u.displayName ? _vzEsc(u.displayName) : '<i style="color:var(--text3)">Bez jména</i>'}</div>
+            <div style="font-size:.78rem;color:var(--text2)">${_vzEsc(u.email || '—')}</div>
             <div style="font-size:.68rem;color:#a8aec8;font-family:monospace;margin-top:4px;word-break:break-all">${u.uid}</div>
             <button class="btn btn-ghost btn-sm" style="margin-top:6px;padding:3px 8px;font-size:.7rem" onclick="navigator.clipboard.writeText('${u.uid}').then(()=>showToast('UID zkopírováno'))">📋 Kopírovat UID</button>
           </div>
@@ -5779,6 +5904,68 @@ const GDPR_UZLY_UZIVATEL = ['data','profile','settings','premium','referral',
                             'communityId','householdId','partners','backups'];
 const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs'];
 
+//  Čitelný přehled k odpovědi podle čl. 15 – otevře se v novém okně,
+//  odtud Tisk → Uložit jako PDF. Nevypisuje jednotlivé transakce (ty jsou
+//  v JSONu), ale ŘÍKÁ, co se zpracovává, kolik toho je a odkud to je.
+function _gdprPrehled(v, uid) {
+  const m = v._meta || {};
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const poc = x => Array.isArray(x) ? x.length : (x && typeof x === 'object') ? Object.keys(x).length : (x == null || x === '' ? 0 : 1);
+  const POPIS = {
+    transactions: 'Zapsané příjmy a výdaje', categories: 'Kategorie výdajů a příjmů', budgets: 'Rozpočty',
+    goals: 'Finanční cíle', debts: 'Půjčky a dluhy', assets: 'Majetek a peněženky', wallets: 'Peněženky',
+    receipts: 'Naskenované účtenky', sablony: 'Opakované platby', notes: 'Poznámky', diary: 'Deník',
+    nakup: 'Nákupní seznamy', bank: 'Nastavení bankovního účtu', settings: 'Nastavení aplikace',
+    profile: 'Údaje o účtu (e-mail, jméno)', premium: 'Tarif a platby', referral: 'Doporučení a body',
+    activity: 'Záznam o používání aplikace', aiUsage: 'Počet využití AI funkcí',
+  };
+  const data = (v.uzivatel && v.uzivatel.data) || {};
+  const ostatni = Object.assign({}, v.uzivatel || {}); delete ostatni.data;
+  const radky = obj => Object.keys(obj).sort().map(k => {
+    const n = poc(obj[k]);
+    return `<tr><td>${esc(POPIS[k] || k)}</td><td class="k">${esc(k)}</td><td class="c">${n === 0 ? '<span class="z">žádné údaje</span>' : n + '×'}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="z">Žádné údaje</td></tr>';
+  const prij = (m.prijemci || []).map(x => `<li>${esc(x)}</li>`).join('');
+  const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+    <title>Přehled zpracování osobních údajů · FinanceFlow</title>
+    <style>
+      @page{size:A4;margin:16mm}
+      body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#16213e;line-height:1.55;max-width:800px;margin:0 auto;padding:20px;font-size:14px}
+      h1{font-size:23px;margin:0 0 4px} h2{font-size:16px;margin:26px 0 8px;border-bottom:2px solid #16213e;padding-bottom:4px}
+      .sub{color:#6b7488;margin-bottom:18px;font-size:13px}
+      table{width:100%;border-collapse:collapse;margin-top:6px} td,th{padding:6px 8px;border-bottom:1px solid #e6eaf2;text-align:left;vertical-align:top}
+      th{background:#f5f7fb;font-size:12px;color:#6b7488} .k{font-family:ui-monospace,monospace;font-size:11px;color:#8b93ad} .c{text-align:right;white-space:nowrap}
+      .z{color:#8b93ad} ul{margin:6px 0;padding-left:20px} .box{background:#f5f7fb;border-radius:8px;padding:12px 14px;margin-top:8px;font-size:13px}
+      .no-print{margin:18px 0}
+      @media print{.no-print{display:none}}
+    </style></head><body>
+    <div class="no-print"><button onclick="window.print()" style="font:600 14px system-ui;padding:9px 16px;border:1px solid #16213e;background:#16213e;color:#fff;border-radius:8px;cursor:pointer">🖨️ Tisk / Uložit jako PDF</button></div>
+    <h1>Přehled zpracování osobních údajů</h1>
+    <div class="sub">Odpověď na žádost podle čl. 15 GDPR (právo na přístup) · vystaveno ${esc(new Date(m.vygenerovano || Date.now()).toLocaleString('cs-CZ'))}</div>
+    <h2>1. Koho se přehled týká</h2>
+    <table><tr><td>Identifikátor účtu</td><td class="k">${esc(m.subjekt || uid)}</td></tr>
+      <tr><td>Správce údajů</td><td>${esc(m.spravce || 'FinanceFlow')}</td></tr></table>
+    <h2>2. Proč údaje zpracováváme</h2><div class="box">${esc(m.ucel_zpracovani || '')}</div>
+    <h2>3. Jaké údaje o vás máme</h2>
+    <div class="sub" style="margin-bottom:4px">Počet znamená, kolik záznamů v dané kategorii evidujeme. Úplný obsah je v přiloženém souboru JSON.</div>
+    <table><tr><th>Kategorie údajů</th><th>Označení v datech</th><th>Počet</th></tr>${radky(data)}${radky(ostatni)}</table>
+    <h2>4. Komu údaje předáváme</h2><ul>${prij || '<li class="z">Nikomu</li>'}</ul>
+    <h2>5. Jak dlouho je uchováváme</h2><div class="box">${esc(m.doba_uchovani || '')}</div>
+    <h2>6. Vaše další práva</h2>
+    <div class="box">Máte právo na opravu, výmaz, omezení zpracování, přenositelnost údajů a vznést námitku.
+      Účet i se všemi údaji smažete přímo v aplikaci (Nastavení → Smazat účet). Máte také právo podat stížnost
+      u Úřadu pro ochranu osobních údajů (uoou.gov.cz).<br><br>Kontakt: ${esc((m.spravce || '').split('·').pop().trim() || 'info@financeflow.cz')}</div>
+    <div class="sub" style="margin-top:22px">${esc(m.poznamka || '')}</div>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); return; }
+  //  Když prohlížeč okno zablokuje, ať přehled nezmizí – stáhne se jako soubor.
+  const b = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = `gdpr-prehled-${String(uid).slice(0, 8)}.html`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
 async function adminGdprExport(uid) {
   if (!isAdmin()) { alert('Jen pro admina.'); return; }
   if (!uid) { uid = prompt('UID uživatele:'); if (!uid) return; }
@@ -5838,13 +6025,18 @@ async function adminGdprExport(uid) {
     vysledek.komunitni_prehled = { _pozn: 'Uživatel do Komunitního přehledu nepřispívá.' };
   }
 
+  //  S23 (Milan): JSON je správný pro PŘENOSITELNOST (čl. 20), ale odpověď
+  //  podle čl. 15 musí být podle čl. 12 srozumitelná a v jasném jazyce.
+  //  Proto se stahuje obojí: čitelný přehled (HTML → Tisk → Uložit jako PDF)
+  //  a k němu JSON pro strojové zpracování.
+  try { _gdprPrehled(vysledek, uid); } catch (e) { console.warn('GDPR přehled:', e); }
   const blob = new Blob([JSON.stringify(vysledek, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `gdpr-export-${uid.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  showToast('📄 GDPR export stažen');
+  showToast('📄 GDPR export stažen (přehled + JSON)');
 }
 window.adminGdprExport = adminGdprExport;
 
@@ -6343,7 +6535,7 @@ async function loadCommunityActivity() {
 
     const topUsers = userCosts.slice(0,8).map((u,i)=>`
       <div style="display:flex;justify-content:space-between;font-size:.74rem;padding:4px 0;border-bottom:1px solid var(--border)">
-        <span style="color:var(--text2)">${i+1}. ${u.name}</span>
+        <span style="color:var(--text2)">${i+1}. ${_vzEsc(u.name)}</span>
         <span style="color:var(--text3)">${u.calls}× · ${u.cost.toFixed(2)} Kč</span>
       </div>`).join('') || '<div style="font-size:.74rem;color:var(--text3)">Žádní aktivní uživatelé tento měsíc.</div>';
 
@@ -7015,18 +7207,18 @@ function buildLeadCard(l) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-          <span style="font-weight:700;font-size:.95rem">${l.name||'–'}</span>
+          <span style="font-weight:700;font-size:.95rem">${_vzEsc(l.name||'–')}</span>
           <span style="font-size:.68rem;padding:2px 8px;border-radius:10px;background:${statusColor}22;color:${statusColor};font-weight:600">${statusLabel}</span>
           <span style="font-size:.7rem;color:var(--text3)">${l.date||''}</span>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
-          ${l.phone?`<a href="tel:${l.phone}" style="color:var(--income);text-decoration:none;font-size:.84rem;font-weight:600">📞 ${l.phone}</a>`:''}
-          ${l.email?`<a href="mailto:${l.email}" style="color:var(--bank);text-decoration:none;font-size:.84rem">✉️ ${l.email}</a>`:''}
+          ${l.phone?`<a href="tel:${encodeURIComponent(l.phone)}" style="color:var(--income);text-decoration:none;font-size:.84rem;font-weight:600">📞 ${_vzEsc(l.phone)}</a>`:''}
+          ${l.email?`<a href="mailto:${encodeURIComponent(l.email)}" style="color:var(--bank);text-decoration:none;font-size:.84rem">✉️ ${_vzEsc(l.email)}</a>`:''}
         </div>
         ${l.loanAmount?`<div style="font-size:.76rem;color:var(--text3);margin-top:5px">💰 ${fmt(l.loanAmount)} Kč${l.loanRate?' · '+l.loanRate+'% p.a.':''}${loanType?' · '+loanType:''}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-        ${l.phone?`<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${l.phone}')" title="Kopírovat tel.">📋</button>`:''}
+        ${l.phone?`<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${_onEsc(l.phone)}')" title="Kopírovat tel.">📋</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="setLeadStatus('${l.id}','contacted')" title="Označit jako kontaktován" style="color:var(--income)">✅</button>
         <button class="btn btn-ghost btn-sm" onclick="setLeadStatus('${l.id}','done')" title="Vyřešeno" style="color:var(--text3)">☑️</button>
         <button class="btn btn-danger btn-icon btn-sm" onclick="deleteLead('${l.id}')" title="Smazat">✕</button>
@@ -8356,7 +8548,7 @@ async function runPaymentAudit() {
       // anomálie u trialu – delší než 32 dní bez ručního prodloužení
       if (trialActive && !p.extended && !p.manuallySet) {
         const span = (p.trialUntil || 0) - (p.createdAt || p.trialUntil || 0);
-        if (span > D32) warns.push(`⚠️ ${u.profile?.email || uid}: trial na ${Math.round(span/86400000)} dní (limit 30)`);
+        if (span > D32) warns.push(`⚠️ ${_vzEsc(u.profile?.email || uid)}: trial na ${Math.round(span/86400000)} dní (limit 30)`);
       }
       if (!active) return;
 
@@ -8372,7 +8564,7 @@ async function runPaymentAudit() {
       else { status = '🔴 PODEZŘELÉ'; color = 'var(--expense)'; suspicious++; }
 
       if ((p.premiumUntil||0) > now + YEAR)
-        warns.push(`⚠️ ${u.profile?.email || uid}: premium platné do ${new Date(p.premiumUntil).toLocaleDateString('cs-CZ')} (víc než rok)`);
+        warns.push(`⚠️ ${_vzEsc(u.profile?.email || uid)}: premium platné do ${new Date(p.premiumUntil).toLocaleDateString('cs-CZ')} (víc než rok)`);
 
       rows.push({ uid, email: u.profile?.email || '(bez e-mailu)', type: t, status, color,
         until: p.premiumUntil, events: logs[uid] ? Object.keys(logs[uid]).length : 0 });
@@ -8398,7 +8590,7 @@ async function runPaymentAudit() {
       <div style="overflow-x:auto"><table class="stat-table" style="width:100%;min-width:560px;font-size:.76rem">
         <thead><tr><th style="text-align:left">E-mail</th><th>Tier</th><th>Stav</th><th>Platné do</th><th>Plateb</th></tr></thead>
         <tbody>${rows.length ? rows.map(r=>`<tr>
-          <td style="text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${r.email}</td>
+          <td style="text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${_vzEsc(r.email)}</td>
           <td style="text-align:center">${r.type}</td>
           <td style="text-align:center;font-weight:700;color:${r.color}">${r.status}</td>
           <td style="text-align:center;color:#a8aec8">${r.until?new Date(r.until).toLocaleDateString('cs-CZ'):'–'}</td>
