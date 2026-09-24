@@ -1,4 +1,4 @@
-// FinanceFlow · v10.97 · admin.js · 2026-09-22
+// FinanceFlow · v10.98 · admin.js · 2026-09-24
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.98',
+    datum: '2026-09-24',
+    zmeny: [
+      '📱 PLAY REŽIM (TODO-294, Milan) · appka stažená z Google Play nesmí vést uživatele k nákupu mimo Google – žádné klikací odkazy ani tlačítka na Stripe. Google ale dovoluje NAPSAT, kde se předplatné koupí, bez odkazu. Nově: isPlayApp() pozná TWA podle document.referrer („android-app://cz.financeflow.app"), výsledek si zapamatuje (referrer je jen u prvního načtení); ?play=1 / ?play=0 pro ladění. V Play režimu se tlačítko „Vyzkoušet Premium", paywall CTA i cokoli s onclick na startPremiumSubscription / goPremium / openDonateModal vymění za TEXT bez odkazu („Premium si aktivuješ na webu financeflow.cz"). Pojistka i v donate.js – z Play režimu se platební brána neotevře, ani kdyby někde tlačítko zůstalo. NA WEBU SE NIC NEMĚNÍ, tlačítka fungují dál.',
+      '💛 Dary jsou z pohledu pravidel Googlu také platba mimo Play → v Play režimu skryté.',
+      '🐛 FIX (Milan): „Stažení e-mailů nefunguje" při 4 uživatelích · cesta: Admin panel → Uživatelé. Seznam se plní asynchronně v loadUsersList(); po kliknutí dřív, než doběhl, byl prázdný a export mlčky skončil hláškou „Žádné e-maily". Tlačítka si seznam nově dotáhnou sama a hláška říká, kolik uživatelů prošla.',
+      '🧪 tools/smoke_play_rezim.js – 16 testů (detekce TWA, cizí balík režim nezapne, text bez odkazu a bez tlačítka, pojistky v donate.js, výměna v DOM bez zdvojení).',
+    ]
+  },
   {
     verze: 'v10.97',
     datum: '2026-09-22',
@@ -5271,9 +5281,22 @@ function _adminEmailSeznam(rezim) {
   return out;
 }
 
-function adminEmaily(rezim) {
+async function adminEmaily(rezim) {
+  //  S23 (Milan: „stažení e-mailů nefunguje" při 4 uživatelích): seznam se plní
+  //  až asynchronně v loadUsersList(). Když se klikne dřív, než doběhne, byl
+  //  prázdný a export mlčky skončil. Teď si ho tlačítko dotáhne samo.
+  if (!(_cachedUsers || []).length && typeof loadUsersList === 'function') {
+    if (typeof showToast === 'function') showToast('⏳ Načítám uživatele…');
+    try { await loadUsersList(); } catch (e) { console.warn('loadUsersList:', e); }
+  }
   const list = _adminEmailSeznam(rezim);
-  if (!list.length) { alert(rezim === 'souhlas' ? 'Zatím nikdo nezapnul novinky v Nastavení.' : 'Žádné e-maily.'); return; }
+  if (!list.length) {
+    const kolik = (_cachedUsers || []).length;
+    alert(rezim === 'souhlas'
+      ? `Zatím nikdo nezapnul novinky v Nastavení (prošel jsem ${kolik} uživatelů).`
+      : (kolik ? `Žádný z ${kolik} uživatelů nemá vyplněný e-mail.` : 'Seznam uživatelů se nepodařilo načíst – zkus ho nejdřív obnovit tlačítkem 🔄.'));
+    return;
+  }
   const hlavicka = rezim === 'souhlas'
     ? `# FinanceFlow · e-maily se souhlasem se zasíláním novinek (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# Tyto adresy smí dostat obchodní sdělení. Každý e-mail musí mít odkaz na odhlášení.\n`
     : `# FinanceFlow · VŠECHNY e-maily (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# POZOR: tyto adresy jsou v appce kvůli vedení účtu. Smí se použít jen k provozním\n# sdělením o službě (výpadek, změna podmínek, bezpečnost) – NE k nabídkám.\n# Na nabídky použij export „e-maily se souhlasem".\n`;
@@ -5288,7 +5311,10 @@ function adminEmaily(rezim) {
 }
 window.adminEmaily = adminEmaily;
 
-function adminHromadnyMail() {
+async function adminHromadnyMail() {
+  if (!(_cachedUsers || []).length && typeof loadUsersList === 'function') {
+    try { await loadUsersList(); } catch (e) { console.warn('loadUsersList:', e); }
+  }
   const list = _adminEmailSeznam('souhlas');
   const el = document.getElementById('adminModalBox') || document.body;
   if (!list.length) { alert('Zatím nikdo nezapnul novinky v Nastavení – hromadnou zprávu není komu poslat.'); return; }

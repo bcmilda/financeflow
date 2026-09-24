@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · premium.js · 2026-09-21
+// FinanceFlow · v10.98 · premium.js · 2026-09-24
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -316,7 +316,65 @@ async function preloadFounderSlots() {
   try { _founderSlotsCache = await getFounderSlotsLeft(); } catch(e) { _founderSlotsCache = null; }
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-294): PLAY REŽIM
+//  Aplikace stažená z Google Play nesmí uživatele vést k nákupu mimo Google
+//  (žádné klikací odkazy ani tlačítka na Stripe). Google ale výslovně dovoluje
+//  NAPSAT, kde se předplatné koupí – bez odkazu. Na webu se nic nemění,
+//  tlačítka tam fungují dál.
+//
+//  Jak se pozná: TWA otevírá web s document.referrer = „android-app://<balík>".
+//  Referrer je jen u prvního načtení, proto se výsledek uloží a dál se čte
+//  z úložiště. Ručně jde režim zapnout ?play=1 (test) a vypnout ?play=0.
+const PLAY_BALIK = 'cz.financeflow.app';
+function isPlayApp() {
+  try {
+    const q = new URLSearchParams(location.search).get('play');
+    if (q === '1') { localStorage.setItem('ff_playApp', '1'); return true; }
+    if (q === '0') { localStorage.removeItem('ff_playApp'); return false; }
+    if (document.referrer && document.referrer.startsWith('android-app://')) {
+      if (document.referrer.includes(PLAY_BALIK)) { localStorage.setItem('ff_playApp', '1'); return true; }
+    }
+    return localStorage.getItem('ff_playApp') === '1';
+  } catch (e) { return false; }
+}
+window.isPlayApp = isPlayApp;
+
+//  Text místo nákupního tlačítka. ZÁMĚRNĚ bez odkazu a bez tlačítka –
+//  klikací cesta k nákupu je to, co Google zakazuje.
+function playInfoHTML(kompakt) {
+  return `<div style="border:1px dashed var(--border2);border-radius:12px;padding:${kompakt ? '10px 12px' : '14px 16px'};
+      background:var(--surface2);font-size:${kompakt ? '.78rem' : '.84rem'};color:#c9cede;line-height:1.55">
+      💎 <b>Premium si aktivuješ na webu financeflow.cz</b><br>
+      <span style="color:#a8aec8">Přihlas se tam stejným účtem; tady se ti Premium odemkne samo.</span>
+    </div>`;
+}
+window.playInfoHTML = playInfoHTML;
+
+//  Projde stránku a v Play režimu vymění nákupní tlačítka za text.
+//  Volá se po vykreslení (ceník v app.html je statický, paywall dynamický).
+function applyPlayMode() {
+  if (!isPlayApp()) return;
+  document.querySelectorAll('[data-play-done]').forEach(() => {});
+  const vymen = el => {
+    if (!el || el.dataset.playDone) return;
+    el.dataset.playDone = '1';
+    el.insertAdjacentHTML('afterend', playInfoHTML(true));
+    el.remove();
+  };
+  vymen(document.getElementById('tierPremiumCta'));
+  //  Cokoli, co vede na platbu – i kdyby přibylo nové tlačítko.
+  document.querySelectorAll('[onclick*="startPremiumSubscription"],[onclick*="openDonateModal"],[onclick*="goPremium"]').forEach(el => {
+    if (el.id === 'tierPremiumCta') return;
+    if (el.closest('#planChoiceModal')) return;
+    vymen(el);
+  });
+}
+window.applyPlayMode = applyPlayMode;
+document.addEventListener('DOMContentLoaded', () => { try { applyPlayMode(); } catch (e) {} });
+
 function goPremium() {
+
   // FIX-305 (S21): nenabízet výběr tarifu někomu, kdo Premium už má – druhá platba
   //   by založila druhé předplatné. Kontrola je i v startPremiumSubscription()
   //   (poslední záchrana), tady jde o to, aby se modal vůbec neotevřel.
@@ -327,6 +385,22 @@ function goPremium() {
     }
     return;
   }
+  //  S23: v aplikaci z Google Play místo výběru tarifu jen informace.
+  //  typeof – kdyby se premium.js načetl dřív než definice (a v testech).
+  if (typeof isPlayApp === 'function' && isPlayApp()) {
+    const host = document.getElementById('planChoiceModal');
+    if (host) {
+      host.innerHTML = `<div class="modal-content" style="max-width:420px">
+        <div class="modal-header"><span class="modal-title">💎 Premium</span>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="closePlanChoice()">✕</button></div>
+        <div class="modal-body">${playInfoHTML()}</div></div>`;
+      host.classList.add('active');
+    } else if (typeof showToast === 'function') {
+      showToast('💎 Premium si aktivuješ na webu financeflow.cz');
+    }
+    return;
+  }
+
   if (typeof startPremiumSubscription !== 'function') {
     alert('💳 Platební brána bude brzy dostupná!\n\nZatím můžeš vyzkoušet Premium na 30 dní zdarma.');
     return;
@@ -2178,6 +2252,11 @@ function updatePaywallCtas() {
     // trial běží nebo je vyčerpaný → jediná smysluplná akce je platba
     cta.textContent = isTrial ? 'Pokračovat v Premium' : 'Získat Premium';
     cta.onclick = () => goPremium();
+    //  S23 (Play režim): tlačítko „Odemknout" nahradí text bez odkazu.
+    if (typeof isPlayApp === 'function' && isPlayApp()) {
+      const box = cta.parentElement;
+      if (box) { cta.remove(); box.insertAdjacentHTML('beforeend', playInfoHTML(true)); }
+    }
     if (sub) sub.textContent = isTrial
       ? `✓ Trial běží ještě ${st.daysLeft} dní – teď platit nemusíš`
       : '✓ Data ti zůstala · zrušíš kdykoli';

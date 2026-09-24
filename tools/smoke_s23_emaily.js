@@ -1,8 +1,8 @@
 // S23 (TODO-295 + GDPR přehled). Spuštění: node tools/smoke_s23_emaily.js
 const fs=require('fs');const A=fs.readFileSync(process.argv[2]||'admin.js','utf8');const S=fs.readFileSync('settings.js','utf8');
 let ok=0,bad=0;const T=(n,c)=>{c?ok++:(bad++,console.log('❌',n));};
-const cut=(src,n)=>{const a=src.indexOf('function '+n+'(');let i=src.indexOf('{',a),d=0;for(;i<src.length;i++){if(src[i]==='{')d++;else if(src[i]==='}'){d--;if(!d)break;}}return src.slice(a,i+1);};
-const g=(src,n)=>eval(cut(src,n).replace('function '+n,'global.'+n+'=function'));
+const cut=(src,n)=>{let a=src.indexOf('async function '+n+'(');if(a<0)a=src.indexOf('function '+n+'(');let i=src.indexOf('{',a),d=0;for(;i<src.length;i++){if(src[i]==='{')d++;else if(src[i]==='}'){d--;if(!d)break;}}return src.slice(a,i+1);};
+const g=(src,n)=>{const c=cut(src,n);const as=c.startsWith('async');eval(c.replace(/^async /,'').replace('function '+n,'global.'+n+'='+(as?'async ':'')+'function'));};
 // ── výběr adres ──
 global._cachedUsers=[
  {uid:'a',email:'a@x.cz',displayName:'Alice',newsletter:true,newsletterAt:Date.parse('2026-05-01')},

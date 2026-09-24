@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · donate.js · 2026-09-02
+// FinanceFlow · v10.98 · donate.js · 2026-09-24
 // ══════════════════════════════════════════════════════
 //  DONATE – Stripe Payment Link integrace (TODO-073)
 // ══════════════════════════════════════════════════════
@@ -71,7 +71,15 @@ function isLiveEnv() {
 }
 
 // FIX-065: Premium subscription – přesměrování na Stripe Subscription Payment Link
+//  S23 (TODO-294): POSLEDNÍ POJISTKA PRO PLAY REŽIM.
+//  I kdyby někde zůstalo tlačítko, z aplikace z Google Play se platební brána
+//  neotevře. Pravidla Googlu porušuje samotné vedení uživatele k nákupu mimo
+//  Play, ne až dokončená platba.
 function startPremiumSubscription(period) {
+  if (typeof isPlayApp === 'function' && isPlayApp()) {
+    alert('💎 Premium si aktivuješ na webu financeflow.cz.\n\nPřihlas se tam stejným účtem – v aplikaci se pak odemkne samo.');
+    return;
+  }
   // FIX-305 (S21): DRUHÉ KLIKNUTÍ NA PLATEBNÍ ODKAZ. Nic dosud nebránilo tomu
   //   otevřít checkout znovu, i když Premium už běží. Vznikly by DVĚ nezávislé
   //   Stripe subscriptions – appka by o té druhé nevěděla (webhook jen přepíše
@@ -174,7 +182,12 @@ function openStripeCustomerPortal() {
 let _donateSelectedAmt = null;  // číslo v Kč nebo null
 
 // Otevřít modal
+//  S23: dary jsou z pohledu Googlu taky platba mimo Play – v Play režimu skryté.
 function openDonateModal() {
+  if (typeof isPlayApp === 'function' && isPlayApp()) {
+    alert('💛 Podpořit FinanceFlow můžeš na webu financeflow.cz.');
+    return;
+  }
   _donateSelectedAmt = null;
   // Reset UI
   document.querySelectorAll('.donate-amt-btn').forEach(b => b.classList.remove('sel'));
