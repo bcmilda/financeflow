@@ -1,4 +1,4 @@
-// FinanceFlow · v10.98 · premium.js · 2026-09-24
+// FinanceFlow · v10.99 · premium.js · 2026-09-24
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -362,10 +362,18 @@ function applyPlayMode() {
     el.insertAdjacentHTML('afterend', playInfoHTML(true));
     el.remove();
   };
-  vymen(document.getElementById('tierPremiumCta'));
+  //  S23 (Milan): 30denní TRIÁL v Play verzi ZŮSTÁVÁ – je zdarma, žádná
+  //  platba se u něj nekoná, takže pravidla Googlu ho nezakazují. Vymění se
+  //  jen skutečný nákup. Pod tlačítko se přidá informace, kde koupit dál.
+  const trial = document.getElementById('tierPremiumCta');
+  if (trial && !trial.dataset.playDone) {
+    trial.dataset.playDone = '1';
+    trial.insertAdjacentHTML('afterend', playInfoHTML(true));
+  }
   //  Cokoli, co vede na platbu – i kdyby přibylo nové tlačítko.
   document.querySelectorAll('[onclick*="startPremiumSubscription"],[onclick*="openDonateModal"],[onclick*="goPremium"]').forEach(el => {
     if (el.id === 'tierPremiumCta') return;
+    if ((el.getAttribute('onclick') || '').includes('startTrial')) return;   // triál je zdarma
     if (el.closest('#planChoiceModal')) return;
     vymen(el);
   });

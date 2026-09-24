@@ -36,7 +36,11 @@ const el={id:'tierPremiumCta',dataset:{},insertAdjacentHTML:(k,h)=>{vlozeno=h;},
 global.document={getElementById:id=>id==='tierPremiumCta'?el:null,querySelectorAll:()=>[],addEventListener:()=>{}};
 nastav('android-app://cz.financeflow.app/');global.document.getElementById=id=>id==='tierPremiumCta'?el:null;global.document.querySelectorAll=()=>[];
 g(P,'applyPlayMode');applyPlayMode();
-T('tlačítko „Vyzkoušet Premium" se odstraní a nahradí textem',odstraneno===1&&/financeflow\.cz/.test(vlozeno));
-applyPlayMode();
-T('opakované volání nic nezdvojí',odstraneno===1);
+//  S23 (Milan): 30denní triál je ZDARMA → v Play verzi zůstává. Vymění se
+//  jen skutečný nákup; pod triál se jen doplní informace, kde koupit.
+T('triál „Vyzkoušet Premium" zůstává (je zdarma)',odstraneno===0);
+T('pod triál se doplní text, kde Premium koupit',/financeflow\.cz/.test(vlozeno));
+vlozeno='';applyPlayMode();
+T('opakované volání nic nezdvojí',odstraneno===0&&vlozeno==='');
+T('výjimka pro triál je i u hromadné výměny tlačítek',/includes\('startTrial'\)\) return;/.test(P));
 console.log(`Play režim: ${ok} OK, ${bad} chyb`);process.exit(bad?1:0);

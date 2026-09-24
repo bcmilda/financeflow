@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · receipts.js · 2026-09-21
+// FinanceFlow · v10.99 · receipts.js · 2026-09-24
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2093,6 +2093,10 @@ function editReceiptFromHistory(index) {
 
 function deleteReceipt(index) {
   if(!confirm('Chcete účtenku opravdu odstranit?'))return;
+  //  S23 (TODO-277c): AŽ PO POTVRZENÍ – s účtenkou zmizí i uschovaná fotka,
+  //  jinak by v R2 zůstala navždy a uživatel by o ní nevěděl.
+  const _r = (S.receipts || [])[index];
+  if (_r && _r.photoKey && typeof archivSmaz === 'function') archivSmaz(_r.photoKey);
   if(S.receipts)S.receipts.splice(index,1);
   save(); renderUctenky();
   switchUctenkyTab('history',document.getElementById('utab-history'));
@@ -2100,6 +2104,73 @@ function deleteReceipt(index) {
 
 // ── Fronta fotek účtenek ──
 let _receiptQueue = []; // [{base64, thumb}]
+
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-277b): ARCHIV FOTEK ÚČTENEK (Cloudflare R2)
+//  Fotka dosud jen proletěla workerem k analýze a zmizela. Kdo si chce
+//  uschovat doklad kvůli záruce (spotřebiče), potřebuje ji uloženou.
+//  Ukládá se JEN na vyžádání (tlačítko „📌 Uschovat doklad"), nikdy sama:
+//  fotka účtenky je citlivý doklad a většina lidí ji archivovat nepotřebuje.
+//  Komprese je tvrdší než u analýzy (1200 px, JPEG 0.7) – na čtení očima
+//  to stačí a do R2 jde ~150–250 kB místo 1 MB.
+// ══════════════════════════════════════════════════════
+const ARCHIV_MAX_PX = 1200, ARCHIV_KVALITA = 0.7, ARCHIV_STROP = 2 * 1024 * 1024;
+
+async function archivZmensi(file) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let w = img.width, h = img.height;
+      if (w > ARCHIV_MAX_PX || h > ARCHIV_MAX_PX) {
+        if (w > h) { h = Math.round(h * ARCHIV_MAX_PX / w); w = ARCHIV_MAX_PX; }
+        else { w = Math.round(w * ARCHIV_MAX_PX / h); h = ARCHIV_MAX_PX; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      let q = ARCHIV_KVALITA, data = c.toDataURL('image/jpeg', q);
+      //  Když by fotka i tak přesáhla strop workeru, ubereme kvalitu.
+      while (data.length * 0.75 > ARCHIV_STROP && q > 0.35) { q -= 0.1; data = c.toDataURL('image/jpeg', q); }
+      res({ base64: data.split(',')[1], mime: 'image/jpeg', px: Math.max(w, h), bajtu: Math.round(data.length * 0.75) });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Fotku se nepodařilo načíst')); };
+    img.src = url;
+  });
+}
+
+async function archivVolej(akce, telo) {
+  if (!window._currentUser) throw new Error('Nejsi přihlášený');
+  const token = await window._currentUser.getIdToken();
+  const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
+  const r = await fetch(`${wu}/archiv/${akce}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify(telo || {}),
+  });
+  if (akce === 'get') { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+window.archivVolej = archivVolej;
+
+//  Uschová fotku k účtence. Vrací klíč, který se uloží do záznamu účtenky.
+async function archivUloz(file, receiptId) {
+  const z = await archivZmensi(file);
+  const d = await archivVolej('upload', { photo: z.base64, mime: z.mime, receiptId: receiptId || '' });
+  return { key: d.key, bajtu: d.size, pocet: d.pocet, limit: d.limit };
+}
+window.archivUloz = archivUloz;
+
+//  Smaže fotku (při smazání účtenky i ručně v archivu). Chyba se jen zaloguje –
+//  kvůli nedostupné síti nesmí selhat smazání samotné účtenky.
+async function archivSmaz(key) {
+  if (!key) return false;
+  try { await archivVolej('delete', { key }); return true; }
+  catch (e) { console.warn('Archiv – fotku se nepodařilo smazat:', e.message); return false; }
+}
+window.archivSmaz = archivSmaz;
 
 async function compressReceiptImage(file) {
   return new Promise((res, rej) => {
@@ -2457,6 +2528,7 @@ function buildReceiptPreviewHTML(receipt, n) {
             ${ws.map(w=>`<option value="${w.id}" ${r.wallet===w.id?'selected':''}>${w.icon||'💼'} ${w.name}${w.currency&&w.currency!=='CZK'?' ('+w.currency+')':''}</option>`).join('')}
           </select>`;
         })()}
+        ${rpArchivBlok(r)}
         <div id="rp_future_warn" style="display:${(r.date && new Date(r.date) > new Date(new Date().setHours(23,59,59,999)))?'flex':'none'};gap:8px;align-items:center;margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);font-size:.74rem;color:var(--expense)">
           <span>⚠️</span><span>Datum je v budoucnosti – zkontroluj, jestli analyzér nepřečetl datum špatně. Transakce by spadla mimo aktuální měsíc.</span>
         </div>
@@ -3027,6 +3099,64 @@ async function publishToCatalog(items) {
     }
   } catch(e) {}
 }
+
+//  Blok „doklad" v editoru účtenky: buď je fotka uschovaná (zobrazit/odstranit),
+//  nebo jde vybrat. Nahrává se výhradně kliknutím uživatele.
+function rpArchivBlok(r) {
+  if (r.photoKey) {
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:7px 9px;border-radius:9px;background:var(--surface2)">
+      <span style="font-size:.76rem;color:#c9cede">📎 Doklad uschovaný</span>
+      <button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="rpArchivZobraz()">👁️ Zobrazit</button>
+      <button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem;color:var(--expense)" onclick="rpArchivOdstran()">🗑️ Odstranit</button>
+    </div>`;
+  }
+  return `<div style="margin-top:6px">
+    <label class="btn btn-ghost btn-sm" style="font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
+      📌 Uschovat doklad
+      <input type="file" accept="image/*" style="display:none" onchange="rpArchivNahraj(this.files[0])">
+    </label>
+    <span style="font-size:.68rem;color:#a8aec8;margin-left:7px">kvůli záruce – uloží se zmenšená fotka</span>
+    <div id="rp_archiv_stav" style="font-size:.72rem;color:#a8aec8;margin-top:4px"></div>
+  </div>`;
+}
+window.rpArchivBlok = rpArchivBlok;
+
+async function rpArchivNahraj(file) {
+  const r = window._editReceipt; if (!r || !file) return;
+  const stav = document.getElementById('rp_archiv_stav');
+  if (stav) stav.textContent = '⏳ Ukládám doklad…';
+  try {
+    const v = await archivUloz(file, r.id || '');
+    r.photoKey = v.key; r.photoAt = Date.now(); r.photoBytes = v.bajtu;
+    if (typeof rpRender === 'function') rpRender();
+    if (typeof showToast === 'function') showToast(`📎 Doklad uschován (${Math.round(v.bajtu/1024)} kB · ${v.pocet}/${v.limit})`);
+  } catch (e) {
+    if (stav) stav.textContent = '⚠️ ' + e.message;
+  }
+}
+window.rpArchivNahraj = rpArchivNahraj;
+
+async function rpArchivZobraz() {
+  const r = window._editReceipt; if (!r || !r.photoKey) return;
+  try {
+    const blob = await archivVolej('get', { key: r.photoKey });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { const a = document.createElement('a'); a.href = url; a.download = 'uctenka.jpg'; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { alert('Doklad se nepodařilo načíst: ' + e.message); }
+}
+window.rpArchivZobraz = rpArchivZobraz;
+
+async function rpArchivOdstran() {
+  const r = window._editReceipt; if (!r || !r.photoKey) return;
+  if (!confirm('Odstranit uschovaný doklad? Účtenka zůstane.')) return;
+  await archivSmaz(r.photoKey);
+  delete r.photoKey; delete r.photoAt; delete r.photoBytes;
+  if (typeof rpRender === 'function') rpRender();
+  if (typeof showToast === 'function') showToast('Doklad odstraněn');
+}
+window.rpArchivOdstran = rpArchivOdstran;
 
 function rpSave() {
   const r = window._editReceipt; if(!r) return;

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.98 · admin.js · 2026-09-24
+// FinanceFlow · v10.99 · admin.js · 2026-09-24
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v10.99',
+    datum: '2026-09-24',
+    zmeny: [
+      '📎 ARCHIV DOKLADŮ (TODO-277b/c) · cesta: Analýza účtenek → editor účtenky → „📌 Uschovat doklad". Fotka dosud jen proletěla workerem k analýze a zmizela. Nově ji lze uschovat do Cloudflare R2 (bucket v EU, privátní): zmenší se na 1200 px / JPEG 0,7 (~150–250 kB, při překročení stropu se ubere kvalita), nahraje přes /archiv/upload a ke účtence se uloží jen klíč. Ukládá se VÝHRADNĚ na kliknutí – fotka účtenky je citlivý doklad a většina lidí ji archivovat nepotřebuje. V editoru pak „👁️ Zobrazit" a „🗑️ Odstranit".',
+      '🧹 Úklid (TODO-277c): smazání účtenky odstraní i její fotku (až po potvrzení), smazání účtu smaže celý archiv uživatele (/archiv/delete {all:true}). Chyba archivu nikdy nezastaví smazání účtenky ani účtu – jen se zaloguje.',
+      '🎁 OPRAVA PLAY REŽIMU (Milan): 30denní triál v aplikaci z Google Play ZŮSTÁVÁ. Je zdarma, žádná platba se u něj nekoná, takže ho pravidla Googlu nezakazují – v předchozí verzi jsem ho omylem smazal spolu s nákupními tlačítky. Pod tlačítkem je nadále text, kde Premium koupit.',
+      '🧪 tools/smoke_archiv_klient.js – 15 testů (token, zmenšení, kvóta, binární čtení, offline při mazání, úklid u účtenky i účtu).',
+    ]
+  },
   {
     verze: 'v10.98',
     datum: '2026-09-24',
