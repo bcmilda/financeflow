@@ -1,4 +1,4 @@
-// FinanceFlow · v10.99 · receipts.js · 2026-09-24
+// FinanceFlow · v11.01 · receipts.js · 2026-09-24
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -396,6 +396,7 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-trend" onclick="switchUctenkyTab(\'trend\',this)">📈 Trend</button>'
     + '<button class="tx-filt-btn" id="utab-prices" onclick="switchUctenkyTab(\'prices\',this)">💹 Zdražování</button>'
     + '<button class="tx-filt-btn" id="utab-discounts" onclick="switchUctenkyTab(\'discounts\',this)">💸 Slevy</button>'
+    + '<button class="tx-filt-btn" id="utab-doklady" onclick="switchUctenkyTab(\'doklady\',this)">📎 Doklady</button>'
     + '<button class="tx-filt-btn" id="utab-stores" onclick="switchUctenkyTab(\'stores\',this)">🏪 Obchody</button>'
     + '<button class="tx-filt-btn" id="utab-history" onclick="switchUctenkyTab(\'history\',this)">📋 Historie</button>'
     + '</div>'
@@ -410,6 +411,7 @@ function renderUctenky() {
     + buildTrendTab(coicopMonthly, COICOP_GROUPS_DEF, last6Months)
     + buildPricesTab(priceChanges)
     + buildDiscountsTab(uniqueReceipts)
+    + buildDokladyTab(uniqueReceipts)
     + buildStoresTab(storeStats, totalSpent, uniqueReceipts)
     + buildHistoryTab(uniqueReceipts);
 
@@ -1226,6 +1228,153 @@ function buildDiscountsTab(receipts){
   return html + '</div>';
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-304): ARCHIV DOKLADŮ
+//  cesta: Analýza účtenek → 📎 Doklady
+//  Seznam uschovaných fotek s náhledem, poznámkou a záruční lhůtou.
+//  Milanův původní záměr: „hlídat stáří spotřebičů" – proto se u dokladu
+//  nastavuje záruka a archiv upozorní, když se blíží konec.
+// ══════════════════════════════════════════════════════
+const DOKLAD_VAROVANI_DNI = 60;   // odkdy se hlásí „záruka brzy končí"
+
+//  Konec záruky = datum účtenky + N měsíců. Vrací i stav pro barvu a řazení.
+function dokladZaruka(rec, dnes) {
+  const ted = dnes || Date.now();
+  const mes = parseInt(rec && rec.warrantyMonths, 10);
+  if (!mes || !rec.date) return { stav: 'bez', text: 'bez záruky' };
+  const d = new Date(rec.date);
+  if (isNaN(d)) return { stav: 'bez', text: 'bez záruky' };
+  d.setMonth(d.getMonth() + mes);
+  //  Počítáme celé DNY mezi daty, ne hodiny – jinak záruka končící zítra
+  //  hlásí „za 2 dny" (dnes 00:00 vs zítra 23:59).
+  d.setHours(0, 0, 0, 0);
+  const dnes0 = new Date(ted); dnes0.setHours(0, 0, 0, 0);
+  const dni = Math.round((d - dnes0) / 86400000);
+  const datum = d.toLocaleDateString('cs-CZ');
+  if (dni < 0) return { stav: 'propadla', dni, datum, mes, text: `záruka skončila ${datum}` };
+  if (dni <= DOKLAD_VAROVANI_DNI) return { stav: 'konci', dni, datum, mes, text: `záruka končí za ${dni} ${dni === 1 ? 'den' : dni <= 4 ? 'dny' : 'dní'} (${datum})` };
+  return { stav: 'plati', dni, datum, mes, text: `záruka do ${datum}` };
+}
+
+//  Doklady seřazené tak, aby nahoře bylo, co hoří.
+function dokladySeznam(receipts, dnes) {
+  const RADA = { konci: 0, plati: 1, bez: 2, propadla: 3 };
+  return (receipts || [])
+    .map((r, i) => ({ r, i, z: dokladZaruka(r, dnes) }))
+    .filter(x => x.r && x.r.photoKey)
+    .sort((a, b) => (RADA[a.z.stav] - RADA[b.z.stav])
+      || (a.z.stav === 'konci' ? a.z.dni - b.z.dni : String(b.r.date || '').localeCompare(String(a.r.date || ''))));
+}
+
+function buildDokladyTab(receipts) {
+  const list = dokladySeznam(receipts);
+  let html = '<div id="utab-doklady-content" style="display:none">';
+  if (!list.length) {
+    html += `<div class="card"><div class="card-body"><div class="empty">
+      <div class="ei">📎</div><div class="et">Zatím žádný uschovaný doklad</div>
+      <div style="font-size:.78rem;color:var(--text2);margin-top:8px;line-height:1.55">
+        Otevři účtenku v <b>Historii</b> (tužka) a dej <b>📌 Uschovat doklad</b>.
+        Hodí se u spotřebičů a nábytku – k dokladu si pak nastavíš záruku a appka ti řekne, než skončí.
+      </div></div></div></div>`;
+    return html + '</div>';
+  }
+  const konci = list.filter(x => x.z.stav === 'konci');
+  const bajtu = list.reduce((a, x) => a + (x.r.photoBytes || 0), 0);
+  if (konci.length) {
+    html += `<div class="card" style="margin-bottom:12px;border-left:3px solid var(--debt)"><div class="card-body" style="padding:11px 14px;font-size:.82rem;color:#e8eaf2">
+      ⏰ <b>${konci.length}</b> ${konci.length === 1 ? 'doklad má' : 'dokladů má'} záruku ke konci: ${konci.slice(0, 3).map(x => escHtml(x.r.store || 'účtenka') + ' (' + x.z.dni + ' dní)').join(', ')}</div></div>`;
+  }
+  html += `<div class="card"><div class="card-header"><span class="card-title">📎 Uschované doklady</span>
+      <span style="font-size:.68rem;color:#a8aec8">${list.length} z 300 · ${Math.round(bajtu / 1024)} kB</span></div>
+    <div class="card-body" style="padding:6px 14px">`;
+  html += list.map(x => {
+    const r = x.r, z = x.z;
+    const barva = z.stav === 'konci' ? 'var(--debt)' : z.stav === 'propadla' ? 'var(--text3)' : z.stav === 'plati' ? 'var(--income)' : 'var(--text3)';
+    return `<div style="display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+      <div id="dok-nahled-${x.i}" data-key="${escHtml(r.photoKey)}" onclick="dokladOtevri(${x.i})"
+           style="width:54px;height:54px;border-radius:9px;background:var(--surface2);flex-shrink:0;cursor:pointer;
+                  display:grid;place-items:center;font-size:1.1rem;overflow:hidden">📄</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.86rem;font-weight:600;color:#e8eaf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.store || 'Účtenka')}</div>
+        <div style="font-size:.72rem;color:#a8aec8">${escHtml(r.date || '')}${r.total ? ' · ' + fmtP(r.total) + ' Kč' : ''}</div>
+        <div style="font-size:.72rem;color:${barva};margin-top:2px">${z.stav === 'konci' ? '⏰ ' : ''}${escHtml(z.text)}</div>
+        ${r.photoNote ? `<div style="font-size:.72rem;color:#c9cede;margin-top:3px">📝 ${escHtml(r.photoNote)}</div>` : ''}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="dokladOtevri(${x.i})">👁️ Otevřít</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="dokladZaruku(${x.i})">🛡️ Záruka</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="dokladPoznamka(${x.i})">📝 Poznámka</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.68rem;color:var(--expense)" onclick="dokladSmaz(${x.i})">🗑️</button>
+        </div>
+      </div></div>`;
+  }).join('');
+  html += `</div><div style="font-size:.66rem;color:#8b93ad;padding:0 14px 12px;line-height:1.5">
+      Fotky leží mimo appku v úložišti EU, u účtenky je jen odkaz. Smazáním účtenky nebo účtu zmizí i doklad.
+    </div></div>`;
+  return html + '</div>';
+}
+
+//  Náhledy se tahají až při otevření záložky a každý jen jednou.
+async function dokladyNactiNahledy() {
+  const boxy = document.querySelectorAll('[id^="dok-nahled-"]');
+  for (const b of boxy) {
+    if (b.dataset.nacteno) continue;
+    b.dataset.nacteno = '1';
+    try {
+      const blob = await archivVolej('get', { key: b.dataset.key });
+      const url = URL.createObjectURL(blob);
+      b.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover">`;
+    } catch (e) { b.textContent = '⚠️'; b.title = 'Náhled se nepodařilo načíst: ' + e.message; }
+  }
+}
+window.dokladyNactiNahledy = dokladyNactiNahledy;
+
+function _dokRec(i) { return (S.receipts || [])[i]; }
+
+async function dokladOtevri(i) {
+  const r = _dokRec(i); if (!r || !r.photoKey) return;
+  try {
+    const blob = await archivVolej('get', { key: r.photoKey });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) { const a = document.createElement('a'); a.href = url; a.download = 'doklad.jpg'; a.click(); }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { alert('Doklad se nepodařilo načíst: ' + e.message); }
+}
+window.dokladOtevri = dokladOtevri;
+
+function dokladZaruku(i) {
+  const r = _dokRec(i); if (!r) return;
+  const nyni = r.warrantyMonths ? String(r.warrantyMonths) : '';
+  const v = prompt('Záruka na kolik měsíců? (24 = běžná, 0 = bez záruky)\nPočítá se od data účtenky ' + (r.date || ''), nyni || '24');
+  if (v === null) return;
+  const m = parseInt(v, 10);
+  if (isNaN(m) || m < 0 || m > 240) { alert('Zadej počet měsíců (0–240).'); return; }
+  if (m === 0) delete r.warrantyMonths; else r.warrantyMonths = m;
+  save(); renderUctenky();
+  if (typeof showToast === 'function') showToast(m ? '🛡️ Záruka nastavena' : 'Záruka zrušena');
+}
+window.dokladZaruku = dokladZaruku;
+
+function dokladPoznamka(i) {
+  const r = _dokRec(i); if (!r) return;
+  const v = prompt('Poznámka k dokladu (co to je, kde leží…)', r.photoNote || '');
+  if (v === null) return;
+  const t = v.trim();
+  if (t) r.photoNote = t.slice(0, 120); else delete r.photoNote;
+  save(); renderUctenky();
+}
+window.dokladPoznamka = dokladPoznamka;
+
+async function dokladSmaz(i) {
+  const r = _dokRec(i); if (!r || !r.photoKey) return;
+  if (!confirm('Odstranit uschovaný doklad? Účtenka zůstane.')) return;
+  await archivSmaz(r.photoKey);
+  delete r.photoKey; delete r.photoAt; delete r.photoBytes;
+  save(); renderUctenky();
+  if (typeof showToast === 'function') showToast('Doklad odstraněn');
+}
+window.dokladSmaz = dokladSmaz;
+
 function buildPricesTab(priceChanges) {
   //  S23: řekni, co se do porovnání nedostalo a proč – ať to nevypadá, že appka položky ztratila.
   const _gs = window._rpGenericSkipped || {n:0,names:[]};
@@ -1789,7 +1938,7 @@ function switchUctenkyTab(tab, btn) {
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
   window._receiptEditorOpen = false;
   window._editReceipt = null;
-  ['scan','learn','stats','compare','trend','prices','discounts','stores','history'].forEach(t=>{
+  ['scan','learn','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
     if(c)c.style.display='none';
@@ -1797,6 +1946,9 @@ function switchUctenkyTab(tab, btn) {
   });
   const content=document.getElementById('utab-'+tab+'-content');
   if(content)content.style.display='block';
+  //  S23 (TODO-304): náhledy dokladů se stahují z R2 až při otevření záložky,
+  //  ne při každém vykreslení Analýzy účtenek.
+  if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
   const button = btn || document.getElementById('utab-'+tab);
   if(button)button.classList.add('active');
 }

@@ -47,13 +47,17 @@ T('Slevy: bez slev se karta NESCHOVÁ a řekne proč', /Ušetřeno slevami/.test
 let h1=buildDiscountsTab([{store:'Kaufland',date:new Date().toISOString().slice(0,10),total:150,items:[{name:'Ramen',price:49.9,qty:2,lineTotal:49.9,discount:49.9}]},{store:'KAUFLAND',date:'2026-01-02',total:50,items:[]}]);
 T('Slevy: tabulka podle obchodů', /Kde jsi ušetřil/.test(h1)); T('Slevy: obchod sloučen bez ohledu na velikost písmen (1 z 2 účtenek)', /1 z 2/.test(h1));
 T('Slevy: seznam položek ve slevě', /Položky ve slevě/.test(h1)&&/Ramen/.test(h1)&&/−50 %/.test(h1));
-T('Slevy: má vlastní záložku a přepínač ji zná', /id="utab-discounts"/.test(src)&&/'prices','discounts','stores'/.test(src));
+//  v11.01: mezi Slevy a Obchody přibyla záložka Doklady – kontrolujeme jen,
+//  že Slevy v přepínači jsou, ne sousedy (ti se budou měnit dál).
+T('Slevy: má vlastní záložku a přepínač ji zná', /id="utab-discounts"/.test(src)&&/'prices','discounts'/.test(src));
 T('Statistiky už kartu slev neobsahují dvakrát', (src.match(/💸 Ušetřeno slevami<\/span>/g)||[]).length===2); // prázdný + plný stav, oba v buildDiscountsTab
 // — skóre: obě čísla na dosažitelné škále
 const ps=fs.readFileSync('premium.js','utf8');
 const pf=(n)=>{const a=ps.indexOf('function '+n+'(');let i=ps.indexOf('{',a),d=0;for(;i<ps.length;i++){if(ps[i]==='{')d++;else if(ps[i]==='}'){d--;if(!d)break;}}return ps.slice(a,i+1);};
 eval(ps.slice(ps.indexOf('const _FSCORE_ZONES'), ps.indexOf('];',ps.indexOf('const _FSCORE_ZONES'))+2).replace('const ','var '));
-eval(pf('_scoreArcGauge'));eval(pf('_scoreNextGrade'));eval(pf('renderFinancialScore'));
+eval(pf('_scoreArcGauge'));eval(pf('_scoreNextGrade'));
+eval(pf('scoreZobrazeni'));   // v11.02: společná škála pro Dashboard i report
+eval(pf('renderFinancialScore'));
 const card={innerHTML:''};global.document={getElementById:()=>card};global.showPage=()=>{};
 const mkSc=(cov)=>({total:100,baseTotal:310,consistencyBonus:0,grade:{color:'#4ade80',emoji:'🏆',label:'Výborné'},rawTotal:310,rawMax:310,availMax:Math.round(cov/100*310),coverage:cov,
   missing:cov<100?['S3','S4']:[],missingNames:cov<100?['rezerva','spoření']:[],components:[{label:'💰 Cash flow',score:93,max:93,detail:'',avail:true}],trend:{score:0,label:'',consistencyMonths:0,bonus:0}});
