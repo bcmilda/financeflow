@@ -1,4 +1,4 @@
-// FinanceFlow · v10.99 · premium.js · 2026-09-24
+// FinanceFlow · v11.02 · premium.js · 2026-09-25
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -327,15 +327,23 @@ async function preloadFounderSlots() {
 //  Referrer je jen u prvního načtení, proto se výsledek uloží a dál se čte
 //  z úložiště. Ručně jde režim zapnout ?play=1 (test) a vypnout ?play=0.
 const PLAY_BALIK = 'cz.financeflow.app';
+//  S23 FIX (Milan): příznak NESMÍ do localStorage. TWA běží uvnitř Chromu
+//  a sdílí s ním úložiště pro stejnou doménu — příznak zapsaný v appce z Play
+//  si pak přečetl i obyčejný panel prohlížeče a na WEBU zmizelo tlačítko
+//  k nákupu. sessionStorage je vázaný na jedno okno: appka z Play a panel
+//  v prohlížeči ho mají každý svůj, a uvnitř appky vydrží i při přechodech
+//  mezi stránkami (kde už referrer není).
 function isPlayApp() {
   try {
     const q = new URLSearchParams(location.search).get('play');
-    if (q === '1') { localStorage.setItem('ff_playApp', '1'); return true; }
-    if (q === '0') { localStorage.removeItem('ff_playApp'); return false; }
+    if (q === '1') { sessionStorage.setItem('ff_playApp', '1'); return true; }
+    if (q === '0') { sessionStorage.removeItem('ff_playApp'); try { localStorage.removeItem('ff_playApp'); } catch (e) {} return false; }
+    try { localStorage.removeItem('ff_playApp'); } catch (e) {}   // úklid po v10.98–10.99
     if (document.referrer && document.referrer.startsWith('android-app://')) {
-      if (document.referrer.includes(PLAY_BALIK)) { localStorage.setItem('ff_playApp', '1'); return true; }
+      if (document.referrer.includes(PLAY_BALIK)) { sessionStorage.setItem('ff_playApp', '1'); return true; }
+      return false;
     }
-    return localStorage.getItem('ff_playApp') === '1';
+    return sessionStorage.getItem('ff_playApp') === '1';
   } catch (e) { return false; }
 }
 window.isPlayApp = isPlayApp;
@@ -343,7 +351,7 @@ window.isPlayApp = isPlayApp;
 //  Text místo nákupního tlačítka. ZÁMĚRNĚ bez odkazu a bez tlačítka –
 //  klikací cesta k nákupu je to, co Google zakazuje.
 function playInfoHTML(kompakt) {
-  return `<div style="border:1px dashed var(--border2);border-radius:12px;padding:${kompakt ? '10px 12px' : '14px 16px'};
+  return `<div class="ff-play-info" style="border:1px dashed var(--border2);border-radius:12px;padding:${kompakt ? '10px 12px' : '14px 16px'};
       background:var(--surface2);font-size:${kompakt ? '.78rem' : '.84rem'};color:#c9cede;line-height:1.55">
       💎 <b>Premium si aktivuješ na webu financeflow.cz</b><br>
       <span style="color:#a8aec8">Přihlas se tam stejným účtem; tady se ti Premium odemkne samo.</span>
@@ -354,11 +362,14 @@ window.playInfoHTML = playInfoHTML;
 //  Projde stránku a v Play režimu vymění nákupní tlačítka za text.
 //  Volá se po vykreslení (ceník v app.html je statický, paywall dynamický).
 function applyPlayMode() {
-  if (!isPlayApp()) return;
-  document.querySelectorAll('[data-play-done]').forEach(() => {});
+  //  Na webu navíc uklidí text, který se tam mohl dostat kvůli sdílenému
+  //  úložišti s TWA (v10.98–10.99).
+  if (!isPlayApp()) { document.querySelectorAll('.ff-play-info').forEach(el => el.remove()); return; }
+  //  Každý běh nejdřív smaže staré texty – paywall se překresluje a bez toho
+  //  se hláška zdvojovala (Milan viděl tři pod sebou).
+  document.querySelectorAll('.ff-play-info').forEach(el => el.remove());
   const vymen = el => {
-    if (!el || el.dataset.playDone) return;
-    el.dataset.playDone = '1';
+    if (!el) return;
     el.insertAdjacentHTML('afterend', playInfoHTML(true));
     el.remove();
   };
@@ -366,10 +377,7 @@ function applyPlayMode() {
   //  platba se u něj nekoná, takže pravidla Googlu ho nezakazují. Vymění se
   //  jen skutečný nákup. Pod tlačítko se přidá informace, kde koupit dál.
   const trial = document.getElementById('tierPremiumCta');
-  if (trial && !trial.dataset.playDone) {
-    trial.dataset.playDone = '1';
-    trial.insertAdjacentHTML('afterend', playInfoHTML(true));
-  }
+  if (trial) trial.insertAdjacentHTML('afterend', playInfoHTML(true));
   //  Cokoli, co vede na platbu – i kdyby přibylo nové tlačítko.
   document.querySelectorAll('[onclick*="startPremiumSubscription"],[onclick*="openDonateModal"],[onclick*="goPremium"]').forEach(el => {
     if (el.id === 'tierPremiumCta') return;
@@ -2013,6 +2021,19 @@ function _scoreNextGrade(rawTotal, rawMax) {
   return null;
 }
 
+//  S23 (Milan): JEDNO MÍSTO, KDE SE ROZHODUJE, JAKÁ ŠKÁLA SE UKAZUJE.
+//  Dashboard to od v10.85 uměl (202 z 202 při 65% pokrytí), Měsíční report
+//  ale ukazoval 310 z 310 a k tomu nedostupné složky jako nulu — dvě různá
+//  čísla pod stejným názvem. Kdo potřebuje zobrazit skóre, volá tohle.
+function scoreZobrazeni(sc) {
+  if (!sc) return { tot: 0, max: 0, zuzeno: false };
+  const zuzeno = (sc.total !== null && sc.coverage < 100 && sc.availMax > 0);
+  const max = zuzeno ? sc.availMax : sc.rawMax;
+  const tot = zuzeno ? Math.min(max, Math.round(sc.rawTotal * max / sc.rawMax)) : sc.rawTotal;
+  return { tot, max, zuzeno, chybi: sc.rawMax - max };
+}
+window.scoreZobrazeni = scoreZobrazeni;
+
 function renderFinancialScore(D) {
   const el = document.getElementById('financialScoreCard'); if(!el) return;
   const sc = computeFinancialScore(D);
@@ -2029,9 +2050,7 @@ function renderFinancialScore(D) {
   //  ve hře 202 bodů a uživatel má 202 z nich. Poměr (a tím známka i ručička)
   //  zůstává stejný, jen číslo přestane tvrdit, že je plný počet. Zbylé body se
   //  „odemknou", až půjde změřit, co chybí. Navazuje na FIX-309.
-  const _zuzeno = (sc.total!==null && sc.coverage<100 && sc.availMax>0);
-  const gMax = _zuzeno ? sc.availMax : sc.rawMax;
-  const gTot = _zuzeno ? Math.min(gMax, Math.round(sc.rawTotal * gMax / sc.rawMax)) : sc.rawTotal;
+  const _z = scoreZobrazeni(sc), _zuzeno = _z.zuzeno, gMax = _z.max, gTot = _z.tot;
 
   el.innerHTML = `<div class="fscore-card" style="background:linear-gradient(135deg,${bgColor},var(--surface));border-color:${borderColor}">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -2263,7 +2282,7 @@ function updatePaywallCtas() {
     //  S23 (Play režim): tlačítko „Odemknout" nahradí text bez odkazu.
     if (typeof isPlayApp === 'function' && isPlayApp()) {
       const box = cta.parentElement;
-      if (box) { cta.remove(); box.insertAdjacentHTML('beforeend', playInfoHTML(true)); }
+      if (box && !box.querySelector('.ff-play-info')) { cta.remove(); box.insertAdjacentHTML('beforeend', playInfoHTML(true)); }
     }
     if (sub) sub.textContent = isTrial
       ? `✓ Trial běží ještě ${st.daysLeft} dní – teď platit nemusíš`

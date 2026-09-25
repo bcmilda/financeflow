@@ -1,4 +1,4 @@
-// FinanceFlow · v10.99 · admin.js · 2026-09-24
+// FinanceFlow · v11.02 · admin.js · 2026-09-25
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,31 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.02',
+    datum: '2026-09-25',
+    zmeny: [
+      '🐛 FIX (Milan) · MĚSÍČNÍ REPORT UKAZOVAL 310 BODŮ, DASHBOARD 202. Od v10.85 Dashboard zobrazuje skóre na DOSAŽITELNÉ škále (co nejde změřit, se nepřičítá ani nestrhává), ale sekce „Vývoj finančního skóre" v Měsíčním reportu zůstala na plné 310 – a k tomu ukazovala nedostupné složky jako 0/62 a 0/46. Report si tak odporoval i sám se sebou (93+78+0+0+31 = 202, v nadpisu 310). Nově obě místa volají jednu funkci scoreZobrazeni(); nedostupné složky se v reportu píší jako „nezměřeno", ne jako nula.',
+      '🧪 tools/smoke_skore_report.js – 9 testů, hlídá i to, že se report nevrátí k rawTotal/rawMax.',
+    ]
+  },
+  {
+    verze: 'v11.01',
+    datum: '2026-09-24',
+    zmeny: [
+      '📎 ARCHIV DOKLADŮ (TODO-304, Milan) · cesta: Analýza účtenek → 📎 Doklady. Seznam uschovaných fotek s náhledem (tahá se z R2 až při otevření záložky, každý jen jednou), datem, částkou a poznámkou. U dokladu se nastaví ZÁRUKA v měsících (počítá se od data účtenky) – archiv řadí nahoru to, čemu záruka brzy končí, a nad seznamem shrne, kolika dokladům zbývá méně než 60 dní. Původní Milanův záměr: hlídat stáří spotřebičů. Dole stav kvóty (X z 300) a celková velikost.',
+      '🛡️ Záruka, poznámka, otevření a smazání dokladu přímo ze seznamu; smazání nechá účtenku být.',
+      '🧪 tools/smoke_doklady.js – 21 testů. Test odhalil, že záruka končící zítra hlásila „za 2 dny" (počítalo se do 23:59 posledního dne) – opraveno na celé dny mezi daty, poslední den záruky = 0 dní a ještě platí.',
+    ]
+  },
+  {
+    verze: 'v11.00',
+    datum: '2026-09-24',
+    zmeny: [
+      '🔧 FIX (Milan) · NA WEBU ZMIZELO TLAČÍTKO PRO NÁKUP a text se zobrazoval 3×. Příznak Play režimu se ukládal do localStorage, jenže TWA běží uvnitř Chromu a sdílí s ním úložiště pro stejnou doménu — co zapsala aplikace z Google Play, přečetl si i obyčejný panel prohlížeče. Nově sessionStorage (vázaný na jedno okno: appka z Play a panel v prohlížeči mají každý svůj, uvnitř appky vydrží i mezi stránkami). Starý příznak z localStorage se při načtení smaže, takže se web spraví sám. Trojitá hláška: paywall se překresluje a text se přidával pokaždé znovu — applyPlayMode teď nejdřív staré texty odstraní (třída ff-play-info) a na webu je uklidí úplně.',
+      '🧪 tools/smoke_play_rezim.js rozšířen na 21 testů – nově hlídá, že příznak NENÍ v localStorage, že se starý ignoruje a maže, a že opakované vykreslení hlášku nezdvojí.',
+    ]
+  },
   {
     verze: 'v10.99',
     datum: '2026-09-24',
