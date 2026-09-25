@@ -239,7 +239,12 @@ async function start(){
   $('stavKam').textContent='⏳ Spouštím kameru…'; $('stavKam').className='stav';
   try{
     const jak=await pripravDetektor();
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+    }catch(e1){
+      if(e1.name==='OverconstrainedError') stream=await navigator.mediaDevices.getUserMedia({video:true});
+      else throw e1;
+    }
     const v=$('video'); v.srcObject=stream; v.classList.remove('hid'); await v.play();
     $('bStart').classList.add('hid'); $('bStop').classList.remove('hid');
     const track=stream.getVideoTracks()[0];
@@ -248,7 +253,19 @@ async function start(){
     bezi=true;
     if(detektor) smyckaNativni(); else smyckaZxing();
   }catch(e){
-    $('stavKam').textContent='⚠️ '+e.message; $('stavKam').className='stav err';
+    //  „Permission denied" sama o sobě neporadí nic – ke každé chybě patří,
+    //  co s ní uživatel může udělat.
+    const jm=e.name||'', rady={
+      NotAllowedError:'Prohlížeč nepustil kameru. V Chromu ťukni na ikonu zámku vlevo v adresním řádku → Oprávnění → Kamera → Povolit, pak stránku načti znovu. Pokud tam kamera není, zkontroluj i Nastavení Androidu → Aplikace → Chrome → Oprávnění → Fotoaparát.',
+      NotFoundError:'Zařízení nehlásí žádnou kameru.',
+      NotReadableError:'Kameru drží jiná aplikace – zavři ji (i fotoaparát na pozadí) a zkus znovu.',
+      OverconstrainedError:'Zadní kamera není dostupná, zkus to znovu – použije se jakákoli.',
+      SecurityError:'Kamera jde jen přes https. Otevři stránku jako https://financeflow.cz/ean.html.',
+    };
+    const rada=rady[jm]||e.message;
+    $('stavKam').innerHTML='⚠️ '+rada.replace(/</g,'&lt;')+
+      '<div style="margin-top:8px;color:var(--muted)">Kód můžeš zatím zadat ručně v políčku níže – funguje úplně stejně.</div>';
+    $('stavKam').className='stav err';
     stop();
   }
 }
