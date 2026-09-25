@@ -1,4 +1,4 @@
-// FinanceFlow · v10.96 · projects.js · 2026-09-21
+// FinanceFlow · v11.02 · projects.js · 2026-09-25
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1632,13 +1632,16 @@ function renderReport() {
       //  zatímco Dashboard hlásil 140 – dvě různá čísla pod jedním názvem.
       const fs = (typeof computeFinancialScore === 'function')
         ? computeFinancialScore(D, m, y) : null;
-      const sc = fs ? fs.rawTotal : computeHealthScores(D, m, y).overall;
+      //  S23 FIX (Milan): stejná škála jako na Dashboardu. Dřív se tu brala
+      //  plná (rawTotal/rawMax) → report hlásil 310 z 310, Dashboard 202 z 202.
+      const _z = (fs && typeof scoreZobrazeni === 'function') ? scoreZobrazeni(fs) : null;
+      const sc = _z ? _z.tot : (fs ? fs.rawTotal : computeHealthScores(D, m, y).overall);
       //  v10.60 (TODO-228): měsíc pod prahem pokrytí (50 %) má rawTotal 0 –
       //  to není nula jako výsledek, to je „nemám co měřit". V grafu by se
       //  vykreslil jako propad na dno, jako by uživatel přišel o všechno.
       //  `mereno:false` říká grafu, že tenhle bod má vynechat, ne nakreslit 0.
       const mereno = fs ? (fs.total !== null) : true;
-      months.push({ m, y, score: sc, max: fs ? fs.rawMax : 100, mereno,
+      months.push({ m, y, score: sc, max: _z ? _z.max : (fs ? fs.rawMax : 100), mereno,
                     grade: fs ? fs.grade : null, label: CZ_M[m].slice(0,3) });
     }
     if (n === 1) {
@@ -1691,6 +1694,13 @@ function renderReport() {
           </div>
         </div>
         ${_comps.map(c=>{
+          //  S23: co nejde změřit, není nula – Dashboard to píše jako
+          //  „nezměřeno" a report to musí říkat stejně.
+          if(c.avail===false) return `<div style="margin-bottom:10px;opacity:.6">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:.82rem;flex:1;min-width:0">${c.label}</span>
+              <span style="font-size:.74rem;font-style:italic;color:var(--text3);min-width:74px;text-align:right">nezměřeno</span>
+            </div></div>`;
           const pv=_prevComp(c.label), d=(pv===null)?null:(c.score-pv);
           const pct=c.max>0?Math.max(0,Math.min(100,c.score/c.max*100)):0;
           const cc=pct>=80?'var(--income)':pct>=50?'var(--debt)':'var(--expense)';

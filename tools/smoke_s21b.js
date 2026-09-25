@@ -50,7 +50,7 @@ console.log('smoke_s21b.js');
 {
   const pr=R('premium.js');
   ok('FIX-309 · půlkruh měří proti DOSAŽITELNÉMU maximu',
-     /_scoreArcGauge\(gTot, gMax, grade\.color\)/.test(pr) && /_zuzeno \? sc\.availMax : sc\.rawMax/.test(pr));   // S23: chování měří smoke_s23 + smoke_skore
+     /_scoreArcGauge\(gTot, gMax, grade\.color\)/.test(pr) && /scoreZobrazeni\(sc\)/.test(pr) && /zuzeno \? sc\.availMax : sc\.rawMax/.test(pr));   // v11.02: jedno místo pro obě obrazovky (smoke_skore_report)
   ok('FIX-309 · „do další známky chybí“ počítá ze stejné škály',
      /_scoreNextGrade\(gTot, gMax\)/.test(pr));
   ok('FIX-309 · zkrácená škála se uživateli vysvětlí',
