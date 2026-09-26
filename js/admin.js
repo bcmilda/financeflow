@@ -1,4 +1,4 @@
-// FinanceFlow · v11.04 · admin.js · 2026-09-25
+// FinanceFlow · v11.05 · admin.js · 2026-09-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.05',
+    datum: '2026-09-26',
+    zmeny: [
+      '🗺️ MAPA POLOŽEK PRO UŽIVATELE (PLAN-mapa-produktu F3, TODO-312) · cesta: Účtenky → 🗺️ Mapa položek. Všechny položky z vlastních účtenek (varianty názvu sloučené přes normName), u každé řetěz z komunitní mapy (obecný → konkrétní název) a kam ji appka zařadí: ✋ Moje volba / 🗺️ Z mapy / 🔎 Odhad appky / 📦 Nezařazeno. Kategorii i podkategorii jde změnit, převzít návrh mapy nebo volbu zrušit. Filtr a hledání (i v názvech z mapy, bez diakritiky) – TODO-313 pro uživatele. Změna platí pro další účtenky, staré se nepřepisují.',
+      '🧾 cesta: Účtenky → 📸 Skenovat → editor účtenky: návrh z komunitní mapy se PŘEDVYPLNÍ a označí 🗺️ (v bublině obecný → konkrétní název). Pořadí zařazení položky: osobní volba → komunitní mapa → klíčová slova → 🛍️ Nákup. Mapa nikdy nepřepíše, co si uživatel zvolil.',
+      '🧠 Učení kategorií si pamatuje jen ROZHODNUTÍ: ruční změnu kategorie či podkategorie (nově se pamatuje i podkategorie) nebo potvrzenou dřívější volbu. Dřív se při uložení účtenky ukládal každý odhad včetně „nevím = Nákup" a takový záznam by navždy přebíjel komunitní mapu. Starý automatický záznam „→ Nákup" se proto za volbu nepovažuje.',
+      'ℹ️ Osobní vrstvou je dosavadní učení kategorií (users/{uid}/categoryMappings, nové pole zdroj:"uzivatel"), žádný nový uzel productPrefs – dvě místa se stejným obsahem by se rozcházela. Pravidla databáze beze změny.',
+      '🧪 tools/smoke_mapa_osobni.js – 26 testů (pořadí zařazení, osobní volba přebíjí mapu, starý automatický Nákup ne, neznámá kategorie admina se přeskočí, starý klíč mapy s podtržítky, zrušení volby, filtr a hledání, escapování). Upraveny smoke_jednatx.js (nové pravidlo učení) a smoke_s23.js (extrakce nových funkcí).',
+    ]
+  },
   {
     verze: 'v11.04',
     datum: '2026-09-25',

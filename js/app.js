@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · app.js · 2026-09-25
+// FinanceFlow · v11.05 · app.js · 2026-09-26
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -453,15 +453,22 @@ async function loadCategoryMappings() {
   return _catMappingsCache;
 }
 
-async function saveCategoryMapping(txName, catId, subcat) {
+//  S24 (TODO-312, Mapa položek F3): `zdroj:'uzivatel'` = položku zařadil
+//  UŽIVATEL sám (změnil kategorii v editoru nebo v Mapě položek). Jen takový
+//  záznam je jeho „volba", která má přednost před komunitní mapou. Záznamy bez
+//  zdroje vznikly dřív automaticky při uložení účtenky (i z odhadu).
+async function saveCategoryMapping(txName, catId, subcat, zdroj) {
   if(!txName||!catId) return;
   const key = normalizeMappingKey(txName);
   if(!key) return;
   const mapping = {catId, subcat:subcat||'', count:1, updatedAt:Date.now()};
+  const puvodni = _catMappingsCache && _catMappingsCache[key];
   // Increment count if exists
-  if(_catMappingsCache && _catMappingsCache[key]) {
-    mapping.count = (_catMappingsCache[key].count||0) + 1;
+  if(puvodni) {
+    mapping.count = (puvodni.count||0) + 1;
   }
+  //  Jednou uživatelova volba = pořád uživatelova volba (i při dalším uložení).
+  if(zdroj === 'uzivatel' || (puvodni && puvodni.zdroj === 'uzivatel' && puvodni.catId === catId)) mapping.zdroj = 'uzivatel';
   if(_catMappingsCache) _catMappingsCache[key] = mapping;
 
   if(_isLocalMode) {
@@ -488,10 +495,61 @@ function lookupCategoryMapping(txName) {
   return (stary !== key && _catMappingsCache[stary]) ? _catMappingsCache[stary] : null;
 }
 
+//  S24 (TODO-312): „Zrušit moji volbu" v Mapě položek – položka se zase řídí
+//  komunitní mapou. Maže nový i starý klíč, jinak by starý záznam dál vyhrával.
+async function deleteCategoryMapping(txName) {
+  const klice = [...new Set([normalizeMappingKey(txName), normalizeMappingKeyStary(txName)])].filter(Boolean);
+  klice.forEach(k => { if(_catMappingsCache) delete _catMappingsCache[k]; });
+  if(_isLocalMode) {
+    try { localStorage.setItem('ff_catMappings', JSON.stringify(_catMappingsCache||{})); } catch(e){}
+    return;
+  }
+  try {
+    const uid = window._currentUser?.uid; if(!uid) return;
+    const idToken = await window._currentUser.getIdToken?.();
+    await Promise.all(klice.map(k => fetch(
+      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/categoryMappings/${encodeURIComponent(k)}.json?auth=${idToken}`,
+      {method:'DELETE'})));
+  } catch(e) { console.warn('deleteCategoryMapping failed:', e); }
+}
+window.deleteCategoryMapping = deleteCategoryMapping;
+
+// ── S24 (TODO-312, PLAN-mapa-produktu F3): KOMUNITNÍ MAPA POLOŽEK ──
+//  community/productMap zapisuje jen admin (F2), číst smí každý přihlášený.
+//  Appka ji používá jen jako NÁVRH – nikdy nepřepíše uživatelovu volbu.
+//  Když se nenačte (offline, pravidla, lokální režim), zůstane {} a appka
+//  se chová přesně jako dřív.
+let _productMapCache = null;
+async function loadProductMap(vynutit) {
+  if(_productMapCache !== null && !vynutit) return _productMapCache;
+  if(_isLocalMode) { _productMapCache = {}; return _productMapCache; }
+  try {
+    const idToken = await window._currentUser?.getIdToken?.();
+    if(!idToken) return _productMapCache || {};
+    const res = await fetch(
+      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/productMap.json?auth=${idToken}`
+    );
+    _productMapCache = (res.ok ? await res.json() : null) || {};
+  } catch(e) { _productMapCache = _productMapCache || {}; }
+  return _productMapCache;
+}
+window.loadProductMap = loadProductMap;
+
+//  Klíč mapy vznikl z klíče tagů: nový tvar má mezery (normName), starší
+//  podtržítka. Zkusíme oba, ať se najdou i záznamy uložené před F1.
+function lookupProductMap(nazev) {
+  if(!_productMapCache || !nazev) return null;
+  const k = normalizeMappingKey(nazev);
+  if(!k) return null;
+  return _productMapCache[k] || _productMapCache[k.replace(/ /g,'_')] || null;
+}
+window.lookupProductMap = lookupProductMap;
+
 // Načti mappings po přihlášení
 async function initCategoryMappings() {
   _catMappingsCache = null; // reset cache
   await loadCategoryMappings();
+  loadProductMap(true);   // S24: na pozadí, nic na ní nečeká
 }
 
 // Partner data (read-only view)

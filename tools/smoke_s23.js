@@ -2,7 +2,7 @@ const fs=require('fs');const src=fs.readFileSync('receipts.js','utf8');
 function fn(name){const a=src.indexOf('function '+name+'(');if(a<0)throw new Error('chybí '+name);let i=src.indexOf('{',a),d=0;for(;i<src.length;i++){if(src[i]==='{')d++;else if(src[i]==='}'){d--;if(!d)break;}}return src.slice(a,i+1);}
 let ok=0,bad=0;const T=(n,c)=>{c?ok++:(bad++,console.log('❌',n));};
 global.window={};global.RECEIPT_TOLERANCE=1;
-eval(fn('lineAmt'));eval(fn('receiptCompleteness'));eval(fn('rpDiscountCandidates'));eval(fn('rpApplyNegativeLines'));eval(fn('rpNakupCat'));eval(fn('guessItemCatId'));eval(fn('receiptSavings'));
+eval(fn('lineAmt'));eval(fn('receiptCompleteness'));eval(fn('rpDiscountCandidates'));eval(fn('rpApplyNegativeLines'));eval(fn('rpNakupCat'));eval(fn('rpOsobniVolba'));eval(fn('rpMapaNavrh'));eval(fn('guessItemCatId'));eval(fn('receiptSavings'));
 // — Kaufland: 2×49,90 bez slevy, natištěno o 49,90 méně
 const mk=()=>({total:150.00,items:[{name:'Rohlík',price:2.9,qty:6,lineTotal:17.4},{name:'OYAKATA Ramen',price:49.9,qty:2,lineTotal:99.8},{name:'Mléko',price:82.7,qty:1,lineTotal:82.7}]});
 let r=mk(); r.printedTotal=150.00; // součet 199,90
