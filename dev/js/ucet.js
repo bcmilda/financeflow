@@ -1,4 +1,4 @@
-// FinanceFlow · v10.51 · ucet.js · 2026-09-04
+// FinanceFlow · v10.99 · ucet.js · 2026-09-24
 // ══════════════════════════════════════════════════════════════════════
 //  MŮJ ÚČET (TODO-233, S21 – Milan)
 //  Nahrazuje modal „Upravit profil“. Spouštěčem je jméno a ikona úplně
@@ -207,6 +207,11 @@ async function ucetSmazatUcet() {
     // i po smazání vlastního podstromu.
     if (typeof purgeMyCommunityData === 'function') {
       try { await purgeMyCommunityData(); } catch (e) { console.warn('[smazání] komunita:', e?.message); }
+      //  S23 (TODO-277c): uschované fotky účtenek leží v Cloudflare R2, ne
+      //  ve Firebase – smazání účtu je tam musí uklidit zvlášť, jinak by
+      //  zůstaly i po odchodu uživatele.
+      try { if (typeof archivVolej === 'function') await archivVolej('delete', { all: true }); }
+      catch (e) { console.warn('[smazání] archiv fotek:', e?.message); }
     }
     try {
       const hid = (await _get(_ref(_db, `users/${me.uid}/householdId`))).val();

@@ -50,11 +50,11 @@ console.log('smoke_s21b.js');
 {
   const pr=R('premium.js');
   ok('FIX-309 · půlkruh měří proti DOSAŽITELNÉMU maximu',
-     /_scoreArcGauge\(sc\.rawTotal, sc\.availMax \|\| sc\.rawMax, grade\.color\)/.test(pr));
+     /_scoreArcGauge\(gTot, gMax, grade\.color\)/.test(pr) && /scoreZobrazeni\(sc\)/.test(pr) && /zuzeno \? sc\.availMax : sc\.rawMax/.test(pr));   // v11.02: jedno místo pro obě obrazovky (smoke_skore_report)
   ok('FIX-309 · „do další známky chybí“ počítá ze stejné škály',
-     /_scoreNextGrade\(sc\.rawTotal, sc\.availMax \|\| sc\.rawMax\)/.test(pr));
+     /_scoreNextGrade\(gTot, gMax\)/.test(pr));
   ok('FIX-309 · zkrácená škála se uživateli vysvětlí',
-     /sc\.availMax < sc\.rawMax/.test(pr) && /škála se zase natáhne/.test(pr));
+     /škála se rozšíří na plných/.test(pr) && /nejsou ani přičtené, ani stržené/.test(pr));
   ok('FIX-309 · neměřitelná složka se ukáže jako „—“, ne jako 0/100',
      /c\.avail === false \?/.test(pr) && /Zatím nezměřeno/.test(pr));
   ok('FIX-309 · ze Zadluženosti vede proklik na zadání půjčky',

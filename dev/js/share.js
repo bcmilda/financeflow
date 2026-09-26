@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · share.js · 2026-09-04
+// FinanceFlow · v10.92 · share.js · 2026-09-21
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -432,6 +432,8 @@ async function copyShareLinkDirect() {
 }
 
 // Poznámky k vydání z VERZE_LOG (admin.js) – zobrazí v O aplikaci
+//  S23: texty changelogu escapovat – záznam v10.62 obsahuje `<img src=x onerror=…>`
+//  a bez escapování by ho prohlížeč spustil (viz loadVerze v admin.js).
 function renderReleaseNotes() {
   const el = document.getElementById('releaseNotesBody'); if(!el) return;
   if(typeof VERZE_LOG === 'undefined' || !VERZE_LOG?.length) {
@@ -445,7 +447,7 @@ function renderReleaseNotes() {
       </div>
       <div style="font-size:.74rem;color:var(--text3);margin-top:2px">${v.datum}</div>
       <ul style="margin:4px 0 0 14px;padding:0">
-        ${(v.zmeny||[]).slice(0,3).map(z=>`<li style="font-size:.74rem;color:var(--text2);margin-bottom:2px">${z.replace(/^[✅✨🐛🗑️📋]+\s*/,'')}</li>`).join('')}
+        ${(v.zmeny||[]).slice(0,3).map(z=>`<li style="font-size:.74rem;color:var(--text2);margin-bottom:2px">${(typeof escHtml==='function'?escHtml:(x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))))(z.replace(/^[✅✨🐛🗑️📋]+\s*/,''))}</li>`).join('')}
         ${v.zmeny?.length>3?`<li style="font-size:.7rem;color:var(--text3)">... a dalších ${v.zmeny.length-3} změn</li>`:''}
       </ul>
     </div>`).join('');

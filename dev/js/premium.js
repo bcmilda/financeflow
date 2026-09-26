@@ -1,4 +1,4 @@
-// FinanceFlow · v10.46 · premium.js · 2026-09-04
+// FinanceFlow · v11.02 · premium.js · 2026-09-25
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -316,7 +316,81 @@ async function preloadFounderSlots() {
   try { _founderSlotsCache = await getFounderSlotsLeft(); } catch(e) { _founderSlotsCache = null; }
 }
 
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-294): PLAY REŽIM
+//  Aplikace stažená z Google Play nesmí uživatele vést k nákupu mimo Google
+//  (žádné klikací odkazy ani tlačítka na Stripe). Google ale výslovně dovoluje
+//  NAPSAT, kde se předplatné koupí – bez odkazu. Na webu se nic nemění,
+//  tlačítka tam fungují dál.
+//
+//  Jak se pozná: TWA otevírá web s document.referrer = „android-app://<balík>".
+//  Referrer je jen u prvního načtení, proto se výsledek uloží a dál se čte
+//  z úložiště. Ručně jde režim zapnout ?play=1 (test) a vypnout ?play=0.
+const PLAY_BALIK = 'cz.financeflow.app';
+//  S23 FIX (Milan): příznak NESMÍ do localStorage. TWA běží uvnitř Chromu
+//  a sdílí s ním úložiště pro stejnou doménu — příznak zapsaný v appce z Play
+//  si pak přečetl i obyčejný panel prohlížeče a na WEBU zmizelo tlačítko
+//  k nákupu. sessionStorage je vázaný na jedno okno: appka z Play a panel
+//  v prohlížeči ho mají každý svůj, a uvnitř appky vydrží i při přechodech
+//  mezi stránkami (kde už referrer není).
+function isPlayApp() {
+  try {
+    const q = new URLSearchParams(location.search).get('play');
+    if (q === '1') { sessionStorage.setItem('ff_playApp', '1'); return true; }
+    if (q === '0') { sessionStorage.removeItem('ff_playApp'); try { localStorage.removeItem('ff_playApp'); } catch (e) {} return false; }
+    try { localStorage.removeItem('ff_playApp'); } catch (e) {}   // úklid po v10.98–10.99
+    if (document.referrer && document.referrer.startsWith('android-app://')) {
+      if (document.referrer.includes(PLAY_BALIK)) { sessionStorage.setItem('ff_playApp', '1'); return true; }
+      return false;
+    }
+    return sessionStorage.getItem('ff_playApp') === '1';
+  } catch (e) { return false; }
+}
+window.isPlayApp = isPlayApp;
+
+//  Text místo nákupního tlačítka. ZÁMĚRNĚ bez odkazu a bez tlačítka –
+//  klikací cesta k nákupu je to, co Google zakazuje.
+function playInfoHTML(kompakt) {
+  return `<div class="ff-play-info" style="border:1px dashed var(--border2);border-radius:12px;padding:${kompakt ? '10px 12px' : '14px 16px'};
+      background:var(--surface2);font-size:${kompakt ? '.78rem' : '.84rem'};color:#c9cede;line-height:1.55">
+      💎 <b>Premium si aktivuješ na webu financeflow.cz</b><br>
+      <span style="color:#a8aec8">Přihlas se tam stejným účtem; tady se ti Premium odemkne samo.</span>
+    </div>`;
+}
+window.playInfoHTML = playInfoHTML;
+
+//  Projde stránku a v Play režimu vymění nákupní tlačítka za text.
+//  Volá se po vykreslení (ceník v app.html je statický, paywall dynamický).
+function applyPlayMode() {
+  //  Na webu navíc uklidí text, který se tam mohl dostat kvůli sdílenému
+  //  úložišti s TWA (v10.98–10.99).
+  if (!isPlayApp()) { document.querySelectorAll('.ff-play-info').forEach(el => el.remove()); return; }
+  //  Každý běh nejdřív smaže staré texty – paywall se překresluje a bez toho
+  //  se hláška zdvojovala (Milan viděl tři pod sebou).
+  document.querySelectorAll('.ff-play-info').forEach(el => el.remove());
+  const vymen = el => {
+    if (!el) return;
+    el.insertAdjacentHTML('afterend', playInfoHTML(true));
+    el.remove();
+  };
+  //  S23 (Milan): 30denní TRIÁL v Play verzi ZŮSTÁVÁ – je zdarma, žádná
+  //  platba se u něj nekoná, takže pravidla Googlu ho nezakazují. Vymění se
+  //  jen skutečný nákup. Pod tlačítko se přidá informace, kde koupit dál.
+  const trial = document.getElementById('tierPremiumCta');
+  if (trial) trial.insertAdjacentHTML('afterend', playInfoHTML(true));
+  //  Cokoli, co vede na platbu – i kdyby přibylo nové tlačítko.
+  document.querySelectorAll('[onclick*="startPremiumSubscription"],[onclick*="openDonateModal"],[onclick*="goPremium"]').forEach(el => {
+    if (el.id === 'tierPremiumCta') return;
+    if ((el.getAttribute('onclick') || '').includes('startTrial')) return;   // triál je zdarma
+    if (el.closest('#planChoiceModal')) return;
+    vymen(el);
+  });
+}
+window.applyPlayMode = applyPlayMode;
+document.addEventListener('DOMContentLoaded', () => { try { applyPlayMode(); } catch (e) {} });
+
 function goPremium() {
+
   // FIX-305 (S21): nenabízet výběr tarifu někomu, kdo Premium už má – druhá platba
   //   by založila druhé předplatné. Kontrola je i v startPremiumSubscription()
   //   (poslední záchrana), tady jde o to, aby se modal vůbec neotevřel.
@@ -327,6 +401,22 @@ function goPremium() {
     }
     return;
   }
+  //  S23: v aplikaci z Google Play místo výběru tarifu jen informace.
+  //  typeof – kdyby se premium.js načetl dřív než definice (a v testech).
+  if (typeof isPlayApp === 'function' && isPlayApp()) {
+    const host = document.getElementById('planChoiceModal');
+    if (host) {
+      host.innerHTML = `<div class="modal-content" style="max-width:420px">
+        <div class="modal-header"><span class="modal-title">💎 Premium</span>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="closePlanChoice()">✕</button></div>
+        <div class="modal-body">${playInfoHTML()}</div></div>`;
+      host.classList.add('active');
+    } else if (typeof showToast === 'function') {
+      showToast('💎 Premium si aktivuješ na webu financeflow.cz');
+    }
+    return;
+  }
+
   if (typeof startPremiumSubscription !== 'function') {
     alert('💳 Platební brána bude brzy dostupná!\n\nZatím můžeš vyzkoušet Premium na 30 dní zdarma.');
     return;
@@ -765,7 +855,7 @@ function deletePayType(id) {
 // ══════════════════════════════════════════════════════
 //  OPAKOVANÉ ŠABLONY
 // ══════════════════════════════════════════════════════
-const FREQ_LABELS={weekly:'Týdně',biweekly:'Každé 2 týdny',monthly:'Měsíčně',quarterly:'Čtvrtletně',yearly:'Ročně'};
+const FREQ_LABELS={weekly:'Týdně',biweekly:'Každé 2 týdny',monthly:'Měsíčně',quarterly:'Čtvrtletně',yearly:'Ročně',once:'1× jednorázově'};
 let _sablonaType='expense';
 
 function setSablonaType(t) {
@@ -789,7 +879,34 @@ function setSablonaType(t) {
   document.getElementById('stt-expense').className='tt'+(t==='expense'?' sel-expense':'');
   const stDebt=document.getElementById('stt-debt');
   if(stDebt) stDebt.className='tt'+(isDebt?' sel-expense':'');
+  //  S23 (Milan): PŘEPNUTÍ VÝDAJ → PŘÍJEM NECHÁVALO VÝDAJOVÉ KATEGORIE.
+  //  setSablonaType přepnul jen _sablonaType a zobrazení sekcí, ale seznam
+  //  kategorií nikdo nepřekreslil – změnil se až při kliknutí na kategorii,
+  //  protože teprve ten onclick volá renderSablonaCatPicker(). Vybraná
+  //  kategorie se navíc musí zahodit: příjmová šablona nesmí zůstat viset
+  //  na kategorii Nájem jen proto, že byla vybraná před přepnutím.
+  if(!(t==='transfer'||isDebt)){
+    const _sel=(S.categories||[]).find(c=>c.id===selCatId);
+    if(_sel && _sel.type!==t && _sel.type!=='both') selCatId='';
+    if(typeof renderSablonaCatPicker==='function') renderSablonaCatPicker();
+  }
 }
+
+//  S23: u jednorázové platby se místo „den v měsíci" ptáme na celé datum.
+function sablonaFreqChange(){
+  const f=document.getElementById('sablonaFreq')?.value;
+  const den=document.getElementById('sablonaDenWrap');
+  const once=document.getElementById('sablonaOnceWrap');
+  if(den)  den.style.display  = f==='once' ? 'none'  : 'block';
+  if(once) once.style.display = f==='once' ? 'block' : 'none';
+  const auto=document.getElementById('sablonaAuto');
+  //  Jednorázová platba bez automatického vytvoření by jen visela v seznamu
+  //  a v den D se nic nestalo – to by byla stejná past jako „vlastní položky"
+  //  v Příštím měsíci. Proto se zaškrtne a zamkne.
+  if(auto && f==='once'){ auto.checked=true; auto.disabled=true; }
+  else if(auto){ auto.disabled=false; }
+}
+window.sablonaFreqChange = sablonaFreqChange;
 // S17.7: naplnit select dluhů v šablonovém modalu
 function renderSablonaDebts() {
   const sel=document.getElementById('sablonaDebtId'); if(!sel) return;
@@ -812,7 +929,7 @@ function renderSablonaList() {
         <div style="font-weight:600;font-size:.88rem">${s.name}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
           <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(s.amount)}</span>
-          <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}</span>
+          <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}${s.freq==='once'&&s.done?' · ✅ provedeno':''}</span>
           ${cat?`<span style="font-size:.74rem;color:var(--text3)">${cat.icon} ${cat.name}</span>`:''}
           ${s.auto?'<span style="font-size:.7rem;background:var(--income-bg);color:var(--income);padding:1px 6px;border-radius:5px">auto</span>':''}
         </div>
@@ -831,6 +948,8 @@ function getNextSablonaDate(s) {
   const day=s.den||1;
   let next=new Date(today.getFullYear(),today.getMonth(),day);
   if(next<=today){
+    //  S23: jednorázová platba má datum uložené, nic se nedopočítává.
+    if(s.freq==='once') return s.onceDate ? new Date(s.onceDate).toLocaleDateString('cs-CZ') : '—';
     if(s.freq==='weekly')next=new Date(today.getTime()+7*86400000);
     else if(s.freq==='biweekly')next=new Date(today.getTime()+14*86400000);
     else if(s.freq==='monthly')next=new Date(today.getFullYear(),today.getMonth()+1,day);
@@ -879,6 +998,8 @@ function editSablona(id) {
   document.getElementById('sablonaName').value=s.name;
   moneyInFill('sablonaAmt', s.amount);   // TODO-216
   document.getElementById('sablonaFreq').value=s.freq||'monthly';
+  const _od=document.getElementById('sablonaOnceDate'); if(_od) _od.value=s.onceDate||'';
+  if(typeof sablonaFreqChange==='function') sablonaFreqChange();
   document.getElementById('sablonaDen').value=s.den||1;
   document.getElementById('sablonaAuto').checked=!!s.auto;
   document.getElementById('sablonaEnd').value=s.endDate||'';
@@ -898,6 +1019,10 @@ function saveSablona() {
   const amount=moneyInRead('sablonaAmt');   // TODO-216
   if(!name){alert('Zadej název');return;}
   if(!amount){alert('Zadej částku');return;}
+  //  S23: jednorázová platba bez data by se nikdy neprovedla.
+  const _freq=document.getElementById('sablonaFreq').value;
+  const _onceDate=(document.getElementById('sablonaOnceDate')?.value)||'';
+  if(_freq==='once' && !_onceDate){alert('U jednorázové platby vyber datum');return;}
   const s={id:eid||uid(),name,amount,type:_sablonaType,catId:selCatId,freq:document.getElementById('sablonaFreq').value,den:parseInt(document.getElementById('sablonaDen').value)||1,auto:document.getElementById('sablonaAuto').checked,endDate:document.getElementById('sablonaEnd').value||null,wallet:document.getElementById('sablonaWallet').value||null,walletTo:document.getElementById('sablonaWalletTo')?.value||null,note:document.getElementById('sablonaNote').value.trim()};
   if(_sablonaType==='transfer'){
     if(!s.wallet||!s.walletTo){alert('U přesunu vyber obě peněženky');return;}
@@ -911,6 +1036,7 @@ function saveSablona() {
     s.debtId=did; s.type='expense'; s.catId='';   // splátka = výdaj vázaný na debtId
   }
   if(!S.sablony)S.sablony=[];
+  if(_freq==='once'){ s.onceDate=_onceDate; s.auto=true; s.den=parseInt(_onceDate.slice(8,10))||1; }
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
   else S.sablony.push(s);
   save(); closeModal('modalSablona'); renderSablonaList();
@@ -951,8 +1077,11 @@ function useSablonaNow() {
 // splatnosti v TOMTO měsíci a už nastal (≤ dnes), a transakce ještě není, doplň ji. Pokrývá
 // přesně případ „přidám opakování s datem před dneškem → zapiš i na aktuální měsíc".
 function processAutoSablony() {
-  if(!S.sablony)return;
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
+  //  S23: transakce z účtenek vznikaly BEZ peněženky → zůstatek je neviděl.
+  //  Doplní se jen při jediné peněžence (viz rpFixReceiptTxWallets v receipts.js).
+  try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }
+  if(!S.sablony)return;
   const today=new Date(); today.setHours(0,0,0,0);
   const iso=d=>d.toISOString().slice(0,10);
   S.transactions=S.transactions||[];
@@ -961,6 +1090,27 @@ function processAutoSablony() {
   S.sablony.filter(s=>s.auto).forEach(s=>{
     // jen měsíční šablony mají „den v měsíci" – u týdenních/dalších řeší výskyty Budoucí platby
     const freq=s.freq||'monthly';
+    //  S23 (Milan): JEDNORÁZOVÁ PLATBA. Vytvoří se v den D a šablona se pak
+    //  označí jako vyřízená (done), aby nezůstala viset v seznamu opakovaných.
+    //  Do té doby je vidět v Budoucích platbách i v Příštím měsíci – přesně
+    //  proto Milan tuhle volbu chtěl: zviditelnit budoucí jednorázový výdaj.
+    if(freq==='once'){
+      if(s.done || !s.onceDate) return;
+      const iso_today=iso(today);
+      if(s.onceDate > iso_today) return;                       // ještě nenastalo
+      if(S.transactions.some(t=>t.date===s.onceDate && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.done=true; return; }
+      const tx1={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+      if(s.debtId) tx1.debtId=s.debtId;
+      if(s.type==='transfer'){
+        const trid=uid();
+        S.transactions.push(
+          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:s.onceDate,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'},
+          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:s.onceDate,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'}
+        );
+      } else S.transactions.push(tx1);
+      s.done=true; added++;
+      return;
+    }
     if(freq!=='monthly') return;
     const den=Math.min(31, Math.max(1, s.den||1));
     const dueDay=Math.min(den, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate()); // ošetři krátké měsíce
@@ -1602,7 +1752,11 @@ function finScoreS4(rate){ // % základu odloženo do investic → 0–25 b (tab
 //  v9.58 (FIX-228): funkce nyní přijímá měsíc/rok. Bez toho počítala vždy
 //  jen aktuální měsíc, takže graf vývoje nemohl ukázat skóre 0–310 za starší
 //  měsíce a musel sahat po jiném (0–100) čísle – odtud rozpor 91 vs 140.
-function computeFinancialScore(D, _m, _y) {
+//  v10.60 (S22): volitelný 4. parametr `_cfg` = dočasná konfigurace vah/kotev.
+//  Slouží ADMIN SIMULÁTORU (adminScoringSim) – ten jím počítá „co by se stalo,
+//  kdyby" nad Milanovými skutečnými daty, aniž by sáhl na ostrou `_SCORING_V2`.
+//  Funkce zůstává čistá: nic nemutuje, bez parametru se chová přesně jako dřív.
+function computeFinancialScore(D, _m, _y, _cfg) {
   const _M = (_m == null) ? S.curMonth : _m;
   const _Y = (_y == null) ? S.curYear  : _y;
   const baseIncome = computeBaseIncome(D);
@@ -1620,65 +1774,76 @@ function computeFinancialScore(D, _m, _y) {
   const totalDebt = debts.reduce((a,d)=>a+(d.remaining||0),0);
   const annualIncome = (incDTI||totalInc) * 12;
 
-  // ── S1: Cash Flow (0–75 b) – v8.74 (TODO-159): plná bodovací tabulka ──
-  let expRatio = null, score1;
-  // TODO-227 (S19, Milan): ŽÁDNÉ NEUTRÁLNÍ VÝCHOZÍ HODNOTY.
-  //   Dřív dostal nový uživatel 36/75 „neutrál", 25/50 rezervu, 18/35 spoření
-  //   a 38/50 rozpočet – dohromady 181 bodů (58 %) ZADARMO za to, že nic nemá.
-  //   Aplikace mu řekla „Dobré" dřív, než zadal první transakci.
-  //   Nyní: co nelze změřit, se NEHODNOTÍ – složka vypadne z čitatele i JMENOVATELE
-  //   (`avail`). Skóre = dosažené / dosažitelné, ne dosažené / všechno možné.
-  let s1avail = false;
-  if (totalInc > 0) { expRatio = totalExp / totalInc; score1 = msc_S1(expRatio) ?? 0; s1avail = true; }
-  else score1 = 0;
-  const s1max = _SCORING.max.S1;
-  const s1label = score1>=s1max*0.8?'🟢 Cash flow OK':score1>=s1max*0.45?'🟡 Výdaje '+Math.round((expRatio||0)*100)+'% příjmu':'🔴 Výdaje překračují příjmy';
+  // ══════════════════════════════════════════════════════
+  //  v10.60 (TODO-228, S22): FINANČNÍ SKÓRE v2 – VÁHY + KOTVY
+  //  Nahrazuje schodovité bodovací tabulky (76/60/41/50/31 řádků) lineární
+  //  interpolací mezi kotvami (mscInterpV2, helpers.js). Důležitost složky
+  //  řídí VÁHA v procentech (_SCORING_V2.vahy), ne velikost tabulky.
+  //  Nezměřitelná složka NEDOSTANE ani 0 ani 100 – vypadne z výpočtu úplně,
+  //  její váha se rozpustí mezi zbylé (nula lže stejně jako sto, jen opačně).
+  //  Pod prahem pokrytí (50 % vah) appka NEUKÁŽE známku ani číslo – jinak by
+  //  nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), dostal „Výborné".
+  //  Podklad: NAVRH-skore-v2.md, scoring-config-v2.json (odsouhlaseno S22).
+  //  Milanovo rozhodnutí S22: interně 0–100, zobrazení/historie ×3,1 (0–310) –
+  //  stejná škála jako dřív, žádný přepočet ani svislá čára v grafu.
+  // ══════════════════════════════════════════════════════
+  const SV2 = _cfg || _SCORING_V2;
 
-  // ── S2: Zadluženost = DTI (0–60) + DSTI (0–40) = 0–100 b ──
+  // ── S1: Cash flow (výdaje/příjmy) ──
+  let expRatio = null, s1sub = null;
+  const s1avail = totalInc > 0 && txs.length > 0;
+  if (s1avail) { expRatio = totalExp / totalInc; s1sub = mscInterpV2(SV2.S1, expRatio); }
+  const s1label = !s1avail ? '⏳ Zatím nezměřeno' :
+    s1sub>=80?'🟢 Cash flow OK':s1sub>=45?'🟡 Výdaje '+Math.round(expRatio*100)+'% příjmu':'🔴 Výdaje překračují příjmy';
+
+  // ── S2: Zadluženost = DTI (60 %) + DSTI (40 %) ──
   const dti  = annualIncome > 0 ? totalDebt / annualIncome * 100 : 0;
   const dsti = (incDSTI||totalInc) > 0 ? monthlyPayments / (incDSTI||totalInc||1) * 100 : 0;
-  // TODO-227: „nemám dluh" vs. „ještě jsem ho nezadal" vypadá v datech stejně.
-  //   Plný počet bodů se přizná JEN když to uživatel potvrdil v onboardingu
-  //   (`_settings.hasDebts === false`). Jinak se S2 z hodnocení vynechá úplně –
-  //   nemít dluh je opravdu dobře, ale appka to musí VĚDĚT, ne předpokládat.
+  // „nemám dluh" vs. „ještě jsem ho nezadal" vypadá v datech stejně – plný počet
+  // se přizná JEN po potvrzení v onboardingu (_settings.hasDebts === false).
   const _debtsKnown = debts.length>0
     || (typeof _settings!=='undefined' && _settings && _settings.hasDebts === false);
   const s2avail = _debtsKnown;
-  const scoreDTI  = !s2avail ? 0 : (debts.length>0 ? msc_DTI(dti)  : _SCORING.max.DTI);
-  const scoreDSTI = !s2avail ? 0 : (debts.length>0 ? msc_DSTI(dsti): _SCORING.max.DSTI);
-  const score2 = scoreDTI + scoreDSTI;
-  const s2max = _SCORING.max.DTI + _SCORING.max.DSTI;
-  const s2label = score2>=s2max*0.8?'🟢 Nízké zadlužení':score2>=s2max*0.45?`🟡 DTI ${Math.round(dti)}% / DSTI ${Math.round(dsti)}%`:`🔴 Vysoké zadlužení – DSTI ${Math.round(dsti)}%`;
+  const dtiSub  = !s2avail ? null : (debts.length>0 ? mscInterpV2(SV2.DTI, dti)   : 100);
+  const dstiSub = !s2avail ? null : (debts.length>0 ? mscInterpV2(SV2.DSTI, dsti) : 100);
+  const s2sub = s2avail ? (dtiSub*SV2.podilDTI + dstiSub*SV2.podilDSTI)/100 : null;
+  const s2label = !s2avail ? '⏳ Zatím nezměřeno' :
+    s2sub>=80?'🟢 Nízké zadlužení':s2sub>=45?`🟡 DTI ${Math.round(dti)}% / DSTI ${Math.round(dsti)}%`:`🔴 Vysoké zadlužení – DSTI ${Math.round(dsti)}%`;
 
-  // ── S3: Rezerva (0–50 b) – měsíce rezervy ──
+  // ── S3: Rezerva – v2 (Milan, S22): proti VÝDAJŮM, ne příjmu.
+  //   „Jak dlouho vydržím bez příjmu" určuje to, kolik utrácím, ne kolik
+  //   vydělávám. Dostupnost navíc vyžaduje aspoň jednu spořicí/rezervní
+  //   peněženku nebo aktivum – jinak nula lže, že rezerva neexistuje, místo
+  //   toho, že ji appka jen nevidí (stejná past jako dřív u S1/S4). ──
   const savWallets = (D.wallets||[]).filter(w=>w.type==='savings'||w.type==='investment');
   let savBalance = savWallets.reduce((a,w)=>a+(w.balance||0),0);
+  let reserveAssetsCount = 0;
   if(typeof assetTier==='function'){
-    savBalance += (D.assets||[]).filter(a=>assetTier(a)==='reserve').reduce((a2,x)=>a2+(x.value||0),0);
+    const reserveAssets = (D.assets||[]).filter(a=>assetTier(a)==='reserve');
+    reserveAssetsCount = reserveAssets.length;
+    savBalance += reserveAssets.reduce((a2,x)=>a2+(x.value||0),0);
   }
-  const monthsReserve = (baseIncome||0) > 0 ? savBalance / (baseIncome||1) : null;
-  const s3max = _SCORING.max.S3;
-  const s3avail = monthsReserve !== null;                      // TODO-227
-  const score3 = s3avail ? (msc_S3(monthsReserve) ?? 0) : 0;
-  const s3label = score3>=s3max*0.8?`🟢 Rezerva ${monthsReserve?monthsReserve.toFixed(1):'?'} měs.`:score3>=s3max*0.45?`🟡 Rezerva ${monthsReserve?monthsReserve.toFixed(1):'?'} měs.`:`🔴 Nízká rezerva`;
+  const s3avail = (savWallets.length>0 || reserveAssetsCount>0) && totalExp > 0;
+  const monthsReserve = s3avail ? savBalance / totalExp : null;
+  const s3sub = s3avail ? mscInterpV2(SV2.S3, monthsReserve) : null;
+  const s3label = !s3avail ? '⏳ Zatím nezměřeno' :
+    s3sub>=80?`🟢 Rezerva ${monthsReserve.toFixed(1)} měs. výdajů`:s3sub>=45?`🟡 Rezerva ${monthsReserve.toFixed(1)} měs.`:`🔴 Nízká rezerva`;
 
-  // ── S4: Aktivní spoření (0–35 b) – 📈 isInvest → % základu ──
+  // ── S4: Míra spoření (tok, ne stav) – 📈 isInvest/isSaving → % základu ──
   let savCats = (D.categories||[]).filter(c=>c.isInvest && c.name!=='Virtuální přesun');
   if(!savCats.length) savCats = (D.categories||[]).filter(c=>c.isSaving && c.name!=='Virtuální přesun');
-  const s4max = _SCORING.max.S4;
-  let score4 = 0, activeSavingRate = null;                     // TODO-227
   const s4avail = savCats.length > 0 && (baseIncome||0) > 0;
+  let activeSavingRate = null, s4sub = null;
   if (s4avail) {
     const totalSaved = savCats.reduce((a,c)=>a+getActual(c.id,null,_M,_Y,D),0);
     activeSavingRate = totalSaved / (baseIncome||1) * 100;
-    score4 = msc_S4(activeSavingRate) ?? 0;
+    s4sub = mscInterpV2(SV2.S4, activeSavingRate);
   }
-  const s4label = score4>=s4max*0.8?`🟢 Spoříš ${activeSavingRate?Math.round(activeSavingRate):'?'}% příjmu`:score4>=s4max*0.45?`🟡 Spoříš ${activeSavingRate?Math.round(activeSavingRate):'?'}%`:`🔴 Spoření nízké / nenastaveno`;
+  const s4label = !s4avail ? '⏳ Zatím nezměřeno' :
+    s4sub>=80?`🟢 Spoříš ${Math.round(activeSavingRate)}% příjmu`:s4sub>=45?`🟡 Spoříš ${Math.round(activeSavingRate)}%`:`🔴 Spoření nízké`;
 
-  // ── S5: Rozpočet (0–50 b) – v8.74 (TODO-159): napojeno na Měsíční report
-  //     (průměr skóre kategorií vs limity 0–100) přeškálováno na 0–50. ──
-  const s5max = 50;
-  let score5 = 0, budgetPct = null;                            // TODO-227
+  // ── S5: Dodržování rozpočtu – napojeno na Měsíční report (0–100) ──
+  let budgetPct = null, s5sub = null;
   let s5avail = false;
   if (typeof computeHealthScores==='function') {
     try {
@@ -1686,19 +1851,20 @@ function computeFinancialScore(D, _m, _y) {
       budgetPct = hs.budgetScore; // 0–100
       // hodnotí se jen tehdy, když má uživatel aspoň jednu kategorii s limitem
       s5avail = (D.categories||[]).some(c=>(c.healthPct>0)||(c.healthAmt>0));
-      score5 = s5avail ? Math.round(budgetPct/100*s5max) : 0;
+      s5sub = s5avail ? mscInterpV2(SV2.S5, budgetPct) : null;
     } catch(e){}
   }
-  const s5label = score5>=s5max*0.8?`🟢 Rozpočet drží (${budgetPct??'?'}/100)`:score5>=s5max*0.45?`🟡 Rozpočet ${budgetPct??'?'}/100`:`🔴 Limity překročeny (${budgetPct??'?'}/100)`;
+  const s5label = !s5avail ? '⏳ Zatím nezměřeno' :
+    s5sub>=80?`🟢 Rozpočet drží (${budgetPct}/100)`:s5sub>=45?`🟡 Rozpočet ${budgetPct}/100`:`🔴 Limity překročeny (${budgetPct}/100)`;
 
-  // ── KONZISTENČNÍ BONUS ───────────────────────────────────────
+  // ── KONZISTENČNÍ BONUS (max +5 na škále 0–100) ───────────────────────
   // Session 10 FIX: PŮVODNĚ se počítadlo `consistencyMonths` MUTOVALO do
   // D.scoreState při KAŽDÉM volání funkce (inkrement/reset). Protože se
   // computeFinancialScore() volá z mnoha míst (render, networth, ai.js) a při
   // každém přepnutí měsíce, počítadlo skákalo nepředvídatelně → skóre se měnilo
   // bez zjevného důvodu (např. 18 → 25 → 31 po překliknutí měsíců).
-  // OPRAVA: bonus se počítá DETERMINISTICKY z historie dat – projdeme posledních
-  // 6 měsíců zpět od aktuálního a spočítáme, kolik PO SOBĚ JDOUCÍCH měsíců se
+  // OPRAVA: bonus se počítá DETERMINISTICKY z historie dat – projdeme historii
+  // zpět od aktuálního měsíce a spočítáme, kolik PO SOBĚ JDOUCÍCH měsíců se
   // výdaje meziměsíčně snižovaly. Žádná mutace stavu, čistá funkce.
   let pm=_M-1,py=_Y;if(pm<0){pm=11;py--;}
   const prevTxs=getTx(pm,py,D);
@@ -1707,10 +1873,11 @@ function computeFinancialScore(D, _m, _y) {
 
   // Deterministický výpočet konzistence: kolik po sobě jdoucích měsíců (zpět od
   // aktuálního) měl uživatel meziměsíční pokles výdajů + nějaký příjem.
+  // v2: strop 12 měsíců (dřív 6) – kotva bonusu jde až na 12 měsíců (viz níže).
   let cm=0;
   {
     let m=_M, y=_Y;
-    for(let i=0;i<6;i++){
+    for(let i=0;i<12;i++){
       let pmm=m-1,pyy=y;if(pmm<0){pmm=11;pyy--;}
       const curT=getTx(m,y,D), prvT=getTx(pmm,pyy,D);
       const curE=expSum(curT), prvE=expSum(prvT), prvI=incSum(prvT);
@@ -1719,7 +1886,7 @@ function computeFinancialScore(D, _m, _y) {
       else break;
     }
   }
-  const consistencyBonus = (typeof msc_BONUS==='function') ? msc_BONUS(cm) : ([0,1,3,6,9,15,18,21,24,27,30][Math.min(10,cm)]||0); // v8.74: BONUS tabulka (0–30)
+  const consistencyBonus100 = mscInterpV2(SV2.bonus.kotvy, cm) ?? 0;   // 0–5, na škále 0–100
 
   // Trend label (pro dashboard kartu)
   const incImprove=totalInc>=prevInc, expImprove=totalExp<=prevExp, salImprove=curSal>=prevSal;
@@ -1727,59 +1894,67 @@ function computeFinancialScore(D, _m, _y) {
   const trendScore = prevInc>0?[5,12,20,25][posCount]:17;
   const trendLabel = trendScore>=20?'🟢 Pozitivní trend':trendScore>=12?'🟡 Stabilní trend':'🔴 Zhoršující se trend';
 
-  // ── CELKOVÝ VÝSLEDEK ─ v8.74 (TODO-159): plné škály
-  //   S1 75 + S2 100 + S3 50 + S4 35 + S5 50 = 310 b (+ bonus 30) → normalizace na 0–100.
-  // ── TODO-227: DYNAMICKÝ JMENOVATEL ──
-  //   Skóre = dosažené / DOSAŽITELNÉ. Složka, kterou nelze změřit, nevstupuje
-  //   ani do čitatele, ani do jmenovatele. Nový uživatel s příjmy a výdaji má
-  //   měřitelné jen S1 → 36/75 = 48/100 místo dřívějších 217/310 = 70/100.
-  //   Bonus se do jmenovatele nezapočítává (je to prémie navíc), ale strop drží.
+  // ── VÁŽENÝ PRŮMĚR (TODO-228) ──────────────────────────────────────
+  //   Nezměřitelná složka vypadne z čitatele I jmenovatele – váha se rozpustí
+  //   mezi zbylé v jejich vzájemném poměru. Matematicky totéž jako vážený
+  //   průměr počítaný jen přes dostupné složky (Σ vah vždy = 100 %).
   const _slozky = [
-    { k:'S1', avail:s1avail, score:score1, max:s1max },
-    { k:'S2', avail:s2avail, score:score2, max:s2max },
-    { k:'S3', avail:s3avail, score:score3, max:s3max },
-    { k:'S4', avail:s4avail, score:score4, max:s4max },
-    { k:'S5', avail:s5avail, score:score5, max:s5max },
+    { k:'S1', nazev:'cash flow',    avail:s1avail, sub:s1sub, w:SV2.vahy.S1 },
+    { k:'S2', nazev:'zadluženost',  avail:s2avail, sub:s2sub, w:SV2.vahy.S2 },
+    { k:'S3', nazev:'rezerva',      avail:s3avail, sub:s3sub, w:SV2.vahy.S3 },
+    { k:'S4', nazev:'spoření',      avail:s4avail, sub:s4sub, w:SV2.vahy.S4 },
+    { k:'S5', nazev:'rozpočet',     avail:s5avail, sub:s5sub, w:SV2.vahy.S5 },
   ];
-  const _live   = _slozky.filter(x=>x.avail);
-  const rawMax  = s1max + s2max + s3max + s4max + s5max;   // 310 – plná škála
-  const availMax = _live.reduce((a,x)=>a+x.max, 0);        // kolik lze dnes získat
-  const baseTotal = _live.reduce((a,x)=>a+x.score, 0);
-  const rawTotal = Math.min(availMax || rawMax, baseTotal + consistencyBonus);
-  //   Bez jediné měřitelné složky nemá skóre smysl → null, karta místo čísla
-  //   vypíše, co je potřeba doplnit.
-  const total = availMax > 0 ? Math.round(rawTotal / availMax * 100) : null;
+  const _live = _slozky.filter(x=>x.avail);
+  const availWeight = _live.reduce((a,x)=>a+x.w, 0);           // Σ vah = 100 → rovnou %
+  const coverage = availWeight;                                 // z kolika % je skóre podložené
+  const weightedSum = _live.reduce((a,x)=>a+x.w*x.sub, 0);
+  const total100raw = availWeight>0 ? weightedSum/availWeight : null;   // 0–100, vážený průměr
+  const total100 = total100raw===null ? null : Math.min(100, total100raw + consistencyBonus100);
   const missing = _slozky.filter(x=>!x.avail).map(x=>x.k);
-  const coverage = Math.round(availMax / rawMax * 100);    // z kolika % je skóre podložené
+  const missingNames = _slozky.filter(x=>!x.avail).map(x=>x.nazev);
 
-  // S16 (TODO-169): hodnocení přepočítáno na REÁLNÉ body z bodovacích tabulek (0–310).
-  //   Prahy = stejné poměry jako dřívější %: 90/75/60/45/30 % z 310 → 279/233/186/140/93 b.
-  //   `total` (0–100) zůstává interně pro kruh a ai.js.
-  //   TODO-227 (Milan): „tím se musí uzpůsobit i celkový výklad hodnocení –
-  //   taky musí být dynamický". Prahy se počítají z DOSAŽITELNÉHO maxima, ne
-  //   z pevných 310. Kdo má měřitelnou jen jednu složku, dostane hodnocení podle
-  //   toho, jak si v ní vede – ne podle toho, kolik složek mu chybí.
-  const _gMax = availMax || rawMax;
-  const grade = total === null ? {label:'Zatím nelze určit', emoji:'⏳', color:'#a8aec8'} :
-                rawTotal>=Math.round(_gMax*0.90)?{label:'Výborné',    emoji:'🏆',color:'#4ade80'}:
-                rawTotal>=Math.round(_gMax*0.75)?{label:'Velmi dobré',emoji:'⭐',color:'#60a5fa'}:
-                rawTotal>=Math.round(_gMax*0.60)?{label:'Dobré',      emoji:'👍',color:'#a78bfa'}:
-                rawTotal>=Math.round(_gMax*0.45)?{label:'Průměrné',   emoji:'📊',color:'#fbbf24'}:
-                rawTotal>=Math.round(_gMax*0.30)?{label:'Rizikové',   emoji:'⚠️',color:'#fb923c'}:
-                                                 {label:'Kritické',   emoji:'🚨',color:'#f87171'};
+  //   Práh pokrytí (TODO-228): pod ním appka NEUKÁŽE známku ani číslo – jinak
+  //   dostane nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), „Výborné".
+  const belowThreshold = coverage < SV2.prahPokryti;
+  const total = (total100===null || belowThreshold) ? null : Math.round(total100);
+
+  //   Milanovo rozhodnutí S22: zobrazení a historie zůstávají na staré škále
+  //   0–310 (×3,1) – žádný přepočet starých snímků, žádná svislá čára v grafu.
+  const SCALE = SV2.meritko310;
+  const rawMax = 310;
+  const rawTotal = total===null ? 0 : Math.round(total100 * SCALE);
+  const availMax = Math.round(coverage/100 * rawMax);
+  const consistencyBonus = Math.round(consistencyBonus100 * SCALE);   // pro UI text „+X bodů"
+
+  const grade = total === null
+    ? (belowThreshold && total100raw!==null
+        ? {label:'Zatím nemám dost dat na hodnocení', emoji:'⏳', color:'#a8aec8',
+           hint:'Doplň, co appka umí změřit, a skóre se objeví.'}
+        : {label:'Zatím nelze určit', emoji:'⏳', color:'#a8aec8'})
+    : (SV2.znamky.find(z=>total>=z.min) || SV2.znamky[SV2.znamky.length-1]);
+
+  // Body do skóre 0–310 na displeji – pevně zaokrouhlená maxima (93/78/62/46/31,
+  // součet přesně 310), viz _SCORING_V2.maxBody310.
+  const _dm = SV2.maxBody310;
+
+  //   baseTotal = výsledek PŘED konzistenčním bonusem, na téže škále 0–310
+  //   jako rawTotal (dřív to byl vážený součet w×sub, tedy 0–10 000 – nikde se
+  //   nezobrazoval, ale každý, kdo by ho vzal, by dostal nesmysl).
+  const baseTotal = total===null ? 0 : Math.round((total100raw||0) * SCALE);
 
   return {
     total, baseTotal, consistencyBonus, grade, rawTotal, rawMax,
-    availMax, coverage, missing,        // TODO-227: z čeho je skóre podložené
+    availMax, coverage, missing, missingNames,   // TODO-228: z čeho je skóre podložené
     components: [
-      {label:'💰 Cash flow',   score:score1, max:s1max, detail:s1label, avail:s1avail, hint:'Zapiš příjem a výdaje za tenhle měsíc.'},
+      {label:'💰 Cash flow',   score:Math.round((s1sub??0)*_dm.S1/100), max:_dm.S1, detail:s1label, avail:s1avail, hint:'Zapiš příjem a výdaje za tenhle měsíc.'},
       // FIX-309: „Ano, mám půjčku" bez zadané půjčky nechávalo uživatele bez kudy dál.
-      {label:'🏦 Zadluženost', score:score2, max:s2max, detail:s2label, avail:s2avail,
+      {label:'🏦 Zadluženost', score:Math.round((s2sub??0)*_dm.S2/100), max:_dm.S2, detail:s2label, avail:s2avail,
        hint:'Appka ví, že dluh máš, ale nezná ho.', action:"showPage('dluhy');", actionLabel:'Zadat půjčku →',
-       sub:[{label:'DTI',score:scoreDTI,max:_SCORING.max.DTI},{label:'DSTI',score:scoreDSTI,max:_SCORING.max.DSTI}]},
-      {label:'🐷 Rezerva',     score:score3, max:s3max, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
-      {label:'💎 Spoření',     score:score4, max:s4max, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
-      {label:'📊 Rozpočet',    score:score5, max:s5max, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
+       sub:[{label:'DTI',score:Math.round(dtiSub??0),max:100},{label:'DSTI',score:Math.round(dstiSub??0),max:100}]},
+      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
+      {label:'💎 Spoření',     score:Math.round((s4sub??0)*_dm.S4/100), max:_dm.S4, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
+      {label:'📊 Rozpočet',    score:Math.round((s5sub??0)*_dm.S5/100), max:_dm.S5, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
     ],
     trend:{score:trendScore,label:trendLabel,consistencyMonths:cm,bonus:consistencyBonus},
   };
@@ -1846,6 +2021,19 @@ function _scoreNextGrade(rawTotal, rawMax) {
   return null;
 }
 
+//  S23 (Milan): JEDNO MÍSTO, KDE SE ROZHODUJE, JAKÁ ŠKÁLA SE UKAZUJE.
+//  Dashboard to od v10.85 uměl (202 z 202 při 65% pokrytí), Měsíční report
+//  ale ukazoval 310 z 310 a k tomu nedostupné složky jako nulu — dvě různá
+//  čísla pod stejným názvem. Kdo potřebuje zobrazit skóre, volá tohle.
+function scoreZobrazeni(sc) {
+  if (!sc) return { tot: 0, max: 0, zuzeno: false };
+  const zuzeno = (sc.total !== null && sc.coverage < 100 && sc.availMax > 0);
+  const max = zuzeno ? sc.availMax : sc.rawMax;
+  const tot = zuzeno ? Math.min(max, Math.round(sc.rawTotal * max / sc.rawMax)) : sc.rawTotal;
+  return { tot, max, zuzeno, chybi: sc.rawMax - max };
+}
+window.scoreZobrazeni = scoreZobrazeni;
+
 function renderFinancialScore(D) {
   const el = document.getElementById('financialScoreCard'); if(!el) return;
   const sc = computeFinancialScore(D);
@@ -1855,11 +2043,25 @@ function renderFinancialScore(D) {
 
   const barColor = (score, max) => score/max>=0.8?'var(--income)':score/max>=0.5?'var(--debt)':'var(--expense)';
 
+  //  S23 (Milan): „DASHBOARD KECÁ – ŘÍKÁ, ŽE REZERVU A SPOŘENÍ NEPOČÍTÁ, A PŘITOM
+  //  UKAZUJE 310 / 310." Měl pravdu. V10.60 jsem půlkruhu vrátil pevných 310 kvůli
+  //  nesmyslu „285 / 171" – jenže ten vznikl tím, že se ZÚŽIL JEN JMENOVATEL.
+  //  Správně se musí na dosažitelnou škálu převést OBĚ čísla: při 65% pokrytí je
+  //  ve hře 202 bodů a uživatel má 202 z nich. Poměr (a tím známka i ručička)
+  //  zůstává stejný, jen číslo přestane tvrdit, že je plný počet. Zbylé body se
+  //  „odemknou", až půjde změřit, co chybí. Navazuje na FIX-309.
+  const _z = scoreZobrazeni(sc), _zuzeno = _z.zuzeno, gMax = _z.max, gTot = _z.tot;
+
   el.innerHTML = `<div class="fscore-card" style="background:linear-gradient(135deg,${bgColor},var(--surface));border-color:${borderColor}">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
       <!-- v9.43: obloukový ukazatel s pásmy známek -->
       <div class="fscore-gauge">
-        ${_scoreArcGauge(sc.rawTotal, sc.availMax || sc.rawMax, grade.color)}
+        <!-- v10.60 (TODO-228): gauge dostává VŽDY rawMax (310).
+             V v1 byl rawTotal součtem bodů jen za dostupné složky, takže
+             availMax byl správný jmenovatel. V v2 je rawTotal už
+             znormalizovaný vážený průměr ×3,1 – leží vždy na plné škále.
+             Podávat mu availMax znamenalo „285 / 171" a ručičku na dorazu. -->
+        ${_scoreArcGauge(gTot, gMax, grade.color)}
         <div class="fscore-zones">
           ${_FSCORE_ZONES.map(([a,b,c,lbl])=>{
             const on = lbl===grade.label;
@@ -1872,14 +2074,25 @@ function renderFinancialScore(D) {
         <div style="font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Finanční skóre</div>
         <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:${grade.color}">${grade.emoji} ${grade.label}</div>
         <div style="font-size:.74rem;color:#a8aec8;margin-top:4px">Celkové hodnocení vaší finanční situace</div>
-        ${(()=>{ const nx=_scoreNextGrade(sc.rawTotal, sc.availMax || sc.rawMax);
+        ${sc.total===null ? '' : (()=>{ const nx=_scoreNextGrade(gTot, gMax);
           return nx ? `<div style="font-size:.72rem;margin-top:5px;color:#c9cede">Do známky <b style="color:var(--text)">${nx.label}</b> chybí <b style="color:var(--text)">${nx.need}</b> ${nx.need===1?'bod':nx.need<5?'body':'bodů'}</div>`
-                    : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení</div>`; })()}
-        ${consistencyBonus>0?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
-        ${(sc.availMax && sc.availMax < sc.rawMax) ? `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
-           Škála je ${sc.availMax} místo ${sc.rawMax} bodů — ${sc.missing.length===1?'jedna složka se':'některé složky se'} zatím
-           nedá${sc.missing.length===1?'':'jí'} změřit, tak ${sc.missing.length===1?'ji':'je'} appka do hodnocení nepočítá.
-           Doplň, co chybí, a škála se zase natáhne.</div>` : ''}
+                    : `<div style="font-size:.72rem;margin-top:5px;color:var(--income)">🏆 Jsi v nejvyšším pásmu hodnocení${_zuzeno?' — z toho, co jde změřit':''}</div>`; })()}
+        ${(sc.total!==null && consistencyBonus>0)?`<div style="font-size:.68rem;margin-top:4px;color:var(--income)">🎯 Konzistentní trend: +${consistencyBonus} bodů (${trend.consistencyMonths} měs.)</div>`:''}
+        <!-- v10.60 (TODO-228): škála se už nezužuje (rawMax je vždy 310) –
+             místo toho se říká, z KOLIKA PROCENT je skóre podložené. -->
+        ${(()=>{
+          const chybi = (sc.missingNames||[]).join(', ');
+          if(sc.total===null && sc.coverage>0) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Zatím umím změřit jen ${sc.coverage} % z toho, co do skóre patří — na hodnocení je potřeba aspoň 50 %.
+             Chybí: ${chybi}. Doplň to a skóre se objeví.</div>`;
+          if(sc.total===null) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Zatím nemám co měřit. Začni tím, že zapíšeš příjem a výdaje za tenhle měsíc.</div>`;
+          if(sc.coverage<100) return `<div style="font-size:.7rem;margin-top:6px;color:#a8aec8;line-height:1.5">
+             Ve hře je zatím <b style="color:#c9cede">${gMax} z ${sc.rawMax} bodů</b> (${sc.coverage} %) — ${sc.missing.length===1?'složka':'složky'} <b style="color:#c9cede">${chybi}</b>
+             se ${sc.missing.length===1?'zatím nedá':'zatím nedají'} změřit, takže ${sc.missing.length===1?'její':'jejich'} body (${sc.rawMax-gMax}) nejsou ani přičtené, ani stržené.
+             Doplň, co chybí, a škála se rozšíří na plných ${sc.rawMax}.</div>`;
+          return '';
+        })()}
         <button class="btn btn-ghost btn-sm" style="margin-top:8px;font-size:.72rem" onclick="showPage('obraz',null)">📈 Podrobná analýza →</button>
       </div>
       <!-- 4 složky -->
@@ -2066,6 +2279,11 @@ function updatePaywallCtas() {
     // trial běží nebo je vyčerpaný → jediná smysluplná akce je platba
     cta.textContent = isTrial ? 'Pokračovat v Premium' : 'Získat Premium';
     cta.onclick = () => goPremium();
+    //  S23 (Play režim): tlačítko „Odemknout" nahradí text bez odkazu.
+    if (typeof isPlayApp === 'function' && isPlayApp()) {
+      const box = cta.parentElement;
+      if (box && !box.querySelector('.ff-play-info')) { cta.remove(); box.insertAdjacentHTML('beforeend', playInfoHTML(true)); }
+    }
     if (sub) sub.textContent = isTrial
       ? `✓ Trial běží ještě ${st.daysLeft} dní – teď platit nemusíš`
       : '✓ Data ti zůstala · zrušíš kdykoli';

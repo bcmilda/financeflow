@@ -1,4 +1,4 @@
-// FinanceFlow · v9.99 · review.js · 2026-08-22
+// FinanceFlow · v10.62 · review.js · 2026-09-12
 // ══════════════════════════════════════════════════════
 //  MĚSÍČNÍ REVIEW (TODO-198, S17.34, Milan)
 //  Hodnocení útrat 1–5 („Stálo to za to?"), aby appka poznala rozdíl mezi
@@ -158,12 +158,32 @@ function revRate(kind, id, value) {
   if (n) { save(); renderReview(); }
 }
 
+//  S22: DVĚ CESTY K JEDNÉ POZNÁMCE = JEDNA SE TIŠE ZTRATÍ.
+//  Původně tu byl prompt() ukládající JEDINOU poznámku do `t.priorityNote` –
+//  druhý zápis ten první přepsal. Level 1 (poznamky.js) umí zápisů kolik
+//  chceš, takže tlačítko vede tam a `priorityNote` se drží jen jako zrcadlo
+//  nejnovějšího zápisu (čte ho Detektor a souhrny).
+//
+//  Zároveň FIX: při prohlížení cizích dat funkce mlčky skončila – klik
+//  neudělal NIC a nikde nestálo proč. Jinde v kódu (assets.js) se v téže
+//  situaci aspoň napíše, co se děje.
 function revNote(kind, id) {
-  if (typeof viewingUid !== 'undefined' && viewingUid) return;
+  if (typeof viewingUid !== 'undefined' && viewingUid) {
+    if (typeof showToast === 'function') showToast('V cizích datech psát nelze');
+    return;
+  }
+  if (kind !== 'tx') {   // položky účtenky vlastní transakci nemají
+    if (typeof showToast === 'function') showToast('Poznámky jdou psát k transakci, ne k položce');
+    return;
+  }
+  if (typeof pznOtevri === 'function') { pznOtevri(id, 'review'); return; }
+
+  //  Záložní cesta, kdyby se poznamky.js nenačetl – radši jedna poznámka
+  //  než nefunkční tlačítko.
   const D = getData();
   const t = (D.transactions || []).find(x => x.id === id);
   const cur = t ? (t.priorityNote || '') : '';
-  const val = prompt('Poznámka – proč to (ne)stálo za to?\n(např. „narozeniny mámy", „koupil jsem zbytečně")', cur);
+  const val = prompt('Poznámka – proč to (ne)stálo za to?', cur);
   if (val === null) return;
   if (t) { t.priorityNote = val.trim(); save(); renderReview(); }
 }

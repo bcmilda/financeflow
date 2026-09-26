@@ -1,4 +1,4 @@
-// FinanceFlow · v10.14 · nakup.js · 2026-08-28
+// FinanceFlow · v11.03 · nakup.js · 2026-09-25
 // ══════════════════════════════════════════════════════
 //  NÁKUPNÍ SEZNAM + HLÍDAČ CEN + PLÁNY A CÍLE – FinanceFlow v6.49
 // ══════════════════════════════════════════════════════
@@ -16,6 +16,8 @@ function cileSwitchTab(t){ _cileTab = t; renderNakupCile(); }          // goalId
 
 // ── Normalizace názvu produktu (stejná logika jako receipts.js) ──
 function nakupNormKey(name) {
+  //  S23 (PLAN F1): stejný klíč jako ve zbytku appky.
+  if (typeof normName === 'function') return normName(name);
   return (name||'').toLowerCase()
     .replace(/\d+\s*(g|kg|ml|l|ks|cm|mm)\b/g, '')
     .replace(/[^a-z0-9áčďéěíňóřšťúůýž\s]/g, '')

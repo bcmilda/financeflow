@@ -1,4 +1,4 @@
-// FinanceFlow · v10.30 · helpers.js · 2026-09-02
+// FinanceFlow · v11.03 · helpers.js · 2026-09-25
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -226,13 +226,19 @@ window.parseTxTags = parseTxTags;
 //   Pravidlo: ptá-li se volající PŘÍMO na přesunovou kategorii, chce vidět, co do ní
 //   přiteklo → nefiltruj. Ptá-li se na výdajovou kategorii → přesun tam nepatří.
 //   Rozhoduje se podle ARGUMENTU, ne podle volajícího → žádné z 37 volání se nemění.
-const getActual=(catId,sub,m,y,data)=>{
+//  S23 (Milan, bod A plánu): PREDIKCE UMÍ I PŘÍJMY.
+//  getActual / getHistAvg / predictCat / computeYearForecast měly typ
+//  'expense' natvrdo, takže tabulka Predikce uměla jen výdaje. Přidán
+//  VOLITELNÝ poslední parametr `type` s výchozí hodnotou 'expense' –
+//  všechna stávající volání (desítky míst) se chovají úplně stejně.
+const getActual=(catId,sub,m,y,data,type)=>{
+  type = type || 'expense';
   const D=data||getData();
   const txs=D.transactions||[];
   // Split parents s children → exclude (children už pokrývají celou sumu ve svých kategoriích)
   const splitIdsWithChildren=new Set(txs.filter(t=>t.splitId&&t.splitParent).map(t=>t.splitId).filter(sid=>txs.some(c=>c.splitId===sid&&!c.splitParent)));
   const askedForTransferCat=!!(window._transferCatIds&&window._transferCatIds.has(catId));
-  return txs.filter(t=>t.type==='expense'&&!t.isBalancing&&t.catId===catId&&(!sub||t.subcat===sub)).filter(t=>askedForTransferCat||!isTransferTx(t)).filter(t=>{const d=new Date(t.date);return d.getMonth()===m&&d.getFullYear()===y;}).filter(t=>!(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))).reduce((a,t)=>a+txCZK(t,D),0);};
+  return txs.filter(t=>t.type===type&&!t.isBalancing&&t.catId===catId&&(!sub||t.subcat===sub)).filter(t=>askedForTransferCat||!isTransferTx(t)).filter(t=>{const d=new Date(t.date);return d.getMonth()===m&&d.getFullYear()===y;}).filter(t=>!(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))).reduce((a,t)=>a+txCZK(t,D),0);};
 // ══════════════════════════════════════════════════════
 //  v8.73 (TODO-158): MILANOVY BODOVACÍ TABULKY (dashboard_body.xlsx 1:1)
 //  S1 Cash flow 0–75 · DTI 0–60 · DSTI 0–40 · S3 Rezerva 0–50 · S4 Aktivní spoření 0–35.
@@ -254,6 +260,121 @@ function msc_DSTI(pct){ for(const[t,p]of _SCORING.DSTI){if(pct<=t)return p;} ret
 function msc_S3(months){ if(months==null)return null; for(const[t,p]of _SCORING.S3){if(months>=t)return p;} return 0; }
 function msc_S4(rate){ if(rate==null)return null; for(const[t,p]of _SCORING.S4){if(rate>=t)return p;} return 0; }
 function msc_BONUS(m){ let out=0; for(const[t,p]of _SCORING.BONUS){ if(m>=t) out=p; } return out; }
+
+// ══════════════════════════════════════════════════════
+//  v10.60 (TODO-228, S22): FINANČNÍ SKÓRE v2 – VÁHY + KOTVY.
+//  Používá VÝHRADNĚ computeFinancialScore() v premium.js. `_SCORING`/`msc_*`
+//  výše ZŮSTÁVAJÍ BEZE ZMĚNY – čte je i Dluhový stres index (debts.js) a
+//  Finanční obraz (projects.js expScore/savingScore/DTI-DSTI body), které
+//  s touhle změnou nesouvisí (SKILL 12: před opravou sdíleného výpočtu
+//  prověř všechny spotřebitele).
+//  Podklad: NAVRH-skore-v2.md, scoring-config-v2.json (odsouhlaseno S22
+//  s Milanem – váhy 30/25/20/15/10, práh pokrytí 50 %, S3 proti výdajům,
+//  bonus +5 do výsledku, zobrazení na staré škále 0–310 beze změny historie).
+// ══════════════════════════════════════════════════════
+const _SCORING_V2 = {
+  vahy: { S1:30, S2:25, S3:20, S4:15, S5:10 },   // musí dát dohromady 100
+  prahPokryti: 50,      // pod touto % podloženosti se známka/číslo nezobrazí
+  meritko310: 3.1,       // Milanovo rozhodnutí S22: zobrazovat na škále 0–310
+  // pevně zaokrouhlená maxima pro zobrazení složek – součet přesně 310
+  // (30/25/20/15/10 % × 3,1 = 93/77,5/62/46,5/31 → zaokrouhleno na 93/78/62/46/31)
+  maxBody310: { S1:93, S2:78, S3:62, S4:46, S5:31 },
+  S1:  [ {x:0.5,b:100},{x:0.65,b:85},{x:0.8,b:65},{x:0.9,b:45},{x:1.0,b:25},{x:1.1,b:10},{x:1.25,b:0} ],
+  DTI: [ {x:0,b:100},{x:15,b:97},{x:100,b:80},{x:200,b:60},{x:350,b:35},{x:600,b:12},{x:900,b:0} ],
+  DSTI:[ {x:0,b:100},{x:10,b:85},{x:20,b:65},{x:30,b:45},{x:40,b:25},{x:50,b:10},{x:60,b:0} ],
+  podilDTI: 60, podilDSTI: 40,       // S2 = DTI×60 % + DSTI×40 %, poměr zachován z v1
+  S3:  [ {x:0,b:0},{x:1,b:25},{x:3,b:60},{x:6,b:85},{x:12,b:100} ],   // proti VÝDAJŮM (S22)
+  S4:  [ {x:0,b:0},{x:5,b:30},{x:10,b:55},{x:20,b:80},{x:30,b:100} ],
+  S5:  [ {x:0,b:0},{x:50,b:40},{x:75,b:70},{x:90,b:90},{x:100,b:100} ],
+  bonus: { max:5, kotvy:[ {x:0,b:0},{x:3,b:2},{x:6,b:3},{x:12,b:5} ] },
+  znamky: [   // sestupně podle min – total v procentech (0–100)
+    {min:90,label:'Výborné',    emoji:'🏆',color:'#4ade80'},
+    {min:75,label:'Velmi dobré',emoji:'⭐',color:'#60a5fa'},
+    {min:60,label:'Dobré',      emoji:'👍',color:'#a78bfa'},
+    {min:45,label:'Průměrné',   emoji:'📊',color:'#fbbf24'},
+    {min:30,label:'Rizikové',   emoji:'⚠️',color:'#fb923c'},
+    {min:0, label:'Kritické',   emoji:'🚨',color:'#f87171'},
+  ],
+};
+// ══════════════════════════════════════════════════════
+//  v10.68 (S22): KONFIGURACE FINANČNÍHO OBRAZU — váhy + kotvy
+//  Obraz je JINÉ číslo než Finanční skóre: skóre měří ÚROVEŇ („jak na tom
+//  jsem"), Obraz měří ZMĚNU za 6 (nebo 12) měsíců („kam se hýbu"). Proto se
+//  smí obojí opírat o stejnou veličinu — rezerva jako stav a rezerva jako
+//  trend jsou dvě různé informace, ne dvojí započtení.
+//
+//  Základ 100, rozsah složek −100..+100, výsledek 0–200. Neořezává se:
+//  hodnota nad 200 je legitimní a stupnice ji ukáže jako „za normálem".
+//  (Stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo
+//  110 a posledních deset bodů nikdo nikdy neviděl.)
+//
+//  Asymetrie je ve SKLONU křivky, ne ve stropu: propad se ke svému stropu
+//  dostane rychleji než zlepšení. Ve stropu by rozbila aritmetiku součtu.
+//
+//  Kotvy jsou záchytné body; mezi nimi se hodnota dopočítá přímkou
+//  (mscInterpV2), takže růst o 6 % a o 60 % už nedostane stejné body jako
+//  ve staré schodovité verzi.
+// ══════════════════════════════════════════════════════
+const _OBRAZ_V1 = {
+  zaklad: 100,            // „nic se nezměnilo" — u metriky ZMĚNY je nula poctivý stav
+  min: 0, max: 200,       // zobrazení; hodnota mimo rozsah se NEOŘEZÁVÁ
+  prahPokryti: 40,        // níž než u skóre (50 %) – chybějící historie je tu běžná
+  minSlozek: 2,           // ...ale jedna složka na hodnocení vývoje nestačí
+  vahy: { prijem:30, styl:25, jmeni:30, koncentrace:15 },   // musí dát 100
+
+  //  💰 Reálný růst příjmu (% ročně PO očištění o inflaci).
+  //  Referenci (kde je nula) řeší obrazInflaceRef(): osobní inflace z účtenek
+  //  → ČNB → pevná 3 %. Bez ní by metrika chválila každé přidání, i když
+  //  z něj reálně ubývá.
+  prijem: [ {x:-10,b:-100},{x:-3,b:-60},{x:0,b:0},{x:3,b:40},{x:7,b:75},{x:15,b:100} ],
+
+  //  🛒 Dopad životního stylu (změna počtu měsíců, které tě rezerva uživí).
+  styl: [ {x:-2,b:-100},{x:-0.5,b:-50},{x:0,b:0},{x:0.5,b:35},{x:2,b:80},{x:4,b:100} ],
+
+  //  💎 Net Worth Momentum – uvnitř 70 % „proti výdajům" + 30 % zrychlení.
+  //  Kotvy drží projects.js (_NWM_KOTVY_*), sem patří jen váha složky.
+
+  //  📊 Koncentrační riziko (podíl největší kategorie na výdajích).
+  //  POZOR: jediná složka měřící STAV, ne změnu. Vědomá výjimka – stabilních
+  //  60 % v jedné kategorii je riziko bez ohledu na to, jestli se to hnulo.
+  //  Kotvy počítají s tím, že bydlení běžně dělá 25–30 % výdajů české
+  //  domácnosti, takže to má vycházet mírně kladně, ne jako poplach.
+  koncentrace: [ {x:20,b:100},{x:30,b:30},{x:35,b:0},{x:50,b:-60},{x:70,b:-100} ],
+
+  //  💪 Bonus za úsilí (přesčasy) – 0..15, NIKDY záporný, není složkou
+  //  váženého průměru. Kotvy drží projects.js (_USILI_KOTVY).
+  bonusUsiliMax: 15,
+
+  znamky: [   // sestupně podle min, na škále 0–200
+    {min:170,label:'Výrazný posun vpřed', emoji:'🚀',color:'#4ade80'},
+    {min:135,label:'Zlepšuješ se',        emoji:'📈',color:'#60a5fa'},
+    {min:105,label:'Mírné zlepšení',      emoji:'🙂',color:'#a78bfa'},
+    {min:95, label:'Držíš krok',          emoji:'➖',color:'#a8aec8'},
+    {min:65, label:'Mírné zhoršení',      emoji:'⚠️',color:'#fbbf24'},
+    {min:30, label:'Zhoršuješ se',        emoji:'🔻',color:'#fb923c'},
+    {min:0,  label:'Výrazný propad',      emoji:'🚨',color:'#f87171'},
+  ],
+};
+
+// Lineární interpolace mezi kotvami – nahrazuje schodovité pásmo jedním
+// hladkým číslem (rozdíl 0,1 % už nepřeskočí celý bod dolů/nahoru).
+// Kotvy MUSÍ být seřazené vzestupně podle x; b může podle "směru" složky
+// klesat (nižší je lepší) i růst (vyšší je lepší) – interpolace to neřeší,
+// jen spojuje sousední body přímkou.
+function mscInterpV2(kotvy, x){
+  if(x==null || !kotvy || !kotvy.length) return null;
+  if(x<=kotvy[0].x) return kotvy[0].b;
+  const last=kotvy[kotvy.length-1];
+  if(x>=last.x) return last.b;
+  for(let i=0;i<kotvy.length-1;i++){
+    const a=kotvy[i], c=kotvy[i+1];
+    if(x>=a.x && x<=c.x){
+      const t=(x-a.x)/(c.x-a.x);
+      return a.b + t*(c.b-a.b);
+    }
+  }
+  return last.b;
+}
 
 // v8.72 (FIX-187): PŘÍJMOVÁ obdoba getActual – FFR a Diverzifikace příjmů dřív používaly
 // getActual (jen expense) → pasivní příjem vždy 0 a jediným „zdrojem příjmu" byla income
@@ -491,7 +612,8 @@ function fxLossSummary(txs, D){
 //   plošné `!t.splitParent` by zahodilo i rodiče bez dětí, což je normální výdaj.
 //   ⚠️ isTransferTx se ZÁMĚRNĚ nefiltruje ani zde, ani v getActual() – obě funkce musí
 //   zůstat zrcadlové. Přesuny uvnitř kategorií typu 'both' řeší TODO-212 pro OBĚ najednou.
-function getHistAvg(catId,sub,forM,forY,data){
+function getHistAvg(catId,sub,forM,forY,data,type){
+  type = type || 'expense';
   const D=data||getData();
   const txs=D.transactions||[];
   const splitIdsWithChildren=new Set(txs.filter(t=>t&&t.splitId&&t.splitParent).map(t=>t.splitId)
@@ -499,7 +621,7 @@ function getHistAvg(catId,sub,forM,forY,data){
   const askedForTransferCat=!!(window._transferCatIds&&window._transferCatIds.has(catId));
   const byMonth={};
   txs.filter(t=>{
-    if(!t||t.type!=='expense'||t.catId!==catId)return false;
+    if(!t||t.type!==type||t.catId!==catId)return false;
     if(t.isBalancing)return false;
     if(!askedForTransferCat&&isTransferTx(t))return false;   // TODO-212 – stejné pravidlo jako getActual
     if(t.splitId&&t.splitParent&&splitIdsWithChildren.has(t.splitId))return false;
@@ -515,19 +637,23 @@ function getHistAvg(catId,sub,forM,forY,data){
   if(!vals.length)return null;
   return vals.reduce((a,b)=>a+b,0)/vals.length;
 }
-function predictCat(catId,sub,m,y,data){
+function predictCat(catId,sub,m,y,data,type){
+  type = type || 'expense';
   const D=data||getData();
-  let avg=getHistAvg(catId,sub,m,y,D);
+  let avg=getHistAvg(catId,sub,m,y,D,type);
   if(avg===null){
     // FIX-252: i fallback (kategorie bez historie) musí přes txCZK a bez vyrovnání
-    const curExp=getActual(catId,sub,S.curMonth,S.curYear,D);
+    const curExp=getActual(catId,sub,S.curMonth,S.curYear,D,type);
     if(!curExp)return null;
     avg=curExp;
   }
-  const seasMult=SEASON[m]?.mult||1;
+  //  S23: sezónnost je kalibrovaná na VÝDAJE (prosinec dražší apod.).
+  //  Na příjmy ji pouštět nesmíme – výplata v prosinci není o 12 % vyšší jen
+  //  proto, že je prosinec. Stejně tak dárky k narozeninám jsou výdaj.
+  const seasMult = type==='income' ? 1 : (SEASON[m]?.mult||1);
   let bdayBoost=0;
   const cat=getCat(catId,D.categories);
-  if(cat.name&&cat.name.toLowerCase().includes('dárek')){
+  if(type!=='income' && cat.name&&cat.name.toLowerCase().includes('dárek')){
     const bdays=(D.birthdays||[]).filter(b=>b.month-1===m);
     bdayBoost=bdays.reduce((a,b)=>a+(b.gift||0),0);
   }
@@ -538,7 +664,8 @@ function predictCat(catId,sub,m,y,data){
 //  YEAR FORECAST – součet skutečnosti (minulé+aktuální měsíce) + predikce (budoucí měsíce)
 //  Vrací "Předpoklad YTD" – kolik kategorie utratí za celý rok
 // ══════════════════════════════════════════════════════
-function computeYearForecast(catId, sub, year, data) {
+function computeYearForecast(catId, sub, year, data, type) {
+  type = type || 'expense';
   const D = data || getData();
   let total = 0;
   for (let m = 0; m < 12; m++) {
@@ -546,10 +673,10 @@ function computeYearForecast(catId, sub, year, data) {
     const cur = isCur(m, year);
     if (past || cur) {
       // Použij skutečnost
-      total += getActual(catId, sub, m, year, D) || 0;
+      total += getActual(catId, sub, m, year, D, type) || 0;
     } else {
       // Použij predikci pro budoucí měsíce
-      total += predictCat(catId, sub, m, year, D) || 0;
+      total += predictCat(catId, sub, m, year, D, type) || 0;
     }
   }
   return Math.round(total);
@@ -780,6 +907,53 @@ function sectionCard(title, bodyHtml, opts = {}) {
 }
 
 // Bezpečný escape pro vkládání textu do HTML (sdílený helper).
+// ══════════════════════════════════════════════════════
+//  S23 (PLAN-mapa-produktu, F1): JEDNA NORMALIZACE NÁZVŮ PRO CELOU APPKU
+//  Dosud se klíč položky počítal na devíti místech ve čtyřech různých verzích
+//  (jedna neřešila jednotky vůbec, jiná ořezávala na 25 nebo 40 znaků, každá
+//  měla jiný seznam jednotek). Stejná položka proto žila pod několika klíči –
+//  co sis namapoval v editoru, sledování cen nenašlo.
+//
+//  normName()  → klíč BEZ množství: „ROHLÍK 43G" i „Rohlik 43 g" → „rohlik"
+//  normQty()   → množství zvlášť: {hodnota:43, jednotka:'g'} (NEZAHAZUJE se,
+//                shrinkflace i cena za kg ho potřebují)
+//  normKey()   → klíč VČETNĚ množství pro případy, kde jsou různá balení
+//                různé výrobky: „rohlik 43g"
+// ══════════════════════════════════════════════════════
+const NORM_JEDNOTKY_RE = /(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|dl|cl|ml|ks|x|cm|mm|m)\b/;
+const NORM_JEDNOTKY_RE_G = /\d+(?:[.,]\d+)?\s*(kg|g|mg|l|dl|cl|ml|ks|x|cm|mm|m)\b/g;
+
+function normQty(text) {
+  const m = String(text || '').toLowerCase().replace(',', '.').match(NORM_JEDNOTKY_RE);
+  if (!m) return null;
+  let h = parseFloat(m[1]), j = m[2];
+  if (j === 'kg') { h *= 1000; j = 'g'; }
+  else if (j === 'mg') { h /= 1000; j = 'g'; }
+  else if (j === 'l') { h *= 1000; j = 'ml'; }
+  else if (j === 'dl') { h *= 100; j = 'ml'; }
+  else if (j === 'cl') { h *= 10; j = 'ml'; }
+  else if (j === 'm') { h *= 100; j = 'cm'; }
+  else if (j === 'mm') { h /= 10; j = 'cm'; }
+  if (!isFinite(h) || h <= 0) return null;
+  return { hodnota: Math.round(h * 1000) / 1000, jednotka: j };
+}
+
+function normName(text) {
+  return String(text || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')      // diakritika pryč
+    .replace(NORM_JEDNOTKY_RE_G, ' ')                        // množství pryč
+    .replace(/\d+(?:[.,]\d+)?\s*%/g, ' ')                   // „mléko 1,5 %" → mléko
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+function normKey(text) {
+  const n = normName(text), q = normQty(text);
+  return q ? n + ' ' + q.hodnota + q.jednotka : n;
+}
+
+window.normName = normName; window.normQty = normQty; window.normKey = normKey;
+
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

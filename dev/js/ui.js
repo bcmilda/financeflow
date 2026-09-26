@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · ui.js · 2026-09-04
+// FinanceFlow · v10.89 · ui.js · 2026-09-21
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -62,6 +62,9 @@ function renderPage(){
   if(curPage==='import')renderImport();
   if(curPage==='kalendar')renderKalendar();
   if(curPage==='denik')renderDenik();
+  //  S22: stránka poznámek se překresluje i při změně dat (Firebase onValue),
+  //  aby zápis z jiného zařízení doputoval sem, ne jen do Deníku.
+  if(curPage==='poznamky' && typeof renderPoznamky==='function') renderPoznamky();
   if(curPage==='komunita')renderKomunita();
   if(curPage==='oAplikaci') {
     // Inicializuj share link bar
@@ -80,6 +83,15 @@ function renderPage(){
   // S17.3 (TODO-186): automatický snímek predikce pro nový měsíc (základ trackingu Přesnost).
   // Jednorázově per session (guard uvnitř), ne při prohlížení partnera.
   if(typeof denikAutoSnapshot==='function') denikAutoSnapshot();
+  //  S22: zachytí změnu objemu šablon. Běží při každém překreslení (ne 1×
+  //  za session jako snímek), protože šablonu lze upravit kdykoli a zápis
+  //  musí následovat hned – log se ale rozšíří, jen když se objem SKUTEČNĚ
+  //  změnil, takže to nic nestojí.
+  if(typeof fixedLogTouch==='function') fixedLogTouch();
+  //  S22: oficialni inflace z CSU (pres Worker). Neceka se na ni - dobehne na
+  //  pozadi a projevi se pri pristim prekresleni. Bez site se nic nedeje,
+  //  obrazInflaceRef() ma zalohu (osobni inflace, pak pevna 3 %).
+  if(typeof nactiInflaciCSU==='function') nactiInflaciCSU();
   // TODO-093: synchronizuj podpis i po přímém renderu (showPage, changeMonth, save),
   // aby následný debounce zbytečně nepřekresloval.
   if(typeof _dataSig === 'function') _lastRenderSig = _dataSig();
@@ -112,7 +124,13 @@ function _dataSig(){
       dsum: (S.debts||[]).reduce((s,x)=>s+(x.remaining||0),0),
       // FIX (S11): wallet balances + virtuální cíle + tagy/subcat (jinak se změny neprojeví)
       wsum: (S.wallets||[]).reduce((s,w)=>s+(w.balance||0),0),
-      gsum: (S.goals||[]).reduce((s,g)=>s+(g.saved||0)+(g.target||0),0),
+      //  FIX (audit S22): DŘÍV `S.goals` – POLE, KTERÉ V APLIKACI NEEXISTUJE.
+      //  Byl to jediný výskyt v celém kódu; virtuální cíle žijí v `S.wishes`
+      //  (savedAmount, done, doneAt – viz nakup.js). `gsum` proto vycházelo
+      //  vždycky 0 a do podpisu nepřispívalo ničím, takže úprava cíle nemusela
+      //  překreslit stránku: „upravil jsem a nic se nestalo, dokud jsem
+      //  nepřepnul jinam".
+      gsum: (S.wishes||[]).reduce((s,w)=>s+(w.savedAmount||0)+(w.targetAmount||0)+(w.monthlyTarget||0)+(w.done?1:0),0),
       tsum: (S.transactions||[]).reduce((s,t)=>s+((Array.isArray(t.tags)?t.tags.join():t.tags||'')+(t.subcat||'')).length,0),
     });
   } catch { return String(Date.now()); }
@@ -429,6 +447,24 @@ function saveOnboarding(){
 //  kroků nebo ručním zavřením (localStorage ff_onboardHide).
 //  Kvalitní vstupní data = přesný radar, runway i COICOP.
 // ══════════════════════════════════════════════════════
+//  S23 (Milan): HOTOVÉ POLOŽKY CHECKLISTU SE SBALÍ. Přeškrtnuté řádky zabíraly
+//  půl karty a to, co zbývá udělat, se mezi nimi ztrácelo. Výchozí = sbaleno,
+//  jedním klepnutím jdou rozbalit; volba se pamatuje zvlášť pro každý checklist.
+function _chkFoldOpen(key){ try{ return localStorage.getItem('ff_chkDone_'+key)==='1'; }catch(e){ return false; } }
+function chkFoldToggle(key){
+  try{ localStorage.setItem('ff_chkDone_'+key, _chkFoldOpen(key)?'0':'1'); }catch(e){}
+  if(typeof forceRender==='function') forceRender(); else if(typeof renderPage==='function') renderPage();
+}
+window.chkFoldToggle = chkFoldToggle;
+function _chkFoldHTML(key, doneRows){
+  if(!doneRows.length) return '';
+  const open = _chkFoldOpen(key);
+  return `<div onclick="chkFoldToggle('${key}')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-top:4px;border-radius:9px;cursor:pointer;color:#a8aec8;font-size:.74rem;font-weight:600;border:1px dashed var(--border)">
+      <span>✅ Hotovo (${doneRows.length})</span>
+      <span style="margin-left:auto;font-size:.7rem">${open?'skrýt ▴':'zobrazit ▾'}</span>
+    </div>${open?`<div style="margin-top:5px">${doneRows.join('')}</div>`:''}`;
+}
+
 function renderOnboardingCard(D){
   const el = document.getElementById('onboardCard'); if(!el) return;
   let hidden = false;
@@ -451,6 +487,19 @@ function renderOnboardingCard(D){
       go:"openAutoLimitsModal()" },
     { icon:'👨‍👩‍👧', label:'Vyplň složení domácnosti', sub:'pro srovnání s průměry ČSÚ',
       done: (parseInt(st.household_adults)||0) > 0, go:"showPage('nastaveni')" },
+    //  S23 (Milan): „nastav u příjmů charakter a stabilitu" patří sem, ne do
+    //  textu na kartě Příští měsíc. Hlídají se jen příjmové kategorie, do kterých
+    //  už něco PŘIŠLO – výchozí sada stabilitu má, chybí typicky u vlastních.
+    //  Bez ní Příští měsíc neví, jestli s příjmem počítat.
+    (()=>{
+      const pouzite = new Set((D.transactions||[]).filter(t=>t && t.type==='income').map(t=>t.catId||t.category));
+      const bez = (D.categories||[]).filter(c=>c && (c.type==='income'||c.type==='both') && pouzite.has(c.id)
+        && c.stable===undefined && (c.stabilityWeight===undefined || c.stabilityWeight===null));
+      return { icon:'💼', label:'Nastav stabilitu u příjmových kategorií',
+        sub: bez.length ? `chybí u „${bez.slice(0,2).map(c=>c.name).join('“, „')}“ — Příští měsíc neví, jestli s tím příjmem počítat`
+                        : 'podle ní Příští měsíc pozná, s jakým příjmem počítat',
+        done: bez.length===0, go:"showPage('kategorie')" };
+    })(),
     // TODO-236 (S21, Milan): co se v onboardingu přeskočí, má skončit tady.
     //   Pro uživatele, kteří onboardingem nikdy neprošli, je `onboardingSkipped`
     //   undefined → krok je rovnou hotový a nikoho neotravuje (SKILL 31:
@@ -478,7 +527,7 @@ function renderOnboardingCard(D){
       <div style="height:7px;background:var(--surface3);border-radius:5px;overflow:hidden;margin-bottom:12px">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#60a5fa,#4ade80);transition:width .3s"></div>
       </div>
-      ${steps.map(s=>`
+      ${(()=>{ const _r = s=>`
       <div onclick="${s.done?'':s.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${s.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}">
         <span style="font-size:1rem;flex-shrink:0">${s.done?'✅':s.icon}</span>
         <div style="flex:1;min-width:0">
@@ -486,7 +535,8 @@ function renderOnboardingCard(D){
           ${s.done?'':`<div style="font-size:.68rem;color:#a8aec8">${s.sub}</div>`}
         </div>
         ${s.done?'':'<span style="color:var(--text3);flex-shrink:0">›</span>'}
-      </div>`).join('')}
+      </div>`;
+        return steps.filter(s=>!s.done).map(_r).join('') + _chkFoldHTML('onboard', steps.filter(s=>s.done).map(_r)); })()}
     </div>
   </div>`;
 }
@@ -512,9 +562,24 @@ function renderMonthlyChecklist(D){
   const txCount = monthTxs.length;
   const has20 = txCount >= 20;
 
+  //  S22 (Milan): OTÁZKA NA PŘESČASY. Ptá se každý měsíc, protože odpověď se
+  //  mění měsíc od měsíce a jinde ji appka nemá – výplatnice nahrává málokdo
+  //  a do pracovního kalendáře si přesčasy zapisuje ještě míň lidí.
+  //  Odpovědí je i „žádný": nula znamená „neměl jsem", kdežto NEodpovězeno
+  //  znamená „nevíme" a do průměru se nepočítá (viz obrazUsiliBonus).
+  //  Rychlé volby místo psaní čísla – u bonusu nezáleží na přesnosti a psát
+  //  čísla na mobilu je otrava.
+  const otH = (typeof otGet==='function') ? otGet() : null;
+  const otAnswered = otH !== null;
+  //  Z výplatnice appka přesčasy zná sama – tehdy se neptá, jen oznámí.
+  const otZPasky = (typeof otZdroj==='function') && otZdroj() === 'payslip';
   const tasks = [
     { icon:'💰', label:'Přidej výplatu / hlavní příjem', sub:'tento měsíc', done:hasSalary, go:"showPage('transakce')" },
     { icon:'📝', label:`Zapiš aspoň 20 transakcí (${txCount}/20)`, sub:'pro přesné statistiky a skóre', done:has20, go:"showPage('transakce')" },
+    { icon:'💪', label: otAnswered
+        ? (otH>0 ? `Přesčasy: ${otH} h navíc${otZPasky?' (z výplatnice)':''}` : `Přesčasy: žádné${otZPasky?' (z výplatnice)':''}`)
+        : 'Měl jsi tento měsíc přesčas?',
+      sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:!otZPasky },
   ];
   const doneCount = tasks.filter(t=>t.done).length;
   if(doneCount === tasks.length){ el.innerHTML=''; return; }  // vše hotovo → skryj
@@ -531,15 +596,32 @@ function renderMonthlyChecklist(D){
       <div style="height:7px;background:var(--surface3);border-radius:5px;overflow:hidden;margin-bottom:12px">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#4ade80,#22c55e);transition:width .3s"></div>
       </div>
-      ${tasks.map(t=>`
-      <div onclick="${t.done?'':t.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${t.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}">
+      ${(()=>{ const _r = t=>{
+        //  Úkol s volbami se neproklikává jinam – odpovídá se rovnou tady.
+        if(t.otask && !t.done) return `
+      <div style="padding:8px 10px;border-radius:9px;margin-bottom:5px;background:var(--surface2)">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <span style="font-size:1rem;flex-shrink:0">${t.icon}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.82rem;font-weight:600">${t.label}</div>
+            <div style="font-size:.68rem;color:#a8aec8">${t.sub}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+          ${[['žádný',0],['do 10 h',5],['10–25 h',17],['víc než 25 h',32]].map(([lbl,h])=>
+            `<button onclick="otSet(${h})" style="flex:1;min-width:72px;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.72rem;font-weight:600;cursor:pointer">${lbl}</button>`).join('')}
+        </div>
+      </div>`;
+        return `
+      <div onclick="${t.done?(t.otask?'otSet(null)':''):t.go}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;min-width:0;${t.done?'opacity:.5':'background:var(--surface2);cursor:pointer'}${t.done&&t.otask?';cursor:pointer':''}">
         <span style="font-size:1rem;flex-shrink:0">${t.done?'✅':t.icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:.82rem;font-weight:600;${t.done?'text-decoration:line-through;color:#a8aec8':''}">${t.label}</div>
           ${t.done?'':`<div style="font-size:.68rem;color:#a8aec8">${t.sub}</div>`}
         </div>
-        ${t.done?'':'<span style="color:var(--text3);flex-shrink:0">›</span>'}
-      </div>`).join('')}
+        ${t.done?(t.otask?'<span style="color:#a8aec8;font-size:.66rem;flex-shrink:0">změnit</span>':''):'<span style="color:var(--text3);flex-shrink:0">›</span>'}
+      </div>`;};
+        return tasks.filter(t=>!t.done).map(_r).join('') + _chkFoldHTML('monthly', tasks.filter(t=>t.done).map(_r)); })()}
     </div>
   </div>`;
 }
@@ -1305,10 +1387,17 @@ function renderSuhrnReport(expCats,totalCur,totalPrev,pm,py,D,targetId){
   let html=`<div class="card" style="border-left:4px solid ${totalDiff===null?'var(--bank)':totalDiff<=-5?'var(--income)':totalDiff>5?'var(--expense)':'var(--debt)'}">
     <div class="card-header" style="background:${totalDiff===null?'transparent':totalDiff<=-5?'var(--income-bg)':totalDiff>5?'var(--expense-bg)':'var(--debt-bg)'}">
       <span class="card-title">${totalDiff===null?'📊 Přehled měsíce':totalDiff<=-5?'✅ Skvělý výsledek!':totalDiff>5?'⚠️ Výdaje vzrostly':'✔️ Výdaje stabilní'} – ${CZ_M[S.curMonth]} ${S.curYear}</span>
-      <span style="font-weight:700;color:${totalDiff<=0?'var(--income)':totalDiff<=5?'var(--debt)':'var(--expense)'}">${totalDiff>0?'+':''}${totalDiff}% vs ${CZ_M[pm]}</span>
+      ${totalDiff===null
+        ? `<span style="font-weight:600;font-size:.74rem;color:#a8aec8">${CZ_M[pm]}: bez výdajů</span>`
+        : `<span style="font-weight:700;color:${totalDiff<=0?'var(--income)':totalDiff<=5?'var(--debt)':'var(--expense)'}">${totalDiff>0?'+':''}${totalDiff}% vs ${CZ_M[pm]}</span>`}
     </div>
     <div class="card-body">`;
-  if(totalDiff<=-5)html+=`<div class="insight-item good"><div class="insight-icon">🎉</div><div class="insight-text">Celkové výdaje klesly o <strong>${Math.abs(totalDiff)}%</strong> – ušetřeno <strong>${fmt(Math.abs(totalSaved))}</strong> oproti ${CZ_M[pm]}.</div></div>`;
+  //  S23 (Milan): „null% vs Srpen" a „Výdaje stabilní. Odchylka null%".
+  //  Bez výdajů v minulém měsíci je totalDiff === null – a v JS platí
+  //  `null <= 5`, takže to propadlo do větve „stabilní". Absence základny
+  //  není nulová změna (SKILL 31): řekne se, že není s čím srovnávat.
+  if(totalDiff===null)html+=`<div class="insight-item"><div class="insight-icon">🆕</div><div class="insight-text"><strong>Zatím není s čím srovnávat.</strong> V měsíci ${CZ_M[pm]} nemáš žádné výdaje, takže procenta spočítat nejde. Tento měsíc zatím <strong>${fmt(totalCur)}</strong>; srovnání se rozjede příští měsíc.</div></div>`;
+  else if(totalDiff<=-5)html+=`<div class="insight-item good"><div class="insight-icon">🎉</div><div class="insight-text">Celkové výdaje klesly o <strong>${Math.abs(totalDiff)}%</strong> – ušetřeno <strong>${fmt(Math.abs(totalSaved))}</strong> oproti ${CZ_M[pm]}.</div></div>`;
   else if(totalDiff<=5)html+=`<div class="insight-item warn"><div class="insight-icon">↔️</div><div class="insight-text"><strong>Výdaje stabilní.</strong> Odchylka ${totalDiff>0?'+':''}${totalDiff}% – v pásmu ±5%.</div></div>`;
   else html+=`<div class="insight-item bad"><div class="insight-icon">📈</div><div class="insight-text"><strong>Výdaje vzrostly o ${totalDiff}%</strong> (+${fmt(totalCur-totalPrev)} oproti ${CZ_M[pm]}).</div></div>`;
   // S17 (Milan): kompaktní grid místo celořádkových karet – 1 kategorie = malá dlaždice,
@@ -1450,7 +1539,13 @@ function renderTxMonthTable(){
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+    <!--  S23 (Milan): TABULKA NA MOBILU BYLA USEKNUTÁ A NEŠLA POSUNOUT.
+          Pět sloupců potřebuje minimálně 460 px, telefon má ~380 px. Mřížka
+          přetekla z karty a uřízla sloupec Saldo. Nově je hlavička, řádky
+          i součtový řádek v JEDNOM posuvném rámu – posouvají se společně,
+          takže hlavička nad daty pořád sedí. -->
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px">
+    <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                 background:var(--surface2);border-radius:9px 9px 0 0;border:1px solid var(--border);border-bottom:none;font-weight:700;font-size:.72rem;color:#c9cede">
       ${bunka(`<span onclick="setTxTableDir()" style="cursor:pointer;user-select:none" title="Přepnout řazení">📅 Měsíc ${_txTableDir==='desc'?'↓':'↑'}</span>`)}
       ${bunka('Záznamů', 'text-align:right')}
@@ -1462,7 +1557,7 @@ function renderTxMonthTable(){
       ${rows.map((r,i)=>{
         const saldo = r.inc - r.exp;
         const podil = Math.round(r.n/maxN*100);
-        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+        return `<div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                      align-items:center;background:${i%2?'transparent':'rgba(255,255,255,.02)'}">
           ${bunka(`<span style="font-weight:600">${CZ_M[r.m]} ${r.y}</span>`)}
           ${bunka(`<span style="display:inline-block;min-width:26px;text-align:right;font-weight:700">${r.n}</span>
@@ -1473,7 +1568,7 @@ function renderTxMonthTable(){
           ${bunka(`<span style="font-weight:700;color:${saldo>=0?'var(--income)':'var(--expense)'}">${fmtB(saldo)}</span>`, 'text-align:right')}
         </div>`;
       }).join('')}
-      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);
+      <div style="display:grid;grid-template-columns:minmax(96px,1.3fr) minmax(70px,1fr) minmax(84px,1fr) minmax(84px,1fr) minmax(84px,1fr);min-width:460px;
                   align-items:center;background:var(--surface2);border-top:1px solid var(--border);font-weight:700">
         ${bunka('Celkem')}
         ${bunka(String(celkemN), 'text-align:right')}
@@ -1482,7 +1577,9 @@ function renderTxMonthTable(){
         ${bunka(`<span style="color:${celkemInc-celkemExp>=0?'var(--income)':'var(--expense)'}">${fmtB(celkemInc-celkemExp)}</span>`, 'text-align:right')}
       </div>
     </div>
+    </div>
     <div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">
+      <span style="color:#8b93ad">← potáhni tabulku do stran →</span><br>
       Jde napříč všemi daty, ne jen zobrazeným měsícem. Příjmy a výdaje jsou bez přesunů,
       rozpadů a vyrovnání; sloupec <strong>Záznamů</strong> naopak počítá všechno, co jsi zapsal.
     </div>`;

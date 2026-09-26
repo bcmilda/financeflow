@@ -1,4 +1,4 @@
-// FinanceFlow · v10.51 · admin.js · 2026-09-04
+// FinanceFlow · v11.04 · admin.js · 2026-09-25
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -85,12 +85,14 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-lowconf"  onclick="switchAdminTab('lowconf',this)">⚠️ Low confidence</button>
       <button class="tx-filt-btn"        id="atab-stats"    onclick="switchAdminTab('stats',this)">📊 Statistiky</button>
       <button class="tx-filt-btn"        id="atab-adopce"   onclick="switchAdminTab('adopce',this)">🏷️ Adopce kategorií</button>
-      <button class="tx-filt-btn"        id="atab-itemtags" onclick="switchAdminTab('itemtags',this)">🔖 Item Tagy</button>
+      <button class="tx-filt-btn"        id="atab-itemtags" onclick="switchAdminTab('itemtags',this)">🗺️ Item Tagy</button>
       <button class="tx-filt-btn"        id="atab-suggestions" onclick="switchAdminTab('suggestions',this)">🤖 Doporučení</button>
       <button class="tx-filt-btn"        id="atab-leads"    onclick="switchAdminTab('leads',this)">📋 Leady</button>
       <button class="tx-filt-btn"        id="atab-announce" onclick="switchAdminTab('announce',this)">📢 Oznámení</button>
       <button class="tx-filt-btn"        id="atab-verze"    onclick="switchAdminTab('verze',this)">📝 Verze</button>
       <button class="tx-filt-btn"        id="atab-audit"    onclick="switchAdminTab('audit',this)">💳 Audit plateb</button>
+      <button class="tx-filt-btn"        id="atab-skore"   onclick="switchAdminTab('skore',this)">⚖️ Skóre</button>
+      <button class="tx-filt-btn"        id="atab-reports" onclick="switchAdminTab('reports',this)">🚩 Hlášení účtenek</button>
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
     </div>
@@ -134,6 +136,20 @@ async function renderAdmin() {
           <div id="auditResult"><div style="color:#a8aec8;font-size:.8rem">Načítám…</div></div>
         </div>
       </div>
+    </div>
+
+    <!-- S22 (Milan): SIMULÁTOR SKÓRE – váhy + bodovací kotvy + živý přepočet
+         na SKUTEČNÝCH datech. Bez ukládání: hodnoty se nikam nezapisují,
+         admin si vyzkouší dopad a výsledná čísla se přepíší do _SCORING_V2
+         v helpers.js. Běžný uživatel váhy měnit nemůže – karta je admin-only
+         a vlastní výpočet skóre ostrou konfiguraci nikdy nečte odsud. -->
+    <div id="atab-skore-content" style="display:none">
+      <div id="adminScoringSim"></div>
+    </div>
+
+    <!-- S22: hlášení špatně přečtených účtenek od uživatelů (uzel receipt_reports) -->
+    <div id="atab-reports-content" style="display:none">
+      <div id="adminReceiptReports"></div>
     </div>
 
     <!-- S14: ÚDRŽBA (vlastní záložka, ne napříč všemi) -->
@@ -197,7 +213,12 @@ async function renderAdmin() {
     <!-- USERS -->
     <div id="atab-users-content">
       <div class="card" style="margin-bottom:14px">
-        <div class="card-header"><span class="card-title">👥 Uživatelé</span><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
+        <div class="card-header"><span class="card-title">👥 Uživatelé</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="adminEmaily('souhlas')" title="Jen ti, kdo zapnuli novinky v Nastavení">✉️ E-maily se souhlasem</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="adminEmaily('vse')" title="Všechny adresy – jen pro provozní účely, ne pro nabídky">📋 Všechny e-maily</button>
+            <button class="btn btn-accent btn-sm" style="font-size:.7rem" onclick="adminHromadnyMail()">📨 Hromadná zpráva</button>
+          </div><button class="btn btn-ghost btn-sm" onclick="loadUserStats()">🔄</button></div>
         <div id="adminUserStats"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
       <!-- TODO-023: Správa členství – seznam uživatelů s filtrováním a editací -->
@@ -361,11 +382,11 @@ async function renderAdmin() {
     <div id="atab-itemtags-content" style="display:none">
       <div class="card">
         <div class="card-header">
-          <span class="card-title">🔖 Komunitní mapování tagů položek</span>
+          <span class="card-title">🔖 Mapa položek</span>
           <button class="btn btn-ghost btn-sm" onclick="loadCommunityItemTags()">🔄</button>
         </div>
         <div style="font-size:.76rem;color:var(--text2);padding:8px 14px 0">
-          Uživatelé přiřadili tyto tagy k položkám. Jako admin můžeš tag <strong>schválit</strong> (stane se komunitním pravidlem), <strong>odmítnout</strong> nebo ponechat bez pravidla.
+          Obecný název (zelené tagy) přiřazují uživatelé z účtenek. Jako admin můžeš tag <strong>schválit</strong> (stane se komunitním pravidlem), <strong>odmítnout</strong> nebo ponechat bez pravidla.
         </div>
         <div id="adminItemTags"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
@@ -501,11 +522,11 @@ async function loadAdminReviews(){
         <div style="padding:10px 0;border-top:1px solid var(--border)">
           <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
             <span style="color:var(--debt)">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</span>
-            <span style="font-size:.78rem;font-weight:600">${(r.name||'Bez jména').replace(/</g,'&lt;')}</span>
+            <span style="font-size:.78rem;font-weight:600">${_vzEsc(r.name||'Bez jména')}</span>
             <span style="font-size:.68rem;color:#a8aec8">${r.at?new Date(r.at).toLocaleDateString('cs-CZ'):''}${r.ver?' · v'+r.ver:''}</span>
             <span style="margin-left:auto;font-size:.64rem;color:#7e84a0">${r.uid.slice(0,8)}…</span>
           </div>
-          ${r.text?`<div style="font-size:.8rem;color:#c9cede;line-height:1.55;margin-top:4px">${String(r.text).replace(/</g,'&lt;')}</div>`:'<div style="font-size:.74rem;color:#7e84a0;margin-top:3px">(bez textu)</div>'}
+          ${r.text?`<div style="font-size:.8rem;color:#c9cede;line-height:1.55;margin-top:4px">${_vzEsc(r.text)}</div>`:'<div style="font-size:.74rem;color:#7e84a0;margin-top:3px">(bez textu)</div>'}
         </div>`).join('')}`;
   }catch(e){
     box.innerHTML = `<div style="font-size:.8rem;color:var(--expense)">Chyba: ${e.message}</div>`;
@@ -515,7 +536,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -536,9 +557,587 @@ function switchAdminTab(tab, btn) {
   if(tab==='verze') loadVerze();
   if(tab==='zdravi') renderAdminZdravi();   // S20
   if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
+  if(tab==='skore'){ if(typeof renderScoringSim==='function') renderScoringSim(); }             // S22
+  if(tab==='reports'){ if(typeof renderReceiptReports==='function') renderReceiptReports(); }   // S22
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.04',
+    datum: '2026-09-25',
+    zmeny: [
+      '🗺️ MAPA POLOŽEK (PLAN-mapa-produktu, F2) · cesta: Admin panel → 🗺️ Mapa položek (dříve Item Tagy). Zelené tagy zůstávají – jsou to OBECNÉ NÁZVY, které přiřazují uživatelé z účtenek (zelenina, mléko, ořechy). Admin k nim nově doplní KONKRÉTNÍ NÁZEV, KATEGORII a PODKATEGORII; uloží se do community/productMap jako komunitní pravidlo. Nahoře karta statistik podle Milanova zadání: namapované položky (+ kolik čeká), počet kategorií, podkategorií, konkrétních a obecných názvů.',
+      '🔒 database_rules.json: nový uzel community/productMap – čte každý přihlášený, ZAPISUJE JEN ADMIN (chybné mapování by se propsalo všem). Validace polí a délek, cizí klíče odmítnuty. ⚠️ nasadit pravidla.',
+      'ℹ️ Migrace dnešních tagů se nedělá (Milan: pár nevalidních dat bez pevné struktury) – mapa se plní nanovo z účtenek.',
+      '🧪 tools/smoke_mapa.js – 16 testů (statistiky A–E bez duplicit a s ohledem na velikost písmen, doplnění obecného názvu z nejsilnějšího tagu, escapování klíče do onchange).',
+    ]
+  },
+  {
+    verze: 'v11.03',
+    datum: '2026-09-25',
+    zmeny: [
+      '🔑 JEDNA NORMALIZACE NÁZVŮ PRO CELOU APPKU (PLAN-mapa-produktu, fáze F1). Klíč položky se dosud počítal na 9 místech ve 4 různých verzích: učení kategorií nechávalo v klíči množství a ořezávalo na 40 znaků, „Pravidelně nakupuješ" na 25, katalog produktů měl jiný seznam jednotek než cenová historie. Stejná položka proto žila pod několika klíči – co sis namapoval v editoru účtenky, sledování cen nenašlo. Nově helpers.js: normName() (klíč bez množství), normQty() (množství zvlášť, sjednocené na g/ml/cm – shrinkflace ho potřebuje) a normKey() (klíč včetně balení). Přepojeno všech 9 míst: učení kategorií, cenová historie, našeptávač, tagy položek, katalog produktů, Pravidelně nakupuješ, nákupní seznam.',
+      '🛟 ZPĚTNÁ KOMPATIBILITA: lookupCategoryMapping() hledá nejdřív nový klíč, a když nic nenajde, zkusí i ten starý. Nikomu se tedy neztratí, co si dosud namapoval, a přechod není znát. Když jsou uložené oba, vyhrává nový.',
+      '🧪 tools/smoke_normname.js – 25 testů (sjednocení zápisů, procenta v názvu, neslévání různých výrobků, zachování množství, staré uložené mapování se dál najde).',
+    ]
+  },
+  {
+    verze: 'v11.02',
+    datum: '2026-09-25',
+    zmeny: [
+      '🐛 FIX (Milan) · MĚSÍČNÍ REPORT UKAZOVAL 310 BODŮ, DASHBOARD 202. Od v10.85 Dashboard zobrazuje skóre na DOSAŽITELNÉ škále (co nejde změřit, se nepřičítá ani nestrhává), ale sekce „Vývoj finančního skóre" v Měsíčním reportu zůstala na plné 310 – a k tomu ukazovala nedostupné složky jako 0/62 a 0/46. Report si tak odporoval i sám se sebou (93+78+0+0+31 = 202, v nadpisu 310). Nově obě místa volají jednu funkci scoreZobrazeni(); nedostupné složky se v reportu píší jako „nezměřeno", ne jako nula.',
+      '🧪 tools/smoke_skore_report.js – 9 testů, hlídá i to, že se report nevrátí k rawTotal/rawMax.',
+    ]
+  },
+  {
+    verze: 'v11.01',
+    datum: '2026-09-24',
+    zmeny: [
+      '📎 ARCHIV DOKLADŮ (TODO-304, Milan) · cesta: Analýza účtenek → 📎 Doklady. Seznam uschovaných fotek s náhledem (tahá se z R2 až při otevření záložky, každý jen jednou), datem, částkou a poznámkou. U dokladu se nastaví ZÁRUKA v měsících (počítá se od data účtenky) – archiv řadí nahoru to, čemu záruka brzy končí, a nad seznamem shrne, kolika dokladům zbývá méně než 60 dní. Původní Milanův záměr: hlídat stáří spotřebičů. Dole stav kvóty (X z 300) a celková velikost.',
+      '🛡️ Záruka, poznámka, otevření a smazání dokladu přímo ze seznamu; smazání nechá účtenku být.',
+      '🧪 tools/smoke_doklady.js – 21 testů. Test odhalil, že záruka končící zítra hlásila „za 2 dny" (počítalo se do 23:59 posledního dne) – opraveno na celé dny mezi daty, poslední den záruky = 0 dní a ještě platí.',
+    ]
+  },
+  {
+    verze: 'v11.00',
+    datum: '2026-09-24',
+    zmeny: [
+      '🔧 FIX (Milan) · NA WEBU ZMIZELO TLAČÍTKO PRO NÁKUP a text se zobrazoval 3×. Příznak Play režimu se ukládal do localStorage, jenže TWA běží uvnitř Chromu a sdílí s ním úložiště pro stejnou doménu — co zapsala aplikace z Google Play, přečetl si i obyčejný panel prohlížeče. Nově sessionStorage (vázaný na jedno okno: appka z Play a panel v prohlížeči mají každý svůj, uvnitř appky vydrží i mezi stránkami). Starý příznak z localStorage se při načtení smaže, takže se web spraví sám. Trojitá hláška: paywall se překresluje a text se přidával pokaždé znovu — applyPlayMode teď nejdřív staré texty odstraní (třída ff-play-info) a na webu je uklidí úplně.',
+      '🧪 tools/smoke_play_rezim.js rozšířen na 21 testů – nově hlídá, že příznak NENÍ v localStorage, že se starý ignoruje a maže, a že opakované vykreslení hlášku nezdvojí.',
+    ]
+  },
+  {
+    verze: 'v10.99',
+    datum: '2026-09-24',
+    zmeny: [
+      '📎 ARCHIV DOKLADŮ (TODO-277b/c) · cesta: Analýza účtenek → editor účtenky → „📌 Uschovat doklad". Fotka dosud jen proletěla workerem k analýze a zmizela. Nově ji lze uschovat do Cloudflare R2 (bucket v EU, privátní): zmenší se na 1200 px / JPEG 0,7 (~150–250 kB, při překročení stropu se ubere kvalita), nahraje přes /archiv/upload a ke účtence se uloží jen klíč. Ukládá se VÝHRADNĚ na kliknutí – fotka účtenky je citlivý doklad a většina lidí ji archivovat nepotřebuje. V editoru pak „👁️ Zobrazit" a „🗑️ Odstranit".',
+      '🧹 Úklid (TODO-277c): smazání účtenky odstraní i její fotku (až po potvrzení), smazání účtu smaže celý archiv uživatele (/archiv/delete {all:true}). Chyba archivu nikdy nezastaví smazání účtenky ani účtu – jen se zaloguje.',
+      '🎁 OPRAVA PLAY REŽIMU (Milan): 30denní triál v aplikaci z Google Play ZŮSTÁVÁ. Je zdarma, žádná platba se u něj nekoná, takže ho pravidla Googlu nezakazují – v předchozí verzi jsem ho omylem smazal spolu s nákupními tlačítky. Pod tlačítkem je nadále text, kde Premium koupit.',
+      '🧪 tools/smoke_archiv_klient.js – 15 testů (token, zmenšení, kvóta, binární čtení, offline při mazání, úklid u účtenky i účtu).',
+    ]
+  },
+  {
+    verze: 'v10.98',
+    datum: '2026-09-24',
+    zmeny: [
+      '📱 PLAY REŽIM (TODO-294, Milan) · appka stažená z Google Play nesmí vést uživatele k nákupu mimo Google – žádné klikací odkazy ani tlačítka na Stripe. Google ale dovoluje NAPSAT, kde se předplatné koupí, bez odkazu. Nově: isPlayApp() pozná TWA podle document.referrer („android-app://cz.financeflow.app"), výsledek si zapamatuje (referrer je jen u prvního načtení); ?play=1 / ?play=0 pro ladění. V Play režimu se tlačítko „Vyzkoušet Premium", paywall CTA i cokoli s onclick na startPremiumSubscription / goPremium / openDonateModal vymění za TEXT bez odkazu („Premium si aktivuješ na webu financeflow.cz"). Pojistka i v donate.js – z Play režimu se platební brána neotevře, ani kdyby někde tlačítko zůstalo. NA WEBU SE NIC NEMĚNÍ, tlačítka fungují dál.',
+      '💛 Dary jsou z pohledu pravidel Googlu také platba mimo Play → v Play režimu skryté.',
+      '🐛 FIX (Milan): „Stažení e-mailů nefunguje" při 4 uživatelích · cesta: Admin panel → Uživatelé. Seznam se plní asynchronně v loadUsersList(); po kliknutí dřív, než doběhl, byl prázdný a export mlčky skončil hláškou „Žádné e-maily". Tlačítka si seznam nově dotáhnou sama a hláška říká, kolik uživatelů prošla.',
+      '🧪 tools/smoke_play_rezim.js – 16 testů (detekce TWA, cizí balík režim nezapne, text bez odkazu a bez tlačítka, pojistky v donate.js, výměna v DOM bez zdvojení).',
+    ]
+  },
+  {
+    verze: 'v10.97',
+    datum: '2026-09-22',
+    zmeny: [
+      '✉️ SOUHLAS SE ZASÍLÁNÍM NOVINEK (Milan) · cesta: Nastavení → Novinky a nabídky e-mailem. Výchozí stav VYPNUTO, ukládá se hned i s datem souhlasu (a datem odvolání). E-mail je v appce kvůli vedení účtu – posílat na něj nabídky je jiný účel, na který je potřeba souhlas. Doplněno i do Zásad ochrany údajů (legal.html).',
+      '📋 cesta: Admin panel → Uživatelé. Tři nová tlačítka: „E-maily se souhlasem" (CSV jen těch, kdo novinky zapnuli), „Všechny e-maily" (CSV s varováním v hlavičce, že smí sloužit jen k provozním sdělením o službě, ne k nabídkám) a „Hromadná zpráva" (předmět + text, zkušební odeslání jen sobě, pak všem se souhlasem). Duplicitní adresy se slučují bez ohledu na velikost písmen.',
+      '📨 Worker: nový endpoint /mass-mail (jen pro admina – ověřený Firebase token + ADMIN_UIDS). Do každého e-mailu sám přidá informaci, jak novinky vypnout; text se escapuje; posílá po jednom s pauzou kvůli limitu Resendu a vrací počet skutečně odeslaných. ⚠️ nasadit worker do Cloudflare.',
+      '📄 GDPR EXPORT JE NOVĚ ČITELNÝ (Milan: „není v uživatelsky přívětivé podobě"). Kromě JSONu se otevře přehled k vytištění do PDF: kdo, proč, jaké kategorie údajů a kolik záznamů, komu se předávají, jak dlouho se uchovávají a jaká má uživatel práva včetně stížnosti u ÚOOÚ. JSON zůstává – je správný pro přenositelnost podle čl. 20, ale odpověď podle čl. 15 musí být podle čl. 12 srozumitelná.',
+      '🧪 tools/smoke_s23_emaily.js – 20 testů (výběr adres, varování v exportu, admin-only endpoint, povinné odhlášení v e-mailu, čitelnost GDPR přehledu).',
+    ]
+  },
+  {
+    verze: 'v10.96',
+    datum: '2026-09-21',
+    zmeny: [
+      '🔒 BEZPEČNOST (TODO-289) · cesta: Admin panel → Uživatelé, Recenze, Leady, Audit plateb, AI náklady. Texty od uživatelů (jméno, e-mail, telefon, text recenze) se vkládaly do stránky BEZ ESCAPOVÁNÍ – kdokoli se mohl zaregistrovat se jménem obsahujícím HTML a spustit kód v admin panelu. Nejhorší místo: telefon z formuláře úvěru šel přímo do onclick=\"…writeText(\'…\')\", kde stačila jedna uvozovka. Nově vše přes _vzEsc (HTML) a _onEsc (HTML + JS řetězec), telefon a e-mail v odkazech přes encodeURIComponent. Navazuje na v10.92 (changelog).',
+      '📉 cesta: Inflace → Tvoje inflace vs. oficiální. Když ČSÚ dá jen poslední měsíc (záložní zdroj), místo grafu s jedním bodem se napíše, že se vývoj ukáže po doplnění celé řady.',
+      '🇨🇿 Oficiální inflace znovu funguje (worker, nasazuje se zvlášť do Cloudflare). ČSÚ ukončil Veřejnou databázi a převedl indexy do DataStatu (COICOP 2018); celé CSV má přes 48 MB a POST dotaz na jejich API vrací z workeru vždy 500. Worker proto čte GET výběr: přednostně vlastní výběr uživatele (proměnná CSU_VYBER_URL, meziroční index, 13+ měsíců), záložně předdefinovaný CEN0101ET03, ze kterého dopočte poslední měsíc z bazického indexu. Před tím ještě FIX volání handleInflace(cors → corsHeaders), kvůli kterému worker od S22 padal bez CORS hlavičky.',
+      '🧪 tools/smoke_escape_admin.js (11 testů, hlídá i budoucí neescapovaná místa) · tools/smoke_worker_inflace.mjs (20) · tools/smoke_inflace_oficialni.js (14).',
+    ]
+  },
+  {
+    verze: 'v10.93',
+    datum: '2026-09-21',
+    zmeny: [
+      '🇨🇿 NOVÁ KARTA (Milan) · cesta: Inflace → Tvoje inflace vs. oficiální. Oficiální meziroční inflace ČSÚ za posledních 13 měsíců jako graf, vedle ní tvoje inflace z účtenek spočítaná ke konci každého měsíce (čára jen tam, kde je aspoň 5 srovnatelných položek – méně je šum). Tři dlaždice: oficiální, tvoje, rozdíl. Pod grafem srovnání po skupinách výdajů COICOP (ČSÚ vs. ty, u tebe od 3 položek v oddílu). Karta se ukáže i bez účtenek – oficiální data mají smysl sama o sobě.',
+      '🔧 FIX (Milan, konzole) · Oficiální inflace se od S22 nenačítala. Dvě příčiny: (1) worker volal handleInflace(cors) místo corsHeaders → pád bez CORS (opraveno ve workeru v10.93); (2) ČSÚ ukončil Veřejnou databázi, indexy přešly do DataStatu (COICOP 2018 od 1/2026) a celé CSV má přes 48 MB. Worker v10.95 se nově ptá DataStat API jen na potřebné řádky (meziroční index, ČR, domácnosti celkem, úhrn + 13 oddílů, 15 měsíců) – odpověď pár kB. Kódy ověřeny z katalogu ČSÚ přes dočasnou diagnostiku (Milan), ta je odstraněná.',
+      '♻️ _inflCompute(obs, nowTs) umí spočítat osobní inflaci k libovolnému datu (pro graf po měsících); bez data beze změny. _inflCollect přiřazuje každé položce oddíl COICOP z kategorie položky (fallback kategorie účtenky) – oddíly 1–13 v appce odpovídají kódům ČSÚ 01–13.',
+      'ℹ️ COICOP kategorizace a průměrné výdaje (coicop / COICOP_GROUPS_DEF, data ČSÚ 2024) jsou pevně v kódu a změnou u ČSÚ nejsou dotčené (Milan se ptal).',
+      '🧪 tools/smoke_worker_inflace.mjs (13 testů, přes skutečný fetch() workeru) + tools/smoke_inflace_oficialni.js (14 testů).',
+    ]
+  },
+  {
+    verze: 'v10.92',
+    datum: '2026-09-21',
+    zmeny: [
+      '🐛 FIX (Milan) · cesta: Admin panel → Verze. „Chyba: SyntaxError: illegal character U+2026". Záznam v10.62 popisuje XSS opravu a obsahuje doslova text <img src=x onerror=…>. Panel vkládal changelog do innerHTML BEZ ESCAPOVÁNÍ – prohlížeč z textu vyrobil skutečný obrázek, spustil jeho onerror a na znaku „…" spadl. Stejně mizely z textu značky <loni>, <typ>, <option>. Changelog je text, ne HTML: nově se escapuje vždy.',
+      '🔒 FIX · cesta: O aplikaci → Poznámky k vydání. Stejné escapování i zde (vidí všichni uživatelé) – jakýkoli HTML v textu záznamu se zobrazí jako text a nespustí se.',
+      '📏 ZMĚNA (Milan) · cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech. Graf zvětšen pro přehlednost: sloupce až 230 px (dřív 120), širší sloupce (44 px), týden min. 112 px, větší popisky a legenda. Na mobilu se graf posouvá do strany místo mačkání sloupců.',
+      '🧪 tools/smoke_s23h.js – 8 testů (žádný spustitelný atribut v panelu Verze, escapování v Poznámkách k vydání, rozměry grafu).',
+    ]
+  },
+  {
+    verze: 'v10.91',
+    datum: '2026-09-21',
+    zmeny: [
+      '🪟 NOVÉ OKNO ZÁLOŽKY (Milan) · cesta: Finanční radar → 💸 Do výplaty. Grafy už nekončí na další výplatě. Okno začíná výplatou, ze které žiješ 1. dne zvoleného měsíce (u září cca 17. 8.), a jede do posledního dne měsíce (30. 9.) – přes další výplatu bez přerušení. Po dnešku odhad: známé platby z Budoucích plateb + očekávaná výplata (výše minulé) + běžné tempo nefixních výdajů. Horní souhrn (volné do výplaty, denní limit) dál ukazuje aktuální cyklus.',
+      '📈 NOVÁ KARTA · cesta: Finanční radar → 💸 Do výplaty → Od výplaty den po dni. Zůstatek z výplaty den po dni přes celé okno: plná čára skutečnost, čárkovaná odhad, 💰 svislé čáry výplat, tečkovaně začátek měsíce, bod „dnes". Pod grafem kolik zbude (zbylo) na konci měsíce a z čeho je odhad složený.',
+      '📊 ZMĚNA · cesta: Finanční radar → 💸 Do výplaty → Od výplaty k výplatě. Týdny běží přes celé okno (17. 8. → 30. 9.), týden s výplatou má 💰. Tabulka ukazuje jen skutečnost – odhad se do ní nemíchá.',
+      '🧭 NOVÁ KARTA · cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech. Pro každý týden dva sloupce (Milanovo zadání): vlevo zelená = stav na začátku týdne + modrá = přírůstek (šrafovaně úbytek) → horní hrana = stav na konci; vpravo oranžová = plánovaný výdej + fialová = budoucí platby. Tabulka Na začátku · Změna · Na konci · Plán. výdej · Budoucí platby.',
+      '🔁 NOVÁ KARTA · cesta: Finanční radar → 📅 Měsíc → Srovnání s minulým měsícem. Obdoba srovnání s cyklem: výdaje do stejného dne letos vs minulý měsíc, procento a celkem minule. U uplynulého měsíce celý měsíc proti celému.',
+      '🧪 tools/smoke_s23g.js – 28 testů (hranice okna, výplaty v okně, zůstatek přes výplatu, navazování týdnů, odhad, vyloučení přesunů, srovnání s měsícem).',
+    ]
+  },
+  {
+    verze: 'v10.90',
+    datum: '2026-09-21',
+    zmeny: [
+      '🔀 FIX (Milan) · cesta: Finanční radar → 💸 Do výplaty. ZÁLOŽKA NEREAGOVALA NA PŘEPNUTÍ MĚSÍCE – radarPaydayInfo() počítal cyklus vždy od dnešního data. Nově má volitelné referenční datum (bez něj se chová jako dřív, takže Příští měsíc a Radar-Měsíc zůstávají beze změny). Aktuální měsíc = cyklus, ve kterém jsi dnes. Minulý měsíc = CELÝ UZAVŘENÝ cyklus, který výplatou v tom měsíci začal (např. srpen = 18. 8. → 17. 9.): „✅ uzavřen", „Zbylo z cyklu", „Průměr za den", „Cyklus skončil s…", bez budoucích plateb. Budoucí měsíc = srozumitelná hláška, že cyklus ještě nezačal, s odkazem na Příští měsíc.',
+      '🐛 FIX (TODO-286) · cesta: Finanční radar → 💸 Do výplaty → Od výplaty k výplatě. Týdny cyklu počítaly i přesuny mezi peněženkami, souhrn cyklu a „Výdaje po týdnech" v Měsíci ne – za stejné dny mohly vyjít jiné součty. Sjednoceno.',
+      '📦 Bump jen skutečně změněných souborů (Milan + VERSIONING.md: „Aktualizovat jen ve skutečně změněných souborech"). Předchozí dávky přepisovaly hlavičky i nezměněným souborům, takže se měnil jejich hash a Milan je musel zbytečně nahrávat.',
+      '🧪 tools/smoke_s23f.js – 14 testů.',
+    ]
+  },
+  {
+    verze: 'v10.89',
+    datum: '2026-09-21',
+    zmeny: [
+      '📅 ZMĚNA (Milan) · cesta: Finanční radar → 📅 Měsíc → „Výdaje po týdnech" (dříve „Výdaje po týdnech od výplaty"). Záložka Měsíc nově ukazuje KALENDÁŘNÍ týdny pondělí–neděle, oříznuté hranicí měsíce – týdny od výplaty má záložka Do výplaty (karta „Od výplaty k výplatě"). Sloupce = týdenní částka s rozpadem fixní / variabilní / jednoráz. / neurčeno podle charakteru kategorie. Tabulka: Fixní · Variab. · Ostatní · Celkem · Dní · Kč/den (částka ÷ dny v týdnu; první a poslední týden bývají kratší). Přesuny, vyrovnání a split-rodiče se nepočítají.',
+      '♻️ Rozpad podle charakteru vytažen do sdíleného helperu radarCharGroupOf() + RADAR_CHAR_GROUPS, aby Měsíc i Do výplaty počítaly skupiny stejně.',
+      '🧪 tools/smoke_s23e.js – 17 testů (hranice týdnů září 2026, součet dní = dny měsíce, rozpad, vyloučení přesunů/vyrovnání, jiný měsíc).',
+    ]
+  },
+  {
+    verze: 'v10.88',
+    datum: '2026-09-20',
+    zmeny: [
+      '📊 FIX (Milan) · cesta: Finanční radar → 📅 Měsíc → „Výdaje po týdnech od výplaty". Sloupce ukazovaly Kč/den (73 Kč), přitom týden stál 511 Kč – graf a tabulka vedle sebe vypadaly jako dvě různá čísla. Sloupce nově ukazují TÝDENNÍ ČÁSTKU; přepočet na den zůstal v tabulce jako orientační údaj. Nadpis zvýrazněn (dřív malé šedé verzálky zapadaly mezi ostatními kartami).',
+      '📊 ZMĚNA (Milan) · cesta: Finanční radar → 💸 Do výplaty → „Tempo po týdnech cyklu" PŘEJMENOVÁNO na „Od výplaty k výplatě". Kč/den se nově dělí POČTEM DNÍ V TÝDNU (většinou 7), ne odžitými dny – stejný týden dřív ukazoval 73 Kč/den v jedné záložce a 128 Kč/den v druhé. Graf ukazuje týdenní částku beze změny.',
+      '📝 Nové pravidlo hlášení (Milan): u každé změny uvádět CESTU v appce („cesta: Finanční obraz → Kam směřuju"). V appce jsou dvě sekce „Kam směřuju" (Radar a Obraz) a v10.87 upravila jinou, než Milan čekal.',
+      '🧪 tools/smoke_s23d.js – 9 testů.',
+    ]
+  },
+  {
+    verze: 'v10.87',
+    datum: '2026-09-20',
+    zmeny: [
+      '\u{1F4B0} A) PŘEPÍNAČ VÝDAJE / PŘÍJMY V TABULCE PREDIKCE (Milan, bod A plánu S18). Predikční engine měl typ „expense" natvrdo ve čtyřech funkcích (getActual, getHistAvg, predictCat, computeYearForecast) – přidán VOLITELNÝ parametr `type` s výchozí hodnotou „expense", takže všech 55 stávajících volání se chová beze změny. Tabulka i graf pod ní sledují přepínač, volba se pamatuje. Přepínač, ne obě čísla v jedné tabulce – podle Milanova zadání.',
+      '🚫 Sezónnost a narozeninová přirážka se na PŘÍJMY nepouštějí. Jsou kalibrované na výdaje; výplata v prosinci není o 12 % vyšší jen proto, že je prosinec.',
+      '📅 B) „KAM SMĚŘUJU" S DATY PŘÍJMŮ (Milan, bod B plánu S18). Dosud se do všech 6 měsíců dosazoval jeden 12M průměr příjmu. Nově: (1) příjem po měsících z predikce příjmových kategorií, průměr jen jako záloha; (2) NEJBLIŽŠÍ MĚSÍC DEN PO DNI – konkrétní data výplat (ze šablon) i plateb (z Budoucích plateb) s průběžným zůstatkem; (3) DALŠÍ MĚSÍCE JEN V ROZPĚTÍ („+4 000 až +8 000"), ne na korunu.',
+      '📐 Rozpětí vychází ze SKUTEČNÉHO rozptylu měsíčních sald za posledních 6 měsíců (směrodatná odchylka, minimum 8 % příjmu) a roste s odmocninou horizontu, ne lineárně – chyby se přes měsíce částečně vyruší. Princip: appka nesmí tvrdit přesnost, kterou nemá.',
+      '🔒 Příjmy se do Budoucích plateb NEPŘIDALY (ADR-160). Milan při čtení plánu S18 potvrdil původní rozhodnutí: sekce se jmenuje „platby" a příjmy by zkreslily součty i grafy Radaru. Kalendář v „Kam směřuju" si příjmové šablony načítá sám přímo z D.sablony – stejný vzor jako pristiIncomeRows.',
+      '🧪 tools/smoke_s23c.js – 31 testů (typový parametr a zpětná kompatibilita, sezónnost jen na výdaje, rozpětí, kalendář, běžný život bez dvojího počítání).',
+    ]
+  },
+  {
+    verze: 'v10.86',
+    datum: '2026-09-20',
+    zmeny: [
+      '🔀 ZMĚNA (Milan): TLAČÍTKA „PŘIDAT VLASTNÍ PŘÍJEM/VÝDAJ" V PŘÍŠTÍM MĚSÍCI VEDOU DO TRANSAKCÍ. Od S19 zapisovala vlastní evidenci do S.pristiCfg[ym].custom – nepropsala se do transakcí, Dashboardu ani skóre a po přechodu měsíce zůstala viset u starého měsíce. Milan na to narazil a měl pravdu. Navíc to byl můj nápad: v zadání PLAN-prijmy-pristi-mesic.md vlastní položky nikdy nebyly. Nově se otevře normální modal transakce s datem předvyplněným na 15. zobrazeného měsíce. Položky zapsané před v10.86 se dál zobrazují a jdou smazat; nové se nezakládají.',
+      '🐛 FIX (Milan): PŘEPNUTÍ VÝDAJ → PŘÍJEM V ŠABLONĚ NECHÁVALO VÝDAJOVÉ KATEGORIE. setSablonaType přepnul typ a zobrazení sekcí, ale seznam kategorií nikdo nepřekreslil – změnil se až po kliknutí na kategorii, protože teprve ten onclick volá renderSablonaCatPicker(). Nově se překreslí hned a vybraná kategorie nesprávného typu se zahodí (kategorie typu „both" zůstává).',
+      '1️⃣ NOVÁ FREKVENCE „1× JEDNORÁZOVĚ (K DATU)" u opakovaných šablon (Milan). Místo „den v měsíci" se ptá na celé datum. Do dne D je platba vidět v Budoucích platbách i v Příštím měsíci, v den D vznikne transakce a šablona se označí „✅ provedeno" – nezůstane viset mezi opakovanými. Automatické vytváření je u ní zaškrtnuté a zamčené, jinak by v den D nenastalo nic a byla by to stejná past jako zrušené vlastní položky.',
+      '📱 FIX (Milan): TABULKA V TRANSAKCÍCH BYLA NA MOBILU USEKNUTÁ A NEŠLA POSUNOUT. Pět sloupců potřebuje min. 460 px, telefon má ~380 px – mřížka přetekla z karty a uřízla sloupec Saldo. Hlavička, řádky i součtový řádek jsou nově v JEDNOM posuvném rámu (posouvají se společně, hlavička nad daty sedí) + nápověda „← potáhni do stran →".',
+      '📱 FIX (Milan): tlačítka „+ Šablona" a „Filtr" odlétala doprava. Způsoboval to margin-left:auto na tlačítku Šablona – při zalomení lišty na mobilu odsunul poslední dvě tlačítka na vlastní řádek k pravému okraji. Odstraněno, lišta teče zleva doprava.',
+      '🧪 tools/smoke_s23b.js – 28 testů chování (kategorie šablony, jednorázová platba napříč premium/budouci/pristi, přesměrování tlačítek, mobilní tabulka).',
+    ]
+  },
+  {
+    verze: 'v10.85',
+    datum: '2026-09-19',
+    zmeny: [
+      '📊 FIX (Milan): „DASHBOARD KECÁ\" – 310 / 310 A ZÁROVEŇ „REZERVU A SPOŘENÍ NEPOČÍTÁM\". Ve v10.60 jsem půlkruhu vrátil pevných 310 kvůli nesmyslu „285 / 171\", jenže ten vznikl tím, že se zúžil JEN jmenovatel. Správně se na dosažitelnou škálu převádějí OBĚ čísla: při 65% pokrytí je ve hře 202 bodů a uživatel má 202 z 202. Poměr, známka i ručička zůstávají; číslo přestane tvrdit plný počet. Text nově říká, kolik bodů je mimo hru a že nejsou přičtené ani stržené. Navazuje na FIX-309.',
+      '💸 NOVÁ ZÁLOŽKA „SLEVY\" V ANALÝZE ÚČTENEK (Milan). Karta „Ušetřeno slevami\" byla utopená uprostřed Statistik. Má vlastní místo: měsíc / rok / celkem, rozpad podle obchodů a seznam položek ve slevě (kolik, kolik %, kde, kdy; ručně doplněné slevy jsou označené).',
+      '🥩 OBECNÉ NÁZVY POLOŽEK SE NEPOROVNÁVAJÍ (Milan: „Uzeniny\"). U řezníka nebo na obecně nastaveném terminálu je na účtence oddělení, ne výrobek – čtyři různé salámy pak vypadaly jako jedna položka, která „zdražila o 35 %\". Položky jako Uzeniny, Pečivo, Ovoce a zelenina, „Zboží 21%\" se do sledování cen nepouštějí; do útraty se počítají dál. Záložka Zdražování řekne, kolik jich vynechala a proč. V editoru účtenky má takový název modrý čárkovaný rámeček – po přepsání na konkrétní výrobek se začne sledovat.',
+      '✅ CHECKLISTY: HOTOVÉ POLOŽKY SE SBALÍ (Milan). Přeškrtnuté řádky zabíraly půl karty. Výchozí stav je sbaleno („✅ Hotovo (4) · zobrazit\"), volba se pamatuje zvlášť pro úvodní a měsíční checklist.',
+      '💼 Nový krok úvodního checklistu: „Nastav stabilitu u příjmových kategorií\" (Milan: patří do checklistu, ne do textu na kartě). Hlídá jen příjmové kategorie, do kterých už něco přišlo a stabilitu nemají – typicky vlastní. Výchozí sada ji má, takže nového uživatele krok neotravuje.',
+      '📅 PŘÍŠTÍ MĚSÍC: přepsaná rada u prázdných příjmů (Milan: „výplata jako šablona\" nedává smysl, částka je pokaždé jiná). Nově: zapiš výplatu, appka ji odhadne z průměru; šablona jen pro příjem s pevnou částkou.',
+      '📱 PŘETÉKÁNÍ NA MOBILU (Milan, 4 screenshoty): karty Finančního obrazu jdou pod 560 px pod sebe a velká čísla se nelámou uprostřed („+27 60 / 8 Kč/mě / s\") · tabulka „Měsíc po měsíci\" se posouvá do strany místo slitých hlaviček · tabulka v Příštím měsíci se na mobilu skládá do řádků (datum nahoře, název + částka + tlačítka pod ním) · záložky grafu predikce se lámou 2 × 2 místo oříznutí „Kumulativr\".',
+      'ℹ️ Názvy Wealth Momentum / Net Worth Momentum / Momentum zůstávají BEZE ZMĚNY (rozhodnutí Milana) – šlo jen o dotaz na rozdíl.',
+      '🧪 tools/smoke_s23.js rozšířen na 46 testů chování.',
+    ]
+  },
+  {
+    verze: 'v10.84',
+    datum: '2026-09-18',
+    zmeny: [
+      '🌡️ FIX (Milan): STUPNICE OBRAZU BYLA POŘÁD ŠEDÁ. Barevnou škálu jsem ve v10.83 přidal jen pro stav S HODNOTOU – prázdný stav zůstal šrafovaný bez barvy. Milan testuje na čerstvém účtu, takže viděl právě ten, a oprava pro něj neexistovala. Škála červená → žlutá → zelená je teď vždy (bez dat ztlumená a bez jezdce). Na spodním lemu je PRAVÍTKO: čárka po 1 bodu, delší po 5, nejdelší po 10, přes celou výšku po 50.',
+      '🏠 FIX (Milan): SEKCE 4 LIFESTYLE BYLA PRÁZDNÁ. Karta bez verdiktu vracela prázdný řetězec – a s ní zmizely i „Kam růst přistál\", reálný růst a „Rezerva vydrží\", které žijí uvnitř ní. Tentýž vzor tichého selhání jako sekce 3 a 8 ve v10.83; tuhle jsem přehlédl. Nově ukáže, co spočítat jde (Expense Ratio, Rezerva), a řekne, proč zbytek chybí.',
+      '🛍️ FIX (Milan): DVAKRÁT KATEGORIE „NÁKUP\" V EDITORU ÚČTENKY. Existovala skutečná 🛍️ Nákup (cat23) a virtuální 📦 Nákup = prázdné id, zavedená v S22 místo „Ostatní\". Nově je jedna: nezařazené položky dostanou rovnou id skutečné kategorie, staré se převedou při otevření účtenky. ROZHODNUTÍ (Milan): nezařazené jdou primárně do Nákupu, ne do kategorie celé účtenky (ruší pravidlo z v10.7x).',
+      '💰 FIX (Milan): MAJETEK −300 Kč PO ÚTRATĚ 2 400 Kč. Transakce z účtenky vznikala BEZ PENĚŽENKY, takže ji zůstatek žádné peněženky neviděl – v Souhrnu výdajů byla, v majetku ne. Editor účtenky má nově výběr peněženky (výchozí z Nastavení), zapisuje ji do transakce a při úpravě účtenky ji doplní. Starší transakce se opraví samy JEN při jediné peněžence; při více appka neví, čím se platilo, a nehádá.',
+      '💸 FIX: PŘEHLÉDNUTÁ SLEVA (Kaufland, i po novém skenu). Tři vrstvy: (1) worker nově vrací soupis VŠECH záporných řádků (`negativeLines`) a druhý průchod účtenkou jen kvůli nim; (2) appka slevu doplní sama, ale JEN když tím součet dojde přesně na natištěnou částku; (3) ve žlutém upozornění jde rozdíl JEDNÍM KLIKEM PŘIŘADIT JAKO SLEVU k položce – appka pozná tvar „2 × 49,90, rozdíl 49,90\" a položku předvybere. „Doplnit rozdíl jako položku\" součet srovnalo, ale sleva se nikam nezapočítala. ⚠️ worker.js → Cloudflare.',
+      '🏪 KARTA „UŠETŘENO SLEVAMI\" JE VIDĚT VŽDY + ROZPAD PODLE OBCHODŮ (Milan: „kolik a kde jsme ušetřili – nikde to nevidím\"). Karta existovala, ale při nule se schovala – a nula tam byla právě kvůli přehlédnuté slevě. Dvě chyby se kryly. Nově tabulka: obchod · ušetřeno · % z plné ceny · položek ve slevě · účtenek. Sleva se nově přenáší i do `receiptItems` na transakci.',
+      '⚖️ FIX (Milan): SOJOVÉ KOSTKY 100 g A 300 g SE SLILY – karta hlásila „↑ 201 %\", přestože Kč/kg vyšlo 0 %. Klíč položky odřezává gramáž (kvůli shrinkflaci) a slil tím i nesouvisející balení. Skupina se nově dělí podle velikosti balení: spolu zůstávají jen balení lišící se do 25 % (100 → 90 g je shrinkflace, 100 → 300 g jiný výrobek). SKILL 33.',
+      '🆕 FIX (Milan): „null% vs Srpen\" a „Výdaje stabilní. Odchylka null%\". Bez výdajů v minulém měsíci je rozdíl `null` a v JS platí `null <= 5`, takže to propadlo do větve „stabilní\". Nově: „Zatím není s čím srovnávat.\" (SKILL 31).',
+      '🧪 tools/smoke_s23.js – 17 testů chování (kontrola účtenky, negativeLines, Nákup, dělení podle balení).',
+    ]
+  },
+  {
+    verze: 'v10.83',
+    datum: '2026-09-16',
+    zmeny: [
+      '🌡️ STUPNICE OBRAZU: RYSKY PO 10 BODECH A BAREVNÁ ŠKÁLA (Milan). Původní teploměr byl jednobarevný pruh se čtyřmi ryskami – nešlo z něj odečíst, kde přesně hodnota leží, ani jestli je to dobře nebo špatně. Nově je podklad přechod červená → žlutá → zelená (stejná logika jako starý pruh 0–100), malé rysky po 10 bodech, velké po 50 s popiskem, a bílý jezdec ukazuje přesnou polohu. Prázdný stav zůstává šrafovaný bez barvy, aby nevypadal jako výsledek.',
+      '🔍 FIX: SEKCE 3 A 8 MLČKY MIZELY. „Kam směřuju" a „Od výplaty k výplatě" se bez dat nevykreslily vůbec – Milan to hlásil jako zmizelé karty. Nezmizely, jen neměly co spočítat, ale prázdno vypadá jako chyba appky. Nově obě řeknou, proč tu nejsou a co je rozjede; u cyklů se rozlišuje „zatím jeden cyklus" od „žádný". Tentýž vzor tichého selhání jako u teploměru (SKILL 47).',
+      '🧹 Karta Finančního obrazu přestala opakovat nadpis a stupnici z úvodního bloku – na stránce stálo dvakrát totéž pod sebou. Karta je detail (rozpad složek), ne druhé skóre.',
+      'ℹ️ Sloupcový graf vývoje bodů nikam nezmizel – je v kartě „1 · Cesta finančního zdraví", jen o kus níž. Patří ke starému skóre 0–100 a přestěhuje se s ním při TODO-264.',
+      '🧪 tools/smoke_obrazv1.js – 35 testů.',
+    ]
+  },
+  {
+    verze: 'v10.82',
+    datum: '2026-09-16',
+    zmeny: [
+      '🌡️ FIX (nahlásil Milan): „STUPNICE SE ANI NEZOBRAZILA." Nebyla to chyba nasazení – Milan krátce předtím vymazal data. Finanční obraz měří ZMĚNU za okno, takže bez historie nešla změřit ani jedna ze čtyř složek, pokrytí bylo 0 % a stupnice se vůbec nekreslila. Logicky správné, prakticky špatné: novou funkci nešlo uvidět a nešlo poznat, jestli je vůbec nasazená.',
+      '📊 Stupnice se nově kreslí VŽDY – bez dat jako prázdná, šrafovaná, s ryskami a zvýrazněným základem 100. Je vidět, kam to směřuje, a text řekne, kdy se rozjede („stačí pár měsíců zápisů"). Prázdná stupnice záměrně nemá výplň, aby nevypadala jako výsledek.',
+      '🧪 tools/smoke_obrazv1.js – 27 testů.',
+    ]
+  },
+  {
+    verze: 'v10.81',
+    datum: '2026-09-16',
+    zmeny: [
+      '🖼️ FIX (nahlásil Milan): „FINANČNÍ OBRAZ JE POŘÁD NEZMĚNĚN, ŠKÁLA 0–100." Měl pravdu, i když nová karta fungovala: vykreslovala se AŽ POD úvodním blokem stránky, ve kterém zůstal starý pruh 0–100. První, co bylo vidět, tedy bylo staré skóre – a dvě skóre nad sebou stejně nedávají smysl. Úvodní blok nyní ukazuje nový Obraz (0–200) s teploměrovou stupnicí; přepínač oken 6M/12M/Celkově zůstává nad ním. Starý údaj 0–100 žije dál níž v kartě „Cesta finančního zdraví".',
+      '🔢 Skóre se počítá JEDNOU a sdílí mezi úvodním blokem a kartou – dvojí výpočet by při sebemenším rozdílu vyrobil dvě různá čísla na jedné stránce.',
+      '🔇 FIX: KARTA PŘI SELHÁNÍ MLČKY MIZELA. `_obrazV1Card()` vracela prázdný řetězec – uživatel pak hlásí „Obraz se nezměnil" a nikdo neví proč. Teď se selhání přizná a řekne, co zkontrolovat. Tentýž vzor tichého selhání jako u promptu účtenek a u bumpu Service Workeru.',
+    ]
+  },
+  {
+    verze: 'v10.80',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX: SERVICE WORKER ZŮSTAL NA v10.66. Hlavička i `CACHE_NAME` se od té doby nezměnily – bumpoval jsem je textovou náhradou, jejíž kotva obsahovala konkrétní datum, a jakmile přestala sedět, náhrada TIŠE NIC NEUDĚLALA. Cache shellu se tedy u verzí 10.67–10.79 nevynucovala znovu a prohlížeč mohl servírovat starý app.html. Nyní `ff-shell-v10.80` a bump se po každém kroku OVĚŘUJE, ne jen provede.',
+      '📦 SJEDNOCOVACÍ DÁVKA: všechny soubory změněné od v10.76 mají jednotnou hlavičku v10.80 a hashe v app.html sedí na skutečný obsah. Důvod: stahování v předchozích verzích selhávalo a vznikl zmatek, co je nasazené a co ne.',
+      'ℹ️ Obsah dávky (změny beze změny chování oproti 10.76–10.79): audit schématu + oprava `S.goals` → `S.wishes` v _dataSig (v10.76) · průchod řetězcem, oprava editace účtenky a dvojího započtení hodnocení (v10.77) · Finanční obraz v1 s teploměrovou stupnicí (v10.78) · oprava průvodce mazáním dat a volby „Celkově" v Obrazu (v10.79).',
+    ]
+  },
+  {
+    verze: 'v10.79',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan): MAZÁNÍ DAT ŠLO JEN NAPOPRVÉ. Průvodce má tři kroky a stav drží `_deleteCurrentStep`. Funkce openDeleteDataModal() vracela do výchozí polohy jen VIDITELNOST kroků, ne počítadlo ani tlačítko. Po zavření uprostřed tedy zůstalo počítadlo na 2 nebo 3 → druhý pokus přeskočil nabídku zálohy; a `deleteNextBtn.onclick` přepsaný na confirmDeleteAllData → třetí pokus rovnou volal potvrzení nad prázdným polem, které nebylo vidět, vypsal „Zadej přesně SMAZAT" a vrátil uživatele na úvodní obrazovku. Přesně to Milan popsal.',
+      '🔄 Nová `resetDeleteWizard()` vrací počítadlo, tlačítko, vstupní pole i viditelnost kroků. Volá se na KAŽDÉ cestě ven (křížek i Zrušit), ne jen při otevření. Vstupní pole se navíc vyprazdňuje – zůstat tam předvyplněné SMAZAT znamená být jeden klik od nevratného smazání.',
+      '🛟 Prázdné pole už uživatele z průvodce nevyhodí: když krok 3 není vidět, zobrazí se, a kurzor skočí do pole. Dostat výtku za nevyplněné pole, do kterého není kam psát, je slepá ulička.',
+      '💾 U nabídky zálohy přibylo „Záloha je nepovinná — pokračovat můžeš i bez ní". Milan hlásil, že nabídka nešla odmítnout.',
+      '🪟 FIX (Obraz): U VOLBY „CELKOVĚ" NEVZNIKLO ŽÁDNÉ SKÓRE. Složky porovnávají okno s předchozím stejně dlouhým, jenže „Celkově" sahá až k nejstarší transakci – před ním tedy není nic, všechny složky vyjdou jako neměřitelné a Obraz neukáže vůbec nic. Nově se okno zkrátí nejvýš na POLOVINU dostupné historie, takže „Celkově" znamená „novější polovina proti starší" – přirozený význam celkové změny. U 6M a 12M se nic nemění, dokud je historie dost dlouhá.',
+      '🧪 tools/smoke_smazani.js – 8 testů průvodce mazáním (fiktivní DOM, skutečné mazání se v testu nespouští).',
+    ]
+  },
+  {
+    verze: 'v10.78',
+    datum: '2026-09-16',
+    zmeny: [
+      '🖼️ FINANČNÍ OBRAZ v1 – nová karta s teploměrovou stupnicí. Dopsány tři chybějící složky (Net Worth Momentum byl hotový z v10.67) a skládací funkce computeObrazV1(). Váhy 30/25/30/15 podle rozhodnutí Milana.',
+      '💰 REÁLNÝ RŮST PŘÍJMU – porovnává PRŮMĚR za okno s průměrem za předchozí stejně dlouhé okno, ne první vs. poslední měsíc (jeden výkyv by rozhodl o celé metrice). Přepočítává se na roční tempo, aby 6M a 12M dávaly srovnatelná čísla, a odečítá se inflace z obrazInflaceRef() (osobní z účtenek → ČSÚ → 3 %).',
+      '🛒 DOPAD ŽIVOTNÍHO STYLU – o kolik měsíců se změnila doba, kterou rezerva uživí. POZOR K VÝKLADU: appka nedrží historii rezervy (jen čisté jmění od v10.67), takže metrika izoluje vliv VÝDAJŮ: „kdyby rezerva zůstala stejná, o kolik se zkrátila kvůli dražšímu životu". To je přesně to, co má název slibovat, a nemíchá se do toho, kolik se povedlo odložit (od toho je Net Worth Momentum).',
+      '📊 KONCENTRAČNÍ RIZIKO – podíl největší kategorie na výdajích. Jediná složka měřící STAV, ne změnu (vědomá výjimka, rozhodl Milan): stabilních 60 % v jedné kategorii je zranitelnost bez ohledu na to, že se nic nehnulo. Pod třemi kategoriemi se NEMĚŘÍ – kdo má dvě, má vždycky „vysoký podíl" a byl by trestán za to, že si výdaje netřídí.',
+      '🌡️ TEPLOMĚROVÁ STUPNICE (přání Milana) místo kruhu: běžné pásmo 0–200 je vyznačené ryskami po 50 bodech se zvýrazněným základem 100 („nic se nezměnilo"), a hodnota, která pásmo přesáhne, se PŘIZNÁ místo aby se ořízla. Stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních deset bodů nikdo neviděl.',
+      '🪟 U známky je vždycky vidět OKNO (6M / 12M / Celkově). Delší okno znamená větší změny, což je správně, ale samo číslo to neprozradí – bez popisku by si uživatel přepnul rozsah, uviděl jiné číslo a bral to jako chybu.',
+      '🚫 Neměřitelná složka vypadne z výpočtu I S VAHOU, ta se rozpustí mezi zbylé. Pod prahem pokrytí (40 %) nebo pod dvěma měřitelnými složkami se známka neukáže vůbec – u metriky ZMĚNY je „nemám co porovnat" častý a poctivý stav.',
+      '⚠️ Stará karta „Cesta finančního zdraví" ZŮSTÁVÁ vedle nové. Proměnná `score` (0–100) je použitá na desítkách míst níž a tichá záměna za škálu 0–200 je přesně ten druh chyby, který se v téhle session lovil. Retire až po srovnání obou čísel na reálných datech.',
+      '🧪 tools/smoke_obrazv1.js – 20 testů. Známky se ověřují proti _OBRAZ_V1, ne proti vlastnímu slovníku v testu (ten by se s konfigurací časem rozešel).',
+    ]
+  },
+  {
+    verze: 'v10.77',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔗 PRŮCHOD ŘETĚZCEM účtenka → transakce → editace → statistiky. Nalezeny dvě vady, OBĚ důsledek přechodu na jednu transakci (v10.73), který jsem nedotáhl.',
+      '🐛 FIX: EDITACE ÚČTENKY V HISTORII NIČILA ROZPAD. syncReceiptToTransactions() filtrovala položky podle `it.itemCatId === t.catId` – logika z doby, kdy každá transakce nesla jen položky své kategorie. Dnes je transakce jedna a nese všechny, takže by si po editaci ponechala JEN položky hlavní kategorie: u Kauflandu se čtyřiceti položkami by zbyly třeba dvě. Navíc se přestavbou zahazovaly `itemCatId` a `itemSubcat`, na kterých od v10.73 kategorie ŽIJÍ – rozpad by zůstal beze smyslu. Nově se přenášejí všechny položky se všemi poli, včetně částky (jinak se transakce po úpravě rozejde s dokladem) a včetně smazaných tagů.',
+      '🐛 FIX: DVOJÍ ZAPOČTENÍ U HODNOCENÍ ÚTRAT. Sčítaly se hodnocené TRANSAKCE i hodnocené POLOŽKY účtenek – kdo označil nákup za zbytečný a k tomu ohodnotil pár položek uvnitř, započítal tytéž peníze dvakrát. Po v10.73 je to citelnější: účtenka je jedna transakce v plné výši, takže překryv není částečný, ale úplný. Přednost mají položky (jsou konkrétnější); transakce, jejíž účtenka má aspoň jednu hodnocenou položku, se do součtu nebere.',
+      '✅ Ověřeno, že Inflace i COICOP čtou `S.receipts`, ne rozpad na transakci – na změnách v transakcích tedy nezávisí a dvojí započtení mezi účtenkami a transakcemi nehrozí.',
+      '🤝 ROZHODNUTÍ (Milan): partner v plném sdílení vidí i rozpad účtenky, nejen částku. Zůstává beze změny.',
+      '🧪 tools/smoke_retezec.js – 13 testů přes celý řetězec.',
+    ]
+  },
+  {
+    verze: 'v10.76',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔍 AUDIT SYNCHRONIZAČNÍHO SCHÉMATU – projito všech 37 polí S.* napříč 41 moduly proti ukládacím schématům, _DW_META a seznamu sdílených. Výsledek je lepší, než jsem čekal: sdílení partnerovi je UZAVŘENÝ povolovací seznam (10 sdílených + 15 vyjmenovaných nesdílených = přesně 25 klíčů _DW_META, nic nepropadlo bez rozhodnutí) a načítání zpět je samoopravné (přihlásí se i ke klíčům mimo _DW_META a nahlásí je do konzole).',
+      '🐛 FIX: `_dataSig()` v ui.js sledoval `S.goals` – POLE, KTERÉ V APLIKACI NEEXISTUJE. Byl to jediný výskyt v celém kódu; virtuální cíle žijí v `S.wishes` (savedAmount, targetAmount, monthlyTarget, done). Kontrolní součet tedy vycházel vždycky 0 a úprava cíle nemusela překreslit stránku – projevovalo se to jako „upravil jsem cíl a nic se nestalo, dokud jsem nepřepnul jinam".',
+      '🧪 tools/smoke_schema.js – audit, který se opakuje SÁM. Ručně provedený audit se podruhé neudělá; tenhle běží s každým spuštěním testů a spadne, jakmile přibude pole bez cesty do Firebase, klíč bez rozhodnutí o sdílení nebo duch v podpisu dat. Ověřeno, že obě zavedené chyby skutečně chytí, ne že je jen zelený.',
+      '⚠️ K ROZHODNUTÍ (nezměněno): `_dwTxObj()` posílá partnerovi CELÉ objekty transakcí, takže v režimu plného sdílení vidí i `receiptItems` – kompletní rozpis každé účtenky. Před v10.73 byl rozpis roztroušený po transakcích podle kategorií, teď je celý na jedné. Není to chyba (nastavení se jmenuje „plné sdílení"), ale je rozdíl mezi „nechal jsem 1 490 Kč v Kauflandu" a „koupil jsem konkrétní léky a alkohol". Viz AUDIT-schema-S22.md.',
+    ]
+  },
+  {
+    verze: 'v10.75',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan): TAGY UKAZOVALY NESMYSLNÉ ČÁSTKY. getAllTags() přičítal ke KAŽDÉMU tagu CELOU částku transakce. Jenže tagy chodí z analýzy účtenky – jeden nákup nese Pečivo, Ovoce, Zelenina, Těstoviny, Sladkosti, Drogerie i Koření. Nákup za 995 Kč se tedy započítal SEDMKRÁT v plné výši a stránka tvrdila, že za zeleninu padlo 995 Kč; součet přes všechny tagy byl násobkem skutečné útraty.',
+      '🏷️ Nyní tag z POLOŽEK účtenky bere jen ceny těch položek, které ho nesou. Tag napsaný ručně k celé transakci (#dovolená) bere dál celou částku – tam se opravdu vztahuje na celý výdaj.',
+      '🧮 Podíl se počítá na částce transakce, ne na součtu položek: účtenka se může o zaokrouhlení lišit (SOUČET 122,60 · CELKEM 123,00) a transakce je navíc už přepočtená přes txCZK, takže se tím zároveň ošetří cizí měny. Součet přes tagy tak sedne na skutečnou útratu na haléře.',
+      '📊 Proužek pod tagem měřil POČET transakcí, zatímco vedle něj stála částka – dva údaje o různých věcech vedle sebe. Nyní měří peníze a seznam se řadí podle částky, ne podle počtu.',
+      '💱 Částka nově přes fmtB() – dřív fmt() bez převodu, což je past PAST 3 hlídaná v tools/smoke_mena.js (uživatel s jinou základní měnou by viděl korunové číslo bez měny).',
+      '🧪 tools/smoke_tagy.js – 12 testů.',
+    ]
+  },
+  {
+    verze: 'v10.74',
+    datum: '2026-09-16',
+    zmeny: [
+      '🐛 FIX (moje chyba z v10.71): „_ffScriptFail is not defined". Diagnostický blok byl vložen před js/helpers.js, jenže PRVNÍ načítaný skript je js/app.js – ten je v souboru dřív. Když selhal on, funkce ještě neexistovala a místo srozumitelné hlášky spadla appka na ReferenceError. Blok je nyní před ÚPLNĚ PRVNÍM lokálním skriptem a volání v atributu je navíc obalené `window._ffScriptFail && ...`, protože prohlížeč umí začít stahovat skripty dřív, než doběhne inline kód (preload scanner).',
+      '🚩 ADMIN: ČTENÍ HLÁŠENÍ ÚČTENEK (nová záložka). Od v10.71 uživatelé hlásili do uzlu receipt_reports, ale nebylo kde si to přečíst – funkce sbírala data, na která se nikdo nepodívá.',
+      '📊 Řadí se podle VELIKOSTI ROZDÍLU mezi částkou na účtence a součtem položek, ne podle času. Právě ten rozdíl ukazuje, co analyzéru uniklo (u Kauflandu sleva „Tvoje cena s −49,90"), takže největší rozpory patří nahoru. Navíc přehled podle obchodu: opakující se řetězec znamená chybu promptu, ne náhodu.',
+      '🔒 Fotka účtenky se zobrazí až na kliknutí – je na ní adresa prodejny a čas nákupu, nemá být vidět jen tím, že se otevře seznam. Poznámka od uživatele se escapuje.',
+      '🧭 Když Firebase vrátí Permission denied, karta rovnou napíše, že chybí uzel `receipt_reports` v pravidlech – jinak by admin hledal chybu v kódu.',
+      '🧪 tools/smoke_adminrep.js – 12 testů.',
+    ]
+  },
+  {
+    verze: 'v10.73',
+    datum: '2026-09-16',
+    zmeny: [
+      '🧾 JEDNA ÚČTENKA = JEDNA TRANSAKCE (oprava, nahlásil Milan). Od v6.88 (S9) se účtenka dělila na jednu transakci za každou kategorii položek – z jednoho nákupu v Kauflandu tak vzniklo SEDM řádků a celková zaplacená částka, tedy to hlavní, co člověk chce vidět, nebyla nikde.',
+      '🔎 Proč to vzniklo: zadání TODO-014 znělo o KATEGORIZACI (učení obchodník→kategorie pro importy, bankovní výpisy, AI rádce a skenování účtenek). Dělení nákupu na víc transakcí si nikdo nepřál – přišlo to jako vedlejší produkt, protože přes kategorie na položkách se to dalo udělat snadno. Roky to nebylo vidět: bez naučených přiřazení spadly položky do jedné skupiny a transakce byla jedna. Jakmile se učení rozběhlo, projevilo se to naplno.',
+      '📦 Kategorie se NEZTRÁCEJÍ – žijí dál na položkách v `receiptItems` (včetně itemCatId a podkategorie) a statistiky, Inflace i Detektor z nich čtou stejně jako dřív. Kategorie transakce = ta, ve které je nejvíc peněz.',
+      '💰 Částka transakce = co bylo SKUTEČNĚ ZAPLACENO. U hotovostních účtenek se liší od součtu položek o zaokrouhlení na koruny (SOUČET 122,60 · CELKEM 123,00) a z účtu odešlo to druhé; rozdíl se ukládá do `receiptRounding`, ať je při zpětné kontrole jasné, proč to nesedí na haléř.',
+      '🧠 Učení mapování zůstává beze změny – ukládá se za každou položku i za obchod. To bylo skutečné zadání TODO-014 a funguje dál.',
+      '🧪 tools/smoke_jednatx.js – 13 testů.',
+      'ℹ️ Zpětně se nic nepřepisuje: transakce rozsekané starou logikou zůstanou. Milan si je projde a smaže sám.',
+    ]
+  },
+  {
+    verze: 'v10.72',
+    datum: '2026-09-16',
+    zmeny: [
+      '📈 OFICIÁLNÍ INFLACE Z ČSÚ — nová routa /inflace v Cloudflare Workeru. Metrika „Reálný růst příjmu" ve Finančním obrazu potřebuje vědět, KDE JE NULA: přidání o 3 % při inflaci 3 % je stání na místě, při inflaci 8 % propad. Bez reference by metrika chválila každé přidání, i když z něj reálně ubývá.',
+      'ℹ️ Pozor na časté nedorozumění: index spotřebitelských cen NEVYDÁVÁ ČNB, ale ČSÚ — ČNB dělá prognózy a měnovou politiku. Bereme sadu CEN0101E, meziroční index (casz_kod = C), souhrn za všechny oddíly; `hodnota` je index v %, míra inflace = hodnota − 100.',
+      '🔀 Meziroční, ne klouzavý průměr (casz_kod = K): roční průměr reaguje se zpožděním a proti letošnímu růstu příjmu by zaostával.',
+      '🌐 Proč přes Worker a ne rovnou z prohlížeče: ČSÚ neposílá CORS hlavičky (prohlížeč by odpověď zahodil) a soubor je celá časová řada od roku 2000 — stahovat ji každému uživateli zvlášť je plýtvání. Cache 7 dní, protože ČSÚ vydává nová čísla jednou MĚSÍČNĚ (kolem 10.–15. dne za předchozí měsíc).',
+      '🥇 Pořadí zdrojů zůstává: OSOBNÍ inflace z účtenek → ČSÚ → pevná 3 %. Osobní je pořád lepší, protože ČSÚ průměruje celou populaci. Selhání sítě nic neshodí, jen se sáhne po záloze.',
+      '🍞 Stahují se i oddíly COICOP (potraviny, bydlení, doprava…). Appka má COICOP v coicop.js, takže půjde říct „tobě potraviny zdražily o 8 %, průměru o 3 %".',
+      '🛡️ Když ČSÚ změní strukturu CSV, worker to přizná chybou místo aby vrátil nesmyslné číslo. Názvy oddílů obsahují čárky, takže parser respektuje uvozovky.',
+      '🗑️ Stažená hodnota se ZÁMĚRNĚ neukládá do Firebase ani do _DW_META — je to veřejný údaj, který jde kdykoli stáhnout znovu; ukládat ho ke každému uživateli zvlášť by byl odpad v databázi.',
+      '🧪 tools/smoke_inflace.js – 15 testů (parser i klient).',
+      '⚠️ NASAZENÍ: worker.js → Cloudflare. Bez toho routa /inflace neexistuje a appka zůstane na pevných 3 %.',
+    ]
+  },
+  {
+    verze: 'v10.71',
+    datum: '2026-09-16',
+    zmeny: [
+      '🔍 DIAGNOSTIKA NENAČTENÉHO SOUBORU. Milan po nasazení v10.66 viděl jen „Uncaught SyntaxError: Invalid or unexpected token" a z toho nešlo poznat vůbec nic. Příčina: když některý .js soubor na hostingu chybí, server nevrátí 404 se slušným hlášením, ale HTML stránku. Prohlížeč ji zkusí zpracovat jako JavaScript, narazí na „<" a vypíše tuhle hlášku. Nově má každý skript onerror a appka rovnou napíše, KTERÝ soubor chybí – plus globální záchyt pro případ, kdy se soubor stáhne, ale je to HTML místo JS.',
+      '🚩 NAHLÁŠENÍ ŠPATNĚ PŘEČTENÉ ÚČTENKY (Milan). Formulář v „O aplikaci" na tohle nestačil: uživatel musí slovy popsat, co viděl, a stejně chybí to jediné, z čeho jde prompt opravit – fotka a JSON, který z ní analyzér vyrobil. Tlačítko je přímo u upozornění na rozpor; odešle obchod, datum, natištěnou i spočítanou částku a názvy s cenami položek.',
+      '🔒 SOUKROMÍ: účtenka není neutrální obrázek – je na ní adresa prodejny, čas nákupu a co člověk jedl. Fotka se proto přikládá JEN po výslovném zaškrtnutí, uživatel dopředu vidí, co přesně odejde, a u zaškrtávátka stojí, co je na účtence vidět. Bez fotky hlášení funguje taky (čísla a názvy položek odhalí většinu chyb). Když fotka u účtenky uložená není, zaškrtávátko se vůbec nenabídne.',
+      '📉 Snímek se před odesláním zmenší na 1000 px a zkomprimuje; přes strop 400 kB se raději vynechá, než aby zápis spadl. Položek se posílá nejvýš 80.',
+      '🗄️ Nový uzel `receipt_reports` v database_rules.json – přihlášený uživatel píše jen do svého podstromu, čte výhradně admin (stejný vzor jako coicop_corrections). ⚠️ NASAZUJE SE DO FIREBASE CONSOLE PŘED kódem, jinak zápis skončí chybou.',
+      '🧪 tools/smoke_report.js – 17 testů.',
+    ]
+  },
+  {
+    verze: 'v10.70',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX (nahlásil Milan na živých datech): ÚČTENKA UKÁZALA ŠPATNOU ČÁSTKU HNED PO SKENU. Kaufland 1 540,88 místo 1 490,99 – analyzér přehlédl slevový řádek „Tvoje cena s −49,90". PRAVIDLO 3 v promptu vyjmenovávalo konkrétní formulace („SLEVA VĚRNOSTI", typicky Penny a Albert), jenže Kaufland slovo „sleva" vůbec nepoužívá. Nově platí obecné pravidlo: JAKÁKOLI samostatná záporná částka pod položkou je sleva k té položce – rozhoduje znaménko, ne název řádku.',
+      '🔓 FIX ZÁVAŽNĚJŠÍ: PROMPT NUTIL ANALYZÉR ZAHLADIT VLASTNÍ CHYBU. PRAVIDLO 5 znělo „sum(items) musí ≈ total, pokud nesedí, oprav lineTotal". Appka přitom má od S19 kontrolu úplnosti (TODO-226), která porovnává součet položek s částkou na účtence – jenže model ta dvě čísla předtím uměle ztotožnil, takže kontrola neměla co najít. Nově: čísla se NIKDY neupravují, aby si odpovídala; rozpor je informace, ne problém k zametení.',
+      '💰 DVĚ SPRÁVNÉ ČÁSTKY NA JEDNÉ ÚČTENCE. Milanova druhá účtenka: „SOUČET 122,60" a „CELKEM 123,00". Obě jsou správně – první je součet položek, druhá to, co odešlo z účtu (zaokrouhleno na koruny). Prompt i appka nově rozlišují `total` (zaplaceno), `subtotal` (součet položek) a `rounding`. Položky se porovnávají proti subtotalu, takže zaokrouhlení už nevyvolá varování.',
+      '🔒 FIX: rpUpdateTotal() TIŠE PŘEPISOVAL NATIŠTĚNOU ČÁSTKU součtem položek. I kdyby analyzér přečetl „CELKEM" správně, první úprava kterékoli položky to číslo zahodila – a rozpor zmizel dřív, než ho někdo uviděl. Natištěná částka se teď drží zvlášť v `printedTotal` a nikdy se nepřepisuje.',
+      '⚠️ KONTROLA UŽ HNED PO SKENU, ne až v Historii (tam běžela od S19, tedy až POTOM, co uživatel transakci uložil). Hlásí se neutrálně – rozdíl nemusí být chyba AI, bývá to i vratná záloha na lahve nebo sleva na celý doklad.',
+      '🖱️ OPRAVA JEDNÍM KLIKEM, nikdy automaticky (výhrada Milana: špatně přečtený total by zmařil celý výpočet). Dvě tlačítka: „Použít částku z účtenky" (a zamkne ji, ať ji součet položek nepřebije) a „Doplnit rozdíl jako položku". Rozhoduje uživatel – má účtenku v ruce.',
+      '🛒 VÝCHOZÍ KATEGORIE POLOŽEK: „Ostatní" → „Nákup" (Milan). U nákupu v potravinách skončily všechny položky v Ostatní a uživatel musel každou ručně přepnout. Nově se nejdřív zkusí kategorie celé účtenky (Kaufland → Jídlo & Nákupy), takže položky rovnou sednou tam, kam patří.',
+      '📱 Hlavička karty se na mobilu mačkala – datum a kategorie vedle sebe v jednom řádku, ani jedno pořádně vidět. Nyní se zalomí pod sebe (flex-wrap + min-width).',
+      '🧪 tools/smoke_uctenka_kontrola.js – 20 testů, reprodukuje obě Milanovy účtenky.',
+      '⚠️ NASAZENÍ: worker.js patří do CLOUDFLARE, ne na GitHub. Bez toho deploye se chování analyzéru NEZMĚNÍ a slevy budou dál unikat.',
+    ]
+  },
+  {
+    verze: 'v10.69',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX · ZPĚTNÉ OKNO OBRAZU IGNOROVALO DLUHY. Funkce computeObrazScoreBack() plnila do každého měsíce `debt: 0`, takže trend dluhu vyšel VŽDY nula a složka přispěla 0 bodů – pokaždé, u každého uživatele. Skóre za AKTUÁLNÍ okno se skládalo ze čtyř složek, za DŘÍVĚJŠÍ ze tří a čtvrtou tiše nahradilo nulou; ta dvě čísla se pak porovnávala, jako by byla souměřitelná. Kdo za půl roku splatil velkou část dluhu, dostal v aktuálním okně body, v dřívějším nulu, a appka mu to vydávala za zlepšení, které s jeho dluhem nemá nic společného.',
+      '🔧 Historie dluhu se přitom rekonstruovat DÁ a živá řada to od v8.68 umí: zůstatek ke konci měsíce = dnešní zůstatek + splátky zaplacené PO něm (transakce s debtId). Zpětná funkce ten postup jen nepoužívala. Opraveno na OBOU místech, kde se `debt: 0` plnilo.',
+      '📈 INFLAČNÍ REFERENCE pro „Reálný růst příjmu" (obrazInflaceRef). Reference je nula na stupnici: přidání o 3 % při inflaci 3 % znamená stání na místě, při inflaci 8 % propad. Bez ní by metrika chválila každé přidání, i když z něj reálně ubývá.',
+      '🥇 Pořadí zdrojů (rozhodnutí Milana): OSOBNÍ inflace z účtenek → ČNB/ČSÚ (hák `S.cnbInflace`, zatím nenapojeno) → pevná 3 %. Osobní je lepší než oficiální, protože ČNB průměruje celou populaci. Obava, že se čísla rozjedou napříč produkty, je vyřešená už v inflace.js: počítá se index VÁŽENÝ útratou, ne prostý průměr, takže pár podražených rohlíků nedělá desetiprocentní inflaci.',
+      '🔬 Pod 5 sledovanými položkami je osobní inflace šum, ne měření – tehdy se sáhne po záloze. Rozbitý výpočet účtenek shodí na zálohu, ne na pád stránky.',
+      '🧪 tools/smoke_obrazfix.js – 11 testů.',
+    ]
+  },
+  {
+    verze: 'v10.68',
+    datum: '2026-09-12',
+    zmeny: [
+      '🖼️ SIMULÁTOR FINANČNÍHO OBRAZU v admin panelu (Milan). Záložka „Skóre" má nově přepínač: ⚖️ Finanční skóre / 🖼️ Finanční obraz. U každé složky je VÁHA i s vysvětlením, proč je zrovna taková, a editovatelné KOTVY od −100 do +100.',
+      '📐 Konfigurace Obrazu vytažena do `_OBRAZ_V1` (helpers.js) — stejně jako u skóre jsou váhy a kotvy DATA, ne konstanty rozeseté po kódu. Základ 100, rozsah 0–200, NEOŘEZÁVÁ se (stará škála 50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních deset bodů nikdo neviděl).',
+      '🧭 V panelu je vysvětlený i rozdíl mezi oběma čísly: skóre měří ÚROVEŇ („jak na tom jsem"), Obraz měří ZMĚNU za okno („kam se hýbu"). Proto se obojí smí opírat o stejnou veličinu — rezerva jako stav a rezerva jako trend jsou dvě různé informace, ne dvojí započtení.',
+      '🔒 Simulátor Obrazu nic neukládá a pracuje s KLONEM: ostrá `_OBRAZ_V1` se nemění (hlídá test). Součet vah musí být přesně 100 %, jinak se blok k přepsání nevygeneruje.',
+      '🧪 tools/smoke_simskore.js rozšířen na 24 testů.',
+    ]
+  },
+  {
+    verze: 'v10.67',
+    datum: '2026-09-12',
+    zmeny: [
+      '💎 NET WORTH MOMENTUM – nová složka Finančního obrazu, jediná měřící STAV MAJETKU. Všechno ostatní v Obrazu i ve Finančním skóre měří toky a jejich poměry; na otázku „vyrostlo mi za rok jmění, nebo se ztenčilo?" dosud neodpovídalo nic.',
+      '🔢 Milan vybral ze tří pohledů dva do bodování a jeden do textu: PROTI VÝDAJŮM (70 %, o kolik měsíců života sis přikoupil), ZRYCHLENÍ (30 %, tohle okno proti předchozímu) a V KORUNÁCH jen jako věta na kartě. Absolutní částka a pohled „proti výdajům" měří totéž s jiným jmenovatelem – bodovat obě by znamenalo počítat jeden fakt dvakrát.',
+      '🚫 NESMÍ se měřit proti PŘÍJMU: kdo vydělá o 20 % víc a odkládá o 20 % víc korun, má stejný podíl a vyšlo by mu NULOVÉ zlepšení. Normalizace příjmem vyruší přesně to, co má být vidět – proto proti výdajům.',
+      '⚠️ Zrychlení je vědomý kompromis (rozhodnutí Milana): po mimořádně dobrém období strhne i normální období do mínusu, přestože člověk pořád odkládá. Je to tatáž past jako u přesčasů 4× → 2× týdně, proto jen 30 % váhy a nikdy se nepoužívá samostatně. Ze záporného dřívějšího tempa se procento nepočítá vůbec.',
+      '📒 Appka si začíná ukládat ČISTÉ JMĚNÍ do měsíčního snímku – dosud znala jen dnešní stav a minulý se dopočítat nedá (nikdo neví, jak se měnila tržní hodnota majetku). Než se řada nasbírá, složka NENÍ měřitelná a z váženého průměru vypadne i s váhou. Nula by tvrdila, že jmění stagnuje, což není totéž jako „nevíme".',
+      '🧪 tools/smoke_nwm.js – 14 testů.',
+    ]
+  },
+  {
+    verze: 'v10.66',
+    datum: '2026-09-12',
+    zmeny: [
+      '📄 VÝPLATNICE MAJÍ PŘEDNOST PŘED RUČNÍM ZÁPISEM PŘESČASŮ (Milan). Páska zná fond hodin i skutečně odpracované, takže přesčas = odpracováno nad fond – přesnější než odhad a bez ptaní. Pořadí zdrojů: výplatnice → odpověď z checklistu → nic. Když appka odpověď zná z pásky, checklist se neptá, jen oznámí „(z výplatnice)".',
+      '🛡️ Neúplná páska (chybí fond nebo odpracováno) se ignoruje a sáhne se po ruční odpovědi – z půlky vyplněné hlavičky by vyšlo nesmyslné číslo. Odpracováno POD fond (dovolená, nemoc) dá 0 přesčasů, ne záporný počet.',
+    ]
+  },
+  {
+    verze: 'v10.65',
+    datum: '2026-09-12',
+    zmeny: [
+      '💪 PŘESČASY A BONUS ZA ÚSILÍ (zadání Milana: „odměnit za snahu o přesčasy a větší příjem"). Měsíční checklist se nově ptá „Měl jsi tento měsíc přesčas?" – rychlé volby (žádný / do 10 h / 10–25 h / víc než 25 h), psát čísla na mobilu je otrava a u bonusu na přesnosti nezáleží. Odpověď se ukládá do měsíčního záznamu Deníku.',
+      '➕ Úsilí je BONUS (0–15 z 200), NE složka Obrazu. Obraz měří změnu, takže jako složka by trestal za omezení přesčasů ze 4× na 2× týdně – i když ten člověk pořád dělá navíc. Bonus se počítá ze STAVU, takže 2× týdně pořád něco dá, jen míň, a nikdy nejde do mínusu: omezení přesčasů uživatele NIKDY nestojí body. Zároveň je úsilí vstup, ne výsledek – ve váženém průměru by zamlžilo, jestli dobrý Obraz znamená „dostal jsem se dál" nebo „dřel jsem a jsem na stejném místě".',
+      '🧢 Strop 15 z 200 je schválně nízký: údaj je NEOVĚŘITELNÝ (uživatel ho píše sám), takže i vylhané maximum posune výsledek o 7,5 %, ne o třetinu.',
+      '0️⃣ „Žádný přesčas" (nula) a „neodpověděl jsem" (null) jsou rozlišené. Neodpovězený měsíc se do průměru nepočítá – nula by lhala, že ten měsíc nikdo nedřel. Tlačítko „změnit" odpověď ZRUŠÍ, nenastaví nulu.',
+      '📅 FIX: PRVNÍ OTEVŘENÍ APPKY UPROSTŘED MĚSÍCE KAZILO PŘESNOST PREDIKCE. Snímek má zmrazit, co model tvrdil na začátku měsíce, jenže vzniká při prvním otevření – a to může být klidně 17. den, kdy predikce už zná půlku skutečnosti a vychází nezaslouženě přesně. Nově se ukládá den pořízení (`snap.day`); snímek pozdější než 5. den se nezapočítává do průměrné odchylky a v tabulce je označený „částečný“ s vysvětlením.',
+      '🧹 Záznam, který vznikl jen kvůli zápisu přesčasů (bez predikce), Přesnost predikce přeskakuje – jinak by vypsal prázdný řádek.',
+      '🧪 tools/smoke_usili.js – 16 testů. Klíčový ověřuje, že omezení přesčasů nestojí body.',
+    ]
+  },
+  {
+    verze: 'v10.64',
+    datum: '2026-09-12',
+    zmeny: [
+      '🗑️ MAZÁNÍ SNÍMKŮ DENÍKU ZRUŠENO (Milan). Tlačítko „Vytrhnout list" maže celý S.diary[key]. Uživatel ho použil, protože chtěl zahodit nepovedenou predikci – a nevědomky si tím smazal i objem trvalých závazků za ten měsíc, tedy data, která se nedají dopočítat ze žádného jiného zdroje. Mazání jedné věci bralo i druhou, o které uživatel nevěděl, že tam je.',
+      '📒 HISTORIE ŠABLON PŘEDĚLÁNA ZE SNÍMKOVÁNÍ NA ZÁZNAM PŘI ZMĚNĚ (`S.fixedLog`). Šablonu lze změnit jedině v appce, takže zachytit změnu je spolehlivější než čekat na první otevření v novém měsíci – a objem pak jde zrekonstruovat k LIBOVOLNÉMU dni, ne jen k prvnímu v měsíci. Log roste s úpravami, ne s časem: beze změny objemu nepřibývá nic.',
+      '🔒 `fixedLog` doplněn do VŠECH synchronizačních schémat (TODO-257: nové uzly musí být ve schématu, jinak je Firebase sync tiše smaže) a mezi data, která se NEsdílí partnerovi – patří k šablonám, které se taky nesdílí.',
+      '🧊 Prázdný začátek se do logu nezapisuje. Nula bez zadaných šablon není „změna na nulu", ale „ještě nic nezadal" – v historii by se tvářila jako zrušení závazků.',
+      '✅ Ověřeno, že zpětné dopisování transakcí Přesnost predikce NEZKRESLUJE: renderPredAccuracy() bere skutečnost živě přes getTx(), zmrazená je jen predikce. To je správně a měnit se nemuselo.',
+      '🧪 tools/smoke_zavazky.js rozšířen na 25 testů (rekonstrukce objemu k datu, log neroste beze změny, přítomnost ve schématu, nesdílení, zrušené mazání).',
+    ]
+  },
+  {
+    verze: 'v10.63',
+    datum: '2026-09-12',
+    zmeny: [
+      '🐛 FIX (od S10!) · „KAM RŮST PŘISTÁL" TVRDILO UŽIVATELI NEPRAVDU. Metrika počítala `Math.min(růst výdajů, součet VŠECH šablon)` – to není měření, to je strop. Součet šablon je u běžné domácnosti 15–20 tis. Kč, takže minimum vyšlo skoro vždy rovno růstu výdajů a karta hlásila, že CELÝ růst přistál v trvalých závazcích – i když se žádná pravidelná platba nezměnila. Věta „zbytek byly jednorázové výdaje" přitom mluvila vždycky o nule. Jiné číslo by se ukázalo teprve při růstu výdajů nad ~18 000 Kč měsíčně.',
+      '🧮 Správně se musí porovnat objem závazků DNES a TEHDY. Appka ale historii šablon nedržela – znala jen jejich dnešní stav. Od téhle verze se do měsíčního snímku Deníku ukládá `fixedTotal` a historie se začíná kupit: první srovnání za pár měsíců, plnohodnotné za šest. Než se nakupí, karta POCTIVĚ ŘEKNE, že to zatím spočítat neumí – nepravdivé číslo je horší než žádné.',
+      '📐 FIX (tamtéž): starý součet ignoroval frekvenci šablon, takže roční pojistka za 12 000 Kč se počítala jako 12 000 Kč MĚSÍČNĚ. Nová `sablonyFixedTotal()` přepočítává všech pět frekvencí (týdenní, čtrnáctidenní, měsíční, čtvrtletní, roční) na měsíční ekvivalent, vynechává příjmy, převody a ukončené šablony.',
+      '🚫 Metrika se NEZAŘAZUJE do bodování Finančního obrazu – dokud byla rovná růstu výdajů, bodovat ji by znamenalo počítat podruhé totéž, co už boduje „Dopad životního stylu". Po opravě a nasbírání historie se zařadí s OBRÁCENÝM směrem, než říkal návrh: vyšší podíl v trvalých závazcích = horší, protože měří riziko, ne výkon (závazek při poklesu příjmu nezmizí).',
+      '🧪 tools/smoke_zavazky.js – 15 testů včetně reprodukce původní vady na číslech, aby bylo zřejmé, co se opravilo.',
+    ]
+  },
+  {
+    verze: 'v10.62',
+    datum: '2026-09-12',
+    zmeny: [
+      '📝 DENÍKOVÉ POZNÁMKY K VÝDAJŮM (level 1, zadání Milana): „Je to přece deník." Klikneš v Deníku na výdaj, otevře se vlastní stránka a zapisuješ si k němu, kolikrát chceš. Každý zápis má čas, jde upravit i smazat. Nový modul poznamky.js.',
+      '🔁 KONEC PŘEPISOVÁNÍ: dosavadní revNote() uměl JEDNU poznámku na transakci přes prompt() a ukládal ji do `t.priorityNote` – druhý zápis ten první přepsal. To bylo políčko, ne deník. Nově `t.notes = [{id, ts, text}]`.',
+      '🔒 ÚNIK OŠETŘEN: `_shTxObj()` posílal partnerovi v režimu „full" CELÉ objekty transakcí, takže by mu poznámky odešly s nimi – tatáž chyba, kterou S21 opravovala u osobního deníku (FIX-317). Nový seznam `_TX_OSOBNI` v app.js osobní pole z výřezu odstraní (`notes` i `priorityNote`, která se dosud sdílela nedopatřením). Partner má vidět, že jsem utratil 900 Kč, ne proč mi to bylo líto.',
+      '📦 Stará `priorityNote` se NEMAŽE – při prvním otevření se převezme jako první zápis a označí „ze starší poznámky". Zároveň se v ní dál zrcadlí nejnovější zápis, protože ji čte Detektor úspor a souhrny.',
+      '🐛 FIX (S22): revNote() při prohlížení cizích dat mlčky skončil – klik neudělal NIC a nikde nestálo proč. Nyní se napíše, co se děje (jinde v kódu, např. assets.js, se to takhle chová odjakživa).',
+      '🔢 FIX (S22): dva zápisy pořízené ve stejné milisekundě mají shodný čas a stabilní řazení nechalo starší nahoře. Při shodě teď rozhoduje pořadí zápisu.',
+      '🛡️ Text zápisu se escapuje – poznámka s `<img src=x onerror=…>` se zobrazí jako text, neprovede se.',
+      '🧪 tools/smoke_poznamky.js – 15 behaviorálních testů. Klíčové jsou dva: druhý zápis nesmí přepsat první (to je celý smysl deníku) a poznámky nesmí odejít do výřezu pro partnera.',
+    ]
+  },
+  {
+    verze: 'v10.61',
+    datum: '2026-09-12',
+    zmeny: [
+      '⚖️ SIMULÁTOR FINANČNÍHO SKÓRE (admin panel → záložka „Skóre"). Odpovídá na otázku „co se stane, když tohle změním" přepočtem, ne čtením zdrojáku. Posuvníky vah, editovatelné bodovací kotvy, práh pokrytí – a živý přepočet na SKUTEČNÝCH datech i na čtyřech modelových profilech (Začátečník / Bez dluhů / Spořil / Zadlužený), aby bylo vidět, jestli nová váha někomu nekřivdí.',
+      '🔒 BEZ UKLÁDÁNÍ (rozhodnutí Milana). Hodnoty se nikam nezapisují – ukládat do users/{uid} by znamenalo, že si každý nastaví vlastní váhy a skóre přestane být mezi lidmi srovnatelné; globální uzel by potřeboval vlastní Firebase pravidla (data, která uživatel nesmí měnit, patří MIMO jeho podstrom – lekce ze S21). Simulátor místo toho vygeneruje hotový blok k přepsání do _SCORING_V2 v helpers.js.',
+      '💯 SOUČET VAH MUSÍ BÝT PŘESNĚ 100 % (Milan) – ani víc, ani míň. Při jiném součtu se simulace vůbec nepočítá a blok k přepsání se NEVYGENERUJE; panel rovnou napíše, kolik procent ubrat nebo přidat. Body na displeji (0–310) se dopočítávají z vah tak, aby jejich součet seděl přesně na 310.',
+      '🧮 computeFinancialScore() přijímá volitelný 4. parametr `_cfg` – dočasnou konfiguraci. Funkce zůstává čistá: nic nemutuje a bez parametru se chová přesně jako dřív, takže simulace NEMŮŽE ovlivnit skóre uživatelů. `_settings.hasDebts` se při výpočtu modelových profilů přepíná v try/finally, aby se vrátil i při pádu.',
+      '👤 Karta je admin-only a běžný uživatel si váhy měnit nemůže – ostrou konfiguraci čte výhradně helpers.js.',
+      '🧪 tools/smoke_simskore.js – 13 behaviorálních testů. Klíčový je ten, který ověřuje, že se ostrá _SCORING_V2 simulací NEZMĚNÍ: bez něj by si admin posunutím posuvníku tiše přepsal skóre všem.',
+    ]
+  },
+  {
+    verze: 'v10.60',
+    datum: '2026-09-12',
+    zmeny: [
+      '⚖️ TODO-228 · FINANČNÍ SKÓRE V2: VÁHY MÍSTO BODOVACÍCH TABULEK. Composed z NAVRH-skore-v2.md, odsouhlaseno s Milanem. Pět složek (Cash flow 30 %, Zadluženost 25 %, Rezerva 20 %, Spoření 15 %, Rozpočet 10 %) se teď počítá 0–100 na vlastní škále a váhy určují důležitost – dřív to dělala velikost bodové tabulky (75/100/50/35/50), takže změna důležitosti znamenala přepsat celou tabulku.',
+      '🚫 NEZMĚŘITELNÁ SLOŽKA NEDOSTANE ANI 0, ANI 100. Vypadne z výpočtu úplně, její váha se rozpustí mezi zbylé. Dřív měl prázdný poměr výdaje/příjmy hodnotu 0, kterou tabulka četla jako „neutrácí nic" = 100 bodů.',
+      '🔒 PRÁH POKRYTÍ 50 %: pod ním appka NEUKÁŽE známku ani číslo, jen hlášku „Zatím nemám dost dat". Bez tohohle dostal nový účet, co jen potvrdí „nemám dluh" (25 % pokrytí), hodnocení „Výborné".',
+      '🐷 S3 REZERVA SE POČÍTÁ PROTI VÝDAJŮM, NE PŘÍJMU (Milanovo rozhodnutí S22). „Jak dlouho vydržím bez příjmu" určuje to, kolik utrácím, ne kolik vydělávám – kdo vydělává 80 000 a utrácí 25 000, má s rezervou 150 000 Kč šest měsíců, ne dva. Dostupnost navíc nově vyžaduje aspoň jednu spořicí/rezervní peněženku nebo aktivum – jinak nula lhala, že rezerva neexistuje, místo toho, že ji appka jen nevidí.',
+      '📏 ZOBRAZENÍ A HISTORIE ZŮSTÁVAJÍ NA ŠKÁLE 0–310 (Milanovo rozhodnutí S22). Interně se počítá 0–100 podle vah/kotev/pokrytí, výsledek se ×3,1 vrátí na starou škálu – žádný přepočet starých snímků, žádná svislá čára v grafu vývoje skóre.',
+      '📐 KONEC SCHODOVITÝCH TABULEK. Staré tabulky měly 76 pásem po jednom bodu u S1 a 60 u DTI – rozdíl 0,1 % mohl přeskočit celý bod. Nová `mscInterpV2()` (helpers.js) interpoluje lineárně mezi 5–7 kotvami na složku.',
+      '🧮 Konzistenční bonus přepočítán na novou škálu (max +5 z 100, zobrazeno ×3,1 ≈ +16) a strop prodloužen na 12 měsíců historie (dřív 6), aby odpovídal kotvě bonusu.',
+      '🤖 FIX (S22): ai.js posílal do promptu pro AI radu rozpad skóre podle staré 4složkové verze („Trend: X/25") – čtyři pevné položky se /25 max, ačkoliv skóre už 3 sessions počítalo 5 složek s různými maximy. Teď se rozpad generuje dynamicky ze `score.components`.',
+      '🧪 smoke_skore.js přepsán na behaviorální testy (SKILL 35) – místo regexů nad zdrojovým textem premium.js teď skutečně volá computeFinancialScore() s testovacími daty ve vm-sandboxu (stejný vzor jako tools/smoke.js). Pokrývá práh pokrytí, S3 proti výdajům, nedostupnost bez peněženky a bonus.',
+      '🐛 FIX (S22, při kontrole): PŘETÉKAJÍCÍ UKAZATEL SKÓRE. Půlkruhový gauge dostával jako maximum `availMax` (dosažitelné body podle pokrytí). To sedělo ve v1, kde byl `rawTotal` součtem bodů jen za dostupné složky – ve v2 je ale `rawTotal` už znormalizovaný vážený průměr ×3,1, tedy vždy na plné škále 310. Při 55% pokrytí tak ukazatel hlásil „285 / 171", ručička stála na dorazu a appka k tomu tvrdila „🏆 Jsi v nejvyšším pásmu hodnocení". Gauge i výpočet „do známky chybí" nyní dostávají `rawMax`.',
+      '🐛 FIX (S22): pod prahem pokrytí appka zároveň nabízela „Do známky Rizikové chybí 93 bodů" a ukazovala konzistenční bonus – obojí odvozené z nuly, která není výsledek, ale díra. Obojí se pod prahem skrývá.',
+      '📉 FIX (S22): GRAF VÝVOJE SKÓRE KRESLIL PROPAD NA DNO. Měsíc pod prahem pokrytí má `rawTotal` 0, takže měsíc, kdy si uživatel nic nezapsal, vypadal v grafu jako pád z 287 na nulu – jako by přišel o všechno. Takový bod se nyní VYNECHÁVÁ: čára se přeruší a naváže až na dalším změřeném měsíci, místo kruhu je přerušovaný šedý kroužek s pomlčkou uprostřed grafu a popisek osy vysvětlí, co pomlčka znamená.',
+      '🧹 FIX (S22): `baseTotal` v návratu computeFinancialScore() nesl vážený součet w×sub (0–10 000). Nikde se nezobrazoval, ale kdokoli by ho vzal, dostal by nesmysl. Nyní je to výsledek před bonusem na téže škále 0–310 jako `rawTotal`.',
+      '🧪 smoke_skore.js rozšířen o testy RENDERU (volá renderFinancialScore() do fiktivního elementu a čte vygenerované HTML) – přetečení gauge ani falešné „nejvyšší pásmo" se už nemůže vrátit bez zeleného testu.',
+    ]
+  },
+  {
+    verze: 'v10.59',
+    datum: '2026-09-10',
+    zmeny: [
+      '🔍 TODO-259 · VÝPLATNICE FÁZE 3: DETEKTOR PŘESUNU. Jádro celé funkce a důvod, proč vznikla. U každé změny tarifu ukáže, o kolik vzrostl základ, co se ve stejnou dobu stalo s prémiemi a jaký je čistý výsledek.',
+      '⚖️ POROVNÁVÁ SE TARIF, NE VYPLACENÝ ZÁKLAD. Základní mzda se krátí odpracovaným fondem, takže měsíc s dovolenou nebo neplaceným volnem má nižší „pevnou" složku, aniž by se cokoli změnilo. Naivní porovnání sousedních měsíců by hlásilo poplach pokaždé, když si uživatel vezme volno. Tarif je na pásce uvedený přímo a na hodinách nezávisí.',
+      '🎁 JEDNORÁZOVÉ ODMĚNY SE Z POROVNÁNÍ VYNECHÁVAJÍ. Ukázalo se to až na skutečných datech: první verze detektoru hlásila u obou změn tarifu „přesun se 100% pokrytím", protože do průměru prémií spadl vánoční příspěvek 8 409 Kč a náborový 4 000 Kč. Porovnávají se proto jen PRAVIDELNÉ prémie (výkonové, osobní, korekce) a vynechaná částka se vypíše, aby to nebylo tiché.',
+      '📈 Prémie se berou jako PRŮMĚR za tři měsíce před a po změně – jednotlivý měsíc kolísá příliš na to, aby o něčem svědčil.',
+      '🧭 Pořadí záložky srovnáno (Milan): nejdřív analýza (detektor + grafy), teprve pak výpis historie. Dřív byla historie mezi grafy.',
+      '⚙ Test hlídá i past s jednorázovou odměnou: tatáž data s vánočním příspěvkem a bez něj musí dát STEJNÝ rozdíl prémií. Nový rozsah extrakce v testu (SKILL 36) – detektor leží za sekcí Render a původní výřez ho míjel.',
+    ]
+  },
+  {
+    verze: 'v10.58',
+    datum: '2026-09-10',
+    zmeny: [
+      '📊 TODO-258 · VÝPLATNICE FÁZE 2: GRAFY SLOŽENÍ V ČASE. Hrubá mzda se rozkládá na tři skupiny podle otázky „dostanu to i příští měsíc, aniž bych udělal cokoli navíc?": PEVNÁ (tarif, mobilita, náhrada za dovolenou) · ZA ČAS (přesčas, noční, víkend, svátek) · ZA VÝKON (prémie a odměny). Právě posun mezi pevnou a za výkon je to, co Milan hledal.',
+      '🛡️ Nová karta „Podíl pevné složky" – kolik z hrubé mzdy je jisté, s vývojem v čase a změnou v procentních bodech za sledované období. Appka ZÁMĚRNĚ neříká, který podíl je správný: závisí to na tom, jestli uživatel ve firmě zůstane, a to ona neví.',
+      '✂️ Karta „Srážky za N měsíců" – součet po položkách za celé sledované období. Průchozí položky (příspěvek na penzijko, který se hned strhne) se nepočítají, nejsou to peníze uživatele ani tam, ani zpět.',
+      '⚙ Grafy jsou ZÁMĚRNĚ bez canvasu – skládané pruhy z divů se samy přizpůsobí šířce, nepotřebují DPR škálování ani čekání na dokončení layoutu (SKILL 2) a na mobilu vypadají stejně jako na desktopu.',
+      '⚙ Neznámá položka spadne do skupiny „Ostatní", nikdy se neztratí – test ověřuje, že rozklad sedí na hrubou mzdu ve všech 19 skutečných měsících.',
+    ]
+  },
+  {
+    verze: 'v10.57',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 KOMPLETNÍ ŘADA: 19 výplatnic od 02/2025 do 08/2026 BEZ JEDINÉ MEZERY. Všech 19 sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Období 02/2025 vráceno zpět – Milan potvrdil, že to byla jeho první páska (nástup, náborový příspěvek).',
+      '🏆 Do šablony přibyla roční prémie (kód 5045, nalezena v 05/26). Za rok a půl se objevily čtyři položky, které v původní šabloně nebyly: příplatek za svátek, náborový příspěvek, vánoční příspěvek a roční prémie – všechny příležitostné. Potvrzuje to, že rozdělení podle povahy bylo správné.',
+      '⚙ Test nově hlídá SOUVISLOST řady – chybějící měsíc uprostřed by zkreslil každý trend, který nad daty postavíme.',
+    ]
+  },
+  {
+    verze: 'v10.56',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 Import rozšířen na 15 měsíců (03/2025 – 08/2026). Přibyly 01–04/2026, tedy období po zvýšení tarifu na 26 140. Všech 15 sedí do koruny.',
+      '📅 UPŘESNĚNÍ OBDOBÍ: měsíc se řídí sloupcem „Obd." na pásce, ne měsícem, kdy výplata přišla. Páska doručená v lednu 2026 s obdobím 12/25 patří k prosinci. Potvrzuje to i nárok na dovolenou – v 12/25 zbývá 3,4 h, v 01/26 je „Nová norm. 132,0", tedy nový kalendářní rok.',
+    ]
+  },
+  {
+    verze: 'v10.55',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 Do importu přibyly čtyři měsíce (09–12/2025). Celkem 11 pásek od 03/2025 do 08/2026 – VŠECHNY sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Model tedy platí i přes vánoční příspěvek, svátky, dovolenou napříč dvěma měsíci a měnící se PPÚ (141 → 248 → 184 → 220).',
+      '🎁 Do šablony přibyl vánoční příspěvek (kód 5010, nalezen v 11/25) jako příležitostná položka – v ostatních měsících chybí a neznamená to nulu.',
+      '⚙ Období 02/2025 z importu odebráno – Milan potvrdil, že první výplatnice je z 03/2025.',
+    ]
+  },
+  {
+    verze: 'v10.54',
+    datum: '2026-09-10',
+    zmeny: [
+      '📥 TODO-257: IMPORT VÝPLATNIC s vlastní kontrolou. Ruční opisování dvaceti pásek trvá dvacet minut a chyba se pozná až u nesedícího součtu. Import proto KAŽDOU pásku přepočítá a porovná s hrubou mzdou, čistým příjmem a dobírkou, které jsou na ní napsané — měsíc, který nesedí, se NENAIMPORTUJE a uživatel se dozví proč. Radši nenaimportovat než naimportovat špatně.',
+      '🧾 Přepsáno a ověřeno OSM skutečných pásek (02/25 – 08/26). Všech osm sedí do koruny na hrubou mzdu, čistý příjem i dobírku. Model tedy platí napříč rokem a půl, přes dvě změny tarifu (23 000 → 25 500 → 26 140) i přes měsíce s dovolenou, svátkem, náborovým příspěvkem a slevou na dítě.',
+      '🎄 Do šablony přibyl příplatek za práci ve svátek (kód 2089) — objevil se až v pásce 05/25. Přesně ten případ, kvůli kterému mají položky povahu „příležitostná": v ostatních měsících chybí a neznamená to nulu.',
+    ]
+  },
+  {
+    verze: 'v10.53',
+    datum: '2026-09-10',
+    zmeny: [
+      '🧾 TODO-257 (Milan): NOVÁ ZÁLOŽKA VÝPLATNICE v Kalendáři. Evidence výplatních pásek měsíc po měsíci – hrubá mzda, odvody, srážky, dobírka a podíl PEVNÉ složky. Vzniklo z Milanova postřehu, že zaměstnavatel zvedne základ a zároveň sníží prémie: výsledek dole vypadá stejně, ale změnilo se, z čeho je složený. Základ ti nikdo nesebere, prémii ano – a základ se počítá do dovolené, náhrad i hodnoty přesčasové hodiny.',
+      '🔢 Výpočet ověřen na ČTYŘECH skutečných páskách (02/25, 06/25, 08/25, 08/26) – hrubá mzda, čistý příjem i dobírka sedí do koruny. Dvě věci, které to vyžadovalo: pojistné se zaokrouhluje NAHORU (matematické dávalo o 2 Kč vyšší čistý příjem) a základ daně nahoru na celé stovky.',
+      '↔️ Průchozí položky: PENZ (příspěvek zaměstnavatele na penzijko) a DPS se navzájem RUŠÍ. Nepočítají se do hrubé mzdy ani do srážek – jinak by se objevily dvakrát a vyrušily se až v součtu, což vypadá jako chyba.',
+      '📋 Každá položka má POVAHU, protože chybějící řádek neznamená nulu (SKILL 31): stálá (chybí = skutečně nula) · příležitostná (dovolená, přesčas – chybí = neproběhlo, mlčet) · podmíněná (sleva na dítě – pominul nárok, hlásit jinak) · průchozí. Bez toho by detektor v každém měsíci bez dovolené hlásil propad příjmu o 4 838 Kč.',
+      '⚙ Prázdné pole ve formuláři se NEUKLÁDÁ jako nula – je to informace, ne chybějící údaj. Uživateli je to napsané nad formulářem.',
+      '⚠️ payslips a payslipTemplate doplněny do schématu saveToFirebase, do _DW_META i do zálohy – nový uzel bez zápisu do schématu by Firebase sync tiše smazal (známá past z CLAUDE.md). Výplatnice se ZÁMĚRNĚ nesdílí s partnery.',
+      '⚙ Fáze 1 ze tří. Grafy složení v čase (fáze 2) a detektor přesunu mezi základem a prémiemi (fáze 3) přijdou samostatně. Nový modul js/vyplatnice.js + test tools/smoke_vyplatnice.js (34 kontrol proti skutečným páskám).',
+    ]
+  },
+  {
+    verze: 'v10.52',
+    datum: '2026-09-10',
+    zmeny: [
+      '📐 FIX-325 (Milan): pole „Čistá výplata" plavalo výš než sousední. Popisek vedle něj se na mobilu zalomí do DVOU řádků, tenhle do jednoho – a protože se sloupce zarovnávaly nahoru, input vpravo visel. Řešeno zarovnáním podle spodní hrany (align-items:end), ne pevnou výškou popisku; ta by se rozbila při jiné velikosti písma. Popisky navíc dostaly čitelnou barvu místo var(--text3).',
+      '⏱ FIX-326 (Milan): HODINOVÁ SAZBA Z ČISTÉ VÝPLATY se ukazuje rovnou pod polem a přepočítává se při psaní. Dosud šla zjistit až po uložení a jen ve statistice měsíce.',
+      '📅 FIX-326: sazba se počítá z FONDU pracovní doby daného měsíce, ne z paušálních 160 h. Únor 2026 má 20 pracovních dní, prosinec 23 – při 12h směnách je to 230 vs. 264,5 hodiny, tedy rozdíl 15 %. Paušál by nesedel ani jednomu měsíci. Placené hodiny = pracovní dny × (hodin na směnu − neplacená přestávka).',
+      '⚙ FIX-326: konfigurace se bere ŽIVĚ z polí, ne z uložené – jinak by náhled ukazoval sazbu podle starých hodnot, dokud uživatel neklikne na Uložit. Vypíše se i přesčasová hodina s příplatkem a rozklad výpočtu (dny × hodiny), aby bylo vidět, odkud se číslo vzalo.',
+      '⚙ Nový test tools/smoke_sazba.js (20 kontrol) – ověřuje fond hodin proti skutečnému kalendáři, ne proti konstantě.',
+    ]
+  },
   {
     verze: 'v10.51',
     datum: '2026-09-04',
@@ -4599,6 +5198,17 @@ const VERZE_LOG = [
   }
 ];
 
+//  S23 (Milan): „CHYBA: SyntaxError: illegal character U+2026" v panelu Verze.
+//  Záznam v10.62 popisuje XSS opravu a obsahuje doslova `<img src=x onerror=…>`.
+//  Texty šly do innerHTML BEZ ESCAPOVÁNÍ, takže prohlížeč vyrobil skutečný
+//  obrázek, spustil jeho onerror a na znaku „…" spadl. Stejně mizely z textu
+//  `<loni>`, `<typ>`, `<option>`. Changelog je TEXT, ne HTML → escapovat vždy.
+const _vzEsc = s => (typeof escHtml==='function') ? escHtml(String(s)) : String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+//  S23 (TODO-289): text od UŽIVATELE uvnitř onclick="…('sem')" je dvojitý kontext –
+//  nejdřív HTML atribut, pak JS řetězec. Stačí jedna uvozovka v telefonu u leadu
+//  a spustí se cizí kód v admin panelu. _jsEsc nejdřív zneškodní JS, _vzEsc pak HTML.
+const _jsEsc = s => String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\r?\n/g, ' ').replace(/</g, '\\x3c');
+const _onEsc = s => _vzEsc(_jsEsc(s));
 function loadVerze() {
   const el = document.getElementById('adminVerzeList'); if(!el) return;
   if(!VERZE_LOG.length) {
@@ -4608,11 +5218,11 @@ function loadVerze() {
   el.innerHTML = VERZE_LOG.map(v => `
     <div style="border-bottom:1px solid var(--border);padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-        <span style="font-size:1rem;font-weight:800;color:var(--accent)">${v.verze}</span>
-        <span style="font-size:.74rem;color:var(--text3)">${v.datum}</span>
+        <span style="font-size:1rem;font-weight:800;color:var(--accent)">${_vzEsc(v.verze)}</span>
+        <span style="font-size:.74rem;color:var(--text3)">${_vzEsc(v.datum)}</span>
       </div>
       <ul style="margin:0;padding-left:18px;list-style:none">
-        ${v.zmeny.map(z => `<li style="font-size:.82rem;color:var(--text2);margin-bottom:5px;padding-left:2px">${z}</li>`).join('')}
+        ${v.zmeny.map(z => `<li style="font-size:.82rem;color:var(--text2);margin-bottom:5px;padding-left:2px">${_vzEsc(z)}</li>`).join('')}
       </ul>
     </div>
   `).join('');
@@ -4707,6 +5317,113 @@ let _cachedLeads = [];
 // ══════════════════════════════════════════════════════
 //  TODO-023 · ADMIN – SPRÁVA ČLENSTVÍ
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  S23 (TODO-295): E-MAILY UŽIVATELŮ – export a hromadná zpráva
+//  Právní rozdíl, který kód hlídá za Milana:
+//   • „Všechny e-maily" = provozní účel (informace o službě, bezpečnost).
+//     NESMÍ se použít na nabídky – appka na to upozorní a do souboru to napíše.
+//   • „E-maily se souhlasem" = jen ti, kdo si v Nastavení zapnuli novinky
+//     (settings.newsletter). Jen tyhle adresy smí dostat obchodní sdělení.
+//  Každý hromadný e-mail musí nést odkaz na odhlášení – doplní se automaticky.
+// ══════════════════════════════════════════════════════
+function _adminEmailSeznam(rezim) {
+  const src = (_cachedUsers || []).filter(u => (u.email || '').includes('@'));
+  const list = rezim === 'souhlas' ? src.filter(u => u.newsletter) : src;
+  //  stejná adresa může být u víc účtů (smazaný a znovu založený)
+  const videl = new Set(), out = [];
+  list.forEach(u => { const e = u.email.trim().toLowerCase(); if (!videl.has(e)) { videl.add(e); out.push(u); } });
+  return out;
+}
+
+async function adminEmaily(rezim) {
+  //  S23 (Milan: „stažení e-mailů nefunguje" při 4 uživatelích): seznam se plní
+  //  až asynchronně v loadUsersList(). Když se klikne dřív, než doběhne, byl
+  //  prázdný a export mlčky skončil. Teď si ho tlačítko dotáhne samo.
+  if (!(_cachedUsers || []).length && typeof loadUsersList === 'function') {
+    if (typeof showToast === 'function') showToast('⏳ Načítám uživatele…');
+    try { await loadUsersList(); } catch (e) { console.warn('loadUsersList:', e); }
+  }
+  const list = _adminEmailSeznam(rezim);
+  if (!list.length) {
+    const kolik = (_cachedUsers || []).length;
+    alert(rezim === 'souhlas'
+      ? `Zatím nikdo nezapnul novinky v Nastavení (prošel jsem ${kolik} uživatelů).`
+      : (kolik ? `Žádný z ${kolik} uživatelů nemá vyplněný e-mail.` : 'Seznam uživatelů se nepodařilo načíst – zkus ho nejdřív obnovit tlačítkem 🔄.'));
+    return;
+  }
+  const hlavicka = rezim === 'souhlas'
+    ? `# FinanceFlow · e-maily se souhlasem se zasíláním novinek (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# Tyto adresy smí dostat obchodní sdělení. Každý e-mail musí mít odkaz na odhlášení.\n`
+    : `# FinanceFlow · VŠECHNY e-maily (${list.length})\n# Vygenerováno ${new Date().toLocaleString('cs-CZ')}\n# POZOR: tyto adresy jsou v appce kvůli vedení účtu. Smí se použít jen k provozním\n# sdělením o službě (výpadek, změna podmínek, bezpečnost) – NE k nabídkám.\n# Na nabídky použij export „e-maily se souhlasem".\n`;
+  const csv = hlavicka + 'email;jmeno;souhlas;souhlas_od\n' + list.map(u =>
+    `${u.email};${(u.displayName || '').replace(/[;\n]/g, ' ')};${u.newsletter ? 'ano' : 'ne'};${u.newsletterAt ? new Date(u.newsletterAt).toISOString().slice(0, 10) : ''}`).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `financeflow-emaily-${rezim === 'souhlas' ? 'se-souhlasem' : 'vsechny'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  if (typeof showToast === 'function') showToast(`Staženo ${list.length} adres`);
+}
+window.adminEmaily = adminEmaily;
+
+async function adminHromadnyMail() {
+  if (!(_cachedUsers || []).length && typeof loadUsersList === 'function') {
+    try { await loadUsersList(); } catch (e) { console.warn('loadUsersList:', e); }
+  }
+  const list = _adminEmailSeznam('souhlas');
+  const el = document.getElementById('adminModalBox') || document.body;
+  if (!list.length) { alert('Zatím nikdo nezapnul novinky v Nastavení – hromadnou zprávu není komu poslat.'); return; }
+  const box = document.createElement('div');
+  box.id = 'ffMassMail';
+  box.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:14px';
+  box.innerHTML = `<div class="card" style="max-width:560px;width:100%;max-height:90vh;overflow:auto">
+    <div class="card-header"><span class="card-title">📨 Hromadná zpráva</span>
+      <button class="btn btn-ghost btn-icon btn-sm" style="margin-left:auto" onclick="document.getElementById('ffMassMail')?.remove()">✕</button></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#c9cede;margin-bottom:10px">Odejde na <b>${list.length}</b> adres se souhlasem. Odkaz na odhlášení se přidá automaticky.</div>
+      <div class="fg"><label>Předmět</label><input class="fi" id="mmSubj" placeholder="Co je nového ve FinanceFlow"></div>
+      <div class="fg"><label>Text</label><textarea class="fi" id="mmBody" rows="8" placeholder="Ahoj,&#10;&#10;…"></textarea></div>
+      <div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">Odesílá se po dávkách. Posílej z adresy na ověřené doméně, jinak to skončí ve spamu.</div>
+      <div id="mmStav" style="font-size:.78rem;color:#c9cede;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="adminHromadnyMailOdeslat(true)">✉️ Zkušebně jen mně</button>
+        <button class="btn btn-accent btn-sm" onclick="adminHromadnyMailOdeslat(false)">📨 Odeslat všem (${list.length})</button>
+      </div>
+    </div></div>`;
+  document.body.appendChild(box);
+}
+window.adminHromadnyMail = adminHromadnyMail;
+
+async function adminHromadnyMailOdeslat(test) {
+  const subj = (document.getElementById('mmSubj')?.value || '').trim();
+  const body = (document.getElementById('mmBody')?.value || '').trim();
+  const stav = document.getElementById('mmStav');
+  if (!subj || !body) { if (stav) stav.textContent = '⚠️ Vyplň předmět i text.'; return; }
+  const list = test
+    ? [{ email: (window._currentUser?.email) || '', displayName: 'test' }]
+    : _adminEmailSeznam('souhlas');
+  if (!list[0]?.email) { if (stav) stav.textContent = '⚠️ Není kam poslat.'; return; }
+  if (!test && !confirm(`Odeslat ${list.length} příjemcům? Zpět to vzít nejde.`)) return;
+  if (stav) stav.textContent = '⏳ Odesílám…';
+  let ok = 0, chyb = 0;
+  try {
+    const token = await window._currentUser?.getIdToken?.();
+    const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
+    for (let i = 0; i < list.length; i += 50) {
+      const davka = list.slice(i, i + 50).map(u => u.email);
+      const r = await fetch(wu + '/mass-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ subject: subj, text: body, to: davka, test: !!test }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) ok += d.odeslano || davka.length; else { chyb += davka.length; if (stav) stav.textContent = '⚠️ ' + (d.error || ('HTTP ' + r.status)); }
+      if (stav && !chyb) stav.textContent = `⏳ Odesláno ${ok} z ${list.length}…`;
+    }
+  } catch (e) { if (stav) stav.textContent = '⚠️ ' + e.message; return; }
+  if (stav) stav.textContent = chyb ? `Hotovo s chybami: ${ok} odesláno, ${chyb} selhalo.` : `✅ Odesláno ${ok} příjemcům.`;
+}
+window.adminHromadnyMailOdeslat = adminHromadnyMailOdeslat;
+
 let _cachedUsers = []; // {uid, displayName, email, photoURL, premium, referral, createdAt, transactionsCount, lastActivity}
 
 // ══════════════════════════════════════════════════════
@@ -4823,17 +5540,20 @@ async function loadUsersList() {
     async function pool() {
       while (idx < uids.length) {
         const uid = uids[idx++];
-        const [prof, p, ref, ai, txCount, act] = await Promise.all([
+        const [prof, p, ref, ai, txCount, act, nast] = await Promise.all([
           fj(`users/${uid}/profile`), fj(`users/${uid}/premium`),
           fj(`users/${uid}/referral`), fj(`users/${uid}/aiUsage`),
           fCount(`users/${uid}/data/transactions`),
           fj(`users/${uid}/activity`),   // v9.85 (TODO-213)
+          fj(`users/${uid}/settings`),   // S23 (TODO-295): souhlas se zasíláním novinek
         ]);
         const pp = p || {};
         out.push({
           uid,
           displayName: prof?.displayName || '',
           email: prof?.email || '',
+          newsletter: nast?.newsletter === true,
+          newsletterAt: nast?.newsletterAt || 0,
           photoURL: prof?.photoURL || '',
           premium: {
             type: pp.type || 'free',
@@ -4970,10 +5690,10 @@ function filterUsersList() {
           ${ava}
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${u.displayName || u.email || '<i style="color:var(--text3)">Bez jména</i>'}</div>
+              <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">${u.displayName || u.email ? _vzEsc(u.displayName || u.email) : '<i style="color:var(--text3)">Bez jména</i>'}</div>
               ${badge(u)}
             </div>
-            <div style="font-size:.7rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.email || u.uid}</div>
+            <div style="font-size:.7rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_vzEsc(u.email || u.uid)}</div>
             <div style="font-size:.65rem;color:#a8aec8;margin-top:2px">
               📅 Reg: ${fmtDate(u.premium.createdAt)} · 💸 ${u.transactionsCount} tx · ⏰ ${fmtRel(u.lastActivity)}
               ${u.referral.code ? ` · 🔗 <span style="color:var(--bank)">${u.referral.conversions}</span>` : ''}
@@ -5008,8 +5728,8 @@ function openUserDetail(uid) {
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
           ${u.photoURL ? `<img src="${u.photoURL}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">` : `<div style="width:56px;height:56px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.5rem">${(u.displayName||u.email||'?').charAt(0).toUpperCase()}</div>`}
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:1rem">${u.displayName || '<i style="color:var(--text3)">Bez jména</i>'}</div>
-            <div style="font-size:.78rem;color:var(--text2)">${u.email || '—'}</div>
+            <div style="font-weight:700;font-size:1rem">${u.displayName ? _vzEsc(u.displayName) : '<i style="color:var(--text3)">Bez jména</i>'}</div>
+            <div style="font-size:.78rem;color:var(--text2)">${_vzEsc(u.email || '—')}</div>
             <div style="font-size:.68rem;color:#a8aec8;font-family:monospace;margin-top:4px;word-break:break-all">${u.uid}</div>
             <button class="btn btn-ghost btn-sm" style="margin-top:6px;padding:3px 8px;font-size:.7rem" onclick="navigator.clipboard.writeText('${u.uid}').then(()=>showToast('UID zkopírováno'))">📋 Kopírovat UID</button>
           </div>
@@ -5264,6 +5984,68 @@ const GDPR_UZLY_UZIVATEL = ['data','profile','settings','premium','referral',
                             'communityId','householdId','partners','backups'];
 const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs'];
 
+//  Čitelný přehled k odpovědi podle čl. 15 – otevře se v novém okně,
+//  odtud Tisk → Uložit jako PDF. Nevypisuje jednotlivé transakce (ty jsou
+//  v JSONu), ale ŘÍKÁ, co se zpracovává, kolik toho je a odkud to je.
+function _gdprPrehled(v, uid) {
+  const m = v._meta || {};
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const poc = x => Array.isArray(x) ? x.length : (x && typeof x === 'object') ? Object.keys(x).length : (x == null || x === '' ? 0 : 1);
+  const POPIS = {
+    transactions: 'Zapsané příjmy a výdaje', categories: 'Kategorie výdajů a příjmů', budgets: 'Rozpočty',
+    goals: 'Finanční cíle', debts: 'Půjčky a dluhy', assets: 'Majetek a peněženky', wallets: 'Peněženky',
+    receipts: 'Naskenované účtenky', sablony: 'Opakované platby', notes: 'Poznámky', diary: 'Deník',
+    nakup: 'Nákupní seznamy', bank: 'Nastavení bankovního účtu', settings: 'Nastavení aplikace',
+    profile: 'Údaje o účtu (e-mail, jméno)', premium: 'Tarif a platby', referral: 'Doporučení a body',
+    activity: 'Záznam o používání aplikace', aiUsage: 'Počet využití AI funkcí',
+  };
+  const data = (v.uzivatel && v.uzivatel.data) || {};
+  const ostatni = Object.assign({}, v.uzivatel || {}); delete ostatni.data;
+  const radky = obj => Object.keys(obj).sort().map(k => {
+    const n = poc(obj[k]);
+    return `<tr><td>${esc(POPIS[k] || k)}</td><td class="k">${esc(k)}</td><td class="c">${n === 0 ? '<span class="z">žádné údaje</span>' : n + '×'}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" class="z">Žádné údaje</td></tr>';
+  const prij = (m.prijemci || []).map(x => `<li>${esc(x)}</li>`).join('');
+  const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8">
+    <title>Přehled zpracování osobních údajů · FinanceFlow</title>
+    <style>
+      @page{size:A4;margin:16mm}
+      body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#16213e;line-height:1.55;max-width:800px;margin:0 auto;padding:20px;font-size:14px}
+      h1{font-size:23px;margin:0 0 4px} h2{font-size:16px;margin:26px 0 8px;border-bottom:2px solid #16213e;padding-bottom:4px}
+      .sub{color:#6b7488;margin-bottom:18px;font-size:13px}
+      table{width:100%;border-collapse:collapse;margin-top:6px} td,th{padding:6px 8px;border-bottom:1px solid #e6eaf2;text-align:left;vertical-align:top}
+      th{background:#f5f7fb;font-size:12px;color:#6b7488} .k{font-family:ui-monospace,monospace;font-size:11px;color:#8b93ad} .c{text-align:right;white-space:nowrap}
+      .z{color:#8b93ad} ul{margin:6px 0;padding-left:20px} .box{background:#f5f7fb;border-radius:8px;padding:12px 14px;margin-top:8px;font-size:13px}
+      .no-print{margin:18px 0}
+      @media print{.no-print{display:none}}
+    </style></head><body>
+    <div class="no-print"><button onclick="window.print()" style="font:600 14px system-ui;padding:9px 16px;border:1px solid #16213e;background:#16213e;color:#fff;border-radius:8px;cursor:pointer">🖨️ Tisk / Uložit jako PDF</button></div>
+    <h1>Přehled zpracování osobních údajů</h1>
+    <div class="sub">Odpověď na žádost podle čl. 15 GDPR (právo na přístup) · vystaveno ${esc(new Date(m.vygenerovano || Date.now()).toLocaleString('cs-CZ'))}</div>
+    <h2>1. Koho se přehled týká</h2>
+    <table><tr><td>Identifikátor účtu</td><td class="k">${esc(m.subjekt || uid)}</td></tr>
+      <tr><td>Správce údajů</td><td>${esc(m.spravce || 'FinanceFlow')}</td></tr></table>
+    <h2>2. Proč údaje zpracováváme</h2><div class="box">${esc(m.ucel_zpracovani || '')}</div>
+    <h2>3. Jaké údaje o vás máme</h2>
+    <div class="sub" style="margin-bottom:4px">Počet znamená, kolik záznamů v dané kategorii evidujeme. Úplný obsah je v přiloženém souboru JSON.</div>
+    <table><tr><th>Kategorie údajů</th><th>Označení v datech</th><th>Počet</th></tr>${radky(data)}${radky(ostatni)}</table>
+    <h2>4. Komu údaje předáváme</h2><ul>${prij || '<li class="z">Nikomu</li>'}</ul>
+    <h2>5. Jak dlouho je uchováváme</h2><div class="box">${esc(m.doba_uchovani || '')}</div>
+    <h2>6. Vaše další práva</h2>
+    <div class="box">Máte právo na opravu, výmaz, omezení zpracování, přenositelnost údajů a vznést námitku.
+      Účet i se všemi údaji smažete přímo v aplikaci (Nastavení → Smazat účet). Máte také právo podat stížnost
+      u Úřadu pro ochranu osobních údajů (uoou.gov.cz).<br><br>Kontakt: ${esc((m.spravce || '').split('·').pop().trim() || 'info@financeflow.cz')}</div>
+    <div class="sub" style="margin-top:22px">${esc(m.poznamka || '')}</div>
+  </body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); return; }
+  //  Když prohlížeč okno zablokuje, ať přehled nezmizí – stáhne se jako soubor.
+  const b = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = `gdpr-prehled-${String(uid).slice(0, 8)}.html`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
 async function adminGdprExport(uid) {
   if (!isAdmin()) { alert('Jen pro admina.'); return; }
   if (!uid) { uid = prompt('UID uživatele:'); if (!uid) return; }
@@ -5323,13 +6105,18 @@ async function adminGdprExport(uid) {
     vysledek.komunitni_prehled = { _pozn: 'Uživatel do Komunitního přehledu nepřispívá.' };
   }
 
+  //  S23 (Milan): JSON je správný pro PŘENOSITELNOST (čl. 20), ale odpověď
+  //  podle čl. 15 musí být podle čl. 12 srozumitelná a v jasném jazyce.
+  //  Proto se stahuje obojí: čitelný přehled (HTML → Tisk → Uložit jako PDF)
+  //  a k němu JSON pro strojové zpracování.
+  try { _gdprPrehled(vysledek, uid); } catch (e) { console.warn('GDPR přehled:', e); }
   const blob = new Blob([JSON.stringify(vysledek, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `gdpr-export-${uid.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  showToast('📄 GDPR export stažen');
+  showToast('📄 GDPR export stažen (přehled + JSON)');
 }
 window.adminGdprExport = adminGdprExport;
 
@@ -5828,7 +6615,7 @@ async function loadCommunityActivity() {
 
     const topUsers = userCosts.slice(0,8).map((u,i)=>`
       <div style="display:flex;justify-content:space-between;font-size:.74rem;padding:4px 0;border-bottom:1px solid var(--border)">
-        <span style="color:var(--text2)">${i+1}. ${u.name}</span>
+        <span style="color:var(--text2)">${i+1}. ${_vzEsc(u.name)}</span>
         <span style="color:var(--text3)">${u.calls}× · ${u.cost.toFixed(2)} Kč</span>
       </div>`).join('') || '<div style="font-size:.74rem;color:var(--text3)">Žádní aktivní uživatelé tento měsíc.</div>';
 
@@ -6392,6 +7179,84 @@ async function loadSuggestionOverrides() {
 }
 
 // ── Komunitní Item Tagy ──
+// ══════════════════════════════════════════════════════
+//  S23 (PLAN-mapa-produktu, F2): MAPA POLOŽEK
+//  cesta: Admin panel → 🗺️ Mapa položek
+//  Zelené tagy zůstávají – jsou to OBECNÉ NÁZVY (zelenina, mléko, ořechy).
+//  K nim admin doplní konkrétní název, kategorii a podkategorii; to už je
+//  komunitní pravidlo (community/productMap), které appka nabídne všem –
+//  ale nikdy nepřepíše uživatelovu vlastní volbu (ta bude v users/.../productPrefs).
+//  Zápis do mapy smí JEN admin (pravidla databáze) – chybné mapování by se
+//  jinak propsalo všem.
+// ══════════════════════════════════════════════════════
+const MAPA_URL = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app';
+let _mapaZaznamy = {};   // klic → {obecny, konkretni, catId, subcat, coicop}
+
+//  Statistiky mapy (Milan: A–E). Počítají se z toho, co je skutečně uložené.
+function mapaStatistiky(tagy, zaznamy, kategorie) {
+  const z = Object.values(zaznamy || {});
+  const nepr = x => String(x || '').trim();
+  const kat = new Set(), sub = new Set(), konk = new Set(), obec = new Set();
+  z.forEach(r => {
+    if (nepr(r.catId)) kat.add(nepr(r.catId));
+    if (nepr(r.subcat)) sub.add(nepr(r.catId) + '|' + nepr(r.subcat));
+    if (nepr(r.konkretni)) konk.add(nepr(r.konkretni).toLowerCase());
+    if (nepr(r.obecny)) obec.add(nepr(r.obecny).toLowerCase());
+  });
+  //  Obecné názvy bereme i z tagů – tam vznikají (uživatelé je přiřazují).
+  Object.values(tagy || {}).forEach(t => Object.keys(t || {}).forEach(x => obec.add(String(x).toLowerCase())));
+  const celkem = Object.keys(tagy || {}).length;
+  const namapovano = Object.keys(zaznamy || {}).filter(k => nepr((zaznamy[k] || {}).catId)).length;
+  return {
+    polozky: celkem,
+    namapovano,
+    bezMapovani: Math.max(0, celkem - namapovano),
+    kategorie: kat.size,
+    podkategorie: sub.size,
+    konkretni: konk.size,
+    obecne: obec.size,
+  };
+}
+
+function mapaStatKarta(st) {
+  const dl = (l, v, p) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px">
+      <div style="font-size:.66rem;color:#a8aec8">${l}</div>
+      <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;color:#e8eaf2">${v}</div>
+      ${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}
+    </div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:14px">
+    ${dl('Namapované položky', st.namapovano, st.bezMapovani ? st.bezMapovani + ' čeká' : 'vše hotovo')}
+    ${dl('Kategorie', st.kategorie)}
+    ${dl('Podkategorie', st.podkategorie)}
+    ${dl('Konkrétní názvy', st.konkretni)}
+    ${dl('Obecné názvy', st.obecne)}
+  </div>`;
+}
+
+//  Uloží mapování jedné položky (jen admin – viz pravidla databáze).
+async function mapaUloz(klic, pole, hodnota) {
+  const token = await window._currentUser?.getIdToken?.();
+  const zaznam = Object.assign({}, _mapaZaznamy[klic] || {});
+  const v = String(hodnota || '').trim();
+  if (v) zaznam[pole] = (pole === 'coicop') ? parseInt(v, 10) : v; else delete zaznam[pole];
+  //  Pravidla vyžadují „obecny" – doplníme z nejsilnějšího tagu, když chybí.
+  if (!zaznam.obecny) zaznam.obecny = (_mapaTagTop[klic] || '');
+  zaznam.kdy = Date.now();
+  const r = await fetch(`${MAPA_URL}/community/productMap/${encodeURIComponent(klic)}.json?auth=${token}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zaznam),
+  });
+  if (!r.ok) { alert('Uložení selhalo: HTTP ' + r.status); return; }
+  _mapaZaznamy[klic] = zaznam;
+  if (typeof showToast === 'function') showToast('🗺️ Uloženo');
+  loadCommunityItemTags();
+}
+window.mapaUloz = mapaUloz;
+
+function mapaZmen(klic, pole, el) { mapaUloz(klic, pole, el.value); }
+window.mapaZmen = mapaZmen;
+
+let _mapaTagTop = {};   // klic → nejčastější tag (výchozí obecný název)
+
 async function loadCommunityItemTags() {
   const el = document.getElementById('adminItemTags'); if(!el) return;
   el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>';
@@ -6405,10 +7270,15 @@ async function loadCommunityItemTags() {
     // Načti validační statusy
     const valRes = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagValidation.json?auth=${idToken}`);
     const valData = valRes.ok ? (await valRes.json()||{}) : {};
+    //  S23: k tagům načteme i uložená mapování.
+    const mapRes = await fetch(`${MAPA_URL}/community/productMap.json?auth=${idToken}`);
+    _mapaZaznamy = mapRes.ok ? (await mapRes.json() || {}) : {};
     if(!data || !Object.keys(data).length) {
-      el.innerHTML = '<div class="card-body" style="color:var(--text2);font-size:.8rem">✅ Žádné komunitní tagy zatím.</div>';
+      el.innerHTML = '<div class="card-body">' + mapaStatKarta(mapaStatistiky({}, _mapaZaznamy, S.categories))
+        + '<div style="color:var(--text2);font-size:.8rem">Zatím žádné položky – mapa se plní z účtenek uživatelů.</div></div>';
       return;
     }
+    Object.entries(data).forEach(([k,t])=>{ _mapaTagTop[k] = Object.entries(t||{}).sort((a,b)=>b[1]-a[1])[0]?.[0] || ''; });
     // Seřadit dle celkového počtu (nejpopulárnější)
     const items = Object.entries(data).map(([itemKey, tags]) => {
       const tagList = Object.entries(tags||{}).map(([tag, cnt]) => {
@@ -6419,11 +7289,15 @@ async function loadCommunityItemTags() {
       return {itemKey, tagList, totalCnt};
     }).sort((a,b)=>b.totalCnt-a.totalCnt);
 
+    const _katOpt = (vyb) => (S.categories||[]).filter(c=>c.type==='expense'||c.type==='both'||!c.type)
+      .map(c=>`<option value="${_vzEsc(c.id)}" ${vyb===c.id?'selected':''}>${_vzEsc((c.icon||'')+' '+c.name)}</option>`).join('');
     el.innerHTML = `<div class="card-body">
+      ${mapaStatKarta(mapaStatistiky(data, _mapaZaznamy, S.categories))}
       <div style="font-size:.72rem;color:var(--text3);margin-bottom:12px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
       ${items.map(item => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:6px">📦 ${item.itemKey.replace(/_/g,' ')}</div>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:6px">📦 ${_vzEsc(item.itemKey.replace(/_/g,' '))}${(_mapaZaznamy[item.itemKey]||{}).catId?' <span style="font-size:.66rem;color:var(--income)">✓ namapováno</span>':''}</div>
+          <div style="font-size:.66rem;color:#8b93ad;margin-bottom:3px">Obecný název (tagy od uživatelů)</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${item.tagList.map(({tag, cnt, status}) => {
               const isApproved = status==='approved';
@@ -6436,6 +7310,17 @@ async function loadCommunityItemTags() {
                 <button onclick="validateItemTag('${item.itemKey}','${tag}','rejected')" class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:.75rem;color:var(--expense);border:1px solid var(--expense)" title="Odmítnout">✕</button>
               </div>`;
             }).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px">
+            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Konkrétní název (rum, rohlík…)"
+              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).konkretni||'')}"
+              onchange="mapaZmen('${_onEsc(item.itemKey)}','konkretni',this)">
+            <select class="fi" style="font-size:.76rem;padding:6px 8px" onchange="mapaZmen('${_onEsc(item.itemKey)}','catId',this)">
+              <option value="">— kategorie —</option>${_katOpt((_mapaZaznamy[item.itemKey]||{}).catId)}
+            </select>
+            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Podkategorie"
+              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).subcat||'')}"
+              onchange="mapaZmen('${_onEsc(item.itemKey)}','subcat',this)">
           </div>
         </div>`).join('')}
     </div>`;
@@ -6500,18 +7385,18 @@ function buildLeadCard(l) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-          <span style="font-weight:700;font-size:.95rem">${l.name||'–'}</span>
+          <span style="font-weight:700;font-size:.95rem">${_vzEsc(l.name||'–')}</span>
           <span style="font-size:.68rem;padding:2px 8px;border-radius:10px;background:${statusColor}22;color:${statusColor};font-weight:600">${statusLabel}</span>
           <span style="font-size:.7rem;color:var(--text3)">${l.date||''}</span>
         </div>
         <div style="display:flex;gap:14px;flex-wrap:wrap">
-          ${l.phone?`<a href="tel:${l.phone}" style="color:var(--income);text-decoration:none;font-size:.84rem;font-weight:600">📞 ${l.phone}</a>`:''}
-          ${l.email?`<a href="mailto:${l.email}" style="color:var(--bank);text-decoration:none;font-size:.84rem">✉️ ${l.email}</a>`:''}
+          ${l.phone?`<a href="tel:${encodeURIComponent(l.phone)}" style="color:var(--income);text-decoration:none;font-size:.84rem;font-weight:600">📞 ${_vzEsc(l.phone)}</a>`:''}
+          ${l.email?`<a href="mailto:${encodeURIComponent(l.email)}" style="color:var(--bank);text-decoration:none;font-size:.84rem">✉️ ${_vzEsc(l.email)}</a>`:''}
         </div>
         ${l.loanAmount?`<div style="font-size:.76rem;color:var(--text3);margin-top:5px">💰 ${fmt(l.loanAmount)} Kč${l.loanRate?' · '+l.loanRate+'% p.a.':''}${loanType?' · '+loanType:''}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-        ${l.phone?`<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${l.phone}')" title="Kopírovat tel.">📋</button>`:''}
+        ${l.phone?`<button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${_onEsc(l.phone)}')" title="Kopírovat tel.">📋</button>`:''}
         <button class="btn btn-ghost btn-sm" onclick="setLeadStatus('${l.id}','contacted')" title="Označit jako kontaktován" style="color:var(--income)">✅</button>
         <button class="btn btn-ghost btn-sm" onclick="setLeadStatus('${l.id}','done')" title="Vyřešeno" style="color:var(--text3)">☑️</button>
         <button class="btn btn-danger btn-icon btn-sm" onclick="deleteLead('${l.id}')" title="Smazat">✕</button>
@@ -7168,18 +8053,54 @@ function parseTags(input) {
     .filter(t => t.length >= 1 && t.length <= 30);
 }
 
+// ══════════════════════════════════════════════════════
+//  S22 (nahlásil Milan): TAGY UKAZOVALY NESMYSLNÉ ČÁSTKY
+//  Původně se ke KAŽDÉMU tagu přičetla CELÁ částka transakce:
+//      tagMap[tag].total += t.amount || t.amt || 0;
+//  Jenže tagy chodí z analýzy účtenky – jeden nákup nese Pečivo, Ovoce,
+//  Zelenina, Těstoviny, Sladkosti, Drogerie i Koření. Nákup za 995 Kč se
+//  tedy započítal SEDMKRÁT v plné výši a stránka tvrdila, že za zeleninu
+//  padlo 995 Kč. Součet přes všechny tagy byl násobkem skutečné útraty.
+//
+//  Nyní: tag z POLOŽEK účtenky bere jen ceny těch položek, které ho nesou.
+//  Tag napsaný ručně k celé transakci (#dovolená) bere dál celou částku –
+//  tam se opravdu vztahuje na celý výdaj.
+//
+//  Podíl se počítá na částce transakce, ne na součtu položek: účtenka se
+//  může o zaokrouhlení lišit (SOUČET 122,60 · CELKEM 123,00) a transakce je
+//  navíc už přepočtená přes txCZK, takže se tím zároveň ošetří cizí měny.
+// ══════════════════════════════════════════════════════
 function getAllTags(D) {
   const D2 = D || getData();
   const tagMap = {};
   (D2.transactions||[]).forEach(t => {
+    const castka = (typeof txCZK==='function') ? Math.abs(txCZK(t, D2))
+                                              : Math.abs(t.amount||t.amt||0);
+    const polozky = Array.isArray(t.receiptItems) ? t.receiptItems : [];
+    const soucetPolozek = polozky.reduce((a,it)=>a + Math.abs(
+      (it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1))), 0);
+
     parseTxTags(t).forEach(tag => {
       if(!tagMap[tag]) tagMap[tag] = {name:tag, count:0, total:0, txs:[]};
       tagMap[tag].count++;
-      tagMap[tag].total += t.amount||t.amt||0;
+
+      let castkaTagu = castka;
+      if(polozky.length && soucetPolozek > 0){
+        const sTagem = polozky.filter(it => it && it.tag === tag);
+        if(sTagem.length){
+          const cast = sTagem.reduce((a,it)=>a + Math.abs(
+            (it.lineTotal != null) ? it.lineTotal : ((it.price||0)*(it.qty||1))), 0);
+          //  Podíl z celku – drží to i při zaokrouhlení a cizí měně.
+          castkaTagu = castka * (cast / soucetPolozek);
+        }
+        //  Tag, který na žádné položce není, přišel od uživatele ručně
+        //  a vztahuje se na celou transakci → zůstává plná částka.
+      }
+      tagMap[tag].total += castkaTagu;
       tagMap[tag].txs.push(t);
     });
   });
-  return Object.values(tagMap).sort((a,b) => b.count - a.count);
+  return Object.values(tagMap).sort((a,b) => b.total - a.total);
 }
 
 function tagsInputHandler(input) {
@@ -7268,8 +8189,10 @@ function renderTagy() {
     <div class="card" style="margin-bottom:14px">
       <div class="card-header"><span class="card-title">🏷️ Všechny tagy</span></div>
       <div class="card-body" style="padding:8px 14px">
-        ${tags.map(tag => {
-          const pct = tag.count > 0 ? Math.round(tag.count/totalTagged*100) : 0;
+        ${(()=>{ const maxCastka = Math.max(...tags.map(x=>x.total), 1); return tags.map(tag => {
+          //  S22: proužek měří PENÍZE, ne počet transakcí. Dřív stál vedle sebe
+          //  údaj o částce a proužek o něčem úplně jiném.
+          const pct = Math.round(tag.total / maxCastka * 100);
           return `<div style="margin-bottom:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
               <div style="display:flex;align-items:center;gap:8px">
@@ -7277,13 +8200,13 @@ function renderTagy() {
                   onclick="filterByTag('${tag.name}')">#${tag.name}</span>
                 <span style="font-size:.76rem;color:var(--text2)">${tag.count} transakcí</span>
               </div>
-              <span style="font-size:.82rem;font-weight:700;color:var(--expense)">−${fmt(Math.round(tag.total))} Kč</span>
+              <span style="font-size:.82rem;font-weight:700;color:var(--expense)">−${fmtB(Math.round(tag.total))}</span>
             </div>
             <div style="height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
               <div style="height:100%;width:${pct}%;background:var(--bank);border-radius:3px"></div>
             </div>
           </div>`;
-        }).join('')}
+        }).join(''); })()}
       </div>
     </div>
 
@@ -7803,7 +8726,7 @@ async function runPaymentAudit() {
       // anomálie u trialu – delší než 32 dní bez ručního prodloužení
       if (trialActive && !p.extended && !p.manuallySet) {
         const span = (p.trialUntil || 0) - (p.createdAt || p.trialUntil || 0);
-        if (span > D32) warns.push(`⚠️ ${u.profile?.email || uid}: trial na ${Math.round(span/86400000)} dní (limit 30)`);
+        if (span > D32) warns.push(`⚠️ ${_vzEsc(u.profile?.email || uid)}: trial na ${Math.round(span/86400000)} dní (limit 30)`);
       }
       if (!active) return;
 
@@ -7819,7 +8742,7 @@ async function runPaymentAudit() {
       else { status = '🔴 PODEZŘELÉ'; color = 'var(--expense)'; suspicious++; }
 
       if ((p.premiumUntil||0) > now + YEAR)
-        warns.push(`⚠️ ${u.profile?.email || uid}: premium platné do ${new Date(p.premiumUntil).toLocaleDateString('cs-CZ')} (víc než rok)`);
+        warns.push(`⚠️ ${_vzEsc(u.profile?.email || uid)}: premium platné do ${new Date(p.premiumUntil).toLocaleDateString('cs-CZ')} (víc než rok)`);
 
       rows.push({ uid, email: u.profile?.email || '(bez e-mailu)', type: t, status, color,
         until: p.premiumUntil, events: logs[uid] ? Object.keys(logs[uid]).length : 0 });
@@ -7845,7 +8768,7 @@ async function runPaymentAudit() {
       <div style="overflow-x:auto"><table class="stat-table" style="width:100%;min-width:560px;font-size:.76rem">
         <thead><tr><th style="text-align:left">E-mail</th><th>Tier</th><th>Stav</th><th>Platné do</th><th>Plateb</th></tr></thead>
         <tbody>${rows.length ? rows.map(r=>`<tr>
-          <td style="text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${r.email}</td>
+          <td style="text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px">${_vzEsc(r.email)}</td>
           <td style="text-align:center">${r.type}</td>
           <td style="text-align:center;font-weight:700;color:${r.color}">${r.status}</td>
           <td style="text-align:center;color:#a8aec8">${r.until?new Date(r.until).toLocaleDateString('cs-CZ'):'–'}</td>
@@ -8058,3 +8981,754 @@ function runIntegrityCheck() {
       + `<div style="font-size:.7rem;color:#8b91a8;margin-top:8px">Kontrola nic nemění – jen hlásí. Opravy dělej v příslušných kartách.</div>`;
 }
 window.runIntegrityCheck = runIntegrityCheck;
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan) · SIMULÁTOR FINANČNÍHO SKÓRE – admin only, BEZ UKLÁDÁNÍ
+//
+//  Proč vznikl: po přechodu na skóre v2 (TODO-228) jsou váhy a bodovací
+//  kotvy DATA (_SCORING_V2 v helpers.js), ne konstanty rozeseté po kódu.
+//  Díky tomu jde odpovědět na otázku „co se stane, když tohle změním"
+//  přepočtem, ne čtením zdrojáku.
+//
+//  ZÁMĚRNĚ SE NIKAM NEUKLÁDÁ (rozhodnutí Milana, S22):
+//    • ukládat do users/{uid} by znamenalo, že si každý nastaví vlastní váhy
+//      a skóre přestane být mezi lidmi srovnatelné,
+//    • globální uzel by potřeboval vlastní Firebase pravidla (data, která
+//      uživatel nesmí měnit, patří MIMO jeho podstrom – lekce ze S21).
+//  Simulátor tedy jen počítá a na konci vypíše hotový blok k přepsání do
+//  helpers.js. Běžný uživatel se sem nedostane a jeho skóre tohle nijak
+//  neovlivní – computeFinancialScore() bez 4. parametru čte pořád ostrou
+//  _SCORING_V2.
+//
+//  SOUČET VAH MUSÍ BÝT PŘESNĚ 100 % (Milan): ani víc, ani míň. Jinak se
+//  rozbije jmenovatel váženého průměru. Při jiném součtu se blok k přepsání
+//  NEVYGENERUJE a simulace se označí jako neplatná.
+// ══════════════════════════════════════════════════════════════════════
+
+let _simCfg = null;          // pracovní kopie konfigurace (nikdy ne odkaz na ostrou!)
+let _simSlozka = 'S1';       // která složka má rozbalenou bodovací tabulku
+
+function _simKlon(o){ return JSON.parse(JSON.stringify(o)); }
+
+function _simReset(){
+  if(typeof _SCORING_V2==='undefined'){ _simCfg=null; return; }
+  _simCfg = _simKlon(_SCORING_V2);
+}
+
+function simResetVse(){ _simReset(); renderScoringSim(); }
+
+function _simSoucetVah(){
+  if(!_simCfg) return 0;
+  return Object.values(_simCfg.vahy).reduce((a,b)=>a+(+b||0), 0);
+}
+
+//  Body na displeji (0–310) se dopočítají z vah tak, aby jejich součet seděl
+//  přesně na 310 – poslední složka dostane zbytek po zaokrouhlení ostatních.
+function _simMaxBody(vahy, meritko){
+  const klice = ['S1','S2','S3','S4','S5'];
+  const out = {}; let sum = 0;
+  klice.forEach((k,i)=>{
+    if(i < klice.length-1){ out[k] = Math.round((vahy[k]||0)/100*100*meritko); sum += out[k]; }
+  });
+  out[klice[klice.length-1]] = Math.round(100*meritko) - sum;
+  return out;
+}
+
+function simSetVaha(k, v){
+  if(!_simCfg) return;
+  _simCfg.vahy[k] = Math.max(0, Math.min(100, Math.round(+v||0)));
+  _simCfg.maxBody310 = _simMaxBody(_simCfg.vahy, _simCfg.meritko310);
+  renderScoringSim();
+}
+
+function simSetPrah(v){
+  if(!_simCfg) return;
+  _simCfg.prahPokryti = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+
+function simSetSlozka(k){ _simSlozka = k; renderScoringSim(); }
+
+function simSetKotva(slozka, i, pole, v){
+  if(!_simCfg || !_simCfg[slozka] || !_simCfg[slozka][i]) return;
+  const cislo = parseFloat(String(v).replace(',','.'));
+  if(!isFinite(cislo)) return;
+  _simCfg[slozka][i][pole] = pole==='b' ? Math.max(0, Math.min(100, cislo)) : cislo;
+  //  kotvy musí zůstat vzestupně podle x, jinak interpolace vrací nesmysly
+  _simCfg[slozka].sort((a,b)=>a.x-b.x);
+  renderScoringSim();
+}
+
+//  Modelové profily – aby bylo vidět, že změna vah nezasáhne jen mě.
+//  Nejsou to „testovací data", jsou to typické situace, na kterých se pozná,
+//  jestli nová váha nedělá někomu křivdu.
+const _SIM_PROFILY = [
+  { id:'zacatecnik', nazev:'Začátečník', popis:'zapsal příjem a výdaje, nic víc',
+    D:()=>({ transactions:_simTx(40000,32000), debts:[], wallets:[], assets:[], categories:[], shareSettings:{} }), hasDebts:undefined },
+  { id:'bezdluhu', nazev:'Bez dluhů', popis:'potvrdil, že nemá půjčku',
+    D:()=>({ transactions:_simTx(40000,28000), debts:[], wallets:[], assets:[], categories:[], shareSettings:{} }), hasDebts:false },
+  { id:'sporil', nazev:'Spořil', popis:'rezerva 6 měsíců výdajů, spoří 15 %',
+    D:()=>({ transactions:_simTx(45000,25000,4000), debts:[],
+             wallets:[{id:'w',type:'savings',balance:150000}], assets:[],
+             categories:[{id:'inv',name:'Investice',isInvest:true,healthPct:10},{id:'zit',name:'Život',healthPct:60}],
+             shareSettings:{} }), hasDebts:false },
+  { id:'zadluzeny', nazev:'Zadlužený', popis:'splátky 35 % příjmu, bez rezervy',
+    D:()=>({ transactions:_simTx(38000,36000),
+             debts:[{id:'d',name:'Půjčka',remaining:900000,payment:13300,rate:9}],
+             wallets:[{id:'w',type:'savings',balance:5000}], assets:[],
+             categories:[{id:'zit',name:'Život',healthPct:60}], shareSettings:{} }), hasDebts:true },
+];
+
+//  6 měsíců transakcí, ať funguje i základ příjmu (3M zpětné okno) a trend.
+function _simTx(inc, exp, spor){
+  const out = [];
+  const m0 = (typeof S!=='undefined' && S) ? S.curMonth : new Date().getMonth();
+  const y0 = (typeof S!=='undefined' && S) ? S.curYear  : new Date().getFullYear();
+  for(let i=0;i<6;i++){
+    let m=m0-i, y=y0; while(m<0){ m+=12; y--; }
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-15`;
+    out.push({id:`si${i}`, date:iso, type:'income',  amount:inc, name:'Výplata', catId:'vyplata'});
+    out.push({id:`se${i}`, date:iso, type:'expense', amount:exp, name:'Život',   catId:'zit'});
+    if(spor) out.push({id:`ss${i}`, date:iso, type:'expense', amount:spor, name:'Investice', catId:'inv'});
+  }
+  return out;
+}
+
+//  Spočítá skóre pro daná data s danou konfigurací. _settings.hasDebts se musí
+//  na chvíli přepnout (čte ho S2) – vždy se vrátí zpátky, i když výpočet spadne.
+function _simSkore(D, cfg, hasDebts){
+  if(typeof computeFinancialScore!=='function') return null;
+  const puvodni = (typeof _settings!=='undefined' && _settings) ? _settings.hasDebts : undefined;
+  try{
+    if(typeof _settings!=='undefined' && _settings) _settings.hasDebts = hasDebts;
+    return computeFinancialScore(D, undefined, undefined, cfg);
+  } catch(e){ console.warn('[sim] výpočet selhal', e); return null; }
+  finally{
+    if(typeof _settings!=='undefined' && _settings){
+      if(puvodni===undefined) delete _settings.hasDebts; else _settings.hasDebts = puvodni;
+    }
+  }
+}
+
+//  S22 (Milan): záložka umí dvě konfigurace – Finanční SKÓRE (úroveň) a
+//  Finanční OBRAZ (změna za okno). Jsou to dvě různá čísla s různými váhami,
+//  proto dva oddělené simulátory pod jedním přepínačem.
+let _simCo = 'skore';
+function simSetCo(k){ _simCo = k; renderScoringSim(); }
+
+function _simPrepinac(){
+  return `<div style="display:flex;gap:6px;margin-bottom:12px">
+    <button class="tx-filt-btn${_simCo==='skore'?' active':''}" style="flex:1" onclick="simSetCo('skore')">⚖️ Finanční skóre</button>
+    <button class="tx-filt-btn${_simCo==='obraz'?' active':''}" style="flex:1" onclick="simSetCo('obraz')">🖼️ Finanční obraz</button>
+  </div>`;
+}
+
+function renderScoringSim(){
+  const el = document.getElementById('adminScoringSim'); if(!el) return;
+  if(typeof isAdmin!=='function' || !isAdmin()){ el.innerHTML=''; return; }
+  if(_simCo === 'obraz'){ el.innerHTML = _simPrepinac() + _renderObrazSim(); return; }
+  if(typeof _SCORING_V2==='undefined'){
+    el.innerHTML = '<div class="card"><div class="card-body"><div class="empty"><div class="et">Konfigurace skóre není načtená (helpers.js).</div></div></div></div>';
+    return;
+  }
+  if(!_simCfg) _simReset();
+
+  const cfg = _simCfg;
+  const soucet = _simSoucetVah();
+  const platny = soucet === 100;
+  const NAZVY = { S1:'💰 Cash flow', S2:'🏦 Zadluženost', S3:'🐷 Rezerva', S4:'💎 Spoření', S5:'📊 Rozpočet' };
+  const POPIS = {
+    S1:'výdaje ÷ příjmy · nižší je lepší',
+    S2:'DTI (60 %) + DSTI (40 %) · nižší je lepší',
+    S3:'rezerva ÷ měsíční výdaje · vyšší je lepší',
+    S4:'% základu odloženo · vyšší je lepší',
+    S5:'skóre dodržování limitů 0–100 · vyšší je lepší',
+  };
+  const JEDNOTKY = { S1:'poměr', DTI:'%', DSTI:'%', S3:'měsíců', S4:'%', S5:'bodů' };
+
+  // ── moje skutečná data: ostrá vs. simulovaná konfigurace ──
+  const D = (typeof getData==='function') ? getData() : null;
+  const mojeOstre = D ? _simSkore(D, null, (typeof _settings!=='undefined'&&_settings)?_settings.hasDebts:undefined) : null;
+  const mojeSim   = (D && platny) ? _simSkore(D, cfg, (typeof _settings!=='undefined'&&_settings)?_settings.hasDebts:undefined) : null;
+
+  const zmenaTag = (novy, stary) => {
+    if(novy==null || stary==null) return '';
+    const d = novy - stary;
+    if(d===0) return '<span style="font-size:.68rem;color:#8b91a8;margin-left:6px">beze změny</span>';
+    const c = d>0 ? 'var(--income)' : 'var(--expense)';
+    return `<span style="font-size:.68rem;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:99px;background:${d>0?'rgba(74,222,128,.15)':'rgba(248,113,113,.15)'};color:${c}">${d>0?'+':''}${d}</span>`;
+  };
+  const cisloNeboPomlcka = v => v==null ? '<span style="color:#a8aec8">—</span>' : v;
+
+  // ── posuvníky vah ──
+  const vahyHTML = ['S1','S2','S3','S4','S5'].map(k=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.8rem;min-width:132px;color:#e8eaf2">${NAZVY[k]}</span>
+      <input type="range" min="0" max="60" step="1" value="${cfg.vahy[k]}"
+             oninput="simSetVaha('${k}',this.value)" style="flex:1;min-width:80px;accent-color:#8b7cf6">
+      <input type="number" min="0" max="100" value="${cfg.vahy[k]}"
+             onchange="simSetVaha('${k}',this.value)"
+             style="width:58px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+      <span style="font-size:.76rem;color:#a8aec8;min-width:16px">%</span>
+      <span style="font-size:.72rem;color:#a8aec8;min-width:56px;text-align:right">${(cfg.maxBody310||{})[k]??'?'} b</span>
+    </div>`).join('');
+
+  // ── bodovací tabulka vybrané složky ──
+  const klicTabulky = _simSlozka;
+  const kotvy = cfg[klicTabulky] || [];
+  const tabHTML = kotvy.map((kt,i)=>`
+    <tr>
+      <td style="padding:4px 6px"><input type="number" step="any" value="${kt.x}"
+            onchange="simSetKotva('${klicTabulky}',${i},'x',this.value)"
+            style="width:78px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px;color:#a8aec8;font-size:.72rem">${JEDNOTKY[klicTabulky]||''}</td>
+      <td style="padding:4px 6px"><input type="number" min="0" max="100" step="1" value="${kt.b}"
+            onchange="simSetKotva('${klicTabulky}',${i},'b',this.value)"
+            style="width:68px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px">
+        <div style="height:7px;background:var(--surface3);border-radius:99px;overflow:hidden;min-width:70px">
+          <div style="height:100%;width:${kt.b}%;background:${kt.b>=80?'var(--income)':kt.b>=45?'var(--debt)':'var(--expense)'};border-radius:99px"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const prepinacSlozek = ['S1','DTI','DSTI','S3','S4','S5'].map(k=>`
+    <button class="tx-filt-btn${_simSlozka===k?' active':''}" style="font-size:.72rem;padding:4px 10px"
+            onclick="simSetSlozka('${k}')">${k==='DTI'?'S2 · DTI':k==='DSTI'?'S2 · DSTI':NAZVY[k]||k}</button>`).join('');
+
+  // ── modelové profily ──
+  const profilyHTML = _SIM_PROFILY.map(p=>{
+    const data = p.D();
+    const o = _simSkore(data, null, p.hasDebts);
+    const s = platny ? _simSkore(data, cfg, p.hasDebts) : null;
+    const zn = x => x ? (x.total===null ? '⏳ nehodnoceno' : `${x.grade.emoji} ${x.grade.label}`) : '—';
+    return `<tr>
+      <td style="padding:7px 6px">
+        <div style="font-size:.8rem;color:#e8eaf2;font-weight:600">${p.nazev}</div>
+        <div style="font-size:.68rem;color:#a8aec8">${p.popis}</div>
+      </td>
+      <td style="padding:7px 6px;text-align:right;font-size:.78rem;color:#a8aec8;white-space:nowrap">
+        ${cisloNeboPomlcka(o?o.rawTotal:null)} / 310<div style="font-size:.66rem">${zn(o)}</div></td>
+      <td style="padding:7px 6px;text-align:right;font-size:.82rem;font-weight:700;color:#e8eaf2;white-space:nowrap">
+        ${cisloNeboPomlcka(s?s.rawTotal:null)} / 310${s&&o?zmenaTag(s.rawTotal,o.rawTotal):''}
+        <div style="font-size:.66rem;font-weight:400;color:#a8aec8">${zn(s)}</div></td>
+    </tr>`;
+  }).join('');
+
+  // ── rozpad mých složek ──
+  const mojeSlozkyHTML = (mojeSim && mojeOstre)
+    ? mojeSim.components.map((c,i)=>{
+        const o = mojeOstre.components[i];
+        const pct = c.max>0 ? Math.max(0,Math.min(100, c.score/c.max*100)) : 0;
+        const barva = pct>=80?'var(--income)':pct>=50?'var(--debt)':'var(--expense)';
+        return `<div style="margin-bottom:9px">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span style="font-size:.78rem;flex:1;min-width:0;color:#e8eaf2">${c.label}</span>
+            ${c.avail===false
+              ? '<span style="font-size:.72rem;color:#a8aec8">nezměřeno</span>'
+              : `<span style="font-size:.72rem;color:#a8aec8;min-width:62px;text-align:right">${o?o.score+' / '+o.max:''}</span>
+                 <span style="font-family:Syne,sans-serif;font-weight:800;font-size:.84rem;color:${barva};min-width:66px;text-align:right">${c.score} / ${c.max}</span>`}
+          </div>
+          ${c.avail===false?'':`<div style="height:6px;background:var(--surface3);border-radius:99px;overflow:hidden;margin-top:4px">
+            <div style="height:100%;width:${pct.toFixed(1)}%;background:${barva};border-radius:99px"></div></div>`}
+        </div>`;
+      }).join('')
+    : '';
+
+  // ── blok k přepsání do helpers.js ──
+  const exportBlok = platny ? [
+    `  vahy: { S1:${cfg.vahy.S1}, S2:${cfg.vahy.S2}, S3:${cfg.vahy.S3}, S4:${cfg.vahy.S4}, S5:${cfg.vahy.S5} },`,
+    `  prahPokryti: ${cfg.prahPokryti},`,
+    `  maxBody310: { S1:${cfg.maxBody310.S1}, S2:${cfg.maxBody310.S2}, S3:${cfg.maxBody310.S3}, S4:${cfg.maxBody310.S4}, S5:${cfg.maxBody310.S5} },`,
+    ...['S1','DTI','DSTI','S3','S4','S5'].map(k=>
+      `  ${k}: [ ${cfg[k].map(z=>`{x:${z.x},b:${z.b}}`).join(',')} ],`),
+  ].join('\n') : '';
+
+  el.innerHTML = _simPrepinac() + `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">⚖️ Simulátor finančního skóre</span>
+      <button class="btn btn-ghost btn-sm" onclick="simResetVse()" style="font-size:.72rem">↺ Vrátit na ostré</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:12px">
+        Zkouší, co by se stalo, kdyby skóre počítalo jinak — na tvých skutečných datech
+        i na modelových profilech. <b style="color:#c9cede">Nikam se to neukládá</b> a skóre
+        uživatelů to neovlivní; dole je hotový blok k přepsání do <code>helpers.js</code>.
+      </div>
+
+      <!-- VÁHY -->
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.9rem;color:#e8eaf2;margin-bottom:4px">Váhy složek</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:6px">Určují důležitost. Body vpravo jsou podíl z 310 na displeji.</div>
+      ${vahyHTML}
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:.84rem">
+        <span style="min-width:132px;color:#e8eaf2;font-weight:700">Součet</span>
+        <span style="font-family:Syne,sans-serif;font-weight:800;font-size:1.05rem;color:${platny?'var(--income)':'var(--expense)'}">${soucet} %</span>
+        ${platny
+          ? '<span style="font-size:.72rem;color:var(--income)">✓ platné</span>'
+          : `<span style="font-size:.72rem;color:var(--expense)">musí být přesně 100 % — ${soucet>100?'ubírej':'přidej'} ${Math.abs(100-soucet)} %</span>`}
+      </div>
+
+      <!-- PRÁH -->
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+        <span style="font-size:.8rem;min-width:132px;color:#e8eaf2">Práh pokrytí</span>
+        <input type="range" min="0" max="100" step="5" value="${cfg.prahPokryti}"
+               oninput="simSetPrah(this.value)" style="flex:1;min-width:80px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.prahPokryti}" onchange="simSetPrah(this.value)"
+               style="width:58px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8;min-width:16px">%</span>
+      </div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px">Pod touhle podloženosti appka známku vůbec neukáže.</div>
+    </div>
+  </div>
+
+  <!-- MOJE SKÓRE -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📊 Tvoje skutečná data</span></div>
+    <div class="card-body">
+      ${!platny ? `<div style="font-size:.8rem;color:var(--expense);line-height:1.5">
+          Součet vah je ${soucet} %, ne 100 % — simulace se nepočítá, dokud to nesedí.</div>`
+      : !mojeSim ? `<div style="font-size:.8rem;color:#a8aec8">Nepodařilo se spočítat skóre z tvých dat.</div>`
+      : `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+          <div>
+            <div style="font-size:.7rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Ostrá konfigurace</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:#a8aec8">
+              ${cisloNeboPomlcka(mojeOstre?mojeOstre.rawTotal:null)} <span style="font-size:.9rem">/ 310</span></div>
+            <div style="font-size:.72rem;color:#a8aec8">${mojeOstre?(mojeOstre.total===null?'⏳ nehodnoceno':mojeOstre.grade.emoji+' '+mojeOstre.grade.label):'—'}</div>
+          </div>
+          <div style="font-size:1.2rem;color:#a8aec8;padding-bottom:10px">→</div>
+          <div>
+            <div style="font-size:.7rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.05em">Simulace</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.9rem;font-weight:800;color:${mojeSim.grade.color}">
+              ${cisloNeboPomlcka(mojeSim.rawTotal)} <span style="font-size:1rem">/ 310</span>
+              ${mojeOstre?zmenaTag(mojeSim.rawTotal, mojeOstre.rawTotal):''}</div>
+            <div style="font-size:.76rem;color:${mojeSim.grade.color}">${mojeSim.total===null?'⏳ nehodnoceno':mojeSim.grade.emoji+' '+mojeSim.grade.label}</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="font-size:.7rem;color:#a8aec8">Pokrytí</div>
+            <div style="font-size:.95rem;font-weight:700;color:#e8eaf2">${mojeSim.coverage} %</div>
+          </div>
+        </div>
+        ${mojeSlozkyHTML}
+        <div style="font-size:.7rem;color:#8b91a8;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          Šedé číslo = ostrá konfigurace, barevné = simulace.
+        </div>`}
+    </div>
+  </div>
+
+  <!-- BODOVACÍ TABULKA -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📐 Bodovací kotvy</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Mezi kotvami se body dopočítávají přímkou. <b style="color:#c9cede">Hodnota</b> je to, co se měří,
+        <b style="color:#c9cede">body</b> jsou 0–100 uvnitř složky. Pořadí se srovná samo.
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${prepinacSlozek}</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-bottom:6px">${POPIS[klicTabulky]||(klicTabulky==='DTI'?'celkový dluh ÷ roční příjem · nižší je lepší':'splátky ÷ měsíční příjem · nižší je lepší')}</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:4px 6px;font-weight:600">Hodnota</th><th></th>
+          <th style="padding:4px 6px;font-weight:600">Body</th><th style="padding:4px 6px;font-weight:600">Podíl</th>
+        </tr></thead>
+        <tbody>${tabHTML}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODELOVÉ PROFILY -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">👥 Modelové profily</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Typické situace, na kterých se pozná, jestli nová váha někomu nekřivdí.
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:5px 6px;font-weight:600">Profil</th>
+          <th style="padding:5px 6px;font-weight:600;text-align:right">Ostrá</th>
+          <th style="padding:5px 6px;font-weight:600;text-align:right">Simulace</th>
+        </tr></thead>
+        <tbody>${profilyHTML}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXPORT -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 K přepsání do helpers.js</span></div>
+    <div class="card-body">
+      ${platny ? `
+        <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+          Vlož do <code>_SCORING_V2</code> v <code>helpers.js</code> (nahradí odpovídající řádky).
+        </div>
+        <textarea readonly id="simExportBox" style="width:100%;min-height:150px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surface3);color:#c9cede;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.5;resize:vertical">${exportBlok.replace(/</g,'&lt;')}</textarea>
+        <button class="btn btn-accent btn-sm" style="margin-top:8px" onclick="simKopirovat()">📋 Kopírovat</button>`
+      : `<div style="font-size:.8rem;color:var(--expense);line-height:1.55">
+          Nevygeneruje se, dokud součet vah není přesně 100 % (teď ${soucet} %).</div>`}
+    </div>
+  </div>`;
+}
+
+function simKopirovat(){
+  const box = document.getElementById('simExportBox'); if(!box) return;
+  try{
+    box.select();
+    navigator.clipboard.writeText(box.value)
+      .then(()=>{ if(typeof showToast==='function') showToast('📋 Zkopírováno'); })
+      .catch(()=>{ document.execCommand('copy'); if(typeof showToast==='function') showToast('📋 Zkopírováno'); });
+  }catch(e){ console.warn('[sim] kopírování selhalo', e); }
+}
+
+window.renderScoringSim = renderScoringSim;
+window.simResetVse = simResetVse;
+window.simSetVaha = simSetVaha;
+window.simSetPrah = simSetPrah;
+window.simSetSlozka = simSetSlozka;
+window.simSetKotva = simSetKotva;
+window.simKopirovat = simKopirovat;
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan): SIMULÁTOR FINANČNÍHO OBRAZU — admin only, BEZ UKLÁDÁNÍ
+//  Stejný princip jako simulátor skóre: pracuje s KLONEM konfigurace, ostrou
+//  `_OBRAZ_V1` nikdy nemění, a na konci vypíše blok k přepsání do helpers.js.
+//
+//  Ukazuje u každé složky VÁHU i KOTVY. Kotvy jsou záchytné body — hodnota
+//  mezi nimi se dopočítá přímkou, takže na rozdíl od staré schodovité verze
+//  (±15 nebo nic) je rozdíl mezi růstem o 6 % a o 60 % vidět.
+// ══════════════════════════════════════════════════════════════════════
+let _simObraz = null;
+let _simObrazSlozka = 'prijem';
+
+function _simObrazReset(){
+  if(typeof _OBRAZ_V1==='undefined'){ _simObraz=null; return; }
+  _simObraz = JSON.parse(JSON.stringify(_OBRAZ_V1));
+}
+function simObrazResetVse(){ _simObrazReset(); renderScoringSim(); }
+function simObrazSlozka(k){ _simObrazSlozka = k; renderScoringSim(); }
+
+function simObrazVaha(k, v){
+  if(!_simObraz) return;
+  _simObraz.vahy[k] = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+function simObrazPrah(v){
+  if(!_simObraz) return;
+  _simObraz.prahPokryti = Math.max(0, Math.min(100, Math.round(+v||0)));
+  renderScoringSim();
+}
+function simObrazKotva(slozka, i, pole, v){
+  if(!_simObraz || !_simObraz[slozka] || !_simObraz[slozka][i]) return;
+  const cislo = parseFloat(String(v).replace(',','.'));
+  if(!isFinite(cislo)) return;
+  _simObraz[slozka][i][pole] = (pole==='b') ? Math.max(-100, Math.min(100, cislo)) : cislo;
+  _simObraz[slozka].sort((a,b)=>a.x-b.x);   // kotvy musí být vzestupně podle x
+  renderScoringSim();
+}
+
+const _OBRAZ_POPIS = {
+  prijem: { nazev:'💰 Reálný růst příjmu', jedn:'% ročně',
+    co:'O kolik ti vzrostl příjem PO očištění o inflaci. Nula je tam, kde inflaci jen dorovnáš — bez toho by metrika chválila každé přidání, i když z něj reálně ubývá.' },
+  styl: { nazev:'🛒 Dopad životního stylu', jedn:'měsíců',
+    co:'O kolik měsíců se prodloužila nebo zkrátila doba, kterou tě rezerva uživí. Nejhmatatelnější důsledek dražšího života: i když našetříš víc, vyšší výdaje dobu pokrytí zkrátí.' },
+  koncentrace: { nazev:'📊 Koncentrační riziko', jedn:'% výdajů',
+    co:'Podíl největší kategorie na výdajích. Jediná složka měřící STAV, ne změnu — stabilních 60 % v jedné kategorii je riziko bez ohledu na to, jestli se to hnulo. Kotvy počítají s tím, že bydlení běžně dělá 25–30 % výdajů.' },
+};
+
+function _renderObrazSim(){
+  if(typeof _OBRAZ_V1==='undefined'){
+    return '<div class="card"><div class="card-body"><div class="empty"><div class="et">Konfigurace Obrazu není načtená (helpers.js).</div></div></div></div>';
+  }
+  if(!_simObraz) _simObrazReset();
+  const cfg = _simObraz;
+  const soucet = Object.values(cfg.vahy).reduce((a,b)=>a+(+b||0),0);
+  const platny = soucet === 100;
+
+  const VAHY_POPIS = {
+    prijem:      { nazev:'💰 Reálný růst příjmu', proc:'strop všeho ostatního — bez příjmu se nezlepší nic' },
+    styl:        { nazev:'🛒 Dopad životního stylu', proc:'nejrychleji ovlivnitelné, proto o něco níž' },
+    jmeni:       { nazev:'💎 Net Worth Momentum', proc:'jediná měří stav majetku, nejtěžší ošidit' },
+    koncentrace: { nazev:'📊 Koncentrační riziko', proc:'riziko, ne výkon — nemá přebít vývoj' },
+  };
+
+  const vahyHTML = Object.keys(VAHY_POPIS).map(k=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:.8rem;min-width:150px;color:#e8eaf2">${VAHY_POPIS[k].nazev}</span>
+        <input type="range" min="0" max="60" step="1" value="${cfg.vahy[k]}"
+               oninput="simObrazVaha('${k}',this.value)" style="flex:1;min-width:70px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.vahy[k]}" onchange="simObrazVaha('${k}',this.value)"
+               style="width:56px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8">%</span>
+      </div>
+      <div style="font-size:.68rem;color:#8b91a8;margin-top:3px;padding-left:2px">${VAHY_POPIS[k].proc}</div>
+    </div>`).join('');
+
+  const klic = _simObrazSlozka;
+  const maKotvy = !!cfg[klic];
+  const popis = _OBRAZ_POPIS[klic];
+  const kotvyHTML = !maKotvy ? '' : cfg[klic].map((kt,i)=>`
+    <tr>
+      <td style="padding:4px 6px"><input type="number" step="any" value="${kt.x}"
+            onchange="simObrazKotva('${klic}',${i},'x',this.value)"
+            style="width:76px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px;color:#a8aec8;font-size:.7rem">${popis?popis.jedn:''}</td>
+      <td style="padding:4px 6px"><input type="number" min="-100" max="100" step="1" value="${kt.b}"
+            onchange="simObrazKotva('${klic}',${i},'b',this.value)"
+            style="width:66px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:${kt.b<0?'var(--expense)':kt.b>0?'var(--income)':'#a8aec8'};font-size:.78rem;text-align:right"></td>
+      <td style="padding:4px 6px">
+        <div style="position:relative;height:7px;background:var(--surface3);border-radius:99px;min-width:80px">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.25)"></div>
+          <div style="position:absolute;top:0;bottom:0;border-radius:99px;background:${kt.b<0?'var(--expense)':'var(--income)'};
+            ${kt.b>=0?`left:50%;width:${kt.b/2}%`:`right:50%;width:${-kt.b/2}%`}"></div>
+        </div>
+      </td>
+    </tr>`).join('');
+
+  const prepinac = ['prijem','styl','koncentrace'].map(k=>`
+    <button class="tx-filt-btn${klic===k?' active':''}" style="font-size:.72rem;padding:4px 10px"
+            onclick="simObrazSlozka('${k}')">${_OBRAZ_POPIS[k].nazev}</button>`).join('');
+
+  const exportBlok = platny ? [
+    `  zaklad: ${cfg.zaklad}, min: ${cfg.min}, max: ${cfg.max},`,
+    `  prahPokryti: ${cfg.prahPokryti}, minSlozek: ${cfg.minSlozek},`,
+    `  vahy: { prijem:${cfg.vahy.prijem}, styl:${cfg.vahy.styl}, jmeni:${cfg.vahy.jmeni}, koncentrace:${cfg.vahy.koncentrace} },`,
+    ...['prijem','styl','koncentrace'].map(k=>
+      `  ${k}: [ ${cfg[k].map(z=>`{x:${z.x},b:${z.b}}`).join(',')} ],`),
+  ].join('\n') : '';
+
+  return `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">🖼️ Simulátor finančního obrazu</span>
+      <button class="btn btn-ghost btn-sm" onclick="simObrazResetVse()" style="font-size:.72rem">↺ Vrátit na ostré</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:12px">
+        Obraz je jiné číslo než skóre: <b style="color:#c9cede">skóre měří úroveň</b> („jak na tom jsem"),
+        <b style="color:#c9cede">Obraz měří změnu</b> za 6 nebo 12 měsíců („kam se hýbu"). Proto se obojí smí
+        opírat o stejnou veličinu — rezerva jako stav a rezerva jako trend jsou dvě různé informace.
+        Základ ${cfg.zaklad}, rozsah ${cfg.min}–${cfg.max}, neořezává se.
+      </div>
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.9rem;color:#e8eaf2;margin-bottom:6px">Váhy složek</div>
+      ${vahyHTML}
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;font-size:.84rem">
+        <span style="min-width:150px;color:#e8eaf2;font-weight:700">Součet</span>
+        <span style="font-family:Syne,sans-serif;font-weight:800;font-size:1.05rem;color:${platny?'var(--income)':'var(--expense)'}">${soucet} %</span>
+        ${platny ? '<span style="font-size:.72rem;color:var(--income)">✓ platné</span>'
+                 : `<span style="font-size:.72rem;color:var(--expense)">musí být přesně 100 % — ${soucet>100?'ubírej':'přidej'} ${Math.abs(100-soucet)} %</span>`}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+        <span style="font-size:.8rem;min-width:150px;color:#e8eaf2">Práh pokrytí</span>
+        <input type="range" min="0" max="100" step="5" value="${cfg.prahPokryti}"
+               oninput="simObrazPrah(this.value)" style="flex:1;min-width:70px;accent-color:#8b7cf6">
+        <input type="number" min="0" max="100" value="${cfg.prahPokryti}" onchange="simObrazPrah(this.value)"
+               style="width:56px;padding:4px 6px;border-radius:7px;border:1px solid var(--border);background:var(--surface3);color:#e8eaf2;font-size:.8rem;text-align:right">
+        <span style="font-size:.76rem;color:#a8aec8">%</span>
+      </div>
+      <div style="font-size:.68rem;color:#8b91a8">Níž než u skóre (50 %) — chybějící historie je tu běžná. Zároveň musí být měřitelné aspoň ${cfg.minSlozek} složky.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📐 Bodovací kotvy</span></div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Kotvy jsou <b style="color:#c9cede">záchytné body</b> — hodnota mezi nimi se dopočítá přímkou.
+        Body jdou od −100 do +100 uvnitř složky; asymetrie patří do sklonu (propad se ke stropu dostane
+        rychleji), ne do stropu samotného. Pořadí se srovná samo.
+      </div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${prepinac}</div>
+      ${popis?`<div style="font-size:.72rem;color:#a8aec8;line-height:1.5;margin-bottom:8px">${popis.co}</div>`:''}
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="font-size:.68rem;color:#a8aec8;text-align:left">
+          <th style="padding:4px 6px;font-weight:600">Hodnota</th><th></th>
+          <th style="padding:4px 6px;font-weight:600">Body</th><th style="padding:4px 6px;font-weight:600">−100 ⟷ +100</th>
+        </tr></thead>
+        <tbody>${kotvyHTML}</tbody>
+      </table>
+      <div style="font-size:.68rem;color:#8b91a8;margin-top:10px;line-height:1.5">
+        💎 <b>Net Worth Momentum</b> má kotvy v projects.js (uvnitř 70 % „proti výdajům" + 30 % zrychlení) —
+        tady se nastavuje jen jeho váha. 💪 <b>Bonus za úsilí</b> (0–${cfg.bonusUsiliMax}) není složkou váženého
+        průměru: počítá se ze stavu, ne ze změny, a nikdy nejde do mínusu, takže omezení přesčasů nikoho nestojí body.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 K přepsání do helpers.js</span></div>
+    <div class="card-body">
+      ${platny ? `
+        <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+          Vlož do <code>_OBRAZ_V1</code> v <code>helpers.js</code>.
+        </div>
+        <textarea readonly id="simExportBox" style="width:100%;min-height:150px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surface3);color:#c9cede;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.5;resize:vertical">${exportBlok.replace(/</g,'&lt;')}</textarea>
+        <button class="btn btn-accent btn-sm" style="margin-top:8px" onclick="simKopirovat()">📋 Kopírovat</button>`
+      : `<div style="font-size:.8rem;color:var(--expense);line-height:1.55">
+          Nevygeneruje se, dokud součet vah není přesně 100 % (teď ${soucet} %).</div>`}
+    </div>
+  </div>`;
+}
+
+window.simSetCo = simSetCo;
+window.simObrazResetVse = simObrazResetVse;
+window.simObrazSlozka = simObrazSlozka;
+window.simObrazVaha = simObrazVaha;
+window.simObrazPrah = simObrazPrah;
+window.simObrazKotva = simObrazKotva;
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  S22 (Milan): ČTENÍ HLÁŠENÍ ŠPATNĚ PŘEČTENÝCH ÚČTENEK
+//
+//  Uživatel hlásí z karty účtenky (v10.71) do /receipt_reports/{uid}/{id}.
+//  Bez téhle záložky ta funkce sbírala data, na která se nikdo nepodívá.
+//
+//  Co je na hlášení cenné: rozdíl mezi částkou NATIŠTĚNOU na účtence a
+//  součtem položek. Právě tenhle rozdíl ukazuje, co analyzéru uniklo –
+//  u Milanova Kauflandu to byla sleva „Tvoje cena s −49,90", kterou prompt
+//  neznal. Řadí se proto podle velikosti rozdílu, ne podle času: největší
+//  rozpory odhalí nejvíc.
+//
+//  Fotka se zobrazuje až na kliknutí. Je to účtenka s adresou prodejny a
+//  časem nákupu – nemá být vidět jen tím, že se otevře seznam.
+// ══════════════════════════════════════════════════════════════════════
+let _rrData = null;
+let _rrFoto = null;      // id hlášení, jehož fotka je zrovna rozbalená
+
+async function renderReceiptReports(){
+  const el = document.getElementById('adminReceiptReports'); if(!el) return;
+  if(typeof isAdmin!=='function' || !isAdmin()){ el.innerHTML=''; return; }
+
+  if(_rrData === null){
+    el.innerHTML = '<div class="card"><div class="card-body"><div class="empty"><div class="et">Načítám hlášení…</div></div></div></div>';
+    try{
+      const uid = window._currentUser?.uid;
+      const token = uid ? await window._currentUser.getIdToken?.() : null;
+      if(!uid || !token) throw new Error('nepřihlášen');
+      const r = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/receipt_reports.json?auth=${token}`);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const raw = await r.json();
+      _rrData = [];
+      Object.keys(raw||{}).forEach(uidKey=>{
+        Object.keys(raw[uidKey]||{}).forEach(id=>{
+          const z = raw[uidKey][id];
+          if(z && typeof z === 'object') _rrData.push({...z, _uid: uidKey, _id: id});
+        });
+      });
+    }catch(e){
+      _rrData = [];
+      el.innerHTML = `<div class="card"><div class="card-body"><div style="font-size:.82rem;color:var(--expense);line-height:1.5">
+        Hlášení se nepodařilo načíst: ${String(e.message||e)}.<br>
+        <span style="color:#a8aec8;font-size:.74rem">Pokud hlásí Permission denied, chybí v pravidlech uzel
+        <code>receipt_reports</code> – nasazuje se do Firebase Console.</span></div></div></div>`;
+      return;
+    }
+  }
+
+  if(!_rrData.length){
+    el.innerHTML = `<div class="card"><div class="card-body"><div class="empty">
+      <div class="ei">🚩</div><div class="et">Zatím žádné hlášení</div>
+      <div style="font-size:.78rem;color:#a8aec8;margin-top:6px;line-height:1.5">
+        Uživatelé hlásí z karty účtenky, když součet položek nesedí na částku na dokladu.</div>
+      </div></div></div>`;
+    return;
+  }
+
+  //  Největší rozpory nahoru – tam je nejvíc co opravit.
+  const razeno = _rrData.slice().sort((a,b)=>Math.abs(b.rozdil||0)-Math.abs(a.rozdil||0));
+
+  //  Přehled podle obchodu: když jeden řetězec vyskakuje opakovaně, je to
+  //  chyba promptu, ne náhoda.
+  const podleObchodu = {};
+  razeno.forEach(z=>{
+    const k = (z.store||'?').split(',')[0].trim().slice(0,28) || '?';
+    if(!podleObchodu[k]) podleObchodu[k] = {pocet:0, soucet:0};
+    podleObchodu[k].pocet++;
+    podleObchodu[k].soucet += Math.abs(z.rozdil||0);
+  });
+  const obchodyHTML = Object.keys(podleObchodu)
+    .sort((a,b)=>podleObchodu[b].pocet-podleObchodu[a].pocet).slice(0,8)
+    .map(k=>`<span style="display:inline-block;padding:3px 9px;border-radius:99px;background:var(--surface3);
+      border:1px solid var(--border);font-size:.72rem;color:#c9cede;margin:0 5px 5px 0">
+      ${_rrEsc(k)} <b style="color:#e8eaf2">${podleObchodu[k].pocet}×</b></span>`).join('');
+
+  const radky = razeno.map(z=>{
+    const rozdil = Math.abs(z.rozdil||0);
+    const chybi = (z.rozdil||0) > 0;
+    const dt = z.nahlaseno ? new Date(z.nahlaseno) : null;
+    const kdy = dt ? `${dt.getDate()}. ${dt.getMonth()+1}. ${dt.getFullYear()}` : '';
+    const polozky = Array.isArray(z.polozky) ? z.polozky : [];
+    const otevrena = _rrFoto === z._id;
+    return `
+    <div style="padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.84rem;color:#e8eaf2;font-weight:600;word-break:break-word">${_rrEsc(z.store||'—')}</div>
+          <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">
+            ${_rrEsc(z.date||'')} · nahlášeno ${kdy} · ${polozky.length} položek
+            ${z.appVerze?` · v${_rrEsc(z.appVerze)}`:''}</div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.92rem;color:${chybi?'var(--debt)':'var(--expense)'}">
+            ${_rrCislo(rozdil)} Kč</div>
+          <div style="font-size:.64rem;color:#a8aec8">${chybi?'appce něco uniklo':'appka počítá navíc'}</div>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-top:5px">
+        na účtence <b style="color:#c9cede">${_rrCislo(z.printedTotal)}</b>
+        ${z.subtotal!=null?` (součet ${_rrCislo(z.subtotal)})`:''}
+        · appka spočítala <b style="color:#c9cede">${_rrCislo(z.itemsSum)}</b>
+      </div>
+      ${z.poznamka?`<div style="font-size:.74rem;color:#c9cede;margin-top:5px;padding:6px 9px;background:var(--surface3);border-radius:7px">„${_rrEsc(z.poznamka)}"</div>`:''}
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:7px">
+        <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="rrToggleDetail('${z._id}')">
+          ${otevrena?'Skrýt':'Položky'}${z.maSnimek?' a fotka':''}</button>
+      </div>
+      ${otevrena?`
+        <div style="margin-top:8px">
+          ${z.snimek?`<img src="${z.snimek}" style="max-width:100%;border-radius:9px;border:1px solid var(--border);margin-bottom:9px">`
+                    :(z.maSnimek?'<div style="font-size:.7rem;color:#a8aec8;margin-bottom:6px">Fotka byla nad limit a neodeslala se.</div>':'')}
+          <table style="width:100%;border-collapse:collapse;font-size:.72rem">
+            ${polozky.map(it=>`<tr>
+              <td style="padding:2px 5px;color:#c9cede">${_rrEsc(it.name||'')}</td>
+              <td style="padding:2px 5px;text-align:right;color:#a8aec8">${it.qty||1}×</td>
+              <td style="padding:2px 5px;text-align:right;color:#e8eaf2">${_rrCislo(it.lineTotal!=null?it.lineTotal:it.price)}</td>
+              <td style="padding:2px 5px;text-align:right;color:var(--income)">${it.discount?('−'+_rrCislo(it.discount)):''}</td>
+            </tr>`).join('')}
+          </table>
+        </div>`:''}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">🚩 Hlášení účtenek (${_rrData.length})</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="rrZnovuNacti()">↻ Načíst znovu</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55;margin-bottom:10px">
+        Řazeno podle velikosti rozdílu – největší rozpory odhalí nejvíc. Opakující se obchod
+        znamená chybu promptu, ne náhodu.
+      </div>
+      ${obchodyHTML?`<div style="margin-bottom:10px">${obchodyHTML}</div>`:''}
+      ${radky}
+    </div>
+  </div>`;
+}
+
+function _rrEsc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _rrCislo(v){
+  const n = parseFloat(v);
+  return isFinite(n) ? (Math.round(n*100)/100).toFixed(2).replace('.',',') : '—';
+}
+function rrToggleDetail(id){ _rrFoto = (_rrFoto===id) ? null : id; renderReceiptReports(); }
+function rrZnovuNacti(){ _rrData = null; _rrFoto = null; renderReceiptReports(); }
+
+window.renderReceiptReports = renderReceiptReports;
+window.rrToggleDetail = rrToggleDetail;
+window.rrZnovuNacti = rrZnovuNacti;

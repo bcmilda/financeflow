@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════
+// FinanceFlow · v11.03 · product-db.js · 2026-09-25
 //  PRODUKTOVÁ DB – ČSÚ spotřební koš 2026 (Session 12.1)
 //  Mapuje názvy položek z účtenek na produktové skupiny
 //  (CZ-COICOP třídy) a krátké tagy. Zdroj: data/product-groups.json
@@ -30,6 +30,8 @@ function loadProductDB(){
 
 // Normalizace shodná s saveItemTagMapping v receipts.js (NFD, bez diakritiky)
 function _pgNorm(s){
+  //  S23 (PLAN F1): jednotná normalizace z helpers.js.
+  if (typeof normName === 'function') return normName(s);
   return String(s||'').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/\d+\s*(g|kg|ml|l|ks|x)\b/g,' ')   // gramáže pryč ("JOG.BILY 150G" → "jog.bily")

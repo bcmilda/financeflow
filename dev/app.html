@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v10.51</title>
+<title>FinanceFlow v11.04</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -27,7 +27,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=153607e97efbc3af">
+<link rel="stylesheet" href="css/styles.css?v=54ed7bfbda16359d">
 
 <style>
 .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
@@ -116,6 +116,8 @@
           <li><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem a rodinou</li>
         </ul>
         <button class="tier-cta primary" id="tierPremiumCta" onclick="startTrial()">Vyzkoušet Premium</button>
+        <!--  S23 (TODO-294): v aplikaci z Google Play se tlačítko vymění za text
+              bez odkazu (doplní applyPlayMode v premium.js). Na webu beze změny. -->
         <div class="cta-sub" id="tierPremiumSub">✓ 30 dní zdarma</div>
         <button class="tier-cta outline" id="tierPremiumBuy" onclick="goPremium()" style="margin-top:7px;display:none">Předplatit hned</button>
       </div>
@@ -261,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v10.51 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v11.04 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -451,6 +453,10 @@
   <div class="page" id="page-denik">
     <div id="denikContent"></div>
   </div>
+  <!-- S22: deníkové poznámky k jednotlivému výdaji (level 1) -->
+  <div class="page" id="page-poznamky">
+    <div id="poznamkyContent"></div>
+  </div>
   <div class="page" id="page-admin">
     <div id="adminContent"></div>
   </div>
@@ -493,7 +499,7 @@
         <button class="tx-filt-btn" id="filt-dup" onclick="toggleDupFilter(this)" title="Zobrazit jen podezřelé">⚠️ Podezřelé</button>
         <button class="tx-filt-btn" id="filt-date" onclick="toggleTxDateFilter()" title="Filtr podle měsíců / roku">📅 Období</button>
         <button class="tx-filt-btn" id="filt-tabulka" onclick="toggleTxTable(this)" title="Souhrn měsíc po měsíci">📊 Tabulka</button>
-        <button class="tx-filt-btn" id="filt-sablona" onclick="openSablonaModal()" title="Přidat opakovanou šablonu" style="margin-left:auto">🔄 + Šablona</button>
+        <button class="tx-filt-btn" id="filt-sablona" onclick="openSablonaModal()" title="Přidat opakovanou nebo jednorázovou platbu">🔄 + Šablona</button>
         <button class="tx-filt-btn" id="filt-adv" onclick="toggleAdvFilter()">⚙️ Filtr</button>
       </div>
       <!-- Rozšířený filtr – skrytý -->
@@ -599,10 +605,10 @@
       <div class="card-header"><span class="card-title">📊 Graf predikce – celý rok <span id="grafYear"></span></span></div>
       <div class="card-body">
         <div style="display:flex;gap:3px;background:var(--surface2);border-radius:9px;padding:3px;margin-bottom:12px;flex-wrap:wrap">
-          <button class="tx-filt-btn active" id="predGraphTab-kumul" onclick="switchPredGraph('kumul',this)" style="flex:1;font-size:.74rem">📈 Kumulativní</button>
-          <button class="tx-filt-btn" id="predGraphTab-seas" onclick="switchPredGraph('seas',this)" style="flex:1;font-size:.74rem">🌦️ Sezonalita</button>
-          <button class="tx-filt-btn" id="predGraphTab-pace" onclick="switchPredGraph('pace',this)" style="flex:1;font-size:.74rem">⚡ Tempo (pace)</button>
-          <button class="tx-filt-btn" id="predGraphTab-track" onclick="switchPredGraph('track',this)" style="flex:1;font-size:.74rem">🎯 Přesnost</button>
+          <button class="tx-filt-btn active" id="predGraphTab-kumul" onclick="switchPredGraph('kumul',this)" style="flex:1 1 130px;white-space:nowrap;font-size:.74rem">📈 Kumulativní</button>
+          <button class="tx-filt-btn" id="predGraphTab-seas" onclick="switchPredGraph('seas',this)" style="flex:1 1 130px;white-space:nowrap;font-size:.74rem">🌦️ Sezonalita</button>
+          <button class="tx-filt-btn" id="predGraphTab-pace" onclick="switchPredGraph('pace',this)" style="flex:1 1 130px;white-space:nowrap;font-size:.74rem">⚡ Tempo (pace)</button>
+          <button class="tx-filt-btn" id="predGraphTab-track" onclick="switchPredGraph('track',this)" style="flex:1 1 130px;white-space:nowrap;font-size:.74rem">🎯 Přesnost</button>
         </div>
         <div id="predGraph-kumul"><canvas id="yearPredChart" height="220"></canvas></div>
         <div id="predGraph-seas" style="display:none"><canvas id="seasChart" height="220"></canvas>
@@ -1058,7 +1064,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 10.51</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 11.04</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1451,15 +1457,19 @@
       <div class="frow">
         <div class="fg">
           <label>Frekvence</label>
-          <select class="fi" id="sablonaFreq">
+          <select class="fi" id="sablonaFreq" onchange="sablonaFreqChange()">
             <option value="weekly">Týdně</option>
             <option value="biweekly">Každé 2 týdny</option>
             <option value="monthly" selected>Měsíčně</option>
             <option value="quarterly">Čtvrtletně</option>
             <option value="yearly">Ročně</option>
+            <option value="once">1× jednorázově (k datu)</option>
           </select>
         </div>
-        <div class="fg"><label>Den v měsíci</label><input class="fi" type="number" id="sablonaDen" placeholder="1-31" min="1" max="31"></div>
+        <div class="fg" id="sablonaDenWrap"><label>Den v měsíci</label><input class="fi" type="number" id="sablonaDen" placeholder="1-31" min="1" max="31"></div>
+        <!--  S23 (Milan): JEDNORÁZOVÁ PLATBA – u „1×" nedává „den v měsíci" smysl,
+              potřebuje celé datum. Přepíná se v sablonaFreqChange(). -->
+        <div class="fg" id="sablonaOnceWrap" style="display:none"><label>Datum platby</label><input class="fi" type="date" id="sablonaOnceDate"></div>
       </div>
       <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="sablonaAuto" style="width:18px;height:18px;cursor:pointer">
@@ -2156,41 +2166,80 @@
      #profileAvatarPicker – ten element je nově na stránce, ne tady. -->
 </div>
 
-<script src="js/app.js?v=4b28b8904de34856"></script>
-<script src="js/helpers.js?v=98e6be54016192e5"></script>
-<script src="js/ui.js?v=86568ea67e91a8b6"></script>
-<script src="js/transactions.js?v=b321af6434cb16ab"></script>
-<script src="js/report.js?v=79ef757e4873b28a"></script>
-<script src="js/review.js?v=f42276fc5b7db6ba"></script>
-<script src="js/inflace.js?v=ebf900bdbc743a9c"></script>
-<script src="js/charts.js?v=6b23668c2683e315"></script>
-<script src="js/stats.js?v=d5037a65652c234c"></script>
-<script src="js/debts.js?v=24bdde63e7a85df8"></script>
-<script src="js/ai.js?v=b1f55e8134f89bcb"></script>
-<script src="js/premium.js?v=f4a66c428d89a21c"></script>
-<script src="js/onboarding.js?v=978b15e9e5716a98"></script>
-<script src="js/projects.js?v=279de8a85f5fb95b"></script>
-<script src="js/receipts.js?v=01dbbf659564a4bd"></script>
-<script src="js/offline-sync.js?v=c09e6894cf9376e3"></script>
-<script src="js/settings.js?v=bbc24d87f8e1ba34"></script>
-<script src="js/share.js?v=efcaa25444b40838"></script>
-<script src="js/sms-import.js?v=a720e4e732a7b2af"></script>
-<script src="js/duplicates.js?v=a3d330b013e0fd3d"></script>
-<script src="js/nakup.js?v=29c6718d79f75fcc"></script>
-<script src="js/product-db.js?v=cf05ed32d6fc3ee2"></script>
-<script src="js/coicop.js?v=c4c3b89e8c3bba5c"></script>
-<script src="js/budouci.js?v=74a41855d55a20b9"></script>
-<script src="js/pristi.js?v=268de55ca298d8dc"></script>
-<script src="js/assets.js?v=b4cea9a43a05bcd7"></script>
-<script src="js/advisor.js?v=470e342380c5539a"></script>
-<script src="js/kalendar.js?v=3382e36893ecd91f"></script>
-<script src="js/donate.js?v=832cd19c4ee60fc5"></script>
-<script src="js/ucet.js?v=f006e57f978b56e6"></script>
-<script src="js/announcements.js?v=33c4afbb26d5d922"></script>
-<script src="js/admin.js?v=fdf275723c8a0b6a"></script>
-<script src="js/import.js?v=8d2d4ca436edfc88"></script>
-<script src="js/push.js?v=1cf4653a3af13074"></script>
-<script src="js/kurzy.js?v=c372947f013a8e1a"></script>
+<script>
+//  S22: PROČ TADY TAHLE DIAGNOSTIKA JE.
+//  Když se některý .js soubor nenahraje na hosting, server nevrátí 404 se
+//  slušným hlášením – vrátí HTML (rewrite /app/** → app.html, resp. chybovou
+//  stránku). Prohlížeč to zkusí zpracovat jako JavaScript, narazí na "<"
+//  a vypíše "Uncaught SyntaxError: Invalid or unexpected token".
+//  Milan na to narazil po nasazení v10.66 a z té hlášky nešlo poznat nic.
+//  Teď se rovnou napíše KTERÝ soubor.
+//  POZOR NA POŘADÍ: tenhle blok musí stát před ÚPLNĚ PRVNÍM lokálním skriptem.
+//  Prohlížeč umí začít stahovat skripty dřív, než doběhne inline kód (preload
+//  scanner), takže onerror může vystřelit, než tahle funkce vůbec existuje –
+//  proto je volání v atributu navíc obalené `window._ffScriptFail && ...`.
+window._ffMissingScripts = [];
+function _ffScriptFail(src){
+  if(window._ffMissingScripts.indexOf(src) < 0) window._ffMissingScripts.push(src);
+  try{
+    var el = document.getElementById('ffScriptError');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'ffScriptError';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;padding:10px 14px;'
+        + 'background:#7f1d1d;color:#fee2e2;font:14px/1.5 system-ui,sans-serif';
+      document.documentElement.appendChild(el);
+    }
+    el.textContent = 'Nenačetl se soubor: ' + window._ffMissingScripts.join(', ')
+      + ' — chybí na serveru. Nahraj ho a načti stránku znovu.';
+  }catch(e){}
+}
+//  Záchyt i pro případ, že se soubor stáhne, ale je to HTML místo JS:
+//  onerror se pak nespustí (přenos proběhl), spadne až parsování.
+window.addEventListener('error', function(e){
+  if(e && e.message && /Invalid or unexpected token|Unexpected token/.test(e.message)){
+    var kde = e.filename ? e.filename.split('/').pop().split('?')[0] : '';
+    if(kde && /\.js$/.test(kde)) _ffScriptFail('js/' + kde);
+  }
+}, true);
+</script>
+<script src="js/app.js?v=1538a7b3236fa56d" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
+<script src="js/helpers.js?v=26a8e3471f92d07b" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
+<script src="js/ui.js?v=20ce08ba41be868d" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/transactions.js?v=756bf126c789f9ea" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
+<script src="js/report.js?v=79ef757e4873b28a" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
+<script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
+<script src="js/inflace.js?v=cbc5e3b38361a9aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
+<script src="js/charts.js?v=6b23668c2683e315" onerror="window._ffScriptFail&&window._ffScriptFail('js/charts.js')"></script>
+<script src="js/stats.js?v=d5037a65652c234c" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
+<script src="js/debts.js?v=24bdde63e7a85df8" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
+<script src="js/ai.js?v=37bb426330825729" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
+<script src="js/premium.js?v=d94441e908a39856" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
+<script src="js/projects.js?v=763bf7a4fdeb3d53" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
+<script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
+<script src="js/receipts.js?v=3ad9b112a98d9802" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/offline-sync.js?v=c09e6894cf9376e3" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
+<script src="js/settings.js?v=a0979a8fc14f058d" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
+<script src="js/share.js?v=d4e5c1a63a43cc8e" onerror="window._ffScriptFail&&window._ffScriptFail('js/share.js')"></script>
+<script src="js/sms-import.js?v=a720e4e732a7b2af" onerror="window._ffScriptFail&&window._ffScriptFail('js/sms-import.js')"></script>
+<script src="js/duplicates.js?v=a3d330b013e0fd3d" onerror="window._ffScriptFail&&window._ffScriptFail('js/duplicates.js')"></script>
+<script src="js/nakup.js?v=682dae89e4e30ffa" onerror="window._ffScriptFail&&window._ffScriptFail('js/nakup.js')"></script>
+<script src="js/product-db.js?v=4927475dda9c7b51" onerror="window._ffScriptFail&&window._ffScriptFail('js/product-db.js')"></script>
+<script src="js/coicop.js?v=c4c3b89e8c3bba5c" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop.js')"></script>
+<script src="js/budouci.js?v=963b15ab7af48fe6" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
+<script src="js/pristi.js?v=813dd29238fee7a4" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
+<script src="js/assets.js?v=b4cea9a43a05bcd7" onerror="window._ffScriptFail&&window._ffScriptFail('js/assets.js')"></script>
+<script src="js/advisor.js?v=dab3896c82038bc7" onerror="window._ffScriptFail&&window._ffScriptFail('js/advisor.js')"></script>
+<script src="js/kalendar.js?v=cb2332466e30c8dc" onerror="window._ffScriptFail&&window._ffScriptFail('js/kalendar.js')"></script>
+<script src="js/vyplatnice.js?v=86280a1ce54dd04d" onerror="window._ffScriptFail&&window._ffScriptFail('js/vyplatnice.js')"></script>
+<script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
+<script src="js/ucet.js?v=a07435fddd4d8db1" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
+<script src="js/announcements.js?v=33c4afbb26d5d922" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
+<script src="js/admin.js?v=3f8342efebf664d6" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/import.js?v=8d2d4ca436edfc88" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
+<script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
+<script src="js/kurzy.js?v=c372947f013a8e1a" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>
 <script type="module" src="js/firebase.js?v=cc9e9e5171df2bc9"></script>
 
 <!-- MODAL: Kontaktní formulář -->
@@ -2321,13 +2370,13 @@
 </div>
 <div class="overlay" id="modalDeleteData">
   <div class="modal" style="max-width:380px">
-    <div class="modal-head"><h3>⚠️ Vymazat data</h3><button class="btn btn-ghost btn-icon" onclick="closeModal('modalDeleteData')">✕</button></div>
+    <div class="modal-head"><h3>⚠️ Vymazat data</h3><button class="btn btn-ghost btn-icon" onclick="resetDeleteWizard();closeModal('modalDeleteData')">✕</button></div>
     <div class="modal-body">
       <div id="deleteStep1"><div style="font-size:.86rem;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:14px">Chystáš se <strong style="color:var(--expense)">trvale smazat</strong> všechna data.<br><strong>Nevratná akce.</strong></div></div>
-      <div id="deleteStep2" style="display:none"><div style="font-size:.86rem;text-align:center;margin-bottom:12px">Jsi si <strong>opravdu jist/a</strong>?</div><button class="btn btn-ghost btn-sm" onclick="exportUserData()" style="width:100%;margin-bottom:8px;text-align:center">📤 Exportovat zálohu</button></div>
+      <div id="deleteStep2" style="display:none"><div style="font-size:.86rem;text-align:center;margin-bottom:12px">Jsi si <strong>opravdu jist/a</strong>?</div><button class="btn btn-ghost btn-sm" onclick="exportUserData()" style="width:100%;margin-bottom:6px;text-align:center">📤 Exportovat zálohu</button><div style="font-size:.72rem;color:var(--text3);text-align:center">Záloha je nepovinná — pokračovat můžeš i bez ní.</div></div>
       <div id="deleteStep3" style="display:none"><div style="font-size:.86rem;text-align:center;margin-bottom:12px">Napiš <strong>SMAZAT</strong>:</div><input class="fi" id="deleteConfirmInput" placeholder="SMAZAT" style="text-align:center"></div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modalDeleteData')">Zrušit</button><button class="btn" id="deleteNextBtn" onclick="handleDeleteStep()" style="background:var(--expense);border-color:var(--expense);color:white">Pokračovat</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="resetDeleteWizard();closeModal('modalDeleteData')">Zrušit</button><button class="btn" id="deleteNextBtn" onclick="handleDeleteStep()" style="background:var(--expense);border-color:var(--expense);color:white">Pokračovat</button></div>
   </div>
 </div>
 <div class="overlay" id="modalHelp">
@@ -2442,6 +2491,22 @@
 
 <script>
 let _deleteCurrentStep=1;
+//  S22 (nahlásil Milan): průvodce se po zavření uprostřed NEVRACEL na začátek.
+//  Zůstalo počítadlo kroků i přepsaný onclick tlačítka, takže druhý pokus
+//  přeskočil nabídku zálohy a třetí rovnou volal potvrzení nad prázdným polem,
+//  které nebylo vidět – uživatel dostal výtku za nevyplněné pole, do kterého
+//  neměl kam psát. Reset musí být na KAŽDÉ cestě ven, ne jen při otevření.
+function resetDeleteWizard(){
+  _deleteCurrentStep = 1;
+  const b = document.getElementById('deleteNextBtn');
+  if(b){ b.textContent = 'Pokračovat'; b.onclick = handleDeleteStep; }
+  const i = document.getElementById('deleteConfirmInput'); if(i) i.value = '';
+  ['deleteStep1','deleteStep2','deleteStep3'].forEach((id,n)=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = n===0 ? 'block' : 'none';
+  });
+}
+window.resetDeleteWizard = resetDeleteWizard;
 function handleDeleteStep(){if(_deleteCurrentStep===1){_deleteCurrentStep=2;deleteDataStep2();document.getElementById('deleteNextBtn').textContent='Ano, pokračovat';}else if(_deleteCurrentStep===2){_deleteCurrentStep=3;deleteDataStep3();document.getElementById('deleteNextBtn').textContent='Smazat vše';document.getElementById('deleteNextBtn').onclick=confirmDeleteAllData;}}
 document.addEventListener('DOMContentLoaded',function(){if(typeof initTheme==='function')initTheme();if(typeof loadPin==='function')loadPin();});
 </script>

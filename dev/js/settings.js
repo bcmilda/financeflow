@@ -1,4 +1,4 @@
-// FinanceFlow · v10.50 · settings.js · 2026-09-04
+// FinanceFlow · v10.97 · settings.js · 2026-09-22
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -267,12 +267,30 @@ async function pinVerifySubmit() {
 // ══════════════════════════════════════════════════════
 //  VYMAZAT DATA
 // ══════════════════════════════════════════════════════
+//  FIX (nahlásil Milan, S22): MAZÁNÍ DAT ŠLO JEN NAPOPRVÉ.
+//  Průvodce má tři kroky a stav drží `_deleteCurrentStep` v app.html. Tahle
+//  funkce vracela do výchozí polohy jen VIDITELNOST kroků – ne počítadlo
+//  a ne tlačítko. Po zavření uprostřed průvodce tedy zůstalo:
+//    • `_deleteCurrentStep` na 2 nebo 3 → napodruhé se přeskočila nabídka
+//      zálohy a rovnou se chtělo slovo SMAZAT,
+//    • `deleteNextBtn.onclick` přepsaný na confirmDeleteAllData a popisek
+//      „Smazat vše" → napotřetí tlačítko rovnou volalo potvrzení, to našlo
+//      prázdné pole (krok 3 nebyl vidět), vypsalo „Zadej přesně SMAZAT"
+//      a vrátilo uživatele na úvodní obrazovku. Políčko nešlo vyplnit vůbec.
+//  Navíc: krok 2 nabízel export bez možnosti odmítnout – doplněno „Ne, díky".
 function openDeleteDataModal() {
   const modal = document.getElementById('modalDeleteData'); if (!modal) return;
   document.getElementById('deleteStep1').style.display = 'block';
   document.getElementById('deleteStep2').style.display = 'none';
   document.getElementById('deleteStep3').style.display = 'none';
   document.getElementById('deleteConfirmInput').value = '';
+  //  Vrátit i STAV průvodce, ne jen to, co je vidět.
+  try { _deleteCurrentStep = 1; } catch(e) {}
+  const btn = document.getElementById('deleteNextBtn');
+  if (btn) {
+    btn.textContent = 'Pokračovat';
+    btn.onclick = (typeof handleDeleteStep === 'function') ? handleDeleteStep : null;
+  }
   modal.classList.add('open');
 }
 
@@ -287,9 +305,19 @@ function deleteDataStep3() {
 }
 
 async function confirmDeleteAllData() {
-  const input = document.getElementById('deleteConfirmInput').value.trim();
+  const pole = document.getElementById('deleteConfirmInput');
+  const input = (pole ? pole.value : '').trim();
   if (input !== 'SMAZAT') {
+    //  Ujistit se, že je krok 3 vidět – jinak uživatel dostane výtku za
+    //  nevyplněné pole, které nemá kam napsat.
+    const s3 = document.getElementById('deleteStep3');
+    if (s3 && s3.style.display === 'none') {
+      document.getElementById('deleteStep1').style.display = 'none';
+      document.getElementById('deleteStep2').style.display = 'none';
+      s3.style.display = 'block';
+    }
     alert('Zadej přesně slovo SMAZAT (velkými písmeny)');
+    if (pole) pole.focus();
     return;
   }
   closeModal('modalDeleteData');
@@ -713,6 +741,32 @@ function renderSettingsPage() {
         </div>
       </div>
 
+      <!--  S23 (TODO-295): SOUHLAS SE ZASÍLÁNÍM NOVINEK.
+            E-mail je v appce kvůli přihlášení – posílat na něj nabídky je jiný
+            účel, na který je potřeba souhlas. Výchozí stav je VYPNUTO a nikdy
+            se nezaškrtává sám. Ukládá se hned jako komunitní souhlas. -->
+      <div class="settings-item">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="settings-icon">✉️</span>
+          <div class="settings-item-body">
+            <div class="settings-item-title">Novinky a nabídky e-mailem</div>
+            <div class="settings-item-sub">Pár zpráv ročně, kdykoli lze vypnout</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;cursor:pointer">
+            <input type="checkbox" id="settingNewsletter" ${_settings?.newsletter===true?'checked':''}
+              onchange="setNewsletterConsent(this.checked)"
+              style="opacity:0;width:0;height:0;position:absolute">
+            <span style="position:absolute;inset:0;background:${_settings?.newsletter===true?'var(--income)':'var(--surface3)'};border-radius:24px;transition:.3s">
+              <span style="position:absolute;left:${_settings?.newsletter===true?'20px':'2px'};top:2px;width:20px;height:20px;background:white;border-radius:50%;transition:.3s"></span>
+            </span>
+          </label>
+        </div>
+        <div style="margin-left:38px;font-size:.72rem;color:var(--text3);line-height:1.5">
+          Co appka umí nového, tipy a občas nabídka Premium. Souhlas můžeš kdykoli odvolat
+          tady nebo odkazem na konci každého e-mailu. ${_settings?.newsletterAt?`<span style="color:var(--text2)">Zapnuto ${new Date(_settings.newsletterAt).toLocaleDateString('cs-CZ')}.</span>`:''}
+        </div>
+      </div>
+
       <div class="settings-item" onclick="openPrivacyPolicy()">
         <span class="settings-icon">🔐</span>
         <div class="settings-item-body">
@@ -795,6 +849,26 @@ function markSettingsSaved() {
 }
 
 function settingChanged() { showSettingsSaveBar(); }
+
+//  S23 (TODO-295): souhlas se zasíláním novinek. Ukládá se HNED (ne přes save
+//  bar) a spolu s DATEM – u souhlasu musí jít doložit, kdy byl udělen.
+//  Při odvolání datum zůstává jako záznam, kdy souhlas platil.
+async function setNewsletterConsent(on) {
+  if (typeof _settings === 'undefined' || !_settings) return;
+  _settings.newsletter = !!on;
+  if (on) _settings.newsletterAt = Date.now();
+  else _settings.newsletterOffAt = Date.now();
+  try {
+    if (window._currentUser && typeof _isLocalMode !== 'undefined' && !_isLocalMode) {
+      await _set(_ref(_db, `users/${window._currentUser.uid}/settings`), _settings);
+    } else {
+      try { localStorage.setItem('ff_v43_settings', JSON.stringify(_settings)); } catch(e) {}
+    }
+  } catch(e) { console.error('Newsletter consent save error:', e); }
+  if (typeof showToast === 'function') showToast(on ? '✉️ Novinky zapnuty' : 'Novinky vypnuty');
+  if (typeof renderSettingsPage === 'function') renderSettingsPage();
+}
+window.setNewsletterConsent = setNewsletterConsent;
 
 // FIX-278 (S20): souhlas se sdílením do Komunitního přehledu.
 //   Uklada se HNED (ne pres save bar) – souhlas se sdílením dat nesmí zůstat

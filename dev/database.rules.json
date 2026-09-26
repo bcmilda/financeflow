@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v10.51 · 2026-09-04 (S21: novy uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
+// FinanceFlow · database rules · v11.04 · 2026-09-25 (S23: novy uzel community/productMap – Mapa polozek: cte kazdy prihlaseny, zapisuje jen admin.)
 {
   "rules": {
     "users": {
@@ -233,6 +233,24 @@
           }
         }
       },
+      // S23: Mapa polozek. Cte kazdy prihlaseny, ZAPISUJE JEN ADMIN - spatne
+      //   mapovani by se propsalo vsem. Osobni volba uzivatele zustava
+      //   v users/{uid}/data/productPrefs (F3).
+      "productMap": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$klic": {
+          ".validate": "newData.hasChildren(['obecny']) && newData.child('obecny').isString() && newData.child('obecny').val().length <= 40",
+          "obecny":    { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "konkretni": { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "produkt":   { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "catId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "subcat":    { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "coicop":    { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 13" },
+          "kdy":       { ".validate": "newData.isNumber()" },
+          "$jine": { ".validate": false }
+        }
+      },
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
@@ -301,6 +319,16 @@
     "admins": {
       ".read": "auth != null",
       ".write": false
+    },
+    "receipt_reports": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      ".write": "auth != null",
+      "$uid": {
+        ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$report": {
+          ".validate": "newData.hasChildren(['date','store','printedTotal','itemsSum'])"
+        }
+      }
     },
     "support": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",

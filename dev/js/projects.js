@@ -1,4 +1,4 @@
-// FinanceFlow · v10.31 · projects.js · 2026-09-02
+// FinanceFlow · v11.03 · projects.js · 2026-09-25
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -949,7 +949,25 @@ function reportRatingSummary(D, m, y) {
     if (String(r.date || '').slice(0, 7) !== ym) return;
     (r.items || []).forEach(it => { if (it && it.priority) items.push(it); });
   });
-  const ratedTx = txs.filter(t => t.priority);
+  //  FIX (audit S22): DVOJÍ ZAPOČTENÍ U HODNOCENÍ ÚTRAT.
+  //  Sčítaly se hodnocené TRANSAKCE i hodnocené POLOŽKY účtenek. Když uživatel
+  //  označil nákup v Kauflandu za zbytečný (1 490 Kč) a k tomu ohodnotil pár
+  //  položek uvnitř, započítaly se tytéž peníze dvakrát. Po v10.73 je to
+  //  citelnější: účtenka je teď JEDNA transakce v plné výši, takže překryv
+  //  není částečný, ale úplný.
+  //  Přednost mají POLOŽKY – jsou konkrétnější. Transakce, jejíž účtenka má
+  //  aspoň jednu hodnocenou položku, se do součtu nebere.
+  const _hodnocenoVUctence = new Set();
+  (S.receipts || []).forEach(r => {
+    if (String(r.date || '').slice(0, 7) !== ym) return;
+    if (!(r.items || []).some(it => it && it.priority)) return;
+    _hodnocenoVUctence.add(`${r.date}|${String(r.store||'').toLowerCase()}`);
+  });
+  const ratedTx = txs.filter(t => {
+    if (!t.priority) return false;
+    const klic = `${t.receiptDate}|${String(t.receiptStore||'').toLowerCase()}`;
+    return !_hodnocenoVUctence.has(klic);
+  });
   const all = ratedTx.map(t => ({ p: t.priority, a: Math.abs(txCZK(t, D)), n: t.name || 'Bez názvu' }))
     .concat(items.map(it => ({ p: it.priority,
       a: (typeof lineAmt === 'function') ? lineAmt(it) : (it.price || 0) * (it.qty || 1),
@@ -1614,8 +1632,16 @@ function renderReport() {
       //  zatímco Dashboard hlásil 140 – dvě různá čísla pod jedním názvem.
       const fs = (typeof computeFinancialScore === 'function')
         ? computeFinancialScore(D, m, y) : null;
-      const sc = fs ? fs.rawTotal : computeHealthScores(D, m, y).overall;
-      months.push({ m, y, score: sc, max: fs ? fs.rawMax : 100,
+      //  S23 FIX (Milan): stejná škála jako na Dashboardu. Dřív se tu brala
+      //  plná (rawTotal/rawMax) → report hlásil 310 z 310, Dashboard 202 z 202.
+      const _z = (fs && typeof scoreZobrazeni === 'function') ? scoreZobrazeni(fs) : null;
+      const sc = _z ? _z.tot : (fs ? fs.rawTotal : computeHealthScores(D, m, y).overall);
+      //  v10.60 (TODO-228): měsíc pod prahem pokrytí (50 %) má rawTotal 0 –
+      //  to není nula jako výsledek, to je „nemám co měřit". V grafu by se
+      //  vykreslil jako propad na dno, jako by uživatel přišel o všechno.
+      //  `mereno:false` říká grafu, že tenhle bod má vynechat, ne nakreslit 0.
+      const mereno = fs ? (fs.total !== null) : true;
+      months.push({ m, y, score: sc, max: _z ? _z.max : (fs ? fs.rawMax : 100), mereno,
                     grade: fs ? fs.grade : null, label: CZ_M[m].slice(0,3) });
     }
     if (n === 1) {
@@ -1625,7 +1651,9 @@ function renderReport() {
       //  v9.66: podoba „skóre karty" z preview – celkové skóre, kolik chybí do
       //  lepší známky, a ROZPAD NA SLOŽKY vč. ZMĚNY ZA MĚSÍC. Stav řekne, jak
       //  jsi na tom; změna řekne, co jsi ten měsíc udělal.
-      const _next = (()=>{ try{
+      //  v10.60 (TODO-228): u neměřeného měsíce nemá „do známky chybí X bodů"
+      //  smysl – počítalo by se to z nuly, která není výsledek, ale díra.
+      const _next = (mo.mereno === false) ? null : (()=>{ try{
           const th=[[.30,'⚠️ Rizikové'],[.45,'📊 Průměrné'],[.60,'👍 Dobré'],[.75,'⭐ Velmi dobré'],[.90,'🏆 Výborné']];
           for(const [t,l] of th){ const need=Math.round(mo.max*t)-mo.score; if(need>0) return {need,l}; }
           return null; }catch(e){ return null; } })();
@@ -1666,6 +1694,13 @@ function renderReport() {
           </div>
         </div>
         ${_comps.map(c=>{
+          //  S23: co nejde změřit, není nula – Dashboard to píše jako
+          //  „nezměřeno" a report to musí říkat stejně.
+          if(c.avail===false) return `<div style="margin-bottom:10px;opacity:.6">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-size:.82rem;flex:1;min-width:0">${c.label}</span>
+              <span style="font-size:.74rem;font-style:italic;color:var(--text3);min-width:74px;text-align:right">nezměřeno</span>
+            </div></div>`;
           const pv=_prevComp(c.label), d=(pv===null)?null:(c.score-pv);
           const pct=c.max>0?Math.max(0,Math.min(100,c.score/c.max*100)):0;
           const cc=pct>=80?'var(--income)':pct>=50?'var(--debt)':'var(--expense)';
@@ -1686,7 +1721,11 @@ function renderReport() {
     } else if (typeof drawHealthScoreLineChart === 'function') {
       cont.innerHTML = `<canvas id="reportScoreCanvas" style="width:100%;display:block"></canvas>`;
       { const nEl=document.getElementById('reportScoreAxisNote');
-        if(nEl) nEl.textContent='Finanční skóre 0–310 (jako na Dashboardu) · vyšší = lepší · osa: měsíce'; }
+        //  v10.60 (TODO-228): pokud je v okně měsíc, který nešel změřit,
+        //  popisek to řekne – jinak je přerušená čára a pomlčka záhada.
+        const _dira = months.some(mo=>mo.mereno===false);
+        if(nEl) nEl.textContent='Finanční skóre 0–310 (jako na Dashboardu) · vyšší = lepší · osa: měsíce'
+          + (_dira ? ' · „—" = v tom měsíci nebylo dost dat na hodnocení' : ''); }
       setTimeout(() => drawHealthScoreLineChart('reportScoreCanvas', months), 30);
     }
   }, 60);
@@ -2184,6 +2223,7 @@ function renderRadar() {
         <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.5">Bílá čára = kolik jsi celkem utratil (kumulativně). Zelená = úroveň příjmu měsíce. Žlutá = ideální rovnoměrné tempo (příjem ÷ dny). Když je bílá nad žlutou, utrácíš rychleji než rovnoměrně. Modré sloupce = denní výdaj. Najeď myší pro detail dne.</div>
         <!-- Trend po týdnech od výplaty (Session 10) -->
         <div id="paydayWeeksBox" style="margin-top:16px"></div>
+        <div id="monthCompareBox" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -2500,7 +2540,11 @@ function renderRadarDailyChart(txs, monthInc, avgInc, avgExp, D){
   canvas._radarData = {daysInMonth, todayDay, cumolEnd, cumExp, dailyExp, incomeTarget, incomeIsReal, predEnd, incomeDay, weeks, idealPace, isCurrent};
   drawRadarDaily(canvas);
   // vykresli tabulku týdnů od výplaty
-  renderPaydayWeeksTable(weeks, payday);
+  //  S23 (Milan): v záložce Měsíc patří KALENDÁŘNÍ týdny. Týdny od výplaty
+  //  má záložka Do výplaty (karta „Od výplaty k výplatě"); dva grafy měřící
+  //  totéž každý jinak byly zdrojem nejasností (73 vs 128 Kč/den).
+  renderMonthWeeks(getData(), S.curMonth, S.curYear);
+  renderMonthCompare(getData(), S.curMonth, S.curYear);
   // interaktivita: tooltip na hover
   if(!canvas._radarBound){
     canvas._radarBound = true;
@@ -2618,16 +2662,146 @@ function radarDailyHover(e, canvas){
     + (isCurrent && day===days ? `<br><span style="color:#fb923c">●</span> odhad konce: ${fmtB(Math.round(predEnd))}` : '');
 }
 
-// Trend výdajů po týdnech od výplaty – sloupcový graf (Kč/den) + tabulka
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): VÝDAJE PO TÝDNECH – kalendářní týdny zvoleného měsíce
+//  cesta: Finanční radar → 📅 Měsíc → Výdaje po týdnech
+//  Týden = pondělí–neděle, oříznutý hranicí měsíce (první a poslední týden
+//  bývají kratší – proto sloupec „Dní"). Rozpad fixní / variabilní /
+//  ostatní podle charakteru kategorie, stejně jako „Od výplaty k výplatě".
+//  Sloupce = týdenní částka; Kč/den = částka ÷ dny v týdnu (orientačně).
+// ══════════════════════════════════════════════════════
+const RADAR_CHAR_GROUPS=[
+  {key:'regular', label:'Fixní',               color:'#60a5fa'},
+  {key:'variable',label:'Variabilní',          color:'#fbbf24'},
+  {key:'other',   label:'Jednoráz./nepravid.', color:'#a78bfa'},
+  {key:'none',    label:'Neurčeno',            color:'#7e84a0'},
+];
+function radarCharGroupOf(D){
+  const charBy={}; (D.categories||[]).forEach(c=>{ charBy[c.id]=c.expenseChar||''; });
+  const fn=t=>{ const ch=charBy[t.catId]||''; if(ch==='regular')return'regular'; if(ch==='variable')return'variable'; if(ch==='irregular'||ch==='onetime')return'other'; return'none'; };
+  fn.hasChar=Object.values(charBy).some(v=>v&&v!=='none');
+  return fn;
+}
+function radarMonthWeeks(D, m, y){
+  const dim=new Date(y,m+1,0).getDate();
+  const grpOf=radarCharGroupOf(D);
+  const tx=(getTx(m,y,D)||[]).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!(typeof isTransferTx==='function'&&isTransferTx(t)));
+  const today=new Date(); today.setHours(0,0,0,0);
+  const weeks=[]; let d=1;
+  while(d<=dim){
+    const start=new Date(y,m,d);
+    const dow=(start.getDay()+6)%7;                 // 0 = pondělí
+    const endDay=Math.min(dim, d+(6-dow));
+    const end=new Date(y,m,endDay);
+    const sums={regular:0,variable:0,other:0,none:0};
+    tx.forEach(t=>{ const td=new Date(t.date).getDate(); if(td>=d&&td<=endDay) sums[grpOf(t)]+=txCZK(t,D); });
+    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
+    const dnu=endDay-d+1;
+    weeks.push({label:`${weeks.length+1}. týden`, range:`${d}.–${endDay}. ${m+1}.`, sums, total, dnu,
+      perDay:Math.round(total/dnu), future:start>today});
+    d=endDay+1;
+  }
+  return {weeks, hasChar:grpOf.hasChar};
+}
+function renderMonthWeeks(D, m, y){
+  const box=document.getElementById('paydayWeeksBox'); if(!box) return;
+  const {weeks, hasChar}=radarMonthWeeks(D, m, y);
+  if(!weeks.length){ box.innerHTML=''; return; }
+  const maxW=Math.max(...weeks.map(w=>w.total),1);
+  const bars=weeks.map(w=>{
+    const segs=RADAR_CHAR_GROUPS.map(g=>{ const v=w.sums[g.key]; if(v<=0) return ''; const h=Math.max(2,Math.round(v/maxW*100));
+      return `<div style="width:100%;height:${h}px;background:${g.color}" title="${g.label}: ${fmtB(Math.round(v))}"></div>`; }).join('');
+    return `<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px">
+      <div style="font-size:.68rem;font-weight:700;color:#c2c7da;font-family:Syne">${w.total>0?fmtB(w.total):(w.future?'·':'0')}</div>
+      <div style="width:100%;max-width:46px;display:flex;flex-direction:column-reverse;border-radius:6px 6px 0 0;overflow:hidden;min-height:2px">${segs||'<div style="height:2px;background:var(--border)"></div>'}</div>
+      <div style="font-size:.64rem;color:#a8aec8;text-align:center;line-height:1.3">${w.label}<br><span style="color:var(--text3)">${w.range}</span></div>
+    </div>`;
+  }).join('');
+  const rows=weeks.map(w=>`<tr style="border-top:1px solid var(--border);${w.future?'opacity:.45':''}">
+    <td style="padding:5px 6px;white-space:nowrap">${w.label}</td>
+    <td style="padding:5px 6px;text-align:right;color:#60a5fa">${fmtB(Math.round(w.sums.regular))}</td>
+    <td style="padding:5px 6px;text-align:right;color:#fbbf24">${fmtB(Math.round(w.sums.variable))}</td>
+    <td style="padding:5px 6px;text-align:right;color:#a78bfa">${fmtB(Math.round(w.sums.other+w.sums.none))}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700">${fmtB(w.total)}</td>
+    <td style="padding:5px 6px;text-align:right;color:var(--text3)">${w.dnu}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700;color:#e8eaf2">${w.future?'–':fmtB(w.perDay)}</td>
+  </tr>`).join('');
+  box.innerHTML=`
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">📅 Výdaje po týdnech</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Kalendářní týdny pondělí–neděle; první a poslední týden měsíce bývají kratší. Sloupce ukazují, <strong>kolik stál celý týden</strong>, barvy rozpad podle charakteru výdaje.</div>
+    ${hasChar?'':`<div style="font-size:.7rem;color:#c9cede;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">💡 Žádná kategorie nemá nastavený <strong>charakter výdaje</strong> – vše spadá do „Neurčeno". Nastav ho u kategorií a rozpad ožije.</div>`}
+    <div style="display:flex;align-items:flex-end;gap:8px;height:150px;margin-bottom:8px;padding:0 4px">${bars}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;font-size:.66rem;color:#a8aec8;margin-bottom:10px">
+      ${RADAR_CHAR_GROUPS.map(g=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:9px;height:9px;border-radius:2px;background:${g.color};display:inline-block"></span>${g.label}</span>`).join('')}
+    </div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:.76rem;min-width:460px">
+      <thead><tr style="color:var(--text3);text-align:left">
+        <th style="padding:5px 6px">Týden</th>
+        <th style="padding:5px 6px;text-align:right">Fixní</th>
+        <th style="padding:5px 6px;text-align:right">Variab.</th>
+        <th style="padding:5px 6px;text-align:right">Ostatní</th>
+        <th style="padding:5px 6px;text-align:right">Celkem</th>
+        <th style="padding:5px 6px;text-align:right">Dní</th>
+        <th style="padding:5px 6px;text-align:right">${curSym()}/den</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.5">${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>`;
+}
+
+// ══════════════════════════════════════════════════════
+//  S23 (Milan): SROVNÁNÍ S MINULÝM MĚSÍCEM
+//  cesta: Finanční radar → 📅 Měsíc → Srovnání s minulým měsícem
+//  Obdoba „Srovnání s minulým cyklem" z Do výplaty. Férové srovnání tempa:
+//  u rozběhnutého měsíce se porovnává DO STEJNÉHO DNE, ne celý minulý měsíc
+//  s půlkou letošního.
+// ══════════════════════════════════════════════════════
+function radarMonthCompare(D, m, y){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const isCur=(m===now.getMonth()&&y===now.getFullYear());
+  const dim=new Date(y,m+1,0).getDate();
+  const doDne=isCur?now.getDate():dim;
+  let pm=m-1, py=y; if(pm<0){pm=11;py--;}
+  const pdim=new Date(py,pm+1,0).getDate();
+  const vyd=(mm,yy,do_)=> (getTx(mm,yy,D)||[]).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)&&new Date(t.date).getDate()<=do_).reduce((a,t)=>a+txCZK(t,D),0);
+  const ted=Math.round(vyd(m,y,doDne));
+  const minuleStejne=Math.round(vyd(pm,py,Math.min(doDne,pdim)));
+  const minuleCelkem=Math.round(vyd(pm,py,pdim));
+  const pct=minuleStejne>0?Math.round((ted-minuleStejne)/minuleStejne*100):null;
+  return {ted, minuleStejne, minuleCelkem, pct, doDne, isCur, pm, py};
+}
+function renderMonthCompare(D, m, y){
+  const box=document.getElementById('monthCompareBox'); if(!box) return;
+  const c=radarMonthCompare(D, m, y);
+  if(c.minuleCelkem<=0 && c.ted<=0){ box.innerHTML=''; return; }
+  const barva=c.pct===null?'#a8aec8':c.pct<=0?'var(--income)':'var(--expense)';
+  const tile=(v,sub,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center">
+      <div style="font-family:Syne,sans-serif;font-size:1.05rem;font-weight:800;color:${col}">${v}</div>
+      <div style="font-size:.66rem;color:#a8aec8;margin-top:3px">${sub}</div></div>`;
+  box.innerHTML=`
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">🔁 Srovnání s minulým měsícem</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">${c.isCur?`Výdaje do ${c.doDne}. dne – letos i v měsíci ${CZ_M[c.pm]}, ať se srovnává stejně dlouhý úsek.`:`Celý měsíc proti měsíci ${CZ_M[c.pm]} ${c.py}.`}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+      ${tile(fmtB(c.minuleStejne), `${CZ_M[c.pm]} do ${c.doDne}. dne`, '#c9cede')}
+      ${tile(c.pct===null?'–':`${c.pct>0?'+':''}${c.pct} %`, `teď ${fmtB(c.ted)}`, barva)}
+      ${tile(fmtB(c.minuleCelkem), `${CZ_M[c.pm]} celkem`, '#c9cede')}
+    </div>
+    ${c.pct!==null?`<div style="font-size:.7rem;color:#c9cede;margin-top:8px">${c.pct<=0?`✅ Utrácíš o ${Math.abs(c.pct)} % méně než minule ve stejném bodě měsíce.`:`⚠️ Utrácíš o ${c.pct} % více než minule ve stejném bodě měsíce.`}</div>`:`<div style="font-size:.7rem;color:#a8aec8;margin-top:8px">Minulý měsíc do ${c.doDne}. dne nemá výdaje, procento spočítat nejde.</div>`}`;
+}
+
+// Trend výdajů po týdnech od výplaty – sloupcový graf + tabulka
+//  S23: v záložce Měsíc ji nahradil renderMonthWeeks (kalendářní týdny).
+//  Funkce zůstává pro případ, že by se týdny od výplaty chtěly vrátit jinam.
 function renderPaydayWeeksTable(weeks, payday){
   const box=document.getElementById('paydayWeeksBox'); if(!box) return;
   if(!weeks || !weeks.length){ box.innerHTML=''; return; }
-  const maxPerDay=Math.max(...weeks.map(w=>w.perDay),1);
-  // graf: sloupce = průměr Kč/den v daném týdnu (férové i pro neúplný poslední týden)
+  //  S23 (Milan): SLOUPCE UKAZUJÍ TÝDENNÍ ČÁSTKU, NE Kč/DEN.
+  //  Graf hlásil 73 Kč, přitom v týdnu padlo 511 Kč – sloupec a tabulka
+  //  vedle sebe vypadaly jako dvě různá čísla. Přepočet na den zůstává
+  //  v tabulce jako orientační údaj, graf ukazuje, kolik týden stál.
+  const maxTotal=Math.max(...weeks.map(w=>w.total),1);
   const bars = weeks.map(w=>{
-    const h=Math.round(w.perDay/maxPerDay*90)+4;
+    const h=Math.round(w.total/maxTotal*90)+4;
     return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
-      <div style="font-size:.7rem;font-weight:700;color:#60a5fa;font-family:Syne">${fmtB(w.perDay)}</div>
+      <div style="font-size:.7rem;font-weight:700;color:#60a5fa;font-family:Syne">${fmtB(w.total)}</div>
       <div style="width:100%;max-width:46px;height:${h}px;background:#60a5fa;opacity:.8;border-radius:6px 6px 0 0"></div>
       <div style="font-size:.64rem;color:#a8aec8;text-align:center">${w.label}</div>
     </div>`;
@@ -2639,8 +2813,8 @@ function renderPaydayWeeksTable(weeks, payday){
     <td style="padding:5px 6px;text-align:right;font-weight:700;color:#60a5fa">${fmtB(w.perDay)}</td>
   </tr>`).join('');
   box.innerHTML = `
-    <div style="font-size:.72rem;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">📅 Výdaje po týdnech od výplaty</div>
-    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Referenční bod = den výplaty (${payday}. den). Sloupce ukazují <strong>průměr ${curSym()}/den</strong> v každém týdnu – férové i pro kratší poslední týden. Vysoký 1. týden = utrácíš hned po výplatě.</div>
+    <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:4px">📅 Výdaje po týdnech od výplaty</div>
+    <div style="font-size:.66rem;color:#a8aec8;margin-bottom:10px;line-height:1.5">Referenční bod = den výplaty (${payday}. den). Sloupce ukazují, <strong>kolik stál celý týden</strong>; přepočet na den je v tabulce. Vysoký 1. týden = utrácíš hned po výplatě.</div>
     <div style="display:flex;align-items:flex-end;gap:8px;height:130px;margin-bottom:12px;padding:0 4px">${bars}</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.78rem">
       <thead><tr style="color:var(--text3);text-align:left">
@@ -2683,7 +2857,11 @@ function radarDetectPaydayDay(D){
 // Výplata připadající na víkend chodí dřív → posun na pátek (CZ konvence)
 function radarAdjustWeekend(dt){ const wd=dt.getDay(); if(wd===6) dt.setDate(dt.getDate()-1); else if(wd===0) dt.setDate(dt.getDate()-2); return dt; }
 
-function radarPaydayInfo(D){
+//  S23 (Milan): ZÁLOŽKA DO VÝPLATY NEREAGOVALA NA PŘEPNUTÍ MĚSÍCE.
+//  Celý výpočet cyklu stál na `today = new Date()`. Nově volitelný druhý
+//  parametr `refDate` – den, VŮČI KTERÉMU se cyklus hledá. Bez něj se chová
+//  přesně jako dřív (volá ho i Příští měsíc a Radar-Měsíc, ty zůstávají).
+function radarPaydayInfo(D, refDate){
   const setting=(typeof _settings!=='undefined'&&_settings)?(parseInt(_settings.firstDay)||0):0;
   const freq=(typeof _settings!=='undefined'&&_settings&&_settings.payFreq)?_settings.payFreq:'monthly';
   const detected=radarDetectPaydayDay(D);
@@ -2691,7 +2869,7 @@ function radarPaydayInfo(D){
   if(setting>0){ anchor=setting; source='setting'; }
   else if(detected){ anchor=detected; source='auto'; }
   else { anchor=1; source='fallback'; }
-  const today=new Date(); today.setHours(0,0,0,0);
+  const today=refDate?new Date(refDate):new Date(); today.setHours(0,0,0,0);
   const MS=86400000;
 
   // ── NEPRAVIDELNÝ režim: cyklus = od poslední reálné příjmové transakce do příští očekávané
@@ -2789,14 +2967,218 @@ function radarPaydayInfo(D){
   return {anchor,source,detected,lastPayday,nextPayday,daysLeft,cycleDays,dayInCycle,paydayReal,today,freq:'monthly'};
 }
 
+//  S23 (Milan): OKNO ZÁLOŽKY DO VÝPLATY PRO GRAFY
+//  „Chci vidět celý cyklus, ne jen od 1. 9., ale od cca 17. 8. … až do 30. 9."
+//  Začátek = výplata, ze které uživatel žije 1. dne zvoleného měsíce.
+//  Konec   = poslední den zvoleného měsíce – i když mezitím přijde další
+//            výplata (graf se na ní nezastaví, zůstatek vyskočí a jede dál).
+//  Po dnešku se dopočítává ODHAD (čárkovaně): známé platby z Budoucích
+//  plateb, očekávaná výplata a běžné tempo nepravidelných výdajů.
+//  Čtou ho: Od výplaty den po dni, Od výplaty k výplatě, Kam směřuju po týdnech.
+function radarPaydayWindow(D, m, y){
+  const MS=86400000;
+  const now=new Date(); now.setHours(0,0,0,0);
+  const first=new Date(y,m,1);
+  const P0=radarPaydayInfo(D, first);
+  const start=new Date(P0.lastPayday); start.setHours(0,0,0,0);
+  const end=new Date(y,m+1,0); end.setHours(0,0,0,0);
+  //  výplaty v okně (začátek + všechny další do konce měsíce)
+  const paydays=[new Date(start)];
+  let nx=new Date(P0.nextPayday), guard=0;
+  while(nx<=end && guard++<8){ paydays.push(new Date(nx)); nx=new Date(radarPaydayInfo(D, nx).nextPayday); }
+  const nDays=Math.round((end-start)/MS)+1;
+  const days=[];
+  for(let i=0;i<nDays;i++){ const d=new Date(start.getTime()+i*MS); days.push({date:d, inc:0, exp:0, sums:{regular:0,variable:0,other:0,none:0}, known:0, forecast:d>now}); }
+  const idx=d=>{ const x=new Date(d); x.setHours(0,0,0,0); return Math.round((x-start)/MS); };
+  const grpOf=radarCharGroupOf(D);
+  getTxByRange(start, end, D).forEach(t=>{
+    if(t.isBalancing||t.splitParent||isTransferTx(t)) return;
+    const i=idx(t.date); if(i<0||i>=nDays||days[i].forecast) return;
+    const a=txCZK(t,D);
+    if(t.type==='income') days[i].inc+=a;
+    else if(t.type==='expense'){ days[i].exp+=a; days[i].sums[grpOf(t)]+=a; }
+  });
+  //  ── odhad po dnešku ──
+  const lived=days.filter(x=>!x.forecast);
+  //  tempo běžného života = nepravidelné výdaje (bez fixních) za odžité dny okna
+  const flex=lived.reduce((a,x)=>a+x.exp-x.sums.regular,0);
+  const flexPace=lived.length?flex/lived.length:0;
+  //  očekávaná výplata = největší skutečný příjem v okně (nejčastěji minulá výplata)
+  const estInc=Math.round(Math.max(0,...lived.map(x=>x.inc)));
+  if(days.some(x=>x.forecast)){
+    if(typeof budouciGetAll==='function'){
+      try{ (budouciGetAll(D, Math.round((end-now)/MS)+2)||[]).forEach(b=>{
+        const i=idx(b.date); if(i>=0&&i<nDays&&days[i].forecast){ days[i].known+=(b.amount||0); days[i].exp+=(b.amount||0); days[i].sums.regular+=(b.amount||0); }
+      }); }catch(e){}
+    }
+    paydays.forEach(pd=>{ const i=idx(pd); if(i>=0&&i<nDays&&days[i].forecast) days[i].inc+=estInc; });
+    days.forEach(x=>{ if(x.forecast){ x.exp+=flexPace; x.sums.variable+=flexPace; } });
+  }
+  let bal=0; days.forEach(x=>{ bal+=x.inc-x.exp; x.bal=Math.round(bal); });
+  //  týdny od začátku okna po 7 dnech, poslední zkrácený koncem měsíce
+  const weeks=[];
+  for(let i=0;i<nDays;i+=7){
+    const chunk=days.slice(i,i+7);
+    const sums={regular:0,variable:0,other:0,none:0}; let inc=0, known=0, plan=0;
+    chunk.forEach(x=>{ Object.keys(sums).forEach(k=>sums[k]+=x.sums[k]); inc+=x.inc; known+=x.known;
+      plan+= x.forecast ? (x.exp-x.known) : x.exp; });
+    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
+    //  jen SKUTEČNOST (bez odhadu) – pro tabulku „Od výplaty k výplatě"
+    const actSums={regular:0,variable:0,other:0,none:0};
+    chunk.filter(x=>!x.forecast).forEach(x=>Object.keys(actSums).forEach(k=>actSums[k]+=x.sums[k]));
+    const actTotal=Math.round(actSums.regular+actSums.variable+actSums.other+actSums.none);
+    const startBal=i===0?0:days[i-1].bal, endBal=chunk[chunk.length-1].bal;
+    const ws=chunk[0].date, we=chunk[chunk.length-1].date;
+    weeks.push({ws, we, sums, total, actSums, actTotal, inc:Math.round(inc), dnu:chunk.length,
+      perDay:Math.round(total/chunk.length), startBal, endBal, change:endBal-startBal,
+      plan:Math.round(plan), known:Math.round(known),
+      future:chunk.every(x=>x.forecast), partial:chunk.some(x=>x.forecast)&&!chunk.every(x=>x.forecast),
+      payday:paydays.some(pd=>pd>=ws&&pd<=we)});
+  }
+  return {start, end, now, paydays, days, weeks, flexPace:Math.round(flexPace), estInc, monthStart:first};
+}
+
+//  cesta: Finanční radar → 💸 Do výplaty → Od výplaty den po dni
+//  Zůstatek z výplaty den po dni přes celé okno. Plná čára = skutečnost,
+//  čárkovaná = odhad. Svislé čáry = výplaty, tečkovaná = začátek měsíce.
+function radarPaydayDailyCard(W){
+  const days=W.days; if(!days.length) return '';
+  const Wd=900,H=240,pl=58,pr=14,pt=22,pb=34, cw=Wd-pl-pr, ch=H-pt-pb;
+  const vals=days.map(x=>x.bal);
+  const vMax=Math.max(1,...vals), vMin=Math.min(0,...vals), span=Math.max(1,vMax-vMin);
+  const X=i=>pl+(days.length<2?cw/2:i/(days.length-1)*cw), Y=v=>pt+(vMax-v)/span*ch;
+  const lastReal=days.reduce((a,x,i)=>x.forecast?a:i,-1);
+  const path=(from,to)=>days.slice(from,to+1).map((x,k)=>`${k?'L':'M'}${X(from+k).toFixed(1)},${Y(x.bal).toFixed(1)}`).join('');
+  const solid= lastReal>=0 ? `<path d="${path(0,lastReal)}" fill="none" stroke="#4ade80" stroke-width="2.5"/>` : '';
+  const dashed= lastReal<days.length-1 ? `<path d="${path(Math.max(0,lastReal),days.length-1)}" fill="none" stroke="#4ade80" stroke-width="2" stroke-dasharray="6 5" opacity=".75"/>` : '';
+  const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
+  const iOf=d=>Math.round((d-W.start)/86400000);
+  const pays=W.paydays.map(pd=>{ const i=iOf(pd); if(i<0||i>=days.length) return ''; const x=X(i).toFixed(1);
+    return `<line x1="${x}" x2="${x}" y1="${pt}" y2="${pt+ch}" stroke="#fbbf24" stroke-width="1.5" opacity=".7"/>
+      <text x="${x}" y="${pt-7}" text-anchor="middle" font-size="11" fill="#fbbf24">💰 ${fmtD(pd)}</text>`; }).join('');
+  const mi=iOf(W.monthStart);
+  const mline= mi>0&&mi<days.length ? `<line x1="${X(mi).toFixed(1)}" x2="${X(mi).toFixed(1)}" y1="${pt}" y2="${pt+ch}" stroke="#a8aec8" stroke-dasharray="2 4" opacity=".6"/>
+      <text x="${(X(mi)+4).toFixed(1)}" y="${pt+ch-6}" font-size="10" fill="#a8aec8">1. ${W.monthStart.getMonth()+1}.</text>` : '';
+  const ti=iOf(W.now);
+  const tline= ti>=0&&ti<days.length ? `<circle cx="${X(ti).toFixed(1)}" cy="${Y(days[ti].bal).toFixed(1)}" r="5" fill="#fff" stroke="#4ade80" stroke-width="2"/>
+      <text x="${X(ti).toFixed(1)}" y="${(Y(days[ti].bal)-10).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#e8eaf2">dnes ${fmtB(days[ti].bal)}</text>` : '';
+  const zero= vMin<0 ? `<line x1="${pl}" x2="${Wd-pr}" y1="${Y(0).toFixed(1)}" y2="${Y(0).toFixed(1)}" stroke="#f87171" stroke-dasharray="3 3" opacity=".6"/>` : '';
+  const ticks=[vMax,(vMax+vMin)/2,vMin].map(v=>`<text x="${pl-8}" y="${(Y(v)+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#a8aec8">${fmtB(Math.round(v))}</text>`).join('');
+  const xl=[0,Math.floor((days.length-1)/2),days.length-1].map(i=>`<text x="${X(i).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="11" fill="#a8aec8">${fmtD(days[i].date)}</text>`).join('');
+  const konec=days[days.length-1];
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📈 Od výplaty den po dni</span><span style="font-size:.68rem;color:#a8aec8">${fmtD(W.start)} → ${fmtD(W.end)}</span></div>
+    <div class="card-body" style="padding:12px 14px">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${Wd} ${H}" style="width:100%;min-width:520px;height:auto;display:block">
+        ${ticks}${zero}${mline}${pays}${solid}${dashed}${tline}${xl}
+      </svg></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.66rem;color:#a8aec8;margin-top:6px">
+        <span><span style="display:inline-block;width:18px;border-top:2.5px solid #4ade80;vertical-align:middle"></span> skutečný zůstatek z výplaty</span>
+        <span><span style="display:inline-block;width:18px;border-top:2px dashed #4ade80;vertical-align:middle"></span> odhad</span>
+        <span style="color:#fbbf24">💰 výplata</span>
+      </div>
+      <div style="font-size:.7rem;color:#c9cede;margin-top:8px;line-height:1.55">
+        ${konec.forecast?`Na konci měsíce ti podle odhadu zbude <strong style="color:${konec.bal>=0?'var(--income)':'var(--expense)'}">${fmtB(konec.bal)}</strong>.`:`Na konci měsíce ti zbylo <strong style="color:${konec.bal>=0?'var(--income)':'var(--expense)'}">${fmtB(konec.bal)}</strong>.`}
+        ${konec.forecast?`<span style="color:#8b93ad"> Odhad = známé platby + očekávaná výplata ${fmtB(W.estInc)} + běžné tempo ${fmtB(W.flexPace)}/den.</span>`:''}
+      </div>
+    </div></div>`;
+}
+
+//  cesta: Finanční radar → 💸 Do výplaty → Kam směřuju po týdnech
+//  Milanovo zadání (S23): pro každý týden DVA sloupce.
+//   vlevo  = zelená (stav na začátku týdne) + modrá (změna za týden)
+//            → dohromady stav na konci týdne; úbytek se ukáže jako ztlumený
+//              horní díl, aby výška vlevo vždy odpovídala většímu ze stavů,
+//   vpravo = oranžová (plánovaný výdej) + fialová (budoucí platby).
+function radarPaydayWeeksPlanCard(W){
+  const ws=W.weeks; if(!ws.length) return '';
+  const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
+  const mx=Math.max(1,...ws.map(w=>Math.max(w.startBal,w.endBal,w.plan+w.known)));
+  //  S23 (Milan): graf zvětšen pro přehlednost – vyšší sloupce, širší týdny.
+  const hh=v=>Math.max(0,Math.round(Math.max(0,v)/mx*230));
+  const col=(segs,label)=>`<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="font-size:.7rem;font-weight:700;color:#e8eaf2;white-space:nowrap">${label}</div>
+      <div style="width:100%;max-width:44px;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;min-height:2px">${segs}</div></div>`;
+  const bars=ws.map((w,i)=>{
+    const zakl=Math.min(w.startBal,w.endBal);
+    const zmena=w.change;
+    const left = `<div style="height:${hh(zakl)}px;background:#4ade80"></div>`
+      + (zmena>=0 ? `<div style="height:${hh(zmena)}px;background:#60a5fa"></div>`
+                  : `<div style="height:${hh(-zmena)}px;background:repeating-linear-gradient(45deg,rgba(96,165,250,.35) 0 4px,transparent 4px 8px);border-top:1px solid #60a5fa"></div>`);
+    const right = `<div style="height:${hh(w.plan)}px;background:#fb923c"></div><div style="height:${hh(w.known)}px;background:#a78bfa"></div>`;
+    return `<div style="flex:1;min-width:112px;display:flex;flex-direction:column;align-items:center;gap:6px;${w.future?'opacity:.8':''}">
+      <div style="display:flex;align-items:flex-end;gap:5px;width:100%;height:256px">
+        ${col(left, fmtB(w.endBal))}${col(right, fmtB(w.plan+w.known))}
+      </div>
+      <div style="font-size:.72rem;color:#c9cede;text-align:center;line-height:1.35;font-weight:600">${i+1}. týden${w.payday?' 💰':''}<br><span style="color:var(--text3)">${fmtD(w.ws)}–${fmtD(w.we)}</span>${w.future||w.partial?'<br><span style="color:#8b93ad">odhad</span>':''}</div>
+    </div>`;
+  }).join('');
+  const rows=ws.map((w,i)=>`<tr style="border-top:1px solid var(--border);${w.future?'opacity:.6':''}">
+    <td style="padding:5px 6px;white-space:nowrap">${i+1}. týden${w.payday?' 💰':''}</td>
+    <td style="padding:5px 6px;text-align:right;color:#4ade80">${fmtB(w.startBal)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#60a5fa">${w.change>=0?'+':''}${fmtB(w.change)}</td>
+    <td style="padding:5px 6px;text-align:right;font-weight:700">${fmtB(w.endBal)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#fb923c">${fmtB(w.plan)}</td>
+    <td style="padding:5px 6px;text-align:right;color:#a78bfa">${fmtB(w.known)}</td>
+  </tr>`).join('');
+  const lg=(c,t,striped)=>`<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;display:inline-block;${striped?'background:repeating-linear-gradient(45deg,rgba(96,165,250,.5) 0 3px,transparent 3px 6px);border:1px solid #60a5fa':'background:'+c}"></span>${t}</span>`;
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">🧭 Kam směřuju po týdnech</span><span style="font-size:.68rem;color:#a8aec8">${fmtD(W.start)} → ${fmtD(W.end)}</span></div>
+    <div class="card-body" style="padding:12px 14px">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px"><div style="display:flex;gap:10px;align-items:flex-end;padding:4px 2px">${bars}</div></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:.72rem;color:#c9cede;margin-bottom:12px">
+        ${lg('#4ade80','Stav na začátku týdne')}${lg('#60a5fa','Přírůstek za týden')}${lg('','Úbytek za týden',true)}${lg('#fb923c','Plánovaný výdej')}${lg('#a78bfa','Budoucí platby')}
+      </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:520px">
+        <thead><tr style="color:var(--text3);text-align:left">
+          <th style="padding:5px 6px">Týden</th><th style="padding:5px 6px;text-align:right">Na začátku</th><th style="padding:5px 6px;text-align:right">Změna</th>
+          <th style="padding:5px 6px;text-align:right">Na konci</th><th style="padding:5px 6px;text-align:right">Plán. výdej</th><th style="padding:5px 6px;text-align:right">Budoucí platby</th>
+        </tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.5">Vlevo zůstatek z výplaty: zelená = stav na začátku týdne, modrá = o kolik přibylo (šrafovaně = o kolik ubylo) → horní hrana = stav na konci. Vpravo výdaje týdne: oranžová = běžné výdaje (u minulých týdnů skutečné, u budoucích tempem ${fmtB(W.flexPace)}/den), fialová = známé budoucí platby. 💰 = týden s výplatou.</div>
+    </div></div>`;
+}
+
+//  Který cyklus patří ke zvolenému měsíci:
+//   • aktuální měsíc → cyklus, ve kterém jsi dnes (jako dřív),
+//   • minulý měsíc  → CELÝ cyklus, který výplatou v tom měsíci začal
+//                      (např. srpen = 18. 8. → 17. 9.), uzavřený,
+//   • budoucí měsíc → cyklus ještě nezačal, nic se nepředstírá.
+function radarPaydayForMonth(D){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const sel=new Date(S.curYear,S.curMonth,1), cur=new Date(now.getFullYear(),now.getMonth(),1);
+  if(sel>cur) return {mode:'future'};
+  if(sel.getTime()===cur.getTime()) return {mode:'current', P:radarPaydayInfo(D)};
+  //  Referencí je poslední den měsíce: najde cyklus, který v něm běžel.
+  let P=radarPaydayInfo(D, new Date(S.curYear,S.curMonth+1,0));
+  const konec=new Date(P.nextPayday); konec.setDate(konec.getDate()-1);
+  if(konec>=now) return {mode:'current', P:radarPaydayInfo(D)};   // ten cyklus ještě běží = aktuální
+  P=radarPaydayInfo(D, konec);                                        // celý cyklus, do dne před výplatou
+  P.daysLeft=0; P.dayInCycle=P.cycleDays; P.closed=true;
+  return {mode:'past', P};
+}
+
 function renderRadarPayday(el, D){
-  const P=radarPaydayInfo(D);
+  const _pm=radarPaydayForMonth(D);
+  if(_pm.mode==='future'){
+    el.innerHTML = tabIntro('radar-payday','💸','Runway do výplaty',
+      'Místo kalendářního měsíce počítá cyklus od výplaty k výplatě.')
+      + radarViewTabs('payday')
+      + `<div class="card"><div class="card-body" style="padding:16px">
+          <div style="font-size:.9rem;font-weight:700;color:#e8eaf2;margin-bottom:6px">⏳ Cyklus s výplatou v měsíci ${CZ_M[S.curMonth]} ještě nezačal</div>
+          <div style="font-size:.76rem;color:#a8aec8;line-height:1.6">Do výplaty ukazuje, jak ti vychází skutečný cyklus – z budoucnosti zatím nejsou žádné výdaje.
+            Co tě v tom měsíci čeká, najdeš v <a href="#" onclick="showPage('pristi');return false" style="color:#60a5fa;text-decoration:none">Příštím měsíci</a>
+            nebo v záložce <a href="#" onclick="switchRadarView('mesic');return false" style="color:#60a5fa;text-decoration:none">📅 Měsíc</a>.</div>
+        </div></div>`;
+    return;
+  }
+  const P=_pm.P;
   const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}.`;
   // transakce cyklu (od výplaty do dneška)
   const cycSoFar=getTxByRange(P.lastPayday,P.today,D);
   const cycInc=incSum(cycSoFar), cycExp=expSum(cycSoFar);
   // budoucí platby do další výplaty (platby V den výplaty už pokryje nová výplata)
-  const bud=(typeof budouciGetAll==='function'?budouciGetAll(D,P.daysLeft+1):[]).filter(b=>{const bd=new Date(b.date);bd.setHours(0,0,0,0);return bd<P.nextPayday;});
+  //  U uzavřeného cyklu budoucí platby nedávají smysl – všechno už proběhlo.
+  const bud=P.closed?[]:(typeof budouciGetAll==='function'?budouciGetAll(D,P.daysLeft+1):[]).filter(b=>{const bd=new Date(b.date);bd.setHours(0,0,0,0);return bd<P.nextPayday;});
   const budTotal=Math.round(bud.reduce((a,b)=>a+(b.amount||0),0));
   const incomeBase=cycInc;
   const free=Math.round(incomeBase-cycExp-budTotal);
@@ -2819,20 +3201,15 @@ function renderRadarPayday(el, D){
     {key:'none',    label:'Neurčeno',             color:'#7e84a0'},
   ];
   const grpOf=t=>{ const ch=charBy[t.catId]||''; if(ch==='regular')return'regular'; if(ch==='variable')return'variable'; if(ch==='irregular'||ch==='onetime')return'other'; return'none'; };
-  const cycAllExp=getTxByRange(P.lastPayday,P.nextPayday,D).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent);
-  const weeks=[];
-  for(let w=0; w*7<P.cycleDays; w++){
-    const ws=new Date(P.lastPayday); ws.setDate(ws.getDate()+w*7);
-    let we=new Date(ws); we.setDate(we.getDate()+6);
-    const cycEnd=new Date(P.nextPayday); cycEnd.setDate(cycEnd.getDate()-1);
-    if(we>cycEnd) we=cycEnd;
-    const sums={regular:0,variable:0,other:0,none:0};
-    cycAllExp.forEach(t=>{ const d=new Date(t.date); d.setHours(0,0,0,0); if(d>=ws&&d<=we) sums[grpOf(t)]+=txCZK(t,D); });
-    const total=Math.round(sums.regular+sums.variable+sums.other+sums.none);
-    const lastLived=P.today<we?P.today:we;
-    const lived=lastLived>=ws?Math.round((lastLived-ws)/86400000)+1:0;
-    weeks.push({label:`${w+1}. týden`, range:`${fmtD(ws)}–${fmtD(we)}`, sums, total, lived, perDay:lived>0?Math.round(total/lived):0, future:lived===0});
-  }
+  //  S23 (TODO-286): přesuny mezi peněženkami nejsou výdaj – dřív je tu graf
+  //  počítal, zatímco „Výdaje po týdnech" v Měsíci a souhrn cyklu ne.
+  const cycAllExp=getTxByRange(P.lastPayday,P.nextPayday,D).filter(t=>t.type==='expense'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t));
+  //  S23 (Milan): týdny běží přes celé okno 17. 8. → 30. 9., ne jen přes
+  //  jeden cyklus. Kč/den = částka ÷ dny v týdnu. Budoucí týdny ztlumené.
+  const W=radarPaydayWindow(D, S.curMonth, S.curYear);
+  const weeks=W.weeks.map((w,i)=>({label:`${i+1}. týden${w.payday?' 💰':''}`, range:`${fmtD(w.ws)}–${fmtD(w.we)}`,
+    sums: w.actSums, total: w.actTotal,
+    lived: w.future?0:1, dnuVTydnu:w.dnu, perDay: Math.round(w.actTotal/w.dnu), future:w.future}));
   const maxWeek=Math.max(...weeks.map(w=>w.total),1);
 
   // ── Top variabilní kategorie cyklu ──
@@ -2914,6 +3291,7 @@ function renderRadarPayday(el, D){
   el.innerHTML = tabIntro('radar-payday','💸','Runway do výplaty',
     'Místo kalendářního měsíce počítá cyklus od výplaty k výplatě: kolik ti reálně zbývá do další výplaty po odečtení známých plateb, jaký je bezpečný denní limit a jak rychle utrácíš fixní vs variabilní výdaje v jednotlivých týdnech cyklu.')
     + radarViewTabs('payday')
+    + (P.closed?`<div style="padding:10px 14px;border-radius:10px;background:var(--surface2);border-left:3px solid #60a5fa;font-size:.78rem;color:#c9cede;margin-bottom:14px;line-height:1.5">📅 ${CZ_M[S.curMonth]} ${S.curYear}: zobrazuji <strong>uzavřený cyklus ${fmtD(P.lastPayday)} → ${fmtD(new Date(P.nextPayday.getTime()-86400000))}</strong>, který výplatou v tomto měsíci začal.</div>`:'')
     + (anchorHint?`<div style="padding:10px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:.78rem;color:var(--text2);margin-bottom:14px;line-height:1.5">${anchorHint}</div>`:'')
     + `
     <!-- HLAVNÍ KARTA RUNWAY -->
@@ -2924,18 +3302,18 @@ function renderRadarPayday(el, D){
           <div style="font-weight:700;font-size:1rem">Do výplaty</div>
           <div style="font-size:.76rem;color:#a8aec8">cyklus ${fmtD(P.lastPayday)} → ${fmtD(P.nextPayday)}${P.paydayReal?'':' (odhad)'} · den ${P.dayInCycle}/${P.cycleDays}</div>
         </div>
-        <div style="margin-left:auto;font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:${stColor};white-space:nowrap">⏳ ${P.daysLeft} ${P.daysLeft===1?'den':P.daysLeft>=2&&P.daysLeft<=4?'dny':'dní'}</div>
+        <div style="margin-left:auto;font-family:Syne,sans-serif;font-size:1rem;font-weight:800;color:${stColor};white-space:nowrap">${P.closed?'✅ uzavřen':`⏳ ${P.daysLeft} ${P.daysLeft===1?'den':P.daysLeft>=2&&P.daysLeft<=4?'dny':'dní'}`}</div>
       </div>
       <div class="radar-stat-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
         <div class="stat-card ${free>=0?'balance':'expense'}">
-          <div class="stat-label">Volné do výplaty</div>
+          <div class="stat-label">${P.closed?'Zbylo z cyklu':'Volné do výplaty'}</div>
           <div class="stat-value ${free>=0?'up':'down'}">${fmtB(free)}</div>
-          <div class="stat-sub" style="font-size:.66rem">po rezervě ${fmtB(budTotal)} na platby</div>
+          <div class="stat-sub" style="font-size:.66rem">${P.closed?'příjem − výdaje cyklu':`po rezervě ${fmtB(budTotal)} na platby`}</div>
         </div>
         <div class="stat-card income">
-          <div class="stat-label">Denní limit</div>
-          <div class="stat-value">${P.daysLeft>0?fmtB(dailyLimit):'–'}</div>
-          <div class="stat-sub" style="font-size:.66rem">${minReserve>0?`po rezervě ${fmtB(minReserve)} 🛡️`:'bezpečné tempo/den'}</div>
+          <div class="stat-label">${P.closed?'Průměr za den':'Denní limit'}</div>
+          <div class="stat-value">${P.closed?fmtB(Math.round(cycExp/Math.max(1,P.cycleDays))):(P.daysLeft>0?fmtB(dailyLimit):'–')}</div>
+          <div class="stat-sub" style="font-size:.66rem">${P.closed?'skutečné tempo/den':(minReserve>0?`po rezervě ${fmtB(minReserve)} 🛡️`:'bezpečné tempo/den')}</div>
         </div>
         <div class="stat-card expense">
           <div class="stat-label">Utraceno v cyklu</div>
@@ -2956,11 +3334,13 @@ function renderRadarPayday(el, D){
       </div>`:`<div style="font-size:.76rem;color:var(--text2)">V tomto cyklu zatím nemáš zapsaný příjem – volné peníze spočítám po připsání výplaty.</div>`}
       ${free<0?`<div style="margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--expense-bg);border:1px solid rgba(248,113,113,.3);font-size:.8rem;color:var(--text2)">🔴 Při známých platbách (${fmtB(budTotal)}) ti do výplaty chybí <strong>${fmtB(Math.abs(free))}</strong>. Zvaž odklad nefixních výdajů.</div>`:''}
       ${P.dayInCycle>=3&&incomeBase>0?`<div style="margin-top:10px;padding:9px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:.78rem;color:var(--text2)">
-        📉 Dosavadním flexibilním tempem (${fmtB(Math.round(flexPace))}/den) skončíš cyklus s <strong style="color:${projColor}">${fmtB(projEnd)}</strong>${minReserve>0?` <span style="color:var(--text3)">(rezerva ${fmtB(minReserve)} ${projEnd>=minReserve?'zůstane nedotčená ✓':'bude nahlodaná!'})</span>`:''}
+        ${P.closed?'🏁 Cyklus skončil s':`📉 Dosavadním flexibilním tempem (${fmtB(Math.round(flexPace))}/den) skončíš cyklus s`} <strong style="color:${projColor}">${fmtB(projEnd)}</strong>${minReserve>0?` <span style="color:var(--text3)">(rezerva ${fmtB(minReserve)} ${projEnd>=minReserve?'zůstane nedotčená ✓':'bude nahlodaná!'})</span>`:''}
       </div>`:''}
     </div>
 
     <!-- SROVNÁNÍ S MINULÝM CYKLEM + TEMPO (S12.1b) -->
+    ${radarPaydayDailyCard(W)}
+    ${radarPaydayWeeksPlanCard(W)}
     ${prevTotal>0?`
     <div class="card" style="margin-bottom:14px">
       <div class="card-header"><span class="card-title">🔁 Srovnání s minulým cyklem</span><span style="font-size:.68rem;color:#a8aec8">do ${P.dayInCycle}. dne</span></div>
@@ -2989,7 +3369,7 @@ function renderRadarPayday(el, D){
 
     <!-- TÝDNY OD VÝPLATY – stacked fixní/variabilní -->
     <div class="card" style="margin-bottom:14px">
-      <div class="card-header"><span class="card-title">📊 Tempo po týdnech cyklu</span><span style="font-size:.68rem;color:#a8aec8">fixní vs variabilní</span></div>
+      <div class="card-header"><span class="card-title">📊 Od výplaty k výplatě</span><span style="font-size:.68rem;color:#a8aec8">fixní vs variabilní</span></div>
       <div class="card-body">
         ${hasChar?'':`<div style="padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);font-size:.74rem;color:var(--text2);margin-bottom:10px">💡 Žádná kategorie nemá nastavený <strong>charakter výdaje</strong> – vše spadá do „Neurčeno". Nastav charakter u kategorií (✎ Upravit kategorii) a rozpad ožije.</div>`}
         <div style="display:flex;align-items:flex-end;gap:8px;min-height:150px;padding:0 2px;margin-bottom:8px">${weekBars}</div>
@@ -3005,7 +3385,7 @@ function renderRadarPayday(el, D){
             <th style="padding:5px 6px;text-align:right">Celkem</th>
             <th style="padding:5px 6px;text-align:right">${curSym()}/den</th>
           </tr></thead><tbody>${weekRows}</tbody></table></div>
-        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty (${fmtD(P.lastPayday)}), ne od 1. dne měsíce. ${curSym()}/den dělí jen odžité dny týdne. „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
+        <div style="font-size:.66rem;color:#a8aec8;margin-top:8px;line-height:1.5">Týdny běží od výplaty ${fmtD(W.start)} do konce měsíce (${fmtD(W.end)}), přes další výplatu (💰) bez přerušení. ${curSym()}/den = částka týdne ÷ počet dní v týdnu (orientačně). „Ostatní" = jednorázové + nepravidelné + neurčené. Budoucí týdny jsou ztlumené.</div>
       </div>
     </div>
 
@@ -3219,6 +3599,17 @@ function _obrazProjection(D){
     expCats.forEach(c=>{ const v=predictCat(c.id,null,mm,yy,D); if(v!==null&&!isNaN(v)){sum+=v;hit++;} });
     return hit?Math.round(sum):avgExp;
   };
+  //  S23 (Milan, bod B plánu): PŘÍJEM UŽ NENÍ PLOCHÝ PRŮMĚR PRO VŠECHNY MĚSÍCE.
+  //  Dosud se do všech 6 měsíců dosazoval jeden 12M průměr. Nově se zkouší
+  //  predikce po kategoriích (predictCat s type='income' – umožnil bod A),
+  //  průměr zůstává jako záloha, když příjmová historie chybí.
+  const incCats=(D.categories||[]).filter(c=>c.type==='income'||c.type==='both');
+  const predIncOf=(mm,yy)=>{
+    if(typeof predictCat!=='function') return avgInc;
+    let sum=0,hit=0;
+    incCats.forEach(c=>{ const v=predictCat(c.id,null,mm,yy,D,'income'); if(v!==null&&!isNaN(v)){sum+=v;hit++;} });
+    return hit?Math.round(sum):avgInc;
+  };
   const saldo = avgInc - avgExp; // orientační Ø (fallback); po měsících viz months[].cash
   const wallets = (typeof assetLiqTotals==='function') ? Math.round(assetLiqTotals(D).wallets||0) : 0;
   const debts = D.debts||[];
@@ -3226,13 +3617,35 @@ function _obrazProjection(D){
   const mPay = (typeof computeMonthlyDebtPayments==='function') ? computeMonthlyDebtPayments(D) : 0;
   const mInt = debts.reduce((a,d)=>a+(d.remaining||0)*(d.interest||0)/100/12,0);
   const mPrin = Math.max(0, mPay - mInt);
+  //  Rozptyl měsíčního salda za posledních 6 uzavřených měsíců = míra toho,
+  //  jak moc se uživateli měsíc od měsíce liší. Minimum 8 % příjmu, aby
+  //  rozpětí nebylo nulové u někoho, kdo má zatím jen dva stejné měsíce.
+  const _sald=[];
+  for(let i=1;i<=6;i++){ let m=S.curMonth-i,y=S.curYear; while(m<0){m+=12;y--;}
+    const tx=getTx(m,y,D); const e=expSum(tx,D), inc2=incSum(tx,D);
+    if(e>0||inc2>0) _sald.push(inc2-e); }
+  let volat = Math.round(avgInc*0.08);
+  if(_sald.length>=2){
+    const pr=_sald.reduce((a,b)=>a+b,0)/_sald.length;
+    const sd=Math.sqrt(_sald.reduce((a,b)=>a+(b-pr)*(b-pr),0)/_sald.length);
+    volat=Math.max(volat, Math.round(sd));
+  }
   const months=[]; let cum=0;
   for(let k=1;k<=6;k++){
     let m=S.curMonth+k, y=S.curYear; while(m>11){m-=12;y++;}
     const pe=predExpOf(m,y);
-    const cash=avgInc-pe; cum+=cash;
-    months.push({label:CZ_M[m].slice(0,3), y, exp:pe, cash,
+    const pi=predIncOf(m,y);
+    const cash=pi-pe; cum+=cash;
+    //  ROZPĚTÍ MÍSTO FALEŠNÉ PŘESNOSTI (Milan schválil v S23).
+    //  Čím dál do budoucna, tím míň appka ví. Nejistota roste s odmocninou
+    //  horizontu (ne lineárně – chyby se částečně vyruší) a vychází ze
+    //  SKUTEČNÉHO rozptylu měsíčních sald, ne z vymyšleného procenta.
+    //  První měsíc (k=1) rozpětí nedostává – tam se ukazují konkrétní data.
+    const sirka = k===1 ? 0 : Math.round(volat * Math.sqrt(k));
+    months.push({label:CZ_M[m].slice(0,3), y, m, exp:pe, inc:pi, cash,
+      cashLo: cash-sirka, cashHi: cash+sirka, sirka,
       reserve: Math.round(wallets + cum),
+      reserveLo: Math.round(wallets + cum - sirka), reserveHi: Math.round(wallets + cum + sirka),
       debt: Math.round(Math.max(0, debtNow - mPrin*k))});
   }
   const avgCash=Math.round(months.reduce((a,mo)=>a+mo.cash,0)/months.length);
@@ -3247,7 +3660,96 @@ function _obrazProjection(D){
     }catch(e){}
   }
   months.forEach(mo=>{ mo.bud=Math.round(mo.bud||0); });
-  return {avgInc, avgExp, saldo, avgCash, wallets, months, debtNow, mPrin, hasData: avgInc>0||avgExp>0};
+
+  //  KALENDÁŘ NEJBLIŽŠÍHO MĚSÍCE – konkrétní data, ne průměr.
+  //  Příjmy ze šablon (Budoucí platby je záměrně neobsahují, viz ADR z S19:
+  //  sekce se jmenuje „platby" a příjmy by zkreslily součty i grafy), výdaje
+  //  z budouciGetAll. Zbytek predikce = běžný život, rozpuštěný přes měsíc.
+  const dny=[];
+  if(months.length){
+    let m1=S.curMonth+1, y1=S.curYear; if(m1>11){m1-=12;y1++;}
+    const od=new Date(y1,m1,1), doo=new Date(y1,m1+1,0);
+    (D.sablony||[]).forEach(sb=>{
+      if(!sb || sb.type!=='income') return;
+      if(sb.endDate && new Date(sb.endDate) < od) return;
+      const occ = (typeof pristiOccurrences==='function') ? pristiOccurrences(sb.freq||'monthly', sb.den||1, od, doo, sb) : [];
+      occ.forEach(d=>dny.push({date:new Date(d), name:sb.name||'Příjem', amount:sb.amount||0, kind:'income'}));
+    });
+    if(typeof budouciGetAll==='function'){
+      try{ (budouciGetAll(D,200)||[]).forEach(b=>{
+        const bd=new Date(b.date); bd.setHours(0,0,0,0);
+        if(bd>=od && bd<=doo) dny.push({date:bd, name:b.name||'Platba', amount:-(b.amount||0), kind:'expense'});
+      }); }catch(e){}
+    }
+    dny.sort((a,b)=>a.date-b.date);
+    const znamoVyd = dny.filter(x=>x.amount<0).reduce((a,x)=>a-x.amount,0);
+    months[0].zbytek = Math.max(0, Math.round(months[0].exp - znamoVyd));   // běžný život
+    months[0].dny = dny;
+  }
+  return {avgInc, avgExp, saldo, avgCash, wallets, months, debtNow, mPrin, volat, hasData: avgInc>0||avgExp>0};
+}
+
+//  S23 (Milan, bod B): NEJBLIŽŠÍ MĚSÍC S KONKRÉTNÍMI DATY, DALŠÍ JEN V ROZPĚTÍ.
+//  Milanův princip: appka nesmí tvrdit přesnost, kterou nemá. U příštího měsíce
+//  zná data výplat i plateb, takže ukáže „10. 10. výplata +30 000 → zůstatek
+//  42 000". U března ví jen „zhruba +6 000 za měsíc", a tak to i napíše.
+function _obrazProjKalendar(proj){
+  const m1 = proj.months && proj.months[0];
+  if(!m1) return '';
+  const dny = m1.dny || [];
+  const nazev = `${CZ_M[m1.m]} ${m1.y}`;
+  if(!dny.length){
+    return `<div style="margin-top:14px;padding:10px 12px;background:var(--surface2);border-left:3px solid #60a5fa;border-radius:0 10px 10px 0">
+      <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:3px">📅 ${nazev} den po dni</div>
+      <div style="font-size:.72rem;color:#a8aec8;line-height:1.55">Zatím neznám žádné konkrétní datum. Přidej si výplatu a pravidelné platby jako
+        <a href="#" onclick="showPage('sablony');return false" style="color:#60a5fa;text-decoration:none">opakované šablony</a> a ukáže se tu průběh měsíce den po dni.</div>
+    </div>`;
+  }
+  let zustatek = proj.wallets;
+  const radky = dny.map(d=>{
+    zustatek += d.amount;
+    const kladny = d.amount>=0;
+    return `<div style="display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:.72rem;color:#a8aec8;white-space:nowrap">${d.date.getDate()}. ${d.date.getMonth()+1}.</div>
+      <div style="font-size:.78rem;color:#e8eaf2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
+      <div style="text-align:right;white-space:nowrap">
+        <div style="font-size:.8rem;font-weight:700;color:${kladny?'var(--income)':'var(--expense)'}">${kladny?'+':'−'}${fmtB(Math.abs(d.amount))}</div>
+        <div style="font-size:.66rem;color:${zustatek>=0?'#a8aec8':'var(--expense)'}">zůstatek ${fmtB(zustatek)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:14px">
+    <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:6px">📅 ${nazev} den po dni <span style="font-weight:400;color:#a8aec8">· jen to, co má konkrétní datum</span></div>
+    ${radky}
+    ${m1.zbytek>0?`<div style="display:grid;grid-template-columns:52px 1fr auto;gap:8px;align-items:center;padding:7px 0;opacity:.75">
+      <div style="font-size:.72rem;color:#a8aec8">průběžně</div>
+      <div style="font-size:.78rem;color:#c9cede">Běžný život (jídlo, doprava, drobnosti)</div>
+      <div style="text-align:right;font-size:.8rem;font-weight:700;color:var(--expense);white-space:nowrap">−${fmtB(m1.zbytek)}</div>
+    </div>`:''}
+    <div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">Zůstatek počítá od dnešních ${fmtB(proj.wallets)} v peněženkách. Běžný život nemá datum, rozpouští se přes celý měsíc.</div>
+  </div>`;
+}
+
+//  Měsíce 2–6: rozpětí místo jednoho čísla.
+function _obrazProjRozpeti(proj){
+  const dalsi = (proj.months||[]).slice(1);
+  if(!dalsi.length) return '';
+  return `<div style="margin-top:14px">
+    <div style="font-size:.76rem;font-weight:700;color:#c9cede;margin-bottom:6px">📈 Další měsíce <span style="font-weight:400;color:#a8aec8">· odhad v rozpětí, ne na korunu</span></div>
+    ${dalsi.map(mo=>`
+      <div style="display:grid;grid-template-columns:58px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:.74rem;color:#c9cede;font-weight:600">${mo.label} ${String(mo.y).slice(2)}</div>
+        <div style="font-size:.7rem;color:#a8aec8;min-width:0">příjem ~${fmtB(mo.inc)} · výdaje ~${fmtB(mo.exp)}</div>
+        <div style="text-align:right;white-space:nowrap">
+          <div style="font-size:.8rem;font-weight:700;color:${mo.cash>=0?'var(--income)':'var(--expense)'}">${mo.cashLo>=0?'+':''}${fmtB(mo.cashLo)} až ${mo.cashHi>=0?'+':''}${fmtB(mo.cashHi)}</div>
+          <div style="font-size:.66rem;color:#a8aec8">rezerva ${fmtB(mo.reserveLo)}–${fmtB(mo.reserveHi)}</div>
+        </div>
+      </div>`).join('')}
+    <div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">
+      Rozpětí roste s tím, jak daleko se díváme — vychází z toho, o kolik se ti měsíce dosud lišily (±${fmtB(proj.volat)} za měsíc).
+      Konkrétní data mají smysl jen u nejbližšího měsíce; dál by to byla přesnost, kterou appka nemá.
+    </div>
+  </div>`;
 }
 
 // S16.2 (Milan): predikční graf 6 měsíců – příjem/výdaje/budoucí platby (sloupce),
@@ -3265,7 +3767,7 @@ function _obrazProjChart(proj){
 
   const W=900,H=330,pad={l:64,r:18,t:40,b:52};
   const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
-  const incOf=r=>r.isNow?r.inc:proj.avgInc;
+  const incOf=r=>r.isNow?r.inc:(r.inc!=null?r.inc:proj.avgInc);   // S23: příjem po měsících
   const vMax=Math.max(...all.map(r=>Math.max(incOf(r),r.exp,r.bud||0)),1);
   const vMin=Math.min(0,...all.map(r=>Math.min(r.cash, r.reserve||0)));
   const span=Math.max(1,vMax-vMin);
@@ -3658,8 +4160,21 @@ function computeObrazScore(series){
 }
 
 // Skóre pro okno posunuté o `back` měsíců zpět – pro srovnání „kde jsem byl".
+//  FIX (S22, Milan): ZPĚTNÉ OKNO IGNOROVALO DLUHY.
+//  Funkce plnila do každého měsíce `debt: 0`. computeObrazScore() pak spočítá
+//  `first.debt > 0 ? ... : 0`, takže trend dluhu vyšel VŽDY nula a složka
+//  přispěla 0 bodů — pokaždé, u každého uživatele.
+//  Skóre za AKTUÁLNÍ okno se tedy skládalo ze čtyř složek, za DŘÍVĚJŠÍ ze tří
+//  a čtvrtou tiše nahradilo nulou — a ta dvě čísla se porovnávala, jako by
+//  byla souměřitelná. Kdo za půl roku splatil velkou část dluhu, dostal
+//  v aktuálním okně body, v dřívějším nulu, a appka mu to vydávala za
+//  zlepšení, které s jeho dluhem nemá nic společného.
+//  Historie dluhu se přitom rekonstruovat DÁ a živá řada to už od v8.68 umí:
+//  zůstatek ke konci měsíce = dnešní zůstatek + splátky zaplacené PO něm
+//  (transakce s debtId). Tady se použije tentýž postup.
 function computeObrazScoreBack(D, months, back){
   const ser = [];
+  const totalDebtNow = (D.debts||[]).reduce((a,d)=>a+(d&&d.remaining>0?d.remaining:0), 0);
   for(let i = months + back - 1; i >= back; i--){
     const dt = new Date(S.curYear, S.curMonth - i, 1);
     const m = dt.getMonth(), y = dt.getFullYear();
@@ -3671,7 +4186,11 @@ function computeObrazScoreBack(D, months, back){
       const a = (typeof txCZK==='function') ? txCZK(t, D) : (t.amount||0);
       if(a>0) inc+=a; else exp+=Math.abs(a);
     });
-    ser.push({inc, exp, savings:inc-exp, debt:0});
+    const monthEnd = new Date(y, m+1, 1).getTime();
+    const paidAfter = (D.transactions||[]).filter(t=>t && t.debtId && !t.splitParent
+        && new Date(t.date).getTime() >= monthEnd)
+      .reduce((a,t)=>a + ((typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0)), 0);
+    ser.push({inc, exp, savings:inc-exp, debt: totalDebtNow + paidAfter});
   }
   return computeObrazScore(ser);
 }
@@ -3746,6 +4265,157 @@ function computeObrazSubmetrics(series){
     // Dluhy v Kč/měs, ne v %: −10 % z 5 000 Kč a z 500 000 Kč je jiná situace
     debtPerMonth: series.length>1 ? dD/Math.max(1,Math.floor(series.length/2)) : 0,
   };
+}
+
+
+// ══════════════════════════════════════════════════════
+//  S22: KARTA FINANČNÍHO OBRAZU v1 – TEPLOMĚROVÁ STUPNICE
+//  Stupnice místo kruhu (přání Milana): běžné pásmo 0–200 je vyznačené a
+//  hodnota, která ho přesáhne, jde ZA NĚJ místo aby se ořízla. Stará škála
+//  50 ± 4×15 ořezávala na 100, takže při plném zlepšení vyšlo 110 a posledních
+//  deset bodů nikdo nikdy neviděl.
+//
+//  Vedle známky je vždycky VIDĚT OKNO (6M / 12M / Celkově). Bez toho by si
+//  uživatel přepnul rozsah, uviděl jiné číslo a bral to jako chybu – delší
+//  okno znamená větší změny, což je správně, ale samo číslo to neprozradí.
+// ══════════════════════════════════════════════════════
+function _obrazTeplomer(v1){
+  const CFG = (typeof _OBRAZ_V1 !== 'undefined') ? _OBRAZ_V1 : null;
+  if(!CFG) return '';
+  const min = CFG.min, max = CFG.max;
+  const prazdny = (v1.hodnota == null);
+  const h = prazdny ? CFG.zaklad : v1.hodnota;
+  const zaNormalem = h > max;
+  //  Nad rámec stupnice: ručička jde za hranici, ale drží se v kresbě.
+  const pct = Math.max(0, Math.min(100, (Math.min(h, max) - min) / (max - min) * 100));
+  const barva = prazdny ? 'rgba(168,174,200,.35)' : v1.znamka.color;
+
+  //  S23 (Milan): BAREVNÁ ŠKÁLA VŽDY + PRAVÍTKO NA SPODNÍM LEMU.
+  //  V10.83 jsem barvu přidal jen pro stav S HODNOTOU; prázdný stav zůstal
+  //  šedý šrafovaný. Milan ale testuje na čerstvém účtu, takže viděl právě
+  //  ten prázdný – a z jeho pohledu se „nic neopravilo". Měl pravdu: barva
+  //  říká, KTERÝ SMĚR JE DOBRÝ, a to platí i bez dat. Prázdný stav se teď
+  //  pozná podle chybějícího jezdce a ztlumení, ne podle chybějící škály.
+  //
+  //  Pravítko: čárka po 1 bodu, delší po 5, nejdelší po 10, přes celou výšku
+  //  po 50 (tam sedí i popisky). Kreslí se jako SVG s non-scaling-stroke,
+  //  ať jsou čárky tenké při jakékoli šířce. Krok je v OBRAZ_RYSKA_KROK.
+  const KROK = (typeof window!=='undefined' && window.OBRAZ_RYSKA_KROK) || 1;
+  const VY = 22;                       // výška pruhu v px = výška viewBoxu
+  let cary = '';
+  for(let b = min; b <= max; b += KROK){
+    const x = (b - min) / (max - min) * 1000;
+    const zaklad = (b === CFG.zaklad);
+    const p50 = (b % 50 === 0), p10 = (b % 10 === 0), p5 = (b % 5 === 0);
+    const vyska = (zaklad || p50) ? VY : p10 ? 10 : p5 ? 6.5 : 3.5;
+    const sila  = zaklad ? 2 : p50 ? 1.4 : p10 ? 1.1 : p5 ? .9 : .6;
+    const kryti = zaklad ? .95 : p50 ? .7 : p10 ? .62 : p5 ? .48 : .34;
+    cary += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${VY}" y2="${(VY-vyska).toFixed(1)}" stroke="rgba(255,255,255,${kryti})" stroke-width="${sila}" vector-effect="non-scaling-stroke"/>`;
+  }
+  const pravitko = `<svg viewBox="0 0 1000 ${VY}" preserveAspectRatio="none" width="100%" height="${VY}"
+      style="position:absolute;left:0;top:0;display:block;pointer-events:none">${cary}</svg>`;
+
+  //  Ručička – bílý jezdec, ať je přesně vidět, kde hodnota leží.
+  const rucicka = prazdny ? '' : `
+    <div style="position:absolute;top:-5px;left:${pct}%;transform:translateX(-50%);width:8px;height:${VY+10}px;
+      background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.55);transition:left .6s"></div>`;
+
+  return `
+  <div style="margin:10px 0 4px;position:relative">
+    <div style="position:relative;height:${VY}px;border-radius:7px;border:1px solid var(--border);overflow:hidden;
+      background:linear-gradient(90deg,#ef4444 0%,#f97316 25%,#fbbf24 50%,#a3e635 75%,#22c55e 100%);
+      ${prazdny?'filter:saturate(.6) brightness(.72)':''}">
+      ${pravitko}
+    </div>
+    ${rucicka}
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;color:#a8aec8;margin-top:6px">
+      <span>0 · propad</span><span>50</span><span>100 · beze změny</span><span>150</span><span>200 · posun</span>
+    </div>
+    ${zaNormalem ? `<div style="font-size:.7rem;color:var(--income);margin-top:5px">
+      🎉 <b>${h}</b> je nad běžným pásmem — takový posun se stupnice už nevejde.</div>` : ''}
+  </div>`;
+}
+
+function _obrazV1Card(D, mesicu, oknoTxt, hotove){
+  let v1 = hotove || null;
+  if(!v1){
+    if(typeof computeObrazV1 !== 'function') return '';
+    try{ v1 = computeObrazV1(D, mesicu); }catch(e){ console.warn('[obraz v1]', e); return ''; }
+  }
+  if(!v1) return '';
+  //  Když se výpočet nepovedl, řekni to rovnou – prázdná karta vypadá jako
+  //  „nic se nezměnilo" a chyba se nikdy nenajde.
+  if(v1._chyba) return `
+    <div class="card" style="margin-bottom:12px"><div class="card-body" style="padding:14px">
+      <div style="font-size:.82rem;color:var(--debt)">⚠️ Finanční obraz se nepodařilo spočítat.</div>
+      <div style="font-size:.72rem;color:#a8aec8;margin-top:5px;line-height:1.5">
+        Nejspíš chybí konfigurace <code>_OBRAZ_V1</code> v helpers.js — zkontroluj, že je nahraná
+        aktuální verze. Podrobnost je v konzoli pod <code>[obraz v1]</code>.</div>
+    </div></div>`;
+
+  const slozkyHTML = v1.slozky.map(s => {
+    if(!s.avail) return `
+      <div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);opacity:.6">
+        <span style="font-size:.78rem;flex:1;min-width:0">${s.nazev}</span>
+        <span style="font-size:.7rem;color:#a8aec8">nezměřeno</span>
+      </div>
+      ${s.duvod ? `<div style="font-size:.66rem;color:#8b93ad;padding:0 0 6px;line-height:1.45">${s.duvod}</div>` : ''}`;
+    const kladne = s.sub >= 0;
+    const sirka = Math.min(50, Math.abs(s.sub) / 2);
+    return `
+      <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span style="font-size:.78rem;flex:1;min-width:0">${s.nazev}</span>
+          <span style="font-size:.64rem;color:#8b93ad">${s.vaha} %</span>
+          <span style="font-family:Syne,sans-serif;font-weight:800;font-size:.82rem;min-width:46px;text-align:right;
+            color:${kladne?'var(--income)':'var(--expense)'}">${kladne?'+':''}${s.sub}</span>
+        </div>
+        <div style="position:relative;height:5px;background:var(--surface3);border-radius:99px;margin-top:4px">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.3)"></div>
+          <div style="position:absolute;top:0;bottom:0;border-radius:99px;background:${kladne?'var(--income)':'var(--expense)'};
+            ${kladne?`left:50%;width:${sirka}%`:`right:50%;width:${sirka}%`}"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const nwm = (v1.slozky.find(s => s.klic === 'jmeni') || {}).detail;
+  const nwmText = (nwm && typeof obrazNWMText === 'function') ? obrazNWMText(nwm) : '';
+  const prijem = (v1.slozky.find(s => s.klic === 'prijem') || {}).detail;
+
+  return `
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-body" style="padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:.82rem;font-weight:700">🖼️ Finanční obraz</span>
+        <span style="font-size:.66rem;color:#a8aec8">${oknoTxt || ''}</span>
+      </div>
+
+      ${v1.hodnota === null ? `
+        <!--  S22: karta je DETAIL, ne druhé skóre. Dřív opakovala nadpis
+              i stupnici z úvodního bloku, takže na stránce stálo dvakrát
+              totéž pod sebou. -->
+        <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
+          Až budeš mít pár měsíců zápisů, ukáže se tu, kam se tvoje finance hnuly.
+          ${v1.chybi.length ? `Zatím chybí: ${v1.chybi.join(', ')}.` : ''}</div>`
+      : `
+        <div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 0;flex-wrap:wrap">
+          <span style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${v1.znamka.color}">${v1.hodnota}</span>
+          <span style="font-size:.9rem;color:${v1.znamka.color}">${v1.znamka.emoji} ${v1.znamka.label}</span>
+        </div>
+        ${v1.bonus > 0 ? `<div style="font-size:.7rem;color:var(--income);margin-top:2px">
+          💪 Práce navíc: +${v1.bonus} bodů${v1.bonusDetail && v1.bonusDetail.prumer!=null?` (Ø ${v1.bonusDetail.prumer} h/měs)`:''}</div>` : ''}
+        ${v1.pokryti < 100 ? `<div style="font-size:.68rem;color:#8b93ad;margin-top:5px;line-height:1.5">
+          Podloženo z ${v1.pokryti} % — ${v1.chybi.join(', ')} se zatím nedá změřit, tak se do hodnocení nepočítá.</div>` : ''}
+      `}
+
+      <div style="margin-top:10px">${slozkyHTML}</div>
+
+      ${nwmText ? `<div style="font-size:.72rem;color:#a8aec8;line-height:1.55;margin-top:8px">${nwmText}</div>` : ''}
+      ${prijem && prijem.avail ? `<div style="font-size:.68rem;color:#8b93ad;line-height:1.5;margin-top:5px">
+        Růst příjmu ${prijem.hruby>=0?'+':''}${prijem.hruby.toFixed(1)} % ročně, po očištění o inflaci
+        ${prijem.realny>=0?'+':''}${prijem.realny.toFixed(1)} %. Reference: ${prijem.popisInflace}.</div>` : ''}
+    </div>
+  </div>`;
 }
 
 function renderObraz() {
@@ -3911,6 +4581,20 @@ function renderObraz() {
   const _prev = computeObrazScoreBack(D, series.length, _back);
   const _dScore = _prev.hasData ? (score - _prev.score) : null;
   const _wfMax = 15;
+  //  Spočítat JEDNOU a použít v úvodním bloku i v kartě – dvojí výpočet by
+  //  při rozdílu vyrobil dvě různá čísla na jedné stránce.
+  let _v1 = null;
+  try{ _v1 = (typeof computeObrazV1==='function') ? computeObrazV1(D, months) : null; }
+  catch(e){ console.warn('[obraz v1]', e); }
+  if(!_v1){
+    //  SELHAT NAHLAS. Dřív se vrátil prázdný řetězec a karta prostě zmizela –
+    //  uživatel pak hlásí „Obraz se nezměnil" a nikdo neví proč.
+    _v1 = { hodnota:null, pokryti:0, chybi:[], bonus:0, slozky:[],
+            znamka:{ label:'Obraz se nepodařilo spočítat', emoji:'⚠️', color:'var(--debt)' },
+            _chyba:true };
+  }
+  const obrazV1Card = _obrazV1Card(D, months, _winTxt, _v1);
+
   const journeyCard = `
     <div class="card" style="margin-bottom:12px">
       <div class="card-body" style="padding:14px">
@@ -4196,7 +4880,32 @@ function renderObraz() {
     }catch(e){ return ''; }
   })();
 
-  const lifestyleCard = !_lsVerdict ? '' : `
+  //  S23 (Milan): „SEKCE 4 LIFESTYLE SE NEZOBRAZUJE, KARTY ZMIZELY."
+  //  Bez verdiktu (méně než 2 měsíce s daty, nebo první polovina okna bez
+  //  příjmu či výdajů) vracela karta PRÁZDNÝ ŘETĚZEC – a s ní zmizely i
+  //  „Kam růst přistál", „Reálný růst" a „Rezerva vydrží", protože všechny
+  //  žijí uvnitř ní. Zůstal jen nadpis řádku nad prázdným rámečkem.
+  //  V10.83 jsem tentýž vzor opravil u sekcí 3 a 8 a tuhle přehlédl (SKILL 47).
+  //  Nově: co spočítat JDE (Expense Ratio, Rezerva vydrží), se ukáže hned;
+  //  zbytek řekne, proč tu není a co ho rozjede.
+  const _lsMesicuSDaty = series.filter(x => (x.inc>0 || x.exp>0)).length;
+  const _lsPrazdna = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-body" style="padding:14px">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">📊 Růst životního stylu</div>
+        ${_erTxt||''}
+        <div style="margin-top:${_erTxt?'10px':'0'};padding:10px 12px;background:var(--surface2);border-left:3px solid #60a5fa;border-radius:0 10px 10px 0">
+          <div style="font-size:.78rem;font-weight:700;color:#c9cede;margin-bottom:3px">⏳ Tempo růstu zatím změřit nejde</div>
+          <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">
+            Karta porovnává <b style="color:#c9cede">první a druhou polovinu okna</b>, takže potřebuje záznamy aspoň ze dvou měsíců —
+            a v obou polovinách příjem i výdaje. Zatím ${_lsMesicuSDaty===0?'nemám žádný měsíc se záznamy':_lsMesicuSDaty===1?'mám jeden měsíc se záznamy':'mám '+_lsMesicuSDaty+' měsíce, ale v první polovině okna chybí příjem nebo výdaje'}.
+            Jakmile přibudou, ukáže se tu verdikt, tabulka baseline vs. teď, „Kam růst přistál" i reálný růst po inflaci.
+          </div>
+        </div>
+      </div>
+    </div>
+    ${_rezervaCard}`;
+  const lifestyleCard = !_lsVerdict ? _lsPrazdna : `
     <div class="card" style="margin-bottom:12px;border-color:${_lsVerdict.bd}">
       <div class="card-body" style="padding:14px">
         <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">📊 Růst životního stylu</div>
@@ -4215,22 +4924,39 @@ function renderObraz() {
           //  tiché zmizení vypadá jako chyba a uživatel neví, co mu uniká.
           const dExp = _lsA.exp - _lsB.exp;
           if(!isFinite(dExp)) return '';
-          let fixed = 0;
-          try{
-            (D.sablony||[]).forEach(t=>{ const a=Math.abs(t.amount||t.castka||0);
-              if(a && (t.type==='expense'||(t.amount||0)<0)) fixed += a; });
-          }catch(e){}
-          const inFixed = Math.min(dExp, fixed);
+          //  FIX (S22): PŮVODNĚ `inFixed = Math.min(dExp, součet VŠECH šablon)`.
+          //  To není měření, to je strop. Součet šablon je u běžné domácnosti
+          //  kolem 15–20 tis. Kč, takže minimum vyšlo skoro vždy rovno dExp
+          //  a karta tvrdila, že CELÝ růst přistál v trvalých závazcích –
+          //  i když se žádná pravidelná platba nezměnila. Věta „zbytek byly
+          //  jednorázové výdaje" mluvila vždycky o nule. Platilo od S10.
+          //  Správně se musí porovnat objem závazků DNES a TEHDY. Historii
+          //  šablon appka dosud nedržela; od v10.63 se ukládá do měsíčního
+          //  snímku (`fixedTotal`, viz sablonyFixedTotal). Než se nakupí,
+          //  karta POCTIVĚ ŘEKNE, že to zatím spočítat neumí – nepravdivé
+          //  číslo je horší než žádné.
+          const fixedNyni = (typeof sablonyFixedTotal==='function') ? sablonyFixedTotal(D) : null;
+          const fixedDrive = (typeof sablonyFixedBefore==='function') ? sablonyFixedBefore(D, series.length) : null;
+          const maHistorii = (fixedNyni !== null && fixedDrive !== null);
+          const dFixed = maHistorii ? (fixedNyni - fixedDrive) : null;
+          //  Do závazků nemohlo přistát víc, než o kolik vzrostly výdaje.
+          const vZavazcich = (dFixed === null) ? null : Math.max(0, Math.min(dExp, dFixed));
+          const jednorazove = (vZavazcich === null) ? null : Math.max(0, dExp - vZavazcich);
           return `
           <div style="margin-top:11px;padding:10px 12px;background:var(--surface2);border-left:3px solid ${dExp>0?'var(--debt)':'var(--income)'};border-radius:0 10px 10px 0">
             <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
               <span style="font-size:.7rem;font-weight:800;color:${dExp>0?'var(--debt)':'var(--income)'};text-transform:uppercase;letter-spacing:.05em">Kam růst přistál</span>
               <span style="font-size:.66rem;color:#a8aec8">${series.length}M vs baseline</span></div>
-            <div style="font-family:Syne,sans-serif;font-size:1.15rem;font-weight:800;margin:3px 0 5px;color:${dExp>0?'var(--debt)':'var(--income)'}">${dExp>0?fmtB(Math.round(inFixed))+' do trvalých závazků':(dExp<0?'0 Kč – výdaje klesly':'0 Kč – beze změny')}</div>
-            <div style="font-size:.7rem;color:#a8aec8;line-height:1.5">${dExp>0
-              ? `Z nárůstu výdajů o ${fmtB(Math.round(dExp))} připadá ${fmtB(Math.round(inFixed))} na pravidelné měsíční platby, zbytek byly jednorázové výdaje.`
-              : (dExp<0 ? `Výdaje se snížily o ${fmtB(Math.round(-dExp))} – žádný růst, který by mohl přistát v závazcích.`
-                        : 'Výdaje zůstaly na stejné úrovni.')}</div>
+            <div style="font-family:Syne,sans-serif;font-size:1.15rem;font-weight:800;margin:3px 0 5px;color:${dExp>0?'var(--debt)':'var(--income)'}">${
+              dExp<=0 ? (dExp<0?'0 Kč – výdaje klesly':'0 Kč – beze změny')
+              : (vZavazcich===null ? '<span style="font-size:.9rem;color:#a8aec8">zatím nelze určit</span>'
+                                   : fmtB(Math.round(vZavazcich))+' do trvalých závazků')}</div>
+            <div style="font-size:.7rem;color:#a8aec8;line-height:1.5">${
+              dExp<0 ? `Výdaje se snížily o ${fmtB(Math.round(-dExp))} – žádný růst, který by mohl přistát v závazcích.`
+              : dExp===0 ? 'Výdaje zůstaly na stejné úrovni.'
+              : vZavazcich===null
+                ? `Výdaje vzrostly o ${fmtB(Math.round(dExp))}. Jestli část skončila v pravidelných platbách, půjde říct, až bude appka znát jejich objem i z dřívějška – začala si ho ukládat teprve teď, takže první srovnání bude za pár měsíců.`
+                : `Z nárůstu výdajů o ${fmtB(Math.round(dExp))} připadá ${fmtB(Math.round(vZavazcich))} na pravidelné měsíční platby${jednorazove>0?` a ${fmtB(Math.round(jednorazove))} na jednorázové výdaje`:''}.`}</div>
             <div style="margin-top:7px;padding-top:6px;border-top:1px dashed var(--border);font-size:.68rem;color:#a8aec8;line-height:1.55">
               <b style="color:#c9cede">Co to je:</b> rozlišuje, jestli vyšší výdaje skončily v <b>opakovaných závazcích</b> (nájem, leasing, předplatné), nebo v jednorázových nákupech. Trvalé závazky při poklesu příjmu nezmizí — proto je tenhle rozdíl důležitější než celková částka.</div>
           </div>`;
@@ -4361,6 +5087,16 @@ function renderObraz() {
   </div>`;
   const res6=proj.months.length?proj.months[proj.months.length-1].reserve:proj.wallets;
   const debt6=proj.months.length?proj.months[proj.months.length-1].debt:proj.debtNow;
+  //  S22 (Milan): „ZMIZELY NĚKTERÉ KARTY." Nezmizely – schovaly se, protože
+  //  bez dat nemají co spočítat. Jenže prázdno vypadá jako chyba appky.
+  //  Stejný vzor tichého selhání jako u teploměru (SKILL 47): když to nejde
+  //  spočítat, řekni proč, nemlč.
+  const _sekcePrazdna = (cislo, ikona, nazev, duvod) => `
+    <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:18px 0 10px">${ikona} ${cislo} · ${nazev}</div>
+    <div class="card" style="margin-bottom:12px;opacity:.75"><div class="card-body" style="padding:13px">
+      <div style="font-size:.78rem;color:#a8aec8;line-height:1.55">${duvod}</div>
+    </div></div>`;
+
   const smerujCard = proj.hasData ? `
     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin-bottom:10px">🧭 3 · Kam směřuju – příštích 6 měsíců</div>
     <div class="card" style="margin-bottom:16px">
@@ -4372,10 +5108,13 @@ function renderObraz() {
         </div>
         ${typeof _obrazProjVerdict==='function'?_obrazProjVerdict(proj):''}
         ${_obrazProjChart(proj)}
+        ${_obrazProjKalendar(proj)}
+        ${_obrazProjRozpeti(proj)}
         ${_obrazProjDebtChart(proj)}
         <div style="font-size:.68rem;color:#a8aec8;margin-top:8px;padding:7px 9px;background:var(--surface3);border-radius:7px">ℹ️ Orientační predikce: příjem = 12M klouzavý průměr; výdaje = engine karty Predikce (historie kategorií + sezónnost + narozeniny); cashflow = příjem − predikce výdajů; rezerva = dnešní hotovost + kumulovaný cashflow (v tooltipu). <strong>Známé platby</strong> = šablony a splátky, které už znáš – jsou to jen ČÁSTI predikce výdajů (opakované platby už predikce obsahuje z historie), proto se k výdajům NEPŘIČÍTAJÍ, jinak by se počítaly dvakrát. <strong>Rezerva</strong> (žlutá čára) = dnešní zůstatek peněženek + kumulovaný cashflow. První sloupec je AKTUÁLNÍ měsíc se skutečnými čísly, ostatní jsou predikce. Dluh = rovnoměrné umořování dle splátek. Najeď na měsíc pro všechny hodnoty.</div>
       </div>
-    </div>` : '';
+    </div>` : _sekcePrazdna(3,'🧭','Kam směřuju – příštích 6 měsíců',
+      'Výhled se počítá z příjmů a výdajů za minulé měsíce. Až budeš mít zápisy aspoň za jeden celý měsíc, ukáže se tu, kam tvoje finance míří.');
 
   // ── S16 (TODO-167): karta historie payday cyklů ──
   const _cfD=d=>`${d.getDate()}.${d.getMonth()+1}.`;
@@ -4441,7 +5180,10 @@ function renderObraz() {
           <div style="font-size:.68rem;color:#a8aec8;margin-top:8px;line-height:1.5">Cyklus = od výplaty k výplatě. Barvy týdnů = srovnání se <strong style="color:#a8aec8">stejným týdnem předchozího cyklu</strong> (🟢↓ méně, 🔴↑ více, ±10 % tolerance). <strong style="color:#a8aec8">Δ výdajů</strong> = celý cyklus vs předchozí – zelená = zlepšuješ se. Saldo = příjmy − výdaje cyklu.</div>`;
         })()}
       </div>
-    </div>` : '';
+    </div>` : _sekcePrazdna(8,'💶','Od výplaty k výplatě – historie cyklů',
+      cycles.length===1
+        ? 'Zatím je zaznamenaný jeden výplatní cyklus. Porovnávat půjde, až přijde druhá výplata.'
+        : 'Historie cyklů se skládá z výplat a útrat mezi nimi. Zapiš výplatu a za měsíc se tu ukáže, jak ti peníze docházejí.');
 
   el.innerHTML=tabIntro('obraz','🖼️','Finanční obraz',
     'Dlouhodobý pohled na celkové směřování. Zatímco report řeší jednotlivé měsíce, obraz ukazuje trendy za 6 měsíců a pokročilé metriky: Financial Freedom Ratio (jak blízko jsi finanční nezávislosti), inflaci životního stylu, diverzifikaci příjmů a Wealth Momentum. Slouží ke strategickému rozhodování – kam tvé finance dlouhodobě míří.')
@@ -4454,13 +5196,36 @@ function renderObraz() {
         ${[['6','6M'],['12','12M'],['all','Celkově']].map(([k,t])=>`
           <button onclick="obrazSetWin('${k}')" style="padding:4px 11px;border-radius:8px;font-size:.72rem;font-weight:700;cursor:pointer;border:1px solid ${_obrazWin===k?'rgba(96,165,250,.55)':'var(--border)'};background:${_obrazWin===k?'rgba(96,165,250,.16)':'transparent'};color:${_obrazWin===k?'#93c5fd':'#a8aec8'}">${t}</button>`).join('')}
       </div>
-      <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${trendColor}">${trendLabel}</div>
-      <div style="margin:12px auto;width:200px;height:12px;background:linear-gradient(90deg,var(--expense),var(--debt),var(--income));border-radius:6px;position:relative">
-        <div style="position:absolute;top:-4px;left:${score}%;transform:translateX(-50%);width:8px;height:20px;background:white;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:left .8s"></div>
-      </div>
-      <div style="font-size:.76rem;color:#a8aec8">Skóre: <strong style="color:${trendColor}">${score}/100</strong></div>
+      <!--  S22: ÚVODNÍ SKÓRE JE NOVÝ FINANČNÍ OBRAZ (0–200, teploměr).
+            Milan hlásil, že „Obraz je pořád nezměněn, škála 0–100" – a měl
+            pravdu: nová karta se sice vykreslovala, ale AŽ POD tímhle blokem,
+            takže první, co na stránce viděl, byl starý pruh. Dvě skóre nad
+            sebou navíc nedávají smysl. Starý údaj 0–100 zůstává níž
+            v kartě „Cesta finančního zdraví" jako detail. -->
+      <div style="font-family:Syne,sans-serif;font-size:2rem;font-weight:800;color:${_v1.znamka.color}">${_v1.hodnota===null?_v1.znamka.emoji+' '+_v1.znamka.label:_v1.hodnota}</div>
+      ${_v1.hodnota===null ? `
+        <!--  S22: STUPNICE SE UKÁŽE I BEZ DAT, jen prázdná.
+              Milan po vymazání dat hlásil „stupnice se ani nezobrazila" – a měl
+              pravdu v tom, co viděl: Obraz měří ZMĚNU, takže bez historie nemá
+              co spočítat a stupnice se vůbec nekreslila. Jenže pak není poznat,
+              jestli je funkce vůbec nasazená, ani co se od ní čekat.
+              Prázdná stupnice s ryskami ukáže, kam to směřuje. -->
+        <div style="max-width:560px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        <div style="font-size:.76rem;color:#a8aec8;line-height:1.55;max-width:420px;margin:2px auto 0">
+          Obraz měří, <b style="color:#c9cede">kam se hýbeš</b> — potřebuje tedy dva body v čase.
+          ${_v1.pokryti>0
+            ? `Zatím umím změřit ${_v1.pokryti} % z toho, co do něj patří.`
+            : `Zatím nemám s čím porovnávat — stačí pár měsíců zápisů a stupnice se rozjede.`}
+          ${_v1.chybi.length?`<br><span style="font-size:.7rem;color:#8b93ad">Chybí: ${_v1.chybi.join(', ')}.</span>`:''}
+        </div>`
+      : `
+        <div style="font-size:.86rem;color:${_v1.znamka.color};margin-top:2px">${_v1.znamka.emoji} ${_v1.znamka.label}</div>
+        <div style="max-width:560px;margin:0 auto">${_obrazTeplomer(_v1)}</div>
+        ${_v1.bonus>0?`<div style="font-size:.7rem;color:var(--income)">💪 Práce navíc: +${_v1.bonus} bodů</div>`:''}
+        ${_v1.pokryti<100?`<div style="font-size:.68rem;color:#8b93ad;margin-top:4px">Podloženo z ${_v1.pokryti} % — ${_v1.chybi.join(', ')} se zatím nedá změřit.</div>`:''}`}
     </div>
 
+    ${obrazV1Card}
     ${journeyCard}
 
     <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:18px 0 10px">📈 2 · Hlavní metriky a jejich podmetriky</div>
@@ -4513,12 +5278,12 @@ function renderObraz() {
     <!-- Měsíční přehled tabulka -->
     <div class="card">
       <div class="card-header"><span class="card-title">📅 7 · Měsíc po měsíci</span></div>
-      <div class="card-body" style="padding:0">
-        <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));font-size:.66rem;font-weight:700;color:#a8aec8;text-transform:uppercase;padding:8px 10px;background:var(--surface3)">
+      <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));font-size:.66rem;font-weight:700;color:#a8aec8;text-transform:uppercase;padding:8px 10px;background:var(--surface3)">
           <span>Měsíc</span><span style="text-align:right">Příjmy</span><span style="text-align:right">Výdaje</span><span style="text-align:right">Momentum</span><span style="text-align:right" title="Výdaje ÷ příjmy">Exp.&nbsp;Ratio</span><span style="text-align:right" title="Skóre Finančního obrazu 0–100">Skóre</span><span style="text-align:right">Dluh</span>
         </div>
         ${series.map((s,i)=>`
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:8px 10px;border-bottom:1px solid var(--border);font-size:.73rem;${i===series.length-1?'font-weight:600':''}">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:8px 10px;border-bottom:1px solid var(--border);font-size:.73rem;${i===series.length-1?'font-weight:600':''}">
             <span style="color:#a8aec8">${s.month}</span>
             <span style="text-align:right;color:var(--income)">${fmtB(s.inc)}</span>
             <span style="text-align:right;color:var(--expense)">${fmtB(s.exp)}</span>
@@ -4541,7 +5306,7 @@ function renderObraz() {
           const sErAvg = sInc>0 ? sExp/sInc : null;
           const sScore = computeObrazScore(series);
           const lastDebt = series.length ? series[series.length-1].debt : 0;
-          return `<div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:9px 10px;border-top:2px solid var(--border2);font-size:.72rem;font-weight:700;background:var(--surface2)">
+          return `<div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:9px 10px;border-top:2px solid var(--border2);font-size:.72rem;font-weight:700;background:var(--surface2)">
             <span style="color:#c9cede">Σ ${n}m</span>
             <span style="text-align:right;color:var(--income)">${fmtB(sInc)}</span>
             <span style="text-align:right;color:var(--expense)">${fmtB(sExp)}</span>
@@ -4550,7 +5315,7 @@ function renderObraz() {
             <span style="text-align:right;color:#a8aec8">·</span>
             <span style="text-align:right;color:#a8aec8">·</span>
           </div>
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:6px 10px;font-size:.66rem;color:#a8aec8">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:6px 10px;font-size:.66rem;color:#a8aec8">
             <span>Ø/měs</span>
             <span style="text-align:right">${fmtB(Math.round(sInc/n))}</span>
             <span style="text-align:right">${fmtB(Math.round(sExp/n))}</span>
@@ -4559,7 +5324,7 @@ function renderObraz() {
             <span style="text-align:right">${sScore.hasData?sScore.score:'–'}</span>
             <span style="text-align:right">${fmtB(Math.round(lastDebt))}</span>
           </div>
-          <div style="display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:7px 10px;font-size:.68rem;font-weight:700;border-top:1px solid var(--border)" title="Ø posledních 3 měsíců vs Ø předchozích 3 měsíců">
+          <div style="min-width:500px;display:grid;grid-template-columns:46px repeat(6,minmax(58px,1fr));padding:7px 10px;font-size:.68rem;font-weight:700;border-top:1px solid var(--border)" title="Ø posledních 3 měsíců vs Ø předchozích 3 měsíců">
             <span style="color:#a8aec8">Trend 3v3</span>
             <span style="text-align:right;color:${trInc.dir>=0?'var(--income)':'var(--expense)'}">${trInc.txt}</span>
             <span style="text-align:right;color:${trExp.dir<=0?'var(--income)':'var(--expense)'}">${trExp.txt}</span>
@@ -4860,7 +5625,7 @@ function renderDetektor() {
     (S.receipts||[]).forEach(r => {
       const rd = new Date(r.date||''); if(isNaN(rd) || rd < cut) return;
       (r.items||[]).forEach(it => {
-        const key = (it.name||'').trim().toLowerCase().replace(/\d+\s*(g|kg|ml|l|ks)\b/g,'').replace(/\s+/g,' ').trim().slice(0,25);
+        const key = normName(it.name);   // S23 (PLAN F1): jednotný klíč
         if(key.length < 3) return;
         if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
         agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
@@ -5820,6 +6585,604 @@ function _denikPredCurve(D, m, y, predExp){
   return shape.map(v=>Math.round(predExp*v/used));
 }
 
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): INFLAČNÍ REFERENCE pro „Reálný růst příjmu"
+//  Reference je NULA NA STUPNICI – bod, kde platí „stojíš na místě".
+//  Přidali ti 3 % při inflaci 3 % → koupíš si totéž co loni → 0 bodů.
+//  Při inflaci 8 % → koupíš si míň → záporné body, přestože je na výplatnici
+//  vyšší číslo. Bez reference by metrika chválila každé přidání.
+//
+//  POŘADÍ ZDROJŮ (rozhodnutí Milana, S22):
+//    1) OSOBNÍ inflace z účtenek – nejlepší, protože ČNB/ČSÚ průměruje celou
+//       populaci a ty možná vůbec nekupuješ to, co průměr táhne nahoru.
+//       Milanova obava, že se čísla „rozjedou napříč produkty", je už
+//       vyřešená: _inflCompute() nepočítá prostý průměr, ale index VÁŽENÝ
+//       útratou – položka, za kterou utratíš víc, váží víc. Proto se pár
+//       podražených rohlíků neprojeví jako desetiprocentní inflace.
+//    2) ČSÚ – oficiální meziroční index spotřebitelských cen, stahuje se
+//       přes Worker (routa /inflace) do `S.cnbInflace`. Pozor: ISC nevydává
+//       ČNB, ale ČSÚ – ČNB dělá prognózy a měnovou politiku.
+//    3) Pevná 3 % – poslední záchrana, ať metrika funguje i bez čehokoli.
+//
+//  Minimální vzorek: pod 5 sledovanými položkami je osobní inflace šum,
+//  ne měření. Tehdy se raději sáhne po záloze.
+// ══════════════════════════════════════════════════════
+const OBRAZ_INFLACE_FIX = 3;        // %, poslední záchrana
+const OBRAZ_INFLACE_MIN_POLOZEK = 5;
+
+//  Stažení oficiální inflace z ČSÚ přes Worker (routa /inflace, S22).
+//  Volá se nejvýš jednou za den – ČSÚ vydává nová čísla jednou MĚSÍČNĚ, kolem
+//  10.–15. dne za předchozí měsíc, takže častější dotazy nic nepřinesou.
+//  Selhání je v pořádku: `obrazInflaceRef()` má zálohu (osobní inflace, pak
+//  pevná 3 %), takže appka funguje i bez sítě a bez ČSÚ.
+const CSU_REFRESH_MS = 24 * 3600 * 1000;
+
+async function nactiInflaciCSU(){
+  try{
+    if(typeof S === 'undefined' || !S) return;
+    if(S.cnbInflaceAt && (Date.now() - S.cnbInflaceAt) < CSU_REFRESH_MS) return;
+    //  Adresa workeru přes sdílenou konstantu – natvrdo zapsaná adresa se při
+    //  příštím přesunu tiše rozbije (přesně to se stalo u FIX-057).
+    const wu = (typeof WORKER_URL !== 'undefined') ? WORKER_URL : 'https://misty-limit-0523.bc-milda.workers.dev';
+    const r = await fetch(wu + '/inflace');
+    if(!r.ok){ S.cnbInflaceChyba = Date.now(); if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace(); return; }
+    const d = await r.json();
+    if(!d || typeof d.inflace !== 'number' || !isFinite(d.inflace)) return;
+    S.cnbInflace   = d.inflace;          // čte ji obrazInflaceRef() jako 2. zdroj
+    S.cnbInflaceAt = Date.now();
+    S.cnbInflaceObd = (d.rok && d.mesic) ? `${d.rok}-${String(d.mesic).padStart(2,'0')}` : '';
+    S.cnbInflaceOddily = d.oddily || null;   // COICOP oddíly – pro srovnání „ty vs. průměr"
+    //  S23 (TODO-290): 13měsíční řady pro graf „tvoje vs. oficiální" na stránce Inflace.
+    S.cnbInflaceRada = Array.isArray(d.rada) ? d.rada : null;
+    S.cnbInflaceRadaOddily = d.radaOddily || null;
+    S.cnbInflaceNeuplna = !!d.radaNeuplna;   // S23: záložní zdroj ČSÚ umí jen poslední měsíc
+    if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace();
+    //  ZÁMĚRNĚ SE NEUKLÁDÁ do Firebase a NENÍ v _DW_META (TODO-257).
+    //  Je to veřejný údaj, který jde kdykoli stáhnout znovu – ukládat ho ke
+    //  každému uživateli zvlášť by byl jen odpad v databázi. Cache tedy žije
+    //  jen po dobu sezení; Worker si stejně drží odpověď 7 dní, takže to
+    //  stojí jeden dotaz při startu.
+  }catch(e){ S.cnbInflaceChyba = Date.now(); /* bez sítě se prostě použije záloha */ }
+}
+
+function obrazInflaceRef(){
+  //  1) osobní z účtenek
+  try{
+    if(typeof _inflCollect==='function' && typeof _inflCompute==='function'){
+      const r = _inflCompute(_inflCollect());
+      if(r && r.yoy !== null && isFinite(r.yoy) && (r.yoyCount||0) >= OBRAZ_INFLACE_MIN_POLOZEK){
+        return { hodnota: r.yoy, zdroj: 'osobni', polozek: r.yoyCount,
+                 popis: `tvoje vlastní inflace z účtenek (${r.yoyCount} položek)` };
+      }
+    }
+  }catch(e){ /* účtenky nejsou, jde se dál */ }
+
+  //  2) ČNB/ČSÚ – hák pro budoucí napojení přes Worker (routa /inflace)
+  if(typeof S!=='undefined' && S && typeof S.cnbInflace === 'number' && isFinite(S.cnbInflace)){
+    const obd = S.cnbInflaceObd ? ` (${S.cnbInflaceObd})` : '';
+    return { hodnota: S.cnbInflace, zdroj: 'csu',
+             popis: `oficiální meziroční inflace ČSÚ${obd}` };
+  }
+
+  //  3) pevná záloha
+  return { hodnota: OBRAZ_INFLACE_FIX, zdroj: 'fix',
+           popis: `odhad ${OBRAZ_INFLACE_FIX} % – naskenuj účtenky a appka bude počítat tvoji vlastní inflaci` };
+}
+
+
+// ══════════════════════════════════════════════════════
+//  S22: SLOŽKY FINANČNÍHO OBRAZU v1 (_OBRAZ_V1 v helpers.js)
+//  Obraz měří ZMĚNU za okno (6M / 12M / Celkově), ne úroveň – tím se liší od
+//  Finančního skóre. Každá složka vrací −100..+100 nebo `avail:false`, když ji
+//  změřit nelze; neměřitelná složka pak vypadne z váženého průměru i s váhou
+//  (nula by lhala, že se nic nezměnilo).
+// ══════════════════════════════════════════════════════
+
+//  ÚČINNÁ DÉLKA SROVNÁVACÍHO OKNA.
+//  Složky porovnávají okno s PŘEDCHOZÍM stejně dlouhým, takže potřebují
+//  dvojnásobek historie. Milan na to upozornil u volby „Celkově": tam okno
+//  sahá až k nejstarší transakci, před ním tedy není nic, všechny složky
+//  vyjdou jako neměřitelné a Obraz neukáže vůbec nic.
+//  Řešení: okno se zkrátí nejvýš na POLOVINU dostupné historie, takže
+//  „Celkově" znamená „novější polovina proti starší" – přirozený význam
+//  celkové změny. U 6M a 12M se nic nemění, dokud je historie dost dlouhá.
+function _obrazOkno(D, n){
+  const ts = (D.transactions||[]).map(t=>new Date(t.date).getTime()).filter(x=>!isNaN(x));
+  if(!ts.length) return n;
+  const nej = new Date(Math.min(...ts));
+  const rozsah = (S.curYear - nej.getFullYear())*12 + (S.curMonth - nej.getMonth()) + 1;
+  return Math.max(2, Math.min(n, Math.floor(rozsah/2)));
+}
+
+//  Průměrný měsíční příjem / výdaj za `n` měsíců počínaje `odsun` měsíců zpět.
+function _obrazPrumer(D, n, odsun, druh){
+  let soucet = 0, mesicu = 0;
+  for(let i = odsun; i < odsun + n; i++){
+    let m = S.curMonth - i, y = S.curYear; while(m < 0){ m += 12; y--; }
+    const txs = getTx(m, y, D);
+    const v = (druh === 'inc') ? incSum(txs, D) : expSum(txs, D);
+    if(v > 0){ soucet += v; mesicu++; }
+  }
+  return { prumer: mesicu ? soucet/mesicu : 0, mesicu };
+}
+
+//  💰 REÁLNÝ RŮST PŘÍJMU – o kolik vzrostl příjem PO očištění o inflaci.
+//  Porovnává průměr za okno s průměrem za PŘEDCHOZÍ stejně dlouhé okno
+//  (ne první vs. poslední měsíc – jeden výkyv by rozhodl o celé metrice).
+//  Výsledek se přepočte na roční tempo, aby 6M a 12M dávaly srovnatelná čísla.
+function obrazRealnyRustPrijmu(D, mesicu){
+  D = D || getData();
+  const n = _obrazOkno(D, mesicu || 6);
+  const ted = _obrazPrumer(D, n, 0, 'inc');
+  const drive = _obrazPrumer(D, n, n, 'inc');
+  //  Aspoň dva měsíce s příjmem na obou stranách – z jednoho měsíce se trend
+  //  určit nedá a z nuly se procento nepočítá vůbec.
+  if(ted.mesicu < 2 || drive.mesicu < 2 || drive.prumer <= 0){
+    return { avail:false, duvod:'Na porovnání příjmu chybí dost měsíců s daty.' };
+  }
+  const rustHruby = (ted.prumer - drive.prumer) / drive.prumer * 100;
+  const rocni = rustHruby * (12 / n);                 // na roční tempo
+  const ref = (typeof obrazInflaceRef === 'function') ? obrazInflaceRef() : { hodnota:3, popis:'' };
+  const realny = rocni - (ref.hodnota || 0);
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.prijem, realny),
+    realny, hruby: rocni, inflace: ref.hodnota, zdrojInflace: ref.zdroj, popisInflace: ref.popis,
+  };
+}
+
+//  🛒 DOPAD ŽIVOTNÍHO STYLU – o kolik měsíců se změnila doba, kterou uživatele
+//  rezerva uživí.
+//  DŮLEŽITÉ K VÝKLADU: appka nedrží historii REZERVY (jen čisté jmění od
+//  v10.67). Metrika proto izoluje vliv VÝDAJŮ: „kdyby rezerva zůstala stejná,
+//  o kolik měsíců se zkrátila kvůli dražšímu životu". To je přesně to, co má
+//  název slibovat – jestli výdaje předbíhají příjem – a nemíchá se do toho,
+//  kolik se zrovna povedlo odložit (od toho je Net Worth Momentum).
+function obrazDopadStylu(D, mesicu){
+  D = D || getData();
+  const n = _obrazOkno(D, mesicu || 6);
+  const ted = _obrazPrumer(D, n, 0, 'exp');
+  const drive = _obrazPrumer(D, n, n, 'exp');
+  if(ted.mesicu < 2 || drive.mesicu < 2 || ted.prumer <= 0 || drive.prumer <= 0){
+    return { avail:false, duvod:'Na porovnání výdajů chybí dost měsíců s daty.' };
+  }
+  //  Rezerva: spořicí/investiční peněženky + rezervní aktiva (jako S3 ve skóre).
+  const wal = (D.wallets||[]).filter(w=>w.type==='savings'||w.type==='investment');
+  let rezerva = wal.reduce((a,w)=>a+(w.balance||0),0);
+  if(typeof assetTier === 'function'){
+    rezerva += (D.assets||[]).filter(a=>assetTier(a)==='reserve').reduce((a,x)=>a+(x.value||0),0);
+  }
+  if(rezerva <= 0){
+    return { avail:false, duvod:'Bez rezervy nejde říct, o kolik měsíců se zkrátila.' };
+  }
+  const mesicuTed = rezerva / ted.prumer;
+  const mesicuDrive = rezerva / drive.prumer;
+  const zmena = mesicuTed - mesicuDrive;      // + = výdaje klesly, rezerva vydrží dýl
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.styl, zmena),
+    zmena, mesicuTed, mesicuDrive,
+    vydajeTed: ted.prumer, vydajeDrive: drive.prumer,
+  };
+}
+
+//  📊 KONCENTRAČNÍ RIZIKO – podíl největší kategorie na výdajích za okno.
+//  JEDINÁ složka měřící STAV, ne změnu (vědomá výjimka, rozhodnutí Milana S22):
+//  stabilních 60 % v jedné kategorii je zranitelnost bez ohledu na to, že se
+//  za půl roku nic nehnulo. Kotvy počítají s tím, že bydlení běžně dělá
+//  25–30 % výdajů české domácnosti – to má vycházet mírně kladně, ne jako poplach.
+function obrazKoncentrace(D, mesicu){
+  D = D || getData();
+  const n = mesicu || 6;
+  const podle = {};
+  let celkem = 0;
+  for(let i = 0; i < n; i++){
+    let m = S.curMonth - i, y = S.curYear; while(m < 0){ m += 12; y--; }
+    getTx(m, y, D).forEach(t => {
+      if(!t || t.type !== 'expense' || t.splitParent || t.isBalancing) return;
+      if(typeof isTransferTx === 'function' && isTransferTx(t)) return;
+      const a = Math.abs((typeof txCZK === 'function') ? txCZK(t, D) : (t.amount||0));
+      if(!a) return;
+      const k = String(t.catId ?? t.category ?? '');
+      podle[k] = (podle[k]||0) + a;
+      celkem += a;
+    });
+  }
+  //  Pod třemi kategoriemi nemá koncentrace smysl – kdo má dvě, má vždycky
+  //  „vysoký podíl" a byl by trestán za to, že si výdaje netřídí.
+  const klice = Object.keys(podle).filter(k => k);
+  if(celkem <= 0 || klice.length < 3){
+    return { avail:false, duvod:'Na koncentraci je potřeba aspoň tři kategorie s výdaji.' };
+  }
+  let nejK = klice[0];
+  klice.forEach(k => { if(podle[k] > podle[nejK]) nejK = k; });
+  const podil = podle[nejK] / celkem * 100;
+  const cat = (D.categories||[]).find(x => String(x.id) === nejK);
+  return {
+    avail: true,
+    sub: mscInterpV2(_OBRAZ_V1.koncentrace, podil),
+    podil, kategorie: cat ? cat.name : 'největší kategorie', castka: podle[nejK], celkem,
+  };
+}
+
+//  ══════════════════════════════════════════════════════
+//  SKLÁDACÍ FUNKCE – Finanční obraz v1
+//  Základ 100, rozsah 0–200, NEOŘEZÁVÁ se (hodnota nad 200 je legitimní
+//  a stupnice ji ukáže za běžným pásmem).
+//  Neměřitelná složka vypadne z čitatele i jmenovatele, váha se rozpustí mezi
+//  zbylé. Pod prahem pokrytí (40 %) nebo pod dvěma měřitelnými složkami se
+//  známka NEUKÁŽE – u metriky změny je „nemám co porovnat" častý stav.
+//  ══════════════════════════════════════════════════════
+function computeObrazV1(D, mesicu){
+  D = D || getData();
+  const CFG = (typeof _OBRAZ_V1 !== 'undefined') ? _OBRAZ_V1 : null;
+  if(!CFG) return null;
+  const n = mesicu || 6;
+
+  const slozky = [
+    { k:'prijem',      nazev:'💰 Reálný růst příjmu',   w:CFG.vahy.prijem,      r: obrazRealnyRustPrijmu(D, n) },
+    { k:'styl',        nazev:'🛒 Dopad životního stylu', w:CFG.vahy.styl,        r: obrazDopadStylu(D, n) },
+    { k:'jmeni',       nazev:'💎 Net Worth Momentum',    w:CFG.vahy.jmeni,       r: obrazNetWorthMomentum(D, n) },
+    { k:'koncentrace', nazev:'📊 Koncentrační riziko',   w:CFG.vahy.koncentrace, r: obrazKoncentrace(D, n) },
+  ];
+
+  const zive = slozky.filter(x => x.r && x.r.avail && x.r.sub != null);
+  const pokryti = zive.reduce((a,x) => a + x.w, 0);          // Σ vah = 100 → rovnou %
+  const podPrahem = pokryti < CFG.prahPokryti || zive.length < (CFG.minSlozek || 2);
+
+  const bonusR = (typeof obrazUsiliBonus === 'function') ? obrazUsiliBonus(D, n) : { bonus:0 };
+  const bonus = bonusR.bonus || 0;
+
+  let hodnota = null;
+  if(!podPrahem){
+    const vazeny = zive.reduce((a,x) => a + x.w * x.r.sub, 0) / pokryti;   // −100..+100
+    hodnota = Math.round(CFG.zaklad + vazeny + bonus);
+  }
+
+  const znamka = (hodnota === null)
+    ? { label:'Zatím nemám co porovnat', emoji:'⏳', color:'#a8aec8' }
+    : (CFG.znamky.find(z => hodnota >= z.min) || CFG.znamky[CFG.znamky.length - 1]);
+
+  return {
+    hodnota, zaklad: CFG.zaklad, min: CFG.min, max: CFG.max,
+    znamka, pokryti, podPrahem, bonus, bonusDetail: bonusR,
+    mesicu: n,
+    slozky: slozky.map(x => ({
+      klic:x.k, nazev:x.nazev, vaha:x.w,
+      avail: !!(x.r && x.r.avail),
+      sub: (x.r && x.r.sub != null) ? Math.round(x.r.sub) : null,
+      duvod: (x.r && x.r.duvod) || '',
+      detail: x.r || null,
+    })),
+    chybi: slozky.filter(x => !(x.r && x.r.avail)).map(x => x.nazev),
+  };
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): NET WORTH MOMENTUM — složka Finančního obrazu
+//  Jediná složka, která měří STAV MAJETKU. Všechno ostatní v Obrazu (i ve
+//  Finančním skóre) měří toky a jejich poměry; jestli člověku za rok jmění
+//  vyrostlo nebo se ztenčilo, neodpovídalo nic.
+//
+//  Milan vybral ze tří pohledů dva do bodování a jeden do textu:
+//    1) PROTI VÝDAJŮM (70 %) — o kolik měsíců života sis přikoupil.
+//       Proti PŘÍJMU se to měřit nesmí: kdo vydělá o 20 % víc a odkládá
+//       o 20 % víc korun, má stejný podíl a vyjde mu NULOVÉ zlepšení –
+//       normalizace příjmem vyruší přesně to, co má být vidět.
+//    2) ZRYCHLENÍ (30 %) — tohle okno proti předchozímu stejně dlouhému.
+//       ⚠️ Vědomý kompromis (rozhodnutí Milana): po mimořádně dobrém období
+//       strhne i normální období do mínusu, přestože člověk pořád odkládá.
+//       Je to tatáž past jako u přesčasů 4× → 2× týdně, proto jen 30 % a
+//       proto se NIKDY nepoužívá samostatně.
+//    3) V KORUNÁCH — jen text na kartě, žádné body. Absolutní částka a
+//       varianta 1 měří totéž s jiným jmenovatelem; bodovat obě by znamenalo
+//       počítat jeden fakt dvakrát.
+//
+//  Vyžaduje řadu `netWorth` z měsíčních snímků – tu appka začala ukládat až
+//  v téhle verzi. Bez ní složka NENÍ měřitelná a z váženého průměru vypadne
+//  i s váhou (ne nula – nula by tvrdila, že jmění stagnuje).
+// ══════════════════════════════════════════════════════
+const _NWM_PODIL_VYDAJE = 70, _NWM_PODIL_ZRYCHLENI = 30;
+const _NWM_KOTVY_MESICE = [ {x:-3,b:-100},{x:-1,b:-50},{x:0,b:0},{x:1,b:35},{x:3,b:75},{x:6,b:100} ];
+const _NWM_KOTVY_ZRYCHL = [ {x:-50,b:-100},{x:-20,b:-50},{x:0,b:0},{x:20,b:40},{x:50,b:80},{x:100,b:100} ];
+
+//  Čisté jmění ze snímku před `zpetMesicu`. null = řada tak daleko nesahá.
+function nwAt(zpetMesicu){
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  if(!diary) return null;
+  let m = S.curMonth - (zpetMesicu||0), y = S.curYear;
+  while(m < 0){ m += 12; y--; }
+  const snap = diary[_denikKey(y, m)];
+  return (snap && typeof snap.netWorth === 'number') ? snap.netWorth : null;
+}
+
+function obrazNetWorthMomentum(D, mesicu){
+  D = D || getData();
+  const n = _obrazOkno(D, mesicu || 6);
+  const ted = (typeof computeAssetsNetWorth==='function')
+    ? (()=>{ try{ const x=computeAssetsNetWorth(D); return x?x.netWorth:null; }catch(e){ return null; } })()
+    : null;
+  const pred  = nwAt(n);       // začátek tohoto okna
+  const pred2 = nwAt(2*n);     // začátek předchozího okna (jen pro zrychlení)
+
+  if(ted === null || pred === null){
+    return { avail:false, sub:null, duvod:'Appka si čisté jmění začala zaznamenávat teprve teď – porovnávat bude mít s čím za pár měsíců.' };
+  }
+
+  const delta = ted - pred;                       // 3) v korunách (jen text)
+
+  //  1) proti VÝDAJŮM – kolik měsíců života sis přikoupil
+  let mesiceZivota = null, subVydaje = null;
+  const vydaje = (()=>{
+    let s = 0, k = 0;
+    for(let i=0;i<n;i++){
+      let m = S.curMonth - i, y = S.curYear; while(m<0){ m+=12; y--; }
+      const e = expSum(getTx(m,y,D), D);
+      if(e>0){ s += e; k++; }
+    }
+    return k ? s/k : 0;
+  })();
+  if(vydaje > 0){
+    mesiceZivota = delta / vydaje;
+    subVydaje = mscInterpV2(_NWM_KOTVY_MESICE, mesiceZivota);
+  }
+
+  //  2) ZRYCHLENÍ – tohle okno proti předchozímu
+  let zrychleni = null, subZrychl = null;
+  if(pred2 !== null){
+    const drive = pred - pred2;
+    //  Podíl dvou přírůstků dává smysl jen když ten dřívější byl kladný.
+    //  Z „minule jsem prodělal, teď taky" nelze udělat procento zrychlení.
+    if(drive > 0){
+      zrychleni = (delta - drive) / drive * 100;
+      subZrychl = mscInterpV2(_NWM_KOTVY_ZRYCHL, zrychleni);
+    }
+  }
+
+  //  Když zrychlení spočítat nejde, nese celou složku pohled na výdaje –
+  //  dopočítávat ho nulou by tvrdilo „nezrychlil ani nezpomalil", což nevíme.
+  let sub;
+  if(subVydaje === null && subZrychl === null){
+    return { avail:false, sub:null, duvod:'Chybí výdaje i dřívější jmění, není co porovnat.' };
+  } else if(subZrychl === null){ sub = subVydaje;
+  } else if(subVydaje === null){ sub = subZrychl;
+  } else { sub = (subVydaje*_NWM_PODIL_VYDAJE + subZrychl*_NWM_PODIL_ZRYCHLENI)/100; }
+
+  return {
+    avail: true,
+    sub: Math.round(sub),
+    delta, mesiceZivota, zrychleni,
+    subVydaje: subVydaje===null?null:Math.round(subVydaje),
+    subZrychl: subZrychl===null?null:Math.round(subZrychl),
+  };
+}
+
+//  Věta na kartu – všechny tři pohledy pohromadě, body jen z prvních dvou.
+function obrazNWMText(r){
+  if(!r || !r.avail) return r && r.duvod ? r.duvod : '';
+  const kc = (typeof fmtB==='function') ? fmtB(Math.round(Math.abs(r.delta))) : String(Math.round(Math.abs(r.delta)));
+  const smer = r.delta >= 0 ? 'vzrostlo o' : 'kleslo o';
+  let t = `Jmění ti ${smer} <b>${kc}</b>`;
+  if(r.mesiceZivota !== null){
+    const m = Math.abs(r.mesiceZivota).toFixed(1);
+    t += r.mesiceZivota >= 0 ? ` — to je <b>${m} měsíce života</b> navíc` : ` — to je o <b>${m} měsíce života</b> míň`;
+  }
+  if(r.zrychleni !== null){
+    const z = Math.abs(Math.round(r.zrychleni));
+    t += z === 0 ? ' a tempo se nezměnilo'
+       : (r.zrychleni > 0 ? ` a o <b>${z} %</b> rychleji než předchozí období`
+                          : ` a o <b>${z} %</b> pomaleji než předchozí období`);
+  }
+  return t + '.';
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): PŘESČASY — zápis a BONUS ZA ÚSILÍ
+//  Milan: „Odměnit za snahu o přesčasy a větší příjem."
+//
+//  Proč BONUS a ne složka Obrazu:
+//   • Obraz měří ZMĚNU. Přesčas jako složka by trestal za omezení z 4× na 2×
+//     týdně, i když ten člověk pořád dělá navíc. Bonus se počítá ze STAVU,
+//     takže 2× týdně pořád něco dá, jen míň – a nikdy nejde do mínusu.
+//     Omezení přesčasů tak uživatele NIKDY nestojí body.
+//   • Úsilí je vstup, ne výsledek. Kdyby se míchalo do váženého průměru,
+//     přestalo by z Obrazu být poznat, jestli dobrý výsledek znamená
+//     „dostal jsem se dál" nebo „dřel jsem a jsem na stejném místě".
+//
+//  Strop 15 z 200 je schválně nízký: údaj je NEOVĚŘITELNÝ (uživatel ho píše
+//  sám), takže i vylhané maximum posune výsledek o 7,5 %, ne o třetinu.
+//
+//  Ukládá se do měsíčního záznamu Deníku (`S.diary[klíč].overtimeH`). Zápis
+//  přichází BĚHEM měsíce, kdežto snímek predikce vzniká na jeho začátku –
+//  proto se sem zapisuje i do záznamu, který ještě neexistuje (viz otSet).
+//  Takový záznam nemá predikci a Přesnost predikce ho přeskakuje.
+//
+//  TODO: výplatnice umí složku „za čas" i fond vs. odpracováno – až se na ně
+//  navážeme, mají mít přednost před ručním zápisem (přesnější a bez ptaní).
+// ══════════════════════════════════════════════════════
+const _USILI_KOTVY = [ {x:0,b:0}, {x:8,b:5}, {x:20,b:10}, {x:35,b:15} ];
+
+//  VÝPLATNICE MAJÍ PŘEDNOST (Milan, S22). Páska zná fond hodin i skutečně
+//  odpracované, takže přesčas = odpracováno nad fond. Je to přesnější než
+//  ruční odhad a nemusí se na to nikdo ptát.
+//  Klíč měsíce je u výplatnic i v Deníku shodný (`YYYY-MM`), ověřeno.
+//  Vrací null, když páska za ten měsíc není nebo nemá vyplněné obě hodnoty –
+//  tehdy se sáhne po ruční odpovědi z checklistu.
+function otFromPayslip(m, y){
+  const zaznamy = (typeof S!=='undefined' && Array.isArray(S.payslips)) ? S.payslips : null;
+  if(!zaznamy || !zaznamy.length) return null;
+  const z = zaznamy.find(x => x && x.m === _denikKey(y==null?S.curYear:y, m==null?S.curMonth:m));
+  if(!z) return null;
+  const h = z.hlavicka || {};
+  const fond = Number(h.fond), odprac = Number(h.odprac);
+  if(!isFinite(fond) || !isFinite(odprac) || !fond || !odprac) return null;
+  return Math.max(0, Math.round(odprac - fond));
+}
+
+//  Odpověď z checklistu: kolik hodin navíc za daný měsíc. Vrací null, když
+//  se uživatel ještě nevyjádřil – nula znamená „neměl jsem přesčas", což je
+//  jiná informace než „nezeptali jsme se ho".
+//  Pořadí zdrojů: výplatnice → ruční odpověď → nic.
+function otGet(m, y){
+  const zPasky = otFromPayslip(m, y);
+  if(zPasky !== null) return zPasky;
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  if(!diary) return null;
+  const z = diary[_denikKey(y==null?S.curYear:y, m==null?S.curMonth:m)];
+  return (z && typeof z.overtimeH === 'number') ? z.overtimeH : null;
+}
+
+//  Odkud číslo pochází – checklist podle toho neotravuje s otázkou, na kterou
+//  si appka odpověděla sama.
+function otZdroj(m, y){
+  if(otFromPayslip(m, y) !== null) return 'payslip';
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : null;
+  const z = diary ? diary[_denikKey(y==null?S.curYear:y, m==null?S.curMonth:m)] : null;
+  return (z && typeof z.overtimeH === 'number') ? 'rucne' : null;
+}
+
+function otSet(hodin, m, y){
+  if(typeof viewingUid!=='undefined' && viewingUid) return;
+  const mm = (m==null) ? S.curMonth : m, yy = (y==null) ? S.curYear : y;
+  const key = _denikKey(yy, mm);
+  if(!S.diary) S.diary = {};
+  //  `null` = zrušit odpověď (tlačítko „změnit"). Musí být rozlišené od nuly:
+  //  nula znamená „neměl jsem přesčas", zrušení znamená „zeptej se znovu".
+  if(hodin === null){
+    if(S.diary[key]){
+      delete S.diary[key].overtimeH;
+      delete S.diary[key].overtimeAt;
+      //  Záznam, který vznikl JEN kvůli přesčasům, po zrušení nemá co držet.
+      if(S.diary[key].onlyOvertime) delete S.diary[key];
+    }
+    if(typeof save==='function') save();
+    if(typeof renderPage==='function') renderPage();
+    return;
+  }
+  //  Záznam pro tenhle měsíc nemusí existovat – snímek predikce vzniká na
+  //  začátku měsíce, kdežto na přesčasy se ptáme až během něj.
+  if(!S.diary[key]) S.diary[key] = { createdAt: Date.now(), onlyOvertime: true };
+  S.diary[key].overtimeH = Math.max(0, Math.round(+hodin || 0));
+  S.diary[key].overtimeAt = Date.now();
+  if(typeof save==='function') save();
+  if(typeof renderPage==='function') renderPage();
+}
+
+//  Průměr hodin navíc za okno. Počítají se jen měsíce, na které uživatel
+//  ODPOVĚDĚL – nezodpovězený měsíc není nula, jen nevíme.
+function obrazUsiliBonus(D, mesicu){
+  const n = mesicu || 6;
+  let soucet = 0, odpovezeno = 0;
+  for(let i=0; i<n; i++){
+    let m = S.curMonth - i, y = S.curYear;
+    while(m < 0){ m += 12; y--; }
+    const h = otGet(m, y);
+    if(h === null) continue;
+    soucet += h; odpovezeno++;
+  }
+  if(!odpovezeno) return { bonus: 0, prumer: null, mesicu: 0 };
+  const prumer = soucet / odpovezeno;
+  const bonus = (typeof mscInterpV2==='function') ? (mscInterpV2(_USILI_KOTVY, prumer) ?? 0) : 0;
+  return { bonus: Math.round(bonus), prumer: Math.round(prumer), mesicu: odpovezeno, hodin: soucet };
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): ZÁZNAM ZMĚN OBJEMU ŠABLON — `S.fixedLog`
+//  Místo měsíčního snímkování se zapisuje ZMĚNA. Důvod: šablonu lze změnit
+//  jedině v appce, takže zachytit změnu je spolehlivější než čekat na první
+//  otevření v měsíci — a objem pak jde zrekonstruovat k LIBOVOLNÉMU dni,
+//  ne jen k prvnímu v měsíci. Zároveň to nepotřebuje nic, co by běželo bez
+//  appky (server se přístupem ke všem datům by byl úplně jiný bezpečnostní
+//  model, než na kterém appka stojí).
+//
+//  Tvar: [{ ts: <Date.now()>, total: <Kč/měs> }], jen když se objem ZMĚNIL.
+//  Beze změny nepřibývá nic, takže log neroste s časem, ale s úpravami.
+// ══════════════════════════════════════════════════════
+const _FIXEDLOG_MAX = 400;      // ~roky úprav; strop proti nafouknutí při hromadném importu
+
+function fixedLogTouch(D){
+  D = D || getData();
+  if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne nad daty partnera
+  if(!Array.isArray(S.fixedLog)) S.fixedLog = [];
+  const ted = sablonyFixedTotal(D);
+  const posledni = S.fixedLog.length ? S.fixedLog[S.fixedLog.length-1] : null;
+  //  Prázdný stav na začátku nezapisujeme – nula bez šablon není „změna na nulu",
+  //  je to „ještě nic nezadal" a v historii by se tvářila jako zrušení závazků.
+  if(!posledni && !ted) return;
+  if(posledni && posledni.total === ted) return;
+  S.fixedLog.push({ ts: Date.now(), total: ted });
+  if(S.fixedLog.length > _FIXEDLOG_MAX) S.fixedLog = S.fixedLog.slice(-_FIXEDLOG_MAX);
+  if(typeof save==='function') save();
+}
+
+//  Objem závazků, jak vypadal k danému datu. Vrací null, když log v té době
+//  ještě neexistoval – nula by lhala, že se tehdy neplatilo nic.
+function fixedLogAt(kdy){
+  const log = (typeof S!=='undefined' && Array.isArray(S.fixedLog)) ? S.fixedLog : null;
+  if(!log || !log.length) return null;
+  const t = (kdy instanceof Date) ? kdy.getTime() : new Date(kdy).getTime();
+  if(!isFinite(t)) return null;
+  let out = null;
+  for(const z of log){ if(z && z.ts <= t) out = z.total; else break; }
+  return out;   // null = log začal až po tomhle datu
+}
+
+// ══════════════════════════════════════════════════════
+//  Kolik uživatele stojí opakované platby přepočtené na měsíc. Zakládá se
+//  kvůli tomu, že appka historii šablon dosud NEDRŽELA – znala jen jejich
+//  dnešní stav, takže nešlo zjistit, jestli trvalé závazky vzrostly.
+//  (Kvůli tomu byla metrika „Kam růst přistál" od S10 nepravdivá: místo
+//  přírůstku závazků počítala Math.min(růst výdajů, součet VŠECH šablon),
+//  což je skoro vždy rovno růstu výdajů – viz FIX v téhle session.)
+//
+//  Přepočet na měsíc je nutný: šablony mají pět frekvencí a sčítat je
+//  nominálně znamená, že roční pojistka za 12 000 Kč vypadá jako 12 000 Kč
+//  měsíčně. Přesně to dělal starý výpočet.
+//
+//  Počítají se JEN výdaje, ne převody – přesun na spořicí účet je závazek
+//  vůči sobě, ne platba ven, a v „kam přistál růst výdajů" nemá co dělat.
+//  Prošlé šablony (endDate v minulosti) se nepočítají.
+// ══════════════════════════════════════════════════════
+const _FREQ_NA_MESIC = { weekly: 52/12, biweekly: 26/12, monthly: 1, quarterly: 1/3, yearly: 1/12 };
+
+function sablonyFixedTotal(D, kDatu){
+  D = D || getData();
+  const ref = kDatu ? new Date(kDatu) : new Date();
+  let soucet = 0;
+  try{
+    (D.sablony||[]).forEach(s=>{
+      if(!s) return;
+      if(s.type === 'income' || s.type === 'transfer') return;
+      if(s.endDate && new Date(s.endDate) < ref) return;     // už neběží
+      const castka = Math.abs(s.amount || s.castka || 0);
+      if(!castka) return;
+      const nasobek = _FREQ_NA_MESIC[s.freq || 'monthly'];
+      if(!nasobek) return;
+      soucet += castka * nasobek;
+    });
+  }catch(e){ return 0; }
+  return Math.round(soucet);
+}
+
+//  Objem závazků před `zpetMesicu`. Primárně ze `S.fixedLog` (zná hodnotu
+//  k libovolnému dni), záložně z měsíčního snímku Deníku. Vrací null, když
+//  ani jedno nesahá tak daleko – nula by lhala, že se tehdy neplatilo nic.
+function sablonyFixedBefore(D, zpetMesicu){
+  D = D || getData();
+  const n = zpetMesicu || 6;
+  const kdy = new Date(S.curYear, S.curMonth - n, 1);
+  const zLogu = fixedLogAt(kdy);
+  if(zLogu !== null) return zLogu;
+
+  const diary = (typeof S!=='undefined' && S && S.diary) ? S.diary : (D.diary||null);
+  if(!diary) return null;
+  let m = S.curMonth - n, y = S.curYear;
+  while(m < 0){ m += 12; y--; }
+  const snap = diary[_denikKey(y, m)];
+  if(!snap || typeof snap.fixedTotal !== 'number') return null;
+  return snap.fixedTotal;
+}
+
 // S17.3 (TODO-186): výpočet snímku vytažen do sdílené funkce – používá ruční 🖋 i automatický snímek.
 function _denikBuildSnap(D,m,y){
   const avgInc=(typeof computeEffectiveIncome==='function')?computeEffectiveIncome(D,12):0;
@@ -5848,6 +7211,16 @@ function _denikBuildSnap(D,m,y){
     wallets: (typeof assetLiqTotals==='function')?Math.round(assetLiqTotals(D).wallets||0):0,
     scoreRaw: sc?sc.rawTotal:null, scoreMax: sc?sc.rawMax:null,
     stressRaw: (typeof computeStressIndex==='function')?(computeStressIndex(D)||{total:null}).total:null,  // S16.8 (Deník v2.1)
+    //  S22: objem trvalých závazků (šablony přepočtené na měsíc). Zakládá
+    //  historii, kterou appka dosud neměla – od téhle verze se kupí a za
+    //  pár měsíců půjde poprvé říct, jestli fixní náklady vzrostly.
+    fixedTotal: (typeof sablonyFixedTotal==='function')?sablonyFixedTotal(D):null,
+    //  S22: čisté jmění k tomuhle měsíci. Appka dosud držela jen DNEŠNÍ stav –
+    //  minulý se dopočítat nedá, protože nikdo neví, jak se měnila tržní
+    //  hodnota majetku. Bez téhle řady nejde měřit, jestli jmění roste.
+    netWorth: (typeof computeAssetsNetWorth==='function')
+      ? (()=>{ try{ const n=computeAssetsNetWorth(D); return n?Math.round(n.netWorth):null; }catch(e){ return null; } })()
+      : null,
   };
 }
 
@@ -5878,16 +7251,28 @@ function denikAutoSnapshot(){
   const snap=_denikBuildSnap(D,m,y);
   if(!snap.predExp) return;                                    // bez historie by snímek byl samé nuly
   snap.auto=true;
+  //  S22 (Milan): DEN POŘÍZENÍ. Snímek má zmrazit, co model tvrdil na ZAČÁTKU
+  //  měsíce – jenže vzniká při prvním otevření appky, a to může být klidně
+  //  17. den. Taková predikce už zná půlku měsíce, takže by v Přesnosti
+  //  vycházela nezaslouženě přesně a kazila průměrnou odchylku.
+  //  Den se proto ukládá a pozdní snímky se z průměru vynechávají.
+  snap.day=now.getDate();
   S.diary[key]=snap;
   window._denikAutoDone=true;
   save();
 }
 
+//  S22 (Milan): MAZÁNÍ SNÍMKŮ ZRUŠENO.
+//  Tlačítko „Vytrhnout list" mazalo celý S.diary[key]. Uživatel ho použil,
+//  protože chtěl zahodit nepovedenou predikci – a nevědomky si tím smazal
+//  i objem trvalých závazků a počet přesčasů za ten měsíc, tedy data, která
+//  se nedají dopočítat ze žádného jiného zdroje. Mazání jedné věci bralo
+//  i druhou, o které uživatel nevěděl, že tam je.
+//  Funkce zůstává jen jako pojistka pro případ, že by někde zbyl odkaz.
 function denikDeleteSnap(key){
-  if(!confirm('Smazat snímek predikce pro tento měsíc?')) return;
-  if(S.diary) delete S.diary[key];
-  save(); renderDenik();
+  if(typeof showToast==='function') showToast('Snímky se už nemažou – drží historii, která se nedá obnovit');
 }
+
 
 // v2: graf na pergamenu – PŘÍJEM (zelený inkoust) / VÝDEJE (červený) / PREDIKCE výdajů (fialová přerušovaná)
 function _denikDayChart(days, actExp, actInc, pred, todayD){
@@ -6160,7 +7545,7 @@ function renderDenik(){
     ${dRow('Hotovost (k datu zápisu)', fmtB(snap.wallets))}
     ${snap.scoreRaw!==null&&snap.scoreRaw!==undefined?dRow('Finanční skóre', `${snap.scoreRaw} / ${snap.scoreMax}`):''}
     ${snap.stressRaw!==null&&snap.stressRaw!==undefined?dRow('Dluhový stres', `${snap.stressRaw} / 100`):''}
-    <div style="text-align:right;margin-top:10px"><button onclick="denikDeleteSnap('${key}')" style="background:none;border:1px solid rgba(140,47,47,.5);border-radius:7px;color:#8c2f2f;font-size:.68rem;padding:4px 9px;cursor:pointer;font-family:Georgia,serif">🗑 Vytrhnout list</button></div>
+
   ` : `
     <div style="font-size:.84rem;line-height:1.7;color:#5b4636;padding:6px 0 12px;font-style:italic">Tato stránka je zatím prázdná – predikce pro ${CZ_M[m].toLowerCase()} nebyla zapsána.${isCurM?'<br><br>Zapiš ji: snímek je neměnný záznam „co jsme čekali", zatímco skutečnost na protější straně se dopočítává živě z transakcí.':''}</div>
     ${isCurM?`<button class="denik-btn" onclick="denikSnapshot()">🖋 Zapsat predikci (${CZ_M[m]})</button>`:''}
@@ -6243,10 +7628,88 @@ function renderDenik(){
       </div>
     </div>
     ${_denikCestaHTML()}
+    ${_denikVydajeHTML(m,y)}
     ${_zivotniMapaHTML(m,y)}
     ${typeof revDenikHTML==='function'?revDenikHTML(m,y):''}
     ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}
     ${_osaZivotaHTML()}`;
+}
+
+// ══════════════════════════════════════════════════════
+//  S22 (Milan): VÝDAJE MĚSÍCE V DENÍKU – vstup do poznámek (level 1)
+//  „Je to přece deník." Deník dosud ukazoval jen souhrny a grafy; k jednotlivé
+//  útratě se nedalo nic připsat. Tenhle seznam je vstupní bod: klikneš na
+//  výdaj, otevře se stránka poznámek (poznamky.js) a zapisuješ, kolikrát chceš.
+//
+//  Ve výchozím stavu se ukazuje 12 největších výdajů měsíce – k nim má člověk
+//  nejčastěji co říct a celý seznam by na mobilu Deník zavalil. Tlačítko
+//  rozbalí zbytek.
+// ══════════════════════════════════════════════════════
+let _denikVydajeVse = false;
+function denikVydajeToggle(){ _denikVydajeVse = !_denikVydajeVse; renderDenik(); }
+
+function _denikVydajeHTML(m, y){
+  const D = getData();
+  let txs;
+  try { txs = getTx(m, y, D) || []; } catch(e){ return ''; }
+
+  //  Stejná pravidla jako všude jinde: přes txCZK (cizí měny nesčítat
+  //  nominálně) a bez přesunů, rozpadů a vyrovnání – ty nejsou útrata.
+  const vydaje = txs.filter(t => t && t.type==='expense'
+      && !t.splitParent && !t.isBalancing
+      && !(typeof isTransferTx==='function' && isTransferTx(t)))
+    .map(t => ({ t, castka: (typeof txCZK==='function') ? txCZK(t, D) : (t.amount||t.amt||0) }))
+    .sort((a,b) => b.castka - a.castka);
+
+  if(!vydaje.length){
+    //  Prázdný stav musí VYSVĚTLIT, co se hledalo – ne jen mlčet.
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="card-header"><span class="card-title">📝 Zápisky k výdajům</span></div>
+      <div class="card-body">
+        <div style="font-size:.82rem;color:#a8aec8;line-height:1.55">
+          V ${CZ_M[m]} ${y} zatím není žádný výdaj, ke kterému by se dalo psát.
+          Jakmile nějaký zapíšeš, objeví se tu a můžeš si k němu vést deník.
+        </div>
+      </div></div>`;
+  }
+
+  const LIMIT = 12;
+  const zobrazit = _denikVydajeVse ? vydaje : vydaje.slice(0, LIMIT);
+  const skryto = vydaje.length - zobrazit.length;
+
+  const radky = zobrazit.map(({t, castka}) => {
+    const n = (typeof pznPocet==='function') ? pznPocet(t) : 0;
+    const d = new Date(t.date);
+    const den = isNaN(d) ? '' : `${d.getDate()}. ${d.getMonth()+1}.`;
+    const c = (D.categories||[]).find(c=>c && String(c.id)===String(t.catId ?? t.category));
+    const nazev = String(t.name || t.note || 'Bez názvu')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const kat = c ? String(c.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+    return `<div onclick="pznOtevri('${String(t.id).replace(/'/g,"\\'")}','denik')"
+      style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.84rem;color:#e8eaf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nazev}</div>
+        <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">${den}${kat?' · '+kat:''}</div>
+      </div>
+      ${n ? `<span style="font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(139,124,246,.18);color:#b5a9ff;white-space:nowrap">📝 ${n}</span>` : ''}
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:.86rem;color:var(--expense);white-space:nowrap">${fmtB(castka)}</div>
+      <span style="color:#a8aec8;font-size:.9rem">›</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-header"><span class="card-title">📝 Zápisky k výdajům</span></div>
+    <div class="card-body">
+      <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:8px">
+        Klikni na výdaj a piš si k němu, co chceš — proč to bylo, jestli to stálo za to.
+        Zápisů může být kolik chceš a zůstávají jen u tebe.
+      </div>
+      ${radky}
+      ${skryto > 0
+        ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="denikVydajeToggle()">Zobrazit všech ${vydaje.length} výdajů (+${skryto})</button>`
+        : (_denikVydajeVse && vydaje.length > LIMIT
+            ? `<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%" onclick="denikVydajeToggle()">Zobrazit jen největší</button>` : '')}
+    </div></div>`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -6552,7 +8015,14 @@ function _denikCestaHTML(){
         const a = (typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0);
         if(a>0) inc+=a; else exp+=Math.abs(a);
       });
-      series.push({inc, exp, savings:inc-exp, debt:0});
+      //  FIX (S22): i tady se plnilo `debt:0` – viz computeObrazScoreBack().
+      //  Zůstatek ke konci měsíce = dnešní + splátky zaplacené PO něm (v8.68).
+      const _me = new Date(y, m+1, 1).getTime();
+      const _paidAfter = (D.transactions||[]).filter(t=>t && t.debtId && !t.splitParent
+          && new Date(t.date).getTime() >= _me)
+        .reduce((a,t)=>a + ((typeof txCZK==='function') ? txCZK(t,D) : (t.amount||0)), 0);
+      const _debtNow = (D.debts||[]).reduce((a,d)=>a+(d&&d.remaining>0?d.remaining:0), 0);
+      series.push({inc, exp, savings:inc-exp, debt:_debtNow + _paidAfter});
     }
     if(series.every(x=>!x.inc && !x.exp)) return '';
     const sm = computeObrazSubmetrics(series);

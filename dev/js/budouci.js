@@ -1,4 +1,4 @@
-// FinanceFlow · v10.17 · budouci.js · 2026-08-28
+// FinanceFlow · v10.89 · budouci.js · 2026-09-21
 // ══════════════════════════════════════════════════════
 //  BUDOUCÍ PLATBY – FinanceFlow v6.50
 //  TODO-058 · Zdroje: šablony + narozeniny + cíle + dluhy
@@ -25,7 +25,13 @@ function budouciGetAll(D, horizonDays, fromDate) {
 
     const freq = s.freq || 'monthly';
     const den  = s.den  || 1;
-    const occurrences = budouciGetOccurrences(freq, den, today, horizon);
+    //  S23: jednorázová platba má vlastní datum; hotová se už nezobrazuje.
+    let occurrences;
+    if (freq === 'once') {
+      const od = s.onceDate ? new Date(s.onceDate) : null;
+      if (od) od.setHours(0,0,0,0);
+      occurrences = (s.done || !od || od < today || od > horizon) ? [] : [od];
+    } else occurrences = budouciGetOccurrences(freq, den, today, horizon);
 
     const isTransfer = s.type === 'transfer';
     // S12.1l: u přesunu doplň cílovou peněženku do popisku „→ Spoření"
@@ -159,6 +165,8 @@ function budouciGetOccurrences(freq, den, from, to) {
   const dates = [];
   const today = new Date(from); today.setHours(0,0,0,0);
 
+  //  S23 (Milan): jednorázová platba – jediný výskyt k uloženému datu.
+  if (freq === 'once') return dates;   // výskyt doplní volající z s.onceDate
   if (freq === 'weekly') {
     let cur = new Date(today.getTime() + 7 * 86400000);
     while (cur <= to) { dates.push(new Date(cur)); cur = new Date(cur.getTime() + 7 * 86400000); }

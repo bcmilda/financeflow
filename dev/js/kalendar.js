@@ -1,4 +1,4 @@
-// FinanceFlow · v9.10 · kalendar.js · 2026-07-23
+// FinanceFlow · v10.53 · kalendar.js · 2026-09-10
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -37,9 +37,24 @@ function renderKalendar() {
     <div style="display:flex;gap:8px;margin-bottom:14px">
       ${tabBtn('finance', '💰', 'Finanční')}
       ${tabBtn('work', '🗓️', 'Pracovní')}
+      ${tabBtn('vyplatnice', '🧾', 'Výplatnice')}
     </div>`;
 
-  if (mode === 'work') { el.innerHTML = toggle + _renderKalWork(D, m, y); return; }
+  // TODO-257 (S21): evidence výplatních pásek. Vlastní modul vyplatnice.js.
+  if (mode === 'vyplatnice') {
+    el.innerHTML = toggle + (typeof _renderKalVyplatnice === 'function'
+      ? _renderKalVyplatnice(D, m, y)
+      : '<div class="empty"><div class="et">Modul výplatnic se nenačetl.</div></div>');
+    return;
+  }
+
+  if (mode === 'work') {
+    el.innerHTML = toggle + _renderKalWork(D, m, y);
+    // FIX-326: náhled sazby se musí dopočítat po vložení HTML – prvky do té
+    //   chvíle neexistují. Side-render ve vlastním try/catch.
+    try { if (typeof workPreviewSazba === 'function') workPreviewSazba(); } catch (e) {}
+    return;
+  }
   el.innerHTML = toggle + _renderKalFinance(D, m, y);
 }
 
@@ -356,6 +371,49 @@ const _WORK_TYPES = {
   volno:    { label: 'Volno',    icon: '⛱️', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.12)', color: 'var(--text3)' },
 };
 
+// ══════════════════════════════════════════════════════════════════════
+//  FIX-326 (S21, Milan): HODINOVÁ SAZBA Z ČISTÉ VÝPLATY
+//  Počítá se z FONDU pracovní doby daného měsíce, ne z paušálních 160 h –
+//  září 2026 má 22 pracovních dní, únor jich má 20. Rozdíl je přes 9 %,
+//  takže paušál by dával sazbu, která nesedí ani jeden měsíc.
+//  Placené hodiny = pracovní dny × (hodin na směnu − neplacená přestávka).
+// ══════════════════════════════════════════════════════════════════════
+function workFondHodin(rok, mesic, cfg) {
+  const dnu = new Date(rok, mesic + 1, 0).getDate();
+  const prac = (cfg.workdays || [1, 2, 3, 4, 5]);
+  let dni = 0;
+  for (let d = 1; d <= dnu; d++) {
+    if (prac.includes(new Date(rok, mesic, d).getDay())) dni++;
+  }
+  const hodinDen = Math.max(0, (cfg.hpd || 8) - (cfg.breakMin || 0) / 60);
+  return { dni, hodinDen, hodin: dni * hodinDen };
+}
+
+function workPreviewSazba() {
+  const el = document.getElementById('workSazbaNahled'); if (!el) return;
+  const vyplata = parseFloat((document.getElementById('workSalary')?.value || '').replace(/\s/g, '').replace(',', '.')) || 0;
+  if (!vyplata) {
+    el.innerHTML = 'Zadej čistou výplatu a spočítám z ní hodinovou sazbu.';
+    return;
+  }
+  // Konfigurace se bere ŽIVĚ z polí, ne z uložené – jinak by náhled ukazoval
+  // sazbu podle starých hodnot, dokud uživatel neklikne na Uložit.
+  const cfg = Object.assign({}, _workCfg(), {
+    hpd: parseFloat(document.getElementById('workHpd')?.value) || _workCfg().hpd,
+    breakMin: parseFloat(document.getElementById('workBreakMin')?.value) || 0,
+  });
+  const f = workFondHodin(S.curYear, S.curMonth, cfg);
+  if (!f.hodin) { el.innerHTML = 'Nastav hodiny na směnu a pracovní dny.'; return; }
+  const sazba = vyplata / f.hodin;
+  el.innerHTML = `Hodinová sazba <strong style="color:#7dd34f">${fmt(Math.round(sazba))} Kč/h</strong>`
+    + ` <span style="color:#a8aec8">· ${CZ_M[S.curMonth]} má ${f.dni} pracovních dní `
+    + `× ${String(Math.round(f.hodinDen * 10) / 10).replace('.', ',')} h = ${Math.round(f.hodin)} h</span>`
+    + `<br><span style="color:#a8aec8">Přesčasová hodina s příplatkem ${cfg.bonusOT} %: `
+    + `<strong style="color:#c9cede">${fmt(Math.round(sazba * (1 + cfg.bonusOT / 100)))} Kč</strong></span>`;
+}
+window.workPreviewSazba = workPreviewSazba;
+window.workFondHodin = workFondHodin;
+
 function _workCfg() {
   const w = S.workCal || {};
   // S17.5 (Milan): + mzdová konfigurace – přestávka, čistá výplata, příplatky (%)
@@ -435,16 +493,27 @@ function _renderKalWork(D, m, y) {
           ${dayNames.map((n, i) => dayToggle(i, n)).join('')}
         </div>
         <!-- S17.5 (Milan): mzdová konfigurace pro výpočet hodinovky -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <!-- FIX-325 (S21, Milan): pole „Čistá výplata" plavalo. Popisek vedle něj
+             se na mobilu zalomí do DVOU řádků, tenhle do jednoho – a protože se
+             oba sloupce zarovnávaly nahoru, input vpravo visel výš.
+             align-items:end srovná pole podle spodní hrany bez ohledu na to,
+             kolik řádků popisek zabere. Pevná výška popisku by se rozbila při
+             jiné velikosti písma nebo v jiném jazyce. -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:end">
           <div>
-            <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Neplacená přestávka (min/den)</div>
+            <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px;line-height:1.35">Neplacená přestávka (min/den)</div>
             <input type="text" inputmode="numeric" id="workBreakMin" value="${cfg.breakMin}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
           <div>
-            <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Čistá výplata (Kč/měs)</div>
-            <input type="text" inputmode="numeric" id="workSalary" value="${cfg.salary || ''}" placeholder="např. 32000" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
+            <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px;line-height:1.35">Čistá výplata (Kč/měs)</div>
+            <input type="text" inputmode="numeric" id="workSalary" value="${cfg.salary || ''}" placeholder="např. 32000"
+                   oninput="workPreviewSazba()"
+                   style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
         </div>
+        <!-- FIX-326: hodinová sazba se dosud dala zjistit až po uložení a jen ve
+             statistice měsíce. Ukazuje se rovnou pod polem a přepočítává se při psaní. -->
+        <div id="workSazbaNahled" style="font-size:.72rem;color:#a8aec8;margin:-6px 0 12px;line-height:1.55"></div>
         <div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">Příplatky (% navíc k základní sazbě)</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
           <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">⏱ Přesčas</div>

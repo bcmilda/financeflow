@@ -1,4 +1,4 @@
-// FinanceFlow · v10.49 · app.js · 2026-09-04
+// FinanceFlow · v11.03 · app.js · 2026-09-25
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -308,7 +308,10 @@ async function saveSnapshot() {
       receipts:      S.receipts      || [], nakupList:  S.nakupList    || [],
       assets:        S.assets        || [], shareSettings: S.shareSettings || {},
       calNotes:      S.calNotes      || {}, workCal:    S.workCal      || {},
+      // TODO-257: nové uzly MUSÍ být ve schématu, jinak je Firebase sync tiše smaže
+      payslips:      S.payslips      || [], payslipTemplate: S.payslipTemplate || null,
       diary:         S.diary         || {},
+      fixedLog:      S.fixedLog      || [],   // S22: historie objemu šablon (nedopočitatelná zpětně)
       idleCfg:       S.idleCfg       || {},
       milestones:    S.milestones    || [],
       reportSectors: S.reportSectors || {},
@@ -331,7 +334,7 @@ async function saveSnapshot() {
                  bank:S.bank||{startBalance:0},birthdays:S.birthdays||[],wishes:S.wishes||[],
                  wallets:S.wallets||[],payTypes:S.payTypes||[],sablony:S.sablony||[],
                  projects:S.projects||[],receipts:S.receipts||[],nakupList:S.nakupList||[],
-                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},diary:S.diary||{},idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},_savedAt:Date.now()};
+                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},payslips:S.payslips||[],payslipTemplate:S.payslipTemplate||null,diary:S.diary||{},fixedLog:S.fixedLog||[],idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},_savedAt:Date.now()};
       localStorage.setItem('ff_snapshot_' + uid, JSON.stringify(s));
     } catch (_) {}
   }
@@ -403,7 +406,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data
@@ -415,9 +418,20 @@ let S = {transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:
 // Hodnota = {catId, subcat, count, updatedAt}
 let _catMappingsCache = null; // null = nenačteno, {} = načteno (i prázdné)
 
+//  S23 (PLAN F1): klíč se počítá jedinou funkcí normName() z helpers.js.
+//  Starý klíč nechával v názvu množství („rohlik 43g"), takže se stejná
+//  položka rozcházela se sledováním cen. Nový je bez množství („rohlik").
 function normalizeMappingKey(name) {
+  return (typeof normName === 'function')
+    ? normName(name)
+    : (name||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
+}
+
+//  Klíč podle PŮVODNÍ verze – jen pro čtení už uložených záznamů (viz níže).
+function normalizeMappingKeyStary(name) {
   return (name||'').toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // diakritika
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
 }
 
@@ -466,8 +480,12 @@ async function saveCategoryMapping(txName, catId, subcat) {
 
 function lookupCategoryMapping(txName) {
   if(!_catMappingsCache) return null;
+  //  S23 (PLAN F1): nejdřív nový klíč, a když nic, zkusí se i ten starý.
+  //  Díky tomu se nikomu neztratí, co si dosud namapoval – přechod není znát.
   const key = normalizeMappingKey(txName);
-  return _catMappingsCache[key] || null;
+  if (_catMappingsCache[key]) return _catMappingsCache[key];
+  const stary = normalizeMappingKeyStary(txName);
+  return (stary !== key && _catMappingsCache[stary]) ? _catMappingsCache[stary] : null;
 }
 
 // Načti mappings po přihlášení
@@ -1281,7 +1299,7 @@ function _attachOwnListeners(userRef, uid, initialVal){
 //  Meta sekce → zapíšou se jen ty, které se změnily. Reader (sanitizeUserData) vrací pole.
 //  Bezpečný mezikrok: čtení stále přes onValue celého uzlu; migrace lazy + záloha v1.
 // ══════════════════════════════════════════════════════
-const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','diary','idleCfg','milestones','reportSectors','pristiCfg'];
+const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','fixedLog','idleCfg','milestones','reportSectors','pristiCfg'];
 let _dw = { ready:false, metaSig:{}, txSig:null };
 
 function _dwEnsureIds(){
@@ -1360,7 +1378,10 @@ function _dwMetaVals(){
     shareSettings: S.shareSettings||{},
     calNotes: S.calNotes||{},
     workCal: S.workCal||{},
+    payslips: S.payslips||[],
+    payslipTemplate: S.payslipTemplate||null,
     diary: S.diary||{},
+    fixedLog: S.fixedLog||[],   // S22: historie objemu šablon
     idleCfg: S.idleCfg||{},  // S17.4 (TODO-183): konfigurace Ušlého zisku
     milestones: S.milestones||[],  // v9.45 (TODO-203): Životní mapa – zlomové události
     reportSectors: S.reportSectors||{},  // v9.52 (TODO-208): vlastní sektory Reportu
@@ -1425,7 +1446,9 @@ function _shMetaVals(){
   };
 
   // ZÁMĚRNĚ SE NESDÍLÍ (a nedopisovat sem bez rozmyslu):
+  //   payslips, payslipTemplate            – výplatní pásky (TODO-257)
   //   diary, calNotes, workCal, milestones  – osobní zápisky a životní události
+  //   fixedLog                              – historie mých závazků (patří k sablony)
   //   idleCfg, reportSectors, pristiCfg     – nastavení mých vlastních pohledů
   //   importHistory, noSyncKeys             – provozní stopa, partnerovi k ničemu
   //   nakupList, sablony                    – nákupní seznam a šablony
@@ -1455,8 +1478,35 @@ function txShareMode(ss){
 }
 window.txShareMode = txShareMode;
 
+// ══════════════════════════════════════════════════════════════════════
+//  S22: OSOBNÍ POZNÁMKY SE PARTNEROVI NEPOSÍLAJÍ
+//  `_shTxObj()` v režimu 'full' vracel CELÉ objekty transakcí. Jakmile na
+//  transakci přibyl deníkový zápisek (`notes`), odešel by partnerovi s ní –
+//  přesně ta chyba, kterou S21 opravovala u `diary` (FIX-317). Deník je
+//  osobní: partner má vidět, že jsem utratil 900 Kč, ne proč mi to bylo líto.
+//  Stejně tak `priorityNote` (poznámka u hodnocení útraty), která se dosud
+//  sdílela nedopatřením.
+//  Pozor: seznam je ZÁKAZOVÝ, ne povolovací – transakce má desítky polí a
+//  povolovací seznam by při každém novém poli tiše ubral partnerovi data.
+//  Nové OSOBNÍ pole na transakci se ale musí dopsat sem, jinak uteče.
+//  Seznam žije UVNITŘ funkce záměrně: je to jediné místo, kde se používá,
+//  a funkce tak zůstává soběstačná.
 function _shTxObj(){
-  return txShareMode() === 'full' ? _dwTxObj() : {};
+  const _TX_OSOBNI = ['notes', 'priorityNote'];
+  if (txShareMode() !== 'full') return {};
+  const plne = _dwTxObj();
+  const out = {};
+  Object.keys(plne).forEach(id=>{
+    const t = plne[id];
+    if(!t || typeof t !== 'object'){ out[id] = t; return; }
+    let maOsobni = false;
+    for(const k of _TX_OSOBNI){ if(t[k] !== undefined){ maOsobni = true; break; } }
+    if(!maOsobni){ out[id] = t; return; }          // beze změny = beze změny podpisu
+    const kopie = Object.assign({}, t);
+    _TX_OSOBNI.forEach(k=>{ delete kopie[k]; });
+    out[id] = kopie;
+  });
+  return out;
 }
 
 // Součty za kategorii a měsíc. Stejná pravidla jako všude jinde: přes txCZK
