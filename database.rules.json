@@ -233,7 +233,9 @@
           }
         }
       },
-      "_comment_productMap": "S23: Mapa polozek. Cte kazdy prihlaseny (navrhy se zobrazuji v appce), ZAPISUJE JEN ADMIN - spatne mapovani by se propsalo vsem. Osobni volba uzivatele zustava v users/{uid}/data/productPrefs.",
+      // S23: Mapa polozek. Cte kazdy prihlaseny, ZAPISUJE JEN ADMIN - spatne
+      //   mapovani by se propsalo vsem. Osobni volba uzivatele zustava
+      //   v users/{uid}/data/productPrefs (F3).
       "productMap": {
         ".read": "auth != null",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
