@@ -1,4 +1,4 @@
-// FinanceFlow · v11.02 · admin.js · 2026-09-25
+// FinanceFlow · v11.04 · admin.js · 2026-09-25
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -85,7 +85,7 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-lowconf"  onclick="switchAdminTab('lowconf',this)">⚠️ Low confidence</button>
       <button class="tx-filt-btn"        id="atab-stats"    onclick="switchAdminTab('stats',this)">📊 Statistiky</button>
       <button class="tx-filt-btn"        id="atab-adopce"   onclick="switchAdminTab('adopce',this)">🏷️ Adopce kategorií</button>
-      <button class="tx-filt-btn"        id="atab-itemtags" onclick="switchAdminTab('itemtags',this)">🔖 Item Tagy</button>
+      <button class="tx-filt-btn"        id="atab-itemtags" onclick="switchAdminTab('itemtags',this)">🗺️ Item Tagy</button>
       <button class="tx-filt-btn"        id="atab-suggestions" onclick="switchAdminTab('suggestions',this)">🤖 Doporučení</button>
       <button class="tx-filt-btn"        id="atab-leads"    onclick="switchAdminTab('leads',this)">📋 Leady</button>
       <button class="tx-filt-btn"        id="atab-announce" onclick="switchAdminTab('announce',this)">📢 Oznámení</button>
@@ -382,11 +382,11 @@ async function renderAdmin() {
     <div id="atab-itemtags-content" style="display:none">
       <div class="card">
         <div class="card-header">
-          <span class="card-title">🔖 Komunitní mapování tagů položek</span>
+          <span class="card-title">🔖 Mapa položek</span>
           <button class="btn btn-ghost btn-sm" onclick="loadCommunityItemTags()">🔄</button>
         </div>
         <div style="font-size:.76rem;color:var(--text2);padding:8px 14px 0">
-          Uživatelé přiřadili tyto tagy k položkám. Jako admin můžeš tag <strong>schválit</strong> (stane se komunitním pravidlem), <strong>odmítnout</strong> nebo ponechat bez pravidla.
+          Obecný název (zelené tagy) přiřazují uživatelé z účtenek. Jako admin můžeš tag <strong>schválit</strong> (stane se komunitním pravidlem), <strong>odmítnout</strong> nebo ponechat bez pravidla.
         </div>
         <div id="adminItemTags"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
@@ -562,6 +562,25 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.04',
+    datum: '2026-09-25',
+    zmeny: [
+      '🗺️ MAPA POLOŽEK (PLAN-mapa-produktu, F2) · cesta: Admin panel → 🗺️ Mapa položek (dříve Item Tagy). Zelené tagy zůstávají – jsou to OBECNÉ NÁZVY, které přiřazují uživatelé z účtenek (zelenina, mléko, ořechy). Admin k nim nově doplní KONKRÉTNÍ NÁZEV, KATEGORII a PODKATEGORII; uloží se do community/productMap jako komunitní pravidlo. Nahoře karta statistik podle Milanova zadání: namapované položky (+ kolik čeká), počet kategorií, podkategorií, konkrétních a obecných názvů.',
+      '🔒 database_rules.json: nový uzel community/productMap – čte každý přihlášený, ZAPISUJE JEN ADMIN (chybné mapování by se propsalo všem). Validace polí a délek, cizí klíče odmítnuty. ⚠️ nasadit pravidla.',
+      'ℹ️ Migrace dnešních tagů se nedělá (Milan: pár nevalidních dat bez pevné struktury) – mapa se plní nanovo z účtenek.',
+      '🧪 tools/smoke_mapa.js – 16 testů (statistiky A–E bez duplicit a s ohledem na velikost písmen, doplnění obecného názvu z nejsilnějšího tagu, escapování klíče do onchange).',
+    ]
+  },
+  {
+    verze: 'v11.03',
+    datum: '2026-09-25',
+    zmeny: [
+      '🔑 JEDNA NORMALIZACE NÁZVŮ PRO CELOU APPKU (PLAN-mapa-produktu, fáze F1). Klíč položky se dosud počítal na 9 místech ve 4 různých verzích: učení kategorií nechávalo v klíči množství a ořezávalo na 40 znaků, „Pravidelně nakupuješ" na 25, katalog produktů měl jiný seznam jednotek než cenová historie. Stejná položka proto žila pod několika klíči – co sis namapoval v editoru účtenky, sledování cen nenašlo. Nově helpers.js: normName() (klíč bez množství), normQty() (množství zvlášť, sjednocené na g/ml/cm – shrinkflace ho potřebuje) a normKey() (klíč včetně balení). Přepojeno všech 9 míst: učení kategorií, cenová historie, našeptávač, tagy položek, katalog produktů, Pravidelně nakupuješ, nákupní seznam.',
+      '🛟 ZPĚTNÁ KOMPATIBILITA: lookupCategoryMapping() hledá nejdřív nový klíč, a když nic nenajde, zkusí i ten starý. Nikomu se tedy neztratí, co si dosud namapoval, a přechod není znát. Když jsou uložené oba, vyhrává nový.',
+      '🧪 tools/smoke_normname.js – 25 testů (sjednocení zápisů, procenta v názvu, neslévání různých výrobků, zachování množství, staré uložené mapování se dál najde).',
+    ]
+  },
   {
     verze: 'v11.02',
     datum: '2026-09-25',
@@ -7160,6 +7179,84 @@ async function loadSuggestionOverrides() {
 }
 
 // ── Komunitní Item Tagy ──
+// ══════════════════════════════════════════════════════
+//  S23 (PLAN-mapa-produktu, F2): MAPA POLOŽEK
+//  cesta: Admin panel → 🗺️ Mapa položek
+//  Zelené tagy zůstávají – jsou to OBECNÉ NÁZVY (zelenina, mléko, ořechy).
+//  K nim admin doplní konkrétní název, kategorii a podkategorii; to už je
+//  komunitní pravidlo (community/productMap), které appka nabídne všem –
+//  ale nikdy nepřepíše uživatelovu vlastní volbu (ta bude v users/.../productPrefs).
+//  Zápis do mapy smí JEN admin (pravidla databáze) – chybné mapování by se
+//  jinak propsalo všem.
+// ══════════════════════════════════════════════════════
+const MAPA_URL = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app';
+let _mapaZaznamy = {};   // klic → {obecny, konkretni, catId, subcat, coicop}
+
+//  Statistiky mapy (Milan: A–E). Počítají se z toho, co je skutečně uložené.
+function mapaStatistiky(tagy, zaznamy, kategorie) {
+  const z = Object.values(zaznamy || {});
+  const nepr = x => String(x || '').trim();
+  const kat = new Set(), sub = new Set(), konk = new Set(), obec = new Set();
+  z.forEach(r => {
+    if (nepr(r.catId)) kat.add(nepr(r.catId));
+    if (nepr(r.subcat)) sub.add(nepr(r.catId) + '|' + nepr(r.subcat));
+    if (nepr(r.konkretni)) konk.add(nepr(r.konkretni).toLowerCase());
+    if (nepr(r.obecny)) obec.add(nepr(r.obecny).toLowerCase());
+  });
+  //  Obecné názvy bereme i z tagů – tam vznikají (uživatelé je přiřazují).
+  Object.values(tagy || {}).forEach(t => Object.keys(t || {}).forEach(x => obec.add(String(x).toLowerCase())));
+  const celkem = Object.keys(tagy || {}).length;
+  const namapovano = Object.keys(zaznamy || {}).filter(k => nepr((zaznamy[k] || {}).catId)).length;
+  return {
+    polozky: celkem,
+    namapovano,
+    bezMapovani: Math.max(0, celkem - namapovano),
+    kategorie: kat.size,
+    podkategorie: sub.size,
+    konkretni: konk.size,
+    obecne: obec.size,
+  };
+}
+
+function mapaStatKarta(st) {
+  const dl = (l, v, p) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px">
+      <div style="font-size:.66rem;color:#a8aec8">${l}</div>
+      <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;color:#e8eaf2">${v}</div>
+      ${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}
+    </div>`;
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:14px">
+    ${dl('Namapované položky', st.namapovano, st.bezMapovani ? st.bezMapovani + ' čeká' : 'vše hotovo')}
+    ${dl('Kategorie', st.kategorie)}
+    ${dl('Podkategorie', st.podkategorie)}
+    ${dl('Konkrétní názvy', st.konkretni)}
+    ${dl('Obecné názvy', st.obecne)}
+  </div>`;
+}
+
+//  Uloží mapování jedné položky (jen admin – viz pravidla databáze).
+async function mapaUloz(klic, pole, hodnota) {
+  const token = await window._currentUser?.getIdToken?.();
+  const zaznam = Object.assign({}, _mapaZaznamy[klic] || {});
+  const v = String(hodnota || '').trim();
+  if (v) zaznam[pole] = (pole === 'coicop') ? parseInt(v, 10) : v; else delete zaznam[pole];
+  //  Pravidla vyžadují „obecny" – doplníme z nejsilnějšího tagu, když chybí.
+  if (!zaznam.obecny) zaznam.obecny = (_mapaTagTop[klic] || '');
+  zaznam.kdy = Date.now();
+  const r = await fetch(`${MAPA_URL}/community/productMap/${encodeURIComponent(klic)}.json?auth=${token}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zaznam),
+  });
+  if (!r.ok) { alert('Uložení selhalo: HTTP ' + r.status); return; }
+  _mapaZaznamy[klic] = zaznam;
+  if (typeof showToast === 'function') showToast('🗺️ Uloženo');
+  loadCommunityItemTags();
+}
+window.mapaUloz = mapaUloz;
+
+function mapaZmen(klic, pole, el) { mapaUloz(klic, pole, el.value); }
+window.mapaZmen = mapaZmen;
+
+let _mapaTagTop = {};   // klic → nejčastější tag (výchozí obecný název)
+
 async function loadCommunityItemTags() {
   const el = document.getElementById('adminItemTags'); if(!el) return;
   el.innerHTML = '<div class="card-body"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>';
@@ -7173,10 +7270,15 @@ async function loadCommunityItemTags() {
     // Načti validační statusy
     const valRes = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagValidation.json?auth=${idToken}`);
     const valData = valRes.ok ? (await valRes.json()||{}) : {};
+    //  S23: k tagům načteme i uložená mapování.
+    const mapRes = await fetch(`${MAPA_URL}/community/productMap.json?auth=${idToken}`);
+    _mapaZaznamy = mapRes.ok ? (await mapRes.json() || {}) : {};
     if(!data || !Object.keys(data).length) {
-      el.innerHTML = '<div class="card-body" style="color:var(--text2);font-size:.8rem">✅ Žádné komunitní tagy zatím.</div>';
+      el.innerHTML = '<div class="card-body">' + mapaStatKarta(mapaStatistiky({}, _mapaZaznamy, S.categories))
+        + '<div style="color:var(--text2);font-size:.8rem">Zatím žádné položky – mapa se plní z účtenek uživatelů.</div></div>';
       return;
     }
+    Object.entries(data).forEach(([k,t])=>{ _mapaTagTop[k] = Object.entries(t||{}).sort((a,b)=>b[1]-a[1])[0]?.[0] || ''; });
     // Seřadit dle celkového počtu (nejpopulárnější)
     const items = Object.entries(data).map(([itemKey, tags]) => {
       const tagList = Object.entries(tags||{}).map(([tag, cnt]) => {
@@ -7187,11 +7289,15 @@ async function loadCommunityItemTags() {
       return {itemKey, tagList, totalCnt};
     }).sort((a,b)=>b.totalCnt-a.totalCnt);
 
+    const _katOpt = (vyb) => (S.categories||[]).filter(c=>c.type==='expense'||c.type==='both'||!c.type)
+      .map(c=>`<option value="${_vzEsc(c.id)}" ${vyb===c.id?'selected':''}>${_vzEsc((c.icon||'')+' '+c.name)}</option>`).join('');
     el.innerHTML = `<div class="card-body">
+      ${mapaStatKarta(mapaStatistiky(data, _mapaZaznamy, S.categories))}
       <div style="font-size:.72rem;color:var(--text3);margin-bottom:12px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
       ${items.map(item => `
         <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:6px">📦 ${item.itemKey.replace(/_/g,' ')}</div>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:6px">📦 ${_vzEsc(item.itemKey.replace(/_/g,' '))}${(_mapaZaznamy[item.itemKey]||{}).catId?' <span style="font-size:.66rem;color:var(--income)">✓ namapováno</span>':''}</div>
+          <div style="font-size:.66rem;color:#8b93ad;margin-bottom:3px">Obecný název (tagy od uživatelů)</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
             ${item.tagList.map(({tag, cnt, status}) => {
               const isApproved = status==='approved';
@@ -7204,6 +7310,17 @@ async function loadCommunityItemTags() {
                 <button onclick="validateItemTag('${item.itemKey}','${tag}','rejected')" class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:.75rem;color:var(--expense);border:1px solid var(--expense)" title="Odmítnout">✕</button>
               </div>`;
             }).join('')}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px">
+            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Konkrétní název (rum, rohlík…)"
+              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).konkretni||'')}"
+              onchange="mapaZmen('${_onEsc(item.itemKey)}','konkretni',this)">
+            <select class="fi" style="font-size:.76rem;padding:6px 8px" onchange="mapaZmen('${_onEsc(item.itemKey)}','catId',this)">
+              <option value="">— kategorie —</option>${_katOpt((_mapaZaznamy[item.itemKey]||{}).catId)}
+            </select>
+            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Podkategorie"
+              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).subcat||'')}"
+              onchange="mapaZmen('${_onEsc(item.itemKey)}','subcat',this)">
           </div>
         </div>`).join('')}
     </div>`;

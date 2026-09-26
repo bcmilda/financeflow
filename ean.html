@@ -220,55 +220,84 @@ function vykresliHist(){
 /* ═══════════ KAMERA ═══════════ */
 let stream=null, bezi=false, detektor=null, zxing=null;
 async function pripravDetektor(){
+  //  S23 oprava (Milan): čtečka se připravuje AŽ PO zapnutí kamery.
+  //  Dřív se nejdřív stahovala knihovna z internetu, a když se to nepovedlo,
+  //  kamera se vůbec nezapnula – hláška pak mluvila o kameře, i když problém
+  //  byl jinde. Když čtečka selže, kamera běží dál a kód jde opsat ručně.
   if('BarcodeDetector' in window){
-    const f=await window.BarcodeDetector.getSupportedFormats();
-    if(f.includes('ean_13')){ detektor=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}); return 'nativní čtečka prohlížeče'; }
+    try{
+      const f=await window.BarcodeDetector.getSupportedFormats();
+      if(f.includes('ean_13')){ detektor=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}); return 'čtečka prohlížeče'; }
+    }catch(e){}
   }
-  //  Záloha pro prohlížeče bez vestavěné čtečky (iPhone, starší Android).
-  await new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js';
-    s.onload=res; s.onerror=()=>rej(new Error('Nepodařilo se načíst čtečku (jsi online?)'));
-    document.head.appendChild(s);
-  });
-  zxing=new window.ZXingBrowser.BrowserMultiFormatReader();
-  return 'záložní čtečka ZXing';
+  const zdroje=['https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
+                'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js'];
+  for(const url of zdroje){
+    try{
+      await new Promise((res,rej)=>{ const sc=document.createElement('script');
+        sc.src=url; sc.onload=res; sc.onerror=()=>rej(new Error('x')); document.head.appendChild(sc); });
+      zxing=new window.ZXingBrowser.BrowserMultiFormatReader();
+      return 'záložní čtečka';
+    }catch(e){}
+  }
+  return null;   // kamera poběží, čtení bude ruční
 }
 
+//  Krátká diagnostika do stránky – ze screenshotu je hned vidět, co chybí.
+function diagnostika(chyba){
+  const b=[];
+  b.push(window.isSecureContext?'https ✓':'https ✗');
+  b.push(('mediaDevices' in navigator)?'kamera API ✓':'kamera API ✗');
+  b.push(('BarcodeDetector' in window)?'čtečka ✓':'čtečka ✗ (stáhne se záložní)');
+  if(chyba) b.push('chyba: '+chyba);
+  return b.join(' · ');
+}
+window.diagnostika=diagnostika;
+
 async function start(){
-  $('stavKam').textContent='⏳ Spouštím kameru…'; $('stavKam').className='stav';
+  $('stavKam').textContent='⏳ Žádám o přístup ke kameře…'; $('stavKam').className='stav';
+  //  1) NEJDŘÍV kamera – Android chce, aby žádost přišla hned po kliknutí.
   try{
-    const jak=await pripravDetektor();
     try{
       stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
     }catch(e1){
-      if(e1.name==='OverconstrainedError') stream=await navigator.mediaDevices.getUserMedia({video:true});
+      if(e1.name==='OverconstrainedError'||e1.name==='NotFoundError') stream=await navigator.mediaDevices.getUserMedia({video:true});
       else throw e1;
     }
-    const v=$('video'); v.srcObject=stream; v.classList.remove('hid'); await v.play();
-    $('bStart').classList.add('hid'); $('bStop').classList.remove('hid');
-    const track=stream.getVideoTracks()[0];
-    if(track.getCapabilities && track.getCapabilities().torch) $('bSvetlo').classList.remove('hid');
-    $('stavKam').textContent='📷 Miř na čárový kód · '+jak;
-    bezi=true;
-    if(detektor) smyckaNativni(); else smyckaZxing();
   }catch(e){
-    //  „Permission denied" sama o sobě neporadí nic – ke každé chybě patří,
-    //  co s ní uživatel může udělat.
-    const jm=e.name||'', rady={
-      NotAllowedError:'Prohlížeč nepustil kameru. V Chromu ťukni na ikonu zámku vlevo v adresním řádku → Oprávnění → Kamera → Povolit, pak stránku načti znovu. Pokud tam kamera není, zkontroluj i Nastavení Androidu → Aplikace → Chrome → Oprávnění → Fotoaparát.',
+    const rady={
+      NotAllowedError:'Kameru zablokoval prohlížeč nebo systém. V Chromu: tři tečky vpravo nahoře → Nastavení → Nastavení webů → Fotoaparát → povolit pro financeflow.cz. A v Androidu: Nastavení → Aplikace → Chrome → Oprávnění → Fotoaparát.',
       NotFoundError:'Zařízení nehlásí žádnou kameru.',
-      NotReadableError:'Kameru drží jiná aplikace – zavři ji (i fotoaparát na pozadí) a zkus znovu.',
-      OverconstrainedError:'Zadní kamera není dostupná, zkus to znovu – použije se jakákoli.',
-      SecurityError:'Kamera jde jen přes https. Otevři stránku jako https://financeflow.cz/ean.html.',
+      NotReadableError:'Kameru drží jiná aplikace – zavři fotoaparát i ostatní appky a zkus znovu.',
+      SecurityError:'Kamera jde jen přes https (https://financeflow.cz/ean.html).',
+      AbortError:'Systém přístup ke kameře přerušil, zkus to znovu.',
     };
-    const rada=rady[jm]||e.message;
-    $('stavKam').innerHTML='⚠️ '+rada.replace(/</g,'&lt;')+
-      '<div style="margin-top:8px;color:var(--muted)">Kód můžeš zatím zadat ručně v políčku níže – funguje úplně stejně.</div>';
+    $('stavKam').innerHTML='⚠️ '+String(rady[e.name]||e.message||'Kameru se nepodařilo spustit').replace(/</g,'&lt;')
+      +'<div style="margin-top:8px;color:var(--muted)">Kód zatím opiš do políčka níže – najde se úplně stejně.</div>'
+      +'<div style="margin-top:6px;font-size:.72rem;color:var(--muted)">'+diagnostika(e.name||'?')+'</div>';
     $('stavKam').className='stav err';
-    stop();
+    stop(); return;
   }
+  //  2) obraz ukážeme hned, ať je vidět, že kamera jede
+  const v=$('video'); v.srcObject=stream; v.classList.remove('hid');
+  try{ await v.play(); }catch(e){}
+  $('bStart').classList.add('hid'); $('bStop').classList.remove('hid');
+  const track=stream.getVideoTracks()[0];
+  try{ if(track.getCapabilities && track.getCapabilities().torch) $('bSvetlo').classList.remove('hid'); }catch(e){}
+  //  3) teprve teď čtečka
+  $('stavKam').textContent='⏳ Připravuji čtečku…';
+  const jak=await pripravDetektor();
+  if(!jak){
+    $('stavKam').innerHTML='📷 Kamera běží, ale čtečku se nepodařilo načíst (jsi online?).'
+      +'<div style="margin-top:6px;color:var(--muted)">Opiš čísla pod kódem do políčka níže.</div>'
+      +'<div style="margin-top:6px;font-size:.72rem;color:var(--muted)">'+diagnostika('')+'</div>';
+    $('stavKam').className='stav err'; return;
+  }
+  $('stavKam').textContent='📷 Miř na čárový kód · '+jak;
+  bezi=true;
+  if(detektor) smyckaNativni(); else smyckaZxing();
 }
+
 async function smyckaNativni(){
   const v=$('video');
   while(bezi){

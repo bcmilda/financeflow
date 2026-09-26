@@ -1,4 +1,4 @@
-// FinanceFlow · v11.02 · projects.js · 2026-09-25
+// FinanceFlow · v11.03 · projects.js · 2026-09-25
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5625,7 +5625,7 @@ function renderDetektor() {
     (S.receipts||[]).forEach(r => {
       const rd = new Date(r.date||''); if(isNaN(rd) || rd < cut) return;
       (r.items||[]).forEach(it => {
-        const key = (it.name||'').trim().toLowerCase().replace(/\d+\s*(g|kg|ml|l|ks)\b/g,'').replace(/\s+/g,' ').trim().slice(0,25);
+        const key = normName(it.name);   // S23 (PLAN F1): jednotný klíč
         if(key.length < 3) return;
         if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
         agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));

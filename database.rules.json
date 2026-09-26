@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v10.71 · 2026-09-16 (S22: novy uzel receipt_reports – hlaseni spatne prectene uctenky, pise prihlaseny uzivatel do sveho podstromu, cte jen admin. S21: uzel deletedAccounts – nahrobky smazanych uctu, pise vlastnik jen jednou, cte jen admin. Zbytek viz predchozi hlavicka.)
+// FinanceFlow · database rules · v11.04 · 2026-09-25 (S23: novy uzel community/productMap – Mapa polozek: cte kazdy prihlaseny, zapisuje jen admin.)
 {
   "rules": {
     "users": {
@@ -231,6 +231,22 @@
           "$tag": {
             ".validate": "newData.isNumber()"
           }
+        }
+      },
+      "_comment_productMap": "S23: Mapa polozek. Cte kazdy prihlaseny (navrhy se zobrazuji v appce), ZAPISUJE JEN ADMIN - spatne mapovani by se propsalo vsem. Osobni volba uzivatele zustava v users/{uid}/data/productPrefs.",
+      "productMap": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$klic": {
+          ".validate": "newData.hasChildren(['obecny']) && newData.child('obecny').isString() && newData.child('obecny').val().length <= 40",
+          "obecny":    { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "konkretni": { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "produkt":   { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "catId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "subcat":    { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "coicop":    { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 13" },
+          "kdy":       { ".validate": "newData.isNumber()" },
+          "$jine": { ".validate": false }
         }
       },
       "itemTagValidation": {

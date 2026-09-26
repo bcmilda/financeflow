@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · helpers.js · 2026-09-21
+// FinanceFlow · v11.03 · helpers.js · 2026-09-25
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -907,6 +907,53 @@ function sectionCard(title, bodyHtml, opts = {}) {
 }
 
 // Bezpečný escape pro vkládání textu do HTML (sdílený helper).
+// ══════════════════════════════════════════════════════
+//  S23 (PLAN-mapa-produktu, F1): JEDNA NORMALIZACE NÁZVŮ PRO CELOU APPKU
+//  Dosud se klíč položky počítal na devíti místech ve čtyřech různých verzích
+//  (jedna neřešila jednotky vůbec, jiná ořezávala na 25 nebo 40 znaků, každá
+//  měla jiný seznam jednotek). Stejná položka proto žila pod několika klíči –
+//  co sis namapoval v editoru, sledování cen nenašlo.
+//
+//  normName()  → klíč BEZ množství: „ROHLÍK 43G" i „Rohlik 43 g" → „rohlik"
+//  normQty()   → množství zvlášť: {hodnota:43, jednotka:'g'} (NEZAHAZUJE se,
+//                shrinkflace i cena za kg ho potřebují)
+//  normKey()   → klíč VČETNĚ množství pro případy, kde jsou různá balení
+//                různé výrobky: „rohlik 43g"
+// ══════════════════════════════════════════════════════
+const NORM_JEDNOTKY_RE = /(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|dl|cl|ml|ks|x|cm|mm|m)\b/;
+const NORM_JEDNOTKY_RE_G = /\d+(?:[.,]\d+)?\s*(kg|g|mg|l|dl|cl|ml|ks|x|cm|mm|m)\b/g;
+
+function normQty(text) {
+  const m = String(text || '').toLowerCase().replace(',', '.').match(NORM_JEDNOTKY_RE);
+  if (!m) return null;
+  let h = parseFloat(m[1]), j = m[2];
+  if (j === 'kg') { h *= 1000; j = 'g'; }
+  else if (j === 'mg') { h /= 1000; j = 'g'; }
+  else if (j === 'l') { h *= 1000; j = 'ml'; }
+  else if (j === 'dl') { h *= 100; j = 'ml'; }
+  else if (j === 'cl') { h *= 10; j = 'ml'; }
+  else if (j === 'm') { h *= 100; j = 'cm'; }
+  else if (j === 'mm') { h /= 10; j = 'cm'; }
+  if (!isFinite(h) || h <= 0) return null;
+  return { hodnota: Math.round(h * 1000) / 1000, jednotka: j };
+}
+
+function normName(text) {
+  return String(text || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')      // diakritika pryč
+    .replace(NORM_JEDNOTKY_RE_G, ' ')                        // množství pryč
+    .replace(/\d+(?:[.,]\d+)?\s*%/g, ' ')                   // „mléko 1,5 %" → mléko
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+function normKey(text) {
+  const n = normName(text), q = normQty(text);
+  return q ? n + ' ' + q.hodnota + q.jednotka : n;
+}
+
+window.normName = normName; window.normQty = normQty; window.normKey = normKey;
+
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

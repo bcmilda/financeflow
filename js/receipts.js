@@ -1,4 +1,4 @@
-// FinanceFlow · v11.01 · receipts.js · 2026-09-24
+// FinanceFlow · v11.03 · receipts.js · 2026-09-25
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -207,9 +207,10 @@ function renderUctenky() {
     //  S23: obecný název (oddělení místo výrobku) se do sledování cen nepouští.
     if(rpIsGenericName(it.name)){ _genericSkipped++; _genericNames.add(it.name||'bez názvu'); return; }
     const rawName = (it.name||'').toLowerCase().trim();
-    const key = rawName
-      .replace(/\d+\s*(g|kg|ml|l|ks|cm|mm)\b/g, '')
-      .replace(/\s+/g, ' ').trim().slice(0, 25);
+    //  S23 (PLAN F1): jednotná normalizace z helpers.js. Množství se z klíče
+    //  odstraní schválně (aby 100 g a 90 g téhož výrobku patřily k sobě a šla
+    //  poznat shrinkflace), ale NEZAHAZUJE se – bere se vedle jako originalWeight.
+    const key = normName(it.name);
     if(key.length < 3) return;
 
     const qty = Math.max(0.001, it.qty || 1);
@@ -2885,7 +2886,7 @@ async function updateItemStats(items, date) {
 
   for(const it of items) {
     const rawName = (it.name||'').toLowerCase().trim();
-    const key = rawName
+    const key = normName(it.name) || rawName
       .replace(/\d+\s*(g|kg|ml|l|ks|cm|mm)\b/g,'')
       .replace(/[^a-záčďéěíňóřšťúůýž0-9\s]/g,'')
       .replace(/\s+/g,' ').trim().slice(0,30);
@@ -3113,8 +3114,10 @@ function rpRender() {
 async function saveItemTagMapping(itemName, tag) {
   if(!itemName || !tag) return;
   // Klíč: lowercase, bez diakritiky, bez speciálních znaků, max 30 znaků
-  const key = itemName.toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // diakritika
+  //  S23 (PLAN F1): jednotný klíč – tagy položek jsou základ „obecného názvu"
+  //  v budoucí Mapě produktů, takže musí sedět s ostatními místy.
+  const key = normName(itemName) || itemName.toLowerCase().trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/\d+\s*(g|kg|ml|l|ks)\b/g,'')
     .replace(/[^a-z0-9\s]/g,'')
     .replace(/\s+/g,'_').trim().replace(/_+$/,'').slice(0,30);

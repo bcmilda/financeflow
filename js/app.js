@@ -1,4 +1,4 @@
-// FinanceFlow · v10.64 · app.js · 2026-09-12
+// FinanceFlow · v11.03 · app.js · 2026-09-25
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -418,9 +418,20 @@ let S = {transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:
 // Hodnota = {catId, subcat, count, updatedAt}
 let _catMappingsCache = null; // null = nenačteno, {} = načteno (i prázdné)
 
+//  S23 (PLAN F1): klíč se počítá jedinou funkcí normName() z helpers.js.
+//  Starý klíč nechával v názvu množství („rohlik 43g"), takže se stejná
+//  položka rozcházela se sledováním cen. Nový je bez množství („rohlik").
 function normalizeMappingKey(name) {
+  return (typeof normName === 'function')
+    ? normName(name)
+    : (name||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
+}
+
+//  Klíč podle PŮVODNÍ verze – jen pro čtení už uložených záznamů (viz níže).
+function normalizeMappingKeyStary(name) {
   return (name||'').toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // diakritika
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
 }
 
@@ -469,8 +480,12 @@ async function saveCategoryMapping(txName, catId, subcat) {
 
 function lookupCategoryMapping(txName) {
   if(!_catMappingsCache) return null;
+  //  S23 (PLAN F1): nejdřív nový klíč, a když nic, zkusí se i ten starý.
+  //  Díky tomu se nikomu neztratí, co si dosud namapoval – přechod není znát.
   const key = normalizeMappingKey(txName);
-  return _catMappingsCache[key] || null;
+  if (_catMappingsCache[key]) return _catMappingsCache[key];
+  const stary = normalizeMappingKeyStary(txName);
+  return (stary !== key && _catMappingsCache[stary]) ? _catMappingsCache[stary] : null;
 }
 
 // Načti mappings po přihlášení
