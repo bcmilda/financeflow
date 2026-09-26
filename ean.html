@@ -10,7 +10,10 @@
 <style>
 /*  FinanceFlow · samostatný detektor čárových kódů · S23 · 2026-09-24
     Test před zapojením do appky (PLAN-mapa-produktu.md, fáze F5).
-    Běží mimo appku, nic neukládá do Firebase – jen do localStorage prohlížeče.  */
+    Běží mimo appku, nic neukládá do Firebase – jen do localStorage prohlížeče.
+    S24 · 2026-09-26: kameru blokovala hlavička Permissions-Policy v firebase.json
+    (camera=()), neznámý kód hlásil „Server odpověděl 404" místo „není v databázi",
+    hledá se i v sesterských databázích (drogerie, ostatní zboží, krmivo).  */
 :root{--bg:#0f1117;--card:#161a23;--card2:#1c2230;--line:#242a37;--text:#e8eaf2;--muted:#a8aec8;
       --zel:#4ade80;--mod:#60a5fa;--cerv:#f87171;--zlut:#fbbf24}
 *{box-sizing:border-box}
@@ -48,7 +51,7 @@ a{color:var(--mod)}
 <body>
 <div class="wrap">
   <h1>📷 Detektor EAN</h1>
-  <div class="sub">Test pro Mapu obchodních produktů · data: Open Food Facts</div>
+  <div class="sub">Test pro Mapu obchodních produktů · data: Open Food Facts a sesterské databáze</div>
 
   <div class="card">
     <div class="row">
@@ -77,7 +80,8 @@ a{color:var(--mod)}
 
   <div class="pozn">
     Stránka nic neposílá do FinanceFlow — historie se drží jen v tomhle prohlížeči.
-    Data o výrobcích jsou z <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a> (licence ODbL).
+    Data o výrobcích jsou z <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>,
+    Open Beauty Facts, Open Products Facts a Open Pet Food Facts (licence ODbL).
     Pokrytí je nejlepší u potravin; u drogerie bývá slabší a u spotřebičů většinou chybí.
   </div>
 </div>
@@ -143,42 +147,71 @@ function navrhZOFF(p){
 //  POZN. PRO OSTROU VERZI: Open Food Facts chce vlastní hlavičku User-Agent,
 //  kterou prohlížeč nastavit neumí. V appce proto povede dotaz přes Cloudflare
 //  Worker – ten hlavičku doplní a odpověď si nakešuje. Tady se volá napřímo.
+//
+//  S24 OPRAVA: neznámý kód NEVRACÍ jen „200 + status:0" (to platí pro neplatný
+//  kód), ale u platného kódu, který databáze nezná, vrací HTTP 404 s tělem
+//  {status:0,"product not found"}. Dřív se to hlásilo jako chyba serveru.
+//  Teď se čte tělo vždy a 404 = „výrobek tu není".
+const DATABAZE=[
+  {jm:'Open Food Facts',     host:'https://world.openfoodfacts.org'},
+  {jm:'Open Beauty Facts',   host:'https://world.openbeautyfacts.org'},    // drogerie, kosmetika
+  {jm:'Open Products Facts', host:'https://world.openproductsfacts.org'},  // ostatní zboží
+  {jm:'Open Pet Food Facts', host:'https://world.openpetfoodfacts.org'},   // krmivo
+];
+
+async function dotaz(db, ean){
+  let r;
+  try{ r=await fetch(`${db.host}/api/v2/product/${encodeURIComponent(ean)}.json`); }
+  catch(e){ return {chyba:'nedostupné'}; }
+  let d=null; try{ d=await r.json(); }catch(e){}
+  if(d && d.status===1 && d.product) return {product:d.product};
+  if(r.status===404 || (d && d.status===0)) return {nenalezeno:true};
+  return {chyba:'HTTP '+r.status};
+}
+
+//  Ptá se všech databází naráz; vyhrává první v pořadí DATABAZE, která výrobek zná.
 async function najdi(ean){
-  const url=`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(ean)}.json`;
-  const r=await fetch(url);
-  if(!r.ok) throw new Error('Server odpověděl '+r.status);
-  const d=await r.json();
-  //  POZOR: neexistující kód vrací HTTP 200 a v těle status:0.
-  //  Kdo hlídá jen stavový kód, uloží si prázdnotu jako výrobek.
-  if(!d || d.status===0 || !d.product) return null;
-  return d.product;
+  const vys=await Promise.all(DATABAZE.map(db=>dotaz(db,ean)));
+  const i=vys.findIndex(v=>v.product);
+  if(i>=0) return {product:vys[i].product, zdroj:DATABAZE[i].jm};
+  const chyby=vys.map((v,j)=>v.chyba?DATABAZE[j].jm+': '+v.chyba:null).filter(Boolean);
+  return {product:null, chyby, vsechnyChyba: chyby.length===DATABAZE.length};
 }
 
 /* ═══════════ UI ═══════════ */
 const $=id=>document.getElementById(id);
 const stav=(t,trida)=>{ const el=$('stav'); el.textContent=t; el.className='stav '+(trida||''); };
 
+const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 async function zpracuj(ean, zdroj){
   ean=String(ean).replace(/\D/g,'');
   if(!eanPlatny(ean)){ stav('❌ Neplatný kód '+ean+' – nesedí kontrolní číslice.','err'); return; }
-  stav('⏳ Hledám '+ean+' …');
-  let p=null, chyba=null;
-  try{ p=await najdi(ean); }catch(e){ chyba=e.message; }
-  if(chyba){ stav('⚠️ '+chyba,'err'); return; }
-  if(!p){
-    stav('🤷 Kód '+ean+' v databázi není (to je u nepotravinového zboží běžné).','err');
-    ulozHist({ean, nazev:'nenalezeno', kdy:Date.now()});
+  stav('⏳ Hledám '+ean+' ve 4 databázích…');
+  const v=await najdi(ean);
+  if(!v.product){
     $('vysledek').classList.add('hid');
+    if(v.vsechnyChyba){
+      stav('⚠️ Databáze se nepodařilo zavolat ('+v.chyby.join(' · ')+'). Jsi online?','err');
+      return;
+    }
+    const el=$('stav');
+    el.className='stav err';
+    el.innerHTML='🤷 Kód '+esc(ean)+' zatím nezná žádná ze 4 databází. Hledání funguje – jen tenhle výrobek '
+      +'ještě nikdo nezapsal (u českých výrobků a drogerie běžné).'
+      +(v.chyby.length?'<div style="margin-top:4px;font-size:.72rem">Nedostupné: '+esc(v.chyby.join(' · '))+'</div>':'')
+      +'<div style="margin-top:6px"><a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code='
+      +encodeURIComponent(ean)+'" target="_blank" rel="noopener">➕ Přidat výrobek do Open Food Facts</a></div>';
+    ulozHist({ean, nazev:'nenalezeno', kdy:Date.now()});
     return;
   }
-  const n=navrhZOFF(p);
-  stav('✅ Nalezeno'+(zdroj==='kamera'?' z kamery':'')+' za '+ean,'ok');
-  vykresli(ean,p,n);
+  const n=navrhZOFF(v.product);
+  stav('✅ Nalezeno'+(zdroj==='kamera'?' z kamery':'')+' · '+ean+' · '+v.zdroj,'ok');
+  vykresli(ean,v.product,n,v.zdroj);
   ulozHist({ean, nazev:n.produkt, kdy:Date.now()});
 }
 
-function vykresli(ean,p,n){
-  const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function vykresli(ean,p,n,db){
   const zaznam={ ean, produkt:n.produkt, znacka:n.znacka||undefined,
     mnozstvi:n.mnozstvi||undefined, coicop:n.coicop||undefined,
     obecny:n.obecny||undefined, klic:n.klic, zdroj:'ean' };
@@ -188,7 +221,7 @@ function vykresli(ean,p,n){
       ${p.image_front_small_url?`<img class="foto" src="${esc(p.image_front_small_url)}" alt="">`:''}
       <div style="flex:1;min-width:0">
         <b style="font-size:1rem">${esc(n.produkt)}</b>
-        <div style="color:var(--muted);font-size:.82rem">${esc(n.znacka||'bez značky')} · ${esc(ean)}</div>
+        <div style="color:var(--muted);font-size:.82rem">${esc(n.znacka||'bez značky')} · ${esc(ean)} · ${esc(db)}</div>
       </div>
     </div>
     <dl style="margin-top:12px">
@@ -200,8 +233,10 @@ function vykresli(ean,p,n){
     <div style="margin-top:10px">${(p.categories||'').split(',').slice(0,6).map(t=>`<span class="tag">${esc(t.trim())}</span>`).join('')}</div>
     <pre>${esc(JSON.stringify(zaznam,null,2))}</pre>
     <div class="row" style="margin-top:8px">
-      <button onclick='navigator.clipboard.writeText(${JSON.stringify(JSON.stringify(zaznam,null,2))}).then(()=>stav("📋 Zkopírováno","ok"))'>📋 Zkopírovat JSON</button>
+      <button id="bKopie">📋 Zkopírovat JSON</button>
     </div>`;
+  $('bKopie').onclick=()=>navigator.clipboard.writeText(JSON.stringify(zaznam,null,2))
+    .then(()=>stav('📋 Zkopírováno','ok')).catch(()=>stav('Kopírování se nepovedlo','err'));
 }
 
 /* ═══════════ HISTORIE ═══════════ */
@@ -214,7 +249,7 @@ function ulozHist(z){
 function vykresliHist(){
   const h=hist();
   $('histCard').classList.toggle('hid', !h.length);
-  $('hist').innerHTML=h.map(x=>`<div><b>${x.nazev}</b><span style="color:var(--muted);margin-left:auto">${x.ean}</span></div>`).join('');
+  $('hist').innerHTML=h.map(x=>`<div><b>${esc(x.nazev)}</b><span style="color:var(--muted);margin-left:auto">${esc(x.ean)}</span></div>`).join('');
 }
 
 /* ═══════════ KAMERA ═══════════ */
@@ -243,10 +278,23 @@ async function pripravDetektor(){
   return null;   // kamera poběží, čtení bude ruční
 }
 
+//  S24: server může kameru zakázat hlavičkou Permissions-Policy. Prohlížeč pak
+//  vrátí NotAllowedError BEZ dotazu – vypadá to jako zamítnuté oprávnění v Chromu,
+//  ale v nastavení telefonu nic nepomůže. true / false / null (nejde zjistit).
+function politikaKamery(){
+  try{
+    const pp=document.permissionsPolicy||document.featurePolicy;
+    if(pp && pp.allowsFeature) return pp.allowsFeature('camera');
+  }catch(e){}
+  return null;
+}
+
 //  Krátká diagnostika do stránky – ze screenshotu je hned vidět, co chybí.
 function diagnostika(chyba){
   const b=[];
   b.push(window.isSecureContext?'https ✓':'https ✗');
+  const pol=politikaKamery();
+  if(pol!==null) b.push(pol?'server kameru povoluje ✓':'server kameru ZAKAZUJE ✗');
   b.push(('mediaDevices' in navigator)?'kamera API ✓':'kamera API ✗');
   b.push(('BarcodeDetector' in window)?'čtečka ✓':'čtečka ✗ (stáhne se záložní)');
   if(chyba) b.push('chyba: '+chyba);
@@ -265,6 +313,7 @@ async function start(){
       else throw e1;
     }
   }catch(e){
+    const zakazServer=(e.name==='NotAllowedError' && politikaKamery()===false);
     const rady={
       NotAllowedError:'Kameru zablokoval prohlížeč nebo systém. V Chromu: tři tečky vpravo nahoře → Nastavení → Nastavení webů → Fotoaparát → povolit pro financeflow.cz. A v Androidu: Nastavení → Aplikace → Chrome → Oprávnění → Fotoaparát.',
       NotFoundError:'Zařízení nehlásí žádnou kameru.',
@@ -272,7 +321,10 @@ async function start(){
       SecurityError:'Kamera jde jen přes https (https://financeflow.cz/ean.html).',
       AbortError:'Systém přístup ke kameře přerušil, zkus to znovu.',
     };
-    $('stavKam').innerHTML='⚠️ '+String(rady[e.name]||e.message||'Kameru se nepodařilo spustit').replace(/</g,'&lt;')
+    const text=zakazServer
+      ? 'Kameru zakazuje web sám (hlavička Permissions-Policy ve firebase.json). V telefonu nic neměň – je potřeba nasadit opravený firebase.json.'
+      : (rady[e.name]||e.message||'Kameru se nepodařilo spustit');
+    $('stavKam').innerHTML='⚠️ '+String(text).replace(/</g,'&lt;')
       +'<div style="margin-top:8px;color:var(--muted)">Kód zatím opiš do políčka níže – najde se úplně stejně.</div>'
       +'<div style="margin-top:6px;font-size:.72rem;color:var(--muted)">'+diagnostika(e.name||'?')+'</div>';
     $('stavKam').className='stav err';
@@ -338,6 +390,10 @@ vykresliHist();
 if(!('mediaDevices' in navigator)){
   $('bStart').disabled=true;
   $('stavKam').textContent='Kamera není dostupná (stránka musí běžet na https nebo localhost).';
+}else if(politikaKamery()===false){
+  $('bStart').disabled=true;
+  $('stavKam').className='stav err';
+  $('stavKam').textContent='⚠️ Web má kameru vypnutou hlavičkou Permissions-Policy (firebase.json). Po nasazení opraveného firebase.json se tlačítko odemkne. Ruční zadání funguje i teď.';
 }
 </script>
 </body>
