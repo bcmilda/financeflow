@@ -1,4 +1,4 @@
-// FinanceFlow · v11.05 · admin.js · 2026-09-26
+// FinanceFlow · v11.06 · admin.js · 2026-09-27
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.06',
+    datum: '2026-09-27',
+    zmeny: [
+      '📷 ČÁROVÝ KÓD K POLOŽCE ÚČTENKY (TODO-308) · cesta: Účtenky → 📸 Skenovat → editor účtenky → tlačítko 📷 u položky. Živá kamera, nebo „📸 Vyfotit kód" (kód se přečte z fotky) – bez ručního psaní. Ukáže název, značku, gramáž, obecný → konkrétní název, Nutri-Score, NOVA a štítky (bio, vegan…). „✅ Přiřadit k položce" uloží kód k položce (u položky pak ✅) a spojení „obchod + zkratka z účtenky → EAN". Kódy obchodu (prefix 2 – vážené zboží, pečivo) se nepárují.',
+      '☁️ Worker v11.06: nový endpoint POST /ean (TODO-306). Hledá ve 4 databázích (Open Food Facts, Beauty, Products, Pet Food) s povinným User-Agentem, výsledek uloží do community/eanProdukty – na stejný kód se komunita ptá jen jednou (nalezený 90 dní, nenalezený 14 dní). Výpadek databází se neukládá. Spojení obchod+zkratka → community/eanAliasy + opačný index eanPodleNazvu, BEZ uid; počet potvrzení roste jen jednou za uživatele (jeho záznam v users/{uid}/eanAliasy). Limit 200 dotazů/hod na uživatele.',
+      '🔒 Pravidla: community/eanProdukty, eanAliasy, eanPodleNazvu – číst smí přihlášený, zapisuje jen worker.',
+      '🧪 tools/smoke_ean_sken.js (16) a tools/smoke_worker_ean.js (20).',
+    ]
+  },
   {
     verze: 'v11.05',
     datum: '2026-09-26',

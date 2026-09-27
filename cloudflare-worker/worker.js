@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v10.97 · 2026-09-22  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.06 · 2026-09-27  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -401,6 +401,224 @@ async function handleArchiv(request, env, corsHeaders, akce) {
   }
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD → VÝROBEK
+//  POST /ean  {ean, potvrdit?, obchod?, raw?, klic?}   (Firebase token)
+//
+//  1) Výrobek se hledá nejdřív v community/eanProdukty/{ean} – tam ho uložil
+//     worker, když se na kód ptal kdokoli dřív. Na stejný kód se tedy celá
+//     komunita ptá databází jen jednou (nalezený 90 dní, nenalezený 14 dní).
+//  2) Jinak paralelně 4 databáze Open Food Facts se stejným API. Vyžadují
+//     vlastní User-Agent – ten umí nastavit jen server, proto to jde přes worker.
+//     Pozor: platný kód, který databáze nezná, vrací HTTP 404 (ne chybu).
+//  3) potvrdit:true = uživatel přiřadil kód k položce účtenky → uloží se
+//     spojení „obchod + zkratka z účtenky → EAN" (community/eanAliasy),
+//     BEZ uid. Počet potvrzení roste jen jednou za uživatele: jeho vlastní
+//     záznam leží v users/{uid}/eanAliasy/{klic} a čte ho jen on a server.
+//  Klient do komunitních uzlů nezapisuje nikdy (pravidla: .write false).
+// ══════════════════════════════════════════════════════
+const EAN_DATABAZE = [
+  { jm: 'Open Food Facts',     host: 'https://world.openfoodfacts.org' },
+  { jm: 'Open Beauty Facts',   host: 'https://world.openbeautyfacts.org' },
+  { jm: 'Open Products Facts', host: 'https://world.openproductsfacts.org' },
+  { jm: 'Open Pet Food Facts', host: 'https://world.openpetfoodfacts.org' },
+];
+const EAN_UA = 'FinanceFlow/1.0 (info@financeflow.cz)';
+const EAN_PLATNOST_OK  = 90 * 86400000;
+const EAN_PLATNOST_NIC = 14 * 86400000;
+const EAN_LIMIT_HODINA = 200;
+const EAN_POLE = [
+  'product_name','product_name_cs','product_name_en','generic_name','generic_name_cs','lang',
+  'brands','quantity','product_quantity','product_quantity_unit','categories_hierarchy',
+  'image_front_small_url','image_front_url','nutriscore_grade','nova_group','ecoscore_grade',
+  'ingredients_text','ingredients_text_cs','allergens_tags','additives_tags','nutriments',
+  'labels_tags','countries_tags',
+].join(',');
+
+function eanPlatny(kod) {
+  const s = String(kod || '');
+  if (!/^\d+$/.test(s) || ![8, 12, 13, 14].includes(s.length)) return false;
+  const c = s.split('').map(Number), k = c.pop();
+  let sum = 0; c.reverse().forEach((n, i) => { sum += n * (i % 2 === 0 ? 3 : 1); });
+  return (10 - (sum % 10)) % 10 === k;
+}
+//  Kódy s prefixem 2 si tiskne obchod sám (vážené zboží, pečivo, často s cenou
+//  nebo váhou uvnitř). Mezi obchody nic nespojují → nehledat, nepárovat.
+function eanObchodni(s) { return (s.length === 13 || s.length === 8) && s[0] === '2'; }
+
+function eanMnozstvi(p) {
+  const zText = (t) => {
+    const s = String(t || '').toLowerCase().replace(',', '.');
+    const m = s.match(/(\d+(?:\.\d+)?)\s*(kg|g|mg|l|dl|cl|ml)\b/);
+    if (!m) return null;
+    let h = parseFloat(m[1]), j = m[2];
+    if (j === 'kg') { h *= 1000; j = 'g'; } else if (j === 'mg') { h /= 1000; j = 'g'; }
+    else if (j === 'l') { h *= 1000; j = 'ml'; } else if (j === 'dl') { h *= 100; j = 'ml'; }
+    else if (j === 'cl') { h *= 10; j = 'ml'; }
+    return isFinite(h) && h > 0 ? { hodnota: Math.round(h * 100) / 100, jednotka: j } : null;
+  };
+  //  Pořadí: vyplněné množství → číselné pole → gramáž v názvu výrobku.
+  return zText(p.quantity)
+    || (p.product_quantity ? zText(p.product_quantity + ' ' + (p.product_quantity_unit || 'g')) : null)
+    || zText(p.product_name_cs || p.product_name);
+}
+
+function eanCoicop(tagy) {
+  const s = (tagy || []).join(' ');
+  if (/alcoholic|beers|wines|spirits|tobacco/i.test(s)) return 2;
+  if (/beauty|hygiene|cosmetic|personal-care|toothpaste|shampoo|soap/i.test(s)) return 13;
+  if (/cleaning|household|laundry|dishwash/i.test(s)) return 5;
+  if (/pet-food|cat-food|dog-food/i.test(s)) return 9;
+  if (/beverage|drinks|dairy|snack|cereal|meat|fish|fruit|vegetable|plant-based|groceries|bread|sugar|egg|food|sauce|spice|legume|pasta|noodle/i.test(s)) return 1;
+  return null;
+}
+//  „en:red-lentils" → „red lentils". Kategorie jsou anglicky; český překlad
+//  má databáze jen u části z nich – do mapy je přeloží admin.
+const eanTag = (t) => String(t || '').replace(/^[a-z]{2}:/, '').replace(/-/g, ' ').slice(0, 60);
+const eanStr = (t, max) => String(t == null ? '' : t).trim().slice(0, max);
+
+const EAN_STITKY = {
+  'en:organic': 'bio', 'en:eu-organic': 'bio', 'en:vegan': 'vegan', 'en:vegetarian': 'vegetariánské',
+  'en:no-gluten': 'bez lepku', 'en:gluten-free': 'bez lepku', 'en:no-lactose': 'bez laktózy',
+  'en:lactose-free': 'bez laktózy', 'en:fair-trade': 'fair trade', 'en:no-palm-oil': 'bez palmového oleje',
+};
+
+function eanNormalizuj(ean, p, zdroj) {
+  const kat = (p.categories_hierarchy || []).filter(Boolean);
+  const n = p.nutriments || {};
+  const cislo = (k) => { const v = parseFloat(n[k]); return isFinite(v) ? Math.round(v * 10) / 10 : null; };
+  const nazevCs = eanStr(p.product_name_cs, 100);
+  const nazev = nazevCs || eanStr(p.product_name, 100) || eanStr(p.product_name_en, 100);
+  const nutrice = {
+    kcal: cislo('energy-kcal_100g'), tuky: cislo('fat_100g'), nasycene: cislo('saturated-fat_100g'),
+    sacharidy: cislo('carbohydrates_100g'), cukry: cislo('sugars_100g'), vlaknina: cislo('fiber_100g'),
+    bilkoviny: cislo('proteins_100g'), sul: cislo('salt_100g'),
+  };
+  Object.keys(nutrice).forEach(k => { if (nutrice[k] === null) delete nutrice[k]; });
+  const grade = (g) => /^[a-e]$/.test(String(g || '')) ? g : null;
+  const o = {
+    ean, stav: 'nalezeno', zdroj, kdy: Date.now(),
+    nazev, nazevCesky: !!nazevCs,
+    znacka: eanStr(String(p.brands || '').split(',')[0], 60),
+    mnozstvi: eanMnozstvi(p),
+    kategorie: kat.slice(-6).map(eanTag),
+    obecny: kat.length > 1 ? eanTag(kat[kat.length - 2]) : '',
+    konkretni: kat.length ? eanTag(kat[kat.length - 1]) : '',
+    coicop: eanCoicop(kat),
+    foto: eanStr(p.image_front_small_url, 300), fotoVelka: eanStr(p.image_front_url, 300),
+    nutriscore: grade(p.nutriscore_grade), ekoskore: grade(p.ecoscore_grade),
+    nova: [1, 2, 3, 4].includes(Number(p.nova_group)) ? Number(p.nova_group) : null,
+    slozeni: eanStr(p.ingredients_text_cs || p.ingredients_text, 1500),
+    slozeniCesky: !!p.ingredients_text_cs,
+    alergeny: (p.allergens_tags || []).slice(0, 15).map(eanTag),
+    aditiva: (p.additives_tags || []).slice(0, 30).map(t => eanTag(t).split(' ')[0].toUpperCase()),
+    nutrice,
+    stitky: [...new Set((p.labels_tags || []).map(t => EAN_STITKY[t]).filter(Boolean))],
+  };
+  //  Firebase nesnese null ani prázdná pole – vyhodíme je, klient počítá s chybějícím klíčem.
+  Object.keys(o).forEach(k => {
+    if (o[k] === null || o[k] === '' || (Array.isArray(o[k]) && !o[k].length)
+      || (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) && !Object.keys(o[k]).length)) delete o[k];
+  });
+  return o;
+}
+
+async function eanZDatabazi(ean) {
+  const vys = await Promise.all(EAN_DATABAZE.map(async (db) => {
+    try {
+      const r = await fetch(`${db.host}/api/v2/product/${ean}.json?fields=${EAN_POLE}`,
+        { headers: { 'User-Agent': EAN_UA, 'Accept': 'application/json' } });
+      let d = null; try { d = await r.json(); } catch (e) {}
+      if (d && d.status === 1 && d.product) return { p: d.product, db };
+      if (r.status === 404 || (d && d.status === 0)) return { nic: true };
+      return { chyba: true };
+    } catch (e) { return { chyba: true }; }
+  }));
+  const hit = vys.find(v => v.p);
+  if (hit) return eanNormalizuj(ean, hit.p, hit.db.jm);
+  //  Když všechny databáze selhaly, NEukládat „nenalezeno" – jen dočasný výpadek.
+  if (vys.every(v => v.chyba)) return null;
+  return { ean, stav: 'nenalezeno', kdy: Date.now() };
+}
+
+async function handleEan(request, env, cors) {
+  const a = await archivAuth(request);
+  if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  const uid = a.uid;
+  //  Ochrana před zneužitím: max. EAN_LIMIT_HODINA dotazů za hodinu na uživatele.
+  try {
+    const cache = caches.default;
+    const k = new Request(`https://ff-ratelimit/ean/${uid}/${new Date().toISOString().slice(0, 13)}`);
+    const c = await cache.match(k);
+    const n = c ? parseInt(await c.text(), 10) || 0 : 0;
+    if (n >= EAN_LIMIT_HODINA) return json({ error: 'Příliš mnoho dotazů, zkus to za hodinu.' }, 429, cors);
+    await cache.put(k, new Response(String(n + 1), { headers: { 'Cache-Control': 'max-age=3600' } }));
+  } catch (e) {}
+
+  let body = {};
+  try { body = await request.json(); } catch (e) {}
+  const ean = String(body.ean || '').replace(/\D/g, '');
+  if (!eanPlatny(ean)) return json({ error: 'Neplatný kód' }, 400, cors);
+  if (eanObchodni(ean)) return json({ ok: true, ean, obchodni: true }, 200, cors);
+
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
+  const S = env.FIREBASE_DB_SECRET;
+  let produkt = null;
+  try {
+    const r = await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`);
+    const ulozeny = r.ok ? await r.json() : null;
+    if (ulozeny && ulozeny.kdy) {
+      const platnost = ulozeny.stav === 'nalezeno' ? EAN_PLATNOST_OK : EAN_PLATNOST_NIC;
+      if (Date.now() - ulozeny.kdy < platnost) produkt = ulozeny;
+    }
+  } catch (e) {}
+  if (!produkt) {
+    produkt = await eanZDatabazi(ean);
+    if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
+    try {
+      await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produkt) });
+    } catch (e) {}
+  }
+
+  //  Přiřazení kódu k položce účtenky (TODO-308).
+  let alias = null;
+  const klic = String(body.klic || '');
+  if (body.potvrdit && /^[a-z0-9_,-]{3,150}$/.test(klic)) {
+    try {
+      const mojeUrl = `${DB}/users/${uid}/eanAliasy/${klic}.json?auth=${S}`;
+      const moje = await (await fetch(mojeUrl)).json();
+      const aliasUrl = `${DB}/community/eanAliasy/${ean}/${klic}.json?auth=${S}`;
+      const byl = await (await fetch(aliasUrl)).json();
+      const novy = !moje || moje.ean !== ean;
+      const pocet = ((byl && byl.pocet) || 0) + (novy ? 1 : 0);
+      alias = {
+        obchod: eanStr(body.obchod, 40), raw: eanStr(body.raw, 80),
+        pocet: Math.max(pocet, 1), kdy: Date.now(),
+      };
+      await fetch(aliasUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alias) });
+      await fetch(`${DB}/community/eanPodleNazvu/${klic}/${ean}.json?auth=${S}`,
+        { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(alias.pocet) });
+      //  Uživatel přeřadil zkratku na jiný kód → u starého kódu ubrat jeho potvrzení.
+      if (moje && moje.ean && moje.ean !== ean && eanPlatny(moje.ean)) {
+        const staryUrl = `${DB}/community/eanAliasy/${moje.ean}/${klic}.json?auth=${S}`;
+        const stary = await (await fetch(staryUrl)).json();
+        if (stary && stary.pocet > 1) {
+          await fetch(staryUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pocet: stary.pocet - 1 }) });
+          await fetch(`${DB}/community/eanPodleNazvu/${klic}/${moje.ean}.json?auth=${S}`,
+            { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stary.pocet - 1) });
+        } else if (stary) {
+          await fetch(staryUrl, { method: 'DELETE' });
+          await fetch(`${DB}/community/eanPodleNazvu/${klic}/${moje.ean}.json?auth=${S}`, { method: 'DELETE' });
+        }
+      }
+      await fetch(mojeUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ean, kdy: Date.now() }) });
+    } catch (e) { alias = null; }
+  }
+  return json({ ok: true, ean, produkt, alias }, 200, cors);
+}
+
 // ===================================================
 export default {
   async fetch(request, env) {
@@ -474,6 +692,12 @@ export default {
     //  handleArchiv, proto musí být PŘED obecnou POST větví pro Claude API –
     //  ta by požadavek poslala do analýzy účtenky.
     //  S23 (TODO-295): hromadná zpráva uživatelům se souhlasem. Jen pro admina.
+    //  S24 (TODO-306): čárový kód → výrobek. Vlastní ověření tokenu, proto
+    //  PŘED obecnou POST větví (ta by kód poslala do Claude API).
+    if (request.method === 'POST' && new URL(request.url).pathname === '/ean') {
+      return handleEan(request, env, corsHeaders);
+    }
+
     if (request.method === 'POST' && new URL(request.url).pathname === '/mass-mail') {
       return handleMassMail(request, env, corsHeaders);
     }

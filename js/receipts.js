@@ -1,4 +1,4 @@
-// FinanceFlow · v11.05 · receipts.js · 2026-09-26
+// FinanceFlow · v11.06 · receipts.js · 2026-09-27
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3255,6 +3255,9 @@ function rpRender() {
             title="Vlastní tag (např. Kafe, Jogurt, Svačina...)"
             onfocus="this.placeholder=''"
             onblur="if(!this.value)this.placeholder='🏷️ tag'">
+          ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
+          <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
+            style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 6px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
         </div>`;
     });
@@ -3808,6 +3811,7 @@ function addReceiptAsTx(receipt) {
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
       lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
     })),
     receiptDate: receipt.date || '',
     receiptStore: receipt.store || '',
@@ -4067,6 +4071,7 @@ function syncReceiptToTransactions(r) {
         ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
       tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
     }));
     //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
     if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;
