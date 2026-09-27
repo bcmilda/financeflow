@@ -234,8 +234,8 @@
         }
       },
       // S23: Mapa polozek. Cte kazdy prihlaseny, ZAPISUJE JEN ADMIN - spatne
-      //   mapovani by se propsalo vsem. Osobni volba uzivatele zustava
-      //   v users/{uid}/data/productPrefs (F3).
+      //   mapovani by se propsalo vsem. Osobni volba uzivatele = users/{uid}/categoryMappings
+      //   s polem zdroj:'uzivatel' (S24, ADR-169).
       "productMap": {
         ".read": "auth != null",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
@@ -251,6 +251,12 @@
           "$jine": { ".validate": false }
         }
       },
+      // S24 (TODO-306/308): carovy kod. Zapisuje VYHRADNE worker (Database Secret),
+      //   klient jen cte. eanProdukty = data z Open Food Facts (ODbL), eanAliasy =
+      //   "obchod + zkratka z uctenky -> EAN" bez uid, eanPodleNazvu = opacny index.
+      "eanProdukty":   { ".read": "auth != null", ".write": false },
+      "eanAliasy":     { ".read": "auth != null", ".write": false },
+      "eanPodleNazvu": { ".read": "auth != null", ".write": false },
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
