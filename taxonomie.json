@@ -1,0 +1,2415 @@
+{
+ "meta": {
+  "nazev": "Taxonomie výrobků FinanceFlow",
+  "verze": "1.0",
+  "session": "S24 (T1, návrh ke kontrole)",
+  "model": "raw z účtenky → výrobek (Mapa položek) → obecný název → podkategorie → oblast; COICOP u podkategorie, výjimka u obecného názvu",
+  "coicop": "CZ-COICOP 2018 v zápisu ČSÚ (kódy z data/product-groups.json, spotřební koš 2026)",
+  "rozpocet": "výchozí rozpočtová kategorie (id výchozí sady); podkategorie může mít vlastní",
+  "pravidla": "id podkategorie ani obecného názvu se po nasazení NEMĚNÍ (odkazují na ně záznamy mapy). Přejmenovat = změnit nazev, ne id."
+ },
+ "oblasti": [
+  {
+   "id": "potraviny",
+   "nazev": "Potraviny",
+   "ikona": "🛒",
+   "rozpocet": "cat1",
+   "podkategorie": [
+    {
+     "id": "pecivo",
+     "nazev": "Pečivo",
+     "coicop": "01.113",
+     "nazvy": [
+      "rohlík",
+      "houska",
+      "bageta",
+      "veka",
+      "dalamánek",
+      "kaiserka",
+      "bulka",
+      "chléb",
+      "toustový chléb",
+      "celozrnný chléb",
+      "žitný chléb",
+      "kváskový chléb",
+      "croissant",
+      "loupák",
+      "kobliha",
+      "koláč",
+      "buchta",
+      "šáteček",
+      "záviny",
+      "vánočka",
+      "mazanec",
+      "donut",
+      "muffin",
+      "preclík",
+      "tortilla",
+      "knäckebrot",
+      "makovka",
+      "pita",
+      "ciabatta",
+      "grahamový rohlík",
+      "sýrová bageta"
+     ]
+    },
+    {
+     "id": "trvanlive-pecivo",
+     "nazev": "Sušenky a trvanlivé pečivo",
+     "coicop": "01.113",
+     "nazvy": [
+      "sušenky",
+      "oplatky",
+      "piškoty",
+      "perník",
+      "krekry",
+      "slané tyčinky",
+      "rohlíčky",
+      "suchary",
+      "rýžové chlebíčky",
+      {
+       "n": "cereální tyčinka",
+       "coicop": "01.114"
+      }
+     ]
+    },
+    {
+     "id": "mouka-obiloviny",
+     "nazev": "Mouka a obiloviny",
+     "coicop": "01.112",
+     "nazvy": [
+      "hladká mouka",
+      "polohrubá mouka",
+      "hrubá mouka",
+      "celozrnná mouka",
+      "špaldová mouka",
+      "žitná mouka",
+      "kukuřičná mouka",
+      "krupice",
+      {
+       "n": "strouhanka",
+       "coicop": "01.119"
+      },
+      {
+       "n": "kroupy",
+       "coicop": "01.111"
+      },
+      {
+       "n": "pohanka",
+       "coicop": "01.111"
+      },
+      {
+       "n": "jáhly",
+       "coicop": "01.111"
+      },
+      {
+       "n": "ovesné otruby",
+       "coicop": "01.111"
+      }
+     ]
+    },
+    {
+     "id": "cerealie",
+     "nazev": "Snídaňové cereálie a vločky",
+     "coicop": "01.114",
+     "nazvy": [
+      "ovesné vločky",
+      "müsli",
+      "granola",
+      "cornflakes",
+      "cereálie",
+      "kaše",
+      "instantní kaše",
+      "jáhlové vločky"
+     ]
+    },
+    {
+     "id": "testoviny",
+     "nazev": "Těstoviny",
+     "coicop": "01.115",
+     "nazvy": [
+      "těstoviny",
+      "špagety",
+      "penne",
+      "fusilli",
+      "kolínka",
+      "vřetena",
+      "farfalle",
+      "tagliatelle",
+      "lasagne",
+      "nudle do polévky",
+      "celozrnné těstoviny",
+      {
+       "n": "gnocchi",
+       "coicop": "01.119"
+      },
+      {
+       "n": "noky",
+       "coicop": "01.119"
+      }
+     ]
+    },
+    {
+     "id": "ryze-prilohy",
+     "nazev": "Rýže a přílohy",
+     "coicop": "01.111",
+     "nazvy": [
+      "rýže",
+      "basmati rýže",
+      "jasmínová rýže",
+      "natural rýže",
+      "rýže na rizoto",
+      "kuskus",
+      "bulgur",
+      "quinoa",
+      {
+       "n": "knedlík",
+       "coicop": "01.119"
+      },
+      {
+       "n": "bramborový knedlík",
+       "coicop": "01.119"
+      },
+      {
+       "n": "houskový knedlík",
+       "coicop": "01.119"
+      },
+      {
+       "n": "bramborová kaše instantní",
+       "coicop": "01.179"
+      }
+     ]
+    },
+    {
+     "id": "drubez",
+     "nazev": "Drůbeží maso",
+     "coicop": "01.122.4",
+     "nazvy": [
+      "kuřecí prsa",
+      "kuřecí stehna",
+      "kuřecí paličky",
+      "kuřecí křídla",
+      "celé kuře",
+      "kuřecí čtvrtky",
+      "krůtí prsa",
+      "krůtí maso",
+      "kachna",
+      "kachní prsa",
+      "husa",
+      {
+       "n": "kuřecí játra",
+       "coicop": "01.124"
+      },
+      {
+       "n": "kuřecí srdce",
+       "coicop": "01.124"
+      }
+     ]
+    },
+    {
+     "id": "veprove",
+     "nazev": "Vepřové maso",
+     "coicop": "01.122.2",
+     "nazvy": [
+      "vepřová krkovice",
+      "vepřová kotleta",
+      "vepřová plec",
+      "vepřová panenka",
+      "vepřový bůček",
+      "vepřová kýta",
+      "vepřová žebra",
+      "vepřové koleno",
+      "vepřové na guláš",
+      {
+       "n": "vepřová játra",
+       "coicop": "01.124"
+      }
+     ]
+    },
+    {
+     "id": "hovezi-ostatni",
+     "nazev": "Hovězí a ostatní maso",
+     "coicop": "01.122.1",
+     "nazvy": [
+      "hovězí zadní",
+      "hovězí přední",
+      "hovězí na guláš",
+      "hovězí svíčková",
+      "hovězí roštěná",
+      "hovězí kližka",
+      "hovězí žebro",
+      "telecí maso",
+      "jehněčí maso",
+      {
+       "n": "králík",
+       "coicop": "01.122.5"
+      },
+      {
+       "n": "zvěřina",
+       "coicop": "01.122"
+      }
+     ]
+    },
+    {
+     "id": "mlete-maso",
+     "nazev": "Mleté maso",
+     "coicop": "01.122",
+     "nazvy": [
+      "mleté maso",
+      "mleté vepřové",
+      "mleté hovězí",
+      "mleté kuřecí",
+      "mleté mix"
+     ]
+    },
+    {
+     "id": "uzeniny",
+     "nazev": "Uzeniny",
+     "coicop": "01.123",
+     "nazvy": [
+      "šunka",
+      "kuřecí šunka",
+      "krůtí šunka",
+      "dušená šunka",
+      "pršut",
+      "salám",
+      "vysočina",
+      "poličan",
+      "herkules",
+      "čabajka",
+      "chorizo",
+      "mortadela",
+      "klobása",
+      "párky",
+      "vídeňské párky",
+      "špekáčky",
+      "debrecínka",
+      "kabanos",
+      "slanina",
+      "anglická slanina",
+      "uzené maso",
+      "gothaj"
+     ]
+    },
+    {
+     "id": "masne-vyrobky",
+     "nazev": "Masné výrobky a paštiky",
+     "coicop": "01.125",
+     "nazvy": [
+      "paštika",
+      "játrová paštika",
+      "tlačenka",
+      "jitrnice",
+      "jelito",
+      "sekaná",
+      "masová pomazánka",
+      "škvarky",
+      "aspik",
+      "karbanátky"
+     ]
+    },
+    {
+     "id": "ryby",
+     "nazev": "Ryby a mořské plody",
+     "coicop": "01.131",
+     "nazvy": [
+      "losos",
+      "treska",
+      "pangasius",
+      "pstruh",
+      "kapr",
+      "makrela",
+      "tilapie",
+      "rybí filé",
+      {
+       "n": "tuňák",
+       "coicop": "01.133"
+      },
+      {
+       "n": "sardinky",
+       "coicop": "01.133"
+      },
+      {
+       "n": "rybí prsty",
+       "coicop": "01.133"
+      },
+      {
+       "n": "rybí salát",
+       "coicop": "01.133"
+      },
+      {
+       "n": "uzený losos",
+       "coicop": "01.132"
+      },
+      {
+       "n": "uzená makrela",
+       "coicop": "01.132"
+      },
+      {
+       "n": "zavináč",
+       "coicop": "01.132"
+      },
+      {
+       "n": "krevety",
+       "coicop": "01.136"
+      },
+      {
+       "n": "kalamáry",
+       "coicop": "01.136"
+      },
+      {
+       "n": "mušle",
+       "coicop": "01.136"
+      }
+     ]
+    },
+    {
+     "id": "mleko",
+     "nazev": "Mléko",
+     "coicop": "01.142",
+     "nazvy": [
+      "mléko",
+      "polotučné mléko",
+      {
+       "n": "plnotučné mléko",
+       "coicop": "01.141"
+      },
+      "nízkotučné mléko",
+      "trvanlivé mléko",
+      {
+       "n": "čerstvé mléko",
+       "coicop": "01.141"
+      },
+      "bezlaktózové mléko",
+      {
+       "n": "kondenzované mléko",
+       "coicop": "01.149"
+      },
+      {
+       "n": "sušené mléko",
+       "coicop": "01.149"
+      }
+     ]
+    },
+    {
+     "id": "jogurty",
+     "nazev": "Jogurty a zakysané výrobky",
+     "coicop": "01.146",
+     "nazvy": [
+      "jogurt",
+      "bílý jogurt",
+      "ovocný jogurt",
+      "řecký jogurt",
+      "skyr",
+      {
+       "n": "kefír",
+       "coicop": "01.147"
+      },
+      {
+       "n": "acidofilní mléko",
+       "coicop": "01.147"
+      },
+      {
+       "n": "podmáslí",
+       "coicop": "01.147"
+      },
+      {
+       "n": "zakysané mléko",
+       "coicop": "01.147"
+      },
+      {
+       "n": "probiotický nápoj",
+       "coicop": "01.147"
+      }
+     ]
+    },
+    {
+     "id": "mlecne-dezerty",
+     "nazev": "Mléčné dezerty",
+     "coicop": "01.147",
+     "nazvy": [
+      "pudink",
+      "mléčná rýže",
+      "termix",
+      "tvarohový dezert",
+      "pribináček",
+      "mléčný dezert",
+      "mléčný koktejl"
+     ]
+    },
+    {
+     "id": "syry",
+     "nazev": "Sýry a tvaroh",
+     "coicop": "01.145",
+     "nazvy": [
+      "sýr",
+      "eidam",
+      "gouda",
+      "ementál",
+      "čedar",
+      "mozzarella",
+      "parmazán",
+      "feta",
+      "balkánský sýr",
+      "hermelín",
+      "camembert",
+      "niva",
+      "tvarůžky",
+      "tavený sýr",
+      "cottage",
+      "lučina",
+      "žervé",
+      "mascarpone",
+      "ricotta",
+      "halloumi",
+      "tvaroh",
+      "sýr plátky"
+     ]
+    },
+    {
+     "id": "smetana",
+     "nazev": "Smetana a máslo",
+     "coicop": "01.143",
+     "nazvy": [
+      "smetana na vaření",
+      "smetana ke šlehání",
+      "zakysaná smetana",
+      "šlehačka",
+      "crème fraîche",
+      {
+       "n": "máslo",
+       "coicop": "01.152"
+      },
+      {
+       "n": "přepuštěné máslo",
+       "coicop": "01.152"
+      },
+      {
+       "n": "ghí",
+       "coicop": "01.152"
+      }
+     ]
+    },
+    {
+     "id": "vejce",
+     "nazev": "Vejce",
+     "coicop": "01.148",
+     "nazvy": [
+      "vejce",
+      "slepičí vejce",
+      "křepelčí vejce"
+     ]
+    },
+    {
+     "id": "oleje-tuky",
+     "nazev": "Oleje a tuky",
+     "coicop": "01.151",
+     "nazvy": [
+      "olej",
+      "slunečnicový olej",
+      "řepkový olej",
+      "olivový olej",
+      "kokosový olej",
+      "sezamový olej",
+      {
+       "n": "margarín",
+       "coicop": "01.153"
+      },
+      {
+       "n": "rostlinný tuk",
+       "coicop": "01.153"
+      },
+      {
+       "n": "sádlo",
+       "coicop": "01.159"
+      },
+      {
+       "n": "husí sádlo",
+       "coicop": "01.159"
+      }
+     ]
+    },
+    {
+     "id": "ovoce",
+     "nazev": "Ovoce",
+     "coicop": "01.163",
+     "nazvy": [
+      "jablko",
+      "hruška",
+      "švestka",
+      "broskev",
+      "nektarinka",
+      "meruňka",
+      "třešně",
+      "višně",
+      {
+       "n": "banán",
+       "coicop": "01.161"
+      },
+      {
+       "n": "ananas",
+       "coicop": "01.161"
+      },
+      {
+       "n": "mango",
+       "coicop": "01.161"
+      },
+      {
+       "n": "kiwi",
+       "coicop": "01.161"
+      },
+      {
+       "n": "avokádo",
+       "coicop": "01.161"
+      },
+      {
+       "n": "pomeranč",
+       "coicop": "01.162"
+      },
+      {
+       "n": "mandarinka",
+       "coicop": "01.162"
+      },
+      {
+       "n": "citron",
+       "coicop": "01.162"
+      },
+      {
+       "n": "limetka",
+       "coicop": "01.162"
+      },
+      {
+       "n": "grapefruit",
+       "coicop": "01.162"
+      },
+      {
+       "n": "jahody",
+       "coicop": "01.164"
+      },
+      {
+       "n": "borůvky",
+       "coicop": "01.164"
+      },
+      {
+       "n": "maliny",
+       "coicop": "01.164"
+      },
+      {
+       "n": "hroznové víno",
+       "coicop": "01.164"
+      },
+      {
+       "n": "rybíz",
+       "coicop": "01.164"
+      },
+      {
+       "n": "meloun",
+       "coicop": "01.165"
+      },
+      {
+       "n": "granátové jablko",
+       "coicop": "01.161"
+      }
+     ]
+    },
+    {
+     "id": "orechy-susene",
+     "nazev": "Ořechy, semínka a sušené ovoce",
+     "coicop": "01.168",
+     "nazvy": [
+      "vlašské ořechy",
+      "lískové ořechy",
+      "mandle",
+      "kešu",
+      "arašídy",
+      "pistácie",
+      "slunečnicová semínka",
+      "dýňová semínka",
+      "lněné semínko",
+      "chia semínka",
+      {
+       "n": "sušené ovoce",
+       "coicop": "01.167"
+      },
+      {
+       "n": "rozinky",
+       "coicop": "01.167"
+      },
+      {
+       "n": "sušené švestky",
+       "coicop": "01.167"
+      },
+      {
+       "n": "brusinky sušené",
+       "coicop": "01.167"
+      },
+      {
+       "n": "kompot",
+       "coicop": "01.169"
+      },
+      {
+       "n": "mražené ovoce",
+       "coicop": "01.169"
+      },
+      {
+       "n": "ovocné pyré",
+       "coicop": "01.169"
+      }
+     ]
+    },
+    {
+     "id": "zelenina",
+     "nazev": "Zelenina",
+     "coicop": "01.174",
+     "nazvy": [
+      "cibule",
+      "česnek",
+      "mrkev",
+      "petržel",
+      "celer",
+      "pórek",
+      "kedlubna",
+      "ředkvičky",
+      "řepa",
+      "zázvor",
+      "žampiony",
+      "houby",
+      "hlíva",
+      {
+       "n": "rajčata",
+       "coicop": "01.172"
+      },
+      {
+       "n": "cherry rajčata",
+       "coicop": "01.172"
+      },
+      {
+       "n": "okurka",
+       "coicop": "01.172"
+      },
+      {
+       "n": "paprika",
+       "coicop": "01.172"
+      },
+      {
+       "n": "cuketa",
+       "coicop": "01.172"
+      },
+      {
+       "n": "lilek",
+       "coicop": "01.172"
+      },
+      {
+       "n": "dýně",
+       "coicop": "01.172"
+      },
+      {
+       "n": "chilli paprička",
+       "coicop": "01.172"
+      },
+      {
+       "n": "salát",
+       "coicop": "01.171"
+      },
+      {
+       "n": "ledový salát",
+       "coicop": "01.171"
+      },
+      {
+       "n": "rukola",
+       "coicop": "01.171"
+      },
+      {
+       "n": "špenát",
+       "coicop": "01.171"
+      },
+      {
+       "n": "zelí",
+       "coicop": "01.171"
+      },
+      {
+       "n": "brokolice",
+       "coicop": "01.171"
+      },
+      {
+       "n": "květák",
+       "coicop": "01.171"
+      },
+      {
+       "n": "kapusta",
+       "coicop": "01.171"
+      },
+      {
+       "n": "polníček",
+       "coicop": "01.171"
+      },
+      "jarní cibulka"
+     ]
+    },
+    {
+     "id": "brambory",
+     "nazev": "Brambory",
+     "coicop": "01.175",
+     "nazvy": [
+      "brambory",
+      "rané brambory",
+      "batáty"
+     ]
+    },
+    {
+     "id": "lusteniny",
+     "nazev": "Luštěniny",
+     "coicop": "01.176",
+     "nazvy": [
+      "čočka",
+      "červená čočka",
+      "fazole",
+      "cizrna",
+      "hrách",
+      "sója"
+     ]
+    },
+    {
+     "id": "mrazena-zelenina",
+     "nazev": "Mražená zelenina a hranolky",
+     "coicop": "01.178",
+     "nazvy": [
+      "mražená zelenina",
+      "zeleninová směs mražená",
+      "hrášek mražený",
+      "špenát mražený",
+      "hranolky",
+      "americké brambory",
+      "krokety"
+     ]
+    },
+    {
+     "id": "zeleninove-konzervy",
+     "nazev": "Zeleninové konzervy a nakládaná zelenina",
+     "coicop": "01.179",
+     "nazvy": [
+      "kukuřice konzerva",
+      "fazole konzerva",
+      "sterilované okurky",
+      "kyselé zelí",
+      "olivy",
+      "rajčatový protlak",
+      "drcená rajčata",
+      "lečo",
+      "hummus",
+      "sušená rajčata",
+      "chipsy",
+      "brambůrky",
+      "tyčinky bramborové"
+     ]
+    },
+    {
+     "id": "cukr-dzemy",
+     "nazev": "Cukr, med a džemy",
+     "coicop": "01.181",
+     "nazvy": [
+      "cukr",
+      "krupicový cukr",
+      "moučkový cukr",
+      "třtinový cukr",
+      {
+       "n": "sladidlo",
+       "coicop": "01.182"
+      },
+      {
+       "n": "med",
+       "coicop": "01.183"
+      },
+      {
+       "n": "džem",
+       "coicop": "01.183"
+      },
+      {
+       "n": "marmeláda",
+       "coicop": "01.183"
+      },
+      {
+       "n": "povidla",
+       "coicop": "01.183"
+      },
+      {
+       "n": "javorový sirup",
+       "coicop": "01.183"
+      }
+     ]
+    },
+    {
+     "id": "cokolada",
+     "nazev": "Čokoláda a sladkosti",
+     "coicop": "01.185",
+     "nazvy": [
+      "čokoláda",
+      "mléčná čokoláda",
+      "hořká čokoláda",
+      "čokoládová tyčinka",
+      "bonboniéra",
+      "pralinky",
+      "kakao",
+      "lískooříšková pomazánka",
+      {
+       "n": "bonbony",
+       "coicop": "01.189"
+      },
+      {
+       "n": "želé bonbony",
+       "coicop": "01.189"
+      },
+      {
+       "n": "lízátko",
+       "coicop": "01.189"
+      },
+      {
+       "n": "žvýkačky",
+       "coicop": "01.189"
+      },
+      {
+       "n": "karamely",
+       "coicop": "01.189"
+      },
+      {
+       "n": "müsli tyčinka",
+       "coicop": "01.189"
+      },
+      {
+       "n": "marshmallow",
+       "coicop": "01.189"
+      }
+     ]
+    },
+    {
+     "id": "zmrzlina",
+     "nazev": "Zmrzlina",
+     "coicop": "01.186",
+     "nazvy": [
+      "zmrzlina",
+      "nanuk",
+      "kornout",
+      "sorbet",
+      "mražený krém"
+     ]
+    },
+    {
+     "id": "hotova-jidla",
+     "nazev": "Hotová jídla a polotovary",
+     "coicop": "01.191",
+     "nazvy": [
+      "pizza",
+      "mražená pizza",
+      "hotové jídlo",
+      "lasagne hotové",
+      "instantní polévka",
+      "polévka",
+      "instantní nudle",
+      "bageta balená",
+      "sendvič",
+      "wrap",
+      "sushi",
+      "hotový salát",
+      "pelmeně",
+      "mražené knedlíky"
+     ]
+    },
+    {
+     "id": "ochucovadla",
+     "nazev": "Omáčky, ochucovadla a koření",
+     "coicop": "01.193",
+     "nazvy": [
+      "sůl",
+      "ocet",
+      "kečup",
+      "hořčice",
+      "majonéza",
+      "tatarská omáčka",
+      "sójová omáčka",
+      "pesto",
+      "dresink",
+      "salsa",
+      "bujón",
+      "worcester",
+      {
+       "n": "koření",
+       "coicop": "01.194"
+      },
+      {
+       "n": "pepř",
+       "coicop": "01.194"
+      },
+      {
+       "n": "paprika mletá",
+       "coicop": "01.194"
+      },
+      {
+       "n": "kmín",
+       "coicop": "01.194"
+      },
+      {
+       "n": "majoránka",
+       "coicop": "01.194"
+      },
+      {
+       "n": "oregano",
+       "coicop": "01.194"
+      },
+      {
+       "n": "bazalka",
+       "coicop": "01.194"
+      },
+      {
+       "n": "skořice",
+       "coicop": "01.194"
+      },
+      {
+       "n": "kari",
+       "coicop": "01.194"
+      },
+      {
+       "n": "vanilka",
+       "coicop": "01.194"
+      }
+     ]
+    },
+    {
+     "id": "ostatni-potraviny",
+     "nazev": "Pečení a ostatní potraviny",
+     "coicop": "01.199",
+     "nazvy": [
+      "droždí",
+      "prášek do pečiva",
+      "vanilkový cukr",
+      "puding prášek",
+      "želatina",
+      "jedlá soda",
+      "kakao na pečení",
+      "polevy"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "napoje",
+   "nazev": "Nealkoholické nápoje",
+   "ikona": "🥤",
+   "rozpocet": "cat1",
+   "podkategorie": [
+    {
+     "id": "voda",
+     "nazev": "Voda",
+     "coicop": "01.250",
+     "nazvy": [
+      "minerální voda",
+      "perlivá voda",
+      "neperlivá voda",
+      "jemně perlivá voda",
+      {
+       "n": "kojenecká voda",
+       "coicop": "01.192"
+      }
+     ]
+    },
+    {
+     "id": "limonady",
+     "nazev": "Limonády a slazené nápoje",
+     "coicop": "01.260",
+     "nazvy": [
+      "limonáda",
+      "cola",
+      "kofola",
+      "tonik",
+      "ochucená voda",
+      "ledový čaj",
+      {
+       "n": "sirup",
+       "coicop": "01.290"
+      }
+     ]
+    },
+    {
+     "id": "dzusy",
+     "nazev": "Džusy a smoothie",
+     "coicop": "01.210",
+     "nazvy": [
+      "džus",
+      "pomerančový džus",
+      "jablečný džus",
+      "nektar",
+      "smoothie",
+      "mošt",
+      "fresh"
+     ]
+    },
+    {
+     "id": "kava",
+     "nazev": "Káva",
+     "coicop": "01.220",
+     "nazvy": [
+      "káva",
+      "zrnková káva",
+      "mletá káva",
+      "instantní káva",
+      "kávové kapsle",
+      "cikorka"
+     ]
+    },
+    {
+     "id": "caj",
+     "nazev": "Čaj",
+     "coicop": "01.230",
+     "nazvy": [
+      "čaj",
+      "černý čaj",
+      "zelený čaj",
+      "ovocný čaj",
+      "bylinný čaj",
+      "matcha"
+     ]
+    },
+    {
+     "id": "energy",
+     "nazev": "Energetické a sportovní nápoje",
+     "coicop": "01.290",
+     "nazvy": [
+      "energetický nápoj",
+      "iontový nápoj",
+      "proteinový nápoj",
+      "kombucha"
+     ]
+    },
+    {
+     "id": "kakao-napoje",
+     "nazev": "Kakaové a mléčné nápoje",
+     "coicop": "01.147",
+     "nazvy": [
+      "kakao nápoj",
+      "mléčný nápoj",
+      "ochucené mléko"
+     ]
+    },
+    {
+     "id": "rostlinne-napoje",
+     "nazev": "Rostlinné nápoje",
+     "coicop": "01.290",
+     "nazvy": [
+      "ovesný nápoj",
+      "sójový nápoj",
+      "mandlový nápoj",
+      "rýžový nápoj",
+      "kokosový nápoj"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "alkohol",
+   "nazev": "Alkohol a tabák",
+   "ikona": "🍺",
+   "rozpocet": "cat26",
+   "podkategorie": [
+    {
+     "id": "pivo",
+     "nazev": "Pivo",
+     "coicop": "02.130",
+     "nazvy": [
+      "pivo",
+      "ležák",
+      "výčepní pivo",
+      {
+       "n": "nealkoholické pivo",
+       "coicop": "01.290"
+      },
+      "radler",
+      "ipa"
+     ]
+    },
+    {
+     "id": "vino",
+     "nazev": "Víno",
+     "coicop": "02.121",
+     "nazvy": [
+      "víno",
+      "bílé víno",
+      "červené víno",
+      "růžové víno",
+      "sekt",
+      "prosecco",
+      "šampaňské"
+     ]
+    },
+    {
+     "id": "destilaty",
+     "nazev": "Destiláty",
+     "coicop": "02.110",
+     "nazvy": [
+      "rum",
+      "vodka",
+      "gin",
+      "whisky",
+      "slivovice",
+      "tuzemák",
+      "becherovka",
+      "brandy",
+      "tequila",
+      "fernet"
+     ]
+    },
+    {
+     "id": "likery",
+     "nazev": "Likéry a míchané nápoje",
+     "coicop": "02.110",
+     "nazvy": [
+      "likér",
+      "aperitiv",
+      "míchaný nápoj",
+      {
+       "n": "cider",
+       "coicop": "02.121"
+      }
+     ]
+    },
+    {
+     "id": "cigarety",
+     "nazev": "Cigarety",
+     "coicop": "02.301",
+     "nazvy": [
+      "cigarety"
+     ]
+    },
+    {
+     "id": "tabak",
+     "nazev": "Tabák a nikotinové výrobky",
+     "coicop": "02.309",
+     "nazvy": [
+      "tabák",
+      "zahřívaný tabák",
+      "nikotinové sáčky",
+      "e-cigareta",
+      "náplň do e-cigarety",
+      "doutník"
+     ]
+    },
+    {
+     "id": "koureni-doplnky",
+     "nazev": "Kuřácké potřeby",
+     "coicop": "02.309",
+     "nazvy": [
+      "papírky",
+      "filtry",
+      {
+       "n": "zapalovač",
+       "coicop": "05.619"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "drogerie",
+   "nazev": "Drogerie a domácnost",
+   "ikona": "🧴",
+   "rozpocet": "cat17",
+   "podkategorie": [
+    {
+     "id": "prani",
+     "nazev": "Praní",
+     "coicop": "05.611",
+     "nazvy": [
+      "prací prášek",
+      "prací gel",
+      "prací kapsle",
+      "aviváž",
+      "odstraňovač skvrn",
+      "změkčovač vody"
+     ]
+    },
+    {
+     "id": "nadobi",
+     "nazev": "Mytí nádobí",
+     "coicop": "05.611",
+     "nazvy": [
+      "prostředek na nádobí",
+      "tablety do myčky",
+      "sůl do myčky",
+      "leštidlo do myčky",
+      "čistič myčky"
+     ]
+    },
+    {
+     "id": "uklid",
+     "nazev": "Úklid a čisticí prostředky",
+     "coicop": "05.611",
+     "nazvy": [
+      "univerzální čistič",
+      "čistič koupelny",
+      "čistič kuchyně",
+      "čistič oken",
+      "čistič podlah",
+      "odmašťovač",
+      "odstraňovač vodního kamene",
+      "savo",
+      "dezinfekce povrchů"
+     ]
+    },
+    {
+     "id": "wc",
+     "nazev": "WC a hygiena domácnosti",
+     "coicop": "05.611",
+     "nazvy": [
+      "wc gel",
+      "wc blok",
+      "čistič odpadu",
+      "osvěžovač vzduchu"
+     ]
+    },
+    {
+     "id": "uklidove-pomucky",
+     "nazev": "Úklidové pomůcky",
+     "coicop": "05.611",
+     "nazvy": [
+      "houbičky",
+      "hadry",
+      "utěrky",
+      "mop",
+      "smeták",
+      "gumové rukavice",
+      "pytle na odpad"
+     ]
+    },
+    {
+     "id": "papirove-zbozi",
+     "nazev": "Papírové zboží",
+     "coicop": "13.120",
+     "nazvy": [
+      "toaletní papír",
+      "papírové kapesníky",
+      {
+       "n": "papírové utěrky",
+       "coicop": "05.611"
+      },
+      {
+       "n": "papírové ubrousky",
+       "coicop": "05.619"
+      }
+     ]
+    },
+    {
+     "id": "kuchynske-spotrebni",
+     "nazev": "Kuchyňský spotřební materiál",
+     "coicop": "05.619",
+     "nazvy": [
+      "alobal",
+      "potravinová fólie",
+      "pečicí papír",
+      "sáčky do mrazáku",
+      "jednorázové nádobí",
+      "brčka"
+     ]
+    },
+    {
+     "id": "svicky-dekorace",
+     "nazev": "Svíčky a dekorace",
+     "coicop": "05.619",
+     "nazvy": [
+      "svíčky",
+      "čajové svíčky",
+      "sirky",
+      "vonné tyčinky"
+     ]
+    },
+    {
+     "id": "baterie-zarovky",
+     "nazev": "Baterie a žárovky",
+     "coicop": "05.522",
+     "nazvy": [
+      "baterie",
+      "žárovka",
+      "led žárovka",
+      "prodlužovací kabel"
+     ]
+    },
+    {
+     "id": "kuchynske-potreby",
+     "nazev": "Kuchyňské potřeby",
+     "coicop": "05.403",
+     "nazvy": [
+      "hrnec",
+      "pánev",
+      {
+       "n": "nůž",
+       "coicop": "05.402"
+      },
+      {
+       "n": "příbory",
+       "coicop": "05.402"
+      },
+      {
+       "n": "talíř",
+       "coicop": "05.401"
+      },
+      {
+       "n": "hrnek",
+       "coicop": "05.401"
+      },
+      {
+       "n": "skleničky",
+       "coicop": "05.401"
+      },
+      "vařečka",
+      "struhadlo",
+      "dóza na potraviny"
+     ]
+    },
+    {
+     "id": "bytovy-textil",
+     "nazev": "Bytový textil",
+     "coicop": "05.212",
+     "nazvy": [
+      "povlečení",
+      "prostěradlo",
+      "polštář",
+      "deka",
+      {
+       "n": "ručník",
+       "coicop": "05.213"
+      },
+      {
+       "n": "osuška",
+       "coicop": "05.213"
+      },
+      {
+       "n": "záclona",
+       "coicop": "05.211"
+      },
+      {
+       "n": "ubrus",
+       "coicop": "05.211"
+      }
+     ]
+    },
+    {
+     "id": "nabytek-bydleni",
+     "nazev": "Nábytek a bytové doplňky",
+     "coicop": "05.111",
+     "nazvy": [
+      "židle",
+      "stolek",
+      "police",
+      {
+       "n": "koberec",
+       "coicop": "05.114"
+      },
+      {
+       "n": "lampa",
+       "coicop": "05.113"
+      },
+      "zrcadlo",
+      "rámeček"
+     ]
+    },
+    {
+     "id": "hmyz",
+     "nazev": "Proti hmyzu a škůdcům",
+     "coicop": "05.611",
+     "nazvy": [
+      "odpuzovač hmyzu",
+      "lapač much",
+      "past na myši"
+     ]
+    },
+    {
+     "id": "obuv-pece",
+     "nazev": "Péče o obuv a oděvy",
+     "coicop": "05.611",
+     "nazvy": [
+      "krém na boty",
+      "impregnace",
+      {
+       "n": "kolíčky na prádlo",
+       "coicop": "05.619"
+      },
+      {
+       "n": "ramínka",
+       "coicop": "05.619"
+      }
+     ]
+    },
+    {
+     "id": "pradlo-doplnky",
+     "nazev": "Pomůcky na praní a žehlení",
+     "coicop": "05.619",
+     "nazvy": [
+      "sušák na prádlo",
+      "koš na prádlo",
+      "žehlicí prkno"
+     ]
+    },
+    {
+     "id": "skladovani",
+     "nazev": "Úložné boxy a organizéry",
+     "coicop": "05.619",
+     "nazvy": [
+      "úložný box",
+      "koš",
+      "organizér"
+     ]
+    },
+    {
+     "id": "kancelar",
+     "nazev": "Papírnictví",
+     "coicop": "09.740",
+     "nazvy": [
+      "sešit",
+      "pero",
+      "tužka",
+      "lepidlo",
+      "izolepa",
+      "nůžky",
+      "obálky",
+      "kancelářský papír",
+      "pastelky",
+      "fixy"
+     ]
+    },
+    {
+     "id": "darkove",
+     "nazev": "Dárkové zboží a přání",
+     "coicop": "09.730",
+     "nazvy": [
+      "přání",
+      "dárková taška",
+      "balicí papír",
+      "pohlednice"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "osobni-pece",
+   "nazev": "Osobní péče a kosmetika",
+   "ikona": "🧼",
+   "rozpocet": "cat17",
+   "podkategorie": [
+    {
+     "id": "vlasy",
+     "nazev": "Péče o vlasy",
+     "coicop": "13.120",
+     "nazvy": [
+      "šampon",
+      "kondicionér",
+      "maska na vlasy",
+      "lak na vlasy",
+      "gel na vlasy",
+      "barva na vlasy"
+     ]
+    },
+    {
+     "id": "telo",
+     "nazev": "Péče o tělo",
+     "coicop": "13.120",
+     "nazvy": [
+      "sprchový gel",
+      "mýdlo",
+      "tekuté mýdlo",
+      "tělové mléko",
+      "krém na ruce",
+      "koupelová pěna"
+     ]
+    },
+    {
+     "id": "plet",
+     "nazev": "Péče o pleť",
+     "coicop": "13.120",
+     "nazvy": [
+      "pleťový krém",
+      "čisticí gel",
+      "odličovač",
+      "pleťová maska",
+      "balzám na rty"
+     ]
+    },
+    {
+     "id": "zuby",
+     "nazev": "Ústní hygiena",
+     "coicop": "13.120",
+     "nazvy": [
+      "zubní pasta",
+      "zubní kartáček",
+      "ústní voda",
+      "zubní nit",
+      "mezizubní kartáčky"
+     ]
+    },
+    {
+     "id": "deodoranty",
+     "nazev": "Deodoranty a parfémy",
+     "coicop": "13.120",
+     "nazvy": [
+      "deodorant",
+      "antiperspirant",
+      "parfém",
+      "toaletní voda"
+     ]
+    },
+    {
+     "id": "holeni",
+     "nazev": "Holení",
+     "coicop": "13.120",
+     "nazvy": [
+      "holítka",
+      "náhradní hlavice",
+      "pěna na holení",
+      "gel na holení",
+      "voda po holení"
+     ]
+    },
+    {
+     "id": "dekorativni",
+     "nazev": "Dekorativní kosmetika",
+     "coicop": "13.120",
+     "nazvy": [
+      "make-up",
+      "řasenka",
+      "rtěnka",
+      "lak na nehty",
+      "odlakovač",
+      "pudr"
+     ]
+    },
+    {
+     "id": "intimni",
+     "nazev": "Intimní hygiena",
+     "coicop": "13.120",
+     "nazvy": [
+      "vložky",
+      "tampony",
+      "intimní gel",
+      "menstruační kalhotky"
+     ]
+    },
+    {
+     "id": "opalovani",
+     "nazev": "Opalování",
+     "coicop": "13.120",
+     "nazvy": [
+      "opalovací krém",
+      "krém po opalování"
+     ]
+    },
+    {
+     "id": "vlhcene",
+     "nazev": "Vlhčené ubrousky a vata",
+     "coicop": "13.120",
+     "nazvy": [
+      "vlhčené ubrousky",
+      "vatové tampony",
+      "vatové tyčinky"
+     ]
+    },
+    {
+     "id": "elektro-pece",
+     "nazev": "Elektrické přístroje pro péči",
+     "coicop": "13.111",
+     "nazvy": [
+      "elektrický zubní kartáček",
+      "holicí strojek",
+      "fén",
+      "žehlička na vlasy"
+     ]
+    },
+    {
+     "id": "doplnky-pece",
+     "nazev": "Doplňky pro péči",
+     "coicop": "13.120",
+     "nazvy": [
+      "hřeben",
+      "kartáč na vlasy",
+      "gumičky do vlasů",
+      "pilník",
+      "pinzeta"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "obleceni",
+   "nazev": "Oblečení a obuv",
+   "ikona": "👕",
+   "rozpocet": "cat24",
+   "podkategorie": [
+    {
+     "id": "tricka",
+     "nazev": "Trička a topy",
+     "coicop": "03.122",
+     "nazvy": [
+      "tričko",
+      "top",
+      "tílko",
+      "polokošile"
+     ]
+    },
+    {
+     "id": "kosile",
+     "nazev": "Košile a halenky",
+     "coicop": "03.122",
+     "nazvy": [
+      "košile",
+      "halenka"
+     ]
+    },
+    {
+     "id": "kalhoty",
+     "nazev": "Kalhoty a sukně",
+     "coicop": "03.122",
+     "nazvy": [
+      "kalhoty",
+      "džíny",
+      "legíny",
+      "šortky",
+      "sukně"
+     ]
+    },
+    {
+     "id": "svetry",
+     "nazev": "Svetry a mikiny",
+     "coicop": "03.122",
+     "nazvy": [
+      "svetr",
+      "mikina",
+      "cardigan"
+     ]
+    },
+    {
+     "id": "bundy",
+     "nazev": "Bundy a kabáty",
+     "coicop": "03.122",
+     "nazvy": [
+      "bunda",
+      "kabát",
+      "vesta",
+      "pláštěnka"
+     ]
+    },
+    {
+     "id": "spodni-pradlo",
+     "nazev": "Spodní prádlo a ponožky",
+     "coicop": "03.122",
+     "nazvy": [
+      "spodní prádlo",
+      "trenýrky",
+      "slipy",
+      "podprsenka",
+      "ponožky",
+      "punčocháče",
+      "pyžamo"
+     ]
+    },
+    {
+     "id": "sportovni",
+     "nazev": "Sportovní oblečení",
+     "coicop": "03.122",
+     "nazvy": [
+      "sportovní tričko",
+      "sportovní kalhoty",
+      "plavky"
+     ]
+    },
+    {
+     "id": "detske-obleceni",
+     "nazev": "Dětské oblečení",
+     "coicop": "03.123",
+     "nazvy": [
+      "body",
+      "dupačky",
+      "dětské tričko",
+      "dětské kalhoty"
+     ]
+    },
+    {
+     "id": "obuv",
+     "nazev": "Obuv",
+     "coicop": "03.21",
+     "nazvy": [
+      "boty",
+      "tenisky",
+      "sandály",
+      "pantofle",
+      "kozačky",
+      "holinky"
+     ]
+    },
+    {
+     "id": "doplnky-odevy",
+     "nazev": "Oděvní doplňky",
+     "coicop": "03.131",
+     "nazvy": [
+      "čepice",
+      "šála",
+      "rukavice",
+      "pásek",
+      "kšiltovka",
+      {
+       "n": "kabelka",
+       "coicop": "13.291"
+      },
+      {
+       "n": "deštník",
+       "coicop": "13.291"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "elektronika",
+   "nazev": "Elektronika a domácí technika",
+   "ikona": "💻",
+   "rozpocet": "cat19",
+   "podkategorie": [
+    {
+     "id": "telefony",
+     "nazev": "Telefony a příslušenství",
+     "coicop": "08.120",
+     "nazvy": [
+      "mobilní telefon",
+      "nabíječka",
+      "kabel usb",
+      "pouzdro na telefon",
+      "powerbanka"
+     ]
+    },
+    {
+     "id": "pocitace",
+     "nazev": "Počítače a tablety",
+     "coicop": "08.131",
+     "nazvy": [
+      "notebook",
+      "tablet",
+      {
+       "n": "monitor",
+       "coicop": "08.132"
+      },
+      {
+       "n": "klávesnice",
+       "coicop": "08.132"
+      },
+      {
+       "n": "myš",
+       "coicop": "08.132"
+      },
+      {
+       "n": "tiskárna",
+       "coicop": "08.132"
+      }
+     ]
+    },
+    {
+     "id": "audio-video",
+     "nazev": "Audio a video",
+     "coicop": "08.14",
+     "nazvy": [
+      "televize",
+      "reproduktor",
+      "sluchátka"
+     ]
+    },
+    {
+     "id": "pametova-media",
+     "nazev": "Paměťová média",
+     "coicop": "08.150",
+     "nazvy": [
+      "flash disk",
+      "paměťová karta",
+      "externí disk"
+     ]
+    },
+    {
+     "id": "male-spotrebice",
+     "nazev": "Malé spotřebiče",
+     "coicop": "05.32",
+     "nazvy": [
+      "rychlovarná konvice",
+      "mixér",
+      "toustovač",
+      "kávovar",
+      "vysavač",
+      "žehlička"
+     ]
+    },
+    {
+     "id": "velke-spotrebice",
+     "nazev": "Velké spotřebiče",
+     "coicop": "05.31",
+     "nazvy": [
+      "pračka",
+      "lednice",
+      "myčka",
+      "sporák",
+      "mikrovlnná trouba"
+     ]
+    },
+    {
+     "id": "herni",
+     "nazev": "Hry a konzole",
+     "coicop": "09.21",
+     "nazvy": [
+      "herní konzole",
+      "videohra",
+      "ovladač"
+     ]
+    },
+    {
+     "id": "chytre",
+     "nazev": "Chytrá zařízení a doplňky",
+     "coicop": "08.13",
+     "nazvy": [
+      "chytré hodinky",
+      "fitness náramek",
+      "chytrá žárovka"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "dum-zahrada",
+   "nazev": "Dům, zahrada a hobby",
+   "ikona": "🌱",
+   "rozpocet": "cat17",
+   "podkategorie": [
+    {
+     "id": "naradi",
+     "nazev": "Nářadí",
+     "coicop": "05.52",
+     "nazvy": [
+      "šroubovák",
+      "kladivo",
+      "vrták",
+      {
+       "n": "vrtačka",
+       "coicop": "05.51"
+      },
+      "metr",
+      "klíče"
+     ]
+    },
+    {
+     "id": "stavebniny",
+     "nazev": "Stavebniny a barvy",
+     "coicop": "04.31",
+     "nazvy": [
+      "barva",
+      "malířská barva",
+      "tmel",
+      "lepidlo na obklady",
+      "sádrokarton",
+      "silikon"
+     ]
+    },
+    {
+     "id": "zelezarstvi",
+     "nazev": "Železářství a spojovací materiál",
+     "coicop": "05.52",
+     "nazvy": [
+      "šrouby",
+      "hmoždinky",
+      "hřebíky",
+      "háčky"
+     ]
+    },
+    {
+     "id": "zahrada",
+     "nazev": "Zahrada",
+     "coicop": "09.31",
+     "nazvy": [
+      "substrát",
+      "hnojivo",
+      "květináč",
+      "travní semeno",
+      "mulčovací kůra",
+      {
+       "n": "zahradní hadice",
+       "coicop": "05.52"
+      }
+     ]
+    },
+    {
+     "id": "rostliny",
+     "nazev": "Rostliny a květiny",
+     "coicop": "09.31",
+     "nazvy": [
+      "květina",
+      "kytice",
+      "pokojová rostlina",
+      "sazenice",
+      "semena",
+      "cibuloviny"
+     ]
+    },
+    {
+     "id": "grilovani",
+     "nazev": "Grilování a venkovní vybavení",
+     "coicop": "05.52",
+     "nazvy": [
+      {
+       "n": "dřevěné uhlí",
+       "coicop": "04.54"
+      },
+      "podpalovač",
+      "gril"
+     ]
+    },
+    {
+     "id": "palivo",
+     "nazev": "Palivo pro domácnost",
+     "coicop": "04.54",
+     "nazvy": [
+      "palivové dříví",
+      "brikety",
+      "uhlí"
+     ]
+    },
+    {
+     "id": "kutilske",
+     "nazev": "Kutilské potřeby",
+     "coicop": "05.52",
+     "nazvy": [
+      "lepicí páska",
+      "provázek",
+      "stahovací pásky"
+     ]
+    },
+    {
+     "id": "dilna-ochrana",
+     "nazev": "Pracovní ochranné pomůcky",
+     "coicop": "05.52",
+     "nazvy": [
+      "pracovní rukavice",
+      "ochranné brýle"
+     ]
+    },
+    {
+     "id": "bazen",
+     "nazev": "Bazén a sezónní zboží",
+     "coicop": "09.22",
+     "nazvy": [
+      "bazénová chemie",
+      "nafukovací bazén",
+      {
+       "n": "vánoční ozdoby",
+       "coicop": "05.619"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "deti",
+   "nazev": "Děti",
+   "ikona": "👶",
+   "rozpocet": "cat16",
+   "podkategorie": [
+    {
+     "id": "plenky",
+     "nazev": "Plenky a přebalování",
+     "coicop": "13.120",
+     "nazvy": [
+      "plenky",
+      "dětské vlhčené ubrousky",
+      "přebalovací podložky",
+      "krém na opruzeniny"
+     ]
+    },
+    {
+     "id": "detska-vyziva",
+     "nazev": "Dětská výživa",
+     "coicop": "01.192",
+     "nazvy": [
+      "dětská výživa",
+      "kojenecké mléko",
+      "příkrm",
+      "dětská kaše",
+      "dětský přesnídávkový sáček"
+     ]
+    },
+    {
+     "id": "detska-kosmetika",
+     "nazev": "Dětská kosmetika",
+     "coicop": "13.120",
+     "nazvy": [
+      "dětský šampon",
+      "dětský krém",
+      "dětská zubní pasta"
+     ]
+    },
+    {
+     "id": "hracky",
+     "nazev": "Hračky a hry",
+     "coicop": "09.21",
+     "nazvy": [
+      "hračka",
+      "stavebnice",
+      "puzzle",
+      "panenka",
+      "plyšák",
+      "autíčko",
+      "společenská hra"
+     ]
+    },
+    {
+     "id": "skolni",
+     "nazev": "Školní potřeby",
+     "coicop": "09.740",
+     "nazvy": [
+      "školní sešit",
+      "penál",
+      "školní batoh",
+      "výkresy",
+      "vodovky"
+     ]
+    },
+    {
+     "id": "detske-vybaveni",
+     "nazev": "Dětské vybavení",
+     "coicop": "09.21",
+     "nazvy": [
+      "kočárek",
+      "autosedačka",
+      "dudlík",
+      "kojenecká láhev"
+     ]
+    },
+    {
+     "id": "detske-knihy",
+     "nazev": "Dětské knihy a časopisy",
+     "coicop": "09.71",
+     "nazvy": [
+      "dětská kniha",
+      "omalovánky",
+      {
+       "n": "dětský časopis",
+       "coicop": "09.72"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "zvirata",
+   "nazev": "Zvířata",
+   "ikona": "🐾",
+   "rozpocet": "cat21",
+   "podkategorie": [
+    {
+     "id": "krmivo-psi",
+     "nazev": "Krmivo pro psy",
+     "coicop": "09.32",
+     "nazvy": [
+      "granule pro psy",
+      "konzerva pro psy",
+      "kapsička pro psy",
+      "pamlsky pro psy"
+     ]
+    },
+    {
+     "id": "krmivo-kocky",
+     "nazev": "Krmivo pro kočky",
+     "coicop": "09.32",
+     "nazvy": [
+      "granule pro kočky",
+      "konzerva pro kočky",
+      "kapsička pro kočky",
+      "pamlsky pro kočky"
+     ]
+    },
+    {
+     "id": "krmivo-ostatni",
+     "nazev": "Krmivo pro ostatní zvířata",
+     "coicop": "09.32",
+     "nazvy": [
+      "krmivo pro ptáky",
+      "krmivo pro hlodavce",
+      "krmivo pro ryby",
+      "zrní"
+     ]
+    },
+    {
+     "id": "steliva",
+     "nazev": "Steliva a hygiena",
+     "coicop": "09.32",
+     "nazvy": [
+      "stelivo",
+      "podestýlka",
+      "sáčky na exkrementy"
+     ]
+    },
+    {
+     "id": "potreby-zvirata",
+     "nazev": "Potřeby pro zvířata",
+     "coicop": "09.32",
+     "nazvy": [
+      "obojek",
+      "vodítko",
+      "hračka pro zvířata",
+      "miska",
+      "antiparazitní přípravek"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "auto",
+   "nazev": "Auto a doprava",
+   "ikona": "🚗",
+   "rozpocet": "cat11",
+   "podkategorie": [
+    {
+     "id": "pohonne-hmoty",
+     "nazev": "Pohonné hmoty",
+     "coicop": "07.22",
+     "nazvy": [
+      "benzín",
+      "nafta",
+      {
+       "n": "lpg",
+       "coicop": "07.223"
+      },
+      {
+       "n": "cng",
+       "coicop": "07.223"
+      },
+      "adblue"
+     ]
+    },
+    {
+     "id": "autokosmetika",
+     "nazev": "Autokosmetika a kapaliny",
+     "coicop": "07.21",
+     "nazvy": [
+      "kapalina do ostřikovačů",
+      "nemrznoucí směs",
+      "autokosmetika",
+      "vůně do auta",
+      "škrabka na led"
+     ]
+    },
+    {
+     "id": "oleje-auto",
+     "nazev": "Motorové oleje",
+     "coicop": "07.22",
+     "nazvy": [
+      "motorový olej",
+      "převodový olej"
+     ]
+    },
+    {
+     "id": "dily-auto",
+     "nazev": "Díly a příslušenství",
+     "coicop": "07.21",
+     "nazvy": [
+      "stěrače",
+      "žárovka do auta",
+      "autobaterie",
+      "pneumatiky"
+     ]
+    },
+    {
+     "id": "parkovani",
+     "nazev": "Parkování a mýto",
+     "coicop": "07.24",
+     "nazvy": [
+      "parkovné",
+      "dálniční známka",
+      "mýtné"
+     ]
+    },
+    {
+     "id": "jizdne",
+     "nazev": "Jízdné",
+     "coicop": "07.32",
+     "nazvy": [
+      "jízdenka",
+      "jízdenka mhd",
+      "místenka",
+      {
+       "n": "jízdenka na vlak",
+       "coicop": "07.31"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "volny-cas",
+   "nazev": "Volný čas a ostatní",
+   "ikona": "🎟️",
+   "rozpocet": "cat5",
+   "podkategorie": [
+    {
+     "id": "knihy",
+     "nazev": "Knihy",
+     "coicop": "09.71",
+     "nazvy": [
+      "kniha",
+      "e-kniha",
+      "audiokniha"
+     ]
+    },
+    {
+     "id": "tisk",
+     "nazev": "Noviny a časopisy",
+     "coicop": "09.72",
+     "nazvy": [
+      "noviny",
+      "časopis",
+      "křížovky"
+     ]
+    },
+    {
+     "id": "sport",
+     "nazev": "Sportovní potřeby",
+     "coicop": "09.22",
+     "nazvy": [
+      "míč",
+      "sportovní láhev",
+      "podložka na cvičení",
+      "rybářské potřeby"
+     ]
+    },
+    {
+     "id": "vstupenky",
+     "nazev": "Vstupenky a kultura",
+     "coicop": "09.61",
+     "nazvy": [
+      "vstupenka",
+      "kino",
+      "divadlo",
+      "koncert"
+     ]
+    },
+    {
+     "id": "loterie",
+     "nazev": "Loterie a sázky",
+     "coicop": "09.47",
+     "nazvy": [
+      "los",
+      "sportka",
+      "stírací los"
+     ]
+    },
+    {
+     "id": "hobby",
+     "nazev": "Hobby a tvoření",
+     "coicop": "09.21",
+     "nazvy": [
+      "výtvarné potřeby",
+      "pletací příze",
+      "modelářské potřeby"
+     ]
+    },
+    {
+     "id": "kvetiny-darky",
+     "nazev": "Dárky",
+     "coicop": "13.29",
+     "nazvy": [
+      "dárek",
+      "dárkový poukaz"
+     ]
+    },
+    {
+     "id": "sluzby-ostatni",
+     "nazev": "Poplatky a služby na účtence",
+     "coicop": "13.90",
+     "nazvy": [
+      "záloha na obal",
+      "vratná láhev",
+      "taška",
+      "poplatek"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "leky",
+   "nazev": "Léky a zdravotní potřeby",
+   "ikona": "💊",
+   "rozpocet": "cat4",
+   "podkategorie": [
+    {
+     "id": "leky-bolest",
+     "nazev": "Léky proti bolesti a horečce",
+     "coicop": "06.11",
+     "nazvy": [
+      "ibuprofen",
+      "paracetamol",
+      "aspirin"
+     ]
+    },
+    {
+     "id": "leky-nachlazeni",
+     "nazev": "Nachlazení a chřipka",
+     "coicop": "06.11",
+     "nazvy": [
+      "kapky do nosu",
+      "sirup proti kašli",
+      "pastilky na krk"
+     ]
+    },
+    {
+     "id": "vitaminy",
+     "nazev": "Vitamíny a doplňky stravy",
+     "coicop": "06.11",
+     "nazvy": [
+      "vitamín c",
+      "vitamín d",
+      "hořčík",
+      "zinek",
+      "probiotika",
+      "doplněk stravy"
+     ]
+    },
+    {
+     "id": "traveni",
+     "nazev": "Trávení",
+     "coicop": "06.11",
+     "nazvy": [
+      "živočišné uhlí",
+      "léky na trávení"
+     ]
+    },
+    {
+     "id": "zdravotnicke",
+     "nazev": "Zdravotnický materiál",
+     "coicop": "06.12",
+     "nazvy": [
+      "náplast",
+      "obvaz",
+      "dezinfekce",
+      "teploměr",
+      "respirátor"
+     ]
+    },
+    {
+     "id": "antikoncepce",
+     "nazev": "Antikoncepce a testy",
+     "coicop": "06.12",
+     "nazvy": [
+      "kondomy",
+      "těhotenský test"
+     ]
+    },
+    {
+     "id": "optika",
+     "nazev": "Oční optika",
+     "coicop": "06.13",
+     "nazvy": [
+      "brýle",
+      "kontaktní čočky",
+      "roztok na čočky"
+     ]
+    }
+   ]
+  }
+ ]
+}

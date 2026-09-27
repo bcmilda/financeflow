@@ -242,6 +242,8 @@
         "$klic": {
           ".validate": "newData.hasChildren(['obecny']) && newData.child('obecny').isString() && newData.child('obecny').val().length <= 40",
           "obecny":    { ".validate": "newData.isString() && newData.val().length <= 40" },
+          // S24 (T2): odkaz do data/taxonomie.json = normName obecného názvu
+          "obecnyId":  { ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9 ]{1,60}$/)" },
           "konkretni": { ".validate": "newData.isString() && newData.val().length <= 60" },
           "produkt":   { ".validate": "newData.isString() && newData.val().length <= 80" },
           "catId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
