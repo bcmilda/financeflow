@@ -234,14 +234,16 @@
         }
       },
       // S23: Mapa polozek. Cte kazdy prihlaseny, ZAPISUJE JEN ADMIN - spatne
-      //   mapovani by se propsalo vsem. Osobni volba uzivatele zustava
-      //   v users/{uid}/data/productPrefs (F3).
+      //   mapovani by se propsalo vsem. Osobni volba uzivatele = users/{uid}/categoryMappings
+      //   s polem zdroj:'uzivatel' (S24, ADR-169).
       "productMap": {
         ".read": "auth != null",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         "$klic": {
           ".validate": "newData.hasChildren(['obecny']) && newData.child('obecny').isString() && newData.child('obecny').val().length <= 40",
           "obecny":    { ".validate": "newData.isString() && newData.val().length <= 40" },
+          // S24 (T2): odkaz do data/taxonomie.json = normName obecného názvu
+          "obecnyId":  { ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9 ]{1,60}$/)" },
           "konkretni": { ".validate": "newData.isString() && newData.val().length <= 60" },
           "produkt":   { ".validate": "newData.isString() && newData.val().length <= 80" },
           "catId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
@@ -251,6 +253,12 @@
           "$jine": { ".validate": false }
         }
       },
+      // S24 (TODO-306/308): carovy kod. Zapisuje VYHRADNE worker (Database Secret),
+      //   klient jen cte. eanProdukty = data z Open Food Facts (ODbL), eanAliasy =
+      //   "obchod + zkratka z uctenky -> EAN" bez uid, eanPodleNazvu = opacny index.
+      "eanProdukty":   { ".read": "auth != null", ".write": false },
+      "eanAliasy":     { ".read": "auth != null", ".write": false },
+      "eanPodleNazvu": { ".read": "auth != null", ".write": false },
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"

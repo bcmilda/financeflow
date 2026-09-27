@@ -1,4 +1,4 @@
-// FinanceFlow · v11.04 · admin.js · 2026-09-25
+// FinanceFlow · v11.07 · admin.js · 2026-09-27
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,39 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.07',
+    datum: '2026-09-27',
+    zmeny: [
+      '🧭 TAXONOMIE VÝROBKŮ (T1) · data/taxonomie.json: 13 oblastí, 139 podkategorií, 902 obecných názvů. COICOP v zápisu ČSÚ (spotřební koš 2026) u podkategorie, výjimka u názvu (máslo 01.152 ve skupině Smetana a máslo). Výchozí rozpočtová kategorie u oblasti/podkategorie. Nový modul js/taxonomie.js: index, návrh ze zkratky z pokladny („JOG OVOC 150" → ovocný jogurt, nejednoznačné „SAL" → nic), hledání.',
+      '🗺️ ADMIN MAPA NAD TAXONOMIÍ (T2) · cesta: Admin panel → 🗺️ Mapa položek. Místo volného textu, kategorie a podkategorie se vybírá OBECNÝ NÁZEV z taxonomie (našeptávač); oblast › podkategorie › COICOP › rozpočet se doplní samy. Tlačítko „💡 Návrh" podle tagů uživatelů nebo zkratky. Konkrétní název zůstává volný. Filtr (Vše / Bez obecného názvu / V taxonomii) a hledání (TODO-313 admin). Nová dlaždice „V taxonomii".',
+      '🔄 „Převést na taxonomii": staré záznamy mapy (volný text) se jedním PATCH spárují přes obecný název, konkrétní název nebo zkratku; nespárované zůstanou beze změny. catId záznamu = výchozí rozpočtová kategorie z taxonomie → mají ji všichni uživatelé (řeší ADR-172).',
+      '🔒 Pravidla: productMap/$klic/obecnyId (normName, jen a–z 0–9 mezera, max 60). ⚠️ nasadit pravidla, jinak uložení vrátí HTTP 400.',
+      '🛡️ Admin Mapa: tagy od uživatelů se nově escapují (dřív šly do HTML i do onclick bez ošetření).',
+      '🧪 tools/smoke_taxonomie.js (T1, 3 418 kontrol dat) a tools/smoke_taxonomie_t2.js (29).',
+    ]
+  },
+  {
+    verze: 'v11.06',
+    datum: '2026-09-27',
+    zmeny: [
+      '📷 ČÁROVÝ KÓD K POLOŽCE ÚČTENKY (TODO-308) · cesta: Účtenky → 📸 Skenovat → editor účtenky → tlačítko 📷 u položky. Živá kamera, nebo „📸 Vyfotit kód" (kód se přečte z fotky) – bez ručního psaní. Ukáže název, značku, gramáž, obecný → konkrétní název, Nutri-Score, NOVA a štítky (bio, vegan…). „✅ Přiřadit k položce" uloží kód k položce (u položky pak ✅) a spojení „obchod + zkratka z účtenky → EAN". Kódy obchodu (prefix 2 – vážené zboží, pečivo) se nepárují.',
+      '☁️ Worker v11.06: nový endpoint POST /ean (TODO-306). Hledá ve 4 databázích (Open Food Facts, Beauty, Products, Pet Food) s povinným User-Agentem, výsledek uloží do community/eanProdukty – na stejný kód se komunita ptá jen jednou (nalezený 90 dní, nenalezený 14 dní). Výpadek databází se neukládá. Spojení obchod+zkratka → community/eanAliasy + opačný index eanPodleNazvu, BEZ uid; počet potvrzení roste jen jednou za uživatele (jeho záznam v users/{uid}/eanAliasy). Limit 200 dotazů/hod na uživatele.',
+      '🔒 Pravidla: community/eanProdukty, eanAliasy, eanPodleNazvu – číst smí přihlášený, zapisuje jen worker.',
+      '🧪 tools/smoke_ean_sken.js (16) a tools/smoke_worker_ean.js (20).',
+    ]
+  },
+  {
+    verze: 'v11.05',
+    datum: '2026-09-26',
+    zmeny: [
+      '🗺️ MAPA POLOŽEK PRO UŽIVATELE (PLAN-mapa-produktu F3, TODO-312) · cesta: Účtenky → 🗺️ Mapa položek. Všechny položky z vlastních účtenek (varianty názvu sloučené přes normName), u každé řetěz z komunitní mapy (obecný → konkrétní název) a kam ji appka zařadí: ✋ Moje volba / 🗺️ Z mapy / 🔎 Odhad appky / 📦 Nezařazeno. Kategorii i podkategorii jde změnit, převzít návrh mapy nebo volbu zrušit. Filtr a hledání (i v názvech z mapy, bez diakritiky) – TODO-313 pro uživatele. Změna platí pro další účtenky, staré se nepřepisují.',
+      '🧾 cesta: Účtenky → 📸 Skenovat → editor účtenky: návrh z komunitní mapy se PŘEDVYPLNÍ a označí 🗺️ (v bublině obecný → konkrétní název). Pořadí zařazení položky: osobní volba → komunitní mapa → klíčová slova → 🛍️ Nákup. Mapa nikdy nepřepíše, co si uživatel zvolil.',
+      '🧠 Učení kategorií si pamatuje jen ROZHODNUTÍ: ruční změnu kategorie či podkategorie (nově se pamatuje i podkategorie) nebo potvrzenou dřívější volbu. Dřív se při uložení účtenky ukládal každý odhad včetně „nevím = Nákup" a takový záznam by navždy přebíjel komunitní mapu. Starý automatický záznam „→ Nákup" se proto za volbu nepovažuje.',
+      'ℹ️ Osobní vrstvou je dosavadní učení kategorií (users/{uid}/categoryMappings, nové pole zdroj:"uzivatel"), žádný nový uzel productPrefs – dvě místa se stejným obsahem by se rozcházela. Pravidla databáze beze změny.',
+      '🧪 tools/smoke_mapa_osobni.js – 26 testů (pořadí zařazení, osobní volba přebíjí mapu, starý automatický Nákup ne, neznámá kategorie admina se přeskočí, starý klíč mapy s podtržítky, zrušení volby, filtr a hledání, escapování). Upraveny smoke_jednatx.js (nové pravidlo učení) a smoke_s23.js (extrakce nových funkcí).',
+    ]
+  },
   {
     verze: 'v11.04',
     datum: '2026-09-25',
@@ -7207,7 +7240,12 @@ function mapaStatistiky(tagy, zaznamy, kategorie) {
   Object.values(tagy || {}).forEach(t => Object.keys(t || {}).forEach(x => obec.add(String(x).toLowerCase())));
   const celkem = Object.keys(tagy || {}).length;
   const namapovano = Object.keys(zaznamy || {}).filter(k => nepr((zaznamy[k] || {}).catId)).length;
+  //  S24 (T2): kolik záznamů už ukazuje do taxonomie a kolik oblastí pokrývají.
+  const vTax = z.filter(r => nepr(r.obecnyId));
+  const oblasti = new Set(vTax.map(r => (typeof taxInfo === 'function' && taxInfo(r.obecnyId) || {}).oblastId).filter(Boolean));
   return {
+    vTaxonomii: vTax.length,
+    oblasti: oblasti.size,
     polozky: celkem,
     namapovano,
     bezMapovani: Math.max(0, celkem - namapovano),
@@ -7226,6 +7264,7 @@ function mapaStatKarta(st) {
     </div>`;
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:14px">
     ${dl('Namapované položky', st.namapovano, st.bezMapovani ? st.bezMapovani + ' čeká' : 'vše hotovo')}
+    ${dl('V taxonomii', st.vTaxonomii || 0, (st.oblasti || 0) + ' oblastí')}
     ${dl('Kategorie', st.kategorie)}
     ${dl('Podkategorie', st.podkategorie)}
     ${dl('Konkrétní názvy', st.konkretni)}
@@ -7289,45 +7328,184 @@ async function loadCommunityItemTags() {
       return {itemKey, tagList, totalCnt};
     }).sort((a,b)=>b.totalCnt-a.totalCnt);
 
-    const _katOpt = (vyb) => (S.categories||[]).filter(c=>c.type==='expense'||c.type==='both'||!c.type)
-      .map(c=>`<option value="${_vzEsc(c.id)}" ${vyb===c.id?'selected':''}>${_vzEsc((c.icon||'')+' '+c.name)}</option>`).join('');
+    //  S24 (T2): taxonomie musí být načtená dřív, než se kreslí řádky.
+    if (typeof loadTaxonomie === 'function') await loadTaxonomie();
+    _mapaAdminItems = items;
+    _mapaAdminTagy = data;
+    const nemaTax = Object.values(_mapaZaznamy).filter(r => r && !r.obecnyId).length;
     el.innerHTML = `<div class="card-body">
       ${mapaStatKarta(mapaStatistiky(data, _mapaZaznamy, S.categories))}
-      <div style="font-size:.72rem;color:var(--text3);margin-bottom:12px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
-      ${items.map(item => `
-        <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:6px">📦 ${_vzEsc(item.itemKey.replace(/_/g,' '))}${(_mapaZaznamy[item.itemKey]||{}).catId?' <span style="font-size:.66rem;color:var(--income)">✓ namapováno</span>':''}</div>
-          <div style="font-size:.66rem;color:#8b93ad;margin-bottom:3px">Obecný název (tagy od uživatelů)</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${item.tagList.map(({tag, cnt, status}) => {
-              const isApproved = status==='approved';
-              const isRejected = status==='rejected';
-              const checkColor = isApproved ? 'var(--income)' : '#6b7280';
-              return `<div style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--surface2);border-radius:8px;border:1px solid ${isApproved?'var(--income)':isRejected?'var(--expense)':'var(--border)'}">
-                <span style="font-size:.8rem;color:var(--income);font-weight:600">${tag}</span>
-                <span style="font-size:.7rem;color:#ec4899;font-weight:700">(${cnt}×)</span>
-                <button onclick="validateItemTag('${item.itemKey}','${tag}','approved')" class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:.75rem;color:${checkColor};border:1px solid ${checkColor}" title="${isApproved?'Schváleno':'Schválit'}">✓</button>
-                <button onclick="validateItemTag('${item.itemKey}','${tag}','rejected')" class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:.75rem;color:var(--expense);border:1px solid var(--expense)" title="Odmítnout">✕</button>
-              </div>`;
-            }).join('')}
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin-top:8px">
-            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Konkrétní název (rum, rohlík…)"
-              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).konkretni||'')}"
-              onchange="mapaZmen('${_onEsc(item.itemKey)}','konkretni',this)">
-            <select class="fi" style="font-size:.76rem;padding:6px 8px" onchange="mapaZmen('${_onEsc(item.itemKey)}','catId',this)">
-              <option value="">— kategorie —</option>${_katOpt((_mapaZaznamy[item.itemKey]||{}).catId)}
-            </select>
-            <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Podkategorie"
-              value="${_vzEsc((_mapaZaznamy[item.itemKey]||{}).subcat||'')}"
-              onchange="mapaZmen('${_onEsc(item.itemKey)}','subcat',this)">
-          </div>
-        </div>`).join('')}
+      ${typeof taxSeznam === 'function' && taxSeznam().length ? '' : '<div style="font-size:.76rem;color:var(--expense);margin-bottom:10px">⚠️ Taxonomie se nenačetla (data/taxonomie.json) – výběr obecného názvu nepůjde.</div>'}
+      ${nemaTax ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;font-size:.78rem;color:var(--text)">
+          ${nemaTax} uložených záznamů je ještě ve starém tvaru (volný text). <button class="btn btn-sm" onclick="mapaMigrace()">🔄 Převést na taxonomii</button></div>` : ''}
+      <datalist id="taxDatalist">${(typeof taxSeznam === 'function' ? taxSeznam() : []).map(z => `<option value="${_vzEsc(z.nazev)}" label="${_vzEsc(z.podNazev)}"></option>`).join('')}</datalist>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="mapaAdminFiltry"></div>
+      <input class="fi" type="search" placeholder="🔍 Hledat položku, obecný název nebo podkategorii…" value="${_vzEsc(_mapaAdminFiltr.q)}"
+        oninput="_mapaAdminFiltr.q=this.value;mapaAdminKresli()" style="font-size:.8rem;margin-bottom:6px">
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
+      <div id="mapaAdminSeznam"></div>
     </div>`;
+    mapaAdminKresli();
   } catch(e) {
     el.innerHTML = `<div class="card-body" style="color:var(--expense);font-size:.8rem">Chyba: ${e.message}</div>`;
   }
 }
+
+// ══════════════════════════════════════════════════════
+//  S24 (T2): ADMIN MAPA POLOŽEK NAD TAXONOMIÍ
+//  Místo volného textu + kategorie + podkategorie se vybírá OBECNÝ NÁZEV
+//  z taxonomie (našeptávač). Podkategorie, oblast, COICOP a výchozí rozpočtová
+//  kategorie se doplní samy (taxDoMapy). Konkrétní název zůstává volný.
+//  Filtr a hledání = TODO-313 (admin část).
+// ══════════════════════════════════════════════════════
+let _mapaAdminItems = [], _mapaAdminTagy = {};
+let _mapaAdminFiltr = { stav: 'vse', q: '' };
+const MAPA_ADMIN_LIMIT = 120;
+
+//  Čistý výběr podle filtru (testuje smoke_taxonomie_t2.js).
+function mapaAdminFiltruj(items, zaznamy, f) {
+  const norm = t => (typeof normName === 'function') ? normName(t) : String(t || '').toLowerCase();
+  const q = norm(f.q || '');
+  return (items || []).filter(it => {
+    const z = (zaznamy || {})[it.itemKey] || {};
+    const hotovo = !!z.obecnyId;
+    if (f.stav === 'bez' && hotovo) return false;
+    if (f.stav === 'hotove' && !hotovo) return false;
+    if (!q) return true;
+    const info = (hotovo && typeof taxInfo === 'function') ? taxInfo(z.obecnyId) : null;
+    const kde = [it.itemKey.replace(/_/g, ' '), z.obecny, z.konkretni, info && info.podNazev, info && info.oblastNazev,
+      ...(it.tagList || []).map(t => t.tag)].filter(Boolean).map(norm).join(' ');
+    return kde.includes(q);
+  });
+}
+window.mapaAdminFiltruj = mapaAdminFiltruj;
+
+function mapaAdminStav(id) { _mapaAdminFiltr.stav = id; mapaAdminKresli(); }
+window.mapaAdminStav = mapaAdminStav;
+
+function mapaAdminKresli() {
+  const el = document.getElementById('mapaAdminSeznam'); if (!el) return;
+  const hot = _mapaAdminItems.filter(it => (_mapaZaznamy[it.itemKey] || {}).obecnyId).length;
+  const pocty = { vse: _mapaAdminItems.length, bez: _mapaAdminItems.length - hot, hotove: hot };
+  const f = document.getElementById('mapaAdminFiltry');
+  if (f) f.innerHTML = [['vse', 'Vše'], ['bez', '📦 Bez obecného názvu'], ['hotove', '✅ V taxonomii']].map(([id, t]) =>
+    `<button class="tx-filt-btn${_mapaAdminFiltr.stav === id ? ' active' : ''}" onclick="mapaAdminStav('${id}')">${t} <span style="opacity:.7">${pocty[id]}</span></button>`).join('');
+  const vyber = mapaAdminFiltruj(_mapaAdminItems, _mapaZaznamy, _mapaAdminFiltr);
+  if (!vyber.length) { el.innerHTML = '<div style="font-size:.78rem;color:var(--text3);padding:10px 0">Nic neodpovídá filtru.</div>'; return; }
+  el.innerHTML = vyber.slice(0, MAPA_ADMIN_LIMIT).map(mapaAdminRadek).join('')
+    + (vyber.length > MAPA_ADMIN_LIMIT ? `<div style="font-size:.74rem;color:var(--text3);padding:10px 0">Zobrazeno ${MAPA_ADMIN_LIMIT} z ${vyber.length} – zúž hledáním.</div>` : '');
+}
+window.mapaAdminKresli = mapaAdminKresli;
+
+function mapaAdminRadek(item) {
+  const k = item.itemKey, z = _mapaZaznamy[k] || {};
+  const info = (z.obecnyId && typeof taxInfo === 'function') ? taxInfo(z.obecnyId) : null;
+  //  Návrh: nejdřív z tagů uživatelů, pak ze samotné zkratky.
+  let navrh = null;
+  if (!info && typeof taxNavrh === 'function') {
+    for (const t of item.tagList) { navrh = taxNavrh(t.tag); if (navrh) break; }
+    if (!navrh) navrh = taxNavrh(k.replace(/_/g, ' '));
+  }
+  const kat = info ? (S.categories || []).find(c => c.id === info.rozpocet) : null;
+  const retez = info
+    ? `<div style="font-size:.72rem;color:#a8aec8;margin-top:5px">${_vzEsc(info.ikona + ' ' + info.oblastNazev)} › ${_vzEsc(info.podNazev)} › <b style="color:var(--income)">${_vzEsc(info.nazev)}</b>
+         · COICOP ${_vzEsc(info.coicop)}${kat ? ' · rozpočet ' + _vzEsc((kat.icon || '') + ' ' + kat.name) : ''}</div>`
+    : (z.obecny ? `<div style="font-size:.72rem;color:#fbbf24;margin-top:5px">Starý záznam: „${_vzEsc(z.obecny)}" – vyber obecný název z taxonomie.</div>` : '');
+  const tagy = item.tagList.map(({ tag, cnt, status }) => {
+    const ok = status === 'approved', no = status === 'rejected';
+    const barva = ok ? 'var(--income)' : '#6b7280';
+    return `<div style="display:flex;align-items:center;gap:4px;padding:3px 8px;background:var(--surface2);border-radius:8px;border:1px solid ${ok ? 'var(--income)' : no ? 'var(--expense)' : 'var(--border)'}">
+      <span style="font-size:.76rem;color:var(--income);font-weight:600">${_vzEsc(tag)}</span>
+      <span style="font-size:.68rem;color:#ec4899;font-weight:700">(${cnt}×)</span>
+      <button onclick="validateItemTag('${_onEsc(k)}','${_onEsc(tag)}','approved')" class="btn btn-ghost btn-sm" style="padding:0 5px;font-size:.7rem;color:${barva};border:1px solid ${barva}" title="${ok ? 'Schváleno' : 'Schválit'}">✓</button>
+      <button onclick="validateItemTag('${_onEsc(k)}','${_onEsc(tag)}','rejected')" class="btn btn-ghost btn-sm" style="padding:0 5px;font-size:.7rem;color:var(--expense);border:1px solid var(--expense)" title="Odmítnout">✕</button>
+    </div>`;
+  }).join('');
+  return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:5px">📦 ${_vzEsc(k.replace(/_/g, ' '))}${info ? ' <span style="font-size:.66rem;color:var(--income)">✓ v taxonomii</span>' : ''}</div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-bottom:3px">Tagy od uživatelů</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">${tagy}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px;margin-top:8px">
+      <input class="fi" list="taxDatalist" style="font-size:.76rem;padding:6px 8px" placeholder="Obecný název (začni psát…)"
+        value="${_vzEsc(info ? info.nazev : '')}" onchange="mapaUlozTax('${_onEsc(k)}',this)">
+      <input class="fi" style="font-size:.76rem;padding:6px 8px" placeholder="Konkrétní název (ovocný jogurt…)"
+        value="${_vzEsc(z.konkretni || '')}" onchange="mapaZmen('${_onEsc(k)}','konkretni',this)">
+    </div>
+    ${navrh ? `<button class="btn btn-sm" style="margin-top:6px;font-size:.72rem" onclick="mapaUlozTaxId('${_onEsc(k)}','${_onEsc(navrh.info.id)}')">💡 Návrh: ${_vzEsc(navrh.info.nazev)} · ${_vzEsc(navrh.info.podNazev)}</button>` : ''}
+    ${retez}
+  </div>`;
+}
+
+//  Uloží obecný název z taxonomie (+ odvozené catId a COICOP oddíl).
+async function mapaUlozTaxId(klic, id) {
+  const info = typeof taxInfo === 'function' ? taxInfo(id) : null;
+  if (!info) { if (typeof showToast === 'function') showToast('⚠️ Tento název v taxonomii není'); return; }
+  const token = await window._currentUser?.getIdToken?.();
+  const zaznam = Object.assign({}, _mapaZaznamy[klic] || {}, taxDoMapy(info), { kdy: Date.now() });
+  delete zaznam.subcat;   // podkategorie teď dává taxonomie, stará volná podkategorie by mátla
+  const r = await fetch(`${MAPA_URL}/community/productMap/${encodeURIComponent(klic)}.json?auth=${token}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zaznam),
+  });
+  if (!r.ok) { alert('Uložení selhalo: HTTP ' + r.status + (r.status === 400 ? ' – nasazená pravidla v11.07?' : '')); return; }
+  _mapaZaznamy[klic] = zaznam;
+  if (typeof showToast === 'function') showToast('🗺️ ' + info.nazev + ' · ' + info.podNazev);
+  mapaAdminKresli();
+}
+window.mapaUlozTaxId = mapaUlozTaxId;
+
+function mapaUlozTax(klic, el) {
+  const info = typeof taxInfo === 'function' ? taxInfo(el.value) : null;
+  if (!el.value.trim()) return;
+  if (!info) {
+    el.style.borderColor = 'var(--expense)';
+    if (typeof showToast === 'function') showToast('⚠️ „' + el.value + '" v taxonomii není – vyber z nabídky');
+    return;
+  }
+  el.style.borderColor = '';
+  mapaUlozTaxId(klic, info.id);
+}
+window.mapaUlozTax = mapaUlozTax;
+
+//  Jednorázový převod starých záznamů (volný text) na taxonomii.
+//  Páruje přes obecný název, konkrétní název a nakonec samotnou zkratku.
+//  Co se nespáruje, zůstane beze změny a admin to doplní ručně.
+function mapaMigraceNavrh(zaznamy) {
+  const out = [];
+  Object.entries(zaznamy || {}).forEach(([k, z]) => {
+    if (!z || z.obecnyId) return;
+    const kand = [z.obecny, z.konkretni, k.replace(/_/g, ' ')].filter(Boolean);
+    let hit = null;
+    for (const t of kand) { hit = (typeof taxInfo === 'function' && taxInfo(t)) || null; if (hit) break; }
+    if (!hit) for (const t of kand) { const n = typeof taxNavrh === 'function' ? taxNavrh(t) : null; if (n) { hit = n.info; break; } }
+    out.push({ klic: k, info: hit });
+  });
+  return out;
+}
+window.mapaMigraceNavrh = mapaMigraceNavrh;
+
+async function mapaMigrace() {
+  const n = mapaMigraceNavrh(_mapaZaznamy);
+  const ok = n.filter(x => x.info);
+  if (!ok.length) { alert('Žádný starý záznam se nepodařilo automaticky spárovat – doplň obecné názvy ručně.'); return; }
+  const ukazka = ok.slice(0, 12).map(x => `• ${x.klic.replace(/_/g, ' ')} → ${x.info.nazev} (${x.info.podNazev})`).join('\n');
+  if (!confirm(`Převést ${ok.length} z ${n.length} starých záznamů na taxonomii?\n\n${ukazka}${ok.length > 12 ? '\n…' : ''}\n\nZbylých ${n.length - ok.length} zůstane beze změny.`)) return;
+  const token = await window._currentUser?.getIdToken?.();
+  //  Jedním PATCH na uzel mapy – buď se převede všechno, nebo nic.
+  const zmeny = {};
+  ok.forEach(x => {
+    const z = Object.assign({}, _mapaZaznamy[x.klic], taxDoMapy(x.info), { kdy: Date.now() });
+    delete z.subcat;
+    zmeny[x.klic] = z;
+  });
+  const r = await fetch(`${MAPA_URL}/community/productMap.json?auth=${token}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zmeny),
+  });
+  if (!r.ok) { alert('Převod selhal: HTTP ' + r.status + (r.status === 400 ? ' – nasazená pravidla v11.07?' : '')); return; }
+  Object.assign(_mapaZaznamy, zmeny);
+  if (typeof showToast === 'function') showToast('🔄 Převedeno ' + ok.length + ' záznamů');
+  loadCommunityItemTags();
+}
+window.mapaMigrace = mapaMigrace;
 
 async function validateItemTag(itemKey, tag, action) {
   try {

@@ -26,9 +26,10 @@ T('karta hlásí, kolik položek čeká',/1 čeká/.test(k));
 // kód
 T('zápis do mapy jde jen přes productMap',/community\/productMap\/\$\{encodeURIComponent\(klic\)\}/.test(A));
 T('když chybí obecný název, doplní se z nejsilnějšího tagu',/zaznam\.obecny = \(_mapaTagTop\[klic\] \|\| ''\)/.test(A));
-T('položka s kategorií je označená jako namapovaná',/✓ namapováno/.test(A));
-T('řádek má konkrétní název, kategorii i podkategorii',/'konkretni',this\)/.test(A)&&/'catId',this\)/.test(A)&&/'subcat',this\)/.test(A));
-T('klíč položky se escapuje do onchange',/_onEsc\(item\.itemKey\)/.test(A));
-T('název položky se escapuje',/_vzEsc\(item\.itemKey/.test(A));
+//  S24 (T2): řádek už nemá volnou kategorii/podkategorii – obecný název z taxonomie + konkrétní název.
+T('položka v taxonomii je označená',/✓ v taxonomii/.test(A));
+T('řádek má obecný název z taxonomie a konkrétní název',/mapaUlozTax\('\$\{_onEsc\(k\)\}',this\)/.test(A)&&/'konkretni',this\)/.test(A)&&/list="taxDatalist"/.test(A));
+T('klíč položky se escapuje do onchange',/_onEsc\(k\)/.test(A));
+T('název položky se escapuje',/_vzEsc\(k\.replace/.test(A));
 T('záložka se jmenuje Mapa položek',/🗺️/.test(A));
 console.log(`Mapa položek: ${ok} OK, ${bad} chyb`);process.exit(bad?1:0);

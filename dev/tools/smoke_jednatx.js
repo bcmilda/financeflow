@@ -70,11 +70,21 @@ check('lineTotal má přednost před price×qty (nese slevu)',()=>{
 });
 
 console.log('\n── Učení mapování (skutečné zadání TODO-014) ──');
-check('uloží se mapování za KAŽDOU položku',()=>{
+//  S24 (TODO-312): pamatuje se jen ROZHODNUTÍ – ruční změna (_rucne) nebo
+//  potvrzená dřívější volba (_fromMemory). Automatický odhad se neukládá,
+//  jinak by navždy přebíjel komunitní Mapu položek.
+check('uloží se mapování za položky, o kterých rozhodl uživatel',()=>{
+  const r=JSON.parse(JSON.stringify(kaufland));
+  r.items[0]._rucne=true; r.items[2]._fromMemory=true;
+  pridej(r);
+  const klice=sb.__map.map(x=>x[0]);
+  ['Rohlík','Linteo Gr.Tea'].forEach(n=>assert(klice.indexOf(n)>=0,'chybí mapování pro '+n));
+});
+check('automatický odhad (bez rozhodnutí) se NEUKLÁDÁ',()=>{
   pridej(kaufland);
   const klice=sb.__map.map(x=>x[0]);
   ['Rohlík','Hovězí mleté','Linteo Gr.Tea','Dobrý sirup'].forEach(n=>
-    assert(klice.indexOf(n)>=0,'chybí mapování pro '+n));
+    assert(klice.indexOf(n)<0,'uložil se odhad pro '+n));
 });
 check('uloží se i mapování obchodu',()=>{
   pridej(kaufland);

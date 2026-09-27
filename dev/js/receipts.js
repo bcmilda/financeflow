@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · receipts.js · 2026-09-25
+// FinanceFlow · v11.06 · receipts.js · 2026-09-27
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -392,6 +392,7 @@ function renderUctenky() {
   el.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
     + '<button class="tx-filt-btn" id="utab-scan" onclick="switchUctenkyTab(\'scan\',this)">📸 Skenovat</button>'
     + '<button class="tx-filt-btn" id="utab-learn" onclick="switchUctenkyTab(\'learn\',this)">🧠 Učení</button>'
+    + '<button class="tx-filt-btn" id="utab-mapa" onclick="switchUctenkyTab(\'mapa\',this)">🗺️ Mapa položek</button>'
     + '<button class="tx-filt-btn" id="utab-stats" onclick="switchUctenkyTab(\'stats\',this)">📊 Statistiky</button>'
     + '<button class="tx-filt-btn" id="utab-compare" onclick="switchUctenkyTab(\'compare\',this)">🇨🇿 Srovnání ČR</button>'
     + '<button class="tx-filt-btn" id="utab-trend" onclick="switchUctenkyTab(\'trend\',this)">📈 Trend</button>'
@@ -407,6 +408,7 @@ function renderUctenky() {
       </div>` : '')
     + buildScanTab(uniqueReceipts, totalSpent)
     + buildLearnTab(uniqueReceipts, allItems, storeStats, totalSpent)
+    + buildMapaTab(uniqueReceipts)
     + buildStatsTab(hasData, uniqueReceipts, totalSpent, allItems, catStats)
     + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, uniqueReceipts, catStats, householdSize)
     + buildTrendTab(coicopMonthly, COICOP_GROUPS_DEF, last6Months)
@@ -1939,7 +1941,7 @@ function switchUctenkyTab(tab, btn) {
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
   window._receiptEditorOpen = false;
   window._editReceipt = null;
-  ['scan','learn','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
+  ['scan','learn','mapa','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
     if(c)c.style.display='none';
@@ -1950,9 +1952,184 @@ function switchUctenkyTab(tab, btn) {
   //  S23 (TODO-304): náhledy dokladů se stahují z R2 až při otevření záložky,
   //  ne při každém vykreslení Analýzy účtenek.
   if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
+  //  S24: komunitní mapa se dotáhne při otevření (když ještě není) a seznam se překreslí.
+  if(tab==='mapa' && typeof loadProductMap==='function') loadProductMap().then(()=>mapaUzivKresli()).catch(()=>{});
   const button = btn || document.getElementById('utab-'+tab);
   if(button)button.classList.add('active');
 }
+
+// ══════════════════════════════════════════════════════
+//  S24 (TODO-312 + TODO-313, PLAN-mapa-produktu F3): MAPA POLOŽEK PRO UŽIVATELE
+//  cesta: Účtenky → 🗺️ Mapa položek
+//  Jen uživatelovy položky (z jeho účtenek). U každé: co o ní ví komunitní
+//  mapa (obecný → konkrétní název, návrh kategorie) a jak ji zařazuje on.
+//  Změna tady = jeho volba (categoryMappings, zdroj 'uzivatel'), platí pro
+//  DALŠÍ účtenky. Staré účtenky se nepřepisují (mapa je vyhledávací vrstva,
+//  ne přepis dat – PLAN, „Dopad na stávající funkce").
+// ══════════════════════════════════════════════════════
+let _mapaUziv = [];                                 // agregované položky
+let _mapaUzivReceipts = [];                         // účtenky bez duplicit (jako ostatní záložky)
+let _mapaUzivFiltr = { stav:'vse', hledat:'' };
+const MAPA_UZIV_LIMIT = 150;
+
+//  Čistý výpočet (bez DOM) – testuje se zvlášť.
+function mapaUzivData(receipts, D) {
+  D = D || getData();
+  const podle = {};
+  (receipts||[]).forEach(r => (r.items||[]).forEach(it => {
+    const nazev = String(it.name||'').trim();
+    const k = (typeof normName==='function') ? normName(nazev) : nazev.toLowerCase();
+    if(!k || k.length < 2) return;
+    const d = r.date || '';
+    const z = podle[k] || (podle[k] = { klic:k, nazev, pocet:0, datum:'', catId:'', subcat:'' });
+    z.pocet++;
+    if(d >= z.datum) { z.datum = d; z.nazev = nazev; z.catId = it.itemCatId||''; z.subcat = it.itemSubcat||''; }
+  }));
+  const nk = (typeof rpNakupCat==='function') ? rpNakupCat(D) : null;
+  return Object.values(podle).map(z => {
+    const osobniZaznam = (typeof lookupCategoryMapping==='function') ? lookupCategoryMapping(z.nazev) : null;
+    const osobni = rpOsobniVolba(osobniZaznam, D);
+    const mapa = rpMapaNavrh(z.nazev, D);
+    let catId, subcat, stav;
+    if(osobni) {
+      catId = osobni.id; stav = 'moje';
+      subcat = (osobniZaznam.subcat && (osobni.subs||[]).includes(osobniZaznam.subcat)) ? osobniZaznam.subcat : '';
+    } else if(mapa && mapa.catId) {
+      catId = mapa.catId; subcat = mapa.subcat; stav = 'mapa';
+    } else {
+      catId = z.catId; subcat = z.subcat; stav = 'odhad';
+    }
+    if(stav !== 'moje' && (!catId || (nk && catId === nk.id))) stav = 'nezarazeno';
+    const lisiSe = !!(osobni && mapa && mapa.catId && mapa.catId !== osobni.id);
+    return { ...z, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam };
+  }).sort((a,b) => b.pocet - a.pocet || a.nazev.localeCompare(b.nazev, 'cs'));
+}
+window.mapaUzivData = mapaUzivData;
+
+function mapaUzivFiltruj(seznam, f) {
+  const q = (typeof normName==='function') ? normName(f.hledat||'') : String(f.hledat||'').toLowerCase();
+  return seznam.filter(z => {
+    if(f.stav !== 'vse' && z.stav !== f.stav) return false;
+    if(!q) return true;
+    const kde = [z.klic, z.mapa?.obecny, z.mapa?.konkretni].filter(Boolean)
+      .map(t => (typeof normName==='function') ? normName(t) : String(t).toLowerCase()).join(' ');
+    return kde.includes(q);
+  });
+}
+window.mapaUzivFiltruj = mapaUzivFiltruj;
+
+function buildMapaTab(receipts) {
+  _mapaUzivReceipts = receipts || [];
+  _mapaUziv = mapaUzivData(receipts);
+  const pocty = { vse:_mapaUziv.length, nezarazeno:0, mapa:0, moje:0 };
+  _mapaUziv.forEach(z => { if(pocty[z.stav] != null) pocty[z.stav]++; });
+  const btn = (id, txt) => `<button class="tx-filt-btn${_mapaUzivFiltr.stav===id?' active':''}" data-mapa-stav="${id}" onclick="mapaUzivStav('${id}')">${txt} <span style="opacity:.7">${pocty[id]||0}</span></button>`;
+  return `<div id="utab-mapa-content" style="display:none">
+    <div class="card"><div class="card-body">
+      <div style="font-weight:700;font-size:.95rem;margin-bottom:4px">🗺️ Mapa položek</div>
+      <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">
+        Všechny položky z tvých účtenek a kam je appka zařadí. <b style="color:#60a5fa">🗺️ Z mapy</b> = návrh komunitní mapy,
+        <b style="color:var(--income)">✋ Moje volba</b> = zařadil jsi sám a ta vždy vyhrává.
+        Změna tady platí pro <b>další</b> účtenky, staré zůstanou, jak jsou.
+      </div>
+      ${_mapaUziv.length ? `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${btn('vse','Vše')}${btn('nezarazeno','📦 Nezařazené')}${btn('mapa','🗺️ Z mapy')}${btn('moje','✋ Moje volby')}
+      </div>
+      <input id="mapaUzivHledat" type="search" placeholder="🔍 Hledat položku nebo název z mapy…" value="${escHtml(_mapaUzivFiltr.hledat)}"
+        oninput="mapaUzivHledej(this.value)" autocomplete="off"
+        style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:.82rem;margin-bottom:8px">
+      <div id="mapaUzivSeznam">${mapaUzivSeznamHTML()}</div>`
+      : `<div class="empty"><div class="ei">🗺️</div><div class="et">Zatím žádné položky</div>
+         <div style="font-size:.76rem;color:#a8aec8;margin-top:6px">Naskenuj účtenku a položky se tu objeví.</div></div>`}
+    </div></div></div>`;
+}
+
+function mapaUzivSeznamHTML() {
+  const D = getData();
+  const cats = (D.categories||[]).filter(c=>c.type==='expense'||c.type==='both'||!c.type);
+  const vyber = mapaUzivFiltruj(_mapaUziv, _mapaUzivFiltr);
+  if(!vyber.length) return '<div style="font-size:.78rem;color:#a8aec8;padding:10px 0">Nic neodpovídá filtru.</div>';
+  const stitky = {
+    moje:['✋ Moje volba','var(--income)'], mapa:['🗺️ Z mapy','#60a5fa'],
+    odhad:['🔎 Odhad appky','#fbbf24'], nezarazeno:['📦 Nezařazeno','#a8aec8'] };
+  const radky = vyber.slice(0, MAPA_UZIV_LIMIT).map(z => {
+    const i = _mapaUziv.indexOf(z);
+    const cat = cats.find(c=>c.id===z.catId);
+    const [st, barva] = stitky[z.stav] || stitky.odhad;
+    const retez = z.mapa && (z.mapa.obecny || z.mapa.konkretni)
+      ? `<div style="font-size:.7rem;color:#a8aec8;margin-top:2px">🗺️ ${escHtml([z.mapa.obecny, z.mapa.konkretni].filter(Boolean).join(' → '))}</div>` : '';
+    const opt = cats.map(c=>`<option value="${escHtml(c.id)}"${c.id===z.catId?' selected':''}>${escHtml((c.icon||'')+' '+c.name)}</option>`).join('');
+    const subs = (cat?.subs||[]);
+    const subOpt = subs.length ? `<select onchange="mapaUzivZmen(${i},'sub',this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 4px;color:var(--text);font-size:.72rem;max-width:130px">
+        <option value="">— podkat. —</option>${subs.map(sb=>`<option value="${escHtml(sb)}"${sb===z.subcat?' selected':''}>${escHtml(sb)}</option>`).join('')}</select>` : '';
+    const mapaKat = z.lisiSe ? cats.find(c=>c.id===z.mapa.catId) : null;
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <b style="font-size:.84rem;color:var(--text);flex:1;min-width:140px;overflow-wrap:anywhere">${escHtml(z.nazev)}</b>
+        <span style="font-size:.68rem;color:${barva};font-weight:600">${st}</span>
+        <span style="font-size:.68rem;color:#a8aec8">${z.pocet}×</span>
+      </div>
+      ${retez}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:center">
+        <select onchange="mapaUzivZmen(${i},'cat',this.value)" style="background:var(--surface2);border:1px solid ${cat?.color||'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text);font-size:.72rem;max-width:170px">
+          ${cat?'':'<option value="" selected>📦 Nezařazeno</option>'}${opt}</select>
+        ${subOpt}
+        ${mapaKat ? `<button class="btn btn-sm" style="font-size:.68rem;padding:4px 8px" onclick="mapaUzivPouzijMapu(${i})" title="Komunitní mapa navrhuje jinou kategorii">🗺️ Použít návrh: ${escHtml((mapaKat.icon||'')+' '+mapaKat.name)}</button>` : ''}
+        ${z.maOsobni ? `<button class="btn btn-sm" style="font-size:.68rem;padding:4px 8px;color:#a8aec8" onclick="mapaUzivZrus(${i})" title="Zapomenout moji volbu – položka se zase bude řídit mapou nebo odhadem">✕ Zrušit moji volbu</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  const zbytek = vyber.length > MAPA_UZIV_LIMIT
+    ? `<div style="font-size:.74rem;color:#a8aec8;padding:10px 0">Zobrazeno ${MAPA_UZIV_LIMIT} z ${vyber.length} – zúž výběr hledáním.</div>` : '';
+  return radky + zbytek;
+}
+
+function mapaUzivKresli() {
+  //  Přepočet stavu (mapa se mohla právě dotáhnout) bez překreslení celé stránky.
+  const el = document.getElementById('mapaUzivSeznam'); if(!el) return;
+  _mapaUziv = mapaUzivData(_mapaUzivReceipts);
+  el.innerHTML = mapaUzivSeznamHTML();
+  const pocty = { vse:_mapaUziv.length, nezarazeno:0, mapa:0, moje:0 };
+  _mapaUziv.forEach(z => { if(pocty[z.stav] != null) pocty[z.stav]++; });
+  document.querySelectorAll('[data-mapa-stav]').forEach(b => {
+    const id = b.getAttribute('data-mapa-stav');
+    b.classList.toggle('active', id === _mapaUzivFiltr.stav);
+    const sp = b.querySelector('span'); if(sp) sp.textContent = pocty[id] || 0;
+  });
+}
+window.mapaUzivKresli = mapaUzivKresli;
+
+function mapaUzivStav(id) { _mapaUzivFiltr.stav = id; mapaUzivKresli(); }
+function mapaUzivHledej(v) {
+  _mapaUzivFiltr.hledat = v;
+  const el = document.getElementById('mapaUzivSeznam'); if(el) el.innerHTML = mapaUzivSeznamHTML();
+}
+async function mapaUzivZmen(i, co, hodnota) {
+  const z = _mapaUziv[i]; if(!z) return;
+  if(co === 'cat') {
+    if(!hodnota) return;
+    await saveCategoryMapping(z.nazev, hodnota, '', 'uzivatel');
+  } else {
+    if(!z.catId) return;
+    await saveCategoryMapping(z.nazev, z.catId, hodnota, 'uzivatel');
+  }
+  if(typeof showToast==='function') showToast('✋ Zapamatováno – platí pro další účtenky');
+  mapaUzivKresli();
+}
+async function mapaUzivPouzijMapu(i) {
+  const z = _mapaUziv[i]; if(!z || !z.mapa?.catId) return;
+  await saveCategoryMapping(z.nazev, z.mapa.catId, z.mapa.subcat||'', 'uzivatel');
+  if(typeof showToast==='function') showToast('🗺️ Použit návrh mapy');
+  mapaUzivKresli();
+}
+async function mapaUzivZrus(i) {
+  const z = _mapaUziv[i]; if(!z) return;
+  await deleteCategoryMapping(z.nazev);
+  if(typeof showToast==='function') showToast('Volba zrušena');
+  mapaUzivKresli();
+}
+Object.assign(window, { mapaUzivStav, mapaUzivHledej, mapaUzivZmen, mapaUzivPouzijMapu, mapaUzivZrus });
 
 function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   if(receipts.length < 3) {
@@ -2781,16 +2958,68 @@ function rpNakupCat(D){
 }
 window.rpNakupCat = rpNakupCat;
 
-// Vrátí {catName, catId} pro položku – priority: 1) AI mappings, 2) keyword match, 3) Nákup
+//  S24 (TODO-312, Mapa položek F3) – POŘADÍ ZAŘAZENÍ POLOŽKY:
+//    1) osobní volba uživatele (categoryMappings)
+//    2) komunitní mapa (community/productMap) – jen NÁVRH, předvyplní se
+//    3) klíčová slova
+//    4) 🛍️ Nákup
+//  Osobní vrstvou je dosavadní učení kategorií, ne nový uzel productPrefs:
+//  obojí by ukládalo totéž (klíč položky → kategorie) a dvě místa by se
+//  rozcházela – přesně chyba, kterou F1 odstraňovala.
+//  Výjimka: starý automatický záznam „→ Nákup" (bez zdroje) není rozhodnutí,
+//  jen uložené „nevím". Kdyby vyhrával, komunitní mapa by se k položce nikdy
+//  nedostala.
+function rpOsobniVolba(cached, D) {
+  if(!cached || !cached.catId) return null;
+  const cat = (D.categories||[]).find(c=>c.id===cached.catId);
+  if(!cat) return null;
+  const nk = rpNakupCat(D);
+  if(nk && cat.id===nk.id && cached.zdroj!=='uzivatel') return null;
+  return cat;
+}
+window.rpOsobniVolba = rpOsobniVolba;
+
+//  Návrh z komunitní mapy převedený na UŽIVATELOVU kategorii. Mapa nese id
+//  kategorie z výchozí sady (cat1…cat23); vlastní kategorie admina ostatní
+//  nemají, takový návrh se tiše přeskočí. Podkategorie jen když ji uživatel má.
+function rpMapaNavrh(itemName, D) {
+  if(typeof lookupProductMap !== 'function') return null;
+  const z = lookupProductMap(itemName);
+  if(!z) return null;
+  D = D || getData();
+  const cat = z.catId ? (D.categories||[]).find(c=>c.id===z.catId) : null;
+  const subcat = (cat && z.subcat && (cat.subs||[]).includes(z.subcat)) ? z.subcat : '';
+  return { catId: cat?cat.id:'', catName: cat?cat.name:'', subcat,
+           obecny: z.obecny||'', konkretni: z.konkretni||'' };
+}
+window.rpMapaNavrh = rpMapaNavrh;
+
+//  Zapíše výsledek guessItemCatId do položky editoru (jediné místo – dřív se
+//  pole přiřazovala na třech místech zvlášť).
+function rpPriradOdhad(it, g) {
+  it.itemCat = g.catName;
+  it.itemCatId = g.catId;
+  it._fromMemory = !!g.fromMemory;
+  it._fromMap = !!g.fromMap;
+  it._mapa = g.mapa || null;
+  if(g.subcat && !it.itemSubcat) it.itemSubcat = g.subcat;
+}
+
 function guessItemCatId(itemName, receiptCat) {
   const D = getData();
-  // 1. AI mappings cache
-  const cached = lookupCategoryMapping(itemName);
-  if(cached && cached.catId && D.categories?.find(c=>c.id===cached.catId)) {
-    const cat = D.categories.find(c=>c.id===cached.catId);
-    return {catId: cat.id, catName: cat.name, fromMemory: true};
+  // 1. Osobní volba (učení kategorií)
+  const cat1 = rpOsobniVolba(lookupCategoryMapping(itemName), D);
+  if(cat1) {
+    const c = lookupCategoryMapping(itemName);
+    const subcat = (c.subcat && (cat1.subs||[]).includes(c.subcat)) ? c.subcat : '';
+    return {catId: cat1.id, catName: cat1.name, subcat, fromMemory: true};
   }
-  // 2. Keyword match → catId
+  // 2. Komunitní mapa – návrh
+  const m = rpMapaNavrh(itemName, D);
+  if(m && m.catId) {
+    return {catId: m.catId, catName: m.catName, subcat: m.subcat, fromMemory: false, fromMap: true, mapa: m};
+  }
+  // 3. Keyword match → catId
   const n = (itemName||'').toLowerCase();
   for(const [catName, keys] of Object.entries(RP_ITEM_CATS)) {
     if(keys.some(k=>n.includes(k))) {
@@ -2798,7 +3027,7 @@ function guessItemCatId(itemName, receiptCat) {
       return {catId, catName, fromMemory: false};
     }
   }
-  // 3. Fallback – S22 (Milan): dřív „Ostatní". U nákupu v potravinách tak
+  // 4. Fallback – S22 (Milan): dřív „Ostatní". U nákupu v potravinách tak
   //    skončily VŠECHNY položky v Ostatní a uživatel musel každou ručně
   //    přepnout. Nově se nejdřív zkusí kategorie celé účtenky (Kaufland →
   //    Jídlo & Nákupy), takže položky rovnou sednou tam, kam patří.
@@ -2930,10 +3159,7 @@ function rpAutoAssignCategories() {
   const r = window._editReceipt; if(!r?.items) return;
   r.items.forEach(it => {
     if(!it.itemCatId) { // nepřepisuj ruční přiřazení
-      const g = guessItemCatId(it.name);
-      it.itemCat = g.catName;
-      it.itemCatId = g.catId;
-      it._fromMemory = g.fromMemory;
+      rpPriradOdhad(it, guessItemCatId(it.name));
     }
   });
 }
@@ -2987,7 +3213,11 @@ function rpRender() {
           <span style="font-size:.76rem;color:var(--expense);font-weight:600">${fmtP(catTotal)} Kč</span>
         </div>`;
     group.items.forEach(({it, i}) => {
-      const fromMem = it._fromMemory ? `<span title="Z AI paměti" style="font-size:.55rem;color:var(--income);margin-left:2px">🧠</span>` : '';
+      //  S24: 🗺️ = návrh z komunitní mapy. Jen předvyplněno – potvrdit stačí
+      //  nechat, změnit = změnit kategorii (tím vznikne vlastní volba).
+      const _mp = it._fromMap && it._mapa;
+      const fromMem = it._fromMemory ? `<span title="Tvoje volba z dřívějška" style="font-size:.55rem;color:var(--income);margin-left:2px">🧠</span>`
+        : _mp ? `<span title="${escHtml('Návrh z komunitní Mapy položek' + (it._mapa.konkretni||it._mapa.obecny ? ': '+[it._mapa.obecny,it._mapa.konkretni].filter(Boolean).join(' → ') : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.6rem;color:#60a5fa;margin-left:2px">🗺️</span>` : '';
       html += `
         <div style="display:flex;align-items:center;gap:5px;padding:5px 2px;border-bottom:1px solid var(--border)" id="rp_item_${i}">
           <input id="rp_name_${i}"
@@ -3025,6 +3255,9 @@ function rpRender() {
             title="Vlastní tag (např. Kafe, Jogurt, Svačina...)"
             onfocus="this.placeholder=''"
             onblur="if(!this.value)this.placeholder='🏷️ tag'">
+          ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
+          <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
+            style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 6px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
         </div>`;
     });
@@ -3045,10 +3278,7 @@ function rpRender() {
         r.items[i].name = nameEl.value;
         // Auto-přiřaď kategorii pokud položka nemá přiřazenou
         if(!r.items[i].itemCatId) {
-          const g = guessItemCatId(nameEl.value);
-          r.items[i].itemCat = g.catName;
-          r.items[i].itemCatId = g.catId;
-          r.items[i]._fromMemory = g.fromMemory;
+          rpPriradOdhad(r.items[i], guessItemCatId(nameEl.value));
           rpRender();
         }
       });
@@ -3072,9 +3302,11 @@ function rpRender() {
         r.items[i].itemCatId = selectedId;
         r.items[i].itemCat = selectedCat?.name || 'Nákup';
         r.items[i]._fromMemory = false;
+        r.items[i]._fromMap = false;
+        r.items[i]._rucne = true;    // S24: rozhodl uživatel → uloží se jako jeho volba
         r.items[i].itemSubcat = ''; // reset subcat při změně kategorie
         if(r.items[i].name && selectedId) {
-          saveCategoryMapping(r.items[i].name, selectedId, '');
+          saveCategoryMapping(r.items[i].name, selectedId, '', 'uzivatel');
         }
         catEl.blur(); // FIX: uvolni fokus → rpRender() nebude blokován
         rpRender();
@@ -3084,6 +3316,11 @@ function rpRender() {
     if(subcatEl) {
       subcatEl.addEventListener('change', () => {
         r.items[i].itemSubcat = subcatEl.value;
+        //  S24: i výběr podkategorie je rozhodnutí – dřív se nepamatoval vůbec.
+        r.items[i]._rucne = true; r.items[i]._fromMap = false;
+        if(r.items[i].name && r.items[i].itemCatId) {
+          saveCategoryMapping(r.items[i].name, r.items[i].itemCatId, subcatEl.value, 'uzivatel');
+        }
       });
     }
     if(qtyEl) {
@@ -3574,6 +3811,7 @@ function addReceiptAsTx(receipt) {
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
       lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
     })),
     receiptDate: receipt.date || '',
     receiptStore: receipt.store || '',
@@ -3584,8 +3822,17 @@ function addReceiptAsTx(receipt) {
   });
   let addedCount = 1;
 
-  //  UČENÍ MAPOVÁNÍ – tohle bylo skutečné zadání TODO-014 a zůstává beze změny.
-  polozky.forEach(it => { if(it.name && it.itemCatId) saveCategoryMapping(it.name, it.itemCatId, ''); });
+  //  UČENÍ MAPOVÁNÍ (TODO-014). S24 (TODO-312): pamatuje se jen ROZHODNUTÍ –
+  //  ruční změna (_rucne) nebo potvrzení dřívější volby (_fromMemory).
+  //  Dřív se ukládalo všechno, i odhad z klíčových slov a „nevím" = Nákup;
+  //  takový záznam pak navždy přebíjel komunitní mapu, i když ji admin opravil.
+  //  Návrh z mapy, který uživatel nechal být, se neukládá – položka se dál
+  //  řídí mapou a dostane i její pozdější opravy.
+  polozky.forEach(it => {
+    if(!it.name || !it.itemCatId) return;
+    if(it._rucne) saveCategoryMapping(it.name, it.itemCatId, it.itemSubcat||'', 'uzivatel');
+    else if(it._fromMemory) saveCategoryMapping(it.name, it.itemCatId, it.itemSubcat||'');
+  });
   if(store && hlavniCatId) saveCategoryMapping(store, hlavniCatId, '');
 
   S.receipts.unshift({...receipt, addedAt:Date.now()});
@@ -3824,6 +4071,7 @@ function syncReceiptToTransactions(r) {
         ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
       tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
     }));
     //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
     if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;
