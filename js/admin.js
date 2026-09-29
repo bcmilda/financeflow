@@ -1,4 +1,4 @@
-// FinanceFlow · v11.07 · admin.js · 2026-09-27
+// FinanceFlow · v11.08 · admin.js · 2026-09-27
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.08',
+    datum: '2026-09-27',
+    zmeny: [
+      '🧭 MAPA POLOŽEK NAD TAXONOMIÍ (T3) · cesta: Účtenky → 🗺️ Mapa položek. U každé položky řetěz oblast › podkategorie › obecný název (+ konkrétní název z mapy), položky mimo taxonomii s poznámkou, že je zařadí admin. Filtry: Vše / 🧭 V taxonomii / 📦 Mimo taxonomii / ✋ Moje volby; hledání i podle podkategorie a oblasti.',
+      '💼 PODKATEGORIE → ROZPOČET · cesta: Účtenky → 🗺️ Mapa položek → „💼 Podkategorie → rozpočet". Uživatel neřadí tisíce položek, jen potvrdí podkategorie, které má v účtenkách („Pečivo → Jídlo & Nákupy"). Výchozí = návrh taxonomie. Uloženo v users/{uid}/taxRozpocet (pravidla kryje kaskáda users/$uid, beze změny).',
+      '🧾 cesta: Účtenky → 📸 Skenovat → editor účtenky: pořadí zařazení položky je teď osobní volba → komunitní mapa (přes taxonomii) → taxonomie podle názvu (jen jistá shoda, ne zkratka z pokladny; ikona 🧭) → klíčová slova → Nákup. Rozpočtová kategorie z taxonomie: převod podkategorie → výchozí kategorie → catId staršího záznamu. Bublina ukazuje celý řetěz.',
+      '🧪 tools/smoke_taxonomie_t3.js (22).',
+    ]
+  },
   {
     verze: 'v11.07',
     datum: '2026-09-27',

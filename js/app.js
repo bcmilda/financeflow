@@ -1,4 +1,4 @@
-// FinanceFlow · v11.05 · app.js · 2026-09-26
+// FinanceFlow · v11.08 · app.js · 2026-09-27
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -545,11 +545,50 @@ function lookupProductMap(nazev) {
 }
 window.lookupProductMap = lookupProductMap;
 
+// ── S24 (T3): PŘEVOD PODKATEGORIE TAXONOMIE → ROZPOČTOVÁ KATEGORIE ──
+//  users/{uid}/taxRozpocet/{podId} = catId. Uživatel neřadí tisíce položek,
+//  jen jednou potvrdí podkategorie („Pečivo → Jídlo"). Chybí-li záznam, platí
+//  výchozí kategorie z taxonomie. Stejný vzor jako categoryMappings: vlastní
+//  uzel mimo S (nemusí se registrovat v diff-write), pravidla kryje kaskáda users/$uid.
+let _taxRozpocetCache = null;
+const _TAXR_URL = uid => `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/taxRozpocet`;
+async function loadTaxRozpocet(vynutit) {
+  if(_taxRozpocetCache !== null && !vynutit) return _taxRozpocetCache;
+  if(_isLocalMode) {
+    try { _taxRozpocetCache = JSON.parse(localStorage.getItem('ff_taxRozpocet')||'{}') || {}; } catch(e) { _taxRozpocetCache = {}; }
+    return _taxRozpocetCache;
+  }
+  try {
+    const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
+    if(!uid || !t) return _taxRozpocetCache || {};
+    const r = await fetch(`${_TAXR_URL(uid)}.json?auth=${t}`);
+    _taxRozpocetCache = (r.ok ? await r.json() : null) || {};
+  } catch(e) { _taxRozpocetCache = _taxRozpocetCache || {}; }
+  return _taxRozpocetCache;
+}
+function taxRozpocetUzivatel(podId) { return (_taxRozpocetCache && podId && _taxRozpocetCache[podId]) || ''; }
+async function saveTaxRozpocet(podId, catId) {
+  if(!/^[a-z0-9-]{1,60}$/.test(String(podId||''))) return;
+  _taxRozpocetCache = _taxRozpocetCache || {};
+  if(catId) _taxRozpocetCache[podId] = catId; else delete _taxRozpocetCache[podId];
+  if(_isLocalMode) { try { localStorage.setItem('ff_taxRozpocet', JSON.stringify(_taxRozpocetCache)); } catch(e){} return; }
+  try {
+    const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
+    if(!uid || !t) return;
+    await fetch(`${_TAXR_URL(uid)}/${podId}.json?auth=${t}`, catId
+      ? { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(catId) }
+      : { method:'DELETE' });
+  } catch(e) { console.warn('saveTaxRozpocet failed:', e); }
+}
+Object.assign(window, { loadTaxRozpocet, taxRozpocetUzivatel, saveTaxRozpocet });
+
 // Načti mappings po přihlášení
 async function initCategoryMappings() {
   _catMappingsCache = null; // reset cache
   await loadCategoryMappings();
   loadProductMap(true);   // S24: na pozadí, nic na ní nečeká
+  loadTaxRozpocet(true);  // S24 (T3)
+  if(typeof loadTaxonomie === 'function') loadTaxonomie();
 }
 
 // Partner data (read-only view)

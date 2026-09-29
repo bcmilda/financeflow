@@ -1,4 +1,4 @@
-// FinanceFlow · v11.06 · receipts.js · 2026-09-27
+// FinanceFlow · v11.08 · receipts.js · 2026-09-27
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1953,7 +1953,11 @@ function switchUctenkyTab(tab, btn) {
   //  ne při každém vykreslení Analýzy účtenek.
   if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
   //  S24: komunitní mapa se dotáhne při otevření (když ještě není) a seznam se překreslí.
-  if(tab==='mapa' && typeof loadProductMap==='function') loadProductMap().then(()=>mapaUzivKresli()).catch(()=>{});
+  if(tab==='mapa' && typeof loadProductMap==='function') Promise.all([
+    loadProductMap(),
+    typeof loadTaxonomie==='function' ? loadTaxonomie() : null,
+    typeof loadTaxRozpocet==='function' ? loadTaxRozpocet() : null,
+  ]).then(()=>mapaUzivKresli()).catch(()=>mapaUzivKresli());
   const button = btn || document.getElementById('utab-'+tab);
   if(button)button.classList.add('active');
 }
@@ -2001,7 +2005,7 @@ function mapaUzivData(receipts, D) {
     }
     if(stav !== 'moje' && (!catId || (nk && catId === nk.id))) stav = 'nezarazeno';
     const lisiSe = !!(osobni && mapa && mapa.catId && mapa.catId !== osobni.id);
-    return { ...z, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam };
+    return { ...z, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam, tax: (mapa && mapa.tax) || null };
   }).sort((a,b) => b.pocet - a.pocet || a.nazev.localeCompare(b.nazev, 'cs'));
 }
 window.mapaUzivData = mapaUzivData;
@@ -2009,40 +2013,89 @@ window.mapaUzivData = mapaUzivData;
 function mapaUzivFiltruj(seznam, f) {
   const q = (typeof normName==='function') ? normName(f.hledat||'') : String(f.hledat||'').toLowerCase();
   return seznam.filter(z => {
-    if(f.stav !== 'vse' && z.stav !== f.stav) return false;
+    //  S24 (T3): 'tax' / 'mimo' = v taxonomii / mimo ni; ostatní = stav rozpočtové kategorie.
+    if(f.stav === 'tax') { if(!z.tax) return false; }
+    else if(f.stav === 'mimo') { if(z.tax) return false; }
+    else if(f.stav !== 'vse' && z.stav !== f.stav) return false;
     if(!q) return true;
-    const kde = [z.klic, z.mapa?.obecny, z.mapa?.konkretni].filter(Boolean)
+    const kde = [z.klic, z.mapa?.obecny, z.mapa?.konkretni, z.tax?.podNazev, z.tax?.oblastNazev].filter(Boolean)
       .map(t => (typeof normName==='function') ? normName(t) : String(t).toLowerCase()).join(' ');
     return kde.includes(q);
   });
 }
 window.mapaUzivFiltruj = mapaUzivFiltruj;
 
+function mapaUzivPocty() {
+  const p = { vse:_mapaUziv.length, tax:0, mimo:0, moje:0 };
+  _mapaUziv.forEach(z => { if(z.tax) p.tax++; else p.mimo++; if(z.stav==='moje') p.moje++; });
+  return p;
+}
+
 function buildMapaTab(receipts) {
   _mapaUzivReceipts = receipts || [];
   _mapaUziv = mapaUzivData(receipts);
-  const pocty = { vse:_mapaUziv.length, nezarazeno:0, mapa:0, moje:0 };
-  _mapaUziv.forEach(z => { if(pocty[z.stav] != null) pocty[z.stav]++; });
-  const btn = (id, txt) => `<button class="tx-filt-btn${_mapaUzivFiltr.stav===id?' active':''}" data-mapa-stav="${id}" onclick="mapaUzivStav('${id}')">${txt} <span style="opacity:.7">${pocty[id]||0}</span></button>`;
+  if(!['vse','tax','mimo','moje'].includes(_mapaUzivFiltr.stav)) _mapaUzivFiltr.stav = 'vse';
   return `<div id="utab-mapa-content" style="display:none">
     <div class="card"><div class="card-body">
       <div style="font-weight:700;font-size:.95rem;margin-bottom:4px">🗺️ Mapa položek</div>
       <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">
-        Všechny položky z tvých účtenek a kam je appka zařadí. <b style="color:#60a5fa">🗺️ Z mapy</b> = návrh komunitní mapy,
-        <b style="color:var(--income)">✋ Moje volba</b> = zařadil jsi sám a ta vždy vyhrává.
-        Změna tady platí pro <b>další</b> účtenky, staré zůstanou, jak jsou.
+        Položky z tvých účtenek zařazené do <b>taxonomie výrobků</b> (oblast › podkategorie › obecný název) – podle ní se počítají
+        statistiky, zdražování a inflace. Rozpočtovou kategorii určuje tabulka <b>Podkategorie → rozpočet</b> níže;
+        u jednotlivé položky ji můžeš přepsat (✋ Moje volba vždy vyhrává). Změny platí pro další účtenky.
       </div>
       ${_mapaUziv.length ? `
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-        ${btn('vse','Vše')}${btn('nezarazeno','📦 Nezařazené')}${btn('mapa','🗺️ Z mapy')}${btn('moje','✋ Moje volby')}
-      </div>
-      <input id="mapaUzivHledat" type="search" placeholder="🔍 Hledat položku nebo název z mapy…" value="${escHtml(_mapaUzivFiltr.hledat)}"
+      <div id="mapaUzivPrevod"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px" id="mapaUzivFiltry"></div>
+      <input id="mapaUzivHledat" type="search" placeholder="🔍 Hledat položku, obecný název nebo podkategorii…" value="${escHtml(_mapaUzivFiltr.hledat)}"
         oninput="mapaUzivHledej(this.value)" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:.82rem;margin-bottom:8px">
       <div id="mapaUzivSeznam">${mapaUzivSeznamHTML()}</div>`
       : `<div class="empty"><div class="ei">🗺️</div><div class="et">Zatím žádné položky</div>
          <div style="font-size:.76rem;color:#a8aec8;margin-top:6px">Naskenuj účtenku a položky se tu objeví.</div></div>`}
     </div></div></div>`;
+}
+
+function mapaUzivFiltryHTML() {
+  const p = mapaUzivPocty();
+  return [['vse','Vše'],['tax','🧭 V taxonomii'],['mimo','📦 Mimo taxonomii'],['moje','✋ Moje volby']].map(([id,t]) =>
+    `<button class="tx-filt-btn${_mapaUzivFiltr.stav===id?' active':''}" onclick="mapaUzivStav('${id}')">${t} <span style="opacity:.7">${p[id]}</span></button>`).join('');
+}
+
+//  Převodní tabulka: jen podkategorie, které se v uživatelových položkách
+//  opravdu vyskytují (ne všech 139). Výchozí hodnota = kategorie z taxonomie.
+function mapaUzivPrevodData(seznam, D) {
+  D = D || getData();
+  const pods = {};
+  (seznam||[]).forEach(z => {
+    if(!z.tax) return;
+    const p = pods[z.tax.podId] || (pods[z.tax.podId] = { podId:z.tax.podId, nazev:z.tax.podNazev, ikona:z.tax.ikona, oblast:z.tax.oblastNazev, vychozi:z.tax.rozpocet, polozek:0 });
+    p.polozek++;
+  });
+  return Object.values(pods).map(p => ({ ...p,
+    vlastni: (typeof taxRozpocetUzivatel === 'function') ? taxRozpocetUzivatel(p.podId) : '',
+    vychoziKat: (D.categories||[]).find(c => c.id === p.vychozi) || null,
+  })).sort((a,b) => a.oblast.localeCompare(b.oblast,'cs') || b.polozek - a.polozek);
+}
+window.mapaUzivPrevodData = mapaUzivPrevodData;
+
+function mapaUzivPrevodHTML() {
+  const D = getData();
+  const radky = mapaUzivPrevodData(_mapaUziv, D);
+  if(!radky.length) return '';
+  const cats = (D.categories||[]).filter(c=>c.type==='expense'||c.type==='both'||!c.type);
+  const upraveno = radky.filter(r => r.vlastni).length;
+  return `<details style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px">
+    <summary style="cursor:pointer;font-size:.8rem;font-weight:600;color:var(--text)">💼 Podkategorie → rozpočet <span style="font-weight:400;color:#a8aec8">· ${radky.length} podkategorií${upraveno ? ' · ' + upraveno + ' upraveno' : ''}</span></summary>
+    <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px">Kam se položky z dané podkategorie započítají v rozpočtu. „Výchozí" = návrh taxonomie.</div>
+    ${radky.map(r => `<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--border);flex-wrap:wrap">
+        <span style="flex:1;min-width:150px;font-size:.78rem;color:var(--text)">${escHtml(r.ikona+' '+r.nazev)} <span style="color:#a8aec8;font-size:.68rem">· ${r.polozek}×</span></span>
+        <select data-pod="${escHtml(r.podId)}" onchange="mapaUzivPrevod(this.getAttribute('data-pod'),this.value)"
+          style="background:var(--bg);border:1px solid ${r.vlastni?'var(--income)':'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text);font-size:.72rem;max-width:190px">
+          <option value="">Výchozí: ${escHtml(r.vychoziKat ? (r.vychoziKat.icon||'')+' '+r.vychoziKat.name : '—')}</option>
+          ${cats.map(c=>`<option value="${escHtml(c.id)}"${c.id===r.vlastni?' selected':''}>${escHtml((c.icon||'')+' '+c.name)}</option>`).join('')}
+        </select>
+      </div>`).join('')}
+  </details>`;
 }
 
 function mapaUzivSeznamHTML() {
@@ -2057,8 +2110,11 @@ function mapaUzivSeznamHTML() {
     const i = _mapaUziv.indexOf(z);
     const cat = cats.find(c=>c.id===z.catId);
     const [st, barva] = stitky[z.stav] || stitky.odhad;
-    const retez = z.mapa && (z.mapa.obecny || z.mapa.konkretni)
-      ? `<div style="font-size:.7rem;color:#a8aec8;margin-top:2px">🗺️ ${escHtml([z.mapa.obecny, z.mapa.konkretni].filter(Boolean).join(' → '))}</div>` : '';
+    const retez = z.tax
+      ? `<div style="font-size:.72rem;color:#a8aec8;margin-top:2px">${escHtml(rpTaxRetez(z.mapa))}${z.mapa.konkretni ? ' · <span style="color:var(--text)">' + escHtml(z.mapa.konkretni) + '</span>' : ''}${z.mapa.zdrojTax==='nazev' ? ' <span style="font-size:.64rem">(podle názvu)</span>' : ''}</div>`
+      : z.mapa && (z.mapa.obecny || z.mapa.konkretni)
+      ? `<div style="font-size:.7rem;color:#a8aec8;margin-top:2px">🗺️ ${escHtml([z.mapa.obecny, z.mapa.konkretni].filter(Boolean).join(' → '))}</div>`
+      : `<div style="font-size:.68rem;color:#8b93ad;margin-top:2px">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě.</div>`;
     const opt = cats.map(c=>`<option value="${escHtml(c.id)}"${c.id===z.catId?' selected':''}>${escHtml((c.icon||'')+' '+c.name)}</option>`).join('');
     const subs = (cat?.subs||[]);
     const subOpt = subs.length ? `<select onchange="mapaUzivZmen(${i},'sub',this.value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 4px;color:var(--text);font-size:.72rem;max-width:130px">
@@ -2090,14 +2146,17 @@ function mapaUzivKresli() {
   const el = document.getElementById('mapaUzivSeznam'); if(!el) return;
   _mapaUziv = mapaUzivData(_mapaUzivReceipts);
   el.innerHTML = mapaUzivSeznamHTML();
-  const pocty = { vse:_mapaUziv.length, nezarazeno:0, mapa:0, moje:0 };
-  _mapaUziv.forEach(z => { if(pocty[z.stav] != null) pocty[z.stav]++; });
-  document.querySelectorAll('[data-mapa-stav]').forEach(b => {
-    const id = b.getAttribute('data-mapa-stav');
-    b.classList.toggle('active', id === _mapaUzivFiltr.stav);
-    const sp = b.querySelector('span'); if(sp) sp.textContent = pocty[id] || 0;
-  });
+  const f = document.getElementById('mapaUzivFiltry'); if(f) f.innerHTML = mapaUzivFiltryHTML();
+  const pr = document.getElementById('mapaUzivPrevod');
+  if(pr) { const otevreno = pr.querySelector('details')?.open; pr.innerHTML = mapaUzivPrevodHTML(); if(otevreno) pr.querySelector('details')?.setAttribute('open',''); }
 }
+async function mapaUzivPrevod(podId, catId) {
+  if(typeof saveTaxRozpocet !== 'function') return;
+  await saveTaxRozpocet(podId, catId);
+  if(typeof showToast==='function') showToast(catId ? '💼 Uloženo – platí pro další účtenky' : '💼 Vráceno na výchozí');
+  mapaUzivKresli();
+}
+window.mapaUzivPrevod = mapaUzivPrevod;
 window.mapaUzivKresli = mapaUzivKresli;
 
 function mapaUzivStav(id) { _mapaUzivFiltr.stav = id; mapaUzivKresli(); }
@@ -2982,16 +3041,38 @@ window.rpOsobniVolba = rpOsobniVolba;
 //  Návrh z komunitní mapy převedený na UŽIVATELOVU kategorii. Mapa nese id
 //  kategorie z výchozí sady (cat1…cat23); vlastní kategorie admina ostatní
 //  nemají, takový návrh se tiše přeskočí. Podkategorie jen když ji uživatel má.
+//  S24 (T3): návrh vede přes TAXONOMII. Záznam mapy ukazuje na obecný název
+//  (obecnyId) → podkategorie. Rozpočtová kategorie se bere v pořadí:
+//    uživatelův převod podkategorie (taxRozpocet) → výchozí z taxonomie →
+//    catId záznamu (starší záznamy bez taxonomie).
+//  Když položka v mapě vůbec není, zkusí se taxonomie přímo podle názvu –
+//  ale jen jistá shoda (přesně / všechna slova), ne zkratka z pokladny.
 function rpMapaNavrh(itemName, D) {
-  if(typeof lookupProductMap !== 'function') return null;
-  const z = lookupProductMap(itemName);
-  if(!z) return null;
+  const z = (typeof lookupProductMap === 'function') ? lookupProductMap(itemName) : null;
+  let tax = (z && z.obecnyId && typeof taxInfo === 'function') ? taxInfo(z.obecnyId) : null;
+  let zdrojTax = tax ? 'mapa' : '';
+  if(!z && typeof taxNavrh === 'function') {
+    const n = taxNavrh(itemName);
+    if(n && (n.jistota === 'presne' || n.jistota === 'slova')) { tax = n.info; zdrojTax = 'nazev'; }
+  }
+  if(!z && !tax) return null;
   D = D || getData();
-  const cat = z.catId ? (D.categories||[]).find(c=>c.id===z.catId) : null;
-  const subcat = (cat && z.subcat && (cat.subs||[]).includes(z.subcat)) ? z.subcat : '';
+  const cats = D.categories || [];
+  const prevod = (tax && typeof taxRozpocetUzivatel === 'function') ? taxRozpocetUzivatel(tax.podId) : '';
+  const cat = [prevod, tax && tax.rozpocet, z && z.catId].filter(Boolean)
+    .map(id => cats.find(c => c.id === id)).find(Boolean) || null;
+  const subcat = (cat && z && z.subcat && (cat.subs||[]).includes(z.subcat)) ? z.subcat : '';
   return { catId: cat?cat.id:'', catName: cat?cat.name:'', subcat,
-           obecny: z.obecny||'', konkretni: z.konkretni||'' };
+           obecny: (tax && tax.nazev) || (z && z.obecny) || '', konkretni: (z && z.konkretni) || '',
+           tax, zdrojTax, podlePrevodu: !!(prevod && cat && cat.id === prevod) };
 }
+//  Řetěz pro zobrazení: „🛒 Potraviny › Pečivo › rohlík".
+function rpTaxRetez(m) {
+  if(!m) return '';
+  if(m.tax) return [m.tax.ikona + ' ' + m.tax.oblastNazev, m.tax.podNazev, m.tax.nazev].join(' › ');
+  return [m.obecny, m.konkretni].filter(Boolean).join(' → ');
+}
+window.rpTaxRetez = rpTaxRetez;
 window.rpMapaNavrh = rpMapaNavrh;
 
 //  Zapíše výsledek guessItemCatId do položky editoru (jediné místo – dřív se
@@ -3217,7 +3298,7 @@ function rpRender() {
       //  nechat, změnit = změnit kategorii (tím vznikne vlastní volba).
       const _mp = it._fromMap && it._mapa;
       const fromMem = it._fromMemory ? `<span title="Tvoje volba z dřívějška" style="font-size:.55rem;color:var(--income);margin-left:2px">🧠</span>`
-        : _mp ? `<span title="${escHtml('Návrh z komunitní Mapy položek' + (it._mapa.konkretni||it._mapa.obecny ? ': '+[it._mapa.obecny,it._mapa.konkretni].filter(Boolean).join(' → ') : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.6rem;color:#60a5fa;margin-left:2px">🗺️</span>` : '';
+        : _mp ? `<span title="${escHtml((it._mapa.zdrojTax==='nazev' ? 'Podle názvu v taxonomii' : 'Návrh z komunitní Mapy položek') + ': ' + rpTaxRetez(it._mapa) + (it._mapa.konkretni && it._mapa.tax ? ' · ' + it._mapa.konkretni : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.6rem;color:#60a5fa;margin-left:2px">${it._mapa.zdrojTax==='nazev'?'🧭':'🗺️'}</span>` : '';
       html += `
         <div style="display:flex;align-items:center;gap:5px;padding:5px 2px;border-bottom:1px solid var(--border)" id="rp_item_${i}">
           <input id="rp_name_${i}"
