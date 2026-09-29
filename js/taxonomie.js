@@ -1,4 +1,4 @@
-// FinanceFlow · v11.07 · taxonomie.js · 2026-09-27
+// FinanceFlow · v11.09 · taxonomie.js · 2026-09-28
 // ══════════════════════════════════════════════════════
 //  S24 (T2, PLAN-mapa-produktu): TAXONOMIE VÝROBKŮ
 //  Zdroj: data/taxonomie.json (13 oblastí · 139 podkategorií · ~900 obecných názvů).
@@ -70,7 +70,7 @@ function taxInfo(idNeboText) {
 //   3) zkratky z pokladny: každé slovo názvu začíná některým slovem textu
 //      o délce aspoň 3 („jog ovoc" → ovocný jogurt, „k exo vlock" → ovesné vločky? ne –
 //      „exo" nesedí, a to je správně: raději nic než nesmysl)
-//  Vrací {info, jistota: 'presne'|'slova'|'zkratka'} nebo null.
+//  Vrací {info, jistota: 'presne'|'slova'|'tvar'|'zkratka'} nebo null.
 function taxNavrh(text) {
   if (!_taxIndex || !text) return null;
   const q = _taxNorm(text);
@@ -80,6 +80,14 @@ function taxNavrh(text) {
   const mnozina = new Set(tokeny);
   for (const { z, slova } of _taxSlova) {
     if (slova.every(s => mnozina.has(s))) return { info: z, jistota: 'slova' };
+  }
+  //  S24 (v11.09): jiný tvar slova – účtenky píšou „Banány", „Jablka", „Sýry".
+  //  Shoda, když token = slovo + max. 2 znaky koncovky, nebo mají stejný kmen
+  //  (bez koncových samohlásek, jen u slov delších než 4 znaky).
+  const kmen = w => w.length > 4 ? w.replace(/[aeiouy]+$/, '') : w;
+  const tvar = (s, t) => (t.startsWith(s) && t.length - s.length <= 2) || (s.length > 4 && t.length > 4 && kmen(s) === kmen(t));
+  for (const { z, slova } of _taxSlova) {
+    if (slova.every(s => tokeny.some(t => tvar(s, t)))) return { info: z, jistota: 'tvar' };
   }
   const kratke = tokeny.filter(t => t.length >= 3);
   if (!kratke.length) return null;

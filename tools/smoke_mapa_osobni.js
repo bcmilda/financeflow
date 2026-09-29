@@ -77,7 +77,8 @@ t('podkategorie zadaná ručně zůstane', it.itemSubcat==='Pečivo'&&it._fromMa
  t('hledání i v názvu z mapy', ctx.mapaUzivFiltruj(d,{stav:'vse',hledat:'oplatka'})[0]?.klic==='sedita mila rezy');
  t('hledání bez diakritiky', ctx.mapaUzivFiltruj(d,{stav:'vse',hledat:'ROHLÍK'}).length===1);
  const html=ctx.buildMapaTab(S.receipts);
- t('záložka se vykreslí', html.includes('utab-mapa-content')&&html.includes('oplatka')&&html.includes('Použít návrh'));
+ t('záložka se vykreslí', html.includes('utab-mapa-content')&&html.includes('oplatka'));
+ const ij=d.findIndex(x=>x.klic==='jar'); t('karta nabízí návrh mapy', ctx.mapaUzivKartaHTML(ij,null).includes('Použít návrh'));
  S.receipts[0].items[0].name='<img src=x onerror=alert(1)>';
  t('název je escapovaný', !ctx.buildMapaTab(S.receipts).includes('<img src=x'));
  console.log(`\n${ok} OK, ${bad} chyb`);
