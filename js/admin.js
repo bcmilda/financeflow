@@ -1,4 +1,4 @@
-// FinanceFlow · v11.09 · admin.js · 2026-09-28
+// FinanceFlow · v11.10 · admin.js · 2026-09-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.10',
+    datum: '2026-09-29',
+    zmeny: [
+      '🐛 cesta: Dashboard → Finanční skóre: po prvním načtení ukazovalo 0 / „Zatím nemám dost dat", po proklikání 202 (Milan). Nastavení (potvrzené „nemám dluh") a premium se načtou až po prvním vykreslení z listeneru; anti-flicker podpis dat (_dataSig) se jimi nezmění, takže závěrečný renderPage() po přihlášení skončil hned na začátku. Nově forceRender().',
+      '🔒 cesta: Měsíční report → záložky: Poradce a souhrn 3/6/12 měsíců (i vlastní počet > 1) jsou Premium podle tarifů (Free = report za 1 měsíc). Brána dosud chyběla – záložky šly všem. U záložek 💎, Free dostane paywall; kdo po triálu zůstal na zamčeném období, přepne se na Měsíc. Admin a trial beze změny.',
+      '📅 cesta: Kalendář → Finanční: částky v buňce dne se na mobilu ořezávaly na „+29 7…". Od 10 000 se zkracují (29 700 → 29,7k, 1 250 000 → 1,3M), řádky ▲/▼ se nezalamují; celá částka v bublině a v detailu dne.',
+    ]
+  },
   {
     verze: 'v11.09',
     datum: '2026-09-28',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.08 · app.js · 2026-09-27
+// FinanceFlow · v11.10 · app.js · 2026-09-29
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -760,7 +760,12 @@ window.onUserSignedIn = async function(user) {
       if (typeof openPinVerify === 'function') openPinVerify();
     }, 800);
   }
-  renderPage();
+  //  S24 (v11.10, Milan: „Dashboard po prvním načtení ukazuje 0, po proklikání 202"):
+  //  nastavení (_settings.hasDebts) a premium se načtou až PO prvním vykreslení
+  //  z listeneru. Anti-flicker podpis dat (_dataSig) se jimi nezmění, takže
+  //  obyčejný renderPage() tady skončil hned na začátku a skóre zůstalo
+  //  spočítané bez „nemám dluh" (pokrytí 40 % → „Zatím nemám dost dat").
+  if (typeof forceRender === 'function') forceRender(); else renderPage();
   // Ulož affiliate ref pokud existuje
   if(window._pendingAffiliateRef) {
     try {
