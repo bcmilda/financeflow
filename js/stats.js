@@ -1,4 +1,4 @@
-// FinanceFlow · v10.48 · stats.js · 2026-09-04
+// FinanceFlow · v11.13 · stats.js · 2026-09-30
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -565,6 +565,7 @@ function renderCatPage(){
           <div class="cat-info" style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
               <span class="cat-name" style="font-weight:600">${c.name}</span>
+              ${!ro && typeof coicopAiZnacka==='function' ? coicopAiZnacka(c) : ''}
               <span style="font-size:.63rem;color:var(--text);font-weight:600;background:${c.type==='income'?'rgba(74,222,128,.18)':c.type==='both'?'rgba(96,165,250,.18)':c.type==='transfer'?'rgba(168,139,250,.18)':'rgba(248,113,113,.15)'};padding:2px 7px;border-radius:10px">${c.type==='income'?'💰 příjem':c.type==='both'?'↔️ příjem/výdaj':c.type==='transfer'?'🔄 přesun':'💸 výdaj'}</span>
               ${charLabel?`<span style="font-size:.63rem;color:var(--text2);background:var(--surface3);padding:2px 6px;border-radius:10px">${charLabel}</span>`:''}
               ${isIncome&&isStable?`<span style="font-size:.63rem;color:var(--income);background:rgba(74,222,128,.12);padding:2px 6px;border-radius:10px">✅ stabilní</span>`:''}
@@ -600,7 +601,8 @@ function renderCatPage(){
                 ? `<span title="Sdíleno se samostatnou kategorií „${s}" (COICOP ${sharedCat.coicop||'?'})" style="font-size:.66rem;color:#f5b942;margin-left:1px">↔</span>`
                 : '';
               const sharedBdr = sharedCat ? `border:1px dashed ${hexA('#f5b942',.6)};` : `border:1px solid ${hexA(c.color,.4)};`;
-              return `<span style="font-size:.78rem;padding:4px 10px;background:${hexA(c.color,.18)};${sharedBdr}border-radius:12px;color:var(--text);font-weight:500;display:inline-flex;align-items:center;gap:4px">${s}${subCircle}${sharedMark}</span>`;
+              const aiMark = (!ro && typeof coicopAiZnacka==='function') ? coicopAiZnacka(c, s) : '';
+              return `<span style="font-size:.78rem;padding:4px 10px;background:${hexA(c.color,.18)};${sharedBdr}border-radius:12px;color:var(--text);font-weight:500;display:inline-flex;align-items:center;gap:4px">${s}${subCircle}${sharedMark}${aiMark}</span>`;
             }).join('')}
           </div>
         </div>`:''}
@@ -608,7 +610,9 @@ function renderCatPage(){
     }).join('')}`;
   };
 
-  el.innerHTML = importBanner +
+  //  S24: AI zařazení vlastních kategorií do COICOP (coicop-ai.js) – banner + kontrola na pozadí.
+  if(typeof coicopAiZkontroluj==='function' && !ro) setTimeout(()=>coicopAiZkontroluj(),0);
+  el.innerHTML = importBanner + (!ro && typeof coicopAiBanner==='function' ? coicopAiBanner() : '') +
     renderGroup(incCats,  '💰 Příjmy') +
     renderGroup(expCats,  '💸 Výdaje') +
     renderGroup(bothCats, '↔️ Příjem i výdaj') +

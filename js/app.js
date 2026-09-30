@@ -1,4 +1,4 @@
-// FinanceFlow · v11.12 · app.js · 2026-09-29
+// FinanceFlow · v11.13 · app.js · 2026-09-30
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -588,6 +588,8 @@ async function initCategoryMappings() {
   await loadCategoryMappings();
   loadProductMap(true);   // S24: na pozadí, nic na ní nečeká
   loadTaxRozpocet(true);  // S24 (T3)
+  //  S24: AI zařazení vlastních kategorií do COICOP – až po načtení dat.
+  if(typeof coicopAiZkontroluj === 'function') setTimeout(() => coicopAiZkontroluj(true), 5000);
   if(typeof loadTaxonomie === 'function') loadTaxonomie();
 }
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.11 · debts.js · 2026-09-29
+// FinanceFlow · v11.13 · debts.js · 2026-09-30
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -602,6 +602,8 @@ function saveTx(){
   }
   const type = curTxType;
   const finalSub = customSub||selSub; if(finalSub)ensureSubcat(selCatId,finalSub);
+  //  S24: nová vlastní podkategorie → AI návrh COICOP na pozadí (coicop-ai.js).
+  if(customSub && typeof coicopAiZkontroluj==='function') setTimeout(()=>coicopAiZkontroluj(true),1500);
   const D2 = getData();
   const cat = getCat(selCatId, D2.categories);
   const autoName = name||(cat.name!=='❓'?cat.name+(finalSub?' – '+finalSub:''):'Transakce');
