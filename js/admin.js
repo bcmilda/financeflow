@@ -1,4 +1,4 @@
-// FinanceFlow · v11.10 · admin.js · 2026-09-29
+// FinanceFlow · v11.12 · admin.js · 2026-09-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,28 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.12',
+    datum: '2026-09-29',
+    zmeny: [
+      '📟 ENERGIE A VODA (E2, Milan) · cesta: Majetek → 📟 Energie a voda. Měřidla elektřiny, plynu, vody, tepla (jednotka, cyklus vyúčtování měsíčně/čtvrtletně/pololetně/ročně, napojení záloh – výchozí Bydlení › Energie / Plyn / Voda). Uloženo v users/{uid}/meridla.',
+      '🧾 Spotřeba dvojím způsobem: 📟 odečet měřidla kdykoli, nebo 🧾 čísla z vyúčtování (období, spotřeba, celková cena, zaplacené zálohy → přeplatek/doplatek). Odečty ani vyúčtování NEJSOU transakce – nesou spotřebu, ne peníze; zálohy se jen čtou z transakcí → nic se nezapočítá ani nezapisuje dvakrát. Odečty mají přednost před vyúčtováním, pokles stavu = výměna měřidla.',
+      '🔮 Odhad vyúčtování dopředu: období navazuje na poslední vyúčtování, spotřeba = změřené dny + zbytek podle průměru posledních 90 dní, cena za jednotku z posledního vyúčtování (vč. stálých plateb) nebo zadaný tarif, zálohy = zaplacené + zbývající měsíce. Ukazuje „přeplatek ≈ / doplatek ≈" a doporučenou měsíční zálohu, aby období vyšlo nula. Graf spotřeby po měsících (v bublině i loňský měsíc).',
+      '🚗 Vozidla: odstraněn převod starých poznámek (Milan vede evidenci v jiné aplikaci).',
+      '🧪 tools/smoke_meridla.js (24); smoke_vozidla.js upraven.',
+    ]
+  },
+  {
+    verze: 'v11.11',
+    datum: '2026-09-29',
+    zmeny: [
+      '⛽ TANKOVÁNÍ U TRANSAKCE (E1, Milan) · cesta: + transakce → kategorie Auto → podkategorie Palivo → blok „⛽ Tankování" (nepovinný): vozidlo, natankováno (l / kWh), stav tachometru, cena u stojanu, palivo, plná nádrž. Uloží se jako VLASTNOST téže transakce (t.tank) – žádná druhá položka, peníze se nezapočítají dvakrát. Průběžně ukazuje zaplacenou cenu za litr, ušetřeno na kuponech a ujeto od minula. Poznámka „20l 83448" blok sama předvyplní.',
+      '🎟️ Slevové kupony: cena za litr se NEPOČÍTÁ z částky. „Cena u stojanu" (nepovinná) a „zaplaceno" (částka transakce) zvlášť → ušetřeno na kuponech + skutečná průměrná cena.',
+      '🚗 VOZIDLA · cesta: Majetek → 🚗 Vozidla. Vozidla s typem (auto, motorka, dodávka, elektroauto, jiné), názvem a výchozím palivem (users/{uid}/vozidla). Karta za každé vozidlo: spotřeba (KLOUZAVĚ – litry mezi prvním a posledním stavem tachometru / ujeté km, plná nádrž není nutná; „přibližná" do 3 tankování), cena za km, průměrná cena za litr, natankováno, ušetřeno na kuponech, útrata po měsících.',
+      '📝 Převod starých poznámek · cesta: Majetek → 🚗 Vozidla → „Převést N starých poznámek": z transakcí Auto › Palivo vyčte litry a tachometr („20l 83448", „32,5 l N95 83 448 km", „38,90 Kč/l"), ukáže náhled a po potvrzení přiřadí k vybranému vozidlu. Poznámky zůstanou beze změny.',
+      '🧪 tools/smoke_vozidla.js (32).',
+    ]
+  },
   {
     verze: 'v11.10',
     datum: '2026-09-29',

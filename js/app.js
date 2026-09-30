@@ -1,4 +1,4 @@
-// FinanceFlow · v11.10 · app.js · 2026-09-29
+// FinanceFlow · v11.12 · app.js · 2026-09-29
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -406,7 +406,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',vozidla:'🚗 Vozidla',energie:'📟 Energie a voda',ucet:'👤 Můj účet'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data

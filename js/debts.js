@@ -1,4 +1,4 @@
-// FinanceFlow · v10.46 · debts.js · 2026-09-04
+// FinanceFlow · v11.11 · debts.js · 2026-09-29
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -23,6 +23,7 @@ function openAddTx(){
   const _dr=document.getElementById('debtRecurring'); if(_dr)_dr.checked=false;
   const _dro=document.getElementById('debtRecurringOpts'); if(_dro)_dro.style.display='none';
   setTxType('expense');selCatId='';selSub='';customSub='';
+  if(typeof tankNaplnFormular==='function') tankNaplnFormular(null);   // S24 (E1): ⛽ Tankování – čistý blok
   populateTxProjectSelect();
   populateTxTransferWallets();
   populateTxWalletSelect();
@@ -606,6 +607,9 @@ function saveTx(){
   const autoName = name||(cat.name!=='❓'?cat.name+(finalSub?' – '+finalSub:''):'Transakce');
   const txObj = {type, name:autoName, amount:amt, amt, catId:selCatId, category:selCatId, subcat:finalSub, date, note};
   if(projectId) txObj.projectId = projectId;
+  //  S24 (E1): litry, tachometr, palivo… jako VLASTNOST téže transakce (žádná
+  //  druhá položka → nic se nezapočítá dvakrát). null smaže, když už nejde o palivo.
+  if(typeof tankZFormulare==='function' && type==='expense') txObj.tank = tankZFormulare(selCatId, finalSub) || null;
   const walletId = document.getElementById('txWalletId')?.value||'';
   const payTypeId = document.getElementById('txPayTypeId')?.value||'';
   if(walletId) txObj.wallet = walletId;
@@ -742,6 +746,8 @@ function selCatBtn(id){selCatId=id;selSub='';customSub='';document.getElementByI
 function renderSubPicker(){
   const wrap=document.getElementById('subPicker');const inner=document.getElementById('subPickerInner');
   const cat=S.categories.find(c=>c.id===selCatId);
+  //  S24 (E1): blok ⛽ Tankování se ukáže u Auto › Palivo (vozidla.js).
+  if(typeof tankObnov==='function') setTimeout(tankObnov,0);
   if(!cat||!(cat.subs||[]).length){if(wrap)wrap.style.display='none';return;}
   if(wrap)wrap.style.display='block';
   const catColor = cat?.color||'var(--accent)';
