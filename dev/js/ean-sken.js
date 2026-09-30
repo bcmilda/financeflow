@@ -1,4 +1,4 @@
-// FinanceFlow · v11.06 · ean-sken.js · 2026-09-27
+// FinanceFlow · v11.09 · ean-sken.js · 2026-09-28
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -19,7 +19,9 @@ const EAN_WORKER = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https:/
 const EAN_ZXING = ['https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js',
                    'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js'];
 
-let _eanStav = { i: -1, stream: null, bezi: false, detektor: null, zxing: null, vysledek: null };
+let _eanStav = { i: -1, cil: null, stream: null, bezi: false, detektor: null, zxing: null, vysledek: null };
+const EAN_DB = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app';
+let _eanProdukty = {}, _eanAliasy = null;
 
 // ── čistá logika (testuje tools/smoke_ean_sken.js) ──
 function eanKontrola(kod) {
@@ -58,6 +60,67 @@ async function eanDotaz(telo) {
   return d;
 }
 
+// ── S24 (v11.09): data pro kartu výrobku v Mapě položek ──
+//  Výrobek čteme přímo z community/eanProdukty (číst smí každý přihlášený,
+//  zapisuje jen worker). Vlastní spojení „obchod + zkratka → EAN" leží
+//  v users/{uid}/eanAliasy (zapisuje worker při přiřazení).
+async function eanNactiProdukt(ean) {
+  if (!ean) return null;
+  if (_eanProdukty[ean] !== undefined) return _eanProdukty[ean];
+  try {
+    const t = await window._currentUser?.getIdToken?.(); if (!t) return null;
+    const r = await fetch(`${EAN_DB}/community/eanProdukty/${ean}.json?auth=${t}`);
+    _eanProdukty[ean] = (r.ok ? await r.json() : null) || null;
+  } catch (e) { return null; }
+  return _eanProdukty[ean];
+}
+async function eanNactiAliasy(vynutit) {
+  if (_eanAliasy && !vynutit) return _eanAliasy;
+  try {
+    const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
+    if (!uid || !t) return _eanAliasy || {};
+    const r = await fetch(`${EAN_DB}/users/${uid}/eanAliasy.json?auth=${t}`);
+    _eanAliasy = (r.ok ? await r.json() : null) || {};
+  } catch (e) { _eanAliasy = _eanAliasy || {}; }
+  return _eanAliasy;
+}
+function eanAliasPro(obchod, raw) {
+  const k = eanAliasKlic(obchod, raw);
+  return (k && _eanAliasy && _eanAliasy[k] && _eanAliasy[k].ean) || '';
+}
+
+//  Semafor nutričních hodnot na 100 g podle britského systému „traffic light"
+//  (Food Standards Agency): zelená = nízký obsah, oranžová = střední, červená = vysoký.
+const EAN_SEMAFOR = {
+  tuky: [3, 17.5, 'Tuky'], nasycene: [1.5, 5, 'z toho nasycené'],
+  cukry: [5, 22.5, 'Cukry'], sul: [0.3, 1.5, 'Sůl'],
+};
+function eanSemaforUroven(klic, hodnota) {
+  const h = EAN_SEMAFOR[klic]; if (!h || hodnota == null) return null;
+  return hodnota <= h[0] ? 'nizka' : hodnota > h[1] ? 'vysoka' : 'stredni';
+}
+function eanNutriceHTML(n) {
+  if (!n || !Object.keys(n).length) return '';
+  const barva = { nizka: '#34d399', stredni: '#fbbf24', vysoka: '#f87171' };
+  const slovo = { nizka: 'nízký', stredni: 'střední', vysoky: 'vysoký', vysoka: 'vysoký' };
+  const fmt = v => String(v).replace('.', ',');
+  const pasky = Object.keys(EAN_SEMAFOR).filter(k => n[k] != null).map(k => {
+    const [, vys, nazev] = EAN_SEMAFOR[k]; const u = eanSemaforUroven(k, n[k]);
+    const sirka = Math.max(4, Math.min(100, n[k] / (vys * 1.5) * 100));
+    return `<div style="margin:5px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.74rem"><span style="color:#a8aec8">${nazev}</span>
+        <span style="color:var(--text)">${fmt(n[k])} g <span style="color:${barva[u]};font-size:.66rem">· ${slovo[u]}</span></span></div>
+      <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px">
+        <div style="width:${sirka}%;height:100%;background:${barva[u]}"></div></div>
+    </div>`;
+  }).join('');
+  const ostatni = [['kcal', 'Energie', ' kcal'], ['bilkoviny', 'Bílkoviny', ' g'], ['sacharidy', 'Sacharidy', ' g'], ['vlaknina', 'Vláknina', ' g']]
+    .filter(([k]) => n[k] != null)
+    .map(([k, l, j]) => `<div style="display:flex;justify-content:space-between;font-size:.74rem"><span style="color:#a8aec8">${l}</span><span>${fmt(n[k])}${j}</span></div>`).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 16px">${ostatni}</div>${pasky}`;
+}
+Object.assign(window, { eanNactiProdukt, eanNactiAliasy, eanAliasPro, eanNutriceHTML, eanSemaforUroven });
+
 // ── okno skeneru ──
 function eanOkno() {
   let o = document.getElementById('eanOkno');
@@ -71,7 +134,10 @@ function eanOkno() {
         <div style="font-weight:700;font-size:.95rem;flex:1;color:var(--text)">📷 Čárový kód k položce</div>
         <button onclick="eanZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button>
       </div>
-      <div id="eanPolozka" style="font-size:.78rem;color:#a8aec8;margin-bottom:10px"></div>
+      <div id="eanPolozka" style="font-size:.78rem;color:#a8aec8;margin-bottom:6px"></div>
+      <div style="font-size:.72rem;color:#a8aec8;line-height:1.5;margin-bottom:10px;background:var(--surface2);border-radius:9px;padding:8px 10px">
+        💡 Na účtence je jen zkratka. Čárový kód z obalu řekne, co to <b style="color:var(--text)">přesně je</b> – název, značku, gramáž, složení a Nutri-Score –
+        a appka pak pozná stejný výrobek i v jiném obchodě. Stačí jednou; ostatním uživatelům se kód ke stejné zkratce nabídne sám.</div>
       <div id="eanKamera" style="position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;display:none">
         <video id="eanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
         <div style="position:absolute;left:10%;right:10%;top:42%;height:16%;border:2px solid #60a5fa;border-radius:10px;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
@@ -96,15 +162,20 @@ function eanZprava(t, chyba) {
   el.innerHTML = t;
 }
 
+//  Z editoru účtenky (index položky).
 async function eanSkenuj(i) {
   const r = window._editReceipt; const it = r?.items?.[i];
   if (!it) return;
-  _eanStav.i = i; _eanStav.vysledek = null;
+  return eanSkenujPolozku({ raw: it.name || '', obchod: r.store || '', ean: it.ean || '', eanNazev: it.eanNazev || '', i });
+}
+//  Obecně (editor i karta v Mapě položek): cil = {raw, obchod, ean?, i?, hotovo?(ean, produkt)}.
+async function eanSkenujPolozku(cil) {
+  _eanStav.cil = cil; _eanStav.i = cil.i != null ? cil.i : -1; _eanStav.vysledek = null;
   eanOkno();
   document.getElementById('eanPolozka').innerHTML =
-    'Položka z účtenky: <b style="color:var(--text)">' + escHtml(it.name || '—') + '</b>'
-    + (r.store ? ' · ' + escHtml(r.store) : '')
-    + (it.ean ? '<br>Teď přiřazeno: ' + escHtml(it.ean) + (it.eanNazev ? ' · ' + escHtml(it.eanNazev) : '') : '');
+    'Položka z účtenky: <b style="color:var(--text)">' + escHtml(cil.raw || '—') + '</b>'
+    + (cil.obchod ? ' · ' + escHtml(cil.obchod) : '')
+    + (cil.ean ? '<br>Teď přiřazeno: ' + escHtml(cil.ean) + (cil.eanNazev ? ' · ' + escHtml(cil.eanNazev) : '') : '');
   document.getElementById('eanVysledek').innerHTML = '';
   await eanStartKamery();
 }
@@ -267,25 +338,32 @@ async function eanNalezen(kod) {
 }
 
 async function eanPrirad() {
-  const r = window._editReceipt; const it = r?.items?.[_eanStav.i]; const v = _eanStav.vysledek;
-  if (!it || !v) return;
+  const cil = _eanStav.cil || {}; const v = _eanStav.vysledek;
+  if (!v) return;
   const p = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
-  it.ean = v.ean;
-  if (p && p.nazev) it.eanNazev = p.nazev.slice(0, 100); else delete it.eanNazev;
+  //  V editoru se kód zapíše i k položce účtenky (uloží se s účtenkou).
+  const r = window._editReceipt; const it = (cil.i >= 0) ? r?.items?.[cil.i] : null;
+  if (it) {
+    it.ean = v.ean;
+    if (p && p.nazev) it.eanNazev = p.nazev.slice(0, 100); else delete it.eanNazev;
+  }
+  if (p) _eanProdukty[v.ean] = p;
   //  Spojení „obchod + zkratka → EAN" uloží worker (komunita bez uid).
   //  Když se to nepovede (offline), kód u položky zůstane a spojení se
   //  dá doplnit příštím skenem – účtenka se kvůli tomu nezdrží.
-  const klic = eanAliasKlic(r.store, it.name);
+  const klic = eanAliasKlic(cil.obchod, cil.raw);
   let hlaska = '✅ Kód přiřazen';
   if (klic) {
     try {
-      const d = await eanDotaz({ ean: v.ean, potvrdit: true, klic, obchod: r.store || '', raw: it.name || '' });
+      const d = await eanDotaz({ ean: v.ean, potvrdit: true, klic, obchod: cil.obchod || '', raw: cil.raw || '' });
       if (d.alias && d.alias.pocet > 1) hlaska += ' · potvrzeno už ' + d.alias.pocet + '×';
+      if (_eanAliasy) _eanAliasy[klic] = { ean: v.ean, kdy: Date.now() };
     } catch (e) { hlaska = '✅ Kód přiřazen (spojení s obchodem se uloží příště)'; }
   }
   eanZavri();
-  if (typeof rpRender === 'function') rpRender();
+  if (it && typeof rpRender === 'function') rpRender();
+  if (typeof cil.hotovo === 'function') cil.hotovo(v.ean, p);
   if (typeof showToast === 'function') showToast(hlaska);
 }
 
-Object.assign(window, { eanSkenuj, eanZFotky, eanSvetlo, eanZavri, eanPrirad, eanStartKamery });
+Object.assign(window, { eanSkenuj, eanSkenujPolozku, eanZFotky, eanSvetlo, eanZavri, eanPrirad, eanStartKamery });

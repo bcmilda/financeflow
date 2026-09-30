@@ -1,4 +1,4 @@
-// FinanceFlow · v11.05 · app.js · 2026-09-26
+// FinanceFlow · v11.12 · app.js · 2026-09-29
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -406,7 +406,7 @@ const _origSave = window.save; // will be set later
 //  CONSTANTS & STATE
 // ══════════════════════════════════════════════════════
 const CZ_M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',ucet:'👤 Můj účet'};
+const PAGE_TITLES={prehled:'Dashboard',souhrn:'Souhrn výdajů',transakce:'Transakce',tagy:'🏷️ Tagy',bank:'Bank',predikce:'Predikce',dluhy:'Půjčky',grafy:'Grafy',narozeniny:'Narozeniny a přání',statistiky:'Statistiky',kategorie:'Kategorie',ai:'AI Rádce',rodina:'Rodinný souhrn',sdileni:'Sdílení & Partneři',penezenky:'Peněženky',typy:'Typy plateb',sablony:'Opakované šablony',nastaveni:'Nastavení',oAplikaci:'O aplikaci',projekty:'Projekty',projektDetail:'Projekt',report:'Měsíční report',radar:'Finanční radar',obraz:'Finanční obraz',detektor:'Detektor úspor',simulace:'Simulace života',uctenky:'Analýza účtenek',admin:'🔐 Admin panel',denik:'📖 Deník',poznamky:'📝 Poznámky k výdaji',komunita:'🌍 Komunitní přehled',import:'📥 Import dat',nakup:'🛒 Nákupní seznam',aktiva:'💎 Finanční aktiva',budouci:'🗓️ Budoucí platby',smsimport:'📱 Import z banky',kalendar:'📅 Kalendář',kurzy:'💱 Kurzy měn',pristi:'📅 Příští měsíc',vozidla:'🚗 Vozidla',energie:'📟 Energie a voda',ucet:'👤 Můj účet'};
 const SEASON={0:{mult:.85},1:{mult:1.05},2:{mult:1.0},3:{mult:1.02},4:{mult:1.15},5:{mult:1.1},6:{mult:1.1},7:{mult:1.08},8:{mult:1.05},9:{mult:1.0},10:{mult:1.12},11:{mult:1.35}};
 
 // My own data
@@ -545,11 +545,50 @@ function lookupProductMap(nazev) {
 }
 window.lookupProductMap = lookupProductMap;
 
+// ── S24 (T3): PŘEVOD PODKATEGORIE TAXONOMIE → ROZPOČTOVÁ KATEGORIE ──
+//  users/{uid}/taxRozpocet/{podId} = catId. Uživatel neřadí tisíce položek,
+//  jen jednou potvrdí podkategorie („Pečivo → Jídlo"). Chybí-li záznam, platí
+//  výchozí kategorie z taxonomie. Stejný vzor jako categoryMappings: vlastní
+//  uzel mimo S (nemusí se registrovat v diff-write), pravidla kryje kaskáda users/$uid.
+let _taxRozpocetCache = null;
+const _TAXR_URL = uid => `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/taxRozpocet`;
+async function loadTaxRozpocet(vynutit) {
+  if(_taxRozpocetCache !== null && !vynutit) return _taxRozpocetCache;
+  if(_isLocalMode) {
+    try { _taxRozpocetCache = JSON.parse(localStorage.getItem('ff_taxRozpocet')||'{}') || {}; } catch(e) { _taxRozpocetCache = {}; }
+    return _taxRozpocetCache;
+  }
+  try {
+    const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
+    if(!uid || !t) return _taxRozpocetCache || {};
+    const r = await fetch(`${_TAXR_URL(uid)}.json?auth=${t}`);
+    _taxRozpocetCache = (r.ok ? await r.json() : null) || {};
+  } catch(e) { _taxRozpocetCache = _taxRozpocetCache || {}; }
+  return _taxRozpocetCache;
+}
+function taxRozpocetUzivatel(podId) { return (_taxRozpocetCache && podId && _taxRozpocetCache[podId]) || ''; }
+async function saveTaxRozpocet(podId, catId) {
+  if(!/^[a-z0-9-]{1,60}$/.test(String(podId||''))) return;
+  _taxRozpocetCache = _taxRozpocetCache || {};
+  if(catId) _taxRozpocetCache[podId] = catId; else delete _taxRozpocetCache[podId];
+  if(_isLocalMode) { try { localStorage.setItem('ff_taxRozpocet', JSON.stringify(_taxRozpocetCache)); } catch(e){} return; }
+  try {
+    const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
+    if(!uid || !t) return;
+    await fetch(`${_TAXR_URL(uid)}/${podId}.json?auth=${t}`, catId
+      ? { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(catId) }
+      : { method:'DELETE' });
+  } catch(e) { console.warn('saveTaxRozpocet failed:', e); }
+}
+Object.assign(window, { loadTaxRozpocet, taxRozpocetUzivatel, saveTaxRozpocet });
+
 // Načti mappings po přihlášení
 async function initCategoryMappings() {
   _catMappingsCache = null; // reset cache
   await loadCategoryMappings();
   loadProductMap(true);   // S24: na pozadí, nic na ní nečeká
+  loadTaxRozpocet(true);  // S24 (T3)
+  if(typeof loadTaxonomie === 'function') loadTaxonomie();
 }
 
 // Partner data (read-only view)
@@ -721,7 +760,12 @@ window.onUserSignedIn = async function(user) {
       if (typeof openPinVerify === 'function') openPinVerify();
     }, 800);
   }
-  renderPage();
+  //  S24 (v11.10, Milan: „Dashboard po prvním načtení ukazuje 0, po proklikání 202"):
+  //  nastavení (_settings.hasDebts) a premium se načtou až PO prvním vykreslení
+  //  z listeneru. Anti-flicker podpis dat (_dataSig) se jimi nezmění, takže
+  //  obyčejný renderPage() tady skončil hned na začátku a skóre zůstalo
+  //  spočítané bez „nemám dluh" (pokrytí 40 % → „Zatím nemám dost dat").
+  if (typeof forceRender === 'function') forceRender(); else renderPage();
   // Ulož affiliate ref pokud existuje
   if(window._pendingAffiliateRef) {
     try {

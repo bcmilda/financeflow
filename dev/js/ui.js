@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · ui.js · 2026-09-21
+// FinanceFlow · v11.12 · ui.js · 2026-09-29
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -55,6 +55,8 @@ function renderPage(){
   if(curPage==='nakup')renderNakup();
   if(curPage==='budouci')renderBudouci();
   if(curPage==='pristi'&&typeof renderPristiPage==='function')renderPristiPage();  // v9.79 TODO-211
+  if(curPage==='vozidla'&&typeof renderVozidlaPage==='function')renderVozidlaPage();  // S24 (E1): 🚗 Vozidla
+  if(curPage==='energie'&&typeof renderEnergiePage==='function')renderEnergiePage();  // S24 (E2): 📟 Energie a voda
   if(curPage==='aktiva')renderAssets();
   if(curPage==='smsimport')renderSmsImport();
   if(curPage==='admin')renderAdmin();
@@ -2157,6 +2159,7 @@ function editTx(id){
     setTxType(t.type==='transfer'?'transfer':t.type);
     selCatId=t.catId||t.category||'';
     selSub=t.subcat||'';
+    if(typeof tankNaplnFormular==='function') tankNaplnFormular(t.tank||null);   // S24 (E1): ⛽ Tankování
     renderCatPicker();
   }
   // v8.58 (FIX): editace vyplní i PENĚŽENKU a TYP PLATBY – dřív selecty zůstaly na „– výchozí –"

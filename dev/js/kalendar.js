@@ -1,4 +1,4 @@
-// FinanceFlow · v10.53 · kalendar.js · 2026-09-10
+// FinanceFlow · v11.10 · kalendar.js · 2026-09-29
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -9,6 +9,19 @@
 // ══════════════════════════════════════════════════════
 
 // Klíč dne YYYY-MM-DD (zero-padded)
+//  S24 (v11.10, Milan: „čísla v kalendáři jsou na mobilu smrsknutá, jsou tam 3 tečky"):
+//  buňka dne je na telefonu ~50 px široká. Od 10 000 se částka zkracuje
+//  (29 700 → 29,7k, 1 250 000 → 1,3M), celá částka je v bublině a v detailu dne.
+function kalKratce(v) {
+  const n = Number(v) || 0, a = Math.abs(n);
+  if (a < 10000) return fmt(n);
+  const [d, z] = a >= 999500 ? [1e6, 'M'] : [1e3, 'k'];
+  const x = n / d;
+  const t = (Math.abs(x) >= 100 ? Math.round(x).toString() : (Math.round(x * 10) / 10).toString()).replace('.', ',');
+  return t + z;
+}
+window.kalKratce = kalKratce;
+
 function _ck(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
 function _calNote(y, m, d) { return (S.calNotes || {})[_ck(y, m, d)] || null; }
 function _workDay(y, m, d) { return ((S.workCal || {}).days || {})[_ck(y, m, d)] || null; }
@@ -171,11 +184,11 @@ function _renderKalFinance(D, m, y) {
 
         ${hasTx ? `
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;overflow:hidden">
-            <div style="font-size:${Math.abs(saldo) >= 100000 ? '.62rem' : Math.abs(saldo) >= 10000 ? '.7rem' : '.82rem'};font-weight:700;color:${saldo >= 0 ? '#4ade80' : '#f87171'};line-height:1.15;letter-spacing:-.02em;text-align:center;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis">
-              ${saldo >= 0 ? '+' : ''}${fmt(saldo)}
+            <div title="${saldo >= 0 ? '+' : ''}${fmt(saldo)}" style="font-size:${Math.abs(saldo) >= 10000 ? '.76rem' : '.82rem'};font-weight:700;color:${saldo >= 0 ? '#4ade80' : '#f87171'};line-height:1.15;letter-spacing:-.02em;text-align:center;white-space:nowrap;max-width:100%;overflow:hidden">
+              ${saldo >= 0 ? '+' : ''}${kalKratce(saldo)}
             </div>
             ${data.exp > 0 && data.inc > 0
-        ? `<div style="font-size:${(data.inc >= 100000 || data.exp >= 100000) ? '.55rem' : '.62rem'};color:#a8aec8;text-align:center;line-height:1.25;width:100%;overflow:hidden;overflow-wrap:anywhere">▲${fmt(data.inc)}<br>▼${fmt(data.exp)}</div>`
+        ? `<div style="font-size:.62rem;color:#a8aec8;text-align:center;line-height:1.25;width:100%;overflow:hidden;white-space:nowrap">▲${kalKratce(data.inc)}<br>▼${kalKratce(data.exp)}</div>`
         : ''}
           </div>
           ${(() => {

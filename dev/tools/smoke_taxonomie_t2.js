@@ -23,6 +23,9 @@ t('jednoslovná zkratka pokrytá z poloviny',N('JOGU')==='jogurt|zkratka',N('JOG
 t('příliš krátká zkratka nic',N('SAL')===null,N('SAL'));
 t('nesmysl nic',N('XYZ QWE')===null);
 t('gramáž nevadí',N('ROHLÍK 43G')==='rohlík|presne');
+t('jiný tvar: množné číslo',N('Banány')==='banán|tvar'&&N('Rohlíky')==='rohlík|tvar'&&N('Sýry')==='sýr|tvar');
+t('jiný tvar: koncovka',N('Jablka červená')==='jablko|tvar');
+t('jiný tvar: nesouvisející slovo ne',N('Pivovar')===null);
 t('hledání: začátek názvu první',ctx.taxHledej('jog')[0].nazev==='jogurt');
 t('hledání podle podkategorie',ctx.taxHledej('drůbeží').some(z=>z.nazev==='kuřecí prsa'));
 const m=ctx.taxDoMapy(ctx.taxInfo('kuřecí prsa'));

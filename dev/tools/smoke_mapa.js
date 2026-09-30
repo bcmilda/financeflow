@@ -21,7 +21,7 @@ T('E) počet obecných názvů z tagů i mapy',st.obecne===6);
 T('velká a malá písmena se nepočítají zvlášť',mapaStatistiky({},{a:{obecny:'Zelenina'},b:{obecny:'zelenina'}}).obecne===1);
 T('prázdná mapa nespadne',mapaStatistiky({},{}).polozky===0&&mapaStatistiky(null,null).obecne===0);
 const k=mapaStatKarta(st);
-T('karta ukazuje všech 5 čísel',['Namapované položky','Kategorie','Podkategorie','Konkrétní názvy','Obecné názvy'].every(x=>k.includes(x)));
+T('karta ukazuje dlaždice taxonomie',['V taxonomii','Oblasti','Podkategorie','Konkrétní názvy','Obecné názvy','Namapované položky'].every(x=>k.includes(x)));
 T('karta hlásí, kolik položek čeká',/1 čeká/.test(k));
 // kód
 T('zápis do mapy jde jen přes productMap',/community\/productMap\/\$\{encodeURIComponent\(klic\)\}/.test(A));

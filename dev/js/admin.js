@@ -1,4 +1,4 @@
-// FinanceFlow · v11.07 · admin.js · 2026-09-27
+// FinanceFlow · v11.12 · admin.js · 2026-09-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -562,6 +562,59 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.12',
+    datum: '2026-09-29',
+    zmeny: [
+      '📟 ENERGIE A VODA (E2, Milan) · cesta: Majetek → 📟 Energie a voda. Měřidla elektřiny, plynu, vody, tepla (jednotka, cyklus vyúčtování měsíčně/čtvrtletně/pololetně/ročně, napojení záloh – výchozí Bydlení › Energie / Plyn / Voda). Uloženo v users/{uid}/meridla.',
+      '🧾 Spotřeba dvojím způsobem: 📟 odečet měřidla kdykoli, nebo 🧾 čísla z vyúčtování (období, spotřeba, celková cena, zaplacené zálohy → přeplatek/doplatek). Odečty ani vyúčtování NEJSOU transakce – nesou spotřebu, ne peníze; zálohy se jen čtou z transakcí → nic se nezapočítá ani nezapisuje dvakrát. Odečty mají přednost před vyúčtováním, pokles stavu = výměna měřidla.',
+      '🔮 Odhad vyúčtování dopředu: období navazuje na poslední vyúčtování, spotřeba = změřené dny + zbytek podle průměru posledních 90 dní, cena za jednotku z posledního vyúčtování (vč. stálých plateb) nebo zadaný tarif, zálohy = zaplacené + zbývající měsíce. Ukazuje „přeplatek ≈ / doplatek ≈" a doporučenou měsíční zálohu, aby období vyšlo nula. Graf spotřeby po měsících (v bublině i loňský měsíc).',
+      '🚗 Vozidla: odstraněn převod starých poznámek (Milan vede evidenci v jiné aplikaci).',
+      '🧪 tools/smoke_meridla.js (24); smoke_vozidla.js upraven.',
+    ]
+  },
+  {
+    verze: 'v11.11',
+    datum: '2026-09-29',
+    zmeny: [
+      '⛽ TANKOVÁNÍ U TRANSAKCE (E1, Milan) · cesta: + transakce → kategorie Auto → podkategorie Palivo → blok „⛽ Tankování" (nepovinný): vozidlo, natankováno (l / kWh), stav tachometru, cena u stojanu, palivo, plná nádrž. Uloží se jako VLASTNOST téže transakce (t.tank) – žádná druhá položka, peníze se nezapočítají dvakrát. Průběžně ukazuje zaplacenou cenu za litr, ušetřeno na kuponech a ujeto od minula. Poznámka „20l 83448" blok sama předvyplní.',
+      '🎟️ Slevové kupony: cena za litr se NEPOČÍTÁ z částky. „Cena u stojanu" (nepovinná) a „zaplaceno" (částka transakce) zvlášť → ušetřeno na kuponech + skutečná průměrná cena.',
+      '🚗 VOZIDLA · cesta: Majetek → 🚗 Vozidla. Vozidla s typem (auto, motorka, dodávka, elektroauto, jiné), názvem a výchozím palivem (users/{uid}/vozidla). Karta za každé vozidlo: spotřeba (KLOUZAVĚ – litry mezi prvním a posledním stavem tachometru / ujeté km, plná nádrž není nutná; „přibližná" do 3 tankování), cena za km, průměrná cena za litr, natankováno, ušetřeno na kuponech, útrata po měsících.',
+      '📝 Převod starých poznámek · cesta: Majetek → 🚗 Vozidla → „Převést N starých poznámek": z transakcí Auto › Palivo vyčte litry a tachometr („20l 83448", „32,5 l N95 83 448 km", „38,90 Kč/l"), ukáže náhled a po potvrzení přiřadí k vybranému vozidlu. Poznámky zůstanou beze změny.',
+      '🧪 tools/smoke_vozidla.js (32).',
+    ]
+  },
+  {
+    verze: 'v11.10',
+    datum: '2026-09-29',
+    zmeny: [
+      '🐛 cesta: Dashboard → Finanční skóre: po prvním načtení ukazovalo 0 / „Zatím nemám dost dat", po proklikání 202 (Milan). Nastavení (potvrzené „nemám dluh") a premium se načtou až po prvním vykreslení z listeneru; anti-flicker podpis dat (_dataSig) se jimi nezmění, takže závěrečný renderPage() po přihlášení skončil hned na začátku. Nově forceRender().',
+      '🔒 cesta: Měsíční report → záložky: Poradce a souhrn 3/6/12 měsíců (i vlastní počet > 1) jsou Premium podle tarifů (Free = report za 1 měsíc). Brána dosud chyběla – záložky šly všem. U záložek 💎, Free dostane paywall; kdo po triálu zůstal na zamčeném období, přepne se na Měsíc. Admin a trial beze změny.',
+      '📅 cesta: Kalendář → Finanční: částky v buňce dne se na mobilu ořezávaly na „+29 7…". Od 10 000 se zkracují (29 700 → 29,7k, 1 250 000 → 1,3M), řádky ▲/▼ se nezalamují; celá částka v bublině a v detailu dne.',
+    ]
+  },
+  {
+    verze: 'v11.09',
+    datum: '2026-09-28',
+    zmeny: [
+      '🗺️ MAPA POLOŽEK PŘEDĚLANÁ (Milan) · cesta: Účtenky → 🗺️ Mapa položek. Taxonomie je hlavní informace: velký titulek = obecný název, pod ním oblast › podkategorie, malým zkratka z účtenky. Rozpočtová kategorie přesunuta do karty (sekundární). Nahoře statistika taxonomie: V taxonomii X z N s ukazatelem a %, obecné názvy / podkategorie / oblasti (z kolika v taxonomii), obchody, položky s čárovým kódem; oblasti jako filtr. Nový filtr 📷 Bez kódu. Převod podkategorie → rozpočet přesunut dolů.',
+      '🃏 KARTA VÝROBKU · klepnutím na položku v Mapě položek: fotka, název, značka, gramáž; Nutri-Score, NOVA, počet éček, štítky; čárový kód; zařazení (oblast, podkategorie, obecný a konkrétní název, COICOP, zdroj); moje nákupy (poslední cena, cena za kg/l, poslední nákup v každém obchodě se zkratkou, nejlevnější obchod); nutriční hodnoty se semaforem (zelená/oranžová/červená podle britské FSA na 100 g); složení a alergeny; rozpočet až na konci.',
+      '📷 ČÁROVÝ KÓD NA VIDITELNĚJŠÍCH MÍSTECH · karta výrobku bez kódu má výzvu „Vyfotit čárový kód" s vysvětlením, k čemu je; v editoru účtenky tip nad položkami (dokud ho uživatel nezavře); okno skeneru vysvětluje proč. Kód z karty se přiřadí k poslednímu nákupu (obchod + zkratka) a karta se hned doplní.',
+      '🧭 Taxonomie pozná i jiný tvar slova z účtenky („Banány" → banán, „Jablka" → jablko, „Rohlíky" → rohlík).',
+      '🐛 Admin → 🗺️ Mapa položek: dlaždice se nepřepočítávaly po uložení („V taxonomii 0", filtr 9). Nově se obnovují po každé změně a počítají položky stejně jako filtr. Dlaždice přestavěny na taxonomii (oblasti, podkategorie a obecné názvy z kolika v taxonomii).',
+      '🧪 tools/smoke_mapa_karta.js (24); upraveny smoke_mapa.js, smoke_mapa_osobni.js, smoke_taxonomie_t2.js.',
+    ]
+  },
+  {
+    verze: 'v11.08',
+    datum: '2026-09-27',
+    zmeny: [
+      '🧭 MAPA POLOŽEK NAD TAXONOMIÍ (T3) · cesta: Účtenky → 🗺️ Mapa položek. U každé položky řetěz oblast › podkategorie › obecný název (+ konkrétní název z mapy), položky mimo taxonomii s poznámkou, že je zařadí admin. Filtry: Vše / 🧭 V taxonomii / 📦 Mimo taxonomii / ✋ Moje volby; hledání i podle podkategorie a oblasti.',
+      '💼 PODKATEGORIE → ROZPOČET · cesta: Účtenky → 🗺️ Mapa položek → „💼 Podkategorie → rozpočet". Uživatel neřadí tisíce položek, jen potvrdí podkategorie, které má v účtenkách („Pečivo → Jídlo & Nákupy"). Výchozí = návrh taxonomie. Uloženo v users/{uid}/taxRozpocet (pravidla kryje kaskáda users/$uid, beze změny).',
+      '🧾 cesta: Účtenky → 📸 Skenovat → editor účtenky: pořadí zařazení položky je teď osobní volba → komunitní mapa (přes taxonomii) → taxonomie podle názvu (jen jistá shoda, ne zkratka z pokladny; ikona 🧭) → klíčová slova → Nákup. Rozpočtová kategorie z taxonomie: převod podkategorie → výchozí kategorie → catId staršího záznamu. Bublina ukazuje celý řetěz.',
+      '🧪 tools/smoke_taxonomie_t3.js (22).',
+    ]
+  },
   {
     verze: 'v11.07',
     datum: '2026-09-27',
@@ -7242,10 +7295,16 @@ function mapaStatistiky(tagy, zaznamy, kategorie) {
   const namapovano = Object.keys(zaznamy || {}).filter(k => nepr((zaznamy[k] || {}).catId)).length;
   //  S24 (T2): kolik záznamů už ukazuje do taxonomie a kolik oblastí pokrývají.
   const vTax = z.filter(r => nepr(r.obecnyId));
-  const oblasti = new Set(vTax.map(r => (typeof taxInfo === 'function' && taxInfo(r.obecnyId) || {}).oblastId).filter(Boolean));
+  const infa = vTax.map(r => (typeof taxInfo === 'function' && taxInfo(r.obecnyId)) || null).filter(Boolean);
+  const oblasti = new Set(infa.map(x => x.oblastId));
+  //  S24 (v11.09): „V taxonomii" počítá POLOŽKY s tagy (stejně jako filtr),
+  //  ne všechny záznamy mapy – jinak dlaždice a filtr ukazovaly různá čísla.
+  const vTaxPolozek = Object.keys(tagy || {}).filter(k => zaznamy && zaznamy[k] && nepr(zaznamy[k].obecnyId)).length;
   return {
-    vTaxonomii: vTax.length,
+    vTaxonomii: vTaxPolozek,
     oblasti: oblasti.size,
+    taxPodkategorie: new Set(infa.map(x => x.podId)).size,
+    taxObecne: new Set(infa.map(x => x.id)).size,
     polozky: celkem,
     namapovano,
     bezMapovani: Math.max(0, celkem - namapovano),
@@ -7262,13 +7321,19 @@ function mapaStatKarta(st) {
       <div style="font-family:Syne,sans-serif;font-size:1.1rem;font-weight:800;color:#e8eaf2">${v}</div>
       ${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}
     </div>`;
+  //  S24 (v11.09): dlaždice podle taxonomie. Staré „Kategorie/Podkategorie"
+  //  (volný text) po T2 nic neříkaly – ukazovaly nuly.
+  const pct = st.polozky ? Math.round((st.vTaxonomii || 0) / st.polozky * 100) : 0;
+  const celkObec = typeof taxSeznam === 'function' ? taxSeznam().length : 0;
+  const td = typeof taxData === 'function' ? taxData() : null;
+  const celkPod = td ? td.oblasti.reduce((a, o) => a + o.podkategorie.length, 0) : 0;
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:8px;margin-bottom:14px">
-    ${dl('Namapované položky', st.namapovano, st.bezMapovani ? st.bezMapovani + ' čeká' : 'vše hotovo')}
-    ${dl('V taxonomii', st.vTaxonomii || 0, (st.oblasti || 0) + ' oblastí')}
-    ${dl('Kategorie', st.kategorie)}
-    ${dl('Podkategorie', st.podkategorie)}
+    ${dl('V taxonomii', (st.vTaxonomii || 0) + ' z ' + st.polozky, pct + ' % · ' + Math.max(0, st.polozky - (st.vTaxonomii || 0)) + ' čeká')}
+    ${dl('Oblasti', st.oblasti || 0, 'z 13')}
+    ${dl('Podkategorie', st.taxPodkategorie || 0, celkPod ? 'z ' + celkPod : '')}
+    ${dl('Obecné názvy', st.taxObecne || 0, celkObec ? 'z ' + celkObec + ' v taxonomii' : '')}
     ${dl('Konkrétní názvy', st.konkretni)}
-    ${dl('Obecné názvy', st.obecne)}
+    ${dl('Namapované položky', st.namapovano, st.bezMapovani ? st.bezMapovani + ' čeká' : 'vše hotovo')}
   </div>`;
 }
 
@@ -7334,7 +7399,7 @@ async function loadCommunityItemTags() {
     _mapaAdminTagy = data;
     const nemaTax = Object.values(_mapaZaznamy).filter(r => r && !r.obecnyId).length;
     el.innerHTML = `<div class="card-body">
-      ${mapaStatKarta(mapaStatistiky(data, _mapaZaznamy, S.categories))}
+      <div id="mapaAdminStat">${mapaStatKarta(mapaStatistiky(data, _mapaZaznamy, S.categories))}</div>
       ${typeof taxSeznam === 'function' && taxSeznam().length ? '' : '<div style="font-size:.76rem;color:var(--expense);margin-bottom:10px">⚠️ Taxonomie se nenačetla (data/taxonomie.json) – výběr obecného názvu nepůjde.</div>'}
       ${nemaTax ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:12px;font-size:.78rem;color:var(--text)">
           ${nemaTax} uložených záznamů je ještě ve starém tvaru (volný text). <button class="btn btn-sm" onclick="mapaMigrace()">🔄 Převést na taxonomii</button></div>` : ''}
@@ -7385,6 +7450,10 @@ window.mapaAdminStav = mapaAdminStav;
 
 function mapaAdminKresli() {
   const el = document.getElementById('mapaAdminSeznam'); if (!el) return;
+  //  S24 (v11.09): dlaždice se přepočítají po každém uložení (dřív zůstaly
+  //  na stavu z otevření záložky – „V taxonomii 0", i když filtr ukazoval 9).
+  const stEl = document.getElementById('mapaAdminStat');
+  if (stEl) stEl.innerHTML = mapaStatKarta(mapaStatistiky(_mapaAdminTagy, _mapaZaznamy, S.categories));
   const hot = _mapaAdminItems.filter(it => (_mapaZaznamy[it.itemKey] || {}).obecnyId).length;
   const pocty = { vse: _mapaAdminItems.length, bez: _mapaAdminItems.length - hot, hotove: hot };
   const f = document.getElementById('mapaAdminFiltry');

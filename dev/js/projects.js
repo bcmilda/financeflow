@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · projects.js · 2026-09-25
+// FinanceFlow · v11.10 · projects.js · 2026-09-29
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -806,9 +806,22 @@ function renderComp3Grid(D, nMonths) {
 // ══════════════════════════════════════════════════════
 // ── Stav záložky reportu ──
 let _reportPeriod = '1M'; // '7D'|'1M'..'12M'|'advisor'
-function reportSetPeriod(p) { _reportPeriod = p; renderReport(); }
+//  S24 (v11.10, Milan: „chybí zámek u Poradce"): podle tarifů je Free = report
+//  za 1 měsíc; souhrn 3–12 měsíců a Poradce jsou Premium (tiers-preview,
+//  FEATURE_TIERS.reportAdvisor). Brána dosud neexistovala – záložky šly všem.
+function _reportMaPremium() { return typeof hasPremiumAccess !== 'function' || hasPremiumAccess(); }
+function _reportMaPoradce() { return typeof canUseFeature !== 'function' || canUseFeature('reportAdvisor'); }
+function reportSetPeriod(p) {
+  const ok = p === 'advisor' ? _reportMaPoradce() : (p === '1M' || p === '7D' || _reportMaPremium());
+  if (!ok) { if (typeof showPaywall === 'function') showPaywall(); return; }
+  _reportPeriod = p; renderReport();
+}
 // Session 10: stepper – nastav libovolný počet měsíců 1–12
-function reportSetMonths(n) { n = Math.max(1, Math.min(12, n)); _reportPeriod = n + 'M'; renderReport(); }
+function reportSetMonths(n) {
+  n = Math.max(1, Math.min(12, n));
+  if (n > 1 && !_reportMaPremium()) { if (typeof showPaywall === 'function') showPaywall(); return; }
+  _reportPeriod = n + 'M'; renderReport();
+}
 
 // Session 10: převod periody na počet měsíců. Podporuje 1M–12M (i 2M/4M/5M/7-11M).
 function periodToMonths(p) {
@@ -986,6 +999,9 @@ function reportRatingSummary(D, m, y) {
 
 function renderReport() {
   const el = document.getElementById('reportContent'); if(!el) return;
+  //  Free uživatel (např. po skončení triálu) nesmí zůstat na zamčeném období.
+  if (_reportPeriod === 'advisor' ? !_reportMaPoradce() : (_reportPeriod !== '1M' && _reportPeriod !== '7D' && !_reportMaPremium())) _reportPeriod = '1M';
+  const _dia = '<span style="font-size:.6rem;margin-left:3px" title="Premium">💎</span>';
 
   // Záložky period + stepper pro libovolný počet měsíců (1–12) + Poradce
   const quick = ['1M','3M','6M','12M'];
@@ -999,12 +1015,12 @@ function renderReport() {
       style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod===p?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod===p?'var(--surface)':'transparent'};
         color:${_reportPeriod===p?'var(--text)':'var(--text2)'};
-        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}</button>`).join('')}
+        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}${p!=='1M'?_dia:''}</button>`).join('')}
     <button onclick="reportSetPeriod('advisor')"
       style="flex-shrink:0;padding:8px 10px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod==='advisor'?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod==='advisor'?'var(--bank)':'transparent'};
         color:${_reportPeriod==='advisor'?'#fff':'var(--bank)'};
-        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce</button>
+        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce${_dia}</button>
   </div>
   ${_reportPeriod==='advisor' ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:.74rem;color:#a8aec8">
     <span>Vlastní počet měsíců:</span>
