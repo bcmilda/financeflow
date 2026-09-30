@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.06 · 2026-09-27  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.13 · 2026-09-30  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -619,6 +619,116 @@ async function handleEan(request, env, cors) {
   return json({ ok: true, ean, produkt, alias }, 200, cors);
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (Milan, varianta B): AI ZAŘAZENÍ VLASTNÍCH KATEGORIÍ DO COICOP
+//  POST /coicop  (Firebase token)
+//   {akce:'navrh', nazvy:[{nazev, rodic?}]}  → [{klic, coicop, skupina, stav}]
+//   {akce:'hlas',  klic, coicop}             → anonymní hlas (potvrzení / změna)
+//
+//  • Každý název se ptá AI jen JEDNOU za celou komunitu – odpověď leží
+//    v community/coicopNavrhy/{klic} (klic = normalizovaný název).
+//  • Schválení adminem (…/schvaleno) má přednost před návrhem AI.
+//  • Hlasy a počty uživatelů jsou BEZ uid; každý uživatel se započítá
+//    jednou – jeho záznam je v users/{uid}/coicopHlasy/{klic}.
+//  • Klient do komunity nezapisuje (pravidla: jen admin a worker).
+// ══════════════════════════════════════════════════════
+function coicopKlic(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
+}
+const COICOP_ODDILY = '1 Potraviny a nealkoholické nápoje; 2 Alkoholické nápoje a tabák; 3 Odívání a obuv; 4 Bydlení, voda, energie, paliva; 5 Vybavení domácnosti a běžná údržba; 6 Zdraví; 7 Doprava; 8 Informace a komunikace (telefon, internet, pošta); 9 Rekreace, sport a kultura (vč. mazlíčků, zahrady, knih, dovolených); 10 Vzdělávání; 11 Stravování a ubytování (restaurace, kavárny, hotely); 12 Pojištění a finanční služby; 13 Osobní péče a ostatní zboží a služby; 0 = není spotřební výdaj (příjem, přesun, splátka jistiny, investice, spoření, daně)';
+
+async function coicopAiDotaz(env, polozky) {
+  const seznam = polozky.map((p, i) => `${i}. „${p.nazev}"${p.rodic ? ` (podkategorie v „${p.rodic}")` : ''}`).join('\n');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6', max_tokens: 1200,
+      system: `Zařazuješ názvy rozpočtových kategorií české osobní finanční aplikace do oddílů COICOP 2018 (klasifikace spotřeby ČSÚ).
+Oddíly: ${COICOP_ODDILY}.
+Vrať POUZE JSON pole bez dalšího textu: [{"i":0,"coicop":11,"skupina":"11.1"}]. "skupina" je dvouúrovňový kód (např. "07.2") nebo "" když si nejsi jistý. Když název nedává smysl, dej coicop 13.`,
+      messages: [{ role: 'user', content: seznam }],
+    }),
+  });
+  if (!r.ok) throw new Error('AI ' + r.status);
+  const d = await r.json();
+  const text = (d.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim();
+  const pole = JSON.parse(text.slice(text.indexOf('['), text.lastIndexOf(']') + 1));
+  return pole;
+}
+
+async function handleCoicop(request, env, cors) {
+  const a = await archivAuth(request);
+  if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  const uid = a.uid;
+  try {
+    const cache = caches.default;
+    const k = new Request(`https://ff-ratelimit/coicop/${uid}/${new Date().toISOString().slice(0, 13)}`);
+    const c = await cache.match(k); const n = c ? parseInt(await c.text(), 10) || 0 : 0;
+    if (n >= 60) return json({ error: 'Příliš mnoho dotazů, zkus to za hodinu.' }, 429, cors);
+    await cache.put(k, new Response(String(n + 1), { headers: { 'Cache-Control': 'max-age=3600' } }));
+  } catch (e) {}
+  let body = {}; try { body = await request.json(); } catch (e) {}
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const get = async p => { const r = await fetch(`${DB}/${p}.json?auth=${S}`); return r.ok ? r.json() : null; };
+  const put = (p, v) => fetch(`${DB}/${p}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) });
+
+  if (body.akce === 'hlas') {
+    const klic = coicopKlic(body.klic), cc = parseInt(body.coicop, 10);
+    if (!klic || !(cc >= 0 && cc <= 13)) return json({ error: 'Neplatný hlas' }, 400, cors);
+    const moje = (await get(`users/${uid}/coicopHlasy/${klic}`)) || {};
+    const z = await get(`community/coicopNavrhy/${klic}`);
+    if (!z) return json({ error: 'Neznámý název' }, 404, cors);
+    const hlasy = z.hlasy || {};
+    if (moje.hlas != null && moje.hlas !== cc && hlasy[moje.hlas] > 0) hlasy[moje.hlas]--;
+    if (moje.hlas !== cc) hlasy[cc] = (hlasy[cc] || 0) + 1;
+    Object.keys(hlasy).forEach(x => { if (!hlasy[x]) delete hlasy[x]; });
+    await put(`community/coicopNavrhy/${klic}/hlasy`, Object.keys(hlasy).length ? hlasy : null);
+    await put(`users/${uid}/coicopHlasy/${klic}`, { hlas: cc, kdy: Date.now() });
+    return json({ ok: true, hlasy }, 200, cors);
+  }
+
+  const nazvy = (Array.isArray(body.nazvy) ? body.nazvy : []).slice(0, 20)
+    .map(x => ({ nazev: String(x.nazev || '').trim().slice(0, 60), rodic: String(x.rodic || '').trim().slice(0, 60) }))
+    .filter(x => x.nazev && coicopKlic(x.nazev));
+  if (!nazvy.length) return json({ ok: true, vysledky: [] }, 200, cors);
+  const vysledky = [], chybi = [];
+  for (const x of nazvy) {
+    const klic = coicopKlic(x.nazev);
+    const z = await get(`community/coicopNavrhy/${klic}`);
+    if (z && (z.schvaleno || z.ai)) vysledky.push({ klic, z });
+    else if (!chybi.some(c => c.klic === klic)) chybi.push({ klic, ...x });
+  }
+  if (chybi.length) {
+    if (!env.ANTHROPIC_API_KEY) return json({ error: 'AI není nastavená' }, 500, cors);
+    let pole = [];
+    try { pole = await coicopAiDotaz(env, chybi); } catch (e) { return json({ error: 'AI teď neodpovídá' }, 502, cors); }
+    for (let i = 0; i < chybi.length; i++) {
+      const p = pole.find(q => q && Number(q.i) === i); if (!p) continue;
+      const cc = parseInt(p.coicop, 10); if (!(cc >= 0 && cc <= 13)) continue;
+      const z = { nazev: chybi[i].nazev, ai: { coicop: cc, skupina: /^\d{2}\.\d$/.test(p.skupina || '') ? p.skupina : '' },
+        ...(chybi[i].rodic ? { rodic: chybi[i].rodic } : {}), pocet: 0, kdy: Date.now() };
+      await put(`community/coicopNavrhy/${chybi[i].klic}`, z);
+      vysledky.push({ klic: chybi[i].klic, z });
+    }
+  }
+  //  Počet uživatelů, kteří název mají (jednou za uživatele).
+  for (const v of vysledky) {
+    try {
+      const moje = await get(`users/${uid}/coicopHlasy/${v.klic}`);
+      if (!moje) {
+        await put(`community/coicopNavrhy/${v.klic}/pocet`, (v.z.pocet || 0) + 1);
+        await put(`users/${uid}/coicopHlasy/${v.klic}`, { kdy: Date.now() });
+      }
+    } catch (e) {}
+  }
+  return json({ ok: true, vysledky: vysledky.map(v => {
+    const s = v.z.schvaleno && v.z.schvaleno.coicop != null ? v.z.schvaleno : null;
+    return { klic: v.klic, coicop: s ? s.coicop : v.z.ai.coicop, skupina: s ? (s.skupina || '') : (v.z.ai.skupina || ''), stav: s ? 'schvaleno' : 'navrh' };
+  }) }, 200, cors);
+}
+
 // ===================================================
 export default {
   async fetch(request, env) {
@@ -696,6 +806,10 @@ export default {
     //  PŘED obecnou POST větví (ta by kód poslala do Claude API).
     if (request.method === 'POST' && new URL(request.url).pathname === '/ean') {
       return handleEan(request, env, corsHeaders);
+    }
+    //  S24: AI zařazení vlastních kategorií do COICOP (varianta B).
+    if (request.method === 'POST' && new URL(request.url).pathname === '/coicop') {
+      return handleCoicop(request, env, corsHeaders);
     }
 
     if (request.method === 'POST' && new URL(request.url).pathname === '/mass-mail') {
