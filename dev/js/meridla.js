@@ -1,4 +1,4 @@
-// FinanceFlow · v11.12 · meridla.js · 2026-09-29
+// FinanceFlow · v11.14 · meridla.js · 2026-09-30
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -81,13 +81,16 @@ function _merPlusMesice(s, n) {
 // ── výpočty (čisté funkce – testuje tools/smoke_meridla.js) ──
 //  Intervaly spotřeby. Odečty mají přednost před vyúčtováním (přesnější),
 //  pokles stavu = výměna měřidla → interval se přeskočí.
+//  S24 (v11.14): dvoutarif – odečet {datum, vt, nt}; celkový stav = vt + nt.
+const merStav = o => (o && o.stav != null) ? Number(o.stav) : ((o && (o.vt != null || o.nt != null)) ? (Number(o.vt) || 0) + (Number(o.nt) || 0) : null);
+window.merStav = merStav;
 function merIntervaly(m) {
   const vy = Object.values(m.vyuctovani || {}).filter(v => v && v.od && v.do && v.spotreba > 0 && v.do > v.od)
     .map(v => ({ od: v.od, do: v.do, spotreba: v.spotreba, zdroj: 'vyuctovani' }));
-  const od = Object.values(m.odecty || {}).filter(o => o && o.datum && o.stav != null).sort((a, b) => a.datum.localeCompare(b.datum));
+  const od = Object.values(m.odecty || {}).filter(o => o && o.datum && merStav(o) != null).sort((a, b) => a.datum.localeCompare(b.datum));
   const oi = [];
   for (let i = 1; i < od.length; i++) {
-    const s = od[i].stav - od[i - 1].stav;
+    const s = merStav(od[i]) - merStav(od[i - 1]);
     if (s >= 0 && od[i].datum > od[i - 1].datum) oi.push({ od: od[i - 1].datum, do: od[i].datum, spotreba: s, zdroj: 'odecet' });
   }
   return { vyuctovani: vy, odecty: oi };
@@ -222,7 +225,7 @@ function merKartaHTML(m, D) {
       ${o.zmerenoDni < o.dnyDosud ? `<div style="font-size:.66rem;color:#8b93ad;margin-top:4px">Od posledního odečtu odhaduji podle průměru ${_merDes(o.prumerDenni, 2)} ${_merEsc(jed)}/den – přesnější bude nový odečet.</div>` : ''}`;
   }
   const hist = [
-    ...Object.entries(m.odecty || {}).map(([id, x]) => ({ id, typ: 'odecet', d: x.datum, t: `📟 Odečet ${_merDes(x.stav, 2)} ${_merEsc(jed)}` })),
+    ...Object.entries(m.odecty || {}).map(([id, x]) => ({ id, typ: 'odecet', d: x.datum, t: `📟 Odečet ${x.vt != null ? 'VT ' + _merDes(x.vt, 2) + ' · NT ' + _merDes(x.nt, 2) : _merDes(merStav(x), 2)} ${_merEsc(jed)}` })),
     ...Object.entries(m.vyuctovani || {}).map(([id, x]) => ({ id, typ: 'vyuctovani', d: x.do,
       t: `🧾 Vyúčtování ${_merDatumCz(x.od)} – ${_merDatumCz(x.do)}: ${_merDes(x.spotreba, 1)} ${_merEsc(jed)}${x.castka ? ' · ' + _merKc(x.castka) : ''}${x.zalohy != null && x.castka ? ' · ' + (x.zalohy - x.castka >= 0 ? 'přeplatek ' : 'doplatek ') + _merKc(Math.abs(x.zalohy - x.castka)) : ''}` })),
   ].sort((a, b) => (b.d || '').localeCompare(a.d || '')).slice(0, 8);
@@ -243,7 +246,8 @@ function merKartaHTML(m, D) {
     ${graf}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       <button class="btn btn-sm" onclick="merFormOdecet('${_merEsc(m.id)}')">📟 Zapsat odečet</button>
-      <button class="btn btn-sm" onclick="merFormVyuctovani('${_merEsc(m.id)}')">🧾 Zapsat vyúčtování</button></div>
+      <button class="btn btn-sm" onclick="merFormVyuctovani('${_merEsc(m.id)}')">🧾 Zapsat vyúčtování</button>
+      <button class="btn btn-sm btn-primary" onclick="merDetail('${_merEsc(m.id)}')">📊 Detail spotřeby</button></div>
     ${hist.length ? `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:.74rem;color:#a8aec8">Historie (${hist.length})</summary>
       ${hist.map(h => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:.74rem;padding:5px 0;border-top:1px solid var(--border)">
         <span><span style="color:#8b93ad">${_merDatumCz(h.d)}</span> · ${h.t}</span>
@@ -293,6 +297,8 @@ function merFormMeridlo(id) {
       ${_merPole('Jednotka', `<select class="fi" id="merJed">${MER_JEDNOTKY.map(j => `<option${j === (m ? m.jednotka : MER_DRUHY[druh].jed) ? ' selected' : ''}>${j}</option>`).join('')}</select>`)}
       ${_merPole('Vyúčtování', `<select class="fi" id="merObdobi">${Object.entries(MER_OBDOBI).map(([k, v]) => `<option value="${k}"${k === (m ? m.obdobi : 'ctvrtleti') ? ' selected' : ''}>${v[0]}</option>`).join('')}</select>`)}
     </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:#a8aec8;margin-top:10px;cursor:pointer">
+      <input type="checkbox" id="merDvou" ${m && m.dvoutarif ? 'checked' : ''}> Dvoutarif – odečítám zvlášť denní (VT) a noční (NT) proud</label>
     ${_merPole('Zálohy platím z kategorie', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <select class="fi" id="merCat" onchange="merZmenKat()"><option value="">— nenapojovat —</option>${cats.map(c => `<option value="${_merEsc(c.id)}"${c.id === vych.catId ? ' selected' : ''}>${_merEsc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</select>
         <select class="fi" id="merSub"><option value="">všechny podkategorie</option>${(cat?.subs || []).map(s => `<option${s === vych.subcat ? ' selected' : ''}>${_merEsc(s)}</option>`).join('')}</select></div>`,
@@ -323,6 +329,7 @@ async function merUlozMeridlo(id) {
   m.obdobi = document.getElementById('merObdobi').value;
   m.catId = document.getElementById('merCat').value || '';
   m.subcat = document.getElementById('merSub').value || '';
+  if (document.getElementById('merDvou')?.checked) m.dvoutarif = true; else delete m.dvoutarif;
   const c = _merCislo(document.getElementById('merCena').value), z = _merCislo(document.getElementById('merZaloha').value);
   if (c > 0) m.cena = c; else delete m.cena;
   if (z > 0) m.zaloha = z; else delete m.zaloha;
@@ -340,18 +347,31 @@ function merFormOdecet(id) {
   const posl = Object.values(m.odecty || {}).sort((a, b) => (b.datum || '').localeCompare(a.datum || ''))[0];
   _merOkno(`${_merHlava('📟 Odečet – ' + _merEsc(m.nazev))}
     ${_merPole('Datum', `<input class="fi" id="merOdDatum" type="date" value="${_merS(Date.now())}">`)}
-    ${_merPole('Stav měřidla (' + _merEsc(m.jednotka) + ')', `<input class="fi" id="merOdStav" inputmode="decimal" placeholder="${posl ? _merEsc(posl.stav) : '12480'}">`,
-      posl ? 'Minule ' + _merDes(posl.stav, 2) + ' (' + _merDatumCz(posl.datum) + ')' : 'Stačí jednou za čas – každý odečet zpřesní odhad.')}
+    ${m.dvoutarif ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${_merPole('☀️ Denní proud VT (' + _merEsc(m.jednotka) + ')', `<input class="fi" id="merOdVt" inputmode="decimal" placeholder="${posl && posl.vt != null ? _merEsc(posl.vt) : ''}">`, posl && posl.vt != null ? 'minule ' + _merDes(posl.vt, 2) : '')}
+        ${_merPole('🌙 Noční proud NT (' + _merEsc(m.jednotka) + ')', `<input class="fi" id="merOdNt" inputmode="decimal" placeholder="${posl && posl.nt != null ? _merEsc(posl.nt) : ''}">`, posl && posl.nt != null ? 'minule ' + _merDes(posl.nt, 2) : '')}
+      </div>`
+    : _merPole('Stav měřidla (' + _merEsc(m.jednotka) + ')', `<input class="fi" id="merOdStav" inputmode="decimal" placeholder="${posl ? _merEsc(merStav(posl)) : '12480'}">`,
+      posl ? 'Minule ' + _merDes(merStav(posl), 2) + ' (' + _merDatumCz(posl.datum) + ')' : 'Stačí jednou za čas – každý odečet zpřesní odhad.')}
     <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merUlozOdecet('${_merEsc(id)}')">💾 Uložit odečet</button>`);
 }
 async function merUlozOdecet(id) {
   const m = (_meridla || {})[id]; if (!m) return;
-  const datum = document.getElementById('merOdDatum').value, stav = _merCislo(document.getElementById('merOdStav').value);
-  if (!datum || stav == null || stav < 0) { if (typeof showToast === 'function') showToast('Vyplň datum a stav'); return; }
+  const datum = document.getElementById('merOdDatum').value;
+  let zaznam;
+  if (m.dvoutarif) {
+    const vt = _merCislo(document.getElementById('merOdVt')?.value), nt = _merCislo(document.getElementById('merOdNt')?.value);
+    if (!datum || vt == null || nt == null || vt < 0 || nt < 0) { if (typeof showToast === 'function') showToast('Vyplň datum, VT i NT'); return; }
+    zaznam = { datum, vt, nt };
+  } else {
+    const stav = _merCislo(document.getElementById('merOdStav').value);
+    if (!datum || stav == null || stav < 0) { if (typeof showToast === 'function') showToast('Vyplň datum a stav'); return; }
+    zaznam = { datum, stav };
+  }
   const posl = Object.values(m.odecty || {}).filter(o => o.datum < datum).sort((a, b) => b.datum.localeCompare(a.datum))[0];
-  if (posl && stav < posl.stav && !confirm('Stav je nižší než minule (' + posl.stav + '). Vyměnili ti měřidlo? Uložit i tak.')) return;
-  m.odecty = Object.assign({}, m.odecty, { ['o' + Date.now().toString(36)]: { datum, stav } });
-  await _merUloz(m); merZavri(); renderEnergiePage();
+  if (posl && merStav(zaznam) < merStav(posl) && !confirm('Stav je nižší než minule (' + merStav(posl) + '). Vyměnili ti měřidlo? Uložit i tak.')) return;
+  m.odecty = Object.assign({}, m.odecty, { ['o' + Date.now().toString(36)]: zaznam });
+  await _merUloz(m); merZavri(); renderEnergiePage(); if (_merDetailId === id) merDetail(id);
 }
 
 function merFormVyuctovani(id) {
@@ -390,14 +410,204 @@ async function merUlozVyuctovani(id) {
   const v = { od, do: doo, spotreba: sp };
   if (c > 0) v.castka = c; if (z != null && z >= 0) v.zalohy = z;
   m.vyuctovani = Object.assign({}, m.vyuctovani, { ['v' + Date.now().toString(36)]: v });
-  await _merUloz(m); merZavri(); renderEnergiePage();
+  await _merUloz(m); merZavri(); renderEnergiePage(); if (_merDetailId === id) merDetail(id);
 }
 async function merSmazZaznam(id, typ, zid) {
   const m = (_meridla || {})[id]; if (!m) return;
   if (!confirm('Smazat záznam?')) return;
   const k = typ === 'odecet' ? 'odecty' : 'vyuctovani';
   m[k] = Object.assign({}, m[k]); delete m[k][zid];
-  await _merUloz(m); renderEnergiePage();
+  await _merUloz(m); renderEnergiePage(); if (_merDetailId === id) merDetail(id);
 }
 Object.assign(window, { loadMeridla, merFormMeridlo, merZmenDruh, merZmenKat, merUlozMeridlo, merSmazMeridlo, merFormOdecet, merUlozOdecet,
   merFormVyuctovani, merVySaldo, merUlozVyuctovani, merSmazZaznam, merZavri, merKartaHTML });
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.14, Milan): DETAIL SPOTŘEBY
+//  cesta: Majetek → 📟 Energie a voda → karta → „📊 Detail spotřeby"
+//  Nahoře hrubá statistika, graf vývoje (u dvoutarifu VT/NT), tabulka – po
+//  každém odečtu přibude řádek, zálohy od zvoleného data (měřený rok) a dole
+//  vyhodnocení po čtvrtletích / pololetích / letech + skutečná vyúčtování.
+// ══════════════════════════════════════════════════════
+const _merPlusDni = (s, n) => _merS(_merD(s) + n * 86400000);
+
+//  Řádky tabulky: jeden na odečet (čistá funkce).
+function merUseky(m) {
+  const od = Object.values(m.odecty || {}).filter(o => o && o.datum && merStav(o) != null).sort((a, b) => a.datum.localeCompare(b.datum));
+  return od.map((o, i) => {
+    const p = i ? od[i - 1] : null;
+    const r = { datum: o.datum, stav: merStav(o), vt: o.vt != null ? Number(o.vt) : null, nt: o.nt != null ? Number(o.nt) : null };
+    if (p) {
+      r.dni = _merDni(p.datum, o.datum);
+      const sp = r.stav - merStav(p);
+      r.spotreba = sp >= 0 ? sp : null;             // pokles = výměna měřidla
+      if (r.vt != null && p.vt != null) { r.spVt = r.vt - Number(p.vt); r.spNt = r.nt - Number(p.nt); if (r.spVt < 0 || r.spNt < 0) r.spVt = r.spNt = null; }
+      r.naDen = (r.spotreba != null && r.dni > 0) ? r.spotreba / r.dni : null;
+    }
+    return r;
+  });
+}
+window.merUseky = merUseky;
+
+//  Denní spotřeba zvlášť VT a NT (jen z odečtů s oběma údaji).
+function merDenneTarif(m) {
+  const vt = {}, nt = {};
+  merUseky(m).forEach((r, i, a) => {
+    if (!i || r.spVt == null || !(r.dni > 0)) return;
+    for (let t = _merD(a[i - 1].datum); t < _merD(r.datum); t += 86400000) { const d = _merS(t); vt[d] = r.spVt / r.dni; nt[d] = r.spNt / r.dni; }
+  });
+  return { vt, nt };
+}
+
+//  Spotřeba od data do dneška (změřeno + zbytek podle průměru).
+function merSpotrebaOd(m, od, dnes) {
+  const den = merDenne(m), pr = merPrumerDenni(den);
+  let sum = 0, dny = 0;
+  Object.keys(den).forEach(d => { if (d >= od && d < dnes) { sum += den[d]; dny++; } });
+  const vse = Math.max(0, _merDni(od, dnes));
+  return { spotreba: pr != null ? sum + (vse - dny) * pr : sum, zmereno: dny, dni: vse };
+}
+
+//  Zálohy za „měřený rok": od zvoleného data (včetně) do dneška.
+function merZalohyOd(m, D, od, dnes) {
+  dnes = dnes || _merS(Date.now());
+  const z = merZalohy(D, m, _merPlusDni(od, -1), dnes);
+  const s = merSpotrebaOd(m, od, dnes);
+  const c = merCena(m);
+  const naklad = c ? s.spotreba * c.cena : null;
+  return { od, zaplaceno: z.soucet, pocet: z.pocet, spotreba: s.spotreba, zmereno: s.zmereno, dni: s.dni, cena: c, naklad, saldo: naklad != null ? z.soucet - naklad : null };
+}
+window.merZalohyOd = merZalohyOd;
+
+//  Vyhodnocení po obdobích (čtvrtletí 3 / pololetí 6 / rok 12 měsíců).
+function merObdobiSouhrn(m, D, mesicu, dnes) {
+  dnes = dnes || _merS(Date.now());
+  const den = merDenne(m), tar = m.dvoutarif ? merDenneTarif(m) : null;
+  const dny = Object.keys(den).sort(); if (!dny.length) return [];
+  const c = merCena(m);
+  const y0 = +dny[0].slice(0, 4), y1 = +dnes.slice(0, 4);
+  const out = [];
+  for (let y = y0; y <= y1; y++) for (let k = 0; k < 12; k += mesicu) {
+    const od = `${y}-${String(k + 1).padStart(2, '0')}-01`, doo = _merPlusMesice(od, mesicu);
+    if (doo <= dny[0] || od > dnes) continue;
+    let sp = 0, n = 0, vt = 0, nt = 0;
+    dny.forEach(d => { if (d >= od && d < doo) { sp += den[d]; n++; if (tar) { vt += tar.vt[d] || 0; nt += tar.nt[d] || 0; } } });
+    if (!n) continue;
+    const z = merZalohy(D, m, _merPlusDni(od, -1), _merPlusDni(doo, -1));
+    const popis = mesicu === 12 ? String(y) : mesicu === 6 ? `${k ? 2 : 1}. pololetí ${y}` : `Q${k / 3 + 1} ${y}`;
+    out.push({ popis, od, do: doo, spotreba: sp, vt: tar ? vt : null, nt: tar ? nt : null, pokryto: n, dni: _merDni(od, doo),
+      naklad: c ? sp * c.cena : null, zalohy: z.soucet });
+  }
+  return out;
+}
+window.merObdobiSouhrn = merObdobiSouhrn;
+
+let _merDetailId = null, _merDetailObdobi = null;
+function merDetail(id) {
+  const m = (_meridla || {})[id]; if (!m) return;
+  _merDetailId = id;
+  const D = getData(); const dnes = _merS(Date.now());
+  const dr = MER_DRUHY[m.druh] || MER_DRUHY.jine, jed = m.jednotka || dr.jed;
+  const us = merUseky(m), o = merOdhad(m, D, dnes), den = merDenne(m), c = merCena(m);
+  const posl = us[us.length - 1];
+  const rok = dnes.slice(0, 4); let letos = 0; Object.keys(den).forEach(d => { if (d.startsWith(rok)) letos += den[d]; });
+  const pr = merPrumerDenni(den);
+  const vyu = Object.values(m.vyuctovani || {}).filter(v => v && v.do).sort((a, b) => b.do.localeCompare(a.do));
+  const zalOd = m.zalohyOd || (vyu[0] ? vyu[0].do : rok + '-01-01');
+  const zo = merZalohyOd(m, D, zalOd, dnes);
+  const mesicu = _merDetailObdobi || (MER_OBDOBI[m.obdobi] || MER_OBDOBI.ctvrtleti)[1];
+  const obd = merObdobiSouhrn(m, D, mesicu, dnes).reverse();
+  const dl = (l, h, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px"><div style="font-size:.66rem;color:#a8aec8">${l}</div>
+      <div style="font-size:1rem;font-weight:800;color:var(--text)">${h}</div>${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}</div>`;
+  const nad = t => `<div style="margin-top:16px;margin-bottom:6px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">${t}</div>`;
+  const th = (t, l) => `<th style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.66rem;color:#a8aec8;font-weight:600;white-space:nowrap">${t}</th>`;
+  const td = (t, l, x) => `<td style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.76rem;white-space:nowrap;${x || ''}">${t}</td>`;
+  const J = _merEsc(jed), dvou = !!m.dvoutarif;
+
+  // graf po měsících (u dvoutarifu VT + NT nad sebou)
+  const mes = merMesicne(den), tar = dvou ? merDenneTarif(m) : null;
+  const mVt = tar ? merMesicne(tar.vt) : null, mNt = tar ? merMesicne(tar.nt) : null;
+  const kl = Object.keys(mes).sort().slice(-24);
+  const graf = kl.length && typeof ffGrafSloupce === 'function' ? ffGrafSloupce(kl.map(k => {
+    const a = tar && mVt[k] != null ? mVt[k] : mes[k], b = tar && mNt[k] != null ? mNt[k] : 0;
+    return { popis: k.slice(5) + '/' + k.slice(2, 4), a, b, titul: `${k}: ${_merDes(mes[k], 1)} ${jed}${tar && mVt[k] != null ? ` (VT ${_merDes(mVt[k], 1)} · NT ${_merDes(mNt[k], 1)})` : ''}` };
+  }), { barva: '#fbbf24', barvaB: '#818cf8' }) : '';
+
+  // tabulka vývoje – nejnovější nahoře
+  const tab = us.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr style="border-bottom:1px solid var(--border)">${th('Datum', 1)}${dvou ? th('Stav VT') + th('Stav NT') : th('Stav')}${dvou ? th('VT') + th('NT') : ''}${th('Spotřeba')}${th('Dní')}${th(J + '/den')}${c ? th('≈ Kč') : ''}</tr></thead>
+    <tbody>${us.slice().reverse().map(r => `<tr style="border-bottom:1px solid var(--border)">
+      ${td(_merDatumCz(r.datum), 1)}
+      ${dvou ? td(r.vt != null ? _merDes(r.vt, 1) : '—') + td(r.nt != null ? _merDes(r.nt, 1) : '—') : td(_merDes(r.stav, 1))}
+      ${dvou ? td(r.spVt != null ? _merDes(r.spVt, 1) : '—', 0, 'color:#fbbf24') + td(r.spNt != null ? _merDes(r.spNt, 1) : '—', 0, 'color:#818cf8') : ''}
+      ${td(r.spotreba != null ? '<b>' + _merDes(r.spotreba, 1) + '</b> ' + J : (r.dni ? '<span style="color:#f87171">výměna?</span>' : 'první odečet'))}
+      ${td(r.dni || '—')}${td(r.naDen != null ? _merDes(r.naDen, 2) : '—')}
+      ${c ? td(r.spotreba != null ? _merKc(r.spotreba * c.cena) : '—') : ''}</tr>`).join('')}</tbody></table></div>`
+    : '<div style="font-size:.78rem;color:#a8aec8">Zatím žádný odečet. Každý odečet tu přidá řádek.</div>';
+
+  // zálohy od data
+  const zal = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem">
+      Zálohy počítat od <input type="date" class="fi" id="merZalOd" value="${_merEsc(zalOd)}" style="width:auto;font-size:.78rem">
+      <button class="btn btn-sm" onclick="merUlozZalohyOd('${_merEsc(id)}')">Použít</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px">
+      ${dl('Zaplaceno na zálohách', _merKc(zo.zaplaceno), zo.pocet + ' plateb' + (m.catId ? '' : ' · zálohy nenapojené'))}
+      ${dl('Spotřeba od ' + _merDatumCz(zalOd), _merDes(zo.spotreba, 0) + ' ' + J, zo.zmereno < zo.dni ? 'část odhadem' : 'změřeno')}
+      ${dl('Náklad podle spotřeby', zo.naklad != null ? _merKc(zo.naklad) : '—', c ? _merDes(c.cena, 2) + ' Kč/' + J : 'chybí cena')}
+      ${zo.saldo != null ? dl('Zatím', `<span style="color:${zo.saldo >= 0 ? 'var(--income)' : '#f87171'}">${zo.saldo >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(zo.saldo))}</span>`, '') : ''}
+    </div></div>`;
+
+  // vyhodnocení po obdobích
+  const volba = [[3, 'Čtvrtletí'], [6, 'Pololetí'], [12, 'Rok']].map(([n, t]) =>
+    `<button class="tx-filt-btn${mesicu === n ? ' active' : ''}" onclick="merDetailObdobi(${n})">${t}</button>`).join('');
+  const obdTab = obd.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr style="border-bottom:1px solid var(--border)">${th('Období', 1)}${th('Spotřeba')}${dvou ? th('VT') + th('NT') : ''}${c ? th('≈ Náklad') : ''}${th('Zálohy')}${c ? th('Rozdíl') : ''}</tr></thead>
+    <tbody>${obd.map(p => { const r = p.naklad != null ? p.zalohy - p.naklad : null;
+      return `<tr style="border-bottom:1px solid var(--border)">${td(_merEsc(p.popis) + (p.pokryto < p.dni ? ' <span style="font-size:.6rem;color:#8b93ad">(část)</span>' : ''), 1)}
+        ${td(_merDes(p.spotreba, 0) + ' ' + J)}${dvou ? td(p.vt ? _merDes(p.vt, 0) : '—') + td(p.nt ? _merDes(p.nt, 0) : '—') : ''}
+        ${c ? td(_merKc(p.naklad)) : ''}${td(_merKc(p.zalohy))}
+        ${c ? td(r != null ? `<span style="color:${r >= 0 ? 'var(--income)' : '#f87171'}">${r >= 0 ? '+' : '−'}${_merKc(Math.abs(r))}</span>` : '—') : ''}</tr>`; }).join('')}</tbody></table></div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Náklad = spotřeba × cena z posledního vyúčtování. Rozdíl + = přeplatek, − = doplatek.</div>`
+    : '<div style="font-size:.78rem;color:#a8aec8">Zatím málo dat.</div>';
+  const vyuTab = vyu.length ? vyu.map(v => { const s = (v.castka && v.zalohy != null) ? v.zalohy - v.castka : null;
+    return `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.76rem;padding:6px 0;border-top:1px solid var(--border)">
+      <span>🧾 ${_merDatumCz(v.od)} – ${_merDatumCz(v.do)} · <b>${_merDes(v.spotreba, 1)} ${J}</b>${v.castka ? ' · ' + _merKc(v.castka) : ''}</span>
+      ${s != null ? `<span style="color:${s >= 0 ? 'var(--income)' : '#f87171'}">${s >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(s))}</span>` : ''}</div>`; }).join('') : '';
+
+  let w = document.getElementById('merDetailOkno');
+  if (!w) {
+    w = document.createElement('div'); w.id = 'merDetailOkno';
+    w.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 10px calc(16px + env(safe-area-inset-bottom))';
+    w.addEventListener('click', e => { if (e.target === w) merDetailZavri(); });
+    document.body.appendChild(w);
+  }
+  w.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:780px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:800;font-size:1.05rem;color:var(--text)">${dr.ikona} ${_merEsc(m.nazev || dr.n)} · detail spotřeby</div>
+      <button onclick="merDetailZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">
+      ${dl('Poslední odečet', posl ? (dvou && posl.vt != null ? 'VT ' + _merDes(posl.vt, 0) + ' · NT ' + _merDes(posl.nt, 0) : _merDes(posl.stav, 1)) : '—', posl ? _merDatumCz(posl.datum) : '')}
+      ${dl('Průměr denně', pr != null ? _merDes(pr, 2) + ' ' + J : '—', pr != null ? '≈ ' + _merDes(pr * 30.44, 0) + ' ' + J + ' měsíčně' : '')}
+      ${dl('Letos', _merDes(letos, 0) + ' ' + J, c ? '≈ ' + _merKc(letos * c.cena) : '')}
+      ${dl('Cena za ' + J, c ? _merDes(c.cena, 2) + ' Kč' : '—', c ? (c.zdroj === 'vyuctovani' ? 'z vyúčtování' : 'tarif') : 'zapiš vyúčtování')}
+      ${o && o.saldoObdobi != null ? dl('Odhad období', `<span style="color:${o.saldoObdobi >= 0 ? 'var(--income)' : '#f87171'}">${o.saldoObdobi >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(o.saldoObdobi))}</span>`, 'do ' + _merDatumCz(o.konec)) : ''}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn btn-sm btn-primary" onclick="merFormOdecet('${_merEsc(id)}')">📟 Zapsat odečet</button>
+      <button class="btn btn-sm" onclick="merFormVyuctovani('${_merEsc(id)}')">🧾 Zapsat vyúčtování</button></div>
+    ${graf ? nad('Vývoj spotřeby po měsících' + (dvou ? ' · <span style="color:#fbbf24">■ VT</span> <span style="color:#818cf8">■ NT</span>' : '')) + graf : ''}
+    ${nad('Odečty')}${tab}
+    ${nad('Zaplaceno na zálohách (měřený rok)')}${zal}
+    ${nad('Vyhodnocení')}<div style="display:flex;gap:6px;margin-bottom:8px">${volba}</div>${obdTab}
+    ${vyuTab ? nad('Vyúčtování od dodavatele') + vyuTab : ''}
+  </div>`;
+}
+function merDetailZavri() { _merDetailId = null; const w = document.getElementById('merDetailOkno'); if (w) w.remove(); }
+function merDetailObdobi(n) { _merDetailObdobi = n; if (_merDetailId) merDetail(_merDetailId); }
+async function merUlozZalohyOd(id) {
+  const m = (_meridla || {})[id]; if (!m) return;
+  const v = document.getElementById('merZalOd')?.value;
+  if (v) m.zalohyOd = v; else delete m.zalohyOd;
+  await _merUloz(m); merDetail(id);
+}
+Object.assign(window, { merDetail, merDetailZavri, merDetailObdobi, merUlozZalohyOd });

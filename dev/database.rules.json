@@ -256,6 +256,9 @@
       // S24 (TODO-306/308): carovy kod. Zapisuje VYHRADNE worker (Database Secret),
       //   klient jen cte. eanProdukty = data z Open Food Facts (ODbL), eanAliasy =
       //   "obchod + zkratka z uctenky -> EAN" bez uid, eanPodleNazvu = opacny index.
+      // S24: AI zařazení vlastních kategorií do COICOP. Návrhy a hlasy zapisuje
+      //   worker, schválení (…/schvaleno) jen admin. Bez uid.
+      "coicopNavrhy":  { ".read": "auth != null", ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" },
       "eanProdukty":   { ".read": "auth != null", ".write": false },
       "eanAliasy":     { ".read": "auth != null", ".write": false },
       "eanPodleNazvu": { ".read": "auth != null", ".write": false },

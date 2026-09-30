@@ -1,4 +1,4 @@
-// FinanceFlow · v11.12 · admin.js · 2026-09-29
+// FinanceFlow · v11.14 · admin.js · 2026-09-30
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -376,6 +376,13 @@ async function renderAdmin() {
         </div>
         <div id="adminCustomSubs"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
       </div>
+      <div class="card" style="margin-top:14px">
+        <div class="card-header">
+          <span class="card-title">🤖 AI zařazení vlastních názvů do COICOP</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadCoicopNavrhyAdmin()">🔄</button>
+        </div>
+        <div id="adminCoicopNavrhy"><div class="empty"><div class="et">⏳ Načítám...</div></div></div>
+      </div>
     </div>
 
     <!-- ITEM TAGY – komunitní mapování -->
@@ -550,7 +557,7 @@ function switchAdminTab(tab, btn) {
   if(tab==='corrections') loadCorrections();
   if(tab==='lowconf') loadLowConf();
   if(tab==='stats'){ loadMappingStats(); if(typeof loadCommunityActivity==='function') loadCommunityActivity(); }
-  if(tab==='adopce'){ loadCategoryAdoption(); loadCustomCatsNoCoicop(); loadCustomSubsNoCoicop(); }
+  if(tab==='adopce'){ loadCategoryAdoption(); loadCustomCatsNoCoicop(); loadCustomSubsNoCoicop(); if(typeof loadCoicopNavrhyAdmin==='function') loadCoicopNavrhyAdmin(); }
   if(tab==='itemtags') loadCommunityItemTags();
   if(tab==='suggestions') loadSuggestionOverrides();
   if(tab==='announce'){ loadAdminAnnouncements(); if(typeof loadAdminWelcome==='function') loadAdminWelcome(); }
@@ -562,6 +569,30 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.14',
+    datum: '2026-09-30',
+    zmeny: [
+      '📊 DETAIL SPOTŘEBY (Milan) · cesta: Majetek → 📟 Energie a voda → karta → „📊 Detail spotřeby" (nové okno). Nahoře statistika (poslední odečet, průměr denně/měsíčně, letos, cena, odhad období), graf vývoje po měsících, TABULKA ODEČTŮ – po každém zápisu přibude řádek (stav, spotřeba od minula, dní, průměr/den, ≈ Kč), „Zaplaceno na zálohách (měřený rok)" od zvoleného data (zálohy, spotřeba, náklad, přeplatek/doplatek), vyhodnocení po čtvrtletích / pololetích / letech (spotřeba, náklad, zálohy, rozdíl) a vyúčtování od dodavatele.',
+      '🌙 DVOUTARIF · cesta: Energie a voda → ⚙️ měřidla → „Dvoutarif": odečet zvlášť denní VT a noční NT proud; tabulka, graf (VT/NT nad sebou) i vyhodnocení je ukazují zvlášť, celková spotřeba = VT + NT.',
+      '📊 DETAIL VOZIDLA · cesta: Majetek → 🚗 Vozidla → karta → „📊 Detail": tabulka tankování (datum, tachometr, ujeto od minula, natankováno, cena za litr zaplacená i u stojanu, zaplaceno, spotřeba úseku) s řádkem Celkem; souhrn (zaplaceno celkem, najeto, natankováno, spotřeba, cena za km); graf útraty po měsících a graf zaplacené ceny za litr.',
+      '🤝 PŘÍSPĚVKY NA CESTU · v detailu vozidla „➕ Zapsat příspěvek" (kolegové, spolujízda): zapíše se JEDNOU jako příjem (výchozí Ostatní příjmy › Příspěvek na cestu, t.vozPrispevek), vozidlo z něj počítá čistý náklad a čistou cenu za km.',
+      '🐛 AI zařazení do COICOP se spustilo jen poprvé (Milan: Kavárna ano, „kreslení" v Bydlení už ne). Pauza 30 s platila na všechny dotazy, takže nový název přidaný krátce po předchozím se přeskočil. Nově pauza jen pro stejnou sadu názvů, souběžný požadavek se zopakuje po doběhnutí, AI se spouští i po uložení kategorie v editoru a výsledek ohlásí toast odkudkoli.',
+      '🧪 smoke_vozidla.js (37), smoke_meridla.js (36), smoke_coicop_ai.js (25).',
+    ]
+  },
+  {
+    verze: 'v11.13',
+    datum: '2026-09-30',
+    zmeny: [
+      '🤖 AI ZAŘAZENÍ VLASTNÍCH KATEGORIÍ DO COICOP (Milan, varianta B) · Vlastní kategorie a podkategorie bez COICOP se dřív v inflaci a srovnání s ČR počítaly jako „nezařazené". Nově je appka na pozadí (po přihlášení, po otevření Kategorií, po založení vlastní podkategorie) pošle k zařazení a návrh HNED použije ve statistikách a inflaci, označený „🤖 odhad".',
+      '✓ cesta: Nastavení → Kategorie: banner „AI zařadila N tvých kategorií…" + značka 🤖 odhad u kategorie i podkategorie → dialog s výběrem oddílu, „Potvrdit" (zpevní / změní). Volba uživatele vždy platí a nic ji nepřepíše. Podkategorie se stejným oddílem jako rodič jen „dědí" (bez výjimky).',
+      '☁️ Worker v11.13: POST /coicop – každý název se ptá AI jen JEDNOU za celou komunitu (community/coicopNavrhy/{normalizovaný název}); schválení adminem má přednost. Anonymní hlasy (potvrzení / změna) a počet uživatelů bez uid, každý se započítá jednou (users/{uid}/coicopHlasy). Limit 60 dotazů/hod.',
+      '🛡️ cesta: Admin → 🏷️ Adopce kategorií → „🤖 AI zařazení vlastních názvů do COICOP": názvy podle počtu uživatelů, návrh AI, hlasy (✓ potvrdili / ✎ změnili na…), schválení nebo oprava. Schválená odpověď se nabízí dalším uživatelům; co si kdo už potvrdil, se nemění.',
+      '🔒 Pravidla: community/coicopNavrhy – číst smí přihlášený, zapisuje worker a admin.',
+      '🧪 tools/smoke_coicop_ai.js (24: klient i worker).',
+    ]
+  },
   {
     verze: 'v11.12',
     datum: '2026-09-29',

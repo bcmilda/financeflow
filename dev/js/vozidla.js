@@ -1,4 +1,4 @@
-// FinanceFlow · v11.12 · vozidla.js · 2026-09-29
+// FinanceFlow · v11.14 · vozidla.js · 2026-09-30
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -309,7 +309,7 @@ Object.assign(window, { vozidlaSprava, vozidlaZavri, vozidloPridej, vozidloSmaz,
 const _vozKc = v => Math.round(v).toLocaleString('cs-CZ') + ' Kč';
 const _vozDes = (v, d) => v == null ? '—' : v.toFixed(d).replace('.', ',');
 
-function vozidlaKartaHTML(nazev, ikona, st, jed) {
+function vozidlaKartaHTML(nazev, ikona, st, jed, id) {
   const dl = (l, v, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px">
       <div style="font-size:.66rem;color:#a8aec8">${l}</div><div style="font-size:1.05rem;font-weight:800;color:var(--text)">${v}</div>
       ${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}</div>`;
@@ -323,7 +323,8 @@ function vozidlaKartaHTML(nazev, ikona, st, jed) {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
       <span style="font-size:1.6rem">${ikona}</span>
       <div style="flex:1"><div style="font-weight:800;font-size:1rem;color:var(--text)">${_vozEsc(nazev)}</div>
-        <div style="font-size:.72rem;color:#a8aec8">${st.pocet} tankování${st.posledniTachometr ? ' · tachometr ' + st.posledniTachometr.toLocaleString('cs-CZ') + ' km' : ''}</div></div></div>
+        <div style="font-size:.72rem;color:#a8aec8">${st.pocet} tankování${st.posledniTachometr ? ' · tachometr ' + st.posledniTachometr.toLocaleString('cs-CZ') + ' km' : ''}</div></div>
+      <button class="btn btn-sm" onclick="vozidloDetail('${_vozEsc(id || '')}')">📊 Detail</button></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">
       ${dl('Spotřeba', st.spotreba != null ? _vozDes(st.spotreba, 1) + ' ' + jed + '/100 km' : '—', st.spotreba != null ? (st.spolehliva ? 'klouzavý průměr' : 'přibližná – zpřesní se dalším tankováním') : 'potřebuje 2 stavy tachometru')}
       ${dl('Cena za km', st.cenaZaKm != null ? _vozDes(st.cenaZaKm, 2) + ' Kč' : '—', st.km ? 'ujeto ' + st.km.toLocaleString('cs-CZ') + ' km' : '')}
@@ -342,9 +343,9 @@ function renderVozidlaPage() {
   const voz = vozidlaSeznam();
   const intro = (typeof tabIntro === 'function') ? tabIntro('vozidla', '🚗', 'Vozidla a tankování',
     'Kolik litrů jsi natankoval, za kolik, kolik jsi najel a jaká je skutečná spotřeba. Údaje zapisuješ přímo u transakce v kategorii <strong>Auto › Palivo</strong> (blok ⛽ Tankování) – nic se nezapisuje dvakrát a peníze se nepočítají dvakrát.') : '';
-  const karty = voz.map(v => vozidlaKartaHTML(v.nazev, _vozIkona(v), tankStatistiky(tankZaznamy(D, v.id)), v.palivo === 'elektrina' ? 'kWh' : 'l')).join('');
+  const karty = voz.map(v => vozidlaKartaHTML(v.nazev, _vozIkona(v), tankStatistiky(tankZaznamy(D, v.id)), v.palivo === 'elektrina' ? 'kWh' : 'l', v.id)).join('');
   const bez = tankZaznamy(D, '');
-  const kartaBez = bez.length ? vozidlaKartaHTML('Bez přiřazeného vozidla', '⛽', tankStatistiky(bez), 'l') : '';
+  const kartaBez = bez.length ? vozidlaKartaHTML('Bez přiřazeného vozidla', '⛽', tankStatistiky(bez), 'l', '') : '';
   el.innerHTML = intro + `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-primary" onclick="vozidlaSprava()">🚗 ${voz.length ? 'Spravovat vozidla' : 'Přidat vozidlo'}</button>
@@ -376,3 +377,180 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     if (e.target && e.target.id === 'txAmt') { const i = document.getElementById('tankInfo'); if (i) i.innerHTML = tankInfoText(); }
   });
 }
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.14, Milan): DETAIL VOZIDLA + PŘÍSPĚVKY NA CESTU
+//  cesta: Majetek → 🚗 Vozidla → karta vozidla → „📊 Detail"
+//  Tabulka tankování (datum, tachometr, ujeto, litry, cena/l, zaplaceno),
+//  souhrn a grafy. Příspěvky od lidí (spolujízda, „cashback" od kolegů) jsou
+//  PŘÍJMOVÉ transakce s t.vozPrispevek = {vozidloId, od} – zapíší se jednou
+//  (jsou to skutečně přijaté peníze), vozidlo z nich jen počítá čistý náklad.
+// ══════════════════════════════════════════════════════
+
+//  Jednoduchý sloupcový graf (SVG přes HTML) – sdílí ho i meridla.js.
+function ffGrafSloupce(data, o) {
+  o = o || {};
+  if (!data || !data.length) return '';
+  const max = Math.max(1e-9, ...data.map(d => (d.a || 0) + (d.b || 0)));
+  const vyska = o.vyska || 90;
+  return `<div style="display:flex;align-items:flex-end;gap:${data.length > 24 ? 2 : 4}px;height:${vyska + 16}px;overflow-x:auto">${data.map(d => {
+    const ha = (d.a || 0) / max * vyska, hb = (d.b || 0) / max * vyska;
+    return `<div title="${_vozEsc(d.titul || '')}" style="flex:1;min-width:${o.min || 10}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+      ${hb > 0 ? `<div style="width:100%;height:${Math.max(2, hb)}px;background:${o.barvaB || '#a78bfa'};border-radius:3px 3px 0 0"></div>` : ''}
+      <div style="width:100%;height:${Math.max(ha > 0 ? 2 : 0, ha)}px;background:${o.barva || '#60a5fa'};border-radius:${hb > 0 ? '0' : '3px 3px'} 0 0"></div>
+      <div style="font-size:.5rem;color:#8b93ad;margin-top:2px;white-space:nowrap">${_vozEsc(d.popis || '')}</div></div>`;
+  }).join('')}</div>`;
+}
+//  Čárový graf jedné řady (cena za litr v čase apod.).
+function ffGrafCara(body, o) {
+  o = o || {};
+  const b = (body || []).filter(x => x && x.y != null);
+  if (b.length < 2) return '';
+  const W = 600, H = o.vyska || 110, P = 24;
+  const ys = b.map(x => x.y), mn = Math.min(...ys), mx = Math.max(...ys), r = (mx - mn) || 1;
+  const X = i => P + i * (W - 2 * P) / (b.length - 1), Y = v => H - P - (v - mn) / r * (H - 2 * P);
+  const d = b.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(x.y).toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <path d="${d}" fill="none" stroke="${o.barva || '#34d399'}" stroke-width="2.5"/>
+    ${b.map((x, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(x.y).toFixed(1)}" r="3.5" fill="${o.barva || '#34d399'}"><title>${_vozEsc(x.titul || '')}</title></circle>`).join('')}
+    <text x="4" y="${Y(mx) + 4}" font-size="11" fill="#8b93ad">${_vozEsc(o.fmt ? o.fmt(mx) : mx)}</text>
+    <text x="4" y="${Y(mn) + 4}" font-size="11" fill="#8b93ad">${_vozEsc(o.fmt ? o.fmt(mn) : mn)}</text></svg>`;
+}
+window.ffGrafSloupce = ffGrafSloupce; window.ffGrafCara = ffGrafCara;
+
+//  Úseky mezi tankováními (čistá funkce).
+function tankUseky(zaznamy) {
+  const z = (zaznamy || []).slice().sort((a, b) => (a.datum || '').localeCompare(b.datum || '') || (a.tachometr || 0) - (b.tachometr || 0));
+  let predTach = null;
+  return z.map(x => {
+    const ujeto = (x.tachometr > 0 && predTach != null && x.tachometr > predTach) ? x.tachometr - predTach : null;
+    if (x.tachometr > 0) predTach = x.tachometr;
+    return Object.assign({}, x, {
+      ujeto,
+      cenaZaplacenoL: x.litry > 0 ? x.zaplaceno / x.litry : null,
+      spotrebaUseku: (ujeto && x.litry > 0) ? x.litry / ujeto * 100 : null,
+    });
+  });
+}
+window.tankUseky = tankUseky;
+
+function prispevkyZaznamy(D, vozidloId) {
+  D = D || getData();
+  return (D.transactions || []).filter(t => t && t.type === 'income' && t.vozPrispevek
+      && (vozidloId == null || (t.vozPrispevek.vozidloId || '') === vozidloId))
+    .map(t => ({ id: t.id, datum: t.date || '', castka: (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0), od: t.vozPrispevek.od || '' }))
+    .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
+}
+window.prispevkyZaznamy = prispevkyZaznamy;
+
+let _vozDetailId = null;
+function vozidloDetail(id) {
+  _vozDetailId = id;
+  const D = getData();
+  const v = id ? vozidlaSeznam().find(x => x.id === id) : null;
+  const nazev = v ? v.nazev : 'Bez přiřazeného vozidla';
+  const jed = v && v.palivo === 'elektrina' ? 'kWh' : 'l';
+  const zazn = tankZaznamy(D, id || '');
+  const st = tankStatistiky(zazn);
+  const us = tankUseky(zazn);
+  const pr = id ? prispevkyZaznamy(D, id) : [];
+  const prSum = pr.reduce((a, p) => a + p.castka, 0);
+  const cisty = st.kcCelkem - prSum;
+  const fmtKc = x => x == null ? '—' : _vozDes(x, 2).replace(/,00$/, '') + ' Kč';
+  const dl = (l, h, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px"><div style="font-size:.66rem;color:#a8aec8">${l}</div>
+      <div style="font-size:1.02rem;font-weight:800;color:var(--text)">${h}</div>${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}</div>`;
+  const th = t => `<th style="text-align:right;padding:6px 8px;font-size:.66rem;color:#a8aec8;font-weight:600;white-space:nowrap">${t}</th>`;
+  const td = (t, l) => `<td style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.76rem;white-space:nowrap">${t}</td>`;
+  const tab = us.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border)">${th('Datum').replace('right', 'left')}${th('Tachometr')}${th('Ujeto')}${th('Natankováno')}${th('Cena/' + jed)}${th('Zaplaceno')}${th('Spotřeba')}</tr></thead>
+      <tbody>${us.slice().reverse().map(x => `<tr style="border-bottom:1px solid var(--border)">
+        ${td(_vozEsc(x.datum.split('-').reverse().join('. ')), true)}
+        ${td(x.tachometr ? x.tachometr.toLocaleString('cs-CZ') + ' km' : '—')}
+        ${td(x.ujeto ? x.ujeto.toLocaleString('cs-CZ') + ' km' : '—')}
+        ${td(x.litry ? _vozDes(x.litry, 2) + ' ' + jed : '—')}
+        ${td(x.cenaZaplacenoL ? _vozDes(x.cenaZaplacenoL, 2) + (x.cenaStojan ? `<div style="font-size:.6rem;color:#8b93ad">stojan ${_vozDes(x.cenaStojan, 2)}</div>` : '') : '—')}
+        ${td(fmtKc(x.zaplaceno))}
+        ${td(x.spotrebaUseku ? _vozDes(x.spotrebaUseku, 1) : '—')}</tr>`).join('')}
+      <tr style="font-weight:800">${td('Celkem', true)}${td('')}${td(st.km ? st.km.toLocaleString('cs-CZ') + ' km' : '—')}${td(_vozDes(st.litryCelkem, 2) + ' ' + jed)}${td(st.cenaEfektivni ? _vozDes(st.cenaEfektivni, 2) : '—')}${td(fmtKc(st.kcCelkem))}${td(st.spotreba ? _vozDes(st.spotreba, 1) : '—')}</tr>
+      </tbody></table></div>
+      <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Spotřeba úseku = natankováno ÷ ujeto od minula. Bez plné nádrže kolísá – spolehlivý je klouzavý průměr v souhrnu.</div>`
+    : '<div style="font-size:.78rem;color:#a8aec8">Zatím žádné tankování.</div>';
+  const mes = st.mesice.slice(-12).map(m => ({ popis: m.mesic.slice(5) + '/' + m.mesic.slice(2, 4), a: m.kc, titul: `${m.mesic}: ${_vozKc(m.kc)} · ${_vozDes(m.litry, 1)} ${jed}` }));
+  const ceny = us.filter(x => x.cenaZaplacenoL).map(x => ({ y: x.cenaZaplacenoL, titul: `${x.datum}: ${_vozDes(x.cenaZaplacenoL, 2)} Kč/${jed}` }));
+  const prHTML = id ? `<div style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">🤝 Příspěvky na cestu</div>
+        <button class="btn btn-sm" onclick="vozPrispevekForm('${_vozEsc(id)}')">➕ Zapsat příspěvek</button></div>
+      <div style="font-size:.68rem;color:#8b93ad;margin:4px 0 6px">Kolegové, spolujízda, vratky – zapíše se jako příjem (jednou) a sníží čistý náklad vozidla.</div>
+      ${pr.length ? pr.map(p => `<div style="display:flex;justify-content:space-between;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
+          <span>${_vozEsc(p.datum.split('-').reverse().join('. '))} · ${_vozEsc(p.od || 'příspěvek')}</span><span style="color:var(--income)">+${_vozKc(p.castka)}</span></div>`).join('') : '<div style="font-size:.76rem;color:#a8aec8">Zatím žádné.</div>'}
+    </div>` : '';
+  let o = document.getElementById('vozDetailOkno');
+  if (!o) {
+    o = document.createElement('div'); o.id = 'vozDetailOkno';
+    o.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 10px calc(16px + env(safe-area-inset-bottom))';
+    o.addEventListener('click', e => { if (e.target === o) vozidloDetailZavri(); });
+    document.body.appendChild(o);
+  }
+  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:760px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:800;font-size:1.05rem;color:var(--text)">${v ? _vozIkona(v) : '⛽'} ${_vozEsc(nazev)} · detail</div>
+      <button onclick="vozidloDetailZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">
+      ${dl('Zaplaceno celkem', _vozKc(st.kcCelkem), st.pocet + ' tankování')}
+      ${dl('Najeto', st.km ? st.km.toLocaleString('cs-CZ') + ' km' : '—', st.posledniTachometr ? 'tachometr ' + st.posledniTachometr.toLocaleString('cs-CZ') : '')}
+      ${dl('Natankováno', _vozDes(st.litryCelkem, 1) + ' ' + jed, st.cenaEfektivni ? 'Ø ' + _vozDes(st.cenaEfektivni, 2) + ' Kč/' + jed : '')}
+      ${dl('Spotřeba', st.spotreba != null ? _vozDes(st.spotreba, 1) + ' ' + jed + '/100 km' : '—', st.spolehliva ? 'klouzavý průměr' : 'přibližná')}
+      ${dl('Cena za km', st.cenaZaKm != null ? _vozDes(st.cenaZaKm, 2) + ' Kč' : '—', '')}
+      ${id ? dl('Příspěvky', '<span style="color:var(--income)">' + _vozKc(prSum) + '</span>', pr.length + '×') : ''}
+      ${id && prSum ? dl('Čistý náklad', _vozKc(cisty), st.km ? _vozDes(cisty / st.km, 2) + ' Kč/km' : '') : ''}
+      ${st.usetreno > 0 ? dl('Ušetřeno na kuponech', '<span style="color:var(--income)">' + _vozKc(st.usetreno) + '</span>', '') : ''}
+    </div>
+    ${mes.length ? `<div style="margin-top:16px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Útrata za palivo po měsících</div>${ffGrafSloupce(mes, { barva: '#60a5fa' })}` : ''}
+    ${ceny.length >= 2 ? `<div style="margin-top:14px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Zaplacená cena za ${jed}</div>${ffGrafCara(ceny, { barva: '#34d399', fmt: x => _vozDes(x, 2) + ' Kč' })}` : ''}
+    <div style="margin-top:16px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Tankování</div>
+    ${tab}
+    ${prHTML}
+  </div>`;
+}
+function vozidloDetailZavri() { _vozDetailId = null; const o = document.getElementById('vozDetailOkno'); if (o) o.remove(); }
+
+//  Příspěvek na cestu = příjmová transakce (výchozí Ostatní příjmy).
+function vozPrispevekForm(id) {
+  const D = getData();
+  const inc = (D.categories || []).filter(c => c.type === 'income' || c.type === 'both');
+  const vych = inc.find(c => c.id === 'cat8') || inc[0];
+  let o = document.getElementById('vozOkno');
+  if (!o) { o = document.createElement('div'); o.id = 'vozOkno';
+    o.style.cssText = 'position:fixed;inset:0;z-index:10070;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px';
+    o.addEventListener('click', e => { if (e.target === o) vozidlaZavri(); }); document.body.appendChild(o); }
+  const dnes = new Date().toISOString().slice(0, 10);
+  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:420px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🤝 Příspěvek na cestu</div>
+      <button onclick="vozidlaZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px;line-height:1.5">Zapíše se jako příjem – jednou, protože peníze opravdu přišly. Vozidlo z něj jen spočítá čistý náklad.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Částka (Kč)</div><input class="fi" id="vozPrCastka" inputmode="decimal" placeholder="200"></div>
+      <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Datum</div><input class="fi" id="vozPrDatum" type="date" value="${dnes}"></div></div>
+    <div style="margin-top:8px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Od koho</div><input class="fi" id="vozPrOd" maxlength="40" placeholder="Petr – cesta do práce"></div>
+    <div style="margin-top:8px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Kategorie příjmu</div>
+      <select class="fi" id="vozPrKat">${inc.map(c => `<option value="${_vozEsc(c.id)}"${vych && c.id === vych.id ? ' selected' : ''}>${_vozEsc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</select></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="vozPrispevekUloz('${_vozEsc(id)}')">💾 Uložit příspěvek</button></div>`;
+}
+function vozPrispevekUloz(id) {
+  const castka = _vozCislo(document.getElementById('vozPrCastka')?.value);
+  const datum = document.getElementById('vozPrDatum')?.value;
+  const od = (document.getElementById('vozPrOd')?.value || '').trim().slice(0, 40);
+  const catId = document.getElementById('vozPrKat')?.value || '';
+  if (!(castka > 0) || !datum || !catId) { if (typeof showToast === 'function') showToast('Vyplň částku, datum a kategorii'); return; }
+  const v = vozidlaSeznam().find(x => x.id === id);
+  const sub = 'Příspěvek na cestu';
+  if (typeof ensureSubcat === 'function') ensureSubcat(catId, sub);
+  const tx = { id: (typeof genTxId === 'function') ? genTxId() : 't' + Date.now(), type: 'income', name: 'Příspěvek na cestu' + (od ? ' – ' + od : ''),
+    amount: castka, amt: castka, catId, category: catId, subcat: sub, date: datum, note: v ? v.nazev : '', vozPrispevek: { vozidloId: id, od } };
+  S.transactions = S.transactions || []; S.transactions.push(tx);
+  if (typeof save === 'function') save();
+  if (typeof showToast === 'function') showToast('🤝 Příspěvek zapsán');
+  vozidlaZavri(); vozidloDetail(id);
+  if (typeof curPage !== 'undefined' && curPage === 'vozidla') renderVozidlaPage();
+}
+Object.assign(window, { vozidloDetail, vozidloDetailZavri, vozPrispevekForm, vozPrispevekUloz });

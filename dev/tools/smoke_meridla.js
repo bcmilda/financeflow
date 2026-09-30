@@ -7,6 +7,7 @@ const S={categories:[{id:'cat3',name:'Bydlení',subs:['Nájem','Energie','Plyn',
 const ctx={console,S,getData:()=>S,localStorage:{getItem:()=>null,setItem(){}},txCZK:t=>t.amount||0,
  document:{getElementById:id=>els[id]||(els[id]=el()),createElement:()=>el(),body:{appendChild(){}}},fetch:async()=>({ok:true,json:async()=>null})};
 ctx.window=ctx; vm.createContext(ctx);
+vm.runInContext(R('vozidla.js','../js/vozidla.js'),ctx);   // sdílený graf ffGrafSloupce
 vm.runInContext(R('meridla.js','../js/meridla.js'),ctx);
 let ok=0,bad=0;const t=(n,c,i)=>{c?ok++:(bad++,console.log('❌',n,i===undefined?'':JSON.stringify(i)));};
 t('přičtení měsíců (konec měsíce)',ctx._merPlusMesice('2026-01-31',1)==='2026-02-28'&&ctx._merPlusMesice('2026-07-01',3)==='2026-10-01');
@@ -56,4 +57,27 @@ t('stránka: napojení záloh',h.includes('zálohy z')&&h.includes('Energie'));
 vm.runInContext('_meridla={m1:'+JSON.stringify(Object.assign({},m,{nazev:'<img src=x>'}))+'}',ctx); ctx.renderEnergiePage();
 t('escapování názvu',!els.energieContent.innerHTML.includes('<img src=x>'));
 const U=R('ui.js','../js/ui.js'); t('renderPage volá stránku',/renderEnergiePage\(\)/.test(U));
+// v11.14: dvoutarif, tabulka, zálohy od data, vyhodnocení
+const mt={id:'d',druh:'elektrina',jednotka:'kWh',dvoutarif:true,obdobi:'ctvrtleti',catId:'cat3',subcat:'Energie',
+  odecty:{a:{datum:'2026-07-01',vt:1000,nt:500},b:{datum:'2026-08-01',vt:1150,nt:600},c:{datum:'2026-09-01',vt:1280,nt:720}},
+  vyuctovani:{v:{od:'2026-04-01',do:'2026-07-01',spotreba:546,castka:3276}}};
+t('stav dvoutarifu = VT + NT',ctx.merStav(mt.odecty.a)===1500&&ctx.merStav({stav:7})===7);
+const us=ctx.merUseky(mt);
+t('řádek za každý odečet',us.length===3&&us[0].spotreba===undefined&&us[1].spotreba===250&&us[1].spVt===150&&us[1].spNt===100);
+t('průměr za den',Math.abs(us[1].naDen-250/31)<1e-9);
+t('intervaly z dvoutarifu',ctx.merIntervaly(mt).odecty.length===2);
+const zo=ctx.merZalohyOd(mt,S,'2026-07-01','2026-09-01');
+t('zálohy od data (včetně)',zo.zaplaceno===2000&&zo.pocet===2,zo);
+t('spotřeba od data',Math.abs(zo.spotreba-500)<1e-6,zo.spotreba);
+t('saldo zálohy − náklad',Math.abs(zo.saldo-(2000-500*6))<1e-6);
+const q=ctx.merObdobiSouhrn(mt,S,3,'2026-09-15');
+t('čtvrtletí Q2 a Q3',q.length===2&&q[0].popis==='Q2 2026'&&q[1].popis==='Q3 2026',q.map(x=>x.popis));
+t('Q3 má VT/NT',q[1].vt>0&&q[1].nt>0&&Math.abs(q[1].vt+q[1].nt-500)<1e-6,q[1]);
+t('rok',ctx.merObdobiSouhrn(mt,S,12,'2026-09-15')[0].popis==='2026');
+t('pololetí',ctx.merObdobiSouhrn(mt,S,6,'2026-09-15').map(x=>x.popis).join()==='1. pololetí 2026,2. pololetí 2026');
+vm.runInContext('_meridla={d:'+JSON.stringify(mt)+'}',ctx);
+let w=null; ctx.document.createElement=()=>{w={style:{},innerHTML:'',addEventListener(){},remove(){}};return w;};
+ctx.document.getElementById=id=>id==='merDetailOkno'?w:(els[id]||(els[id]=el()));
+ctx.merDetail('d');
+t('detail: statistika, graf, tabulka VT/NT, zálohy, vyhodnocení',w.innerHTML.includes('Poslední odečet')&&w.innerHTML.includes('Stav VT')&&w.innerHTML.includes('Zálohy počítat od')&&w.innerHTML.includes('Vyhodnocení')&&w.innerHTML.includes('■ NT'));
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

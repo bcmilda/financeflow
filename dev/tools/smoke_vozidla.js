@@ -70,4 +70,17 @@ const D=R('debts.js','../js/debts.js'), U=R('ui.js','../js/ui.js');
 t('saveTx ukládá tank ke stejné transakci',/txObj\.tank = tankZFormulare\(selCatId, finalSub\) \|\| null/.test(D));
 t('renderSubPicker obnovuje blok',/setTimeout\(tankObnov,0\)/.test(D));
 t('editTx načte tank',/tankNaplnFormular\(t\.tank\|\|null\)/.test(U)&&/renderVozidlaPage\(\)/.test(U));
+// v11.14: detail + příspěvky
+const us=ctx.tankUseky(z);
+t('úseky: ujeto od minula',us[0].ujeto===null&&us[1].ujeto===300&&us[3].ujeto===280);
+t('úseky: cena zaplaceno/l a spotřeba úseku',Math.abs(us[1].cenaZaplacenoL-900/21)<1e-9&&Math.abs(us[1].spotrebaUseku-7)<1e-9);
+S.transactions.push({id:'p1',type:'income',amount:200,date:'2026-09-21',vozPrispevek:{vozidloId:'v1',od:'Petr'}},{id:'p2',type:'income',amount:150,date:'2026-09-22',vozPrispevek:{vozidloId:'v2',od:'Jana'}});
+t('příspěvky podle vozidla',ctx.prispevkyZaznamy(S,'v1').length===1&&ctx.prispevkyZaznamy(S,'v1')[0].od==='Petr');
+vm.runInContext('_vozidla={v1:{id:"v1",nazev:"Octavia",typ:"auto",palivo:"benzin",kdy:1}}',ctx);
+let okno=null; ctx.document.createElement=()=>{okno={style:{},innerHTML:'',addEventListener(){},remove(){}};return okno;};
+ctx.document.getElementById=id=>id==='vozDetailOkno'?okno:(els[id]||(els[id]=el()));
+ctx.vozidloDetail('v1');
+t('detail: souhrn, tabulka, příspěvky',okno.innerHTML.includes('Zaplaceno celkem')&&okno.innerHTML.includes('<table')&&okno.innerHTML.includes('Petr')&&okno.innerHTML.includes('Čistý náklad'));
+t('graf sloupců',ctx.ffGrafSloupce([{popis:'09',a:5,b:2}]).includes('height'));
+t('čárový graf potřebuje 2 body',ctx.ffGrafCara([{y:1}])===''&&ctx.ffGrafCara([{y:1},{y:2}]).includes('<svg'));
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;
