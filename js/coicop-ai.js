@@ -1,4 +1,4 @@
-// FinanceFlow · v11.13 · coicop-ai.js · 2026-09-30
+// FinanceFlow · v11.14 · coicop-ai.js · 2026-09-30
 // ══════════════════════════════════════════════════════
 //  S24 (Milan, varianta B): AI ZAŘAZENÍ VLASTNÍCH KATEGORIÍ DO COICOP
 //  cesta: Nastavení → Kategorie (značka 🤖 u kategorie / podkategorie)
@@ -20,7 +20,7 @@
 // ══════════════════════════════════════════════════════
 
 const COICOP_AI_WORKER = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
-let _coicopAiBezi = false, _coicopAiPosledni = 0;
+let _coicopAiBezi = false, _coicopAiPosledni = 0, _coicopAiPodpis = '', _coicopAiZnovu = false;
 
 //  Stejná normalizace jako ve workeru (coicopKlic).
 function coicopAiKlic(t) {
@@ -98,14 +98,20 @@ async function _coicopAiPost(telo) {
 
 //  Na pozadí: po přihlášení, po otevření Kategorií a po založení podkategorie.
 //  Pracuje jen s VLASTNÍMI daty (ne při prohlížení partnera), max. jednou za 30 s.
+//  S24 (v11.14, Milan: „u Kavárny to zafungovalo, u další podkategorie už ne"):
+//  pauza 30 s platila na VŠECHNY dotazy – nový název přidaný hned po prvním
+//  se přeskočil a nic ho už znovu nespustilo. Nově se pauza týká jen STEJNÉ
+//  sady názvů (opakované otevírání Kategorií); nový název jde hned. Když
+//  kontrola zrovna běží, poznamená se a spustí se znovu po doběhnutí.
 async function coicopAiZkontroluj(vynutit) {
-  if (_coicopAiBezi) return;
+  if (_coicopAiBezi) { _coicopAiZnovu = true; return; }
   if (typeof _isLocalMode !== 'undefined' && _isLocalMode) return;
   if (typeof viewingUid !== 'undefined' && viewingUid) return;
-  if (!vynutit && Date.now() - _coicopAiPosledni < 30000) return;
   const kand = coicopAiKandidati(S);
   if (!kand.length) return;
-  _coicopAiBezi = true; _coicopAiPosledni = Date.now();
+  const podpis = kand.map(k => k.catId + '|' + (k.sub || '')).sort().join(',');
+  if (!vynutit && podpis === _coicopAiPodpis && Date.now() - _coicopAiPosledni < 30000) return;
+  _coicopAiBezi = true; _coicopAiPosledni = Date.now(); _coicopAiPodpis = podpis;
   try {
     let zmen = 0;
     for (let i = 0; i < kand.length; i += 20) {
@@ -116,9 +122,15 @@ async function coicopAiZkontroluj(vynutit) {
     if (zmen) {
       if (typeof save === 'function') save();
       if (typeof curPage !== 'undefined' && curPage === 'kategorie' && typeof renderCatPage === 'function') renderCatPage();
+      //  Zpětná vazba odkudkoli, ne jen na stránce Kategorie.
+      const nove = coicopAiOdhady(S).length;
+      if (nove && typeof showToast === 'function') showToast('🤖 AI zařadila ' + nove + ' ' + (nove === 1 ? 'kategorii' : nove < 5 ? 'kategorie' : 'kategorií') + ' – zkontroluj v Kategoriích');
     }
   } catch (e) { console.warn('coicop-ai:', e && e.message); }
-  finally { _coicopAiBezi = false; }
+  finally {
+    _coicopAiBezi = false;
+    if (_coicopAiZnovu) { _coicopAiZnovu = false; setTimeout(() => coicopAiZkontroluj(true), 500); }
+  }
 }
 window.coicopAiZkontroluj = coicopAiZkontroluj;
 

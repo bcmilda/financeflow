@@ -1,4 +1,4 @@
-// FinanceFlow · v11.13 · admin.js · 2026-09-30
+// FinanceFlow · v11.14 · admin.js · 2026-09-30
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.14',
+    datum: '2026-09-30',
+    zmeny: [
+      '📊 DETAIL SPOTŘEBY (Milan) · cesta: Majetek → 📟 Energie a voda → karta → „📊 Detail spotřeby" (nové okno). Nahoře statistika (poslední odečet, průměr denně/měsíčně, letos, cena, odhad období), graf vývoje po měsících, TABULKA ODEČTŮ – po každém zápisu přibude řádek (stav, spotřeba od minula, dní, průměr/den, ≈ Kč), „Zaplaceno na zálohách (měřený rok)" od zvoleného data (zálohy, spotřeba, náklad, přeplatek/doplatek), vyhodnocení po čtvrtletích / pololetích / letech (spotřeba, náklad, zálohy, rozdíl) a vyúčtování od dodavatele.',
+      '🌙 DVOUTARIF · cesta: Energie a voda → ⚙️ měřidla → „Dvoutarif": odečet zvlášť denní VT a noční NT proud; tabulka, graf (VT/NT nad sebou) i vyhodnocení je ukazují zvlášť, celková spotřeba = VT + NT.',
+      '📊 DETAIL VOZIDLA · cesta: Majetek → 🚗 Vozidla → karta → „📊 Detail": tabulka tankování (datum, tachometr, ujeto od minula, natankováno, cena za litr zaplacená i u stojanu, zaplaceno, spotřeba úseku) s řádkem Celkem; souhrn (zaplaceno celkem, najeto, natankováno, spotřeba, cena za km); graf útraty po měsících a graf zaplacené ceny za litr.',
+      '🤝 PŘÍSPĚVKY NA CESTU · v detailu vozidla „➕ Zapsat příspěvek" (kolegové, spolujízda): zapíše se JEDNOU jako příjem (výchozí Ostatní příjmy › Příspěvek na cestu, t.vozPrispevek), vozidlo z něj počítá čistý náklad a čistou cenu za km.',
+      '🐛 AI zařazení do COICOP se spustilo jen poprvé (Milan: Kavárna ano, „kreslení" v Bydlení už ne). Pauza 30 s platila na všechny dotazy, takže nový název přidaný krátce po předchozím se přeskočil. Nově pauza jen pro stejnou sadu názvů, souběžný požadavek se zopakuje po doběhnutí, AI se spouští i po uložení kategorie v editoru a výsledek ohlásí toast odkudkoli.',
+      '🧪 smoke_vozidla.js (37), smoke_meridla.js (36), smoke_coicop_ai.js (25).',
+    ]
+  },
   {
     verze: 'v11.13',
     datum: '2026-09-30',

@@ -38,6 +38,9 @@ t('kandidáti: výchozí podkategorie, příjmy a kategorie s COICOP ne',!k.some
  t('změna uživatelem vyhrává a je potvrzená',koc.coicop===13&&koc.coicopAi.kat==='potvrzeno');
  t('hlas odeslán',calls.some(c=>c.akce==='hlas'&&c.klic==='kocka'&&c.coicop===13));
  t('potvrzené se znovu nepřepíše',ctx.coicopAiPouzij(S,[{typ:'kat',catId:'c_vl',nazev:'Kočka'}],[{klic:'kocka',coicop:9}])===0&&koc.coicop===13);
+ // v11.14: nový název hned po předchozím dotazu se nepřeskočí
+ const n0=calls.length; S.categories[1].subs.push('Kreslení'); await ctx.coicopAiZkontroluj();
+ t('nový název hned po prvním dotazu jde k AI',calls.length===n0+1&&calls.at(-1).nazvy.some(x=>x.nazev==='Kreslení'));
  const zn='<img src=x>'; S.categories.push({id:'x',name:zn,type:'expense',coicop:9,coicopAi:{kat:'odhad'},subs:[]});
  t('escapování ve značce',!ctx.coicopAiZnacka(S.categories[4]).includes('<img'));
  // ── worker ──

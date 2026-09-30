@@ -1,4 +1,4 @@
-// FinanceFlow · v11.13 · stats.js · 2026-09-30
+// FinanceFlow · v11.14 · stats.js · 2026-09-30
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -1030,6 +1030,8 @@ function saveCat(){
   }
   else S.categories.push({id:uid(),...obj});
   save();closeModal('modalCat');renderPage();
+  //  S24 (v11.14): nová kategorie / podkategorie z editoru → AI návrh COICOP hned.
+  if(typeof coicopAiZkontroluj==='function') setTimeout(()=>coicopAiZkontroluj(true),800);
 }
 
 // TODO-241 (S21, Milan): smazaná kategorie shodí své transakce do „nezařazeno"
