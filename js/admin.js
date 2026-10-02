@@ -1,4 +1,4 @@
-// FinanceFlow · v11.21 · admin.js · 2026-10-02
+// FinanceFlow · v11.22 · admin.js · 2026-10-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.22',
+    datum: '2026-10-02',
+    zmeny: [
+      '🔄 PŘEŘADIT STARÉ ÚČTENKY (TODO-314) · cesta: Analýza účtenek → 🗺️ Mapa položek → „🔄 N položek ve starých účtenkách… → Zobrazit a přeřadit". Rozpočtová kategorie uložená u starých položek se na přání přepíše podle dnešního zařazení (tvoje volba → komunitní mapa / taxonomie; klíčová slova a „Nákup = nevím" se nepoužijí). Náhled po skupinách „Nákup → Jídlo & Nákupy: 12× (Rohlík, …)", mění se účtenky i kopie v transakcích, nikdy samo.',
+      '☰ MENU MĚŘIDLA · nová skupina v hlavním menu „Měřidla": 🚗 Vozidla a tankování a 📟 Energie a voda (dřív pod Majetkem).',
+      '🎨 ILUSTRACE (Milan) · karty a detaily v Měřidlech mají v záhlaví ploché ilustrace: kapka a vlny u vody, blesk u elektřiny, plamen u plynu, radiátor u tepla, benzinová pumpa u vozidel (nabíjecí stojan u elektroauta).',
+      '🧪 tools/smoke_v1122.js (11).',
+    ]
+  },
   {
     verze: 'v11.21',
     datum: '2026-10-02',

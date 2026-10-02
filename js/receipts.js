@@ -1,4 +1,4 @@
-// FinanceFlow · v11.19 · receipts.js · 2026-10-01
+// FinanceFlow · v11.22 · receipts.js · 2026-10-02
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2243,6 +2243,7 @@ function buildMapaTab(receipts) {
         oninput="mapaUzivHledej(this.value)" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:.82rem;margin-bottom:10px">
       <div id="mapaUzivSeznam">${mapaUzivSeznamHTML()}</div>
+      <div id="mapaPrerazeni" style="margin-top:14px">${mapaPrerazeniTlacitko()}</div>
       <div id="mapaUzivPrevod" style="margin-top:14px"></div>`
       : `<div class="empty"><div class="ei">🗺️</div><div class="et">Zatím žádné položky</div>
          <div style="font-size:.76rem;color:#a8aec8;margin-top:6px">Naskenuj účtenku a položky se tu objeví.</div></div>`}
@@ -2489,12 +2490,91 @@ function mapaUzivKartaSken(i) {
   eanSkenujPolozku({ raw: n.raw, obchod: n.obchod, ean: z.ean, hotovo: () => { mapaUzivKresli(); mapaUzivDetail(i); } });
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (v11.22, TODO-314, Milan): PŘEŘADIT STARÉ ÚČTENKY PODLE MAPY
+//  cesta: Analýza účtenek → 🗺️ Mapa položek → „🔄 Přeřadit staré účtenky"
+//  Taxonomie platí zpětně sama (dohledává se), ale ROZPOČTOVÁ KATEGORIE je u
+//  položky staré účtenky uložená. Tohle ji na přání přepíše podle dnešního
+//  zařazení: tvoje volba (učení kategorií) → komunitní mapa / taxonomie.
+//  Klíčová slova a „Nákup = nevím" se NEpoužijí – to není lepší informace.
+//  Mění se položky v účtenkách i jejich kopie v transakcích (receiptItems).
+//  Vždy s náhledem, nikdy samo.
+// ══════════════════════════════════════════════════════
+function mapaPrerazeniNavrh(D) {
+  D = D || getData();
+  const zmeny = [];
+  const zpracuj = (it, kde) => {
+    if(!it || !it.name) return;
+    const g = guessItemCatId(it.name);
+    if(!g || !g.catId || !(g.fromMemory || g.fromMap)) return;
+    const stejnaKat = g.catId === (it.itemCatId || '');
+    if(stejnaKat && (!g.subcat || g.subcat === (it.itemSubcat || ''))) return;
+    zmeny.push({ it, kde, nazev: it.name, z: it.itemCatId || '', na: g.catId, sub: g.subcat || '', stejnaKat });
+  };
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => zpracuj(it, 'uctenka')));
+  (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => zpracuj(it, 'transakce')));
+  return zmeny;
+}
+window.mapaPrerazeniNavrh = mapaPrerazeniNavrh;
+
+function mapaPrerazeniTlacitko() {
+  if(typeof viewingUid !== 'undefined' && viewingUid) return '';
+  const n = mapaPrerazeniNavrh(S).filter(z => z.kde === 'uctenka').length;
+  if(!n) return '';
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)">🔄 <b>${n} položek ve starých účtenkách</b> má podle dnešní mapy jinou rozpočtovou kategorii, než s jakou byly uložené.</span>
+    <button class="btn btn-sm" onclick="mapaPrerazeniNahled()">Zobrazit a přeřadit</button></div>`;
+}
+
+function mapaPrerazeniNahled() {
+  const D = S, zm = mapaPrerazeniNavrh(D);
+  const cats = D.categories || [];
+  const jm = id => { const c = cats.find(x => x.id === id); return c ? (c.icon || '') + ' ' + c.name : '📦 bez kategorie'; };
+  const skup = {};
+  zm.filter(z => z.kde === 'uctenka').forEach(z => {
+    const k = z.z + '→' + z.na + (z.stejnaKat ? '|' + z.sub : '');
+    const g = skup[k] || (skup[k] = { z: z.z, na: z.na, sub: z.sub, stejnaKat: z.stejnaKat, n: 0, nazvy: new Set() });
+    g.n++; g.nazvy.add(z.nazev);
+  });
+  const radky = Object.values(skup).sort((a, b) => b.n - a.n);
+  let o = document.getElementById('mapaPrerazeniOkno');
+  if(!o) { o = document.createElement('div'); o.id = 'mapaPrerazeniOkno';
+    o.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px';
+    o.addEventListener('click', e => { if(e.target === o) o.remove(); }); document.body.appendChild(o); }
+  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🔄 Přeřadit staré účtenky</div>
+      <button onclick="document.getElementById('mapaPrerazeniOkno').remove()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:6px 0 10px;line-height:1.5">Rozpočtová kategorie se u těchto položek změní podle tvé volby v Mapě položek nebo podle komunitní mapy. Změní se tím i historické statistiky a rozpočty. Částky ani účtenky se nemění.</div>
+    ${radky.map(r => `<div style="padding:7px 0;border-top:1px solid var(--border);font-size:.78rem">
+      <div><b>${r.n}×</b> ${escHtml(jm(r.z))} → <b style="color:var(--income)">${escHtml(jm(r.na))}</b>${r.stejnaKat && r.sub ? ` › ${escHtml(r.sub)}` : ''}</div>
+      <div style="font-size:.68rem;color:#8b93ad;margin-top:2px">${[...r.nazvy].slice(0, 5).map(escHtml).join(', ')}${r.nazvy.size > 5 ? ' …' : ''}</div></div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1" onclick="mapaPrerazeniProvest()">✅ Přeřadit ${zm.filter(z => z.kde === 'uctenka').length} položek</button>
+      <button class="btn" onclick="document.getElementById('mapaPrerazeniOkno').remove()">Zrušit</button></div></div>`;
+}
+
+function mapaPrerazeniProvest() {
+  const zm = mapaPrerazeniNavrh(S);
+  const cats = S.categories || [];
+  zm.forEach(z => {
+    const c = cats.find(x => x.id === z.na); if(!c) return;
+    if(!z.stejnaKat) { z.it.itemCatId = z.na; z.it.itemCat = c.name; z.it.itemSubcat = z.sub || ''; }
+    else if(z.sub) z.it.itemSubcat = z.sub;
+  });
+  if(typeof save === 'function') save();
+  const n = zm.filter(z => z.kde === 'uctenka').length;
+  const o = document.getElementById('mapaPrerazeniOkno'); if(o) o.remove();
+  if(typeof showToast === 'function') showToast('🔄 Přeřazeno ' + n + ' položek');
+  mapaUzivKresli();
+}
+Object.assign(window, { mapaPrerazeniNahled, mapaPrerazeniProvest });
+
 function mapaUzivKresli() {
   //  Přepočet stavu (mapa se mohla právě dotáhnout) bez překreslení celé stránky.
   const el = document.getElementById('mapaUzivSeznam'); if(!el) return;
   _mapaUziv = mapaUzivData(_mapaUzivReceipts);
   el.innerHTML = mapaUzivSeznamHTML();
   const st = document.getElementById('mapaUzivStat'); if(st) st.innerHTML = mapaUzivStatHTML();
+  const pz = document.getElementById('mapaPrerazeni'); if(pz) pz.innerHTML = mapaPrerazeniTlacitko();
   const f = document.getElementById('mapaUzivFiltry'); if(f) f.innerHTML = mapaUzivFiltryHTML();
   const pr = document.getElementById('mapaUzivPrevod');
   if(pr) { const otevreno = pr.querySelector('details')?.open; pr.innerHTML = mapaUzivPrevodHTML(); if(otevreno) pr.querySelector('details')?.setAttribute('open',''); }

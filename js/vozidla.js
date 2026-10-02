@@ -1,4 +1,4 @@
-// FinanceFlow · v11.17 · vozidla.js · 2026-10-01
+// FinanceFlow · v11.22 · vozidla.js · 2026-10-02
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -323,7 +323,7 @@ function vozidlaKartaHTML(nazev, ikona, st, jed, id) {
         <div style="font-size:.52rem;color:#8b93ad">${m.mesic.slice(5)}</div></div>`).join('')}</div>` : '';
   return `<div class="card" style="margin-bottom:12px"><div class="card-body">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:1.6rem">${ikona}</span>
+      ${ffIlustrace(ikona === '🔌' ? 'elektro' : 'pumpa', 46)}
       <div style="flex:1"><div style="font-weight:800;font-size:1rem;color:var(--text)">${_vozEsc(nazev)}</div>
         <div style="font-size:.72rem;color:#a8aec8">${st.pocet} tankování${st.posledniTachometr ? ' · tachometr ' + st.posledniTachometr.toLocaleString('cs-CZ') + ' km' : ''}</div></div>
       <button class="btn btn-sm" onclick="vozidloDetail('${_vozEsc(id || '')}')">📊 Detail</button></div>
@@ -508,7 +508,7 @@ function vozidloDetail(id) {
   }
   o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:760px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-weight:800;font-size:1.05rem;color:var(--text)">${v ? _vozIkona(v) : '⛽'} ${_vozEsc(nazev)} · detail</div>
+      <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--text)">${ffIlustrace(v && v.typ === 'elektro' ? 'elektro' : 'pumpa', 38)} ${v ? _vozIkona(v) : '⛽'} ${_vozEsc(nazev)} · detail</div>
       <button onclick="vozidloDetailZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">
       ${dl('Zaplaceno celkem', _vozKc(st.kcCelkem), st.pocet + ' tankování')}
@@ -615,3 +615,41 @@ function prispZFormulare(catId, sub) {
   return o;
 }
 Object.assign(window, { prispNaplnFormular, prispObnov, prispPole, prispZFormulare, prispevekVozidlo });
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.22, Milan: „vizuály – voda u vody, benzinka u tankování"):
+//  malé ilustrace do záhlaví karet Měřidel (vozidla, energie a voda).
+//  Ploché SVG, bez externích obrázků – funguje offline i v tisku.
+// ══════════════════════════════════════════════════════
+function ffIlustrace(typ, vel) {
+  vel = vel || 44;
+  const g = (id, a, b) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+  const ram = (id, a, b, obsah) => `<svg viewBox="0 0 48 48" width="${vel}" height="${vel}" style="flex-shrink:0;border-radius:12px" role="img" aria-hidden="true">${g(id, a, b)}<rect width="48" height="48" rx="12" fill="url(#${id})"/>${obsah}</svg>`;
+  const u = 'i' + Math.random().toString(36).slice(2, 7);
+  switch (typ) {
+    case 'voda': return ram(u, '#38bdf8', '#1d4ed8',
+      `<path d="M24 9c5 7 10 12.5 10 18a10 10 0 0 1-20 0c0-5.5 5-11 10-18z" fill="#e0f2fe"/>
+       <path d="M18.5 28.5a5.5 5.5 0 0 0 5.5 5.5" stroke="#38bdf8" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+       <path d="M8 40c3-2 5-2 8 0s5 2 8 0 5-2 8 0 5 2 8 0" stroke="#bae6fd" stroke-width="2" fill="none" stroke-linecap="round"/>`);
+    case 'elektrina': return ram(u, '#fde047', '#f59e0b',
+      `<path d="M27 7 13 27h9l-3 14 15-21h-9l2-13z" fill="#fff7d6" stroke="#b45309" stroke-width="1.4" stroke-linejoin="round"/>`);
+    case 'plyn': return ram(u, '#fb923c', '#dc2626',
+      `<path d="M24 8c2 6 9 9 9 18a9 9 0 0 1-18 0c0-5 3-7 4-11 1 3 2 4 3 5 1-4 1-8 2-12z" fill="#ffedd5"/>
+       <path d="M24 24c2 3 4 4 4 7a4 4 0 0 1-8 0c0-2 2-4 4-7z" fill="#60a5fa"/>`);
+    case 'teplo': return ram(u, '#f87171', '#9f1239',
+      `${[12, 18, 24, 30, 36].map(x => `<rect x="${x - 2}" y="15" width="4" height="20" rx="2" fill="#ffe4e6"/>`).join('')}
+       <rect x="9" y="33" width="30" height="3" rx="1.5" fill="#fecdd3"/>
+       <path d="M17 12c1-2-1-3 0-5M24 12c1-2-1-3 0-5M31 12c1-2-1-3 0-5" stroke="#fecdd3" stroke-width="1.6" fill="none" stroke-linecap="round"/>`);
+    case 'elektro': return ram(u, '#34d399', '#0f766e',
+      `<rect x="12" y="10" width="16" height="28" rx="3" fill="#d1fae5"/><rect x="15" y="14" width="10" height="7" rx="1.5" fill="#0f766e"/>
+       <path d="M21 25l-4 6h4l-1 5 5-7h-4l1-4z" fill="#059669"/><path d="M28 18h4a3 3 0 0 1 3 3v10a2 2 0 0 0 4 0V16" stroke="#d1fae5" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
+    case 'pumpa': case 'auto': case 'motorka': case 'dodavka': return ram(u, '#4ade80', '#15803d',
+      `<rect x="11" y="10" width="17" height="29" rx="3" fill="#dcfce7"/><rect x="14" y="14" width="11" height="8" rx="1.5" fill="#15803d"/>
+       <rect x="9" y="37" width="21" height="3" rx="1.5" fill="#bbf7d0"/>
+       <path d="M28 17l5 4v13a2.5 2.5 0 0 0 5 0V22l-3-4" stroke="#dcfce7" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+       <path d="M19.5 26c1.6 2.2 2.6 3.2 2.6 4.6a2.6 2.6 0 0 1-5.2 0c0-1.4 1-2.4 2.6-4.6z" fill="#15803d"/>`);
+    default: return ram(u, '#94a3b8', '#475569',
+      `<circle cx="24" cy="26" r="13" fill="#e2e8f0"/><path d="M24 26l7-6" stroke="#475569" stroke-width="2.6" stroke-linecap="round"/><circle cx="24" cy="26" r="2.4" fill="#475569"/>`);
+  }
+}
+window.ffIlustrace = ffIlustrace;

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.18 · meridla.js · 2026-10-01
+// FinanceFlow · v11.22 · meridla.js · 2026-10-02
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -238,7 +238,7 @@ function merKartaHTML(m, D) {
   const cat = (D.categories || []).find(c => c.id === m.catId);
   return `<div class="card" style="margin-bottom:12px"><div class="card-body">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:1.6rem">${dr.ikona}</span>
+      ${typeof ffIlustrace === 'function' ? ffIlustrace(m.druh, 46) : `<span style="font-size:1.6rem">${dr.ikona}</span>`}
       <div style="flex:1"><div style="font-weight:800;font-size:1rem;color:var(--text)">${_merEsc(m.nazev || dr.n)}</div>
         <div style="font-size:.7rem;color:#a8aec8">${_merEsc((MER_OBDOBI[m.obdobi] || MER_OBDOBI.ctvrtleti)[0])} vyúčtování${cat ? ' · zálohy z ' + _merEsc((cat.icon || '') + ' ' + cat.name + (m.subcat ? ' › ' + m.subcat : '')) : ' · zálohy nenapojené'}</div></div>
       <button class="btn btn-sm" style="font-size:.7rem" onclick="merFormMeridlo('${_merEsc(m.id)}')">⚙️</button></div>
@@ -594,7 +594,7 @@ function merDetail(id) {
   }
   w.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:780px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-weight:800;font-size:1.05rem;color:var(--text)">${dr.ikona} ${_merEsc(m.nazev || dr.n)} · detail spotřeby</div>
+      <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--text)">${typeof ffIlustrace === 'function' ? ffIlustrace(m.druh, 38) : dr.ikona} ${_merEsc(m.nazev || dr.n)} · detail spotřeby</div>
       <button onclick="merDetailZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px">
       ${dl('Poslední odečet', posl ? (dvou && posl.vt != null ? 'VT ' + _merDes(posl.vt, 0) + ' · NT ' + _merDes(posl.nt, 0) : _merDes(posl.stav, 1)) : '—', posl ? _merDatumCz(posl.datum) : '')}
