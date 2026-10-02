@@ -670,21 +670,6 @@
     ]
   },
   {
-    "id": "cat39",
-    "name": "Výběry ATM",
-    "icon": "🏧",
-    "color": "#64748b",
-    "type": "expense",
-    "coicop": 12,
-    "isSaving": false,
-    "stable": false,
-    "subs": [
-      "Výběr bankomat",
-      "Výběr cizí bankomat",
-      "Výběr v zahraničí"
-    ]
-  },
-  {
     "id": "cat40",
     "name": "Ztráta",
     "icon": "😰",
@@ -812,6 +797,27 @@
       "DPP",
       "DPČ",
       "Přivýdělek"
+    ]
+  },
+  {
+    "id": "cat47",
+    "name": "Péče o sebe",
+    "icon": "💇",
+    "color": "#e879f9",
+    "type": "expense",
+    "coicop": 13,
+    "isSaving": false,
+    "stable": false,
+    "shared": [
+      "cat34"
+    ],
+    "subs": [
+      "Kosmetika & drogerie",
+      "Kadeřník & holič",
+      "Kosmetický salon",
+      "Manikúra & pedikúra",
+      "Masáže",
+      "Parfémy"
     ]
   },
   {

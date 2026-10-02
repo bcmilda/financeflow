@@ -26,13 +26,12 @@ T('normKey drží balení oddělené',normKey('Sojové kostky 300g')!==normKey('
 // ── zpětná kompatibilita uloženého mapování ──
 const cut=(src,n)=>{const i=src.indexOf('function '+n+'(');let j=src.indexOf('{',i),d=0;for(;j<src.length;j++){if(src[j]==='{')d++;else if(src[j]==='}'){d--;if(!d)break;}}return src.slice(i,j+1);};
 eval(cut(A,'normalizeMappingKey').replace('function normalizeMappingKey','global.normalizeMappingKey=function'));
-eval(cut(A,'normalizeMappingKeyStary').replace('function normalizeMappingKeyStary','global.normalizeMappingKeyStary=function'));
 eval(cut(A,'lookupCategoryMapping').replace('function lookupCategoryMapping','global.lookupCategoryMapping=function'));
-T('nový klíč je bez množství, starý s ním',normalizeMappingKey('ROHLÍK 43G')==='rohlik'&&normalizeMappingKeyStary('ROHLÍK 43G')==='rohlik 43g');
-global._catMappingsCache={'rohlik 43g':{catId:'staryZaznam'}};
-T('KLÍČOVÉ: staré uložené mapování se dál najde',(lookupCategoryMapping('ROHLÍK 43G')||{}).catId==='staryZaznam');
+//  S24 (v11.20, TODO-311): starý klíč se už nečte – data smazána, přechod skončil.
+T('klíč je bez množství',normalizeMappingKey('ROHLÍK 43G')==='rohlik');
 global._catMappingsCache={'rohlik':{catId:'novy'},'rohlik 43g':{catId:'stary'}};
-T('když jsou oba, vyhrává nový',lookupCategoryMapping('Rohlík 43 g').catId==='novy');
+T('najde se jen nový klíč',lookupCategoryMapping('Rohlík 43 g').catId==='novy');
+T('starý klíč se už nečte',!/normalizeMappingKeyStary/.test(A));
 global._catMappingsCache={}; T('nic uloženého → null',lookupCategoryMapping('cokoliv')===null);
 global._catMappingsCache=null; T('bez načtené cache nespadne',lookupCategoryMapping('x')===null);
 // ── všechna místa používají jeden klíč ──

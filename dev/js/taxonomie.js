@@ -1,4 +1,4 @@
-// FinanceFlow · v11.09 · taxonomie.js · 2026-09-28
+// FinanceFlow · v11.16 · taxonomie.js · 2026-09-30
 // ══════════════════════════════════════════════════════
 //  S24 (T2, PLAN-mapa-produktu): TAXONOMIE VÝROBKŮ
 //  Zdroj: data/taxonomie.json (13 oblastí · 139 podkategorií · ~900 obecných názvů).
@@ -13,7 +13,7 @@
 //  Když se nenačte, všechny funkce vrací null / [] a appka se chová jako dřív.
 // ══════════════════════════════════════════════════════
 
-const TAX_URL = 'data/taxonomie.json?v=1.0-20260927';
+const TAX_URL = 'data/taxonomie.json?v=1.1-20260930';   // S24 v11.16: rozpočet Osobní péče → cat47, Zvířata → cat44
 let _tax = null, _taxIndex = null, _taxNacitani = null, _taxSlova = null;
 
 function _taxNorm(t) {

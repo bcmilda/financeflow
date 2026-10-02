@@ -1,4 +1,4 @@
-// FinanceFlow · v11.14 · admin.js · 2026-09-30
+// FinanceFlow · v11.21 · admin.js · 2026-10-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,76 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.21',
+    datum: '2026-10-02',
+    zmeny: [
+      '💳 KARTY ÚTRATY PO POLOŽKÁCH (Milan, varianta B) · cesta: Měsíční report → „💳 Kam šly peníze": transakce s naskenovanou účtenkou se rozdělí po položkách podle taxonomie (nákup v Albertu → Jídlo a pití + Bydlení/domácnost + Nákupy), slevy se rozpočítají poměrem; položka bez taxonomie jde podle kategorie transakce. Elektronika (COICOP 08) u položek = Nákupy. Top položky karty ukazují podkategorie taxonomie.',
+      '✎ RUČNÍ KARTA · cesta: Nastavení → Kategorie → ✎ výdajové kategorie → „💳 Karta v Měsíčním reportu" (Automaticky / Bydlení / Doprava / Předplatné / Nákupy / Zábava / Jídlo a pití / Ostatní). Ruční volba bere celé transakce kategorie, i s účtenkou.',
+      '📟 ODEČTY V MĚSÍČNÍM CHECKLISTU · cesta: Dashboard → 📅 Tento měsíc: úkol „Zapiš stav měřidel (1/2)" od 1. dne měsíce, s výčtem chybějících; hotovo, když má každé měřidlo v měsíci odečet. Jen pro toho, kdo měřidla má.',
+      '💾 ZÁLOHA PŘED VYMAZÁNÍM · cesta: Můj účet → Vymazat data → krok 1: „💾 Stáhnout zálohu" – Výplatnice, Tankování (vozidla, tankování, příspěvky) a Energie a voda (měřidla s odečty a vyúčtováními, doplatky/přeplatky) v jednom JSON souboru. Informace, že komunitní data bez jména (čárové kódy, mapa položek) zůstávají.',
+      '🧪 tools/smoke_v1121.js (14).',
+    ]
+  },
+  {
+    verze: 'v11.20',
+    datum: '2026-10-02',
+    zmeny: [
+      '🐛 cesta: Můj účet → Vymazat data: po smazání zůstala Energie a voda (Milan). Funkce ze S24 mají vlastní uzly mimo users/{uid}/data – nově se maže i meridla, vozidla, taxRozpocet (převod podkategorií), categoryMappings (učení kategorií – dřív zůstávalo!), eanAliasy a coicopHlasy + jejich lokální kopie. Schválně se nemaže aiUsage (měsíční limit AI). Smazání účtu maže celý users/{uid}, tam to platilo už dřív.',
+      '✅ TODO-311 uzavřeno: čtení starého klíče učení kategorií (přechod z S23) odstraněno – data smazána, staré záznamy neexistují.',
+      '✅ TODO-289 uzavřeno: v Oznámeních se escapuje i ikona zprávy; lepsi-uver.html prověřen – vkládá jen vlastní spočítané texty, žádný vstup od uživatele.',
+      '☁️ Worker v11.20: jen typové poznámky pro editor Cloudflare (5 „problems" zmizí), běh beze změny.',
+      '🧪 tools/smoke_mazani_s24.js (12); smoke_normname.js upraven.',
+    ]
+  },
+  {
+    verze: 'v11.19',
+    datum: '2026-10-01',
+    zmeny: [
+      '🧭 ZDRAŽOVÁNÍ PODLE VÝROBKŮ (T4 krok 1) · cesta: Analýza účtenek → 💹 Zdražování → „🧭 Podle výrobků" (nahoře). Položky se sdruží podle obecného názvu z taxonomie – „K EXO VLOCK" z Kauflandu, „VLOCKY OVES." z Albertu i „Ovesné vločky 250g" z Lidlu jsou jeden výrobek. Porovnává se cena za kg / l / ks (medián za měsíc, první vs poslední měsíc), mini graf vývoje, počet nákupů a různých zkratek, nejlevnější obchod a o kolik. Nahoře podíl útraty, který taxonomie pokrývá. Původní přehled podle zkratek zůstává pod ním.',
+      '📉 SHRINKFLACE NAPŘÍČ OBCHODY · stejný konkrétní výrobek z Mapy položek (i pod různými zkratkami a v různých obchodech): menší balení za stejnou cenu za kus → „Sedita Mila řezy 50 g → 45 g, skryté zdražení +11 %". Dražší balení se nepočítá (to je otevřené zdražení).',
+      '🧪 tools/smoke_t4_zdrazovani.js (12).',
+    ]
+  },
+  {
+    verze: 'v11.18',
+    datum: '2026-10-01',
+    zmeny: [
+      '📟 BLOK „ENERGIE A VODA" V TRANSAKCI (Milan: „elegantní by byla tabulka jako u paliva") · cesta: + transakce → Bydlení (nebo podkategorie energie/plyn/voda/teplo/zálohy/doplatky) → blok 📟: výběr měřidla (nebo „nepropojovat"), typ Záloha / Doplatek z vyúčtování (u příjmu Přeplatek) a volitelně „Zapsat i stav měřidla k datu platby" (u dvoutarifu VT a NT). Vazba je EXPLICITNÍ (t.energie) – záloha patří vybranému měřidlu bez ohledu na název podkategorie, takže funguje i Bydlení › Zálohy / Doplatky. Předvyplní se podle podkategorie (Elektřina/Energie → elektřina, Plyn → plyn…), u Nájmu nic. Starší zápisy bez vazby se dál počítají podle napojené kategorie.',
+      '💳 KARTY ÚTRATY V REPORTU (TODO-307) · cesta: Měsíční report → „💳 Kam šly peníze": Bydlení, Doprava, Předplatné, Nákupy, Zábava, Jídlo a pití (+ Ostatní). U každé částka, podíl na výdajích, srovnání se stejně dlouhým předchozím obdobím a 2 největší položky. Skupina: výchozí kategorie podle typu, vlastní podle COICOP (díky AI zařazení), připravené i ruční přepsání (reportKarta).',
+      '☰ Hlavní menu na mobilu se zavře klepnutím vedle (dřív jen výběrem položky); klepnutí neaktivuje stránku pod menu.',
+      '🧪 tools/smoke_report_karty.js (22); smoke_meridla.js upraven na explicitní vazbu.',
+    ]
+  },
+  {
+    verze: 'v11.17',
+    datum: '2026-10-01',
+    zmeny: [
+      '🐛 Příspěvek na cestu zapsaný z Vozidla se nepromítl do Dashboardu (Milan, 25 000 Kč): transakce neměla peněženku, takže se nepřičetla k žádnému zůstatku. Formulář „🤝 Příspěvek na cestu" má nově „Kam přišly peníze" (výchozí peněženka z Nastavení). Stejně i nové zápisy doplatku/přeplatku. ⚠️ Už uložený příspěvek bez peněženky otevři v Transakcích a peněženku doplň.',
+      '🔁 OBOUSTRANNĚ: Vozidla ↔ Transakce. Příjem s podkategorií „Příspěvek na cestu" (nebo spolujízda) zapsaný v Transakcích se v detailu vozidla ukáže taky; formulář transakce u něj nabídne blok 🚗 s výběrem vozidla a „od koho". Jediné vozidlo = přiřadí se samo, u víc vozidel detail upozorní na nepřiřazené.',
+      '🔁 OBOUSTRANNĚ: Energie a voda ↔ Transakce. V transakci v kategorii záloh (např. Bydlení › Energie) blok 📟 „Záloha / Doplatek z vyúčtování"; u příjmu s podkategorií „Přeplatek…/Vyúčtování…" výběr měřidla. Doplatek se NEPOČÍTÁ jako záloha (dřív by se započítal dvakrát). V detailu spotřeby u vyúčtování tlačítko „➕ Doplatek zaplacen / Přeplatek přišel" (předvyplněná částka, peněženka, vazba na vyúčtování, pak „✓ zapsáno") a sekce „Doplatky a přeplatky".',
+      '🧪 smoke_vozidla.js (45), smoke_meridla.js (44).',
+    ]
+  },
+  {
+    verze: 'v11.16',
+    datum: '2026-09-30',
+    zmeny: [
+      '🆓 ÚČTENKY PRO FREE (Milan) · cesta: Analýza účtenek. Stránka už není celá zamčená: Free má 3 naskenované účtenky měsíčně a záložky Skenovat, Učení, Mapa položek a Historie. Statistiky, Srovnání ČR, Trend, Zdražování, Slevy, Doklady a Obchody zůstávají Premium (💎 u záložky, klik → nabídka Premium). Na záložce Skenovat ukazatel „zbývají X ze 3 skenů" (čte aiUsage), při vyčerpání datum obnovy. Worker v11.16: AI_LIMITS.free.receipt 15 → 3; zpráva o vyčerpaném limitu se nově ukáže čitelně (dřív „rate_limit"). Landing: ve Free „AI skenování účtenek (3× měsíčně)".',
+      '💇 KATEGORIE PÉČE O SEBE (cat47) ve výchozí sadě: Kosmetika & drogerie, Kadeřník & holič, Kosmetický salon, Manikúra & pedikúra, Masáže, Parfémy; COICOP 13, sdílí téma se Službami. Taxonomie 1.1: oblast Osobní péče → rozpočet Péče o sebe, Zvířata → Domácí mazlíček (dřív Jiné).',
+      '🏧 VÝBĚR Z BANKOMATU = PŘESUN · kategorie „Výběry ATM" (cat39) odstraněna z výchozí sady – výběr není výdaj, peníze jen přejdou do peněženky Hotovost (Přesun → Mezi peněženkami, nově s nápovědou). Jako výdaj se počítal dvakrát. Bez migrace (Milan si data smaže).',
+      '🧪 smoke_s23g.js na pevné datum 10. 9. 2025 (dřív padal poslední den měsíce); smazány nefunkční smoke_inflace.js a smoke_schema.js; nový tools/smoke_uctenky_free.js (17).',
+    ]
+  },
+  {
+    verze: 'v11.15',
+    datum: '2026-09-30',
+    zmeny: [
+      '⭐ HLAVNÍ ZDROJ PŘÍJMŮ (Milan) · cesta: Nastavení → Kategorie → ✎ příjmové kategorie → „⭐ Hlavní zdroj příjmů". Výplata se dřív poznávala jako NEJVĚTŠÍ příjem měsíce, takže jednorázový prodej nebo vratka daní posunuly celé období „od výplaty k výplatě". Nově se výplata hledá nejdřív v označených kategoriích (může jich být víc) – Radar (Měsíc i Do výplaty, všechny frekvence výplaty) i Příští měsíc. Bez označení se chová jako dřív.',
+      '🧹 cesta: Nastavení → Kategorie → ✎ příjmové kategorie: blok „Limit finančního zdraví" se skrývá – limit říká, kolik % z příjmu smí jít DO kategorie, u příjmu nedává smysl (příjem je základ limitů). U „příjem i výdaj" a přesunů (spoření = MIN %) zůstává. Při uložení příjmové kategorie se případný starý limit smaže.',
+      '🧪 tools/smoke_hlavni_prijem.js (12).',
+    ]
+  },
   {
     verze: 'v11.14',
     datum: '2026-09-30',

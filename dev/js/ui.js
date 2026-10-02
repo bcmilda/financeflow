@@ -1,4 +1,4 @@
-// FinanceFlow · v11.12 · ui.js · 2026-09-29
+// FinanceFlow · v11.21 · ui.js · 2026-10-02
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -583,6 +583,10 @@ function renderMonthlyChecklist(D){
         : 'Měl jsi tento měsíc přesčas?',
       sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:!otZPasky },
   ];
+  //  S24 (v11.21, Milan): odečty měřidel – úkol od 1. dne měsíce, jen kdo měřidla má.
+  const _mer = (typeof merChecklistUkol==='function') ? merChecklistUkol(S.curYear, S.curMonth) : null;
+  if(_mer) tasks.push({ icon:'📟', label: _mer.hotovo>=_mer.celkem ? 'Stav měřidel zapsán' : `Zapiš stav měřidel (${_mer.hotovo}/${_mer.celkem})`,
+    sub: _mer.chybi.length ? 'chybí: '+_mer.chybi.join(', ') : 'odhad vyúčtování je přesnější', done:_mer.hotovo>=_mer.celkem, go:"showPage('energie')" });
   const doneCount = tasks.filter(t=>t.done).length;
   if(doneCount === tasks.length){ el.innerHTML=''; return; }  // vše hotovo → skryj
   const pct = Math.round(doneCount/tasks.length*100);
@@ -2160,6 +2164,8 @@ function editTx(id){
     selCatId=t.catId||t.category||'';
     selSub=t.subcat||'';
     if(typeof tankNaplnFormular==='function') tankNaplnFormular(t.tank||null);   // S24 (E1): ⛽ Tankování
+    if(typeof prispNaplnFormular==='function') prispNaplnFormular(t.vozPrispevek||null);   // S24 (v11.17)
+    if(typeof merPlatbaNaplnFormular==='function') merPlatbaNaplnFormular(t.energie||null); // S24 (v11.18): uložená vazba se drží, bez ní návrh podle podkategorie
     renderCatPicker();
   }
   // v8.58 (FIX): editace vyplní i PENĚŽENKU a TYP PLATBY – dřív selecty zůstaly na „– výchozí –"
@@ -2273,3 +2279,18 @@ function splitTxFromModal(){
 }
 
 // ══════════════════════════════════════════════════════
+
+
+// ══ S24 (v11.18, Milan): hlavní menu se na mobilu zavře klepnutím vedle ══
+//  Dřív se otevřené menu dalo zavřít jen výběrem položky. Klik (i dotyk) mimo
+//  postranní panel a mimo tlačítko ☰ ho teď zavře. Na širokém displeji (≥ 900 px)
+//  je menu trvale vidět, tam se nic neděje.
+document.addEventListener('click', function(e){
+  if (window.innerWidth >= 900) return;
+  const sb = document.getElementById('sidebar');
+  if (!sb || !sb.classList.contains('open')) return;
+  if (sb.contains(e.target) || (e.target.closest && e.target.closest('.hamburger'))) return;
+  sb.classList.remove('open');
+  //  Klepnutí jen zavře menu – neaktivuje to, co je pod ním (překlik na stránku).
+  e.preventDefault(); e.stopPropagation();
+}, true);

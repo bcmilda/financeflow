@@ -1,4 +1,4 @@
-// FinanceFlow · v11.14 · meridla.js · 2026-09-30
+// FinanceFlow · v11.18 · meridla.js · 2026-10-01
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -126,9 +126,15 @@ function merCena(m) {
 }
 //  Zálohy = transakce v napojené kategorii/podkategorii od data (včetně).
 function merZalohy(D, m, odData, doData) {
-  if (!m.catId) return { soucet: 0, pocet: 0, posledni: [] };
-  const tx = (D.transactions || []).filter(t => t && t.type === 'expense' && (t.catId || t.category) === m.catId
-    && (!m.subcat || (t.subcat || '') === m.subcat) && (!odData || (t.date || '') > odData) && (!doData || (t.date || '') <= doData));
+  //  S24 (v11.17): doplatek z vyúčtování NENÍ záloha – jinak by se započítal dvakrát
+  //  (jednou ve vyúčtování, podruhé jako „zaplacená záloha" dalšího období).
+  //  S24 (v11.18): vazba z transakce (t.energie) má přednost – záloha patří vybranému
+  //  měřidlu bez ohledu na podkategorii (Bydlení › Zálohy). Transakce bez vazby se
+  //  dál počítají podle napojené kategorie/podkategorie (starší zápisy).
+  const tx = (D.transactions || []).filter(t => t && t.type === 'expense'
+    && (t.energie ? (t.energie.meridloId === m.id && t.energie.typ === 'zaloha')
+                  : (m.catId && (t.catId || t.category) === m.catId && (!m.subcat || (t.subcat || '') === m.subcat)))
+    && (!odData || (t.date || '') > odData) && (!doData || (t.date || '') <= doData));
   const kc = t => (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0);
   return { soucet: tx.reduce((a, t) => a + kc(t), 0), pocet: tx.length, posledni: tx.map(kc) };
 }
@@ -569,10 +575,15 @@ function merDetail(id) {
         ${c ? td(r != null ? `<span style="color:${r >= 0 ? 'var(--income)' : '#f87171'}">${r >= 0 ? '+' : '−'}${_merKc(Math.abs(r))}</span>` : '—') : ''}</tr>`; }).join('')}</tbody></table></div>
     <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Náklad = spotřeba × cena z posledního vyúčtování. Rozdíl + = přeplatek, − = doplatek.</div>`
     : '<div style="font-size:.78rem;color:#a8aec8">Zatím málo dat.</div>';
+  const vyuIds = Object.fromEntries(Object.entries(m.vyuctovani || {}).map(([k, v]) => [v.od + '|' + v.do, k]));
   const vyuTab = vyu.length ? vyu.map(v => { const s = (v.castka && v.zalohy != null) ? v.zalohy - v.castka : null;
-    return `<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.76rem;padding:6px 0;border-top:1px solid var(--border)">
+    const vid = vyuIds[v.od + '|' + v.do];
+    const zapl = (D.transactions || []).find(t => t && t.energie && t.energie.vyuctovaniId === vid);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:.76rem;padding:6px 0;border-top:1px solid var(--border)">
       <span>🧾 ${_merDatumCz(v.od)} – ${_merDatumCz(v.do)} · <b>${_merDes(v.spotreba, 1)} ${J}</b>${v.castka ? ' · ' + _merKc(v.castka) : ''}</span>
-      ${s != null ? `<span style="color:${s >= 0 ? 'var(--income)' : '#f87171'}">${s >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(s))}</span>` : ''}</div>`; }).join('') : '';
+      <span style="display:flex;gap:6px;align-items:center">${s != null ? `<span style="color:${s >= 0 ? 'var(--income)' : '#f87171'}">${s >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(s))}</span>` : ''}
+      ${s ? (zapl ? `<span style="color:#8b93ad;font-size:.68rem">✓ zapsáno ${_merDatumCz(zapl.date)}</span>`
+        : `<button class="btn btn-sm" style="font-size:.66rem" onclick="merPlatbaForm('${_merEsc(id)}','${_merEsc(vid)}')">➕ ${s > 0 ? 'Přeplatek přišel' : 'Doplatek zaplacen'}</button>`) : ''}</span></div>`; }).join('') : '';
 
   let w = document.getElementById('merDetailOkno');
   if (!w) {
@@ -600,6 +611,7 @@ function merDetail(id) {
     ${nad('Zaplaceno na zálohách (měřený rok)')}${zal}
     ${nad('Vyhodnocení')}<div style="display:flex;gap:6px;margin-bottom:8px">${volba}</div>${obdTab}
     ${vyuTab ? nad('Vyúčtování od dodavatele') + vyuTab : ''}
+    ${merPlatbyHTML(m, D)}
   </div>`;
 }
 function merDetailZavri() { _merDetailId = null; const w = document.getElementById('merDetailOkno'); if (w) w.remove(); }
@@ -611,3 +623,224 @@ async function merUlozZalohyOd(id) {
   await _merUloz(m); merDetail(id);
 }
 Object.assign(window, { merDetail, merDetailZavri, merDetailObdobi, merUlozZalohyOd });
+
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.17, Milan): DOPLATKY A PŘEPLATKY – PROPOJENÍ S TRANSAKCEMI
+//  t.energie = {meridloId, typ:'doplatek'|'preplatek', vyuctovaniId?}
+//   • doplatek = výdaj v kategorii záloh, ale NEPOČÍTÁ se jako záloha,
+//   • přeplatek = příjem (peníze opravdu přišly na účet), vlastní podkategorie.
+//  Oboustranně: z detailu měřidla („➕ Doplatek zaplacen / Přeplatek přišel")
+//  i z běžného formuláře transakce (blok 📟 u kategorie záloh nebo u příjmu
+//  s podkategorií „Přeplatek…/Vyúčtování…").
+// ══════════════════════════════════════════════════════
+const MER_PREPLATEK_RE = /p[řr]eplat|vy[úu][čc]tov|vratka/i;
+function merPlatbyZaznamy(D, meridloId) {
+  return ((D || getData()).transactions || []).filter(t => t && t.energie && t.energie.meridloId === meridloId)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+window.merPlatbyZaznamy = merPlatbyZaznamy;
+function merPlatbyHTML(m, D) {
+  const p = merPlatbyZaznamy(D, m.id);
+  if (!p.length) return '';
+  const kc = t => (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0);
+  return `<div style="margin-top:16px;margin-bottom:6px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Doplatky a přeplatky</div>
+    ${p.map(t => `<div style="display:flex;justify-content:space-between;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
+      <span>${_merDatumCz(t.date)} · ${t.energie.typ === 'doplatek' ? '💸 doplatek' : '💰 přeplatek'}</span>
+      <span style="color:${t.energie.typ === 'doplatek' ? '#f87171' : 'var(--income)'}">${t.energie.typ === 'doplatek' ? '−' : '+'}${_merKc(kc(t))}</span></div>`).join('')}
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Doplatky se nezapočítávají jako zálohy, přeplatky jsou vrácené vlastní peníze.</div>`;
+}
+
+//  Zápis z detailu měřidla (předvyplněno z vyúčtování).
+function merPlatbaForm(id, vid) {
+  const m = (_meridla || {})[id]; if (!m) return;
+  const v = (m.vyuctovani || {})[vid] || null;
+  const s = v && v.castka && v.zalohy != null ? v.zalohy - v.castka : 0;
+  const typ = s > 0 ? 'preplatek' : 'doplatek';
+  _merOkno(`${_merHlava(typ === 'doplatek' ? '💸 Doplatek zaplacen' : '💰 Přeplatek přišel')}
+    <div style="font-size:.72rem;color:#a8aec8;margin-top:6px;line-height:1.5">${typ === 'doplatek'
+      ? 'Zapíše se jako výdaj do kategorie záloh, ale nepočítá se jako záloha – nezapočítá se dvakrát.'
+      : 'Zapíše se jako příjem (peníze opravdu přišly). Je to vrácená vlastní záloha, ne mzda.'}<br>⚠️ Pokud platbu importuješ z banky, nezapisuj ji tady – v importované transakci vyber typ v bloku 📟.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${_merPole('Částka (Kč)', `<input class="fi" id="merPlCastka" inputmode="decimal" value="${Math.abs(Math.round(s)) || ''}">`)}
+      ${_merPole('Datum', `<input class="fi" id="merPlDatum" type="date" value="${_merS(Date.now())}">`)}</div>
+    ${_merPole(typ === 'doplatek' ? 'Zaplaceno z' : 'Přišlo na', typeof ffPenezenkaSelect === 'function' ? ffPenezenkaSelect('merPlWal') : '<select class="fi" id="merPlWal"></select>')}
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merPlatbaUloz('${_merEsc(id)}','${_merEsc(vid || '')}','${typ}')">💾 Uložit</button>`);
+}
+function merPlatbaUloz(id, vid, typ) {
+  const m = (_meridla || {})[id]; if (!m) return;
+  const castka = _merCislo(document.getElementById('merPlCastka')?.value);
+  const datum = document.getElementById('merPlDatum')?.value;
+  const wallet = document.getElementById('merPlWal')?.value || '';
+  if (!(castka > 0) || !datum) { if (typeof showToast === 'function') showToast('Vyplň částku a datum'); return; }
+  const D = S;
+  let catId = m.catId, sub = m.subcat || '';
+  if (typ === 'preplatek') {
+    const inc = (D.categories || []).filter(c => c.type === 'income' || c.type === 'both');
+    const c = inc.find(x => x.id === 'cat8') || inc[0];
+    catId = c ? c.id : ''; sub = 'Přeplatek z vyúčtování';
+    if (catId && typeof ensureSubcat === 'function') ensureSubcat(catId, sub);
+  }
+  const tx = { id: (typeof uid === 'function') ? uid() : 'id' + Date.now(), type: typ === 'doplatek' ? 'expense' : 'income',
+    name: (typ === 'doplatek' ? 'Doplatek – ' : 'Přeplatek – ') + (m.nazev || 'energie'), amount: castka, amt: castka,
+    catId, category: catId, subcat: sub, date: datum, note: 'Vyúčtování', energie: { meridloId: id, typ, ...(vid ? { vyuctovaniId: vid } : {}) } };
+  if (wallet) tx.wallet = wallet;
+  S.transactions = S.transactions || []; S.transactions.push(tx);
+  if (typeof save === 'function') save();
+  if (typeof showToast === 'function') showToast(typ === 'doplatek' ? '💸 Doplatek zapsán' : '💰 Přeplatek zapsán');
+  merZavri(); merDetail(id);
+}
+
+// ── blok 📟 v běžném formuláři transakce (S24 v11.18 – jako ⛽ Tankování) ──
+//  Milan: „mám Bydlení › Energie (→ Elektřina) a chci podkategorie Zálohy, Doplatky;
+//  elegantní by byla tabulka v transakcích jako u paliva". Vazba je proto EXPLICITNÍ:
+//  v transakci vybereš měřidlo a typ platby, nezáleží na názvu podkategorie.
+//  Blok se ukáže u Bydlení, u kategorie napojené na měřidlo a u podkategorií
+//  typu energie/plyn/voda/teplo/zálohy/doplatky/přeplatky. Volitelně jde rovnou
+//  zapsat i stav měřidla k datu platby.
+const MER_ENERGIE_RE = /energ|elekt|plyn|vod[ay]|tepl|z[áa]loh|doplat|p[řr]eplat|vy[úu][čc]tov|vratk/i;
+const MER_PREPLATEK_RE2 = /p[řr]eplat|vy[úu][čc]tov|vratk|energ|elekt|plyn|vod[ay]|tepl/i;
+function merJeBydleni(catId) {
+  const c = ((typeof getData === 'function' ? getData() : S).categories || []).find(x => x.id === catId);
+  return !!c && (c.id === 'cat3' || /bydlen/i.test(c.name || ''));
+}
+//  Má se blok ukázat? A které měřidlo předvybrat ('' = nepropojovat).
+function merPlatbaKontext(typ, catId, sub) {
+  const mer = meridlaSeznam();
+  if (!mer.length || (typ !== 'expense' && typ !== 'income')) return null;
+  const vazba = mer.filter(m => m.catId && m.catId === catId && (!m.subcat || m.subcat === sub));
+  const energ = MER_ENERGIE_RE.test(sub || '');
+  if (typ === 'income' && !(MER_PREPLATEK_RE2.test(sub || '') || vazba.length)) return null;
+  if (typ === 'expense' && !(vazba.length || energ || merJeBydleni(catId))) return null;
+  let tip = vazba[0] || null;
+  if (!tip && energ) {
+    const t = (sub || '').toLowerCase();
+    const druh = /elekt|energ/.test(t) ? 'elektrina' : /plyn/.test(t) ? 'plyn' : /vod/.test(t) ? 'voda' : /tepl/.test(t) ? 'teplo' : '';
+    tip = mer.find(m => m.druh === druh) || (mer.length === 1 ? mer[0] : null);
+  }
+  const typTip = typ === 'income' ? 'preplatek' : (/doplat/i.test(sub || '') ? 'doplatek' : 'zaloha');
+  return { meridla: mer, tip: tip ? tip.id : '', typTip };
+}
+window.merPlatbaKontext = merPlatbaKontext;
+//  Zachováno kvůli zpětné kompatibilitě testů / volání (v11.17).
+function merPlatbaKandidati(typ, catId, sub) { const k = merPlatbaKontext(typ, catId, sub); return k ? k.meridla : []; }
+window.merPlatbaKandidati = merPlatbaKandidati;
+
+let _merPlatbaForm = null;
+function merPlatbaNaplnFormular(e) { _merPlatbaForm = e ? Object.assign({ _z: true }, e) : null; }
+function merPlatbaObnov() {
+  const el = document.getElementById('txEnergieBlock'); if (!el) return;
+  const typ = (typeof curTxType !== 'undefined') ? curTxType : 'expense';
+  const catId = (typeof selCatId !== 'undefined') ? selCatId : '';
+  const sub = (document.getElementById('customSubInput')?.value || '').trim() || ((typeof selSub !== 'undefined') ? selSub : '');
+  if (_meridla === null) { el.style.display = 'none'; loadMeridla().then(merPlatbaObnov); return; }
+  const k = merPlatbaKontext(typ, catId, sub);
+  if (!k) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const f = _merPlatbaForm = _merPlatbaForm || {};
+  //  Předvyplnit jen u nového zápisu; uložená vazba (editace) se drží.
+  if (!f._z && !f._dotknuto) { f.meridloId = k.tip; f.typ = k.typTip; }
+  if (f.meridloId && !k.meridla.some(m => m.id === f.meridloId)) f.meridloId = '';
+  if (typ === 'income') f.typ = 'preplatek'; else if (f.typ !== 'doplatek') f.typ = 'zaloha';
+  const m = k.meridla.find(x => x.id === f.meridloId);
+  const jed = m ? _merEsc(m.jednotka || (MER_DRUHY[m.druh] || MER_DRUHY.jine).jed) : '';
+  const inp = (id, pole, ph) => `<input class="fi" id="${id}" inputmode="decimal" placeholder="${ph}" value="${f[pole] != null ? _merEsc(f[pole]) : ''}" oninput="merPlatbaPole('${pole}',this.value,1)" style="font-size:.82rem">`;
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:700;font-size:.82rem;color:var(--text)">📟 Energie a voda <span style="font-weight:400;color:#a8aec8;font-size:.7rem">· nepovinné</span></div>
+      <button type="button" onclick="if(typeof showPage==='function'){closeModal&&closeModal('txModal');showPage('energie')}" style="background:none;border:none;color:#60a5fa;font-size:.72rem;cursor:pointer">Měřidla</button></div>
+    <select class="fi" style="font-size:.82rem" onchange="merPlatbaPole('meridloId',this.value)">
+      <option value="">— nepropojovat —</option>
+      ${k.meridla.map(x => `<option value="${_merEsc(x.id)}"${x.id === f.meridloId ? ' selected' : ''}>${(MER_DRUHY[x.druh] || MER_DRUHY.jine).ikona} ${_merEsc(x.nazev)}</option>`).join('')}
+    </select>
+    ${m ? `${typ === 'expense' ? `<div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" class="tx-filt-btn${f.typ === 'zaloha' ? ' active' : ''}" onclick="merPlatbaPole('typ','zaloha')">Záloha</button>
+        <button type="button" class="tx-filt-btn${f.typ === 'doplatek' ? ' active' : ''}" onclick="merPlatbaPole('typ','doplatek')">Doplatek z vyúčtování</button></div>`
+        : '<div style="font-size:.7rem;color:#a8aec8;margin-top:6px">💰 Přeplatek z vyúčtování – vrácené vlastní peníze ze záloh.</div>'}
+      <label style="display:flex;align-items:center;gap:6px;font-size:.74rem;color:#a8aec8;margin-top:8px;cursor:pointer">
+        <input type="checkbox" ${f.odecet ? 'checked' : ''} onchange="merPlatbaPole('odecet',this.checked)"> 📟 Zapsat i stav měřidla k datu platby</label>
+      ${f.odecet ? (m.dvoutarif ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+          <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">☀️ VT (${jed})</div>${inp('merPlVt', 'vt', '')}</div>
+          <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">🌙 NT (${jed})</div>${inp('merPlNt', 'nt', '')}</div></div>`
+        : `<div style="margin-top:6px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Stav (${jed})</div>${inp('merPlStav', 'stav', '')}</div>`) : ''}`
+      : `<div style="font-size:.68rem;color:#8b93ad;margin-top:6px">Vyber měřidlo, pokud je to platba za energie/vodu – započte se do zálohy, doplatku nebo přeplatku.</div>`}
+  </div>`;
+}
+function merPlatbaPole(k, v, bezPrekresleni) {
+  _merPlatbaForm = _merPlatbaForm || {}; _merPlatbaForm[k] = v; _merPlatbaForm._dotknuto = true;
+  if (!bezPrekresleni) merPlatbaObnov();
+}
+//  Pro saveTx: {meridloId, typ:'zaloha'|'doplatek'|'preplatek'} nebo null.
+function merPlatbaZFormulare(typ, catId, sub) {
+  const k = merPlatbaKontext(typ, catId, sub); if (!k) return null;
+  const f = _merPlatbaForm || {};
+  const mid = f.meridloId != null && (f._z || f._dotknuto) ? f.meridloId : k.tip;
+  if (!mid || !k.meridla.some(m => m.id === mid)) return null;
+  const t = typ === 'income' ? 'preplatek' : ((f._z || f._dotknuto) ? (f.typ === 'doplatek' ? 'doplatek' : 'zaloha') : k.typTip);
+  return { meridloId: mid, typ: t, ...(f.vyuctovaniId ? { vyuctovaniId: f.vyuctovaniId } : {}) };
+}
+//  Po uložení transakce: volitelný odečet k datu platby (bez druhé transakce).
+async function merPlatbaOdecet(datum) {
+  const f = _merPlatbaForm; if (!f || !f.odecet || !f.meridloId || !datum) return false;
+  const m = (_meridla || {})[f.meridloId]; if (!m) return false;
+  let z;
+  if (m.dvoutarif) { const vt = _merCislo(f.vt), nt = _merCislo(f.nt); if (vt == null || nt == null) return false; z = { datum, vt, nt }; }
+  else { const st = _merCislo(f.stav); if (st == null) return false; z = { datum, stav: st }; }
+  m.odecty = Object.assign({}, m.odecty, { ['o' + Date.now().toString(36)]: z });
+  f.odecet = false;
+  return _merUloz(m);
+}
+Object.assign(window, { merPlatbaForm, merPlatbaUloz, merPlatbaNaplnFormular, merPlatbaObnov, merPlatbaPole, merPlatbaZFormulare, merPlatbaOdecet });
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.21, Milan): ODEČTY V MĚSÍČNÍM CHECKLISTU + ZÁLOHA PŘED VYMAZÁNÍM
+// ══════════════════════════════════════════════════════
+//  Úkol „📟 Zapiš stav měřidel" v Dashboard → Tento měsíc (od 1. dne měsíce).
+//  Hotovo, když má každé měřidlo v daném měsíci aspoň jeden odečet.
+//  Vrací null, když uživatel měřidla nemá (úkol se vůbec neukáže).
+let _merChkNacitam = false;
+function merChecklistUkol(rok, mesic) {
+  if (_meridla === null) {
+    if (!_merChkNacitam) { _merChkNacitam = true; loadMeridla().then(() => { if (typeof renderMonthlyChecklist === 'function' && typeof getData === 'function') renderMonthlyChecklist(getData()); }); }
+    return null;
+  }
+  const mer = meridlaSeznam(); if (!mer.length) return null;
+  const k = `${rok}-${String(mesic + 1).padStart(2, '0')}`;
+  const chybi = mer.filter(m => !Object.values(m.odecty || {}).some(o => o && (o.datum || '').startsWith(k)));
+  return { celkem: mer.length, hotovo: mer.length - chybi.length, chybi: chybi.map(m => m.nazev || (MER_DRUHY[m.druh] || MER_DRUHY.jine).n) };
+}
+window.merChecklistUkol = merChecklistUkol;
+
+//  Záloha Výplatnice, Tankování (vozidla + tankování + příspěvky) a Energie
+//  (měřidla + propojené platby) do jednoho JSON souboru – nabízí se před
+//  „Vymazat data" (Můj účet). Data jsou čitelná i bez appky.
+async function ffZalohaModuly() {
+  const D = (typeof S !== 'undefined') ? S : getData();
+  try { if (typeof loadVozidla === 'function') await loadVozidla(); } catch (e) {}
+  try { await loadMeridla(); } catch (e) {}
+  const tx = (D.transactions || []);
+  const vybrat = t => ({ datum: t.date, nazev: t.name, castka: t.amount != null ? t.amount : t.amt, kategorie: t.catId || t.category, podkategorie: t.subcat || '', poznamka: t.note || '' });
+  const z = {
+    aplikace: 'FinanceFlow', typ: 'záloha modulů', vytvoreno: new Date().toISOString(),
+    vyplatnice: D.payslips || [],
+    tankovani: {
+      vozidla: (typeof vozidlaSeznam === 'function') ? vozidlaSeznam() : [],
+      tankovani: tx.filter(t => t && t.tank).map(t => Object.assign(vybrat(t), { tank: t.tank })),
+      prispevky: tx.filter(t => t && t.vozPrispevek).map(t => Object.assign(vybrat(t), { prispevek: t.vozPrispevek })),
+    },
+    energie: {
+      meridla: meridlaSeznam(),
+      platby: tx.filter(t => t && t.energie).map(t => Object.assign(vybrat(t), { energie: t.energie })),
+    },
+  };
+  const pocet = z.vyplatnice.length + z.tankovani.tankovani.length + z.energie.meridla.length;
+  const blob = new Blob([JSON.stringify(z, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `FinanceFlow-zaloha-vyplatnice-tankovani-energie-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  if (typeof showToast === 'function') showToast(pocet ? '💾 Záloha stažena' : '💾 Záloha stažena (moduly jsou prázdné)');
+  return z;
+}
+window.ffZalohaModuly = ffZalohaModuly;

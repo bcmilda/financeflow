@@ -69,7 +69,7 @@ ok('tlačítko Tabulka i kontejner jsou v app.html',
 {
   const pr=R('premium.js');
   ok('rodina a sdileni už nejsou v PREMIUM_PAGES',
-     /const PREMIUM_PAGES = \['predikce','grafy','ai','narozeniny','uctenky','nakup','report2','inflace'\];/.test(pr));
+     /const PREMIUM_PAGES = \['predikce','grafy','ai','narozeniny','nakup','report2','inflace'\];/.test(pr));
   ok('showPagePremium už je zvlášť nezamyká', !/name==='sdileni'\|\|name==='rodina'\) && !canUseFeature/.test(pr));
   ok('FIX-310 · showPagePremium ČTE PREMIUM_PAGES (jinak zamyká všechno)',
      /PREMIUM_PAGES\.includes\(name\)/.test(pr) && /!jePlacena \|\| hasPremiumAccess\(\)/.test(pr));
@@ -89,7 +89,7 @@ ok('tlačítko Tabulka i kontejner jsou v app.html',
   ok('FIX-310 · Free se DOSTANE na Sdílení', zkus('sdileni')==='OK');
   ok('FIX-310 · Free se DOSTANE na Rodinný souhrn', zkus('rodina')==='OK');
   ok('FIX-310 · placené stránky Free pořád nepustí',
-     zkus('uctenky')==='ZAMCENO' && zkus('ai')==='ZAMCENO' && zkus('grafy')==='ZAMCENO');
+     zkus('predikce')==='ZAMCENO' && zkus('ai')==='ZAMCENO' && zkus('grafy')==='ZAMCENO' && zkus('uctenky')==='OK');   // S24 v11.16: účtenky Free 3×/měs.
   // Premium musí projít všude
   vm.runInContext('_premiumStatus={type:"premium"};', c);
   ok('FIX-310 · Premium projde i na placené stránky', zkus('uctenky')==='OK' && zkus('ai')==='OK');
@@ -97,7 +97,7 @@ ok('tlačítko Tabulka i kontejner jsou v app.html',
      /_isLocalMode && \(name==='sdileni'\|\|name==='rodina'\)/.test(pr));
   ok('diamanty zmizely ze sidebaru', !/navlock-rodina/.test(html) && !/navlock-sdileni/.test(html));
   ok('placené AI funkce zůstávají placené',
-     /aiRadce:\s*'premium'/.test(pr) && /receiptAnalyze:\s*'premium'/.test(pr) && /bankImport:\s*'premium'/.test(pr));
+     /aiRadce:\s*'premium'/.test(pr) && /receiptAnalyze:\s*'free'/.test(pr) && /receiptTools:\s*'premium'/.test(pr) && /bankImport:\s*'premium'/.test(pr));
 }
 
 console.log(`\n${pass} OK, ${fail} chyb`);

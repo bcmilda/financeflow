@@ -1,4 +1,4 @@
-// FinanceFlow · v11.13 · app.js · 2026-09-30
+// FinanceFlow · v11.20 · app.js · 2026-10-02
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -148,8 +148,9 @@ const DEFAULT_CATEGORIES = [
   {id:'cat38',name:'Ubytování',        icon:'🏨', color:'#7c3aed', type:'expense', coicop:11,
    shared:['cat18'],
    subs:['Hotel','Airbnb','Hostel','Penzion','Chatka/Kemp']},
-  {id:'cat39',name:'Výběry ATM',       icon:'🏧', color:'#64748b', type:'expense', coicop:12, isSaving:false,  stable:false,
-   subs:['Výběr bankomat','Výběr cizí bankomat','Výběr v zahraničí']},
+  // S24 (v11.16, Milan): cat39 „Výběry ATM" ODSTRANĚN z výchozí sady. Výběr z bankomatu
+  //   není výdaj – peníze jen přejdou z účtu do peněženky Hotovost (Přesun → Mezi
+  //   peněženkami). Jako výdaj se počítaly dvakrát: při výběru a znovu při placení hotově.
   {id:'cat40',name:'Ztráta',           icon:'😰', color:'#6b7280', type:'expense', coicop:12, isSaving:false,  stable:false,
    subs:['Ztracená hotovost','Krádež','Pokuta','Penále','Záloha propadla','Expirace prostředků']},
   {id:'cat41',name:'Fitness & Posilovna', icon:'💪', color:'#16a34a', type:'expense', coicop:9, isSaving:false, stable:false,
@@ -167,6 +168,11 @@ const DEFAULT_CATEGORIES = [
    subs:['Dividendy','Pronájem nemovitosti','Licenční poplatky','P2P půjčky','Úroky']},
   {id:'cat46',name:'Brigáda',          icon:'👷', color:'#84cc16', type:'income',  coicop:null, stable:false,
    subs:['Brigáda jednorázová','Brigáda pravidelná','DPP','DPČ','Přivýdělek']},
+  // S24 (v11.16, Milan): 💇 Péče o sebe – dřív se ztrácela v Domácích potřebách a Službách.
+  //   COICOP 13 (osobní péče). Sdílí téma s Službami (Holič/Kadeřník) – přerušovaný rámeček.
+  {id:'cat47',name:'Péče o sebe',      icon:'💇', color:'#e879f9', type:'expense', coicop:13, isSaving:false,  stable:false,
+   shared:['cat34'],
+   subs:['Kosmetika & drogerie','Kadeřník & holič','Kosmetický salon','Manikúra & pedikúra','Masáže','Parfémy']},
   // ── PŘESUNY (type:'transfer') – peníze odejdou z peněženky, ale NEjsou výdaj (nesníží majetek).
   //    V další fázi se propíšou do Finančních aktiv. coicop:null (přesuny nejsou spotřeba).
   {id:'cat_t_invest', name:'Investice',        icon:'📈', color:'#34d399', type:'transfer', coicop:null, isSaving:true, stable:false, stabilityWeight:0,
@@ -428,12 +434,8 @@ function normalizeMappingKey(name) {
         .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
 }
 
-//  Klíč podle PŮVODNÍ verze – jen pro čtení už uložených záznamů (viz níže).
-function normalizeMappingKeyStary(name) {
-  return (name||'').toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
-}
+//  S24 (v11.20, TODO-311 uzavřeno): čtení STARÉHO klíče (S23, přechodné období)
+//  odstraněno. Data se smazala (Milan, jediný uživatel), staré záznamy už neexistují.
 
 async function loadCategoryMappings() {
   if(_catMappingsCache !== null) return _catMappingsCache;
@@ -487,18 +489,15 @@ async function saveCategoryMapping(txName, catId, subcat, zdroj) {
 
 function lookupCategoryMapping(txName) {
   if(!_catMappingsCache) return null;
-  //  S23 (PLAN F1): nejdřív nový klíč, a když nic, zkusí se i ten starý.
-  //  Díky tomu se nikomu neztratí, co si dosud namapoval – přechod není znát.
+  //  S23 (PLAN F1) jednotný klíč; S24 (v11.20, TODO-311): bez záložního starého klíče.
   const key = normalizeMappingKey(txName);
-  if (_catMappingsCache[key]) return _catMappingsCache[key];
-  const stary = normalizeMappingKeyStary(txName);
-  return (stary !== key && _catMappingsCache[stary]) ? _catMappingsCache[stary] : null;
+  return _catMappingsCache[key] || null;
 }
 
 //  S24 (TODO-312): „Zrušit moji volbu" v Mapě položek – položka se zase řídí
-//  komunitní mapou. Maže nový i starý klíč, jinak by starý záznam dál vyhrával.
+//  komunitní mapou.
 async function deleteCategoryMapping(txName) {
-  const klice = [...new Set([normalizeMappingKey(txName), normalizeMappingKeyStary(txName)])].filter(Boolean);
+  const klice = [normalizeMappingKey(txName)].filter(Boolean);
   klice.forEach(k => { if(_catMappingsCache) delete _catMappingsCache[k]; });
   if(_isLocalMode) {
     try { localStorage.setItem('ff_catMappings', JSON.stringify(_catMappingsCache||{})); } catch(e){}

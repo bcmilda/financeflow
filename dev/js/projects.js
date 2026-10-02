@@ -1,4 +1,4 @@
-// FinanceFlow · v11.10 · projects.js · 2026-09-29
+// FinanceFlow · v11.21 · projects.js · 2026-10-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -997,6 +997,116 @@ function reportRatingSummary(D, m, y) {
   };
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (v11.18, TODO-307, Milan): KARTY ÚTRATY V REPORTU
+//  cesta: Měsíční report → „💳 Kam šly peníze"
+//  Bydlení · Doprava · Předplatné · Nákupy · Zábava · Jídlo a pití (+ Ostatní).
+//  Skupina se odvodí: ruční c.reportKarta → výchozí kategorie podle id →
+//  COICOP podkategorie / kategorie (vlastní kategorie díky AI zařazení taky).
+// ══════════════════════════════════════════════════════
+const REPORT_KARTY = [
+  { id:'bydleni',    n:'Bydlení',     ikona:'🏠', barva:'#60a5fa' },
+  { id:'doprava',    n:'Doprava',     ikona:'🚗', barva:'#fbbf24' },
+  { id:'predplatne', n:'Předplatné',  ikona:'📺', barva:'#a78bfa' },
+  { id:'nakupy',     n:'Nákupy',      ikona:'🛍️', barva:'#f472b6' },
+  { id:'zabava',     n:'Zábava',      ikona:'🎬', barva:'#34d399' },
+  { id:'jidlo',      n:'Jídlo a pití',ikona:'🍽️', barva:'#fb923c' },
+  { id:'ostatni',    n:'Ostatní',     ikona:'📦', barva:'#94a3b8' },
+];
+const REPORT_KARTA_ID = {
+  cat3:'bydleni', cat17:'bydleni', cat25:'bydleni', cat33:'bydleni',
+  cat2:'doprava', cat11:'doprava', cat22:'doprava',
+  cat30:'predplatne', cat36:'predplatne',
+  cat23:'nakupy', cat24:'nakupy', cat19:'nakupy', cat47:'nakupy',
+  cat5:'zabava', cat18:'zabava', cat38:'zabava', cat41:'zabava',
+  cat1:'jidlo', cat20:'jidlo', cat26:'jidlo', cat43:'jidlo',
+  cat12:'ostatni', cat14:'ostatni', cat21:'ostatni', cat27:'ostatni', cat32:'ostatni', cat35:'ostatni', cat40:'ostatni', cat42:'ostatni',
+};
+const REPORT_KARTA_COICOP = { 1:'jidlo', 2:'jidlo', 11:'jidlo', 4:'bydleni', 5:'bydleni', 7:'doprava', 8:'predplatne', 9:'zabava', 3:'nakupy', 13:'nakupy' };
+function reportKartaTx(t, D) {
+  const c = (D.categories || []).find(x => x.id === (t.catId || t.category));
+  if (!c) return 'ostatni';
+  if (c.reportKarta && REPORT_KARTY.some(k => k.id === c.reportKarta)) return c.reportKarta;
+  const co = (c.coicopOverrides || {})[t.subcat];
+  if (co != null && REPORT_KARTA_COICOP[co] && !REPORT_KARTA_ID[c.id]) return REPORT_KARTA_COICOP[co];
+  if (REPORT_KARTA_ID[c.id]) return REPORT_KARTA_ID[c.id];
+  if (/p[řr]edplat/i.test(c.name || '')) return 'predplatne';
+  return REPORT_KARTA_COICOP[co != null ? co : c.coicop] || 'ostatni';
+}
+//  S24 (v11.21, Milan – varianta B): transakce s naskenovanou účtenkou se ROZDĚLÍ
+//  po položkách podle taxonomie (nákup v Albertu → jídlo + drogerie + nákupy).
+//  Položka bez taxonomie jde podle kategorie transakce. Ruční volba u kategorie
+//  (c.reportKarta, editor kategorie) má přednost a bere celou transakci.
+//  Pro položky platí COICOP mapa s jednou výjimkou: oddíl 08 = zboží (telefon,
+//  počítač) → Nákupy, ne Předplatné.
+const REPORT_KARTA_POLOZKA = Object.assign({}, REPORT_KARTA_COICOP, { 8:'nakupy', 6:'ostatni' });
+function reportKartaPolozky(t, D) {
+  const c = (D.categories || []).find(x => x.id === (t.catId || t.category));
+  if (c && c.reportKarta && REPORT_KARTY.some(k => k.id === c.reportKarta)) return null;   // ruční volba = celá transakce
+  const it = (t.receiptItems || []).filter(x => x && x.name);
+  if (it.length < 2 || typeof rpMapaNavrh !== 'function') return null;
+  const castky = it.map(x => x.lineTotal != null ? (parseFloat(x.lineTotal) || 0) : (parseFloat(x.price) || 0) * (parseFloat(x.qty) || 1));
+  const suma = castky.reduce((a, b) => a + b, 0); if (!(suma > 0)) return null;
+  const celkem = txCZK(t, D), zaklad = reportKartaTx(t, D);
+  const out = {};
+  it.forEach((x, i) => {
+    const m = rpMapaNavrh(x.name, D);
+    const odd = m && m.tax ? parseInt(String(m.tax.coicop).slice(0, 2), 10) : null;
+    const k = (odd && REPORT_KARTA_POLOZKA[odd]) || zaklad;
+    const pod = m && m.tax ? (m.tax.ikona + ' ' + m.tax.podNazev) : null;
+    const o = out[k] || (out[k] = { castka: 0, pod: {} });
+    const a = castky[i] / suma * celkem;                 // slevy a zaokrouhlení rozpočítat poměrem
+    o.castka += a; if (pod) o.pod[pod] = (o.pod[pod] || 0) + a;
+  });
+  return out;
+}
+window.reportKartaPolozky = reportKartaPolozky;
+
+//  Součty po kartách (čistá funkce – testuje tools/smoke_report_karty.js).
+function reportKartySoucty(txs, D) {
+  const out = {}; REPORT_KARTY.forEach(k => out[k.id] = { celkem: 0, kat: {} });
+  (txs || []).filter(t => t && t.type === 'expense' && !t.isBalancing && !t.splitParent && !isTransferTx(t)).forEach(t => {
+    const roz = reportKartaPolozky(t, D);
+    if (roz) {
+      Object.entries(roz).forEach(([k, v]) => {
+        out[k].celkem += v.castka;
+        const pods = Object.entries(v.pod);
+        if (pods.length) pods.forEach(([n, a]) => { out[k].kat[n] = (out[k].kat[n] || 0) + a; });
+        else { const n = '🧾 ' + (t.name || 'účtenka'); out[k].kat[n] = (out[k].kat[n] || 0) + v.castka; }
+      });
+      return;
+    }
+    const k = reportKartaTx(t, D), a = txCZK(t, D);
+    out[k].celkem += a;
+    const c = (D.categories || []).find(x => x.id === (t.catId || t.category));
+    const nm = c ? ((c.icon || '') + ' ' + c.name + (t.subcat ? ' › ' + t.subcat : '')) : 'Bez kategorie';
+    out[k].kat[nm] = (out[k].kat[nm] || 0) + a;
+  });
+  return out;
+}
+window.reportKartaTx = reportKartaTx; window.reportKartySoucty = reportKartySoucty;
+function reportKartyUtratyHTML(txs, prevTxs, D, popisMinule) {
+  const ted = reportKartySoucty(txs, D), min = reportKartySoucty(prevTxs, D);
+  const celkem = REPORT_KARTY.reduce((a, k) => a + ted[k.id].celkem, 0);
+  if (!celkem) return '';
+  const karty = REPORT_KARTY.filter(k => k.id !== 'ostatni' || ted.ostatni.celkem > 0).map(k => {
+    const v = ted[k.id].celkem, p = min[k.id].celkem;
+    const pct = celkem ? Math.round(v / celkem * 100) : 0;
+    const zm = p > 0 ? Math.round((v - p) / p * 100) : null;
+    const top = Object.entries(ted[k.id].kat).sort((a, b) => b[1] - a[1]).slice(0, 2);
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid ${k.barva};border-radius:12px;padding:11px 12px;${v ? '' : 'opacity:.55'}">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.78rem;color:#a8aec8">${k.ikona} ${k.n}</span>
+        <span style="font-size:.68rem;color:#8b93ad">${pct} %</span></div>
+      <div style="font-size:1.15rem;font-weight:800;color:var(--text);margin:3px 0">${fmtB(Math.round(v))}</div>
+      <div style="height:4px;border-radius:2px;background:var(--border);overflow:hidden"><div style="width:${pct}%;height:100%;background:${k.barva}"></div></div>
+      <div style="font-size:.66rem;margin-top:5px;color:${zm == null ? '#8b93ad' : zm > 0 ? 'var(--expense)' : 'var(--income)'}">${zm == null ? (p ? '' : 'bez srovnání') : (zm > 0 ? '↑' : '↓') + Math.abs(zm) + ' % ' + '<span style="color:#8b93ad">vs ' + popisMinule + '</span>'}</div>
+      ${top.length ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:4px;line-height:1.45">${top.map(([n, a]) => `${typeof escHtml === "function" ? escHtml(n) : n}: ${fmtB(Math.round(a))}`).join('<br>')}</div>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="report-section-title">💳 Kam šly peníze</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px">${karty}</div>`;
+}
+
 function renderReport() {
   const el = document.getElementById('reportContent'); if(!el) return;
   //  Free uživatel (např. po skončení triálu) nesmí zůstat na zamčeném období.
@@ -1196,6 +1306,14 @@ function renderReport() {
       })()}
       <div class="stat-card bank"><div class="stat-label">Základ příjmu</div><div class="stat-value bankc">${fmtB(scores.baseIncome)}</div><div class="stat-sub" style="font-size:.68rem">prům. 3 měs.</div></div>
     </div>
+
+    ${(()=>{ // S24 (v11.18, TODO-307): karty útraty – srovnání se stejně dlouhým předchozím obdobím
+      let prevW = [];
+      if (_reportPeriod === '7D') { const to=new Date(); to.setDate(to.getDate()-7); to.setHours(23,59,59,999); const fr=new Date(to); fr.setDate(fr.getDate()-6); fr.setHours(0,0,0,0);
+        prevW = (D.transactions||[]).filter(t=>{ const d=new Date(t.date); return d>=fr && d<=to; }); }
+      else { let m=rMonth-nMonths, y=rYear; while(m<0){m+=12;y--;} for(let i=0;i<nMonths;i++){ prevW=prevW.concat(getTx(m,y,D)); m++; if(m>11){m=0;y++;} } }
+      const pop = _reportPeriod==='7D' ? 'předchozí týden' : nMonths===1 ? CZ_M[pm].toLowerCase() : 'předchozí období';
+      return reportKartyUtratyHTML(txs, prevW, D, pop); })()}
 
     <!-- v9.58: banner ukazuje, JAK skóre vzniklo. Dřív se dalo jen hádat,
          proč je Výdajové zrovna 89 – tabulka S1 má rozsah 0–75 b, teprve
@@ -2505,12 +2623,16 @@ function renderRadarDailyChart(txs, monthInc, avgInc, avgExp, D){
   const todayDay = (S.curMonth===today.getMonth()&&S.curYear===today.getFullYear()) ? today.getDate() : daysInMonth;
   const dailyExp=Array(daysInMonth+1).fill(0);
   let incomeDay=0, realMonthInc=0, _maxIncAmt=0;
+  //  S24 (v11.15): den výplaty z „⭐ hlavního zdroje", když je označený a v měsíci přišel.
+  const _hlKat=hlavniPrijmyKat(D);
+  const _hlTx=_hlKat.size?(txs||[]).filter(t=>t.type==='income'&&!isTransferTx(t)&&_hlKat.has(t.catId||t.category)):[];
   (txs||[]).forEach(t=>{
     const d=new Date(t.date).getDate();
     if(t.type==='expense' && !t.isBalancing) dailyExp[d]+=Math.abs(txCZK(t,D));
     // FIX (S12.1): den výplaty = den NEJVĚTŠÍHO příjmu (ne prvního) – drobný příjem na začátku měsíce neposune referenční bod
     if(t.type==='income'&&!isTransferTx(t)){ const _a=txCZK(t,D); realMonthInc+=_a; if(_a>_maxIncAmt){ _maxIncAmt=_a; incomeDay=d; } }
   });
+  if(_hlTx.length){ let _b=_hlTx[0]; _hlTx.forEach(t=>{ if(txCZK(t,D)>txCZK(_b,D)) _b=t; }); incomeDay=new Date(_b.date).getDate(); }
   // zelená čára = REÁLNÝ příjem měsíce (ne historický průměr). Když 0, fallback na průměr (jasně označeno).
   const incomeIsReal = realMonthInc > 0;
   const incomeTarget = incomeIsReal ? realMonthInc : Math.max(avgInc, 1);
@@ -2856,11 +2978,26 @@ function radarViewTabs(active){
 function switchRadarView(v){ window._radarView=v; if(typeof renderRadar==='function') renderRadar(); }
 
 // Auto-detekce dne výplaty: medián dne NEJVĚTŠÍHO příjmu z posledních 6 měsíců s příjmem
+//  S24 (v11.15, Milan): „⭐ Hlavní zdroj příjmů" u příjmové kategorie.
+//  Výplata se dřív poznávala jako NEJVĚTŠÍ příjem měsíce – jednorázový prodej
+//  nebo vratka daní ji přebily a posunuly celé období „od výplaty k výplatě".
+//  Když má uživatel aspoň jednu kategorii označenou, hledá se výplata nejdřív
+//  v ní; bez označení (nebo když v období nic nepřišlo) platí dosavadní chování.
+function hlavniPrijmyKat(D){
+  return new Set(((D&&D.categories)||[]).filter(c=>c&&c.hlavniPrijem&&(c.type==='income'||c.type==='both')).map(c=>c.id));
+}
+function jenHlavniPrijmy(txs, D){
+  const hl=hlavniPrijmyKat(D); if(!hl.size) return txs;
+  const f=(txs||[]).filter(t=>hl.has(t.catId||t.category));
+  return f.length ? f : txs;
+}
+window.hlavniPrijmyKat=hlavniPrijmyKat; window.jenHlavniPrijmy=jenHlavniPrijmy;
+
 function radarDetectPaydayDay(D){
   const days=[]; const now=new Date();
   for(let i=0;i<6;i++){
     let m=now.getMonth()-i, y=now.getFullYear(); while(m<0){m+=12;y--;}
-    const inc=getTx(m,y,D).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t));
+    const inc=jenHlavniPrijmy(getTx(m,y,D).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)),D);
     if(!inc.length) continue;
     let best=inc[0]; inc.forEach(t=>{ if(txCZK(t,D)>txCZK(best,D)) best=t; });
     const d=new Date(best.date).getDate(); if(d>=1&&d<=31) days.push(d);
@@ -2891,7 +3028,7 @@ function radarPaydayInfo(D, refDate){
   // ── NEPRAVIDELNÝ režim: cyklus = od poslední reálné příjmové transakce do příští očekávané
   //    (podle průměrného odstupu posledních příjmů). Žádná pevná kotva.
   if(freq==='irregular'){
-    const incomes=(D.transactions||[]).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t))
+    const incomes=jenHlavniPrijmy((D.transactions||[]).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)),D)
       .map(t=>{const d=new Date(t.date);d.setHours(0,0,0,0);return {d,a:txCZK(t,D)};})
       .filter(x=>x.d<=today).sort((a,b)=>a.d-b.d);
     if(incomes.length>=1){
@@ -2920,7 +3057,7 @@ function radarPaydayInfo(D, refDate){
   if(freq==='weekly'||freq==='biweekly'){
     const stepDays=(freq==='weekly')?7:14;
     // referenční bod: poslední reálný příjem, jinak anchor den v tomto měsíci
-    const incomes=(D.transactions||[]).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t))
+    const incomes=jenHlavniPrijmy((D.transactions||[]).filter(t=>t.type==='income'&&!t.isBalancing&&!t.splitParent&&!isTransferTx(t)),D)
       .map(t=>{const d=new Date(t.date);d.setHours(0,0,0,0);return d;}).filter(d=>d<=today).sort((a,b)=>a-b);
     // FIX-304 (S21): strop 28 byl zbytečný a nesprávný – kotva se má oříznout na
     //   DÉLKU KONKRÉTNÍHO MĚSÍCE, ne na nejkratší možný. Kdo bere výplatu 30., měl
