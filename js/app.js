@@ -1,4 +1,4 @@
-// FinanceFlow · v11.16 · app.js · 2026-09-30
+// FinanceFlow · v11.20 · app.js · 2026-10-02
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -434,12 +434,8 @@ function normalizeMappingKey(name) {
         .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
 }
 
-//  Klíč podle PŮVODNÍ verze – jen pro čtení už uložených záznamů (viz níže).
-function normalizeMappingKeyStary(name) {
-  return (name||'').toLowerCase().trim()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').slice(0,40);
-}
+//  S24 (v11.20, TODO-311 uzavřeno): čtení STARÉHO klíče (S23, přechodné období)
+//  odstraněno. Data se smazala (Milan, jediný uživatel), staré záznamy už neexistují.
 
 async function loadCategoryMappings() {
   if(_catMappingsCache !== null) return _catMappingsCache;
@@ -493,18 +489,15 @@ async function saveCategoryMapping(txName, catId, subcat, zdroj) {
 
 function lookupCategoryMapping(txName) {
   if(!_catMappingsCache) return null;
-  //  S23 (PLAN F1): nejdřív nový klíč, a když nic, zkusí se i ten starý.
-  //  Díky tomu se nikomu neztratí, co si dosud namapoval – přechod není znát.
+  //  S23 (PLAN F1) jednotný klíč; S24 (v11.20, TODO-311): bez záložního starého klíče.
   const key = normalizeMappingKey(txName);
-  if (_catMappingsCache[key]) return _catMappingsCache[key];
-  const stary = normalizeMappingKeyStary(txName);
-  return (stary !== key && _catMappingsCache[stary]) ? _catMappingsCache[stary] : null;
+  return _catMappingsCache[key] || null;
 }
 
 //  S24 (TODO-312): „Zrušit moji volbu" v Mapě položek – položka se zase řídí
-//  komunitní mapou. Maže nový i starý klíč, jinak by starý záznam dál vyhrával.
+//  komunitní mapou.
 async function deleteCategoryMapping(txName) {
-  const klice = [...new Set([normalizeMappingKey(txName), normalizeMappingKeyStary(txName)])].filter(Boolean);
+  const klice = [normalizeMappingKey(txName)].filter(Boolean);
   klice.forEach(k => { if(_catMappingsCache) delete _catMappingsCache[k]; });
   if(_isLocalMode) {
     try { localStorage.setItem('ff_catMappings', JSON.stringify(_catMappingsCache||{})); } catch(e){}

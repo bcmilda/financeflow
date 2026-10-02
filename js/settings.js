@@ -1,4 +1,4 @@
-// FinanceFlow · v10.97 · settings.js · 2026-09-22
+// FinanceFlow · v11.20 · settings.js · 2026-10-02
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -348,6 +348,15 @@ async function confirmDeleteAllData() {
     catch(e) { console.warn('[mazání] komunita:', e && e.message); }
     try { await _set(_ref(_db, `users/${uid}/backups`), null); }
     catch(e) { console.warn('[mazání] zálohy:', e && e.message); }
+
+    //  S24 (v11.20, Milan: „po smazání dat zůstala Energie a voda"): funkce ze S24
+    //  mají vlastní uzly mimo users/{uid}/data (měřidla, vozidla, převod podkategorií,
+    //  učení kategorií, vlastní čárové kódy, hlasy COICOP). Mažou se teď taky.
+    //  Schválně se NEMAŽE aiUsage (měsíční limit AI – jinak by šel obejít).
+    for (const uzel of ['meridla','vozidla','taxRozpocet','categoryMappings','eanAliasy','coicopHlasy']) {
+      try { await _set(_ref(_db, `users/${uid}/${uzel}`), null); }
+      catch(e) { console.warn('[mazání] ' + uzel + ':', e && e.message); }
+    }
   }
 
   // 3) Smaž lokální snapshot (IndexedDB ff_snapshot_db + localStorage ff_snapshot_{uid}) – jinak se data vrátí offline
@@ -357,6 +366,8 @@ async function confirmDeleteAllData() {
     localStorage.removeItem('ff_pin');
     localStorage.removeItem('ff_theme');
     localStorage.removeItem('ff_v43_settings');
+    //  S24 (v11.20): lokální kopie a příznaky funkcí ze S24
+    ['ff_meridla','ff_vozidla','ff_taxRozpocet','ff_catMappings','ff_vozidloPosl','ff_eanTipSkryt'].forEach(k => localStorage.removeItem(k));
   } catch(e) {}
   // IndexedDB snapshot – smaž celou databázi snapshotů
   try { indexedDB.deleteDatabase('ff_snapshot_db'); } catch(e) {}

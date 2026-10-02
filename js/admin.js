@@ -1,4 +1,4 @@
-// FinanceFlow · v11.19 · admin.js · 2026-10-01
+// FinanceFlow · v11.20 · admin.js · 2026-10-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.20',
+    datum: '2026-10-02',
+    zmeny: [
+      '🐛 cesta: Můj účet → Vymazat data: po smazání zůstala Energie a voda (Milan). Funkce ze S24 mají vlastní uzly mimo users/{uid}/data – nově se maže i meridla, vozidla, taxRozpocet (převod podkategorií), categoryMappings (učení kategorií – dřív zůstávalo!), eanAliasy a coicopHlasy + jejich lokální kopie. Schválně se nemaže aiUsage (měsíční limit AI). Smazání účtu maže celý users/{uid}, tam to platilo už dřív.',
+      '✅ TODO-311 uzavřeno: čtení starého klíče učení kategorií (přechod z S23) odstraněno – data smazána, staré záznamy neexistují.',
+      '✅ TODO-289 uzavřeno: v Oznámeních se escapuje i ikona zprávy; lepsi-uver.html prověřen – vkládá jen vlastní spočítané texty, žádný vstup od uživatele.',
+      '☁️ Worker v11.20: jen typové poznámky pro editor Cloudflare (5 „problems" zmizí), běh beze změny.',
+      '🧪 tools/smoke_mazani_s24.js (12); smoke_normname.js upraven.',
+    ]
+  },
   {
     verze: 'v11.19',
     datum: '2026-10-01',

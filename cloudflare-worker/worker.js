@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.16 · 2026-09-30  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.20 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -1066,7 +1066,7 @@ ${payload.text}`
             const html = await pageRes.text();
             // Vytáhni strukturovaná data (cena bývá v meta/JSON-LD, ne ve viditelném textu)
             let structured = '';
-            const ldMatches = html.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) || [];
+            const ldMatches = /** @type {string[]} */ (html.match(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi) || []);
             ldMatches.forEach(m => { structured += ' ' + m.replace(/<[^>]+>/g,' '); });
             const metaMatches = html.match(/<meta[^>]*(price|product|description|og:title)[^>]*>/gi) || [];
             metaMatches.forEach(m => { structured += ' ' + m; });
@@ -1384,6 +1384,7 @@ function csuOddilZNazvu(t) {
   const x = String(t || '').trim().toLowerCase().replace(/^\d{2}\s*/, '');
   if (!x) return '';
   if (/^úhrn|^celkem/.test(x)) return '0';
+  /** @type {Array<[string, RegExp]>} */
   const V = [['01',/^potraviny/],['02',/^alkohol/],['03',/^od[ěí]v/],['04',/^bydlení/],['05',/^vybavení/],['06',/^zdraví/],
              ['07',/^doprava/],['08',/^informace/],['09',/^rekreace/],['10',/^vzdělávání/],['11',/^stravov/],['12',/^pojištění/],['13',/^osobní/]];
   const h = V.find(([, re]) => re.test(x)); return h ? h[0] : '';
@@ -1396,7 +1397,7 @@ function csuOddilZNazvu(t) {
 //   P – předdefinovaný výběr CEN0101ET03: bazický index za 13 měsíců →
 //       spočítá se jen poslední měsíc (celkem + oddíly).
 function csuZdroje(env) {
-  const z = [];
+  const z = /** @type {any} */ ([]);   // pole zdrojů + vlastnost diag (typová poznámka pro editor Cloudflare)
   const u = env && env.CSU_VYBER_URL ? String(env.CSU_VYBER_URL).trim() : '';
   if (u) {
     //  Uživatel vloží buď webový odkaz (…/datastat/data/UZIVATELSKY_VYBER/<id>),

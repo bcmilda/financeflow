@@ -1,4 +1,4 @@
-// FinanceFlow · v10.47 · announcements.js · 2026-09-04
+// FinanceFlow · v11.20 · announcements.js · 2026-10-02
 // ══════════════════════════════════════════════════════
 //  OZNÁMENÍ / NOTIFIKACE – FinanceFlow (Session 11)
 // ══════════════════════════════════════════════════════
@@ -568,7 +568,7 @@ function renderNotifModalBody() {
           <span style="font-size:1.3rem;line-height:1">${envelope}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:.9rem;font-weight:${unread ? '700' : '600'};color:var(--text)">
-              ${m.icon ? m.icon + ' ' : ''}${escapeAnnounce(m.title)}${unread ? '<span class="ffnotif-dot"></span>' : ''}
+              ${m.icon ? escapeAnnounce(m.icon) + ' ' : ''}${escapeAnnounce(m.title)}${unread ? '<span class="ffnotif-dot"></span>' : ''}
             </div>
             <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">${announceDateLabel(m.createdAt)}${m.kind === 'admin' ? ' · od FinanceFlow' : ''}</div>
           </div>
