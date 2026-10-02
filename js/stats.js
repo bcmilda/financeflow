@@ -1,4 +1,4 @@
-// FinanceFlow · v11.15 · stats.js · 2026-09-30
+// FinanceFlow · v11.21 · stats.js · 2026-10-02
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -841,6 +841,8 @@ function catTypeChanged(){
   if(hbox) hbox.style.display=(type==='income')?'none':'block';
   const hlRow=document.getElementById('catHlavniRow');
   if(hlRow) hlRow.style.display=isIncome?'flex':'none';
+  const krRow=document.getElementById('catKartaRow');   // S24 (v11.21): karta v reportu jen u výdajů
+  if(krRow) krRow.style.display=((type==='expense'||type==='both')&&!isTransfer)?'block':'none';
   const liqRow=document.getElementById('catLiqRow');
   if(liqRow) liqRow.style.display=isTransfer?'block':'none';
   // v8.65: checkbox Spoření/investic POUZE u Přesunů (vklady do spoření/investic = S4 skóre).
@@ -952,6 +954,7 @@ function openCatModal(){
   document.getElementById('catIsSaving').checked=false;
   { const iv=document.getElementById('catIsInvest'); if(iv) iv.checked=false; } // v8.70
   { const hl=document.getElementById('catHlavni'); if(hl) hl.checked=false; } // S24 (v11.15)
+  { const kr=document.getElementById('catReportKarta'); if(kr) kr.value=''; } // S24 (v11.21)
   const ic=document.getElementById('catIncomeChar'); if(ic) ic.value='';
   const ec=document.getElementById('catExpenseChar'); if(ec) ec.value='';
   const sl=document.getElementById('catStabilitySlider'); if(sl) sl.value=0;
@@ -978,6 +981,7 @@ function editCat(id){
   document.getElementById('catIsSaving').checked=!!c.isSaving;
   { const iv=document.getElementById('catIsInvest'); if(iv) iv.checked=!!c.isInvest; } // v8.70
   { const hl=document.getElementById('catHlavni'); if(hl) hl.checked=!!c.hlavniPrijem; } // S24 (v11.15)
+  { const kr=document.getElementById('catReportKarta'); if(kr) kr.value=c.reportKarta||''; } // S24 (v11.21)
   const ic=document.getElementById('catIncomeChar'); if(ic) ic.value=c.incomeChar||'';
   const ec=document.getElementById('catExpenseChar'); if(ec) ec.value=c.expenseChar||'';
   // Slider – načti uloženou váhu, nebo výchozí z incomeChar
@@ -1023,6 +1027,8 @@ function saveCat(){
   if(healthAmt!==null && type!=='income') obj.healthAmt=healthAmt; else obj.healthAmt=null;
   //  S24 (v11.15): ⭐ Hlavní zdroj příjmů (null = pole zmizí, Firebase nechce false/undefined zbytečně).
   obj.hlavniPrijem = (isIncomeType && document.getElementById('catHlavni')?.checked) ? true : null;
+  //  S24 (v11.21): ruční karta v Měsíčním reportu (prázdné = automaticky).
+  { const kr=document.getElementById('catReportKarta')?.value||''; obj.reportKarta = (kr && type!=='income') ? kr : null; }
   if(stabilityWeight!==null) obj.stabilityWeight=stabilityWeight;
 
   if(eid){

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.18 · ui.js · 2026-10-01
+// FinanceFlow · v11.21 · ui.js · 2026-10-02
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -583,6 +583,10 @@ function renderMonthlyChecklist(D){
         : 'Měl jsi tento měsíc přesčas?',
       sub:'práce navíc se počítá do Finančního obrazu', done:otAnswered, otask:!otZPasky },
   ];
+  //  S24 (v11.21, Milan): odečty měřidel – úkol od 1. dne měsíce, jen kdo měřidla má.
+  const _mer = (typeof merChecklistUkol==='function') ? merChecklistUkol(S.curYear, S.curMonth) : null;
+  if(_mer) tasks.push({ icon:'📟', label: _mer.hotovo>=_mer.celkem ? 'Stav měřidel zapsán' : `Zapiš stav měřidel (${_mer.hotovo}/${_mer.celkem})`,
+    sub: _mer.chybi.length ? 'chybí: '+_mer.chybi.join(', ') : 'odhad vyúčtování je přesnější', done:_mer.hotovo>=_mer.celkem, go:"showPage('energie')" });
   const doneCount = tasks.filter(t=>t.done).length;
   if(doneCount === tasks.length){ el.innerHTML=''; return; }  // vše hotovo → skryj
   const pct = Math.round(doneCount/tasks.length*100);

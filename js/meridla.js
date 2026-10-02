@@ -791,3 +791,56 @@ async function merPlatbaOdecet(datum) {
   return _merUloz(m);
 }
 Object.assign(window, { merPlatbaForm, merPlatbaUloz, merPlatbaNaplnFormular, merPlatbaObnov, merPlatbaPole, merPlatbaZFormulare, merPlatbaOdecet });
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.21, Milan): ODEČTY V MĚSÍČNÍM CHECKLISTU + ZÁLOHA PŘED VYMAZÁNÍM
+// ══════════════════════════════════════════════════════
+//  Úkol „📟 Zapiš stav měřidel" v Dashboard → Tento měsíc (od 1. dne měsíce).
+//  Hotovo, když má každé měřidlo v daném měsíci aspoň jeden odečet.
+//  Vrací null, když uživatel měřidla nemá (úkol se vůbec neukáže).
+let _merChkNacitam = false;
+function merChecklistUkol(rok, mesic) {
+  if (_meridla === null) {
+    if (!_merChkNacitam) { _merChkNacitam = true; loadMeridla().then(() => { if (typeof renderMonthlyChecklist === 'function' && typeof getData === 'function') renderMonthlyChecklist(getData()); }); }
+    return null;
+  }
+  const mer = meridlaSeznam(); if (!mer.length) return null;
+  const k = `${rok}-${String(mesic + 1).padStart(2, '0')}`;
+  const chybi = mer.filter(m => !Object.values(m.odecty || {}).some(o => o && (o.datum || '').startsWith(k)));
+  return { celkem: mer.length, hotovo: mer.length - chybi.length, chybi: chybi.map(m => m.nazev || (MER_DRUHY[m.druh] || MER_DRUHY.jine).n) };
+}
+window.merChecklistUkol = merChecklistUkol;
+
+//  Záloha Výplatnice, Tankování (vozidla + tankování + příspěvky) a Energie
+//  (měřidla + propojené platby) do jednoho JSON souboru – nabízí se před
+//  „Vymazat data" (Můj účet). Data jsou čitelná i bez appky.
+async function ffZalohaModuly() {
+  const D = (typeof S !== 'undefined') ? S : getData();
+  try { if (typeof loadVozidla === 'function') await loadVozidla(); } catch (e) {}
+  try { await loadMeridla(); } catch (e) {}
+  const tx = (D.transactions || []);
+  const vybrat = t => ({ datum: t.date, nazev: t.name, castka: t.amount != null ? t.amount : t.amt, kategorie: t.catId || t.category, podkategorie: t.subcat || '', poznamka: t.note || '' });
+  const z = {
+    aplikace: 'FinanceFlow', typ: 'záloha modulů', vytvoreno: new Date().toISOString(),
+    vyplatnice: D.payslips || [],
+    tankovani: {
+      vozidla: (typeof vozidlaSeznam === 'function') ? vozidlaSeznam() : [],
+      tankovani: tx.filter(t => t && t.tank).map(t => Object.assign(vybrat(t), { tank: t.tank })),
+      prispevky: tx.filter(t => t && t.vozPrispevek).map(t => Object.assign(vybrat(t), { prispevek: t.vozPrispevek })),
+    },
+    energie: {
+      meridla: meridlaSeznam(),
+      platby: tx.filter(t => t && t.energie).map(t => Object.assign(vybrat(t), { energie: t.energie })),
+    },
+  };
+  const pocet = z.vyplatnice.length + z.tankovani.tankovani.length + z.energie.meridla.length;
+  const blob = new Blob([JSON.stringify(z, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `FinanceFlow-zaloha-vyplatnice-tankovani-energie-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  if (typeof showToast === 'function') showToast(pocet ? '💾 Záloha stažena' : '💾 Záloha stažena (moduly jsou prázdné)');
+  return z;
+}
+window.ffZalohaModuly = ffZalohaModuly;

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.20 · admin.js · 2026-10-02
+// FinanceFlow · v11.21 · admin.js · 2026-10-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.21',
+    datum: '2026-10-02',
+    zmeny: [
+      '💳 KARTY ÚTRATY PO POLOŽKÁCH (Milan, varianta B) · cesta: Měsíční report → „💳 Kam šly peníze": transakce s naskenovanou účtenkou se rozdělí po položkách podle taxonomie (nákup v Albertu → Jídlo a pití + Bydlení/domácnost + Nákupy), slevy se rozpočítají poměrem; položka bez taxonomie jde podle kategorie transakce. Elektronika (COICOP 08) u položek = Nákupy. Top položky karty ukazují podkategorie taxonomie.',
+      '✎ RUČNÍ KARTA · cesta: Nastavení → Kategorie → ✎ výdajové kategorie → „💳 Karta v Měsíčním reportu" (Automaticky / Bydlení / Doprava / Předplatné / Nákupy / Zábava / Jídlo a pití / Ostatní). Ruční volba bere celé transakce kategorie, i s účtenkou.',
+      '📟 ODEČTY V MĚSÍČNÍM CHECKLISTU · cesta: Dashboard → 📅 Tento měsíc: úkol „Zapiš stav měřidel (1/2)" od 1. dne měsíce, s výčtem chybějících; hotovo, když má každé měřidlo v měsíci odečet. Jen pro toho, kdo měřidla má.',
+      '💾 ZÁLOHA PŘED VYMAZÁNÍM · cesta: Můj účet → Vymazat data → krok 1: „💾 Stáhnout zálohu" – Výplatnice, Tankování (vozidla, tankování, příspěvky) a Energie a voda (měřidla s odečty a vyúčtováními, doplatky/přeplatky) v jednom JSON souboru. Informace, že komunitní data bez jména (čárové kódy, mapa položek) zůstávají.',
+      '🧪 tools/smoke_v1121.js (14).',
+    ]
+  },
   {
     verze: 'v11.20',
     datum: '2026-10-02',

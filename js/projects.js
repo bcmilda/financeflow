@@ -1,4 +1,4 @@
-// FinanceFlow · v11.18 · projects.js · 2026-10-01
+// FinanceFlow · v11.21 · projects.js · 2026-10-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1033,10 +1033,49 @@ function reportKartaTx(t, D) {
   if (/p[řr]edplat/i.test(c.name || '')) return 'predplatne';
   return REPORT_KARTA_COICOP[co != null ? co : c.coicop] || 'ostatni';
 }
+//  S24 (v11.21, Milan – varianta B): transakce s naskenovanou účtenkou se ROZDĚLÍ
+//  po položkách podle taxonomie (nákup v Albertu → jídlo + drogerie + nákupy).
+//  Položka bez taxonomie jde podle kategorie transakce. Ruční volba u kategorie
+//  (c.reportKarta, editor kategorie) má přednost a bere celou transakci.
+//  Pro položky platí COICOP mapa s jednou výjimkou: oddíl 08 = zboží (telefon,
+//  počítač) → Nákupy, ne Předplatné.
+const REPORT_KARTA_POLOZKA = Object.assign({}, REPORT_KARTA_COICOP, { 8:'nakupy', 6:'ostatni' });
+function reportKartaPolozky(t, D) {
+  const c = (D.categories || []).find(x => x.id === (t.catId || t.category));
+  if (c && c.reportKarta && REPORT_KARTY.some(k => k.id === c.reportKarta)) return null;   // ruční volba = celá transakce
+  const it = (t.receiptItems || []).filter(x => x && x.name);
+  if (it.length < 2 || typeof rpMapaNavrh !== 'function') return null;
+  const castky = it.map(x => x.lineTotal != null ? (parseFloat(x.lineTotal) || 0) : (parseFloat(x.price) || 0) * (parseFloat(x.qty) || 1));
+  const suma = castky.reduce((a, b) => a + b, 0); if (!(suma > 0)) return null;
+  const celkem = txCZK(t, D), zaklad = reportKartaTx(t, D);
+  const out = {};
+  it.forEach((x, i) => {
+    const m = rpMapaNavrh(x.name, D);
+    const odd = m && m.tax ? parseInt(String(m.tax.coicop).slice(0, 2), 10) : null;
+    const k = (odd && REPORT_KARTA_POLOZKA[odd]) || zaklad;
+    const pod = m && m.tax ? (m.tax.ikona + ' ' + m.tax.podNazev) : null;
+    const o = out[k] || (out[k] = { castka: 0, pod: {} });
+    const a = castky[i] / suma * celkem;                 // slevy a zaokrouhlení rozpočítat poměrem
+    o.castka += a; if (pod) o.pod[pod] = (o.pod[pod] || 0) + a;
+  });
+  return out;
+}
+window.reportKartaPolozky = reportKartaPolozky;
+
 //  Součty po kartách (čistá funkce – testuje tools/smoke_report_karty.js).
 function reportKartySoucty(txs, D) {
   const out = {}; REPORT_KARTY.forEach(k => out[k.id] = { celkem: 0, kat: {} });
   (txs || []).filter(t => t && t.type === 'expense' && !t.isBalancing && !t.splitParent && !isTransferTx(t)).forEach(t => {
+    const roz = reportKartaPolozky(t, D);
+    if (roz) {
+      Object.entries(roz).forEach(([k, v]) => {
+        out[k].celkem += v.castka;
+        const pods = Object.entries(v.pod);
+        if (pods.length) pods.forEach(([n, a]) => { out[k].kat[n] = (out[k].kat[n] || 0) + a; });
+        else { const n = '🧾 ' + (t.name || 'účtenka'); out[k].kat[n] = (out[k].kat[n] || 0) + v.castka; }
+      });
+      return;
+    }
     const k = reportKartaTx(t, D), a = txCZK(t, D);
     out[k].celkem += a;
     const c = (D.categories || []).find(x => x.id === (t.catId || t.category));
