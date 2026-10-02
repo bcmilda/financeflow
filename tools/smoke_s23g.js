@@ -34,6 +34,11 @@ T('stav na konci týdne = na začátku + změna', W.weeks.every(w=>w.endBal===w.
 T('stav na začátku týdne navazuje na konec předchozího', W.weeks.every((w,i)=>i===0||w.startBal===W.weeks[i-1].endBal));
 
 // ── Aktuální měsíc – odhad po dnešku ──
+//  S24 (v11.16): PEVNÉ DATUM. Dřív se bralo skutečné „dnes" a poslední den měsíce
+//  (žádné dny po dnešku) test shodil, i když kód byl v pořádku. Teď je „dnes"
+//  vždy 10. 9. 2025 – uprostřed měsíce, po výplatě 17. 8., před koncem září.
+const _RealDate=Date, _FIX=new _RealDate(2025,8,10,12,0,0).getTime();
+global.Date=class extends _RealDate{ constructor(...a){ if(a.length) super(...a); else super(_FIX); } static now(){ return _FIX; } };
 const now=new Date(); now.setHours(0,0,0,0);
 const m=now.getMonth(), y=now.getFullYear();
 const pd=new Date(y,m-1,17), dnesIso=iso(now);
@@ -55,6 +60,7 @@ T('graf den po dni se vykreslí s oběma výplatami', /Od výplaty den po dni/.t
 T('graf ukazuje začátek měsíce', /1\. 8\./.test(h1));
 T('uzavřený měsíc: „zbylo", ne „zbude"', /zbylo/.test(h1) && !/zbude/.test(h1));
 const h3=radarPaydayDailyCard(W2);
+global.Date=_RealDate;   // konec pevného data
 T('aktuální měsíc: čárkovaný odhad a „zbude"', /stroke-dasharray="6 5"/.test(h3) && /zbude/.test(h3));
 T('Kam směřuju: 2 sloupce na týden (zelená+modrá | oranžová+fialová)', /#4ade80/.test(h2)&&/#60a5fa|rgba\(96,165,250/.test(h2)&&/#fb923c/.test(h2)&&/#a78bfa/.test(h2));
 T('Kam směřuju: tabulka Na začátku / Změna / Na konci / Plán. výdej / Budoucí platby', ['Na začátku','Změna','Na konci','Plán. výdej','Budoucí platby'].every(x=>h2.includes('>'+x+'</th>')));
@@ -82,4 +88,4 @@ T('karta se vykreslí', /Srovnání s minulým měsícem/.test(box.innerHTML) &&
 T('karta je v záložce Měsíc', /id="monthCompareBox"/.test(PJ) && /renderMonthCompare\(getData\(\), S\.curMonth, S\.curYear\)/.test(PJ));
 
 })();
-console.log(`S23/v10.91: ${ok} OK, ${bad} chyb`);process.exit(bad?1:0);
+console.log(`S23/v10.91 (S24: pevné datum): ${ok} OK, ${bad} chyb`);process.exit(bad?1:0);

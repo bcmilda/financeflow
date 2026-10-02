@@ -1,4 +1,4 @@
-// FinanceFlow · v11.14 · vozidla.js · 2026-09-30
+// FinanceFlow · v11.17 · vozidla.js · 2026-10-01
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -175,6 +175,8 @@ function tankObnov() {
   const catId = (typeof selCatId !== 'undefined') ? selCatId : '';
   const sub = (document.getElementById('customSubInput')?.value || '').trim() || ((typeof selSub !== 'undefined') ? selSub : '');
   const typ = (typeof curTxType !== 'undefined') ? curTxType : 'expense';
+  //  S24 (v11.17): u PŘÍJMU s podkategorií „Příspěvek na cestu" stejné místo ukáže výběr vozidla.
+  if (typ === 'income' && PRISP_RE.test(sub)) { prispObnov(el); return; }
   if (typ !== 'expense' || !tankJeKategorie(catId, sub)) { el.style.display = 'none'; el.innerHTML = ''; return; }
   if (_vozidla === null) { loadVozidla().then(() => tankObnov()); }
   const voz = vozidlaSeznam();
@@ -434,11 +436,23 @@ function tankUseky(zaznamy) {
 }
 window.tankUseky = tankUseky;
 
+//  S24 (v11.17, Milan: „příspěvek zapsaný v Transakcích se do Vozidla nepropíše"):
+//  příspěvek se pozná i podle podkategorie „Příspěvek na cestu" / spolujízda, ne jen
+//  podle vazby z formuláře vozidla. Bez vazby: má-li uživatel jediné vozidlo, patří
+//  jemu; jinak je „nepřiřazený" (vozidloId '') a detail ho ukáže s výzvou k přiřazení.
+const PRISP_RE = /p[řr][íi]sp[ěe]vek na cestu|spoluj[íi]zd/i;
+function prispevekVozidlo(t, voz) {
+  if (t.vozPrispevek && t.vozPrispevek.vozidloId) return t.vozPrispevek.vozidloId;
+  voz = voz || vozidlaSeznam();
+  return voz.length === 1 ? voz[0].id : '';
+}
 function prispevkyZaznamy(D, vozidloId) {
   D = D || getData();
-  return (D.transactions || []).filter(t => t && t.type === 'income' && t.vozPrispevek
-      && (vozidloId == null || (t.vozPrispevek.vozidloId || '') === vozidloId))
-    .map(t => ({ id: t.id, datum: t.date || '', castka: (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0), od: t.vozPrispevek.od || '' }))
+  const voz = vozidlaSeznam();
+  return (D.transactions || []).filter(t => t && t.type === 'income' && (t.vozPrispevek || PRISP_RE.test(t.subcat || '') || PRISP_RE.test(t.name || '')))
+    .map(t => ({ id: t.id, datum: t.date || '', castka: (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0),
+      od: (t.vozPrispevek && t.vozPrispevek.od) || '', vozidloId: prispevekVozidlo(t, voz), propojeno: !!t.vozPrispevek, nazev: t.name || '' }))
+    .filter(x => vozidloId == null || x.vozidloId === vozidloId)
     .sort((a, b) => (b.datum || '').localeCompare(a.datum || ''));
 }
 window.prispevkyZaznamy = prispevkyZaznamy;
@@ -482,7 +496,8 @@ function vozidloDetail(id) {
         <button class="btn btn-sm" onclick="vozPrispevekForm('${_vozEsc(id)}')">➕ Zapsat příspěvek</button></div>
       <div style="font-size:.68rem;color:#8b93ad;margin:4px 0 6px">Kolegové, spolujízda, vratky – zapíše se jako příjem (jednou) a sníží čistý náklad vozidla.</div>
       ${pr.length ? pr.map(p => `<div style="display:flex;justify-content:space-between;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
-          <span>${_vozEsc(p.datum.split('-').reverse().join('. '))} · ${_vozEsc(p.od || 'příspěvek')}</span><span style="color:var(--income)">+${_vozKc(p.castka)}</span></div>`).join('') : '<div style="font-size:.76rem;color:#a8aec8">Zatím žádné.</div>'}
+          <span>${_vozEsc(p.datum.split('-').reverse().join('. '))} · ${_vozEsc(p.od || p.nazev || 'příspěvek')}</span><span style="color:var(--income)">+${_vozKc(p.castka)}</span></div>`).join('') : '<div style="font-size:.76rem;color:#a8aec8">Zatím žádné.</div>'}
+      ${(() => { const nep = prispevkyZaznamy(D, ''); return nep.length ? `<div style="font-size:.7rem;color:#fbbf24;margin-top:8px">⚠️ ${nep.length} příspěvků z Transakcí nemá vybrané vozidlo (máš víc vozidel). Otevři transakci a vyber vozidlo v bloku 🚗.</div>` : ''; })()}
     </div>` : '';
   let o = document.getElementById('vozDetailOkno');
   if (!o) {
@@ -532,6 +547,7 @@ function vozPrispevekForm(id) {
       <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Částka (Kč)</div><input class="fi" id="vozPrCastka" inputmode="decimal" placeholder="200"></div>
       <div><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Datum</div><input class="fi" id="vozPrDatum" type="date" value="${dnes}"></div></div>
     <div style="margin-top:8px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Od koho</div><input class="fi" id="vozPrOd" maxlength="40" placeholder="Petr – cesta do práce"></div>
+    <div style="margin-top:8px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Kam přišly peníze</div>${ffPenezenkaSelect('vozPrWal')}</div>
     <div style="margin-top:8px"><div style="font-size:.66rem;color:#a8aec8;margin-bottom:3px">Kategorie příjmu</div>
       <select class="fi" id="vozPrKat">${inc.map(c => `<option value="${_vozEsc(c.id)}"${vych && c.id === vych.id ? ' selected' : ''}>${_vozEsc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</select></div>
     <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="vozPrispevekUloz('${_vozEsc(id)}')">💾 Uložit příspěvek</button></div>`;
@@ -541,12 +557,16 @@ function vozPrispevekUloz(id) {
   const datum = document.getElementById('vozPrDatum')?.value;
   const od = (document.getElementById('vozPrOd')?.value || '').trim().slice(0, 40);
   const catId = document.getElementById('vozPrKat')?.value || '';
+  const wallet = document.getElementById('vozPrWal')?.value || '';
   if (!(castka > 0) || !datum || !catId) { if (typeof showToast === 'function') showToast('Vyplň částku, datum a kategorii'); return; }
   const v = vozidlaSeznam().find(x => x.id === id);
   const sub = 'Příspěvek na cestu';
   if (typeof ensureSubcat === 'function') ensureSubcat(catId, sub);
-  const tx = { id: (typeof genTxId === 'function') ? genTxId() : 't' + Date.now(), type: 'income', name: 'Příspěvek na cestu' + (od ? ' – ' + od : ''),
+  //  S24 (v11.17, Milan: „v dashboardu není vidět připis"): transakce neměla peněženku,
+  //  takže se nepřičetla k žádnému zůstatku. Nově se vybírá, kam peníze přišly.
+  const tx = { id: (typeof uid === 'function') ? uid() : 'id' + Date.now(), type: 'income', name: 'Příspěvek na cestu' + (od ? ' – ' + od : ''),
     amount: castka, amt: castka, catId, category: catId, subcat: sub, date: datum, note: v ? v.nazev : '', vozPrispevek: { vozidloId: id, od } };
+  if (wallet) tx.wallet = wallet;
   S.transactions = S.transactions || []; S.transactions.push(tx);
   if (typeof save === 'function') save();
   if (typeof showToast === 'function') showToast('🤝 Příspěvek zapsán');
@@ -554,3 +574,44 @@ function vozPrispevekUloz(id) {
   if (typeof curPage !== 'undefined' && curPage === 'vozidla') renderVozidlaPage();
 }
 Object.assign(window, { vozidloDetail, vozidloDetailZavri, vozPrispevekForm, vozPrispevekUloz });
+
+
+// ── S24 (v11.17): sdílené – výběr peněženky (výchozí z Nastavení, jinak první) ──
+function ffPenezenkaSelect(id, vybrana) {
+  const w = (typeof getWallets === 'function') ? getWallets() : ((S && S.wallets) || []);
+  if (!w.length) return `<select class="fi" id="${id}"><option value="">– nejdřív si vytvoř peněženku –</option></select>`;
+  const pref = vybrana || ((typeof _settings !== 'undefined' && _settings && _settings.defWallet) || '');
+  const v = w.some(x => x.id === pref) ? pref : w[0].id;
+  return `<select class="fi" id="${id}">${w.map(x => `<option value="${_vozEsc(x.id)}"${x.id === v ? ' selected' : ''}>${_vozEsc((x.icon || '💼') + ' ' + x.name)}</option>`).join('')}</select>`;
+}
+window.ffPenezenkaSelect = ffPenezenkaSelect;
+
+// ── S24 (v11.17): blok 🚗 u příjmu „Příspěvek na cestu" v běžném formuláři transakce ──
+let _prispForm = null;
+function prispNaplnFormular(v) { _prispForm = v ? Object.assign({}, v) : null; }
+function prispObnov(el) {
+  if (_vozidla === null) { loadVozidla().then(() => tankObnov()); }
+  const voz = vozidlaSeznam();
+  _prispForm = _prispForm || {};
+  if (!_prispForm.vozidloId && voz.length) {
+    let posl = ''; try { posl = localStorage.getItem('ff_vozidloPosl') || ''; } catch (e) {}
+    _prispForm.vozidloId = voz.some(x => x.id === posl) ? posl : voz[voz.length - 1].id;
+  }
+  el.style.display = 'block';
+  el.innerHTML = `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px">
+    <div style="font-weight:700;font-size:.82rem;color:var(--text);margin-bottom:8px">🚗 Příspěvek na cestu <span style="font-weight:400;color:#a8aec8;font-size:.7rem">· propojí se s Vozidly</span></div>
+    ${voz.length ? `<select class="fi" style="font-size:.82rem;margin-bottom:8px" onchange="prispPole('vozidloId',this.value)">
+        ${voz.map(x => `<option value="${_vozEsc(x.id)}"${x.id === _prispForm.vozidloId ? ' selected' : ''}>${_vozEsc(_vozIkona(x) + ' ' + x.nazev)}</option>`).join('')}</select>`
+      : '<div style="font-size:.74rem;color:#a8aec8;margin-bottom:8px">Zatím nemáš vozidlo – příspěvek se uloží i tak.</div>'}
+    <input class="fi" style="font-size:.82rem" maxlength="40" placeholder="Od koho (nepovinné)" value="${_vozEsc(_prispForm.od || '')}" oninput="prispPole('od',this.value)">
+  </div>`;
+}
+function prispPole(k, v) { _prispForm = _prispForm || {}; _prispForm[k] = v; }
+function prispZFormulare(catId, sub) {
+  if (!PRISP_RE.test(sub || '')) return null;
+  const f = _prispForm || {};
+  const o = { vozidloId: String(f.vozidloId || '') };
+  const od = String(f.od || '').trim().slice(0, 40); if (od) o.od = od;
+  return o;
+}
+Object.assign(window, { prispNaplnFormular, prispObnov, prispPole, prispZFormulare, prispevekVozidlo });

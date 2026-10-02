@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.13 · 2026-09-30  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.16 · 2026-09-30  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -74,7 +74,8 @@ async function getFirebaseAdminToken(env) {
 
 // Limity dle ADR-041 (Free / Trial / Premium)
 const AI_LIMITS = {
-  free:    { receipt: 15, bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1 },
+  //  S24 (v11.16, Milan): Free = 3 naskenované účtenky měsíčně (dřív 15). Appka ukazuje „zbývá X ze 3".
+  free:    { receipt: 3,  bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1 },
   trial:   { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3 },
   premium: { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3 },
   admin:   { receipt: 9999, bank_statement_text: 9999, chat: 9999, advisor_report: 9999, wish_url: 9999, price_alert: 9999, contact_form: 9999 },

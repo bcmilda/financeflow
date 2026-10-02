@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · pristi.js · 2026-09-21
+// FinanceFlow · v11.15 · pristi.js · 2026-09-30
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -59,10 +59,12 @@ function pristiCalWindow() {
 }
 
 // Kotva výplatního cyklu = největší JISTÝ nebo PRAVDĚPODOBNÝ příjem v kalendářním měsíci.
+//  S24 (v11.15): řádky z kategorie „⭐ Hlavní zdroj příjmů" mají přednost.
 function pristiPaydayAnchor(incRows, D) {
   let best = null;
-  (incRows || []).forEach(r => {
-    if (r.off || r.level > 2) return;
+  const radky = (incRows || []).filter(r => !r.off && r.level <= 2);
+  const hl = radky.filter(r => r.hlavni);
+  (hl.length ? hl : radky).forEach(r => {
     if (!best || r.amount > best.amount) best = r;
   });
   if (best) return { day: best.date.getDate(), name: best.name };
@@ -187,7 +189,7 @@ function pristiIncomeRows(D, W, cfg) {
         key: 's:' + s.id + ':' + _pIso(d), level: 1, icon: '🔄',
         name: s.name || 'Příjem', amount: s.amount || 0, date: d,
         note: `${(typeof FREQ_LABELS !== 'undefined' && FREQ_LABELS[s.freq || 'monthly']) || 'měsíčně'} · pevná částka ze šablony`,
-        src: 'šablona',
+        src: 'šablona', hlavni: !!((D.categories || []).find(c => c.id === s.catId) || {}).hlavniPrijem,
       });
       const cid = s.catId || '';
       tplByCat[cid] = (tplByCat[cid] || 0) + (s.amount || 0);
@@ -218,7 +220,7 @@ function pristiIncomeRows(D, W, cfg) {
     if (rest < PRISTI_MIN_ROW) return;                       // šablona už to pokrývá
     const w = pristiWeight(cat);
     inc.push({
-      key: 'h:' + (cid || '_none'), level: w >= PRISTI_STABLE_MIN ? 2 : 3,
+      key: 'h:' + (cid || '_none'), level: w >= PRISTI_STABLE_MIN ? 2 : 3, hlavni: !!(cat && cat.hlavniPrijem),
       icon: cat ? (cat.icon || '💵') : '❔',
       name: cat ? cat.name : 'Nezařazený příjem', amount: rest,
       date: pristiDayInWindow(_pMid(byCat[cid].days) || 15, W),

@@ -1,7 +1,7 @@
 {
  "meta": {
   "nazev": "Taxonomie výrobků FinanceFlow",
-  "verze": "1.0",
+  "verze": "1.1",
   "session": "S24 (T1, návrh ke kontrole)",
   "model": "raw z účtenky → výrobek (Mapa položek) → obecný název → podkategorie → oblast; COICOP u podkategorie, výjimka u obecného názvu",
   "coicop": "CZ-COICOP 2018 v zápisu ČSÚ (kódy z data/product-groups.json, spotřební koš 2026)",
@@ -1490,7 +1490,7 @@
    "id": "osobni-pece",
    "nazev": "Osobní péče a kosmetika",
    "ikona": "🧼",
-   "rozpocet": "cat17",
+   "rozpocet": "cat47",
    "podkategorie": [
     {
      "id": "vlasy",
@@ -2099,7 +2099,7 @@
    "id": "zvirata",
    "nazev": "Zvířata",
    "ikona": "🐾",
-   "rozpocet": "cat21",
+   "rozpocet": "cat44",
    "podkategorie": [
     {
      "id": "krmivo-psi",

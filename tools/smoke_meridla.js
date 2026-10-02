@@ -80,4 +80,24 @@ let w=null; ctx.document.createElement=()=>{w={style:{},innerHTML:'',addEventLis
 ctx.document.getElementById=id=>id==='merDetailOkno'?w:(els[id]||(els[id]=el()));
 ctx.merDetail('d');
 t('detail: statistika, graf, tabulka VT/NT, zálohy, vyhodnocení',w.innerHTML.includes('Poslední odečet')&&w.innerHTML.includes('Stav VT')&&w.innerHTML.includes('Zálohy počítat od')&&w.innerHTML.includes('Vyhodnocení')&&w.innerHTML.includes('■ NT'));
+// v11.17: doplatky / přeplatky oboustranně
+S.transactions.push({id:'dp',type:'expense',catId:'cat3',subcat:'Energie',amount:600,date:'2026-08-20',energie:{meridloId:'m1',typ:'doplatek'}});
+t('doplatek se nepočítá jako záloha',ctx.merZalohy(S,m,'2026-07-01','2026-09-29').soucet===2000);
+vm.runInContext('_meridla={m1:'+JSON.stringify(m)+'}',ctx);
+t('blok 📟: kategorie záloh (v11.18: u Bydlení vždy, Nájem bez tipu)',ctx.merPlatbaKandidati('expense','cat3','Energie').length===1&&ctx.merPlatbaKontext('expense','cat3','Nájem').tip==='');
+t('blok 📟: příjem „Přeplatek…"',ctx.merPlatbaKandidati('income','cat8','Přeplatek z vyúčtování').length===1&&ctx.merPlatbaKandidati('income','cat8','Mzda').length===0);
+ctx.merPlatbaNaplnFormular(null);
+t('záloha = explicitní vazba (v11.18)',JSON.stringify(ctx.merPlatbaZFormulare('expense','cat3','Energie'))==='{"meridloId":"m1","typ":"zaloha"}');
+ctx.merPlatbaNaplnFormular({typ:'doplatek'});
+t('doplatek z formuláře',JSON.stringify(ctx.merPlatbaZFormulare('expense','cat3','Energie'))==='{"meridloId":"m1","typ":"doplatek"}');
+t('přeplatek z formuláře',ctx.merPlatbaZFormulare('income','cat8','Přeplatek z vyúčtování').typ==='preplatek');
+S.categories.push({id:'cat8',name:'Ostatní příjmy',type:'income',subs:[]}); S.wallets=[{id:'w1',name:'KB'}];
+ctx.save=()=>{}; ctx.uid=()=>'tx9'; ctx.ensureSubcat=()=>{};
+const els2={merPlCastka:{value:'450'},merPlDatum:{value:'2026-07-10'},merPlWal:{value:'w1'}};
+const gid=ctx.document.getElementById; ctx.document.getElementById=id=>els2[id]||gid(id);
+ctx.merDetail=()=>{}; ctx.merZavri=()=>{};
+ctx.merPlatbaUloz('m1','v1','preplatek');
+const pt=S.transactions.find(x=>x.id==='tx9');
+t('přeplatek z detailu: příjem s peněženkou a vazbou na vyúčtování',pt&&pt.type==='income'&&pt.wallet==='w1'&&pt.subcat==='Přeplatek z vyúčtování'&&pt.energie.vyuctovaniId==='v1');
+t('seznam plateb u měřidla',ctx.merPlatbyZaznamy(S,'m1').length===2);
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

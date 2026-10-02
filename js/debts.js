@@ -1,4 +1,4 @@
-// FinanceFlow · v11.13 · debts.js · 2026-09-30
+// FinanceFlow · v11.18 · debts.js · 2026-10-01
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -24,6 +24,8 @@ function openAddTx(){
   const _dro=document.getElementById('debtRecurringOpts'); if(_dro)_dro.style.display='none';
   setTxType('expense');selCatId='';selSub='';customSub='';
   if(typeof tankNaplnFormular==='function') tankNaplnFormular(null);   // S24 (E1): ⛽ Tankování – čistý blok
+  if(typeof prispNaplnFormular==='function') prispNaplnFormular(null);  // S24 (v11.17): 🚗 příspěvek na cestu
+  if(typeof merPlatbaNaplnFormular==='function') merPlatbaNaplnFormular(null); // S24 (v11.17): 📟 doplatek/přeplatek
   populateTxProjectSelect();
   populateTxTransferWallets();
   populateTxWalletSelect();
@@ -612,6 +614,10 @@ function saveTx(){
   //  S24 (E1): litry, tachometr, palivo… jako VLASTNOST téže transakce (žádná
   //  druhá položka → nic se nezapočítá dvakrát). null smaže, když už nejde o palivo.
   if(typeof tankZFormulare==='function' && type==='expense') txObj.tank = tankZFormulare(selCatId, finalSub) || null;
+  //  S24 (v11.17): oboustranné vazby – příspěvek na cestu ↔ Vozidla, doplatek/přeplatek ↔ Energie a voda.
+  if(typeof prispZFormulare==='function') txObj.vozPrispevek = (type==='income' ? prispZFormulare(selCatId, finalSub) : null) || null;
+  if(typeof merPlatbaZFormulare==='function') txObj.energie = merPlatbaZFormulare(type, selCatId, finalSub) || null;
+  if(typeof merPlatbaOdecet==='function' && txObj.energie) merPlatbaOdecet(date);   // S24 (v11.18): volitelný odečet k datu platby
   const walletId = document.getElementById('txWalletId')?.value||'';
   const payTypeId = document.getElementById('txPayTypeId')?.value||'';
   if(walletId) txObj.wallet = walletId;
@@ -750,6 +756,7 @@ function renderSubPicker(){
   const cat=S.categories.find(c=>c.id===selCatId);
   //  S24 (E1): blok ⛽ Tankování se ukáže u Auto › Palivo (vozidla.js).
   if(typeof tankObnov==='function') setTimeout(tankObnov,0);
+  if(typeof merPlatbaObnov==='function') setTimeout(merPlatbaObnov,0);   // S24 (v11.17)
   if(!cat||!(cat.subs||[]).length){if(wrap)wrap.style.display='none';return;}
   if(wrap)wrap.style.display='block';
   const catColor = cat?.color||'var(--accent)';

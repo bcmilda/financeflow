@@ -1,11 +1,13 @@
-// FinanceFlow · v11.02 · premium.js · 2026-09-25
+// FinanceFlow · v11.16 · premium.js · 2026-09-30
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
 //   takže Free uživatel neviděl ani vlastní sdílecí ID a nemohl se s nikým spojit
 //   – přitom sdílení je čtení z Firebase, ne AI volání, a nic nás nestojí.
 //   Za diamantem zůstává to, co stojí peníze (AI) nebo je skutečná prémie.
-const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','uctenky','nakup','report2','inflace'];
+//  S24 (v11.16, Milan): 'uctenky' už není celá zamčená – Free má 3 skeny měsíčně (limit hlídá
+//  worker, AI_LIMITS.free.receipt), nástroje nad účtenkami zůstávají Premium (receipts.js).
+const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','nakup','report2','inflace'];
 const TRIAL_DAYS = 30;
 
 // ══════════════════════════════════════════════════════
@@ -19,7 +21,8 @@ const TIER_PRICES = { premium: 149, pro: 299 }; // Kč/měsíc
 const FEATURE_TIERS = {
   aiRadce:        'premium',  // AI Rádce (advisor + měsíční report poradce)
   bankImport:     'premium',  // Import z PDF výpisu – Premium (CSV/Excel zdarma)
-  receiptAnalyze: 'premium',  // Analýza účtenek (foto → AI)
+  receiptAnalyze: 'free',     // S24 (v11.16): sken účtenky – Free 3×/měsíc (limit ve workeru)
+  receiptTools:   'premium',  // S24 (v11.16): Statistiky, Srovnání ČR, Trend, Zdražování, Slevy, Doklady, Obchody
   shoppingList:   'premium',  // Nákupní seznam
   // S21: sdílení a rodinný souhrn jsou nově zdarma (viz PREMIUM_PAGES výš).
   //   Klíč zůstává kvůli případnému limitu počtu partnerů – dnes nic nezamyká.
