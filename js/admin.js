@@ -1,4 +1,4 @@
-// FinanceFlow · v11.22 · admin.js · 2026-10-02
+// FinanceFlow · v11.23 · admin.js · 2026-10-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.23',
+    datum: '2026-10-02',
+    zmeny: [
+      '▮▮ ČÁROVÝ KÓD → ČESKÝ NÁZEV A SPRÁVNÉ ZAŘAZENÍ (Milan: kód 4056489321453 – název německy, Mapa položek ukázala „Mandle" u mléčné čokolády s mandlemi). Worker v11.23 se jednou za komunitu (při prvním dotazu na kód, i u dřív uložených) zeptá AI na český název výrobku (když ho databáze nemá) a na obecný název z taxonomie podle toho, CO výrobek je, ne podle přísady. V appce má kód přednost před odhadem ze zkratky na účtence (pořadí: komunitní mapa admina → čárový kód → odhad podle názvu). Konkrétní název = český název výrobku. V kartě výrobku „na obalu: …" s původním názvem a „Zdroj: ▮▮ podle čárového kódu".',
+      '🧾 Nesedící živiny/složení: data z Open Food Facts zapisují dobrovolníci – v kartě výrobku odkaz „Oprav je na Open Food Facts ↗"; admin může data výrobku „🔄 Načíst znovu".',
+      '📷 ADMIN → 🗺️ Mapa položek → „Čárové kódy od uživatelů": výrobky s fotkou, českým názvem, značkou, zařazením od AI a zkratkami, pod kterými je kdo koupil (obchod: zkratka, počet). Oprava českého názvu a obecného názvu (našeptávač z taxonomie); uložení zařadí i všechny zkratky v komunitní mapě. Sekce se ukáže i bez item tagů.',
+      '🗑️ ADMIN → 🗺️ Mapa položek → „Smazat všechny item tagy" (testovací tagy od uživatelů); komunitní mapa a čárové kódy zůstanou.',
+      '🔒 Pravidla: community/eanProdukty smí zapisovat admin (oprava názvu a zařazení).',
+      '🧪 tools/smoke_v1123.js (12).',
+    ]
+  },
   {
     verze: 'v11.22',
     datum: '2026-10-02',
@@ -7490,7 +7502,11 @@ async function loadCommunityItemTags() {
     _mapaZaznamy = mapRes.ok ? (await mapRes.json() || {}) : {};
     if(!data || !Object.keys(data).length) {
       el.innerHTML = '<div class="card-body">' + mapaStatKarta(mapaStatistiky({}, _mapaZaznamy, S.categories))
-        + '<div style="color:var(--text2);font-size:.8rem">Zatím žádné položky – mapa se plní z účtenek uživatelů.</div></div>';
+        + '<div style="color:var(--text2);font-size:.8rem">Zatím žádné položky s tagy – mapa se plní z účtenek uživatelů.</div>'
+        + '<datalist id="taxDatalist">' + (typeof taxSeznam === 'function' ? taxSeznam() : []).map(z => `<option value="${_vzEsc(z.nazev)}" label="${_vzEsc(z.podNazev)}"></option>`).join('') + '</datalist>'
+        + '<div id="mapaAdminEan" style="margin-top:18px"></div></div>';
+      if (typeof loadTaxonomie === 'function') await loadTaxonomie();
+      mapaAdminEanNacti();   // S24 (v11.23): čárové kódy i bez tagů
       return;
     }
     Object.entries(data).forEach(([k,t])=>{ _mapaTagTop[k] = Object.entries(t||{}).sort((a,b)=>b[1]-a[1])[0]?.[0] || ''; });
@@ -7520,8 +7536,13 @@ async function loadCommunityItemTags() {
         oninput="_mapaAdminFiltr.q=this.value;mapaAdminKresli()" style="font-size:.8rem;margin-bottom:6px">
       <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
       <div id="mapaAdminSeznam"></div>
+      <div id="mapaAdminEan" style="margin-top:18px"></div>
+      <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text3)">
+        Staré tagy od uživatelů (testovací data) můžeš smazat – komunitní mapa a čárové kódy zůstanou.
+        <button class="btn btn-ghost btn-sm" style="color:var(--expense);margin-left:6px" onclick="mapaSmazTagy()">🗑️ Smazat všechny item tagy</button></div>
     </div>`;
     mapaAdminKresli();
+    mapaAdminEanNacti();
   } catch(e) {
     el.innerHTML = `<div class="card-body" style="color:var(--expense);font-size:.8rem">Chyba: ${e.message}</div>`;
   }
@@ -7686,6 +7707,96 @@ async function mapaMigrace() {
   loadCommunityItemTags();
 }
 window.mapaMigrace = mapaMigrace;
+
+// ══════════════════════════════════════════════════════
+//  S24 (v11.23, Milan: „v Item Tagy nevidím naskenované položky a eany"):
+//  📷 ČÁROVÉ KÓDY OD UŽIVATELŮ – výrobek (český název, značka), co mu vybrala
+//  AI z taxonomie, a pod jakými zkratkami ho kdo v kterém obchodě koupil.
+//  Admin může opravit český název a obecný název; uložení zapíše i komunitní
+//  mapu pro všechny zkratky (aby se zařadily i položky bez kódu).
+// ══════════════════════════════════════════════════════
+async function mapaAdminEanNacti() {
+  const el = document.getElementById('mapaAdminEan'); if (!el) return;
+  try {
+    const t = await window._currentUser?.getIdToken?.();
+    const [al, pr] = await Promise.all(['eanAliasy', 'eanProdukty'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`).then(r => r.ok ? r.json() : null)));
+    window._mapaEanData = { aliasy: al || {}, produkty: pr || {} };
+    const eany = Object.keys(al || {});
+    if (!eany.length) { el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů</div><div style="font-size:.76rem;color:var(--text3)">Zatím nikdo nepřiřadil kód k položce účtenky.</div>`; return; }
+    el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů <span style="font-weight:400;font-size:.74rem;color:var(--text3)">${eany.length} výrobků</span></div>
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px">Obecný název vybrala AI z taxonomie podle skutečného výrobku. Oprav, pokud nesedí – uložení zařadí i všechny zkratky v komunitní mapě.</div>
+      ${eany.map(e => mapaAdminEanRadek(e)).join('')}`;
+  } catch (err) { el.innerHTML = `<div style="color:var(--expense);font-size:.78rem">Čárové kódy: ${_vzEsc(err.message)}</div>`; }
+}
+window.mapaAdminEanNacti = mapaAdminEanNacti;
+
+function mapaAdminEanRadek(ean) {
+  const d = window._mapaEanData || {}; const p = (d.produkty || {})[ean] || {}; const al = (d.aliasy || {})[ean] || {};
+  const nazev = p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || '');
+  const info = (p.obecnyId && typeof taxInfo === 'function') ? taxInfo(p.obecnyId) : null;
+  const e = _onEsc(ean);
+  return `<div style="padding:10px 0;border-top:1px solid var(--border)">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      ${p.foto ? `<img src="${_vzEsc(p.foto)}" alt="" style="width:34px;height:34px;object-fit:contain;background:#fff;border-radius:6px">` : '<span style="font-size:1.2rem">▮▮</span>'}
+      <div style="flex:1;min-width:160px"><b style="font-size:.84rem">${_vzEsc(nazev || (p.stav === 'nenalezeno' ? 'neznámý výrobek' : '…'))}</b>
+        <div style="font-size:.68rem;color:var(--text3)">${_vzEsc([p.znacka, ean, p.nazevCesky ? '' : (p.nazev && p.nazevCs ? 'obal: ' + p.nazev : '')].filter(Boolean).join(' · '))}</div></div>
+      ${info ? `<span style="font-size:.7rem;color:var(--income)">${_vzEsc(info.ikona + ' ' + info.podNazev + ' › ' + info.nazev)}</span>` : '<span style="font-size:.7rem;color:#fbbf24">bez zařazení</span>'}
+    </div>
+    <div style="font-size:.68rem;color:var(--text3);margin:4px 0">${Object.values(al).map(a => _vzEsc((a.obchod || '?') + ': ' + (a.raw || '') + (a.pocet > 1 ? ' (' + a.pocet + '×)' : ''))).join(' · ')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px">
+      <input class="fi" id="eanCs_${e}" style="font-size:.76rem;padding:6px 8px" placeholder="Český název výrobku" value="${_vzEsc(nazev)}">
+      <input class="fi" id="eanOb_${e}" list="taxDatalist" style="font-size:.76rem;padding:6px 8px" placeholder="Obecný název (taxonomie)" value="${_vzEsc(info ? info.nazev : '')}">
+    </div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="mapaAdminEanUloz('${e}')">💾 Uložit a zařadit zkratky</button>
+      <button class="btn btn-ghost btn-sm" onclick="mapaAdminEanZnovu('${e}')" title="Smaže uložená data výrobku – při dalším skenu se načtou znovu z databáze (např. po opravě na Open Food Facts)">🔄 Načíst znovu</button>
+      <a class="btn btn-ghost btn-sm" href="https://world.openfoodfacts.org/product/${encodeURIComponent(ean)}" target="_blank" rel="noopener">Open Food Facts ↗</a>
+    </div></div>`;
+}
+
+async function mapaAdminEanUloz(ean) {
+  const d = window._mapaEanData || {}; const al = (d.aliasy || {})[ean] || {};
+  const cs = (document.getElementById('eanCs_' + ean)?.value || '').trim().slice(0, 100);
+  const obT = (document.getElementById('eanOb_' + ean)?.value || '').trim();
+  const info = obT && typeof taxInfo === 'function' ? taxInfo(obT) : null;
+  if (obT && !info) { if (typeof showToast === 'function') showToast('⚠️ „' + obT + '" v taxonomii není – vyber z nabídky'); return; }
+  const t = await window._currentUser?.getIdToken?.();
+  const zmeny = {};
+  if (cs) zmeny.nazevCs = cs;
+  if (info) { zmeny.obecnyId = info.id; zmeny.obecny = info.nazev; }
+  const r = await fetch(`${MAPA_URL}/community/eanProdukty/${ean}.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zmeny) });
+  if (!r.ok) { alert('Uložení selhalo: HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' – nasazená pravidla v11.23?' : '')); return; }
+  //  Komunitní mapa pro všechny zkratky (klíč = normalizovaný název z účtenky).
+  if (info) {
+    const pm = {};
+    Object.values(al).forEach(a => {
+      const k = (typeof normalizeMappingKey === 'function') ? normalizeMappingKey(a.raw || '') : '';
+      if (!k) return;
+      pm[k] = Object.assign({}, _mapaZaznamy[k] || {}, taxDoMapy(info), cs ? { konkretni: cs.slice(0, 60) } : {}, { kdy: Date.now() });
+      delete pm[k].subcat;
+    });
+    if (Object.keys(pm).length) {
+      const r2 = await fetch(`${MAPA_URL}/community/productMap.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pm) });
+      if (r2.ok) Object.assign(_mapaZaznamy, pm);
+    }
+  }
+  if (typeof showToast === 'function') showToast('💾 Uloženo' + (info ? ' a zařazeno' : ''));
+  mapaAdminEanNacti(); mapaAdminKresli();
+}
+async function mapaAdminEanZnovu(ean) {
+  if (!confirm('Smazat uložená data výrobku ' + ean + '? Při dalším skenu se načtou znovu z databáze (a AI je znovu zařadí).')) return;
+  const t = await window._currentUser?.getIdToken?.();
+  await fetch(`${MAPA_URL}/community/eanProdukty/${ean}.json?auth=${t}`, { method: 'DELETE' });
+  mapaAdminEanNacti();
+}
+async function mapaSmazTagy() {
+  if (!confirm('Smazat VŠECHNY item tagy od uživatelů (i jejich schválení)? Komunitní mapa položek a čárové kódy zůstanou.')) return;
+  const t = await window._currentUser?.getIdToken?.();
+  await Promise.all(['itemTags', 'itemTagValidation'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`, { method: 'DELETE' })));
+  if (typeof showToast === 'function') showToast('🗑️ Item tagy smazány');
+  loadCommunityItemTags();
+}
+Object.assign(window, { mapaAdminEanUloz, mapaAdminEanZnovu, mapaSmazTagy });
 
 async function validateItemTag(itemKey, tag, action) {
   try {

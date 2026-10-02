@@ -1,4 +1,4 @@
-// FinanceFlow · v11.21 · projects.js · 2026-10-02
+// FinanceFlow · v11.23 · projects.js · 2026-10-02
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1050,7 +1050,7 @@ function reportKartaPolozky(t, D) {
   const celkem = txCZK(t, D), zaklad = reportKartaTx(t, D);
   const out = {};
   it.forEach((x, i) => {
-    const m = rpMapaNavrh(x.name, D);
+    const m = rpMapaNavrh(x.name, D, x.ean);
     const odd = m && m.tax ? parseInt(String(m.tax.coicop).slice(0, 2), 10) : null;
     const k = (odd && REPORT_KARTA_POLOZKA[odd]) || zaklad;
     const pod = m && m.tax ? (m.tax.ikona + ' ' + m.tax.podNazev) : null;

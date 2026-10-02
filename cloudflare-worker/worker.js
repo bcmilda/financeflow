@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.20 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.23 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -500,6 +500,7 @@ function eanNormalizuj(ean, p, zdroj) {
   const o = {
     ean, stav: 'nalezeno', zdroj, kdy: Date.now(),
     nazev, nazevCesky: !!nazevCs,
+    nazvyJine: [eanStr(p.product_name, 100), eanStr(p.product_name_en, 100), eanStr(p.generic_name, 100)].filter((x, i, a) => x && x !== nazev && a.indexOf(x) === i).slice(0, 3),
     znacka: eanStr(String(p.brands || '').split(',')[0], 60),
     mnozstvi: eanMnozstvi(p),
     kategorie: kat.slice(-6).map(eanTag),
@@ -542,6 +543,56 @@ async function eanZDatabazi(ean) {
   return { ean, stav: 'nenalezeno', kdy: Date.now() };
 }
 
+// ── S24 (v11.23, Milan: „název v němčině, Mapa ukázala Mandle místo čokolády") ──
+//  Jednou za komunitu (při prvním dotazu na kód) se AI zeptá na:
+//   • ČESKÝ název výrobku, když ho databáze nemá (nazevCs),
+//   • OBECNÝ NÁZEV z taxonomie FinanceFlow (obecnyId) – podle něj se výrobek
+//     zařadí v Mapě položek i statistikách místo hádání ze zkratky na účtence.
+//  Taxonomii čte z webu appky (data/taxonomie.json), drží ji v paměti workeru.
+let _eanTax = null;
+const eanTaxKlic = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+async function eanTaxonomie() {
+  if (_eanTax) return _eanTax;
+  const r = await fetch('https://financeflow.cz/data/taxonomie.json?v=ean');
+  const T = await r.json();
+  const radky = [], nazvy = {};
+  (T.oblasti || []).forEach(o => (o.podkategorie || []).forEach(pk => {
+    const n = (pk.nazvy || []).map(x => typeof x === 'string' ? x : x.n);
+    n.forEach(x => { nazvy[eanTaxKlic(x)] = x; });
+    radky.push(`${pk.nazev}: ${n.join(', ')}`);
+  }));
+  _eanTax = { seznam: radky.join('\n'), nazvy };
+  return _eanTax;
+}
+async function eanObohat(env, prod) {
+  if (!env.ANTHROPIC_API_KEY || !prod || prod.stav !== 'nalezeno') return prod;
+  const tax = await eanTaxonomie();
+  const popis = [`Název: ${prod.nazev || '?'}`, prod.nazvyJine && prod.nazvyJine.length ? `Další názvy: ${prod.nazvyJine.join(' | ')}` : '',
+    prod.znacka ? `Značka: ${prod.znacka}` : '', prod.kategorie ? `Kategorie (Open Food Facts): ${prod.kategorie.join(', ')}` : '',
+    prod.mnozstvi ? `Balení: ${prod.mnozstvi.hodnota} ${prod.mnozstvi.jednotka}` : ''].filter(Boolean).join('\n');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300,
+      system: `Pomáháš české aplikaci na osobní finance zařadit výrobek z čárového kódu.
+1) "nazev_cs": krátký ČESKÝ název výrobku, jak by byl na českém obalu (přelož z jiného jazyka; bez gramáže, bez značky).
+2) "obecny": JEDEN obecný název PŘESNĚ z tohoto seznamu (řádek = podkategorie: názvy), nejbližší podle toho, CO výrobek je (ne podle přísady – mléčná čokoláda s mandlemi je čokoláda, ne mandle). Když nic nesedí, "".
+${tax.seznam}
+Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
+      messages: [{ role: 'user', content: popis }] }),
+  });
+  if (!r.ok) return prod;
+  const d = await r.json();
+  const text = (d.content || []).map(c => c.text || '').join('');
+  let j = null; try { j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e) {}
+  if (!j) return prod;
+  const o = Object.assign({}, prod, { aiKdy: Date.now() });
+  if (!prod.nazevCesky && j.nazev_cs) o.nazevCs = eanStr(j.nazev_cs, 100);
+  const k = eanTaxKlic(j.obecny);
+  if (k && tax.nazvy[k]) { o.obecnyId = k; o.obecny = tax.nazvy[k]; }
+  return o;
+}
+
 async function handleEan(request, env, cors) {
   const a = await archivAuth(request);
   if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -573,9 +624,18 @@ async function handleEan(request, env, cors) {
       if (Date.now() - ulozeny.kdy < platnost) produkt = ulozeny;
     }
   } catch (e) {}
+  //  Výrobek uložený před v11.23 ještě nemá český název ani zařazení → doplnit jednou.
+  if (produkt && produkt.stav === 'nalezeno' && !produkt.aiKdy) {
+    try {
+      const doplneny = await eanObohat(env, produkt);
+      if (doplneny.aiKdy) { produkt = doplneny;
+        await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produkt) }); }
+    } catch (e) {}
+  }
   if (!produkt) {
     produkt = await eanZDatabazi(ean);
     if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
+    try { produkt = await eanObohat(env, produkt); } catch (e) {}   // S24 (v11.23): český název + obecný název z taxonomie
     try {
       await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produkt) });

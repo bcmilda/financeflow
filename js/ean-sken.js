@@ -1,4 +1,4 @@
-// FinanceFlow · v11.09 · ean-sken.js · 2026-09-28
+// FinanceFlow · v11.23 · ean-sken.js · 2026-10-02
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -84,6 +84,18 @@ async function eanNactiAliasy(vynutit) {
   } catch (e) { _eanAliasy = _eanAliasy || {}; }
   return _eanAliasy;
 }
+//  S24 (v11.23): synchronní přístup k už načteným výrobkům (pro zařazení do taxonomie).
+function eanProduktZCache(ean) { return (ean && _eanProdukty[ean]) || null; }
+//  Načte výrobky pro víc kódů najednou (Mapa položek po otevření).
+async function eanNactiVse(eany) {
+  const u = [...new Set((eany || []).filter(e => e && _eanProdukty[e] === undefined))];
+  await Promise.all(u.slice(0, 80).map(e => eanNactiProdukt(e)));
+  return u.length;
+}
+//  Název výrobku pro zobrazení: český z databáze → český od AI → původní.
+function eanNazevVyrobku(p) { return p ? (p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || '')) : ''; }
+Object.assign(window, { eanProduktZCache, eanNactiVse, eanNazevVyrobku });
+
 function eanAliasPro(obchod, raw) {
   const k = eanAliasKlic(obchod, raw);
   return (k && _eanAliasy && _eanAliasy[k] && _eanAliasy[k].ean) || '';
@@ -307,7 +319,8 @@ function eanKartaHTML(p, ean) {
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;gap:12px">
     ${p.foto ? `<img src="${escHtml(p.foto)}" alt="" style="width:76px;height:76px;object-fit:contain;background:#fff;border-radius:10px;flex-shrink:0">` : ''}
     <div style="flex:1;min-width:0">
-      <div style="font-weight:700;font-size:.9rem;color:var(--text);overflow-wrap:anywhere">${escHtml(p.nazev || '(bez názvu)')}${p.nazevCesky === false && p.nazev ? ' <span style="font-size:.64rem;color:#fbbf24;font-weight:500">(název není česky)</span>' : ''}</div>
+      <div style="font-weight:700;font-size:.9rem;color:var(--text);overflow-wrap:anywhere">${escHtml(eanNazevVyrobku(p) || '(bez názvu)')}${!p.nazevCesky && !p.nazevCs && p.nazev ? ' <span style="font-size:.64rem;color:#fbbf24;font-weight:500">(název není česky)</span>' : ''}</div>
+      ${!p.nazevCesky && p.nazevCs && p.nazev ? `<div style="font-size:.64rem;color:#8b93ad">na obalu: ${escHtml(p.nazev)}</div>` : ''}
       <div style="font-size:.74rem;color:#a8aec8;margin-top:2px">${[escHtml(p.znacka || ''), escHtml(mn), escHtml(ean)].filter(Boolean).join(' · ')}</div>
       ${p.konkretni ? `<div style="font-size:.72rem;color:#a8aec8;margin-top:3px">🗺️ ${escHtml([p.obecny, p.konkretni].filter(Boolean).join(' → '))}</div>` : ''}
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${ns}${nova}${stitky}</div>
@@ -345,7 +358,7 @@ async function eanPrirad() {
   const r = window._editReceipt; const it = (cil.i >= 0) ? r?.items?.[cil.i] : null;
   if (it) {
     it.ean = v.ean;
-    if (p && p.nazev) it.eanNazev = p.nazev.slice(0, 100); else delete it.eanNazev;
+    if (p && eanNazevVyrobku(p)) it.eanNazev = eanNazevVyrobku(p).slice(0, 100); else delete it.eanNazev;
   }
   if (p) _eanProdukty[v.ean] = p;
   //  Spojení „obchod + zkratka → EAN" uloží worker (komunita bez uid).
