@@ -69,7 +69,7 @@ ok('tlačítko Tabulka i kontejner jsou v app.html',
 {
   const pr=R('premium.js');
   ok('rodina a sdileni už nejsou v PREMIUM_PAGES',
-     /const PREMIUM_PAGES = \['predikce','grafy','ai','narozeniny','nakup','report2','inflace'\];/.test(pr));
+     /const PREMIUM_PAGES = \['predikce','grafy','ai','narozeniny','nakup','inflace'\];/.test(pr));
   ok('showPagePremium už je zvlášť nezamyká', !/name==='sdileni'\|\|name==='rodina'\) && !canUseFeature/.test(pr));
   ok('FIX-310 · showPagePremium ČTE PREMIUM_PAGES (jinak zamyká všechno)',
      /PREMIUM_PAGES\.includes\(name\)/.test(pr) && /!jePlacena \|\| hasPremiumAccess\(\)/.test(pr));

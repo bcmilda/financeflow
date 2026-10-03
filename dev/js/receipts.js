@@ -1,4 +1,4 @@
-// FinanceFlow · v11.19 · receipts.js · 2026-10-01
+// FinanceFlow · v11.26 · receipts.js · 2026-10-02
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -436,6 +436,12 @@ function buildScanTab(receipts, totalSpent) {
   setTimeout(uctenkyKvotaObnov, 0);
   return `<div id="utab-scan-content">
     <div id="uctenkyKvota"></div>
+    <!-- S24 (v11.25, Milan): samostatné skenování čárového kódu výrobku -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+      <span style="font-size:1.4rem">▮▮</span>
+      <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)"><b>Čárový kód výrobku</b><br><span style="color:#a8aec8">Naskenuj obal kdykoli – uvidíš co to je, opravíš český název a přiřadíš ho k položce z účtenky.</span></span>
+      <button class="btn btn-sm" onclick="if(typeof eanSkenujVolne==='function')eanSkenujVolne()">📷 Skenovat čárový kód</button>
+    </div>
     <div class="card" style="margin-bottom:14px"><div class="card-body">
       <div style="font-size:.8rem;color:var(--text2);margin-bottom:14px">
         Claude přečte účtenku, rozpozná obchod a položky. Jedním kliknutím přidáte transakci.<br>
@@ -492,6 +498,46 @@ function buildScanTab(receipts, totalSpent) {
   </div>`;
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (v11.26, T4 krok 2): ÚTRATA PODLE PODKATEGORIÍ TAXONOMIE
+//  cesta: Analýza účtenek → 📊 Statistiky → „🧭 Za co utrácíš"
+//  Kolik za pečivo, maso, mléčné… celkem, průměrně za měsíc, podíl a 3 největší
+//  obecné názvy. Položky mimo taxonomii zvlášť (ať je vidět pokrytí).
+// ══════════════════════════════════════════════════════
+function taxUtrataPodkategorie(items, D) {
+  D = D || getData();
+  const sk = {}, mes = new Set(); let celkem = 0, mimo = 0;
+  (items || []).forEach(it => {
+    const a = (it.lineTotal != null ? parseFloat(it.lineTotal) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1)) || 0;
+    if (a <= 0) return;
+    celkem += a; if (it.date) mes.add(String(it.date).slice(0, 7));
+    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
+    if (!m || !m.tax) { mimo += a; return; }
+    const g = sk[m.tax.podId] || (sk[m.tax.podId] = { id: m.tax.podId, nazev: m.tax.podNazev, ikona: m.tax.ikona, oblast: m.tax.oblastNazev, castka: 0, obec: {} });
+    g.castka += a; g.obec[m.tax.nazev] = (g.obec[m.tax.nazev] || 0) + a;
+  });
+  const n = Math.max(1, mes.size);
+  return { celkem, mimo, mesicu: mes.size, pods: Object.values(sk).map(g => ({ ...g, podil: celkem ? g.castka / celkem * 100 : 0, mesicne: g.castka / n,
+    top: Object.entries(g.obec).sort((a, b) => b[1] - a[1]).slice(0, 3) })).sort((a, b) => b.castka - a.castka) };
+}
+window.taxUtrataPodkategorie = taxUtrataPodkategorie;
+function taxUtrataHTML(items) {
+  const v = taxUtrataPodkategorie(items);
+  if (!v.pods.length) return '';
+  const kc = x => Math.round(x).toLocaleString('cs-CZ') + ' Kč';
+  const mx = Math.max(...v.pods.map(p => p.castka));
+  return `<div class="card" style="margin-bottom:12px"><div class="card-body">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font-weight:700;font-size:.92rem">🧭 Za co utrácíš</div>
+      <div style="font-size:.7rem;color:#a8aec8">${v.mesicu} měs. · taxonomie pokrývá ${v.celkem ? Math.round((1 - v.mimo / v.celkem) * 100) : 0} %</div></div>
+    ${v.pods.slice(0, 12).map(p => `<div style="padding:7px 0;border-top:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem"><span>${escHtml(p.ikona + ' ' + p.nazev)}</span>
+        <span><b>${kc(p.castka)}</b> <span style="color:#8b93ad;font-size:.7rem">· ${kc(p.mesicne)}/měs · ${Math.round(p.podil)} %</span></span></div>
+      <div style="height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin:4px 0"><div style="height:100%;width:${(p.castka / mx * 100).toFixed(0)}%;background:#60a5fa"></div></div>
+      <div style="font-size:.66rem;color:#8b93ad">${p.top.map(([n, a]) => escHtml(n) + ' ' + kc(a)).join(' · ')}</div></div>`).join('')}
+    ${v.mimo > 0 ? `<div style="font-size:.7rem;color:#8b93ad;padding-top:6px;border-top:1px solid var(--border)">📦 Mimo taxonomii ${kc(v.mimo)} – zařadíš je v Mapě položek.</div>` : ''}
+  </div></div>`;
+}
+
 function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
   if(!hasData) return '<div id="utab-stats-content" style="display:none"><div class="card"><div class="card-body"><div class="empty"><div class="ei">📸</div><div class="et">Naskenujte alespoň 3 účtenky</div></div></div></div></div>';
   const avgReceipt = receipts.length ? Math.round(totalSpent/receipts.length) : 0;
@@ -517,7 +563,7 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
     });
   });
 
-  let html = `<div id="utab-stats-content" style="display:none">
+  let html = `<div id="utab-stats-content" style="display:none">${(()=>{ try { return taxUtrataHTML(allItems); } catch(e) { return ''; } })()}
     <!-- Souhrn -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
       <div class="stat-card expense"><div class="stat-label">Celkem utraceno</div><div class="stat-value down">${fmtB(Math.round(totalSpent))}</div><div class="stat-sub">${receipts.length} účtenek</div></div>
@@ -1413,7 +1459,7 @@ function taxCenyVyvoj(items, D) {
     const castka = (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
     if (castka <= 0) return;
     celkem += castka;
-    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D) : null;
+    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
     if (!m || !m.tax) return;
     pokryto += castka;
     const jc = taxJednotkovaCena(it); if (!jc) return;
@@ -1445,7 +1491,7 @@ function taxShrinkflace(items, D) {
   D = D || getData();
   const sk = {};
   (items || []).forEach(it => {
-    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D) : null;
+    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
     if (!m || !m.konkretni) return;
     const jc = taxJednotkovaCena(it); if (!jc || !jc.baleni || !it.date) return;
     const k = (typeof normName === 'function') ? normName(m.konkretni) : m.konkretni.toLowerCase();
@@ -2117,7 +2163,12 @@ function switchUctenkyTab(tab, btn) {
     typeof loadTaxonomie==='function' ? loadTaxonomie() : null,
     typeof loadTaxRozpocet==='function' ? loadTaxRozpocet() : null,
     typeof eanNactiAliasy==='function' ? eanNactiAliasy() : null,
-  ]).then(()=>mapaUzivKresli()).catch(()=>mapaUzivKresli());
+    typeof eanNactiMojeNazvy==='function' ? eanNactiMojeNazvy() : null,
+  ]).then(async ()=>{
+    mapaUzivKresli();
+    //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
+    if(typeof eanNactiVse==='function') { const n = await eanNactiVse(_mapaUziv.map(z=>z.ean)); if(n) mapaUzivKresli(); }
+  }).catch(()=>mapaUzivKresli());
   const button = btn || document.getElementById('utab-'+tab);
   if(button)button.classList.add('active');
 }
@@ -2157,7 +2208,10 @@ function mapaUzivData(receipts, D) {
   return Object.values(podle).map(z => {
     const osobniZaznam = (typeof lookupCategoryMapping==='function') ? lookupCategoryMapping(z.nazev) : null;
     const osobni = rpOsobniVolba(osobniZaznam, D);
-    const mapa = rpMapaNavrh(z.nazev, D);
+    //  v11.23: kód z položky nebo z vlastního spojení obchod+zkratka → výrobek → taxonomie.
+    let eanZ = z.ean;
+    if(!eanZ && typeof eanAliasPro === 'function') { for(const n of z.nakupy) { eanZ = eanAliasPro(n.obchod, n.raw); if(eanZ) break; } }
+    const mapa = rpMapaNavrh(z.nazev, D, eanZ);
     let catId, subcat, stav;
     if(osobni) {
       catId = osobni.id; stav = 'moje';
@@ -2170,10 +2224,7 @@ function mapaUzivData(receipts, D) {
     if(stav !== 'moje' && (!catId || (nk && catId === nk.id))) stav = 'nezarazeno';
     const lisiSe = !!(osobni && mapa && mapa.catId && mapa.catId !== osobni.id);
     //  Kód: z položky účtenky, jinak z vlastního spojení „obchod + zkratka → EAN".
-    let ean = z.ean;
-    if(!ean && typeof eanAliasPro === 'function') {
-      for(const n of z.nakupy) { ean = eanAliasPro(n.obchod, n.raw); if(ean) break; }
-    }
+    const ean = eanZ;
     z.nakupy.sort((a,b) => (b.datum||'').localeCompare(a.datum||''));
     return { ...z, ean, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam, tax: (mapa && mapa.tax) || null };
   }).sort((a,b) => b.pocet - a.pocet || a.nazev.localeCompare(b.nazev, 'cs'));
@@ -2243,6 +2294,7 @@ function buildMapaTab(receipts) {
         oninput="mapaUzivHledej(this.value)" autocomplete="off"
         style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:.82rem;margin-bottom:10px">
       <div id="mapaUzivSeznam">${mapaUzivSeznamHTML()}</div>
+      <div id="mapaPrerazeni" style="margin-top:14px">${mapaPrerazeniTlacitko()}</div>
       <div id="mapaUzivPrevod" style="margin-top:14px"></div>`
       : `<div class="empty"><div class="ei">🗺️</div><div class="et">Zatím žádné položky</div>
          <div style="font-size:.76rem;color:#a8aec8;margin-top:6px">Naskenuj účtenku a položky se tu objeví.</div></div>`}
@@ -2327,7 +2379,7 @@ function mapaUzivSeznamHTML() {
     const i = _mapaUziv.indexOf(z);
     const titul = z.tax ? _mapaVelke(z.tax.nazev) : z.nazev;
     const podtitul = z.tax
-      ? escHtml(rpTaxRetez(z.mapa)) + (z.mapa.zdrojTax==='nazev' ? ' <span style="font-size:.64rem;color:#8b93ad">(podle názvu)</span>' : '')
+      ? escHtml(rpTaxRetez(z.mapa)) + (z.mapa.zdrojTax==='nazev' ? ' <span style="font-size:.64rem;color:#8b93ad">(podle názvu)</span>' : z.mapa.zdrojTax==='ean' ? ' <span style="font-size:.64rem;color:#8b93ad">(podle kódu)</span>' : '')
       : (z.mapa && (z.mapa.obecny || z.mapa.konkretni)) ? '🗺️ ' + escHtml([z.mapa.obecny, z.mapa.konkretni].filter(Boolean).join(' → '))
       : '<span style="color:#8b93ad">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě.</span>';
     return `<div onclick="mapaUzivDetail(${i})" role="button" tabindex="0"
@@ -2385,7 +2437,7 @@ function mapaUzivKartaHTML(i, produkt) {
   const radek = (l, v) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:.8rem;padding:3px 0"><span style="color:#a8aec8">${l}</span><span style="color:var(--text);text-align:right">${v}</span></div>`;
   const q = p && p.mnozstvi ? p.mnozstvi : ((typeof normQty === 'function') ? normQty(z.nazev) : null);
   const gram = q ? (q.hodnota >= 1000 && (q.jednotka==='g'||q.jednotka==='ml') ? (q.hodnota/1000).toLocaleString('cs-CZ') + (q.jednotka==='g'?' kg':' l') : q.hodnota + ' ' + q.jednotka) : '';
-  const titul = (p && p.nazev) || z.mapa?.konkretni || (z.tax ? _mapaVelke(z.tax.nazev) : z.nazev);
+  const titul = (p && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(p, z.ean) : (p && p.nazev)) || z.mapa?.konkretni || (z.tax ? _mapaVelke(z.tax.nazev) : z.nazev);
   const NB = { a:'#038141', b:'#85bb2f', c:'#fecb02', d:'#ee8100', e:'#e63e11' };
   const znacky = p ? [
     p.nutriscore ? `<span title="Nutri-Score: celková nutriční kvalita, A nejlepší" style="background:${NB[p.nutriscore]};color:#fff;font-weight:800;border-radius:6px;padding:3px 8px;font-size:.72rem">Nutri-Score ${p.nutriscore.toUpperCase()}</span>` : '',
@@ -2398,7 +2450,7 @@ function mapaUzivKartaHTML(i, produkt) {
   const zar = z.tax
     ? radek('Oblast', escHtml(z.tax.ikona + ' ' + z.tax.oblastNazev)) + radek('Podkategorie', escHtml(z.tax.podNazev))
       + radek('Obecný název', '<b>' + escHtml(z.tax.nazev) + '</b>') + (z.mapa.konkretni ? radek('Konkrétní', escHtml(z.mapa.konkretni)) : '')
-      + radek('COICOP', escHtml(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : '🗺️ komunitní mapa')
+      + radek('COICOP', escHtml(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
     : `<div style="font-size:.78rem;color:#a8aec8;line-height:1.5">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě. Pomůže, když přiřadíš čárový kód.</div>`;
 
   // nákupy
@@ -2416,10 +2468,13 @@ function mapaUzivKartaHTML(i, produkt) {
     ${nejl}`;
 
   // kód
+  //  v11.24: název z kódu + český název se zdrojem (✎ opravit) a fotky obalu / živin.
   const kod = z.ean
     ? `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.78rem">
          <span>▮▮ <b>${escHtml(z.ean)}</b>${p ? ' · ' + escHtml(p.zdroj||'') : produkt && produkt.stav==='nenalezeno' ? ' · databáze ho zatím nezná' : ''}</span>
-         <button class="btn btn-sm" style="font-size:.7rem" onclick="mapaUzivKartaSken(${i})">📷 Změnit</button></div>`
+         <button class="btn btn-sm" style="font-size:.7rem" onclick="mapaUzivKartaSken(${i})">📷 Změnit</button></div>
+       ${typeof eanNazvyHTML === 'function' && produkt ? `<div style="margin-top:6px">${eanNazvyHTML(p || {}, z.ean, 'mk')}</div>` : ''}
+       ${typeof eanFotoTlacitkaHTML === 'function' && produkt ? eanFotoTlacitkaHTML(z.ean, produkt, 'mapaUzivFotoHotovo') : ''}`
     : `<div style="background:#60a5fa14;border:1px solid #60a5fa44;border-radius:10px;padding:10px 12px">
          <div style="font-size:.78rem;line-height:1.5;color:var(--text)">Na účtence je jen zkratka. <b>Vyfoť čárový kód na obalu</b> a karta se doplní o přesný název, značku, složení, Nutri-Score a živiny. Appka pak pozná stejný výrobek i v jiném obchodě.</div>
          <button class="btn btn-primary" style="margin-top:8px;width:100%" onclick="mapaUzivKartaSken(${i})">📷 Vyfotit čárový kód</button></div>`;
@@ -2454,10 +2509,11 @@ function mapaUzivKartaHTML(i, produkt) {
     ${sekce('Čárový kód', kod)}
     ${sekce('Zařazení', zar)}
     ${sekce('Moje nákupy', nak)}
-    ${p && p.nutrice ? sekce('Nutriční hodnoty na 100 g', typeof eanNutriceHTML === 'function' ? eanNutriceHTML(p.nutrice) : '') : ''}
-    ${p && (p.slozeni || (p.alergeny||[]).length) ? sekce('Složení a alergeny', `<div style="font-size:.76rem;color:#c3c8dc;line-height:1.5">${escHtml(p.slozeni||'')}${(p.alergeny||[]).length ? `<div style="color:#fbbf24;margin-top:4px">Alergeny: ${escHtml(p.alergeny.join(', '))}</div>` : ''}</div>`) : ''}
+    ${p && (p.nutriceObal || p.nutrice) ? sekce('Nutriční hodnoty na 100 g', (typeof eanNutriceHTML === 'function' ? eanNutriceHTML(p.nutriceObal || p.nutrice) : '')
+      + `<div style="font-size:.64rem;color:#8b93ad;margin-top:4px">${p.nutriceObal ? '📸 podle českého obalu (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : 'z databáze Open Food Facts – nesedí s obalem? 📸 vyfoť tabulku živin'}</div>`) : ''}
+    ${p && (p.slozeniObal || p.slozeni || (p.alergeny||[]).length) ? sekce('Složení a alergeny', `<div style="font-size:.76rem;color:#c3c8dc;line-height:1.5">${escHtml(p.slozeniObal||p.slozeni||'')}${(p.alergeny||[]).length ? `<div style="color:#fbbf24;margin-top:4px">Alergeny: ${escHtml(p.alergeny.join(', '))}</div>` : ''}</div>`) : ''}
     <div style="margin-top:14px">${rozp}</div>
-    ${p ? '<div style="font-size:.64rem;color:#8b93ad;margin-top:12px">Data o výrobku: Open Food Facts a sesterské databáze (licence ODbL).</div>' : ''}`;
+    ${p ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:12px;line-height:1.5">Data o výrobku: Open Food Facts a sesterské databáze (licence ODbL) – zapisují je dobrovolníci, mohou být neúplná. Nesedí složení nebo živiny? <a href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Oprav je na Open Food Facts ↗</a>${p.nazevCs && !p.nazevCesky ? ' · český název doplnila AI' : ''}</div>` : ''}`;
 }
 window.mapaUzivKartaHTML = mapaUzivKartaHTML;
 
@@ -2481,6 +2537,8 @@ async function mapaUzivDetail(i) {
     if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(prod);
   }
 }
+function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivDetail(_mapaKartaI); }
+window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
 function mapaUzivKartaZavri() { _mapaKartaI = -1; const o = document.getElementById('mapaKarta'); if(o) o.remove(); }
 function mapaUzivKartaSken(i) {
   const z = _mapaUziv[i]; if(!z || typeof eanSkenujPolozku !== 'function') return;
@@ -2489,12 +2547,91 @@ function mapaUzivKartaSken(i) {
   eanSkenujPolozku({ raw: n.raw, obchod: n.obchod, ean: z.ean, hotovo: () => { mapaUzivKresli(); mapaUzivDetail(i); } });
 }
 
+// ══════════════════════════════════════════════════════
+//  S24 (v11.22, TODO-314, Milan): PŘEŘADIT STARÉ ÚČTENKY PODLE MAPY
+//  cesta: Analýza účtenek → 🗺️ Mapa položek → „🔄 Přeřadit staré účtenky"
+//  Taxonomie platí zpětně sama (dohledává se), ale ROZPOČTOVÁ KATEGORIE je u
+//  položky staré účtenky uložená. Tohle ji na přání přepíše podle dnešního
+//  zařazení: tvoje volba (učení kategorií) → komunitní mapa / taxonomie.
+//  Klíčová slova a „Nákup = nevím" se NEpoužijí – to není lepší informace.
+//  Mění se položky v účtenkách i jejich kopie v transakcích (receiptItems).
+//  Vždy s náhledem, nikdy samo.
+// ══════════════════════════════════════════════════════
+function mapaPrerazeniNavrh(D) {
+  D = D || getData();
+  const zmeny = [];
+  const zpracuj = (it, kde) => {
+    if(!it || !it.name) return;
+    const g = guessItemCatId(it.name, null, it.ean);
+    if(!g || !g.catId || !(g.fromMemory || g.fromMap)) return;
+    const stejnaKat = g.catId === (it.itemCatId || '');
+    if(stejnaKat && (!g.subcat || g.subcat === (it.itemSubcat || ''))) return;
+    zmeny.push({ it, kde, nazev: it.name, z: it.itemCatId || '', na: g.catId, sub: g.subcat || '', stejnaKat });
+  };
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => zpracuj(it, 'uctenka')));
+  (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => zpracuj(it, 'transakce')));
+  return zmeny;
+}
+window.mapaPrerazeniNavrh = mapaPrerazeniNavrh;
+
+function mapaPrerazeniTlacitko() {
+  if(typeof viewingUid !== 'undefined' && viewingUid) return '';
+  const n = mapaPrerazeniNavrh(S).filter(z => z.kde === 'uctenka').length;
+  if(!n) return '';
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)">🔄 <b>${n} položek ve starých účtenkách</b> má podle dnešní mapy jinou rozpočtovou kategorii, než s jakou byly uložené.</span>
+    <button class="btn btn-sm" onclick="mapaPrerazeniNahled()">Zobrazit a přeřadit</button></div>`;
+}
+
+function mapaPrerazeniNahled() {
+  const D = S, zm = mapaPrerazeniNavrh(D);
+  const cats = D.categories || [];
+  const jm = id => { const c = cats.find(x => x.id === id); return c ? (c.icon || '') + ' ' + c.name : '📦 bez kategorie'; };
+  const skup = {};
+  zm.filter(z => z.kde === 'uctenka').forEach(z => {
+    const k = z.z + '→' + z.na + (z.stejnaKat ? '|' + z.sub : '');
+    const g = skup[k] || (skup[k] = { z: z.z, na: z.na, sub: z.sub, stejnaKat: z.stejnaKat, n: 0, nazvy: new Set() });
+    g.n++; g.nazvy.add(z.nazev);
+  });
+  const radky = Object.values(skup).sort((a, b) => b.n - a.n);
+  let o = document.getElementById('mapaPrerazeniOkno');
+  if(!o) { o = document.createElement('div'); o.id = 'mapaPrerazeniOkno';
+    o.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px';
+    o.addEventListener('click', e => { if(e.target === o) o.remove(); }); document.body.appendChild(o); }
+  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:520px">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🔄 Přeřadit staré účtenky</div>
+      <button onclick="document.getElementById('mapaPrerazeniOkno').remove()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:6px 0 10px;line-height:1.5">Rozpočtová kategorie se u těchto položek změní podle tvé volby v Mapě položek nebo podle komunitní mapy. Změní se tím i historické statistiky a rozpočty. Částky ani účtenky se nemění.</div>
+    ${radky.map(r => `<div style="padding:7px 0;border-top:1px solid var(--border);font-size:.78rem">
+      <div><b>${r.n}×</b> ${escHtml(jm(r.z))} → <b style="color:var(--income)">${escHtml(jm(r.na))}</b>${r.stejnaKat && r.sub ? ` › ${escHtml(r.sub)}` : ''}</div>
+      <div style="font-size:.68rem;color:#8b93ad;margin-top:2px">${[...r.nazvy].slice(0, 5).map(escHtml).join(', ')}${r.nazvy.size > 5 ? ' …' : ''}</div></div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1" onclick="mapaPrerazeniProvest()">✅ Přeřadit ${zm.filter(z => z.kde === 'uctenka').length} položek</button>
+      <button class="btn" onclick="document.getElementById('mapaPrerazeniOkno').remove()">Zrušit</button></div></div>`;
+}
+
+function mapaPrerazeniProvest() {
+  const zm = mapaPrerazeniNavrh(S);
+  const cats = S.categories || [];
+  zm.forEach(z => {
+    const c = cats.find(x => x.id === z.na); if(!c) return;
+    if(!z.stejnaKat) { z.it.itemCatId = z.na; z.it.itemCat = c.name; z.it.itemSubcat = z.sub || ''; }
+    else if(z.sub) z.it.itemSubcat = z.sub;
+  });
+  if(typeof save === 'function') save();
+  const n = zm.filter(z => z.kde === 'uctenka').length;
+  const o = document.getElementById('mapaPrerazeniOkno'); if(o) o.remove();
+  if(typeof showToast === 'function') showToast('🔄 Přeřazeno ' + n + ' položek');
+  mapaUzivKresli();
+}
+Object.assign(window, { mapaPrerazeniNahled, mapaPrerazeniProvest });
+
 function mapaUzivKresli() {
   //  Přepočet stavu (mapa se mohla právě dotáhnout) bez překreslení celé stránky.
   const el = document.getElementById('mapaUzivSeznam'); if(!el) return;
   _mapaUziv = mapaUzivData(_mapaUzivReceipts);
   el.innerHTML = mapaUzivSeznamHTML();
   const st = document.getElementById('mapaUzivStat'); if(st) st.innerHTML = mapaUzivStatHTML();
+  const pz = document.getElementById('mapaPrerazeni'); if(pz) pz.innerHTML = mapaPrerazeniTlacitko();
   const f = document.getElementById('mapaUzivFiltry'); if(f) f.innerHTML = mapaUzivFiltryHTML();
   const pr = document.getElementById('mapaUzivPrevod');
   if(pr) { const otevreno = pr.querySelector('details')?.open; pr.innerHTML = mapaUzivPrevodHTML(); if(otevreno) pr.querySelector('details')?.setAttribute('open',''); }
@@ -3400,15 +3537,22 @@ window.rpOsobniVolba = rpOsobniVolba;
 //    catId záznamu (starší záznamy bez taxonomie).
 //  Když položka v mapě vůbec není, zkusí se taxonomie přímo podle názvu –
 //  ale jen jistá shoda (přesně / všechna slova), ne zkratka z pokladny.
-function rpMapaNavrh(itemName, D) {
+//  S24 (v11.23, Milan: „Mapa ukázala Mandle u mléčné čokolády s mandlemi"):
+//  pořadí zařazení do taxonomie: komunitní mapa (admin) → ČÁROVÝ KÓD (obecný
+//  název, který AI vybrala jednou pro celou komunitu podle skutečného výrobku)
+//  → odhad podle názvu na účtence. Konkrétní název: z mapy, jinak český název
+//  výrobku z kódu.
+function rpMapaNavrh(itemName, D, ean) {
   const z = (typeof lookupProductMap === 'function') ? lookupProductMap(itemName) : null;
   let tax = (z && z.obecnyId && typeof taxInfo === 'function') ? taxInfo(z.obecnyId) : null;
   let zdrojTax = tax ? 'mapa' : '';
-  if(!z && typeof taxNavrh === 'function') {
+  const ep = (ean && typeof eanProduktZCache === 'function') ? eanProduktZCache(ean) : null;
+  if(!tax && ep && ep.obecnyId && typeof taxInfo === 'function') { tax = taxInfo(ep.obecnyId); if(tax) zdrojTax = 'ean'; }
+  if(!z && !tax && typeof taxNavrh === 'function') {
     const n = taxNavrh(itemName);
     if(n && (n.jistota === 'presne' || n.jistota === 'slova' || n.jistota === 'tvar')) { tax = n.info; zdrojTax = 'nazev'; }
   }
-  if(!z && !tax) return null;
+  if(!z && !tax && !ep) return null;
   D = D || getData();
   const cats = D.categories || [];
   const prevod = (tax && typeof taxRozpocetUzivatel === 'function') ? taxRozpocetUzivatel(tax.podId) : '';
@@ -3416,7 +3560,8 @@ function rpMapaNavrh(itemName, D) {
     .map(id => cats.find(c => c.id === id)).find(Boolean) || null;
   const subcat = (cat && z && z.subcat && (cat.subs||[]).includes(z.subcat)) ? z.subcat : '';
   return { catId: cat?cat.id:'', catName: cat?cat.name:'', subcat,
-           obecny: (tax && tax.nazev) || (z && z.obecny) || '', konkretni: (z && z.konkretni) || '',
+           obecny: (tax && tax.nazev) || (z && z.obecny) || '',
+           konkretni: (z && z.konkretni) || (ep && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(ep, ean) : '') || '',
            tax, zdrojTax, podlePrevodu: !!(prevod && cat && cat.id === prevod) };
 }
 //  Řetěz pro zobrazení: „🛒 Potraviny › Pečivo › rohlík".
@@ -3439,7 +3584,7 @@ function rpPriradOdhad(it, g) {
   if(g.subcat && !it.itemSubcat) it.itemSubcat = g.subcat;
 }
 
-function guessItemCatId(itemName, receiptCat) {
+function guessItemCatId(itemName, receiptCat, ean) {
   const D = getData();
   // 1. Osobní volba (učení kategorií)
   const cat1 = rpOsobniVolba(lookupCategoryMapping(itemName), D);
@@ -3449,7 +3594,7 @@ function guessItemCatId(itemName, receiptCat) {
     return {catId: cat1.id, catName: cat1.name, subcat, fromMemory: true};
   }
   // 2. Komunitní mapa – návrh
-  const m = rpMapaNavrh(itemName, D);
+  const m = rpMapaNavrh(itemName, D, ean);
   if(m && m.catId) {
     return {catId: m.catId, catName: m.catName, subcat: m.subcat, fromMemory: false, fromMap: true, mapa: m};
   }
@@ -3593,7 +3738,7 @@ function rpAutoAssignCategories() {
   const r = window._editReceipt; if(!r?.items) return;
   r.items.forEach(it => {
     if(!it.itemCatId) { // nepřepisuj ruční přiřazení
-      rpPriradOdhad(it, guessItemCatId(it.name));
+      rpPriradOdhad(it, guessItemCatId(it.name, null, it.ean));
     }
   });
 }

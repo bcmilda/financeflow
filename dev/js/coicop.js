@@ -1,4 +1,4 @@
-// FinanceFlow · v9.17 · coicop.js · 2026-07-25
+// FinanceFlow · v11.26 · coicop.js · 2026-10-02
 // COICOP agregace – COMPUTE oddělený od renderu. Roll-up SKUTEČNÝCH výdajů uživatele
 // z položek účtenek na jemné COICOP úrovně (podtřída 01.1, třída 01.11, kód 01.113)
 // přes productGroupLookup z produktové DB.
@@ -24,7 +24,12 @@ function _coicopRollupItems(items){
     const amt = _coicopLineTotal(it);
     if(amt <= 0) return;
     out.items++;
-    const hit = productGroupLookup(it.name || '');
+    //  S24 (v11.26, T4 krok 2): přesný kód ČSÚ z taxonomie (mapa / čárový kód /
+    //  název) má přednost; klíčová slova produktové DB jen jako záloha.
+    let hit = null;
+    const m = (typeof rpMapaNavrh === 'function' && typeof getData === 'function') ? rpMapaNavrh(it.name || '', getData(), it.ean) : null;
+    if(m && m.tax && m.tax.coicop) hit = { code: m.tax.coicop };
+    if(!hit) hit = productGroupLookup(it.name || '');
     if(hit && hit.code){
       out.code[hit.code] = (out.code[hit.code] || 0) + amt;
       const s = _coicopSub(hit.code);   if(s) out.sub[s] = (out.sub[s] || 0) + amt;
