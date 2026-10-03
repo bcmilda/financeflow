@@ -1,4 +1,4 @@
-// FinanceFlow · v10.96 · inflace.js · 2026-09-21
+// FinanceFlow · v11.26 · inflace.js · 2026-10-02
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -44,7 +44,12 @@ function _inflCollect() {
   //  S23 (TODO-290): oddíl COICOP 1–13 z kategorie položky (fallback kategorie
   //  účtenky) – aby šla osobní inflace porovnat s oficiální po oddílech.
   const _cats = S.categories || [];
-  const _oddil = (it, r) => {
+  //  S24 (v11.26, T4 krok 2): oddíl a podkategorie nejdřív z TAXONOMIE položky
+  //  (komunitní mapa / čárový kód / název) – přesný kód ČSÚ. Dřív se oddíl bral
+  //  z rozpočtové kategorie, takže drogerie koupená v Albertu skončila v „Potravinách".
+  const _tax = it => (typeof rpMapaNavrh === 'function') ? ((rpMapaNavrh(it.name || '', S, it.ean) || {}).tax || null) : null;
+  const _oddil = (it, r, tax) => {
+    if (tax && tax.coicop) { const n = parseInt(String(tax.coicop).slice(0, 2), 10); if (n >= 1 && n <= 13) return n; }
     const c = (it && it.itemCatId && _cats.find(x => x.id === it.itemCatId)) || _cats.find(x => x.name === r.category);
     const n = c && c.coicop != null ? parseInt(c.coicop, 10) : NaN;
     return (n >= 1 && n <= 13) ? n : null;
@@ -119,13 +124,15 @@ function _inflCollect() {
 
       const qty = qtyRaw;
       const spend = lineTot != null ? lineTot : price * qty;
+      const _t = _tax(it);
       obs.push({
         // klíč obsahuje jednotku – tatáž položka může být jednou vážená a jindy balená
         key: key + '|' + unit, name: (it.name || '').trim(), store, date, ts, unit,
         unitPrice: Math.round(unitPrice * 100) / 100,
         perKg, perKgUnit,
         spend, discounted: !!(it.discount && it.discount > 0),
-        oddil: _oddil(it, r),
+        oddil: _oddil(it, r, _t),
+        pod: _t ? { id: _t.podId, nazev: _t.podNazev, ikona: _t.ikona, coicop: _t.coicop } : null,
       });
     });
   });
@@ -189,6 +196,38 @@ function _inflCompute(obs, nowTs) {
     flCount: rows.filter(r => !r.single && r.pctFL != null).length,
     rows,
   };
+}
+
+// ── S24 (v11.26, T4 krok 2): osobní inflace PO PODKATEGORIÍCH taxonomie ──
+//  Index se dál počítá po jednotlivých položkách (FIX-268 – různé výrobky se
+//  nesčítají), jen se položky seskupí podle podkategorie (Pečivo, Maso…). Řadí
+//  se podle DOPADU = změna ceny × kolik za podkategorii utrácíš.
+function _inflPodlePodkategorii(obs) {
+  const sk = {};
+  obs.forEach(o => { if (o.pod) (sk[o.pod.id] = sk[o.pod.id] || { pod: o.pod, obs: [] }).obs.push(o); });
+  return Object.values(sk).map(g => {
+    const c = _inflCompute(g.obs);
+    const zmena = c.yoy != null ? c.yoy : c.firstLast;
+    return { pod: g.pod, zmena, typ: c.yoy != null ? 'yoy' : 'fl', polozek: c.rows.filter(r => !r.single).length,
+      spend: g.obs.reduce((a, o) => a + o.spend, 0) };
+  }).filter(x => x.zmena != null && x.polozek > 0)
+    .sort((a, b) => Math.abs(b.zmena * b.spend) - Math.abs(a.zmena * a.spend));
+}
+window._inflPodlePodkategorii = _inflPodlePodkategorii;
+function _inflPodkategorieCard(obs) {
+  const r = _inflPodlePodkategorii(obs);
+  const vTax = obs.filter(o => o.pod).reduce((a, o) => a + o.spend, 0), vse = obs.reduce((a, o) => a + o.spend, 0);
+  if (!r.length) return '';
+  const mx = Math.max(1, ...r.map(x => Math.abs(x.zmena)));
+  const f1 = v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' %';
+  return `<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">🧭 Co tě zdražuje nejvíc</span></div><div class="card-body">
+    <div style="font-size:.72rem;color:#a8aec8;margin-bottom:8px;line-height:1.5">Tvoje inflace po podkategoriích výrobků, seřazená podle dopadu na peněženku (změna ceny × kolik za to utrácíš). Taxonomie pokrývá ${vse ? Math.round(vTax / vse * 100) : 0} % útraty z účtenek.</div>
+    ${r.slice(0, 10).map(x => `<div style="display:grid;grid-template-columns:minmax(0,1.6fr) 1fr 64px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:.78rem">
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(x.pod.ikona + ' ' + x.pod.nazev)} <span style="font-size:.64rem;color:#8b93ad">${x.polozek} pol.</span></span>
+      <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden"><div style="height:100%;width:${Math.max(3, Math.abs(x.zmena) / mx * 100).toFixed(0)}%;background:${x.zmena > 0 ? '#f87171' : '#34d399'}"></div></div>
+      <span style="text-align:right;font-weight:700;color:${x.zmena > 0 ? 'var(--expense)' : 'var(--income)'}" title="${x.typ === 'yoy' ? 'meziročně' : 'první vs. poslední cena'}">${f1(x.zmena)}</span></div>`).join('')}
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:6px">Meziročně, kde jsou data za 2 roky; jinak první vs. poslední cena.</div>
+  </div></div>`;
 }
 
 // ── Per-obchod indexy ──
@@ -325,7 +364,7 @@ function renderInflace() {
   // ── hlavní čísla ──
   //  S23: nahoře srovnání s oficiální inflací ČSÚ (počítá se ze VŠECH účtenek,
   //  filtry níže se ho netýkají – oficiální číslo je taky za celý koš).
-  let h = _inflOficialniCard(all.obs) + `<div class="card" style="margin-bottom:14px">
+  let h = _inflOficialniCard(all.obs) + _inflPodkategorieCard(all.obs) + `<div class="card" style="margin-bottom:14px">
     <div class="card-header">
       <span class="card-title">🧮 Tvoje inflace</span>
       <span style="font-size:.7rem;color:#a8aec8">z ${obs.length} cen · ${comp.rows.length} položek</span>
