@@ -1,9 +1,14 @@
 # FinanceFlow – Features
 
-> Konsolidovaný dokument ze **4 sessions** (`features.md` → `features-1.md` → `features-2.md` → `FEATURES-3.md`).
-> Každý záznam označen zdrojovou session: `**(Session N)**`. Nové funkce a změny stavu mezi sessions jsou vyznačeny.
+> **Zdrojový soubor (základ):** `features_consolidated_2026-05-15_s6.md` (konsolidace Sessions 1–6)
+> **Aplikované patche Session 7:** sekce features ze souboru `patch-session7-COMBINED(1).md` – Session 7.0 (2026-04-25) + Session 7.1 (2026-04-30)
+> **Procedura:** Aplikace S7 combined patche. Nová data označena `**(Session 7.0)**` / `**(Session 7.1)**`.
+> **Datum poslední aktualizace:** 2026-05-15
+>
+> Konsolidovaný dokument ze **7 sessions (vč. 7.1)**. Každý záznam označen zdrojovou session: `**(Session N)**`.
+> Doplnění z Milanova merge jsou označena `**(Merge Session 1-4)**`.
 > Tento dokument popisuje **aktuální stav** funkcí. Plánované úkoly s detaily jsou v `todo.md`.
-> Poslední aktualizace: konsolidace 4 sessions, 2026-04-16.
+> Poslední aktualizace: 2026-05-15 (Session 7.0 + 7.1 patch).
 
 ---
 
@@ -16,10 +21,12 @@
 | Grafy | 4 záložky | Box plot přesun | 1 |
 | AI funkce | 3 | 0 | 1 |
 | Import / Export | 4 | 1 (PDF velké) | 2 |
-| Offline | 1 (účtenky) | 1 (transakce) | 1 (SW) |
+| Offline | 2 (účtenky + transakce⚠️) | 0 | 1 (SW) |
 | Bezpečnost | 3 | 0 | 0 |
 | Komunita | 3 | 0 | 1 |
-| Admin | 7 | 0 | 0 |
+| Admin | 8 | 0 | 0 |
+| Vizualizace | 1 (Bubble chart) | 1 (Gradient⚠️) | 1 (Chord) |
+| Nové sekce S7.1 | 4 (Plány, Budoucí, Aktiva, Poradce) | 1 (Měsíční report periody) | 0 |
 | Platby / Monetizace | 0 | 0 | 1 (rozhodnutí) |
 | **Celkem** | **~50 funkcí** | **4** | **10+** |
 
@@ -32,11 +39,22 @@
 | 1 | **PIN pad** | S3: 🚧 Rozpracováno 50 % | ✅ **Funguje** – S3 „50 %" byl způsoben očekáváním full-screen systémového PIN padu, což **webová appka nemůže technicky poskytnout**. Aplikační overlay je maximum dosažitelné. Viz `explanations.md` sekce 1. |
 | 2 | **Nákupní seznam** | S3: ✅ Hotovo | ⚠️ **Nutno ověřit** – viz `todo.md` TODO-047 |
 | 3 | **Analýza účtenek** | S1: BETA | ✅ Hotovo, produkčně nasazené |
-| 4 | **Email notifikace** | S3: 🚧 70 % hotovo (blokuje Resend doména) | 🔴 **Stále nefunguje** – viz `bugs.md` OPEN-001, `todo.md` TODO-003 |
+| 4 | **Email notifikace** | S3: 🚧 70 % hotovo (blokuje Resend doména) | ✅ **Funguje (Session 6)** – Worker v5, Resend, emaily dorazí na bc.milda@gmail.com. Viz `bugs.md` FIX-046, `decisions.md` ADR-026 |
 | 5 | **Grafy – záložky** | S2: 3 záložky (Obecné/Měsíční/Roční) | ✅ 4 záložky (+ Všechny roky) |
-| 6 | **Grafy – renderování** | S3: ✅ Po refaktoru v6.36 | 🔴 **Bug přetrvává** – viz `bugs.md` OPEN-002 |
+| 6 | **Grafy – renderování** | S3: ✅ Po refaktoru v6.36 | ✅ **Opraveno (Session 6)** – FIX-042–045, potvrzeno Milanem. Viz `bugs.md` |
 | 7 | **COICOP engine** | S1: ✅ Hotovo | ⚠️ **Plánovaný rework** – viz `todo.md` TODO-048 |
 | 8 | **Offline režim** | S1: Plánováno (Service Worker) | ✅ Účtenky přes IndexedDB hotové (Session 4), Service Worker stále chybí |
+| 9 | **Predikce tabulka** | S5: nefunkční (`computeYearForecast` chyběla) | ✅ **Opraveno (Session 6)** – funkce přidána do `helpers.js` |
+| 10 | **Sentry monitoring** | S6: neexistoval | ✅ **Nasazeno (Session 6)** – async loader, error tracking. Viz `decisions.md` ADR-025 |
+| 11 | **Offline transakce** | S4: IndexedDB engine existuje, ale `save()` ho nevolal | ✅ **Implementováno (Session 6)** – offline větev v `save()` v `app.js`. ⚠️ Čeká na ověření uživatelem |
+| 12 | **GitHub Pages** | S5: nefungovalo | ✅ **Funkční (Session 6)** – `bcmilda.github.io/financeflow` z větve `dev`. Viz `decisions.md` ADR-011 |
+| 13 | **PDF import** | S6: ✅ text extraction | ✅ **Stabilizováno (Session 7.0)** – chunking 15 stránek/dávka, JSON parsing fix |
+| 14 | **Donut chart / Dashboard** | S1–S6: koláčový donut | ✅ **Nahrazen Bubble chartem (Session 7.0/7.1)** – 4 varianty A/B/C/D. ⚠️ OPEN-026, OPEN-027 |
+| 15 | **Přání a cíle (nakup.js)** | S7.0: plánováno | ✅ **Implementováno (Session 7.1)** – progress bar, deadline, goal_deposits. ✅ záložka funguje po nahrání správného `nakup.js` (deployment fix, 2026-05-19) |
+| 16 | **Měsíční report – záložky period** | S7.0: plánováno | 🚧 **Částečně (Session 7.1)** – záložky existují, přepočet dat nefunguje (OPEN-028) |
+| 17 | **Budoucí platby** | S7.0: plánováno | ✅ **Implementováno (Session 7.1)** – `budouci.js`, horizont 30–365 dní |
+| 18 | **Report pro finančního poradce** | S7.0: plánováno | ✅ **Implementováno (Session 7.1)** – `advisor.js`, AI doporučení, print CSS |
+| 19 | **Finanční aktiva** | S7.1: nové | ✅ **Implementováno (Session 7.1)** – `assets.js`, Net Worth = aktiva + peněženky − dluhy |
 
 ---
 
@@ -205,9 +223,10 @@ Graf systém po refaktoru v6.36 má **4 záložky** se sdíleným filtrem katego
 - **Export JSON** – kompletní záloha dat
 
 ### Známá omezení importu
-- ⚠️ Velké PDF (>200 transakcí) selhávají na `max_tokens` – viz `bugs.md` OPEN-003
+- ~~⚠️ Velké PDF (>200 transakcí) selhávají na `max_tokens`~~ ✅ **Vyřešeno (Session 6)** – pdf.js text extraction + chunking. Viz `bugs.md` FIX-046
 - ⚠️ `.xlsm` soubory s makry nepodporovány – viz `bugs.md` OPEN-013
 - ⚠️ Velké PDF (>10 MB) selžou na Worker size limitu – viz `bugs.md` OPEN-004
+- ⚠️ Skenovaná PDF bez textu nejsou podporována (OCR není implementováno)
 
 ---
 
@@ -298,8 +317,11 @@ Graf systém po refaktoru v6.36 má **4 záložky** se sdíleným filtrem katego
 - **Záložka Support zprávy** – jen Admin UID **(S3)**
 - **Affiliate sledování** – `?ref=` parametr → Firebase **(S1+S2)**
 - **Changelog verzí** v „O aplikaci" **(S2)**
+- **Sentry monitoring** – async error tracking, `setUser` po přihlášení **(Session 6)**
+- **Verze v O aplikaci** – banner opraven na aktuální verzi **(Session 6)**
 
-> 🔴 **Známý problém:** `loadLowConf()` a `loadMappingStats()` vracejí 403 dokud nejsou nastavena Firebase Rules – viz `bugs.md` FIX-039 a `todo.md` TODO-001.
+> ~~🔴 **Známý problém:** `loadLowConf()` a `loadMappingStats()` vracejí 403~~
+> ✅ **Vyřešeno (Session 6)** – Firebase Rules admin read přístup nasazen. Viz `decisions.md` ADR-027, `bugs.md` FIX-047.
 
 ---
 
@@ -340,6 +362,67 @@ Memory Rules pro Claude Code zajišťují 4 povinné kroky při každé změně 
 
 ---
 
+## ✅ HOTOVÉ FUNKCE – Nové v Session 7.0 (v6.49)
+
+- **PDF import – text extraction** – pdf.js 3.11.174, chunking 15 stránek/dávka, merge výsledků **(Session 7.0)**
+  - Worker typ: `bank_statement_text` (vedle stávajícího `bank_statement`)
+  - JSON parsing fix: `indexOf('{')` + `lastIndexOf('}')` místo lazy regex
+  - ⚠️ Skenovaná PDF bez textu nepodporována (OCR chybí)
+  - 🔗 Viz: `architecture.md` sekce 17, FIX-046, ADR-032
+- **Bubble chart vizualizace výdajů** – nahrazuje donut chart v dashboardu **(Session 7.0/7.1)**
+  - A) Cluster – velké kategorie + satelity
+  - B) Drill-down – L1 kategorie → L2 podkategorie → L3 sdílené tagy
+  - C) Gradient – linearGradient z barev rodičů pro sdílené subkategorie
+  - D) Treemap – HTML grid layout
+  - `SHARED_NAMES` Set pro sdílené podkategorie (gradient okraj + 🔗 + drill)
+  - ⚠️ OPEN-026: bubliny pod lištu | ⚠️ OPEN-027: Gradient bez sdílených dat
+  - 🔗 Viz: `architecture.md` sekce 16, ADR-030, ADR-037
+- **Firebase Rules – referrals + referral_clicks** – opravena chyba `initReferral Permission denied` **(Session 7.0)**
+  - 🔗 Viz: FIX-047
+
+---
+
+## ✅ HOTOVÉ FUNKCE – Nové v Session 7.1 (v6.49–v6.50)
+
+### 🎯 Plány a cíle **(Session 7.1)**
+- Záložka v Nákupním seznamu: 🛒 Nákupní seznam | 🎯 Plány a cíle
+- Progress bar, deadline, motivační stav (🎉/🟢/🔵/🟡/🔴)
+- Firebase: `goal_deposits/{id}` – vklady do cílů
+- Virtuální peněženka (`renderVirtualWallet`) v sekci Peněženky
+- ⚠️ Záložka se aktuálně nezobrazuje – viz OPEN-029, TODO-072
+- 🔗 Viz: TODO-056, ADR-034
+
+### 🗓️ Budoucí platby **(Session 7.1)**
+- Nová sekce `budouci.js`, nav item 🗓️
+- Agreguje: šablony + narozeniny + přání/cíle (`isGoal`) + dluhy
+- Konfigurovatelný horizont: 30 / 60 / 90 / 180 / 365 dní
+- Urgency styly: Today / Tomorrow / <7 days
+- 🔗 Viz: TODO-058
+
+### 💎 Finanční aktiva **(Session 7.1)**
+- Nová sekce `assets.js`, 5 typů: nemovitosti / investice / vozidla / spoření / ostatní
+- `computeAssetsNetWorth(D)` → `{totalAssets, totalWallets, netWorth, byType}`
+- Net Worth = aktiva + peněženky − dluhy
+- ⚠️ **NIKDY nepřejmenovávat** `computeAssetsNetWorth()` – kolize s `computeNetWorth()` z `premium.js`
+- 🔗 Viz: TODO-059, ADR-035, ADR-036
+
+### 📋 Report pro finančního poradce **(Session 7.1)**
+- Záložka 📋 Poradce v měsíčním reportu (`advisor.js`)
+- Karty: Finanční zdraví / Cashflow / Zadlužení (DSTI+DTI) / Rezerva / Net Worth
+- Cashflow graf 12M (canvas), Struktura výdajů (horizontal bar canvas)
+- AI doporučení: Worker typ `advisor_report`, max 4 prioritizovaná
+- Print CSS: `window.print()` tlačítko
+- ⚠️ `renderAdvisor()` je async – volat přes `setTimeout(..., 30)` po `el.innerHTML`
+- 🔗 Viz: TODO-059, ADR-038
+
+### 🚧 Měsíční report – záložky period **(Session 7.1)**
+- Záložky 7D / 1M / 3M / 6M / 12M + 📋 Poradce přidány do `renderReport()`
+- `helpers.js`: `getTxByRange()`, `getMonthsInRange()`
+- ⚠️ Přepočet dat dle periody nefunguje – viz OPEN-028, TODO-067
+- 🔗 Viz: TODO-057
+
+---
+
 ## 🔄 ROZPRACOVANÉ FUNKCE
 
 ### Detektor úspor – komunitní předplatná **(S2)**
@@ -373,10 +456,29 @@ Memory Rules pro Claude Code zajišťují 4 povinné kroky při každé změně 
 - ❌ Překlady v UI, přeložené chybové hlášky
 - **🔗 Cross-reference:** `todo.md` TODO-028
 
-### Offline integrace transakcí **(S4)**
-- ✅ API `saveTxOffline()` existuje
-- ❌ `transactions.js` ho nevolá
-- **🔗 Cross-reference:** `todo.md` TODO-002
+### Offline integrace transakcí **(S4 → S6)**
+- ✅ API `saveTxOffline()` existuje **(S4)**
+- ✅ **(Session 6 update):** Offline větev přidána do `save()` v `app.js`
+- ⚠️ Čeká na ověření uživatelem v reálném provozu
+- **🔗 Cross-reference:** `todo.md` TODO-002, `decisions.md` ADR-028
+
+### Bubble chart – Gradient varianta **(Session 7.1)**
+- ✅ Záložka C implementována
+- ⚠️ V reálných datech nejsou sdílené podkategorie → `SHARED_NAMES` prázdná
+- ❌ Chybí fallback UI nebo demo mode
+- **🔗 Cross-reference:** OPEN-027, TODO-069
+
+### Měsíční report – záložky period **(Session 7.1)**
+- ✅ UI záložek přidáno (7D/1M/3M/6M/12M/Poradce)
+- ❌ `computeHealthScores()` ignoruje `rMonth/rYear`, bere `S.curMonth/S.curYear` hardcoded
+- **Status:** UI hotové, datová logika chybí
+- **🔗 Cross-reference:** OPEN-028, TODO-067, TODO-065
+
+### Plány a cíle – záložka se nezobrazuje **(Session 7.1)**
+- ✅ `nakup.js` má správný kód pro záložky
+- ❌ Záložka `🎯 Plány a cíle` se v UI nezobrazuje
+- **Debug checklist:** `id="nakupTabs"` v HTML? `modalGoal` + `modalGoalDeposit` přítomny? `nakup.js?v=todo056` v script tazích?
+- **🔗 Cross-reference:** OPEN-029, TODO-072
 
 ---
 
@@ -394,7 +496,20 @@ Memory Rules pro Claude Code zajišťují 4 povinné kroky při každé změně 
 
 ### Offline & Performance
 - **Service Worker** – plný offline + push notifikace → `todo.md` TODO-019
-- **Bundling** (Vite/esbuild) – 22 JS souborů do jednoho → `todo.md` TODO-035
+- **Bundling** (Vite/esbuild) – 25 JS souborů do jednoho → `todo.md` TODO-035
+
+### Vizualizace **(Session 7.0/7.1)**
+- **Chord diagram** – propojení kategorií (Statistiky nebo Report poradce) → TODO-054, ADR-031
+- **Treemap v 12M záložce reportu** – základ `bTreemap()` hotový v `ui.js` → `todo.md` TODO-062
+- **Tooltip při hover na bublinu** – prototyp v `ff-grafy-final.html` → `todo.md` TODO-070
+- ~~**Progres schema fin. zdraví v reportu**~~ ✅ VYŘEŠENO S7.1 – `renderHealthProgressSchema()` + `drawHealthRing()` v `advisor.js`. → `todo.md` TODO-071
+
+### Opravy S7.1 **(Session 7.1 – otevřené)**
+- **Měsíční report – přepočet dat dle periody** → TODO-067, OPEN-028
+- **Bubble chart – bubliny pod lištu** → TODO-068, OPEN-026
+- **Sdílené tagy v Gradient variantě** → TODO-069, OPEN-027
+- **Plány a cíle – záložka se nezobrazuje** → TODO-072, OPEN-029
+- **Bank sekce – NaN/0 při prázdném měsíci** → TODO-064, OPEN-030
 
 ### Integrace
 - **Android NotificationListenerService** – zachycení bankovních notifikací → `todo.md` TODO-024
@@ -417,19 +532,798 @@ Memory Rules pro Claude Code zajišťují 4 povinné kroky při každé změně 
 
 ---
 
+## 🔧 Verzování a systém **(Merge Session 1-4)**
+
+- **Verzovací systém** – Claude Code Memory Rules pro konzistentní changelog **(Session 4)**
+- **Cache-busting** – SHA256 hashe prvních 8 znaků pro všechny změněné `.js` soubory **(Session 4)**
+
+---
+
+## 📊 Statistiky funkčnosti **(Merge Session 1-4)**
+
+| Oblast | Hotovo | V práci | Plánováno |
+|--------|--------|---------|-----------|
+| Základní finance | 13 | 0 | 0 |
+| Grafy | 4 záložky | 1 | 1 |
+| AI funkce | 4 (+ advisor) | 0 | 1 |
+| Sdílení | 3 | 0 | 0 |
+| Import | 5 | 0 | 2 |
+| Bezpečnost | 3 | 0 | 0 |
+| Email | 1 | 0 | 0 |
+| Platby | 0 | 0 | 1 |
+| Offline | 2 | 0 | 1 (SW) |
+| Admin | 8 | 0 | 0 |
+| Komunita | 3 | 0 | 1 |
+| Monitoring | 1 | 0 | 0 |
+| Vizualizace | 3 (Cluster/Drill/Treemap) | 1 (Gradient⚠️) | 2 (Chord/Tooltip) |
+| Nové S7.1 | 3 (Budoucí/Aktiva/Poradce) | 2 (Plány⚠️/Report periody) | 0 |
+| **Celkem** | **~53** | **4** | **8** |
+
+**(Session 7.0 update):** PDF import stabilizován ✅, Bubble chart 4 varianty ✅, Firebase Rules referrals ✅.
+**(Session 7.1 update):** Nové sekce Plány a cíle ⚠️, Budoucí platby ✅, Finanční aktiva ✅, Report poradce ✅. Měsíční report záložky 🚧.
+
+---
+
 ## 🔗 Cross-reference mapa
 
 | Téma | Kde hledat další info |
 |---|---|
-| Otevřené bugy funkcí | `bugs.md` sekce OPEN-001 až OPEN-020 |
-| Konkrétní úkoly / priority | `todo.md` sekce P1–P4 |
-| Architektonická rozhodnutí | `decisions.md` sekce ADR-001 až ADR-015 |
+| Otevřené bugy funkcí | `bugs.md` sekce OPEN-001 až OPEN-030 |
+| Konkrétní úkoly / priority | `todo.md` sekce P1–P4, TODO-056 až TODO-072 |
+| Architektonická rozhodnutí | `decisions.md` sekce ADR-001 až ADR-040 |
 | Struktura souborů | `architecture.md` sekce 2 |
 | Datový model | `architecture.md` sekce 4 |
 | Firebase Rules | `architecture.md` sekce 8 |
 | Cloudflare Worker | `architecture.md` sekce 7 |
 | Bezpečnost + security incidents | `context.md` + `architecture.md` sekce 7 (API klíče) |
+| Sentry integrace | `architecture.md` sekce 14, `decisions.md` ADR-025 |
+| PDF import systém | `architecture.md` sekce 17 |
+| Bubble chart systém | `architecture.md` sekce 16, `decisions.md` ADR-030, ADR-037 |
+| Nové soubory S7.1 | `architecture.md` sekce 3 (budouci.js, assets.js, advisor.js) |
 
 ---
 
-*Konsolidováno: 2026-04-16 | Sessions: 1 → 4 | Autor: Milan Migdal*
+## Funkce Session 8–10 (v6.65 → v7.31)
+
+### Finanční radar **(Session 10)**
+- Včasné varování: růst výdajů, kritické zatížení splátkami, předplatné ke kontrole, nízké odkládání.
+- Predikce: zůstatek konce měsíce, výhled 3 měsíce, kvartální projekce.
+- Denní graf „Měsíc den po dni": kumulativní výdaje, čára příjmu (reálný měsíční), ideální tempo, predikce zbytku, denní sloupce; interaktivní hover; i pro minulé měsíce.
+- Volné peníze: „Můžeš ještě utratit do konce měsíce" (po rezervě na budoucí platby).
+- „Kam směřuju": 4 sloupce (Příjem / Plánovaný výdej / Budoucí platby / Cashflow).
+- Nadcházející platby: 3 sloupce = 3 měsíce (suma per měsíc), opakující se platby viditelné.
+- Trend výdajů po týdnech od výplaty (Kč/den) + tabulka.
+
+### Predikce **(Session 10)**
+- 3 kumulativní křivky: YTD (skutečnost) / Předpoklad (skutečnost + predikce) / Odhad roku.
+- Záložka Sezonalita: reálná sezonalita (z dat) vs pevný model aplikace.
+- Záložka Spending Pace: aktuální tempo vs historický průměr ke stejnému dni; verdikt.
+- Tlačítko „Skrýt prázdné podkategorie".
+
+### Komunita / COICOP **(Session 10)**
+- 13 oddílů CZ-COICOP 2024, tříúrovňový rozklikávací strom.
+- Přepínač osoba / domácnost + OECD přepočet.
+- Rodinný souhrn (sčítání výdajů partnerů v režimu Domácnost).
+
+### Finanční obraz **(Session 10)**
+- FFR (Financial Freedom Ratio), inflace životního stylu, Income Diversification (HHI), Wealth Momentum, Asset Allocation donut.
+
+### Sdílení & Partneři **(Session 10)**
+- Read-only model: partneři se vidí navzájem, každý zapisuje vlastní data.
+
+### Analýza účtenek **(Session 9–10)**
+- Item-level kategorizace, split na více transakcí dle kategorií.
+- itemStats (Firebase): cena/kg, shrinkflation, historie cen.
+- Banner „Datum v budoucnosti – zkontroluj".
+
+### Skóre finančního zdraví **(Session 10)**
+- Deterministický výpočet, sjednoceno na `computeHealthScores().overall` (4 komponenty + bonus konzistence).
+
+### Monetizace **(Session 10, připraveno/blokováno)**
+- Premium systém + donate UI připraveny; Stripe Payment Links + webhook navrženy (ADR-053), blokováno (IČO/OSVČ). Zámky zatím vypnuté.
+
+---
+
+*Konsolidováno: 2026-04-16 | Doplněno z Milan merge S1-4: 2026-05-15 | Session 6 patch: 2026-05-15 | Session 7.0+7.1 patch: 2026-05-15 | Session 8–10 doplnění: 2026-06-01 | Sessions: 1 → 10 | Autor: Milan Migdal*
+*Poznámka ke konsolidaci: Claude consolidated merge S1-4 jako základ + Merge Session 1-4 + patch_s6.md (Session 6) + patch-session7-COMBINED(1).md (Sessions 7.0 + 7.1) + Session 8–10 doplnění (Summary_s9, Summary_s10).*
+
+
+---
+
+## Session 11 – nové funkce (v7.50 → v7.69)
+
+### Landing page v4 **(Session 11, v7.51)**
+- Outcome-framing místo feature-listu. Sekce: hero s receipt-breakdown WOW mockup (bankovní výpis → detailní položky), nepřítel „finanční slepota" (10–20 % příjmů mizí), user journey Den 1→3→10→30, banka-vs-FinanceFlow srovnání, founder story (trust), FOMO pricing (zakládající 49 Kč, 347/500 míst), viral score card (82/100, lepší než 71 % lidí v ČR), testimonials (Petr/Ostrava, Jana/Brno, Martin/Praha – placeholder).
+- **Fonty:** Syne + Plus Jakarta Sans. **Barvy:** #080c12 (pozadí), #7dd34f (accent).
+- **Soubor:** `index.html` (landing), `app.html` (původní index.html přejmenován)
+
+### Affiliate + Partner pairing sjednoceno **(Session 11, v7.62/v7.68)**
+- Jeden `?ref=KÓD` odkaz v sekci Sdílení → affiliate tracking + partnerské párování.
+- `pairPartners(ownerUid, myUid)`: bidirektivní přidání do `users/{uid}/partners/`, +50 bodů (dedup v `partner_bonus/{owner}_{me}`).
+- ADR-058. `share.js`.
+
+### Receipt datový model lineTotal + discount **(Session 11, v7.62)**
+- Pole `lineTotal` (skutečně zaplacená cena řádku) a `discount` přidána do AI promptu a datového modelu.
+- Helper `lineAmt(it)` – zpětně kompatibilní zdroj ceny položky.
+- ADR-059. `worker.js` + `receipts.js`.
+
+### Receipt items v transakcích (Split styl) **(Session 11, v7.64)**
+- Transakce ze skenované účtenky zobrazí badge **📷 N pol. ▾** – klik rozbalí položky (grid Položka|Kč|Mn.) stejně jako Split.
+- Tlačítko **📷** v listu transakcí otevře konkrétní účtenku v Historii (`openReceiptInHistory(date, store)`).
+- `buildTxRow()` v `ui.js`. `openReceiptInHistory()` v `receipts.js`.
+
+### Sync receipt edits → transakce **(Session 11, v7.68)**
+- Editace účtenky v Historii (rpSave) nyní synchronizuje tagy + receiptItems do propojených transakcí.
+- Funkce `syncReceiptToTransactions(r)` – matchuje transakce podle `receiptDate` + `receiptStore`.
+- `receipts.js`.
+
+### Grafy: sdílené filtry Roční↔Vsechny + kompaktní UI **(Session 11, v7.60)**
+- `grafFilterWrap` (kategorie, podkategorie, typ) sdílen pro záložky Měsíční, Roční i Všechny roky.
+- Přepnutí mezi Roční a Všechny roky zachová výběr filtru.
+- Duplikátní nav `grafMonthNav`/`grafYearNav` odstraněn – karty mají vlastní navigaci.
+- Legenda měsíčního grafu přesunuta do HTML `#mesicniLegend` (0.82rem, čitelné).
+- `charts.js` + `app.html`.
+
+### Virtuální peněženka v převodech **(Session 11, v7.68)**
+- „Převod mezi peněženkami" → optgroup **🎯 Virtuální peněženka – cíle** v dropdown „Do peněženky".
+- Převod do cíle = výdaj z peněženky (v `S.transactions`) + vklad do `goal_deposits/{id}`.
+- `premium.js`: `renderTransferDropdowns()` + `doTransfer()`.
+
+### GA4 analytika **(Session 11, v7.63)**
+- Tag `G-F2Z8DK4RR0` na landing page (`index.html`) a appce (`app.html`).
+- App: `send_page_view:false` + manuální `page_view` event v `showPage()` (helpers.js) pro každý přechod.
+- ADR-057.
+
+### Grafy: Obchody tab přepracován **(Session 11, v7.64)**
+- Odstraněna ✎/✕ tlačítka (editace patří do Historie).
+- Items grid Položka | Kč (lineAmt) | Mn. (qty+unit). Sleva badge u zvýhodněných položek.
+- `receipts.js`.
+
+---
+
+*Aktualizace Session 11: 2026-06-09*
+
+---
+
+# SESSION 12.1 (v7.70 -> v7.94)
+
+### Runway „Do výplaty" **(v7.71, v7.75, v7.76)**
+Radar přepínač Měsíc/Do výplaty; cyklus výplata→výplata, denní limit, stacked týdenní graf, minReserve 🛡️, projekce konce cyklu, srovnání s minulým cyklem, víkend/všední tempo.
+
+### Produktová databáze ČSÚ **(v7.72)**
+product-groups.json (402 COICOP skupin, 427 reprezentantů, 1066 keywords); productGroupLookup → {code, tag, group}; prefill hook v náhledu účtenky.
+
+### COICOP správa **(v7.73, v7.74)**
+Admin „Podkategorie bez COICOP" + assignSubCoicop; volba „0 – mimo COICOP"; AI auto-kategorizace vrací coicop chip.
+
+### Onboarding průvodce **(v7.76)**
+renderOnboardingCard – 5 kroků, ff_onboardHide.
+
+### Email + heslo přihlášení **(v7.79, v7.80)**
+Google OAuth + Email/heslo (přepínač Přihlásit/Registrovat), 22 českých chybových hlášek, reset hesla, zobrazit/skrýt heslo. „Pokračovat bez účtu" odstraněno z UI.
+
+### Nákupní DNA – obchody **(v7.78, v7.81, v7.82)**
+Tabulka „Obchody v měsíci" + spojnicový graf „Trend útrat dle obchodů" (storeBrandColor 20 CZ řetězců, badge s iniciálou na průsečíku, dotyk). Dedup obchodů (NFD). Řazení dle sumy, min 1 návštěva.
+
+### Transfery = pohyb majetku **(v7.83, v7.84, v7.87)**
+isTransferTx; přesuny vyloučeny ze statistik, započítány do zůstatků peněženek. Šablona typu ↔️ Přesun (opakovaná platba na spoření) – pár transakcí s transferId. V budoucích platbách neutrální barva.
+
+### Mobilní transakce – karty **(v7.84, v7.90)**
+Tap na řádek → editace; akční tlačítka 🗑/✂️ v modalu. Mobilní karta (≤820px): kompletní částka, podkategorie, zůstatek, tagy, bez tlačítek. Účtenkové řádky rozbalují položky, split rozbaluje děti.
+
+### Průběžný zůstatek peněženky **(v7.85)**
+„(644 035 Kč)" pod částkou transakce (Wallet styl), chronologicky per peněženka.
+
+### Klikací projekt v transakci **(v7.85)**
+📁 badge → openProjectDetail.
+
+### Zobrazení slev **(v7.85)**
+receiptSavings z it.discount (detekce z S10): „💸 ušetřeno" na účtence + karta „Ušetřeno slevami" (měsíc/rok/celkem + 6M průběh).
+
+### Finanční aktiva dle likvidity + track record **(v7.86)**
+Viz ADR-063. Graf vývoje hodnoty (osy, čára vloženo, tooltip), zisk/ztráta ▲/▼ v % i Kč.
+
+### Uvítací hláška **(v7.89)**
+/welcomeMessage – modal jednou při prvním spuštění; admin editor v Oznámení + náhled; verze hlášky umožní zobrazit znovu.
+
+### Tier systém + zámky **(v7.91, v7.92)**
+Free/Premium/Pro (viz ADR-062). Zámky: AI Rádce, Analýza účtenek, Nákupní seznam, Sdílení/rodina, PDF import = Premium; CSV/Excel zdarma; Import z banky (SMS) = admin.
+
+### Zabezpečení **(v7.79)**
+firebase.json: 5 bezpečnostních HTTP hlaviček + ignore rozšířen (database_rules.json, *.yml, dev HTML). Playwright starter kit.
+
+### Predikce + Dashboard vylepšení **(v7.93, v7.94)**
+Treemap tooltipy + 3 vrstvy; Tempo verdikt pod grafem; predikční tabulka nowrap + legenda barev; sezonalita osa Y po 10%; Radar „Kam směřuju" přepracovaná logika (žádný překryv sloupců) + čára skutečného stavu.
+
+---
+
+---
+
+*Aktualizace Session 12.1: 2026-06-14 | v7.70 → v7.94 | FIX-129-146, TODO-122-136, ADR-060-064*
+
+
+---
+
+## Session 13 (v8.10 -> v8.24)
+
+### Velky refaktor cilu - reverz a mena (v8.10->v8.11)
+Vklad do cile pamatuje puvod -> smazani cile/vkladu/splneni smaze parovy vydaj -> penize zpet (zadne dvoji odecteni). Menovy prepocet (toCZK), prevod z cile zpet, hlidani cilove castky, splneni (goalMarkDone), zalozky Aktivni/Splneno. Virtualni penezenka v Cistem majetku.
+
+### Sjednoceny modal Prani/Cil (v8.12)
+Oba typy maji vsechna pole, lisi se popisky. Klikaci sada 20 ikon (WISH_ICONS). Worker URL import cte cenu z JSON-LD a meta tagu.
+
+### Slouceny komunitni bar Ja vs komunita (v8.17/19)
+Dva bary slouceny do jednoho: modra=prumer, zelena=ty (pod prumerem), cervena=prebytek. COICOP divize s oficialnimi nazvy.
+
+### Bezove (sepia) tema (v8.18)
+Teply ton setrny k ocim. 4. moznost v Nastaveni (2x2: Tmave/Bezove/Svetle/Auto).
+
+### Skore aktivity uzivatele (v8.18)
+Admin detail: bar Neaktivni-Prumerny-Aktivni z poctu transakci + cerstvosti. Bez nove telemetrie.
+
+### Tabulka transakci - sloupce Typ platby + Penezenka (v8.18)
+Jen web/desktop (grid 7->9). Na mobilu jen filtry.
+
+### Systemova kategorie Virtualni presun (v8.16)
+Pro ne-admina gold ohraniceni + skryta tlacitka. Admin ma plnou kontrolu.
+
+### Uvitaci hlaska - emoji palety (v8.16)
+Klikaci sada 28 emotikonu pro ikonu i text.
+
+### Export transakci do CSV (v8.20)
+Nastaveni -> Data -> Export transakci (CSV). Modal s vyberem obdobi a typu. JSON zaloha zvlast.
+
+### Vyhledavani napric mesici (v8.20)
+Prepinac Hledat ve vsech mesicich.
+
+### Mesicni checklist na dashboardu (v8.20)
+Opakuje se kazdy mesic: pridej vyplatu + 20 transakci. Resetuje se zmenou mesice.
+
+### Stranka napovedy (v8.20)
+napoveda.html pro financeflow.cz.
+
+### API tracking - tokeny + naklady (v8.21)
+Worker uklada tokeny + odhad nakladu v Kc per user/typ. Admin detail: Spotreba AI. Admin Statistiky: Komunitni aktivita.
+
+### Oznaceni sdilenych podkategorii (v8.23)
+Podkategorie sdilena se samostatnou kategorii ma zlaty ramecek + sipku + tooltip.
+
+### Verzovaci hlavicka souboru (v8.24)
+Kazdy zmeneny soubor ma na zacatku // FinanceFlow vX.XX soubor datum.
+
+---
+
+*Aktualizace Session 13: 2026-06-20 | v8.10 -> v8.24*
+
+
+---
+
+## Presuny, frekvence vyplaty, dashboard (v8.25-v8.27)
+
+### Typ kategorie Presun (v8.25)
+Novy typ transfer vedle Prijem/Vydaj/Oboji. Transakce se nepocitaji jako vydaj (nesnizi majetek), penezenka se upravi. Vychozi: Investice, Trading, Financni rezerva, Sporeni, Fondy, Penzijko.
+
+### Frekvence vyplaty (v8.26)
+Mesicne / 14denne / tydne / 2x mesicne / nepravidelne. Runway do vyplaty respektuje frekvenci. Nepravidelny rezim pocita cyklus z prumerneho odstupu realnych prijmu.
+
+### Dashboard karta Moje uspory a investice (v8.27)
+Kolik penez smeruje do Investic a Rezervy/Sporeni (kumulativne + tento mesic) + rozpad podle kategorie. Pocitano z transfer-transakci.
+
+---
+
+*Doplnek: v8.25-v8.27*
+
+
+---
+
+## Session 14 (v8.28 → v8.57)
+
+### Propojení Transakce → Finanční aktiva podle podkategorie **(v8.49, ADR-076)**
+Přesun do přesunové kategorie (typ `transfer`) se propisuje do aktiva pojmenovaného podle PODKATEGORIE (ETF, Akcie, DIP, Podílové fondy…). Klíč `catId::subcat`. Vklady v cizí měně (EUR/GBP) → CZK dle ČNB. Baseline model: `value = baseline + (invested − investedAtBaseline)`. Adopce ručních aktiv stejného jména. Ochrana smazaných (`noSyncKeys`). Tlačítko „🔄 Přepojit" + diagnostický alert.
+- **🔗 Cross-reference:** ADR-076, FIX-160, TODO-143
+
+### Finanční aktiva — 4 sekce + Net Worth 5 karet **(v8.54, ADR-077)**
+Sekce: 👛 Peněženky (ze správy peněženek) · 🛟 Finanční rezerva (likvidní — spoření, spořicí účet) · 📈 Střednědobá a investiční · 🏠 Fyzická a dlouhodobá. Net Worth = 5 responzivních karet (Peněženky, Fin. rezerva, Střednědobá, Fyzická, Závazky).
+- **🔗 Cross-reference:** ADR-077, assets.js `assetBuildLiquiditySections`, `assetLiqTotals`
+
+### Likvidita u přesunových kategorií **(v8.54)**
+Každá přesunová kategorie má volitelný stupeň likvidity (`liq`), nastavitelný v editaci kategorie. Řídí zařazení do sekce Finančních aktiv. Bez nastavení = automatika z názvu.
+- **🔗 Cross-reference:** ADR-077
+
+### Historie hodnoty aktiva — vklady z transakcí + graf **(v8.57, ADR-078)**
+Historie zobrazuje vklady z transakcí (📥 read-only, bez X) i ruční ocenění (📊, mazatelné). Graf vývoje hodnoty se ukáže, pokud `ocenění + vklady ≥ 2`. Helper `assetDepositEvents(asset)`.
+- **🔗 Cross-reference:** ADR-078
+
+### Kurzy měn — záložka + živé ČNB **(v8.35–v8.36)**
+Modul `kurzy.js` + Worker endpoint `/cnb` (parser denního kurzovního lístku ČNB). 30 měn, hvězdička připne nahoru (localStorage). Živé kurzy napájejí `_FX_RATES` (přepočty aktiv, peněženek, cílů). Převodník u zadávání transakce. Cache: klient `no-store`, Worker edge 30 min + `no-cache`.
+
+### COICOP detailní DNA — fáze 1–4 **(v8.37–v8.40)**
+Modul `coicop.js`. Rozpad výdajů dle COICOP (13 divizí, podtřídy, třídy) z `product-groups.json` (402 tříd) přes `productGroupLookup`. Karty s porovnáním ČR. Tag filtr v „Nejčastěji nakupované položky".
+- **🔗 Cross-reference:** ADR-005, FIX-170, TODO-131 ✅
+
+### Excel filtr Období v Transakcích **(v8.41)**
+Tlačítko „📅 Období" + ikona 🔽 u sloupce DATUM. Panel: výběr roku (vč. „Všechny roky") + zaškrtávací měsíce → filtr přes více měsíců i „leden napříč roky". Navigace měsíce filtr zruší.
+
+### Swipe-to-edit na mobilních zařízeních **(v8.48–v8.51, ADR-075)**
+Účtenkové transakce: swipe doleva → „Upravit" → otevře naskenovanou účtenku. Normální: tap edituje. Na webu (myš) viditelná tlačítka ✂✎✕📷. Detekce `pointer: coarse`.
+- **🔗 Cross-reference:** ADR-075, FIX-163, FIX-165
+
+### Funkční GDPR cookies **(v8.44)**
+GA4 consent mode (výchozí `denied`), grant jen při souhlasu. Přepínač v Oznámení→Soukromí. Cookie banner na landing page.
+- **🔗 Cross-reference:** FIX-172, TODO-137 ✅
+
+### Admin záložka Růst **(v8.43)**
+6 souhrnných karet, SVG sloupcový graf registrací (12 měs.), tabulka posledních 30 dní, expirované předplatné.
+
+### Sticky hlavička tabulky transakcí **(v8.53)**
+Hlavička sloupců (Datum/Kategorie/…) zůstává při scrollování. Oprava: `#txCard{overflow:visible}`.
+- **🔗 Cross-reference:** FIX-164
+
+### Peněženky — cizí měna ve vlastním sloupci **(v8.55)**
+Cizí měna a CZK hodnota mají pevné sloupce s `flex-shrink:0` → čísla zarovnaná pod sebou. Písmo `tabular-nums`.
+
+---
+
+*Aktualizace Session 14: 2026-06-29 | v8.28 → v8.57*
+
+---
+
+## Session 15 (2026-07-02 → 2026-07-06, v8.57 → v8.74)
+
+> Nové a aktualizované funkce ze Session 15 (chronologicky).
+
+- **Zafixovaný kurz transakce (v8.58)** – pole "Skutečně v Kč" pod Částkou u cizoměnové peněženky, editovatelné, nikdy se nepřepočítává.
+- **Přesun mezi měnami (v8.59)** – editovatelná cílová částka s křížovým kurzem ČNB.
+- **Základní měna uživatele CZK/EUR/USD/GBP/PLN (v8.60–61)** – Nastavení → Lokalizace, přepočet živým ČNB kurzem napříč celou appkou.
+- **Zaškrtávací nákupní seznam (v8.62)** – `inCart`, ztlumení, řazení dolů, lišta "V košíku X z Y".
+- **Graf Finanční simulace života – přepis (v8.62)** – hex barvy, DPR škálování, legenda nahoře, tooltip.
+- **Automatické rozdělení limitů kategorií (v8.63–64, v8.70)** – ČSÚ COICOP pro nováčky / skutečné výdaje pro historii; tlačítko na stránce Kategorie.
+- **Grafy Finančního obrazu – Inflace životního stylu + Wealth Momentum (v8.66–67)** – zrcadlový graf příjmy◀▶výdaje, sloupcový graf sald s Ø linkou, interaktivní tooltipy (dotyk i myš).
+- **Statistiky → Vše jako roční tabulka (v8.67)** – sloupce = roky, rozbalitelné podkategorie, sticky první sloupec.
+- **TWA ikony pro Google Play (v8.69)** – play-store-icon-512 (ostré rohy), icon-192/512 (zaoblené), maskable (bezpečná zóna 72 %), apple-touch-icon-180, feature-graphic-1024×500.
+- **3 vlastní koncepty ikon (mimo release)** – "Tok" (proudy peněz), "Mince v proudu" (Kč symbol), "Puls růstu" (sparkline) – ukázka kreativních směrů, nenasazeno.
+- **Rezerva vs. Investice – oddělené vlajky kategorie (v8.70–72)** – 🛟 isSaving / 📈 isInvest, seskupené KAM v modalu Přesun, propojeno do score enginu.
+- **Karta půjčky – Přeplatíš/Doplatíš/Zbývá doba (v8.71)** – nový řádek s úroky, datem konce, dobou splácení.
+- **Modal Přidat půjčku – přejmenováno a přepočteno (v8.71)** – "Půjčeno – jistina", plán ze Zbývá (funguje i pro rozjeté úvěry), "Celý úvěr vás vyjde na".
+- **Avalanche vs. Sněhová koule (v8.71, rozšířeno v8.74)** – slider extra splátky + horizont, graf úroků, graf počtu půjček, tabulka toku peněz.
+- **Grafy Dluh vs. Investice + Simulace budoucnosti – přepis (v8.71)** – hex barvy, DPR, osy, legenda, tooltip.
+- **Excel FinanceFlow_Vypocty_Skore.xlsx (v8.68, rozšířeno v8.72)** – 4 listy: Limity kategorií, Finanční obraz, Finanční radar, Dluhový stres index – interaktivní výpočty s Milanovými reálnými čísly.
+- **Nastavení → Převodní měna (v8.72–73)** – převodník se předvolí na zvolenou měnu; měny 1:1 s Kurzy měn (~33 měn z živých ČNB kurzů).
+- **Modal Přesun – reorganizace (v8.72)** – Název/Částka/Datum nahoře jako u ostatních typů, Typ platby + peněženky/KAM pod nimi.
+- **Dashboard 5. složka Rozpočet + plné škály (v8.74)** – viz TODO-159.
+- **Sumář tabulky Měsíc po měsíci ve Finančním obraze (v8.74)** – řádek Σ za období + Ø/měs.
+
+---
+
+*Aktualizace Session 15: 2026-07-06 | v8.57 → v8.74 | FIX-174–191 · ADR-079–085 · TODO-144–159*
+
+
+---
+
+# 📦 SESSION 16 (v8.74 → v8.90) — aktualizace 2026-07-12
+
+## 🗓️ Kalendář (přestavěn) **(Session 16)**
+Přepínač 💰Finanční / 🗓️Pracovní. Finanční: poznámky dnů (modrá tečka, 🔔 flag připraven pro push), týdenní a víkendové statistiky. Pracovní: typy dnů (směna/dovolená/nemoc/volno), podtypy směn 🌅R/🌇O/🌙N, hodiny + přesčasy, fond dovolené; **kopírování úseku směn** (3 kliky, vzor vč. volných dnů, „opakovat do konce měsíce" pro rotace). Data: `S.calNotes`, `S.workCal`.
+
+## 🧠 Dluhový stres index — 10 metrik **(Session 16)**
+DSTI 20 · Emergency 15 · DTI 15 · Interest Cost 10 · Debt Quality (objem drahého dluhu) 10 · Počet půjček 8 · Vážený úrok 7 · Likvidita 5 · Trend splácení 5 · Debt Velocity 5 (Σ100). Prahy laditelné Excelem `FinanceFlow_StresIndex_Konfigurace.xlsx` (list „Bodování po rozmezích" = body pro konkrétní hodnoty, formule navázané na váhy). Výpočet extrahován: `computeStressIndex(D)` (render/Deník/testy).
+
+## 🖼️ Finanční obraz (rozšířen) **(Session 16)**
+„🧭 Kam směřuju – 6 měsíců": predikce výdajů z enginu Predikce (`predictCat`), graf příjem/výdaje/budoucí platby + cashflow čára, trajektorie dluhu (rovnoměrné umořování). „💶 Od výplaty k výplatě": historie 6 cyklů, tabulka 1.–5. týden (barvy vs. stejný týden předchozího cyklu, Δ výdajů, Ø týden). Metriky: Momentum místo Úspor, trend „3v3" (Ø posl. 3 vs. předch. 3), řádek Trend v Měsíc po měsíci.
+
+## 📖 DENÍK (nová stránka, zatím ADMIN) **(Session 16)**
+Starodávná kniha (kožená vazba, pergamen, inkousty, Georgia). Dvoustrana: 📜 Predikce (neměnný snímek: příjem 12M, predikce výdajů, budoucí platby, dluh/hotovost/skóre/stres k datu zápisu, predikovaná denní křivka = Ø tvar 6 měsíců) vs. ✒️ Skutečnost (živě z transakcí, % odchylky, tempo vs. predikce, živý stres s rozdílem). Spodní list: graf den po dni (příjem/výdaje/predikce) + řádek aktuálního payday cyklu. Úložiště: `S.diary` (Firebase). Koncept: predikce jsou neměnné fakty, skutečnost se dopočítává → zpětné úpravy dat se propíšou samy.
+
+## 📊 Grafy **(Session 16)**
+Multi-select filtry (checkboxy: kategorie/podkategorie/typ, chips s počty), typ 🔁Přesuny. Správnost: povinné filtry splitParent/isBalancing, `txCZK` všude (FIX-194). Měsíční dle norem (tooltipy, osa po 2 dnech, podbarvení); spodní graf = „Tempo výdajů" (tento vs. minulý vs. Ø6M). Roční + Všechny roky: tooltipy (kvartily; roční součty s % vs. předchozí rok), čitelné osy.
+
+## 📋 Měsíční report **(Session 16)**
+Zdraví kategorií jako dlaždice (responzivně 1–3 sloupce, částka/plán přímo v baru, trend oranžově s tooltipem srovnání).
+
+## ⚡ Architektura & kvalita **(Session 16)**
+**Diff-write (v8.88, ADR-062/086):** zápis jen změn (~1 KB), transakce per-id, lazy migrace + záloha `dataBackupV1`, rules v2 validace. **Smoke-testy** `tests/smoke.js` (3 profily + invarianty). **Postupné vykreslování** seznamu transakcí (chunk 120 + IntersectionObserver). **Bezpečnost:** XSS sanitizace na vstupu, landing GDPR consent + cookie lišta, admin shallow, SW offline fallback dle cesty. **Skóre 0–310 raw.** Typografie: standard + T1/T2/T4 (0 písma pod .62rem, jednotné canvas osy).
+
+---
+
+## Session 17 (v9.00–v9.42)
+
+### Nové karty
+- **🗂️ Report** (`report.js`, Premium/Pro) — matice roků po sektorech dle COICOP oddílů ČSÚ + sektor Splátky. Barevné hlavičky sektorů, zelené mezisoučty, mřížka podílů. Taby: Přehled · Tento měsíc · Kumulace roku · Roky **(S17)**
+- **🧮 Inflace** (`inflace.js`, Premium/Pro) — vlastní inflace z účtenek: YoY index + první→poslední cena + jejich rozdíl (vážené podílem na výdajích), inflace podle obchodu, sloupec Za kg/l s detekcí shrinkflace, srovnání položky napříč obchody (běžná vs. akční cena), multifiltr **(S17)**
+- **🎯 Měsíční review** (`review.js`) — hodnocení útrat 1–5 „Stálo to za to?" ve třech pohledech: Sumarizace (skupiny z položek účtenek) · Top 10 · Vše (admin, se srovnáním přístupů) **(S17)**
+
+### Analýzy
+- **Sezónnost po kategoriích** — tabulka pod grafem Sezonalita, % nad nejlevnějším měsícem, heatmap **(S17)**
+- **Přesnost predikce** — 4. záložka grafu predikce, tracking měsíc po měsíci, Ø odchylka (MAPE), automatické snímky **(S17)**
+- **Ušlý zisk** — Finanční obraz: per-peněženka úrok, referenční sazba spořáku, operační rezerva **(S17)**
+- **Graf vývoje nákupů** — čárový, multifiltr položek, přepínač Měsíčně/Kumulativně **(S17)**
+
+### Finanční obraz
+- Graf „Kam směřuju" — aktuální měsíc, popisky hodnot, cashflow v rámečku, čára Rezerva **(S17)**
+- **Slovní vyhodnocení výhledu na 6 měsíců** (3 varianty dle výsledku) **(S17)**
+- Graf cyklů — profil utrácení po týdnech/dnech, mediánové sloupce, zelená křivka „zbývá z výplaty" **(S17)**
+- Dluhový stres index — kompaktní gauge + faktory jako karty **(S17)**
+
+### Pracovní kalendář
+- **Hodinová mzda** — efektivní hodinovka i základní sazba (vážené hodiny), příplatky víkend/svátek/noční/přesčas, české svátky vč. Velikonoc **(S17)**
+- **Přesčas jako samostatný typ dne** s výběrem směny **(S17)**
+
+### Detektor úspor
+- 🍺 Alkohol & tabák · 🛒 Častý nákup (top 5 opakovaných položek z účtenek) **(S17)**
+- Práh refinancování 7 % · informativní prázdný stav **(S17)**
+
+### Monetizace
+- **Stripe platby** — webhook (ověření podpisu, 3 události), zakládající cena 99/990 pro prvních 100, Payment Links, Customer Portal **(S17)**
+- **Audit plateb** (admin) — klasifikace účtů, kontrolní součet proti Stripe, obsazenost zakládajících míst **(S17)**
+- **Banování účtu** a odebrání Premia adminem **(S17)**
+- **Připomenutí konce trialu** na Dashboardu **(S17)**
+
+### Ostatní
+- Menu reorganizováno do 11 sekcí **(S17)**
+- Povinná peněženka a typ platby u transakcí **(S17)**
+- Budoucí platby — stav zaplaceno/nezaplaceno odvozený z transakcí **(S17)**
+- Šablony — typ Dluh/Splátka, tlačítko v panelu Transakce **(S17)**
+- Landing page — nový název „Váš osobní finanční radar", ceník Free/149/299 **(S17)**
+
+---
+
+## Session 18 (v9.42–v9.78) **(2026-08-03)**
+
+### Životní mapa (Deník)
+- Milníky s datem, ikonou a poznámkou — **neovlivňují bodování skóre**, jen kontext
+- **Etapy** jako druhé, dlouhé záznamy (začátek–konec) + srovnání průměrných výdajů mezi etapami
+- **Automatický milník** „Začal jsem sledovat výdaje" — vzniká sám po 5. transakci
+- Proužek „Kde jsi na cestě" v Deníku, čte z `computeObrazSubmetrics()`
+
+### Finanční obraz v2 — 9 sekcí (viz ADR-101)
+- **Cesta finančního zdraví** — vodopád příspěvků, Monthly Score, N-měsíční Momentum Score
+- **Hlavní metriky** — Příjmy/Výdaje/Momentum/Dluhy s barevnými hodnotami a podmetrikami (Income Momentum, Expense Control, Income Capture/Resilience, Debt Momentum)
+- **Kam směřuju** — projekce 6 měsíců dopředu
+- **Pokročilé metriky** — Lifestyle (Růst životního stylu, tabulka ukazatelů baseline vs. aktuální, Kam růst přistál, Reálný růst příjmu, Rezerva vydrží), Nezávislost a stabilita (FFR, Likvidita jako samostatná karta, Diverzifikace příjmů), Majetek (Wealth Momentum, Čisté jmění)
+- **Měsíc po měsíci** — tabulka s Exp. Ratio a Skóre po měsících
+- **Od výplaty k výplatě** — historie cyklů se součty
+- **Ušlý zisk** — mobilní oprava přetékání
+
+### Měsíční report v2 — 14 sekcí
+1 Přehled · 2 Výpočet výdajového zdraví · 3 Na co si dát pozor · 4 Co se nejvíc změnilo · 5 Souhrn výdajů (seřazený, podbarvený, rozklikávací) · 6 Rozpočtové zdraví · 7 Úsporové zdraví · 8 Celkové finanční zdraví (se srovnávací tabulkou) · 9 Vývoj skóre · 10 Stav bohatství · 11 Z účtenek (kumuluje při 2–12M) · 12 Milníky · 13 Výhled (vč. Skutečného salda) · 14 Stálo to za to — výsledky.
+
+### Report (`report.js`)
+- Sektor = kategorie, řádek = podkategorie (ADR-102), sloupec „vs. loni" proti stejnému období
+- Zrušeny placeholder taby, obsah přesunut do Grafů
+
+### Grafy
+- Heatmapa Kategorie × měsíce, matice jedné kategorie (měsíce × roky)
+- Sloupce s červenou linkou průměru + kumulace, s tooltipy
+- Bublinové grafy: opraveno přetékání (bViewBox), lepší využití plochy
+
+### Recenze v aplikaci (nové, TODO-210)
+- Hodnocení 1–5 hvězdiček + text, přímo v „O aplikaci"
+- Veřejný souhrn (průměr + počet), texty čte jen admin panel (nová záložka ⭐ Recenze)
+
+### Nástroje pro vývoj
+- `tools/check_tdz.js` — kontrola proměnných použitých před deklarací (acorn parser)
+
+---
+
+## Session 19 — nové funkce (v9.79–v9.98) **(2026-08-21)**
+
+### 📅 Příští měsíc — `pristi.js` (38. modul) · Free
+Karta odpovídá na otázku, kterou aplikace dosud neuměla: **„vyjdu do 15., než přijde výplata?"**
+Horizont je záměrně **jen příští měsíc** — delší výhled řeší „Kam směřuju".
+
+**Tři úrovně jistoty:** 🟢 jisté (šablona nebo splátka s datem) · 🟡 pravděpodobné
+(pravidelný příjem podle historie 6 měsíců, `stabilityWeight ≥ 0,5`) · ⚪ nejisté
+(nepravidelný příjem) — **do plánu se nezapočítávají**, zobrazují se zvlášť s poznámkou
+„kdyby všechno vyšlo".
+
+**Dvě tabulky s daty** (Příjmy, Výdaje) + **průběžný zůstatek den po dni**.
+Přepínač **kalendářní měsíc ↔ od výplaty k výplatě** (kotva z reálného hlavního příjmu).
+**Ruční úprava kteréhokoli řádku** (✎ přepsat, ✕ vyřadit) i **vlastní zápis**
+příjmu či výdaje. Ukládá se do `S.pristiCfg['YYYY-MM']`, synchronizuje se.
+**Kalibrace:** u proběhlého měsíce se ukáže odhad vedle skutečnosti.
+
+Poznámky u řádků ukazují **celý výpočet** — např. `170 298 Kč ÷ 6 měs. = 28 383 Kč ·
+6× v 6 z 6 měsíců · obvykle 5. dne`.
+
+**Rollback:** `PRISTI_ENABLED = false` na 1. řádku modulu.
+
+### 🛡️ Automatické zálohy dat
+Denní snímek do `users/{uid}/backups/{YYYY-MM-DD}`, drží se **posledních 5**.
+Nastavení → Data → ☁️ Automatické zálohy: seznam s datem, velikostí a verzí,
+tlačítko „Zálohovat teď", obnova po potvrzení. Před obnovou se současný stav uloží
+pod klíč `pred-obnovou` — omylem spuštěná obnova není jednosměrka.
+Do S19 aplikace **neměla žádnou automatickou zálohu**.
+
+### 💱 Kurzové ztráty
+**Přepínač měny** u transakce (pole „Typ měny" vedle Částky) — pokrývá případ
+**česká karta, nákup v eurech**. Zaplatíš 20 €, banka strhne 594 Kč; v poli
+„Skutečně v Kč" přepíšeš předvyplněný kurz ČNB podle výpisu.
+
+Aplikace pak spočítá, **kolik tě směna stála navíc**: u každé cizoměnové transakce
+řádek `kurz +111 Kč (+22,9 %)`, v Detektoru nález s **rozpadem podle způsobu platby**
+(karta +2,1 % · bankomat +8,4 % · přepážka +11,2 %) a rozbalovací tabulka po transakcích
+s kurzem banky, kurzem ČNB a rozdílem.
+
+Referenční kurz se bere **k datu transakce** (Worker `/cnb?date=`), ne k datu zápisu.
+
+### 💶 Základní měna napříč aplikací
+143 míst převedeno na `fmtB()` — Predikce, Měsíční report, Finanční radar, Finanční obraz,
+Deník, čtvrtletní a týdenní tabulky, Detektor. **20 vstupních polí** (rozpočet projektu,
+jistina a splátka dluhu, cena přání, cíle, hodnota aktiva, částka šablony) nyní
+převádí na obou stranách. Popisky se přepisují symbolem základní měny.
+
+### 📊 Evidence aktivity v admin panelu
+`users/{uid}/activity` — čas posledního použití, počet spuštění, značka aktivního dne,
+verze aplikace, PWA vs. prohlížeč, aktivace (dny od registrace k první transakci).
+Z denních značek se dopočítá: aktivní dny za 30 a 90 dní, aktuální série.
+Filtry *Aktivní / Usínající / Bez evidence*, řazení *Naposledy aktivní*,
+*Nejvíc aktivních dní*, *Nejvíc přivedených*.
+
+### 🔗 Referral — skutečný počet přivedených
+Admin čte `referrals/{kód}/conversions` (zdroj pravdy), ne zrcadlo v profilu uživatele.
+Dlaždice „Přivedl" a věta „přes odkaz se registrovalo X lidí z Y kliků, tedy Z %".
+Když se zrcadlo liší, admin řekne „N registrací čeká na připsání bodů".
+
+### ⭐ Měsíční review — fáze 2 a 3
+**Souhrn v Deníku:** kolik Kč připadá na hodnocení 1–2 a 4–5, šest měsíců vývoje,
+nejčastěji váhané a nejlépe hodnocené skupiny. Průměry **vážené částkou**, ne počtem.
+Text mluví o budoucnosti: *„kdybys polovinu poslal jinam, máš za rok X navíc —
+ne proto, že by ty výdaje byly špatné, ale protože jsi u nich sám váhal."*
+
+**Vzorce:** den v týdnu, způsob platby, druh nákupu, velikost útraty.
+Ukáže se jen při 5+ útratách v koši a rozdílu 0,6+ bodu — jinak jde o šum.
+
+### 🗺️ Osa života (Deník)
+Vodorovná osa s událostmi jako body a etapami jako pruhy, pod ní tři finanční křivky
+(příjmy, výdaje, kumulovaný tok). Historie se **neořezává** — přizpůsobuje se hustota
+(měsíce → čtvrtletí → roky).
+
+### 📁 Karta Projektu — přepracovaná
+**Čas vedle peněz:** pruh rozpočtu se značkou „dnes" a věta o tempu
+(*„za 77 % doby projektu jsi utratil 80 % rozpočtu, při tomhle tempu skončíš na X"*).
+Pruh je zároveň **rozpadem podle kategorií**. Přibyla „Největší položka" a „zbývá na den".
+**Příjmy a Bilance se zobrazí jen když projekt příjem opravdu má** — u dotace na
+rekonstrukci nebo vrácené půjčky dávají smysl, u dovolené je to totéž číslo dvakrát.
+**Graf kumulativní útraty** s čárou rozpočtu (od 4 transakcí) a **srovnání s podobnými
+projekty** (od 2 ukončených téhož typu). Transakce **od nejstarší** — příběh projektu.
+Rozpad podle měn a tagy u transakcí.
+
+---
+
+## Session 19 — druhá vlna (v9.99–v10.03) **(2026-08-24)**
+
+### 💶 Základní měna dokončena
+Zbylých šest modulů (`review.js`, `inflace.js`, `report.js`, `stats.js`, `premium.js`,
+`receipts.js`). Celkem **11 modulů, 20 vstupních polí, ~180 zobrazovacích míst**.
+Pravidlo dle ADR-109: v tabulkách holá čísla, symbol jednou v popisku.
+
+### 🎯 Finanční skóre začíná od nuly
+Nový uživatel už nedostane 70/100 „Dobré" před první transakcí. Skóre se počítá
+z **dosažitelného** maxima a každá složka nese nápovědu, čím ji odemknout
+(„Nastav limit aspoň u jedné kategorie"). Bez měřitelných dat se místo čísla
+zobrazí, co doplnit.
+
+### 🔍 Detektor: rozsah místo jednoho čísla
+```
+✅ 420 Kč doložitelných – poplatky, úroky a kurzy ze skutečných čísel
+🔎 1 456 Kč odhadem – kolik ušetříš, záleží na tom, čeho se vzdáš
+```
+Každá útrata se počítá jen v jednom nálezu.
+
+### 📸 Kontrola úplnosti účtenky
+Když součet položek nesedí se sumou na dokladu, ukáže se to u účtenky i jako
+souhrn nad seznamem. Doplnění řeší existující editor (tlačítko ✎).
+
+### 🌍 Komunitní benchmark používá medián
+Jeden uživatel s hypotékou 40 000 už neposune „průměrné bydlení" všem.
+
+### 📈 Růst životního stylu — vysvětlený rozdíl
+Popisek říká, že **Expense Ratio měří úroveň** (funguje od 1. měsíce), zatímco
+**verdikt měří tempo** (potřebuje 6 měsíců) — proto jedno číslo půl roku chybí.
+
+---
+
+# Session 21 – nové a změněné funkce (v10.28 – v10.50)
+
+## 👤 Můj účet (nová stránka)
+Klik na jméno v sidebaru. Avatar a jméno k úpravě · e-mail a ID uživatele
+s kopírováním · předplatné s proklikem na tarify · počet účtenek, transakcí
+a měsíců s daty · referral · vymazání dat a smazání účtu.
+
+Účtenky jsou **odkazem**, ne druhým seznamem. Není tu Tutoriál, Nastavení,
+„Co partner uvidí" ani Moje domácnost — to jsou jiné sekce.
+
+## 🏠 Domácnost jako skupina
+Založíš domácnost, pošleš pozvánku. Kdo ji otevře, propojí se se **všemi členy**,
+ne jen se zvoucím. Až 6 členů, počítadlo X/6. Zakladatel může skupinu uzavřít
+(tím přestanou platit všechny rozeslané pozvánky), odejít smí každý sám.
+
+## 🔗 Pozvánka propojující obě strany
+Jedno kliknutí = oboustranné propojení. Odkaz jde odeslat systémovým sdílením
+(WhatsApp, Signal, Messenger) nebo zkopírovat. Platí do zneplatnění.
+Ruční propojení přes ID zůstává, ale propojí jen jednu stranu.
+
+## ⚖️ Tři úrovně sdílení transakcí
+**Nesdílím** · **Souhrny** (kolik padlo na kategorie, ne co kdo koupil) ·
+**Podrobné** (jako dosud). U každé je napsané, co partner uvidí.
+
+## 🎚 Přepínač rozsahu v Rodinném souhrnu
+*Domácnost / konkrétní člen* — řídí dlaždice, graf trendu i žebříček najednou.
+Popisky se přizpůsobí.
+
+## 📊 Tabulka v Transakcích
+Souhrn měsíc po měsíci napříč všemi daty: počet záznamů, příjmy, výdaje, saldo,
+plus celkový počet, měsíců s daty a průměr na měsíc. Řazení kliknutím na hlavičku.
+
+## 📦 Archivace místo mazání
+Použitou peněženku ani kategorii nejde smazat — archivuje se. Zmizí z nabídek,
+ale transakce si podrží měnu i historii. Prázdné jde smazat úplně.
+Archivované mají vlastní sekci s tlačítkem Vrátit.
+
+## 🔮 Simulace života – přestavěný výpočet
+Všechna čísla v dnešních penězích. Nové pole „Úrok dluhu" předvyplněné z reálných
+dluhů. Třetí scénář je podmíněný: s dluhem „Splatím dluh dřív", bez dluhu
+„Odejdu o 5 let dřív".
+
+## 📆 Den výplaty 1–31
+U dnů nad 28 vysvětlivka „(v kratším měsíci poslední)".
+
+## 👋 Onboarding v checklistu
+Co se přeskočí, objeví se v průvodci na Přehledu. Druhý krok: dotaz na půjčku,
+který odemyká složku S2 ve Finančním skóre.
+
+## 🔓 Sdílení a Rodinný souhrn zdarma
+Za diamantem zůstává jen to, co stojí peníze: AI Rádce, AI sken účtenky,
+import z PDF, poradce v reportu.
+
+---
+
+---
+
+# Session 21 · druhá část (v10.51 – v10.59)
+
+## 🧾 Výplatnice (nová záložka v Kalendáři)
+
+Evidence výplatních pásek měsíc po měsíci. Vzniklo z Milanova postřehu, že
+zaměstnavatel může zvednout základ a zároveň snížit prémie — výsledek dole
+vypadá stejně, ale změnilo se, z čeho je složený.
+
+**Zadávání** — šablona podle vlastní pásky, každý měsíc jen čísla. Prázdné pole
+u nepovinné položky znamená „neproběhlo", ne nulu.
+
+**Import** — víc měsíců najednou. Každou pásku přepočítá a porovná s hrubou
+mzdou, čistým příjmem a dobírkou; měsíc, který nesedí, nenaimportuje.
+
+**Z čeho se skládá hrubá mzda** — skládané pruhy za 24 měsíců, rozdělené na
+pevnou složku, za čas a za výkon.
+
+**Podíl pevné složky** — kolik z výplaty je jisté, s vývojem a změnou v pb.
+
+**Srážky za období** — součet po položkách, bez průchozích.
+
+**🔍 Detektor přesunu** — u každé změny tarifu ukáže, o kolik vzrostl základ,
+co se ve stejnou dobu stalo s prémiemi a jaký je čistý výsledek. Porovnává
+tarif (na hodinách nezávislý) a jen pravidelné prémie.
+
+## ⏱ Hodinová sazba v pracovním kalendáři
+Pod polem s čistou výplatou, přepočítává se při psaní. Z fondu konkrétního
+měsíce, ne z paušálu — mezi únorem a prosincem je rozdíl 15 %.
+
+## 📄 GDPR export (admin)
+Kompletní přehled podle čl. 15 včetně tarifu, auditu plateb a komunitních
+záznamů, které v uživatelské záloze nejsou. S účelem, příjemci a dobou uchování.
+
+## 🪦 Náhrobky smazaných účtů (admin)
+Kdo si smazal účet, kdy, a upozornění při opakovaném zakládání téhož e-mailu.
+Jen uid, datum a hash — žádná data.
+
+## 💳 Zrušení předplatného při smazání účtu
+Dřív Stripe účtoval dál i poté, co uživatel z appky zmizel.
+
+## 👤 Datum založení účtu
+Na stránce Můj účet, včetně „před X dny".
+
+---
+
+---
+
+# Session 22 (2026-09-12 až 2026-09-16) · v10.59 → v10.82
+
+> Nové funkce ze Session 22.
+
+## ⚖️ Finanční skóre v2 **(Session 22)**
+Pět složek s vahami 30/25/20/15/10, počítané 0–100 na vlastní škále; kotvy
+s lineární interpolací místo schodovitých tabulek. Nezměřitelná složka vypadne
+z výpočtu i s vahou. Pod prahem pokrytí 50 % se známka neukáže. Zobrazení
+zůstává na škále 0–310.
+
+## 🖼️ Finanční obraz v1 **(Session 22)**
+Čtyři složky (reálný růst příjmu, dopad životního stylu, Net Worth Momentum,
+koncentrační riziko) s vahami 30/25/30/15. Základ 100, rozsah 0–200
+s **teploměrovou stupnicí**, která přizná i hodnotu nad pásmem. Stupnice se
+kreslí i bez dat, jen prázdná. Bonus za přesčasy 0–15, nikdy záporný.
+
+## 📝 Deníkové poznámky k výdajům **(Session 22)**
+Kliknutí na výdaj v Deníku otevře vlastní stránku, kam se zapisuje opakovaně.
+Každý zápis má čas, jde upravit i smazat. Zápisy se partnerovi neposílají.
+
+## 💪 Přesčasy v měsíčním checklistu **(Session 22)**
+Otázka „Měl jsi tento měsíc přesčas?" s rychlými volbami. Když appka odpověď
+zná z výplatnice, neptá se — jen oznámí „(z výplatnice)".
+
+## ⚖️ Simulátory vah v admin panelu **(Session 22)**
+Záložka Skóre s přepínačem mezi konfigurací skóre a Obrazu. Posuvníky vah,
+editovatelné kotvy, živý přepočet na skutečných datech i na čtyřech modelových
+profilech. Bez ukládání — generuje blok k přepsání do `helpers.js`.
+
+## 🚩 Nahlášení špatně přečtené účtenky **(Session 22)**
+Tlačítko u upozornění na rozpor. Odešle obchod, datum, obě částky a názvy
+s cenami položek. **Fotka jen po výslovném zaškrtnutí** — u zaškrtávátka stojí,
+co je na účtence vidět. Admin rozhraní řadí hlášení podle velikosti rozdílu.
+
+## 📈 Oficiální inflace z ČSÚ **(Session 22)**
+Routa `/inflace` ve Workeru, sada CEN0101E, meziroční index včetně oddílů
+COICOP. Cache 7 dní.
+
+## ✅ Kontrola účtenky hned po skenu **(Session 22)**
+Když součet položek nesedí na částku na dokladu, appka to řekne neutrálně
+a nabídne opravu jedním klikem — nikdy nepřepisuje sama.
+
+---
+
+# Session 24 (2026-09-26 až 2026-10-03) · v11.04 → v11.26
+
+## 🗺️ Mapa položek pro uživatele **(Session 24, v11.05 / v11.09)**
+`cesta: Analýza účtenek → 🗺️ Mapa položek` – položky z vlastních účtenek s řetězem taxonomie (oblast › podkategorie ›
+obecný název), statistika pokrytí, filtry (oblast, bez kódu, mimo taxonomii, moje volby), hledání. Karta výrobku po klepnutí:
+fotka, český název se zdrojem, značka, gramáž, Nutri-Score, NOVA, éčka, štítky, moje nákupy po obchodech, semafor živin
+(FSA), složení a alergeny, rozpočtová kategorie. Sekce „💼 Podkategorie → rozpočet". „🔄 Přeřadit staré účtenky podle mapy" s náhledem (v11.22).
+
+## ▮▮ Čárové kódy (EAN) **(Session 24, v11.06 → v11.25)**
+- 📷 u položky v editoru účtenky (živá kamera i fotka kódu), spojení obchod + zkratka → EAN pro komunitu.
+- `cesta: Analýza účtenek → 📸 Skenovat → 📷 Skenovat čárový kód` – samostatné skenování, pak přiřazení k položce z účtenky (v11.25).
+- Český název výrobku: název z kódu + „Česky" se zdrojem, ✎ Opravit/Doplnit (v11.24).
+- 📸 Vyfotit obal (neznámý výrobek, chybí název/zařazení) a 📸 Vyfotit tabulku živin („podle českého obalu") – fotka se neukládá; Free 3/měs.
+- Odkaz na přidání do Open Food Facts u neznámého výrobku.
+
+## 🧭 Taxonomie výrobků **(Session 24, v11.07)**
+`data/taxonomie.json` – 13 oblastí, 139 podkategorií, 902 obecných názvů, COICOP podle spotřebního koše ČSÚ 2026,
+výchozí rozpočtová kategorie. Admin Mapa: výběr obecného názvu přes našeptávač, „💡 Návrh", „🔄 Převést na taxonomii".
+
+## ⛽ Vozidla a tankování **(Session 24, v11.11 / v11.14 / v11.17)**
+`cesta: Měřidla → 🚗 Vozidla a tankování`. Blok „⛽ Tankování" v transakci Auto › Palivo (vozidlo, litry, tachometr,
+cena u stojanu kvůli kuponům, palivo, plná nádrž; předvyplnění z poznámky „20l 83448"). Karta vozidla: klouzavá spotřeba,
+cena za km, průměrná cena, ušetřeno na kuponech. „📊 Detail": tabulka tankování s řádkem Celkem, grafy. „🤝 Příspěvky na cestu"
+(příjem s peněženkou, čistý náklad), propojené oboustranně s Transakcemi.
+
+## 📟 Energie a voda **(Session 24, v11.12 → v11.21)**
+`cesta: Měřidla → 📟 Energie a voda`. Měřidla (elektřina, plyn, voda, teplo; dvoutarif VT/NT), odečty, vyúčtování,
+odhad vyúčtování dopředu a doporučená záloha. „📊 Detail spotřeby": statistika, graf po měsících, tabulka odečtů,
+zálohy od data (měřený rok), vyhodnocení čtvrtletí/pololetí/rok, doplatky a přeplatky. Blok 📟 v transakci (měřidlo,
+záloha/doplatek/přeplatek, odečet k datu platby). Úkol „📟 Zapiš stav měřidel" v měsíčním checklistu.
+
+## 🤖 AI zařazení vlastních kategorií do COICOP **(Session 24, v11.13)**
+`cesta: Nastavení → Kategorie` – banner a značka „🤖 odhad", potvrzení/změna. Admin → Adopce kategorií → schvalování.
+
+## ⭐ Hlavní zdroj příjmů **(Session 24, v11.15)**
+`cesta: Nastavení → Kategorie → ✎ příjmové kategorie`. Výplata pro Radar a Příští měsíc se hledá v označených kategoriích.
+
+## 💳 Karty útraty v Reportu **(Session 24, v11.18 / v11.21)**
+`cesta: Měsíční report → 💳 Kam šly peníze` – Bydlení, Doprava, Předplatné, Nákupy, Zábava, Jídlo a pití (+ Ostatní),
+srovnání se stejně dlouhým předchozím obdobím, účtenky rozdělené po položkách, ruční karta u kategorie.
+
+## 📄 Měsíční report na skutečných datech **(Session 24, v11.27)**
+`cesta: Report (🗂️) → 📄 Měsíční report` – Free 2 strany, Premium 4 strany podle návrhu v4; „📄 Uložit jako PDF / tisk". Postřehy a doporučení zatím spočítané pravidly. Druhá záložka „📊 Matice kategorií" (Premium).
+
+## 🆓 Účtenky pro Free **(Session 24, v11.16)**
+3 skeny měsíčně + ukazatel „zbývá X ze 3", nástroje nad účtenkami s 💎.
+
+## 🧭 Zdražování, inflace a statistiky přes taxonomii (T4) **(Session 24, v11.19 / v11.26)**
+Zdražování → „🧭 Podle výrobků" (cena za kg/l/ks, nejlevnější obchod) + shrinkflace napříč obchody. Inflace → „🧭 Co tě
+zdražuje nejvíc" (po podkategoriích podle dopadu). Statistiky → „🧭 Za co utrácíš".
+
+## Ostatní **(Session 24)**
+- Menu Měřidla (Vozidla + Energie a voda) s ilustracemi v kartách (v11.22).
+- Péče o sebe (cat47), výběr z bankomatu jako přesun s nápovědou (v11.16).
+- Hlavní menu na mobilu se zavře klepnutím vedle (v11.18).
+- Vymazat data: záloha Výplatnice, Tankování a Energie do JSON (v11.21).
