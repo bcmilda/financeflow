@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.23 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.24 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -75,10 +75,10 @@ async function getFirebaseAdminToken(env) {
 // Limity dle ADR-041 (Free / Trial / Premium)
 const AI_LIMITS = {
   //  S24 (v11.16, Milan): Free = 3 naskenované účtenky měsíčně (dřív 15). Appka ukazuje „zbývá X ze 3".
-  free:    { receipt: 3,  bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1 },
-  trial:   { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3 },
-  premium: { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3 },
-  admin:   { receipt: 9999, bank_statement_text: 9999, chat: 9999, advisor_report: 9999, wish_url: 9999, price_alert: 9999, contact_form: 9999 },
+  free:    { receipt: 3,  bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1, ean_foto: 3 },   // S24 v11.24: ean_foto = fotka obalu / tabulky živin
+  trial:   { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 30 },
+  premium: { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 100 },
+  admin:   { receipt: 9999, bank_statement_text: 9999, chat: 9999, advisor_report: 9999, wish_url: 9999, price_alert: 9999, contact_form: 9999, ean_foto: 9999 },
 };
 
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -587,10 +587,100 @@ Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
   let j = null; try { j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e) {}
   if (!j) return prod;
   const o = Object.assign({}, prod, { aiKdy: Date.now() });
-  if (!prod.nazevCesky && j.nazev_cs) o.nazevCs = eanStr(j.nazev_cs, 100);
+  if (!prod.nazevCesky && j.nazev_cs && !prod.nazevCs) { o.nazevCs = eanStr(j.nazev_cs, 100); o.nazevCsZdroj = 'ai'; }
   const k = eanTaxKlic(j.obecny);
   if (k && tax.nazvy[k]) { o.obecnyId = k; o.obecny = tax.nazvy[k]; }
   return o;
+}
+
+const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal'];
+
+//  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
+//  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
+//  v Mapě položek schválí. Každý uživatel se započítá jednou.
+async function eanAkceNazev(uid, ean, body, env, cors) {
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const get = async p => { const r = await fetch(`${DB}/${p}.json?auth=${S}`); return r.ok ? r.json() : null; };
+  const put = (p, v) => fetch(`${DB}/${p}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) });
+  const nazev = eanStr(body.nazev, 100).replace(/\s+/g, ' ').trim();
+  const moje = await get(`users/${uid}/eanNazvy/${ean}`);
+  const zrusit = async () => { if (moje && moje.klic) { const st = await get(`community/eanNavrhyNazvu/${ean}/${moje.klic}`);
+    if (st) await put(`community/eanNavrhyNazvu/${ean}/${moje.klic}`, st.pocet > 1 ? { nazev: st.nazev, pocet: st.pocet - 1 } : null); } };
+  if (!nazev) { await zrusit(); await put(`users/${uid}/eanNazvy/${ean}`, null); return json({ ok: true, nazev: '' }, 200, cors); }
+  if (nazev.length < 2) return json({ error: 'Název je příliš krátký' }, 400, cors);
+  const klic = eanTaxKlic(nazev).replace(/ /g, '_').slice(0, 60);
+  if (!klic) return json({ error: 'Neplatný název' }, 400, cors);
+  let pocet = 1;
+  if (!moje || moje.klic !== klic) {
+    await zrusit();
+    const st = await get(`community/eanNavrhyNazvu/${ean}/${klic}`);
+    pocet = ((st && st.pocet) || 0) + 1;
+    await put(`community/eanNavrhyNazvu/${ean}/${klic}`, { nazev, pocet });
+  }
+  await put(`users/${uid}/eanNazvy/${ean}`, { nazev, klic, kdy: Date.now() });
+  return json({ ok: true, nazev, pocet }, 200, cors);
+}
+
+//  Fotka obalu (název, značka, gramáž, zařazení) nebo tabulky živin z českého
+//  obalu. Fotka se NIKDE neukládá – AI ji jen přečte, uloží se výsledná data.
+//  Limit ean_foto (Free 3 měsíčně).
+async function eanAkceFoto(uid, ean, body, env, cors) {
+  const druh = body.druh === 'ziviny' ? 'ziviny' : 'obal';
+  const obr = String(body.obrazek || '');
+  if (!/^[A-Za-z0-9+/=]{100,}$/.test(obr) || obr.length > 2800000) return json({ error: 'Fotka chybí nebo je příliš velká' }, 400, cors);
+  if (!env.ANTHROPIC_API_KEY) return json({ error: 'AI není nastavená' }, 500, cors);
+  const q = await checkAndIncrementQuota(uid, 'ean_foto', env);
+  if (!q.ok) return json({ error: 'rate_limit', message: `Měsíční limit fotek výrobků je vyčerpán (${q.used}/${q.limit}). S Premium jich máš víc.`, used: q.used, limit: q.limit }, 429, cors);
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  let zadani;
+  if (druh === 'obal') {
+    const tax = await eanTaxonomie();
+    zadani = `Na fotce je přední strana obalu výrobku. Vrať POUZE JSON:
+{"nazev_cs":"krátký český název výrobku bez gramáže a značky","nazev_obal":"název tak, jak je na obalu","znacka":"","mnozstvi":"např. 100 g nebo 0,5 l","obecny":"JEDEN název přesně z tohoto seznamu podle toho, CO výrobek je, nebo \"\""}
+Seznam (podkategorie: názvy):
+${tax.seznam}`;
+  } else {
+    zadani = `Na fotce je tabulka výživových údajů z obalu. Přečti hodnoty NA 100 g (nebo 100 ml). Vrať POUZE JSON s čísly (desetinná tečka), chybějící hodnotu vynech:
+{"kcal":0,"tuky":0,"nasycene":0,"sacharidy":0,"cukry":0,"vlaknina":0,"bilkoviny":0,"sul":0,"slozeni_cs":"složení, pokud je na fotce česky, jinak \"\""}`;
+  }
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 700, messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: obr } }, { type: 'text', text: zadani }] }] }),
+  });
+  if (!r.ok) return json({ error: 'AI teď neodpovídá' }, 502, cors);
+  const d = await r.json();
+  const text = (d.content || []).map(c => c.text || '').join('');
+  let j = null; try { j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e) {}
+  if (!j) return json({ error: 'Z fotky se nepodařilo nic přečíst – zkus ostřejší fotku.' }, 422, cors);
+  const url = `${DB}/community/eanProdukty/${ean}.json?auth=${S}`;
+  let p = null; try { p = await (await fetch(url)).json(); } catch (e) {}
+  if (druh === 'obal') {
+    const tax = await eanTaxonomie();
+    const k = eanTaxKlic(j.obecny);
+    const m = eanMnozstvi({ quantity: String(j.mnozstvi || '') });
+    if (!p || p.stav !== 'nalezeno') {
+      p = { ean, stav: 'nalezeno', zdroj: 'fotka obalu', kdy: Date.now(), nazev: eanStr(j.nazev_obal || j.nazev_cs, 100), nazevCesky: false,
+            nazevCs: eanStr(j.nazev_cs, 100), nazevCsZdroj: 'foto', aiKdy: Date.now() };
+      if (j.znacka) p.znacka = eanStr(j.znacka, 60);
+      if (m) p.mnozstvi = m;
+    } else {
+      if (!p.nazevCesky && !p.nazevCs && j.nazev_cs) { p.nazevCs = eanStr(j.nazev_cs, 100); p.nazevCsZdroj = 'foto'; }
+      if (!p.znacka && j.znacka) p.znacka = eanStr(j.znacka, 60);
+      if (!p.mnozstvi && m) p.mnozstvi = m;
+    }
+    if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
+  } else {
+    const n = {};
+    ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'].forEach(x => { const v = parseFloat(j[x]); if (isFinite(v) && v >= 0 && v < 1000) n[x] = Math.round(v * 10) / 10; });
+    if (!Object.keys(n).length) return json({ error: 'V tabulce jsem nenašel hodnoty – vyfoť ji zblízka a rovně.' }, 422, cors);
+    p = p || { ean, stav: 'nalezeno', zdroj: 'fotka obalu', kdy: Date.now() };
+    p.nutriceObal = Object.assign(n, { kdy: Date.now() });
+    if (j.slozeni_cs) p.slozeniObal = eanStr(j.slozeni_cs, 1500);
+  }
+  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+  return json({ ok: true, ean, produkt: p, zbyva: q.limit != null ? Math.max(0, q.limit - q.used) : null }, 200, cors);
 }
 
 async function handleEan(request, env, cors) {
@@ -612,13 +702,17 @@ async function handleEan(request, env, cors) {
   const ean = String(body.ean || '').replace(/\D/g, '');
   if (!eanPlatny(ean)) return json({ error: 'Neplatný kód' }, 400, cors);
   if (eanObchodni(ean)) return json({ ok: true, ean, obchodni: true }, 200, cors);
+  //  S24 (v11.24): návrh českého názvu a rozpoznání fotky obalu / tabulky živin.
+  if (body.akce === 'nazev') return eanAkceNazev(uid, ean, body, env, cors);
+  if (body.akce === 'foto') return eanAkceFoto(uid, ean, body, env, cors);
 
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
   const S = env.FIREBASE_DB_SECRET;
-  let produkt = null;
+  let produkt = null, _eanStary = null;
   try {
     const r = await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`);
     const ulozeny = r.ok ? await r.json() : null;
+    _eanStary = ulozeny;
     if (ulozeny && ulozeny.kdy) {
       const platnost = ulozeny.stav === 'nalezeno' ? EAN_PLATNOST_OK : EAN_PLATNOST_NIC;
       if (Date.now() - ulozeny.kdy < platnost) produkt = ulozeny;
@@ -634,6 +728,8 @@ async function handleEan(request, env, cors) {
   }
   if (!produkt) {
     produkt = await eanZDatabazi(ean);
+    //  S24 (v11.24): obnova po 90 dnech nesmí smazat, co doplnil admin, AI nebo fotka obalu.
+    if (produkt && _eanStary) EAN_ZACHOVAT.forEach(k => { if (_eanStary[k] != null && produkt[k] == null) produkt[k] = _eanStary[k]; });
     if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
     try { produkt = await eanObohat(env, produkt); } catch (e) {}   // S24 (v11.23): český název + obecný název z taxonomie
     try {

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.23 · admin.js · 2026-10-02
+// FinanceFlow · v11.27 · admin.js · 2026-10-03
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,47 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.27',
+    datum: '2026-10-03',
+    zmeny: [
+      '📄 MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH (TODO-317 F2, Milan) · cesta: Report (🗂️) → „📄 Měsíční report" (druhá záložka „📊 Matice kategorií" = původní Excel matice, jen Premium). Design ze schváleného návrhu v4: Free 2 strany (verdikt, 4 čísla, „Z každých 100 Kč", 6 měsíců, peněženky, skupiny; rozpočty, největší výdaje, pravidelné platby, příští měsíc, útrata den po dni, upoutávka), Premium 4 strany (6 čísel s MM/Ø3M/loni, skóre, postřehy, pohyb peněz; vodopád od příjmu k úspoře, odchylky, tabulka skupin; účtenky – podkategorie, osobní inflace, ceny, skryté zdražení, obchody; odhad příštího měsíce s pásmem, cíle, dluhy, doporučení, metodika). „📄 Uložit jako PDF / tisk" otevře report samostatně a vyvolá tisk. Měsíc se přepíná nahoře.',
+      '⚠️ Postřehy a doporučení jsou zatím spočítané pravidly (označeno), AI vrstva (komentář, hodnocení, predikce) přijde v F3 přes worker.',
+      '🔓 Stránka Report je nově dostupná i pro Free (základní report); matice kategorií a 4stránkový report za 💎.',
+      '🧪 tools/smoke_report_mesicni.js (15).',
+    ]
+  },
+  {
+    verze: 'v11.26',
+    datum: '2026-10-02',
+    zmeny: [
+      '🧭 T4 KROK 2 – INFLACE A STATISTIKY PŘES TAXONOMII · cesta: Inflace → nová karta „🧭 Co tě zdražuje nejvíc": osobní inflace po podkategoriích výrobků (Pečivo, Maso…), seřazená podle dopadu (změna ceny × útrata), meziročně nebo první vs. poslední cena. Index se dál počítá po jednotlivých položkách (FIX-268 – různé výrobky se nesčítají).',
+      '🧾 Inflace → „Tvoje inflace vs. oficiální" po oddílech: oddíl COICOP se u položky bere nejdřív z taxonomie (komunitní mapa / čárový kód / název), teprve pak z rozpočtové kategorie. Drogerie koupená v Albertu už nespadne do „Potravin" – srovnání s ČSÚ je přesnější, čísla oddílů se proto mohou posunout.',
+      '📊 cesta: Analýza účtenek → 📊 Statistiky → nová karta „🧭 Za co utrácíš": útrata po podkategoriích (celkem, za měsíc, podíl, 3 největší obecné názvy) + kolik je mimo taxonomii.',
+      '🧬 COICOP rozpad položek (Statistiky → Výdaje podle COICOP, Komunitní přehled): přesný kód ČSÚ z taxonomie má přednost před klíčovými slovy produktové databáze (záloha zůstává).',
+      '🧪 tools/smoke_v1126.js (10).',
+    ]
+  },
+  {
+    verze: 'v11.25',
+    datum: '2026-10-02',
+    zmeny: [
+      '▮▮ SAMOSTATNÉ SKENOVÁNÍ VÝROBKU (Milan) · cesta: Analýza účtenek → 📸 Skenovat → „📷 Skenovat čárový kód". Naskenuješ obal kdykoli, vidíš výrobek, český název se zdrojem (✎ opravit) a fotky obalu/živin, pak „🔗 Přiřadit k položce z účtenky": seznam tvých položek bez kódu (obchod, datum, hledání). Kód se zapíše ke všem stejným zkratkám ve stejném obchodě (účtenky i transakce) a vznikne spojení obchod + zkratka → EAN pro komunitu.',
+      '🐛 Český název „zatím chybí" u výrobků uložených před v11.23: karta je četla přímo z databáze, takže se AI doplnění spustilo jen při novém skenu. Nově karta takový výrobek jednou pošle přes worker (AI doplní český název a zařazení).',
+      '🧪 tools/smoke_v1125.js (9).',
+    ]
+  },
+  {
+    verze: 'v11.24',
+    datum: '2026-10-02',
+    zmeny: [
+      '✎ ČESKÝ NÁZEV VÝROBKU (Milan) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Čárový kód: „Název z kódu" (původní, zůstává) a „Česky" se zdrojem (z databáze / schválený komunitou / z fotky obalu / návrh AI / tvůj název) – ať se název neopravuje dokola. „✎ Opravit / Doplnit" mění jen český název; tvůj název platí hned pro tebe, komunitě jde jako anonymní návrh s počtem (community/eanNavrhyNazvu, každý uživatel jednou). Admin → Mapa položek → Čárové kódy ukazuje návrhy (klepnutím převezme) a jeho uložení = „schválený komunitou".',
+      '📸 FOTKA OBALU A TABULKY ŽIVIN · v kartě výrobku: „Vyfotit obal" (výrobek, který databáze nezná, nebo chybí český název / zařazení – AI přečte název, značku, gramáž a vybere obecný název z taxonomie) a „Vyfotit tabulku živin" (hodnoty na 100 g a české složení z obalu, uloží se jako „📸 podle českého obalu (datum)" a mají přednost před databází). Fotka se NIKDE neukládá – AI ji jen přečte. Limit ean_foto: Free 3 měsíčně, trial 30, Premium 100. Neznámý výrobek: odkaz na přidání do Open Food Facts (web/aplikace).',
+      '☁️ Worker v11.24: /ean akce „nazev" a „foto"; obnova dat výrobku po 90 dnech zachová český název, zařazení a údaje z obalu.',
+      '🔒 Pravidla: community/eanNavrhyNazvu (číst přihlášený, zapisuje worker/admin).',
+      '🧪 tools/smoke_v1124.js (19).',
+    ]
+  },
   {
     verze: 'v11.23',
     datum: '2026-10-02',
@@ -7719,8 +7760,8 @@ async function mapaAdminEanNacti() {
   const el = document.getElementById('mapaAdminEan'); if (!el) return;
   try {
     const t = await window._currentUser?.getIdToken?.();
-    const [al, pr] = await Promise.all(['eanAliasy', 'eanProdukty'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`).then(r => r.ok ? r.json() : null)));
-    window._mapaEanData = { aliasy: al || {}, produkty: pr || {} };
+    const [al, pr, nv] = await Promise.all(['eanAliasy', 'eanProdukty', 'eanNavrhyNazvu'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`).then(r => r.ok ? r.json() : null)));
+    window._mapaEanData = { aliasy: al || {}, produkty: pr || {}, navrhy: nv || {} };
     const eany = Object.keys(al || {});
     if (!eany.length) { el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů</div><div style="font-size:.76rem;color:var(--text3)">Zatím nikdo nepřiřadil kód k položce účtenky.</div>`; return; }
     el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů <span style="font-weight:400;font-size:.74rem;color:var(--text3)">${eany.length} výrobků</span></div>
@@ -7743,6 +7784,9 @@ function mapaAdminEanRadek(ean) {
       ${info ? `<span style="font-size:.7rem;color:var(--income)">${_vzEsc(info.ikona + ' ' + info.podNazev + ' › ' + info.nazev)}</span>` : '<span style="font-size:.7rem;color:#fbbf24">bez zařazení</span>'}
     </div>
     <div style="font-size:.68rem;color:var(--text3);margin:4px 0">${Object.values(al).map(a => _vzEsc((a.obchod || '?') + ': ' + (a.raw || '') + (a.pocet > 1 ? ' (' + a.pocet + '×)' : ''))).join(' · ')}</div>
+    ${(() => { const nv = Object.values(((d.navrhy || {})[ean]) || {}).sort((x, y) => (y.pocet || 0) - (x.pocet || 0));
+      return nv.length ? `<div style="font-size:.7rem;margin:4px 0">✎ Návrhy názvu od uživatelů: ${nv.map(n => `<button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:1px 6px" onclick="document.getElementById('eanCs_${e}').value=this.dataset.n" data-n="${_vzEsc(n.nazev)}">${_vzEsc(n.nazev)} (${n.pocet}×)</button>`).join(' ')}</div>` : ''; })()}
+    ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">📸 živiny podle českého obalu (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px">
       <input class="fi" id="eanCs_${e}" style="font-size:.76rem;padding:6px 8px" placeholder="Český název výrobku" value="${_vzEsc(nazev)}">
       <input class="fi" id="eanOb_${e}" list="taxDatalist" style="font-size:.76rem;padding:6px 8px" placeholder="Obecný název (taxonomie)" value="${_vzEsc(info ? info.nazev : '')}">
@@ -7762,7 +7806,7 @@ async function mapaAdminEanUloz(ean) {
   if (obT && !info) { if (typeof showToast === 'function') showToast('⚠️ „' + obT + '" v taxonomii není – vyber z nabídky'); return; }
   const t = await window._currentUser?.getIdToken?.();
   const zmeny = {};
-  if (cs) zmeny.nazevCs = cs;
+  if (cs) { zmeny.nazevCs = cs; zmeny.nazevCsZdroj = 'admin'; }   // v11.24: zdroj = schválený komunitou
   if (info) { zmeny.obecnyId = info.id; zmeny.obecny = info.nazev; }
   const r = await fetch(`${MAPA_URL}/community/eanProdukty/${ean}.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zmeny) });
   if (!r.ok) { alert('Uložení selhalo: HTTP ' + r.status + (r.status === 401 || r.status === 403 ? ' – nasazená pravidla v11.23?' : '')); return; }

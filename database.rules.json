@@ -262,6 +262,8 @@
       // S24 (v11.23): admin smí opravit český název / obecný název výrobku (Admin → Mapa položek → Čárové kódy)
       "eanProdukty":   { ".read": "auth != null", ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" },
       "eanAliasy":     { ".read": "auth != null", ".write": false },
+      // S24 (v11.24): návrhy českých názvů od uživatelů (anonymně, zapisuje worker, maže admin)
+      "eanNavrhyNazvu": { ".read": "auth != null", ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" },
       "eanPodleNazvu": { ".read": "auth != null", ".write": false },
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
