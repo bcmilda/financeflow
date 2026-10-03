@@ -1,4 +1,4 @@
-// FinanceFlow · v11.16 · premium.js · 2026-09-30
+// FinanceFlow · v11.27 · premium.js · 2026-10-03
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -7,7 +7,8 @@
 //   Za diamantem zůstává to, co stojí peníze (AI) nebo je skutečná prémie.
 //  S24 (v11.16, Milan): 'uctenky' už není celá zamčená – Free má 3 skeny měsíčně (limit hlídá
 //  worker, AI_LIMITS.free.receipt), nástroje nad účtenkami zůstávají Premium (receipts.js).
-const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','nakup','report2','inflace'];
+//  S24 (v11.27): 'report2' odemčen – Free má základní měsíční report (2 strany), matice a Premium report za 💎 (report.js).
+const PREMIUM_PAGES = ['predikce','grafy','ai','narozeniny','nakup','inflace'];
 const TRIAL_DAYS = 30;
 
 // ══════════════════════════════════════════════════════

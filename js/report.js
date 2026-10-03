@@ -1,4 +1,4 @@
-// FinanceFlow · v9.99 · report.js · 2026-08-22
+// FinanceFlow · v11.27 · report.js · 2026-10-03
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka."
@@ -20,8 +20,25 @@ function renderReport2() {
   //  a „Roky" jsou od v9.47/9.48 v Grafech (Roční = kumulace led–pro, Všechny roky
   //  = matice kategorií). Dva placeholdery a duplicitní tabulka jen tříštily pozornost.
   //  Report má jediný účel: Excel matice kategorie → podkategorie.
-  el.innerHTML = reportMatice();
+  //  S24 (v11.27, TODO-317 F2, Milan: „osobně bych ho umístil do Report2"):
+  //  dvě záložky – 📄 Měsíční report (Free 2 strany / Premium 4 strany, report-mesicni.js)
+  //  a 📊 Matice kategorií (původní Excel matice, jen Premium).
+  const tab = window._rep2Tab || 'mesicni';
+  const pro = typeof hasPremiumAccess !== 'function' || hasPremiumAccess();
+  const btn = (id, t) => `<button class="tx-filt-btn${tab === id ? ' active' : ''}" onclick="rep2Tab('${id}')">${t}</button>`;
+  const tabs = `<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">${btn('mesicni', '📄 Měsíční report')}${btn('matice', '📊 Matice kategorií' + (pro ? '' : ' 💎'))}</div>`;
+  if (tab === 'matice' && pro) { el.innerHTML = tabs + reportMatice(); return; }
+  el.innerHTML = tabs + '<div id="rep2Mesicni"></div>';
+  const box = document.getElementById('rep2Mesicni');
+  if (typeof renderMesicniReport === 'function') renderMesicniReport(box);
+  else box.innerHTML = '<div class="empty"><div class="et">Report se načítá…</div></div>';
 }
+function rep2Tab(t) {
+  const pro = typeof hasPremiumAccess !== 'function' || hasPremiumAccess();
+  if (t === 'matice' && !pro) { if (typeof showPaywall === 'function') showPaywall(); return; }
+  window._rep2Tab = t; renderReport2();
+}
+window.rep2Tab = rep2Tab;
 
 // ── v9.54: součty pro PODKATEGORII (sektor = kategorie, řádek = podkategorie) ──
 //  Podkategorie je na transakci jako t.subcat (starší záznamy t.subcategory).
