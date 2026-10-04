@@ -1,4 +1,4 @@
-// FinanceFlow · v11.27 · premium.js · 2026-10-03
+// FinanceFlow · v11.28 · premium.js · 2026-10-04
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -571,17 +571,49 @@ function renderWalletList() {
   if (typeof onPenezenkyRender === 'function') onPenezenkyRender();
 }
 
+// S25 (v11.30, Milan): ZŮSTATEK KE DNI. Peněženka může mít `balanceDate` = den, ke kterému
+//   `balance` platí (konec dne). Transakce do toho dne jsou v zůstatku už obsažené – dnešní
+//   zůstatek nemění, jen dopočítají historii. Bez `balanceDate` = počáteční stav před všemi
+//   transakcemi (původní chování, staré peněženky se nemění).
+//   Transakce ze STEJNÉHO dne: z importu výpisu = obsažená; ručně zapsaná až po nastavení
+//   zůstatku (podle času vzniku vs. `balanceSetAt`) = až po něm.
+function _txVytvorenoMs(t) {
+  if (typeof t.createdAt === 'number') return t.createdAt;
+  if (typeof t.id === 'number' && t.id > 1e13) { const ms = Math.floor(t.id / 16); if (ms > 1.5e12 && ms < 4.2e12) return ms; }   // genTxId
+  const m = /^id(\d{13})/.exec(String(t.id || '')); return m ? +m[1] : null;                                                          // uid()
+}
+function _walletTxPoStavu(t, w) {   // true = transakce NENÍ v zadaném zůstatku (přičte se k němu)
+  if (!w || !w.balanceDate) return true;
+  const d = String(t.date || '').slice(0, 10);
+  if (d > w.balanceDate) return true;
+  if (d < w.balanceDate) return false;
+  if (t.src === 'import') return false;
+  const c = _txVytvorenoMs(t);
+  return !!(c && w.balanceSetAt && c > w.balanceSetAt);
+}
+function _walletTxZnak(t) { return t.type === 'income' ? (t.amount || 0) : t.type === 'expense' ? -(t.amount || 0) : 0; }
+
 function computeWalletBalance(walletId, D) {
   D = D || getData();
   const wallet = findWallet(walletId, D);
-  const startBal = wallet?.balance || 0;
   const txs = (D.transactions||[]).filter(t => t.wallet === walletId);
-  return startBal + txs.reduce((a,t) => {
-    if(t.type==='income') return a + t.amount;
-    if(t.type==='expense') return a - t.amount;
-    return a;
-  }, 0);
+  return (wallet?.balance || 0) + txs.reduce((a,t) => a + (_walletTxPoStavu(t, wallet) ? _walletTxZnak(t) : 0), 0);
 }
+// Zůstatek peněženky na KONCI dne `den` ('YYYY-MM-DD') – pro graf zůstatku den po dni.
+function walletBalanceAt(walletId, D, den) {
+  D = D || getData();
+  const w = findWallet(walletId, D);
+  let b = w?.balance || 0;
+  (D.transactions||[]).forEach(t => {
+    if (t.wallet !== walletId) return;
+    const s = _walletTxZnak(t); if (!s) return;
+    const d = String(t.date || '').slice(0, 10);
+    if (_walletTxPoStavu(t, w)) { if (d <= den) b += s; }
+    else if (d > den) b -= s;
+  });
+  return b;
+}
+window.walletBalanceAt = walletBalanceAt;
 
 // Zůstatek peněženky přepočtený na CZK (pro sumarizaci majetku/dashboardu)
 function walletBalanceCZK(walletId, D) {
@@ -610,6 +642,7 @@ function renderTransferDropdowns(wallets) {
 
 function openWalletModal() {
   ['editWalletId','walletName','walletBalance'].forEach(id=>document.getElementById(id).value='');
+  { const bd=document.getElementById('walletBalanceDate'); if(bd) bd.value=new Date().toISOString().slice(0,10); }   // S25: nová peněženka = zůstatek k dnešku
   document.getElementById('walletType').value='account';
   document.getElementById('walletCurrency').value='CZK';
   document.getElementById('walletColor').value='#4ade80';
@@ -623,6 +656,7 @@ function editWallet(id) {
   document.getElementById('walletType').value=w.type||'account';
   document.getElementById('walletCurrency').value=w.currency||'CZK';
   document.getElementById('walletBalance').value=w.balance||0;
+  { const bd=document.getElementById('walletBalanceDate'); if(bd) bd.value=w.balanceDate||''; }   // S25: prázdné = počáteční stav
   document.getElementById('walletColor').value=w.color||'#4ade80';
   document.getElementById('walletModalTitle').textContent='Upravit peněženku';
   document.getElementById('modalWallet').classList.add('open');
@@ -631,7 +665,14 @@ function saveWallet() {
   const eid=document.getElementById('editWalletId').value;
   const name=document.getElementById('walletName').value.trim();
   if(!name){alert('Zadej název');return;}
-  const w={id:eid||uid(),name,type:document.getElementById('walletType').value,currency:document.getElementById('walletCurrency').value,balance:parseFloat(document.getElementById('walletBalance').value)||0,color:document.getElementById('walletColor').value};
+  // S25 (v11.30): zachovat ostatní pole peněženky (dřív se objekt skládal znovu a ztrácela se např. archivace)
+  const old = eid ? findWallet(eid, S) : null;
+  const w={...(old||{}),id:eid||uid(),name,type:document.getElementById('walletType').value,currency:document.getElementById('walletCurrency').value,balance:parseFloat(document.getElementById('walletBalance').value)||0,color:document.getElementById('walletColor').value};
+  const bdEl=document.getElementById('walletBalanceDate'); const bd=bdEl?bdEl.value:'';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(bd)){
+    if(!old || old.balance!==w.balance || old.balanceDate!==bd || !old.balanceSetAt) w.balanceSetAt=Date.now();
+    w.balanceDate=bd;
+  } else { delete w.balanceDate; delete w.balanceSetAt; }   // bez data = počáteční stav (žádné undefined do Firebase)
   if(!S.wallets) S.wallets=[];
   if(eid){const i=S.wallets.findIndex(x=>x.id===eid);if(i>=0)S.wallets[i]=w;}
   else S.wallets.push(w);

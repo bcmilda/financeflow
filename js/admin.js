@@ -1,4 +1,4 @@
-// FinanceFlow · v11.27 · admin.js · 2026-10-03
+// FinanceFlow · v11.28 · admin.js · 2026-10-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,24 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.28',
+    datum: '2026-10-04',
+    zmeny: [
+      "🐛 OKNO PŘI SCROLLOVÁNÍ UKAZOVALO STRÁNKU POD SEBOU (Milan, screenshot) · cesta: + Přidat transakci (a všechna ostatní okna). Otevřené okno nově zamkne stránku pod sebou, scroll nepřeteče a výška bere dynamickou výšku obrazovky (dvh). Překreslení stránky jen při změně šířky, ne při schování adresního řádku.",
+      "🐛 PO OTOČENÍ TELEFONU VELKÉ PÍSMO A ZALOMENÉ KATEGORIE (Milan) · Chrome na Androidu zvětšoval text o ~14 %. Doplněno text-size-adjust:100 %, štítky kategorií se nezalomí.",
+      "✨ NOVÝ VÝBĚR KATEGORIE (Milan) · cesta: + Přidat transakci → Kategorie. Nahoře NEJČASTĚJŠÍ (6 podle posledních 90 dní), pod tím rozbalovací skupiny Jídlo, Domácnost, Doprava, Zdraví a péče, Volný čas, Finance a úřady, Ostatní (i vlastní kategorie). 2 sloupce (na šířku 3), větší písmo, barvy zůstaly. Skupiny jsou jen zobrazení – data ani logika kategorií se nemění.",
+      "💼 ZŮSTATEK PENĚŽENKY KE DNI (Milan) · cesta: Peněženky → upravit → „Zůstatek · ke dni“. Skutečný zůstatek z banky k danému dni; starší transakce ho nezmění, jen dopočítají historii. Kdykoli nesedí, zadá se znovu aktuální stav a dnešní datum. Staré peněženky bez data beze změny.",
+      "🐛 IMPORT VÝPISU NEPŘIŘAZOVAL PENĚŽENKU · cesta: Import → náhled výpisu → „💼 Do které peněženky výpis patří?“. Proto se zůstatek po importu neměnil. Naposledy použitá peněženka se předvybere.",
+      "🏧 VÝBĚR Z BANKOMATU VE VÝPISU = PŘESUN DO HOTOVOSTI · cesta: Import → náhled → „🏧 Výběry z bankomatu převést do:“. Pár výdaj z účtu + příjem do Hotovosti; lze nechat jako výdaj.",
+      "🐛 Úprava peněženky zachová ostatní pole (dřív se ztrácela např. archivace).",
+      "📈 ZŮSTATEK DEN PO DNI V REPORTU · cesta: Report → 📄 Měsíční report (strana 1 a Premium strana 2, graf 2.3). Místo kumulovaného pohybu peněz skutečný zůstatek všech peněženek v Kč; bez peněženek zůstává původní graf.",
+      "✉️ MĚSÍČNÍ REPORT E-MAILEM JAKO PDF (Milan) · cesta: Report → 📄 Měsíční report → „✉️ Poslat e-mailem“ a volba „posílat automaticky každý měsíc (4. den)“ (zapnuto). Automaticky za minulý měsíc při prvním otevření appky od 4. dne. PDF tiskne worker přes Cloudflare Browser Rendering (stejný Chrome jako tisk → stejný vzhled), posílá Resend jen na ověřený e-mail účtu. Auto max 1× za měsíc, ručně max 5× denně.",
+      "📌 DOKLAD ZE SKENU (Milan) · cesta: Analýza účtenek → po skenu v editoru „📌 Uschovat fotky účtenky (N)“ uschová do R2 VŠECHNY fotky účtenky jedním klepnutím, bez otevírání alba. Volba „uschovávat fotky účtenek automaticky“ (v editoru, uzel uiCfg.autoDoklad) je uschová sama při uložení účtenky. Album jen u starších účtenek: Historie (tužka) → „📌 Přidat fotku dokladu“ (lze vybrat víc fotek). Fotky se zobrazují v Analýza účtenek → 📎 Doklady a v editoru „👁️ Zobrazit“ (všechny pod sebou). Smazání účtenky/dokladu smaže všechny fotky. Účtenka má nově photoKeys (photoKey = první kvůli kompatibilitě).",
+      "⚙️ Nový uzel users/{uid}/data/uiCfg (peněženka importu, report e-mailem) registrovaný na všech 4 místech v app.js; nesdílí se. Worker: /report-mail, nové proměnné CF_ACCOUNT_ID a CF_BR_TOKEN.",
+      "🧪 tools/smoke_zobrazeni.js (6), smoke_kategorie.js (8), smoke_penezenky.js (12), smoke_report_mail.js (14), smoke_doklady_sken.js (10); smoke_archiv_klient.js upraven na nový popisek.",
+    ]
+  },
   {
     verze: 'v11.27',
     datum: '2026-10-03',

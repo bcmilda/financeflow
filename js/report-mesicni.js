@@ -1,4 +1,4 @@
-// FinanceFlow · v11.27 · report-mesicni.js · 2026-10-03
+// FinanceFlow · v11.28 · report-mesicni.js · 2026-10-04
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -52,6 +52,16 @@ function mesReportData(D, m, y) {
   tx.forEach(t => { if (t.isBalancing || t.splitParent || isTransferTx(t)) return; const d = new Date(t.date).getDate() - 1; if (d < 0 || d >= dni) return;
     if (t.type === 'expense') dV[d] += txCZK(t, D); else if (t.type === 'income') dP[d] += txCZK(t, D); });
   const kumNet = []; dV.reduce((a, v, i) => (kumNet[i] = a + dP[i] - v), 0);
+  // S25: ZŮSTATEK všech peněženek na konci každého dne (Kč) – místo pohybu peněz, když má uživatel peněženky
+  let zust = null;
+  try {
+    const ws = typeof getWallets === 'function' ? getWallets(D) : [];
+    if (ws.length && typeof walletBalanceAt === 'function') {
+      const mm = String(m + 1).padStart(2, '0');
+      zust = Array.from({ length: dni }, (_, i) => { const den = `${y}-${mm}-${String(i + 1).padStart(2, '0')}`;
+        return ws.reduce((a, w) => { const b = walletBalanceAt(w.id, D, den); return a + (typeof toCZK === 'function' ? toCZK(b, w.currency || 'CZK') : b); }, 0); });
+    }
+  } catch (e) { zust = null; }
   // rozpočty (limit finančního zdraví)
   const rozp = (D.categories || []).filter(c => (c.type === 'expense' || c.type === 'both') && (c.healthAmt > 0 || c.healthPct > 0)).map(c => {
     const lim = c.healthAmt > 0 ? (c.healthPct > 0 ? Math.min(c.healthAmt, c.healthPct / 100 * avg.p) : c.healthAmt) : c.healthPct / 100 * avg.p;
@@ -100,7 +110,7 @@ function mesReportData(D, m, y) {
   const sd = Math.sqrt(v6.reduce((a, b) => a + (b - mean6) ** 2, 0) / 6);
   const sabPrij = pristi.filter(x => x.v > 0).reduce((a, x) => a + x.v, 0);
   const fcP = sabPrij > 0 ? sabPrij : avg.p, fcV = (vyd + avg.v * 2) / 3;
-  return { m, y, nm, ny, inc, vyd, bil, mira: inc ? bil / inc * 100 : 0, pm, avg, ly, rok, karty, prijmy, dni, dV, dP, kumNet,
+  return { m, y, nm, ny, inc, vyd, bil, mira: inc ? bil / inc * 100 : 0, pm, avg, ly, rok, karty, prijmy, dni, dV, dP, kumNet, zust,
     rozp, nejvetsi, pravidelne, pristi, skore, skoreMM, penezenky, dluhy, cile, ucet,
     fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05) }, txN: tx.length };
 }
@@ -132,6 +142,20 @@ function _rpKum(rd) {
   s += `<polyline fill="none" stroke="#1F45C8" stroke-width="1.8" points="${a.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>`;
   s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) - 5}" font-size="7.5" fill="#B7791F">${iMin + 1}. den ${_rpKcz(a[iMin])}</text>`;
   s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="8" text-anchor="end" font-weight="600">${_rpKcz(a[n - 1])}</text>`;
+  [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="7.6" text-anchor="middle" fill="#8A94A6">${d}.</text>`);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
+}
+//  S25: zůstatek všech peněženek den po dni (absolutní hodnota, ne kumulovaný pohyb)
+function _rpZust(rd, H = 150) {
+  const W = 330, P = [40, 8, 10, 20], a = rd.zust, n = a.length;
+  let mn = Math.min(...a), mx = Math.max(...a); const pad = (mx - mn) * 0.12 || Math.abs(mx) * 0.05 || 1; mn -= pad; mx += pad;
+  const X = i => P[0] + i / Math.max(1, n - 1) * (W - P[0] - P[1]), Y = v => P[2] + (mx - v) / (mx - mn) * (H - P[2] - P[3]);
+  const iMin = a.indexOf(Math.min(...a));
+  let s = mn < 0 && mx > 0 ? `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(0)}" y2="${Y(0)}" stroke="#C8501E" stroke-dasharray="3 2"/>` : '';
+  [mx - pad, mn + pad].forEach(v => s += `<text x="${P[0] - 4}" y="${Y(v) + 3}" font-size="7" text-anchor="end" fill="#8A94A6">${_rpT(v)}</text>`);
+  s += `<polyline fill="none" stroke="#0F8C6E" stroke-width="1.8" points="${a.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>`;
+  s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) + 10}" font-size="7.5" fill="#B7791F">${iMin + 1}. den ${_rpKc(a[iMin])}</text>`;
+  s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="8" text-anchor="end" font-weight="600">${_rpKc(a[n - 1])}</text>`;
   [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="7.6" text-anchor="middle" fill="#8A94A6">${d}.</text>`);
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
@@ -274,7 +298,7 @@ function _rpPro1(rd) {
         <div class="bar"><i style="width:${c.max ? c.score / c.max * 100 : 0}%;background:${c.avail === false ? '#E2E8F0' : '#1E293B'}"></i></div><span class="num">${c.avail === false ? '–' : c.score + '/' + c.max}</span></div>`).join('')}` : '<div class="faint">Skóre se nepodařilo spočítat.</div>'}</div>
   <div class="c7 sec"><h2>Co stojí za pozornost</h2><div class="sub">Spočítané z tvých čísel · AI komentář přibude v další verzi</div>
     <div style="display:grid;gap:2.4mm">${_rpPostrehy(rd).map(p => `<div class="ai" style="background:#EEF3FF;border-left-color:#1F45C8"><h3>${p[0]}</h3><p style="color:#334155">${p[1]}</p><div class="ft" style="color:#1F45C8"><span>${p[2]}</span></div></div>`).join('')}</div></div>
-  <div class="c12 sec"><h2>${rd.kumNet.at(-1) >= 0 ? 'Měsíc skončil v plusu' : 'Měsíc skončil v mínusu'}, nejníž ${rd.kumNet.indexOf(Math.min(...rd.kumNet)) + 1}. den</h2><div class="sub">Pohyb peněz v měsíci: příjmy − výdaje den po dni (kumulovaně)</div>${_rpKum(rd).replace('viewBox="0 0 330 150"', 'viewBox="0 0 330 110"')}</div>
+  ${rd.zust ? `<div class="c12 sec"><h2>Na účtech na konci měsíce ${_rpKc(rd.zust.at(-1))}, nejméně ${rd.zust.indexOf(Math.min(...rd.zust)) + 1}. den</h2><div class="sub">Zůstatek všech peněženek den po dni (v Kč)</div>${_rpZust(rd, 110)}</div>` : `<div class="c12 sec"><h2>${rd.kumNet.at(-1) >= 0 ? 'Měsíc skončil v plusu' : 'Měsíc skončil v mínusu'}, nejníž ${rd.kumNet.indexOf(Math.min(...rd.kumNet)) + 1}. den</h2><div class="sub">Pohyb peněz v měsíci: příjmy − výdaje den po dni (kumulovaně)</div>${_rpKum(rd).replace('viewBox="0 0 330 150"', 'viewBox="0 0 330 110"')}</div>`}
   <div class="foot"><span>Čísla spočítala appka z tvých transakcí. Nejde o investiční doporučení.</span><span>1 / ${rd._stran}</span></div></section>`;
 }
 function _rpPro2(rd) {
@@ -282,7 +306,7 @@ function _rpPro2(rd) {
   return `<section class="page" aria-label="Premium strana 2">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · rozbor výdajů`, true)}
   <div class="c12 sec"><h2>Z ${_rpKc(rd.inc)} příjmů ${rd.bil >= 0 ? 'zůstalo ' + _rpKc(rd.bil) : 'chybělo ' + _rpKc(-rd.bil)}${s[0] ? ', nejvíc ubralo ' + _rpE(s[0].n.toLowerCase()) : ''}</h2><div class="sub">Graf 2.1 · Od příjmu k úspoře</div>${_rpWaterfall(rd)}</div>
   <div class="c6 sec"><h2>Odchylky od průměru</h2><div class="sub">Graf 2.2 · Proti průměru 3 měsíců v Kč</div>${_rpDev(rd.karty)}</div>
-  <div class="c6 sec"><h2>Pohyb peněz den po dni</h2><div class="sub">Graf 2.3 · Příjmy − výdaje kumulovaně</div>${_rpKum(rd)}</div>
+  ${rd.zust ? `<div class="c6 sec"><h2>Zůstatek den po dni</h2><div class="sub">Graf 2.3 · Všechny peněženky v Kč</div>${_rpZust(rd)}</div>` : `<div class="c6 sec"><h2>Pohyb peněz den po dni</h2><div class="sub">Graf 2.3 · Příjmy − výdaje kumulovaně</div>${_rpKum(rd)}</div>`}
   <div class="c12 sec"><h2>Skupiny výdajů</h2><div class="sub">Tabulka 2.4 · proti minulému měsíci a průměru 3 měsíců, 2 největší položky</div>
     <table><tr><th class="t">Skupina</th><th>${RP_MES2[rd.m]}</th><th>vs ${RP_MES2[rd.pm.m]}</th><th>vs Ø3M</th><th class="t">Největší položky</th></tr>
     ${s.map(x => { const d1 = _rpPct(x.v, x.mm), d3 = _rpPct(x.v, x.avg), c = d => Math.abs(d) < 5 ? 'faint' : d > 0 ? 'down' : 'up';
@@ -409,6 +433,8 @@ function renderMesicniReport(el) {
   try { rd = mesReportData(D, S.curMonth, S.curYear); } catch (e) { el.innerHTML = `<div class="card"><div class="card-body" style="color:var(--expense)">Report se nepodařilo spočítat: ${_rpE(e.message)}</div></div>`; return; }
   el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <button class="btn btn-primary" onclick="mesReportTisk()">📄 Uložit jako PDF / tisk</button>
+      <button class="btn btn-ghost" onclick="mesReportPoslatTlacitko(this)">✉️ Poslat e-mailem</button>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:.76rem;color:#c9cede;cursor:pointer"><input type="checkbox" ${(S.uiCfg || {}).reportEmail === false ? '' : 'checked'} onchange="mesReportAutoNastav(this.checked)"> posílat automaticky každý měsíc (4. den)</label>
       <span style="font-size:.74rem;color:#a8aec8">${pro ? 'Premium report · 4 strany' : 'Základní report · 2 strany · <a href="#" onclick="if(typeof showPaywall===\'function\')showPaywall();return false" style="color:#a78bfa">💎 Premium má 4 strany s rozborem</a>'} · měsíc přepneš nahoře</span></div>
     <div id="rp4wrap" style="overflow:hidden"><div id="rp4scale" class="rp4" style="transform-origin:top left">${mesReportHTML(rd, pro)}</div></div>`;
   const fit = () => { const w = document.getElementById('rp4wrap'), s = document.getElementById('rp4scale'); if (!w || !s) return;
@@ -418,14 +444,76 @@ function renderMesicniReport(el) {
 }
 window.renderMesicniReport = renderMesicniReport;
 
+//  S25: samostatné HTML reportu – stejné pro tisk i pro PDF do e-mailu (worker ho dá vytisknout
+//  skutečnému Chromu v Cloudflare, takže vzhled zůstane stejný jako při tisku z appky).
+function mesReportSamostatne(obsah, m, y, sTiskem) {
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>FinanceFlow – měsíční report ${RP_MES[m]} ${y}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+    <style>${_rpCss()} body{margin:0;background:#E6EAF0}.rp4 .page{margin:8mm auto} @media print{body{background:none}.rp4 .page{margin:0;box-shadow:none;page-break-after:always}@page{size:A4;margin:0}}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body><div class="rp4">${obsah}</div>
+    ${sTiskem ? '<script>setTimeout(function(){window.print()},700)<\/script>' : ''}</body></html>`;
+}
+
+//  S25 (Milan): MĚSÍČNÍ REPORT E-MAILEM jako PDF. Ručně tlačítkem, automaticky za minulý měsíc
+//  při prvním otevření appky od 4. dne (odklad 3 dní – měsíc bývá dopsaný až pár dní po konci).
+//  E-mail jde VÝHRADNĚ na ověřenou adresu účtu (worker ji bere z tokenu, ne z požadavku).
+async function mesReportPoslat(m, y, auto) {
+  if (!window._currentUser || !window._currentUser.getIdToken || window._currentUser.uid === 'local') throw new Error('Pro e-mail se přihlas');
+  const D = getData();
+  const pro = typeof hasPremiumAccess !== 'function' || hasPremiumAccess();
+  const rd = mesReportData(D, m, y);
+  const html = mesReportSamostatne(mesReportHTML(rd, pro), m, y, false);
+  const token = await window._currentUser.getIdToken();
+  const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
+  const r = await fetch(`${wu}/report-mail`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+    body: JSON.stringify({ html, mesic: `${y}-${String(m + 1).padStart(2, '0')}`, nazev: `${RP_MES[m]} ${y}`, auto: !!auto }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.error) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+window.mesReportPoslat = mesReportPoslat;
+
+async function mesReportPoslatTlacitko(btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Posílám…'; }
+  try { const d = await mesReportPoslat(S.curMonth, S.curYear, false);
+    if (typeof showToast === 'function') showToast(`✉️ Report odeslán na ${d.email || 'tvůj e-mail'}`);
+  } catch (e) { alert('Report se nepodařilo poslat: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✉️ Poslat e-mailem'; } }
+}
+window.mesReportPoslatTlacitko = mesReportPoslatTlacitko;
+
+function mesReportAutoNastav(on) { S.uiCfg = S.uiCfg || {}; S.uiCfg.reportEmail = !!on; save(); if (typeof showToast === 'function') showToast(on ? '✉️ Report přijde každý měsíc 4. den' : 'Automatický report vypnut'); }
+window.mesReportAutoNastav = mesReportAutoNastav;
+
+//  Minulý měsíc, pokud je dnes ≥ 4. den, ještě neodešel a v měsíci jsou transakce.
+function mesReportAutoCil(D, dnes = new Date()) {
+  const ui = D.uiCfg || {};
+  if (ui.reportEmail === false || dnes.getDate() < 4) return null;
+  const m = dnes.getMonth() === 0 ? 11 : dnes.getMonth() - 1, y = dnes.getMonth() === 0 ? dnes.getFullYear() - 1 : dnes.getFullYear();
+  const klic = `${y}-${String(m + 1).padStart(2, '0')}`;
+  if ((ui.reportSent || {})[klic]) return null;
+  const ma = (D.transactions || []).some(t => String(t.date || '').slice(0, 7) === klic);
+  return ma ? { m, y, klic } : null;
+}
+async function mesReportAuto() {
+  try {
+    if (typeof viewingUid !== 'undefined' && viewingUid) return;
+    const cil = mesReportAutoCil(S); if (!cil || window._mesReportAutoBezi) return;
+    window._mesReportAutoBezi = true;
+    await mesReportPoslat(cil.m, cil.y, true);
+    S.uiCfg = S.uiCfg || {}; S.uiCfg.reportSent = S.uiCfg.reportSent || {};
+    S.uiCfg.reportSent[cil.klic] = Date.now(); save();
+    if (typeof showToast === 'function') showToast(`✉️ Report za ${RP_MES[cil.m]} ti přišel e-mailem`);
+  } catch (e) { console.warn('Automatický report:', e.message); }   // zkusí se při dalším otevření
+  finally { window._mesReportAutoBezi = false; }
+}
+window.mesReportAuto = mesReportAuto;
+
 //  Tisk / PDF: report v samostatném okně (bez menu appky), jinak stažení HTML.
 function mesReportTisk() {
   const s = document.getElementById('rp4scale'); if (!s) return;
-  const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>FinanceFlow – měsíční report ${RP_MES[S.curMonth]} ${S.curYear}</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
-    <style>${_rpCss()} body{margin:0;background:#E6EAF0}.rp4 .page{margin:8mm auto} @media print{body{background:none}.rp4 .page{margin:0;box-shadow:none;page-break-after:always}@page{size:A4;margin:0}}
-    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body><div class="rp4">${s.innerHTML}</div>
-    <script>setTimeout(function(){window.print()},700)<\/script></body></html>`;
+  const html = mesReportSamostatne(s.innerHTML, S.curMonth, S.curYear, true);
   const w = window.open('', '_blank');
   if (w) { w.document.open(); w.document.write(html); w.document.close(); return; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));

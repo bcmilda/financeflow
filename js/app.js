@@ -1,4 +1,4 @@
-// FinanceFlow · v11.20 · app.js · 2026-10-02
+// FinanceFlow · v11.28 · app.js · 2026-10-04
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -322,6 +322,7 @@ async function saveSnapshot() {
       milestones:    S.milestones    || [],
       reportSectors: S.reportSectors || {},
       pristiCfg:     S.pristiCfg     || {},
+      uiCfg:         S.uiCfg         || {},   // S25
       _savedAt: Date.now(),
     };
     const db = await _openSnapDB();
@@ -340,7 +341,7 @@ async function saveSnapshot() {
                  bank:S.bank||{startBalance:0},birthdays:S.birthdays||[],wishes:S.wishes||[],
                  wallets:S.wallets||[],payTypes:S.payTypes||[],sablony:S.sablony||[],
                  projects:S.projects||[],receipts:S.receipts||[],nakupList:S.nakupList||[],
-                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},payslips:S.payslips||[],payslipTemplate:S.payslipTemplate||null,diary:S.diary||{},fixedLog:S.fixedLog||[],idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},_savedAt:Date.now()};
+                 assets:S.assets||[],shareSettings:S.shareSettings||{},calNotes:S.calNotes||{},workCal:S.workCal||{},payslips:S.payslips||[],payslipTemplate:S.payslipTemplate||null,diary:S.diary||{},fixedLog:S.fixedLog||[],idleCfg:S.idleCfg||{},milestones:S.milestones||[],reportSectors:S.reportSectors||{},pristiCfg:S.pristiCfg||{},uiCfg:S.uiCfg||{},_savedAt:Date.now()};
       localStorage.setItem('ff_snapshot_' + uid, JSON.stringify(s));
     } catch (_) {}
   }
@@ -746,6 +747,8 @@ window.onUserSignedIn = async function(user) {
 
   // Process auto templates
   processAutoSablony();
+  // S25: měsíční report e-mailem – za minulý měsíc od 4. dne (report-mesicni.js)
+  try { if (typeof mesReportAuto === 'function') setTimeout(mesReportAuto, 8000); } catch (e) {}
 
   setSyncStatus('ok');
   updateMLabel();
@@ -1402,7 +1405,7 @@ function _attachOwnListeners(userRef, uid, initialVal){
 //  Meta sekce → zapíšou se jen ty, které se změnily. Reader (sanitizeUserData) vrací pole.
 //  Bezpečný mezikrok: čtení stále přes onValue celého uzlu; migrace lazy + záloha v1.
 // ══════════════════════════════════════════════════════
-const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','fixedLog','idleCfg','milestones','reportSectors','pristiCfg'];
+const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','fixedLog','idleCfg','milestones','reportSectors','pristiCfg','uiCfg'];
 let _dw = { ready:false, metaSig:{}, txSig:null };
 
 function _dwEnsureIds(){
@@ -1488,7 +1491,8 @@ function _dwMetaVals(){
     idleCfg: S.idleCfg||{},  // S17.4 (TODO-183): konfigurace Ušlého zisku
     milestones: S.milestones||[],  // v9.45 (TODO-203): Životní mapa – zlomové události
     reportSectors: S.reportSectors||{},  // v9.52 (TODO-208): vlastní sektory Reportu
-    pristiCfg: S.pristiCfg||{}  // v9.79 (TODO-211): ruční úpravy odhadu v kartě Příští měsíc
+    pristiCfg: S.pristiCfg||{},  // v9.79 (TODO-211): ruční úpravy odhadu v kartě Příští měsíc
+    uiCfg: S.uiCfg||{}  // S25: peněženka importu, měsíční report e-mailem (zapnuto, odeslané měsíce)
   };
 }
 function _dwTxObj(){
@@ -1552,7 +1556,7 @@ function _shMetaVals(){
   //   payslips, payslipTemplate            – výplatní pásky (TODO-257)
   //   diary, calNotes, workCal, milestones  – osobní zápisky a životní události
   //   fixedLog                              – historie mých závazků (patří k sablony)
-  //   idleCfg, reportSectors, pristiCfg     – nastavení mých vlastních pohledů
+  //   idleCfg, reportSectors, pristiCfg, uiCfg – nastavení mých vlastních pohledů
   //   importHistory, noSyncKeys             – provozní stopa, partnerovi k ničemu
   //   nakupList, sablony                    – nákupní seznam a šablony
   //   shareSettings                         – komu co sdílím není věc partnera

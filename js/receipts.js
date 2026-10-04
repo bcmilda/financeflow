@@ -1,4 +1,4 @@
-// FinanceFlow · v11.26 · receipts.js · 2026-10-02
+// FinanceFlow · v11.28 · receipts.js · 2026-10-04
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1324,7 +1324,8 @@ function buildDokladyTab(receipts) {
     html += `<div class="card"><div class="card-body"><div class="empty">
       <div class="ei">📎</div><div class="et">Zatím žádný uschovaný doklad</div>
       <div style="font-size:.78rem;color:var(--text2);margin-top:8px;line-height:1.55">
-        Otevři účtenku v <b>Historii</b> (tužka) a dej <b>📌 Uschovat doklad</b>.
+        Po naskenování účtenky dej v editoru <b>📌 Uschovat fotku účtenky</b>, nebo zapni <b>uschovávat automaticky</b>.
+        Ke starší účtence přidáš fotku v <b>Historii</b> (tužka) → <b>📌 Přidat fotku dokladu</b>.
         Hodí se u spotřebičů a nábytku – k dokladu si pak nastavíš záruku a appka ti řekne, než skončí.
       </div></div></div></div>`;
     return html + '</div>';
@@ -1383,13 +1384,7 @@ function _dokRec(i) { return (S.receipts || [])[i]; }
 
 async function dokladOtevri(i) {
   const r = _dokRec(i); if (!r || !r.photoKey) return;
-  try {
-    const blob = await archivVolej('get', { key: r.photoKey });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) { const a = document.createElement('a'); a.href = url; a.download = 'doklad.jpg'; a.click(); }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch (e) { alert('Doklad se nepodařilo načíst: ' + e.message); }
+  archivProhlizec(rpFotky(r));   // S25: všechny fotky dokladu
 }
 window.dokladOtevri = dokladOtevri;
 
@@ -1419,8 +1414,7 @@ window.dokladPoznamka = dokladPoznamka;
 async function dokladSmaz(i) {
   const r = _dokRec(i); if (!r || !r.photoKey) return;
   if (!confirm('Odstranit uschovaný doklad? Účtenka zůstane.')) return;
-  await archivSmaz(r.photoKey);
-  delete r.photoKey; delete r.photoAt; delete r.photoBytes;
+  await archivSmazVse(r);   // S25: všechny fotky
   save(); renderUctenky();
   if (typeof showToast === 'function') showToast('Doklad odstraněn');
 }
@@ -2925,6 +2919,7 @@ function editReceiptFromHistory(index) {
   // což blokovalo render i nové otevření (editor „zmizel").
   window._editReceipt = null;
   window._receiptEditorOpen = false;
+  window._rpScanFoto = null;   // S25: z Historie žádná čerstvá fotka není – nabídne se výběr
 
   // Použij dedikovaný div v buildHistoryTab
   const slot = document.getElementById('rcpt_hist_'+index);
@@ -2974,7 +2969,7 @@ function deleteReceipt(index) {
   //  S23 (TODO-277c): AŽ PO POTVRZENÍ – s účtenkou zmizí i uschovaná fotka,
   //  jinak by v R2 zůstala navždy a uživatel by o ní nevěděl.
   const _r = (S.receipts || [])[index];
-  if (_r && _r.photoKey && typeof archivSmaz === 'function') archivSmaz(_r.photoKey);
+  if (_r && _r.photoKey && typeof archivSmaz === 'function') rpFotky(_r).forEach(k => archivSmaz(k));   // S25: všechny fotky
   if(S.receipts)S.receipts.splice(index,1);
   save(); renderUctenky();
   switchUctenkyTab('history',document.getElementById('utab-history'));
@@ -3305,6 +3300,10 @@ async function analyzeMultiReceipt() {
     }
 
     if(status) status.style.display='none';
+    // S25 (Milan): fotka z právě naskenované účtenky – „📌 Uschovat tuto fotku“ ji nahraje bez nového výběru
+    { const blobs = _receiptQueue.map(q => q && q.blob).filter(Boolean);   // S25: VŠECHNY fotky účtenky (dlouhá = víc fotek)
+      const tok = 'sc' + Date.now(); receipt._scanTok = tok;
+      window._rpScanFoto = blobs.length ? { blobs, at: Date.now(), tok } : null; }
     _receiptQueue = [];
     updateReceiptQueue();
     _lastReceiptResult = {receipt, n}; // Ulož pro případ překreslení
@@ -4080,57 +4079,124 @@ async function publishToCatalog(items) {
 
 //  Blok „doklad" v editoru účtenky: buď je fotka uschovaná (zobrazit/odstranit),
 //  nebo jde vybrat. Nahrává se výhradně kliknutím uživatele.
+//  S25 (Milan): fotky ke čerstvě naskenované účtence se uschovají JEDNÍM klepnutím (všechny,
+//  bez otevírání alba), nebo samy při uložení, když je zapnuté automatické uschovávání.
+//  Album se otevírá jen u účtenek z Historie, kde fotka ze skenu už není.
+function rpFotky(r) { return r ? (Array.isArray(r.photoKeys) && r.photoKeys.length ? r.photoKeys : (r.photoKey ? [r.photoKey] : [])) : []; }
+window.rpFotky = rpFotky;
+function rpScanPro(r) { const s = window._rpScanFoto; return !!(s && r && r._scanTok && s.tok === r._scanTok && (s.blobs || []).length); }
+function rpAutoDoklad() { return !!((S.uiCfg || {}).autoDoklad); }
+function rpAutoDokladNastav(on) { S.uiCfg = S.uiCfg || {}; S.uiCfg.autoDoklad = !!on; save();
+  if (typeof showToast === 'function') showToast(on ? '📎 Fotky nových účtenek se budou uschovávat samy' : 'Automatické uschovávání vypnuto');
+  if (typeof rpRender === 'function' && window._editReceipt) rpRender(); }
+window.rpAutoDokladNastav = rpAutoDokladNastav;
+
 function rpArchivBlok(r) {
-  if (r.photoKey) {
+  const keys = rpFotky(r);
+  if (keys.length) {
     return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:7px 9px;border-radius:9px;background:var(--surface2)">
-      <span style="font-size:.76rem;color:#c9cede">📎 Doklad uschovaný</span>
+      <span style="font-size:.76rem;color:#c9cede">📎 Doklad uschovaný${keys.length > 1 ? ` (${keys.length} fotky)` : ''}</span>
       <button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="rpArchivZobraz()">👁️ Zobrazit</button>
       <button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem;color:var(--expense)" onclick="rpArchivOdstran()">🗑️ Odstranit</button>
     </div>`;
   }
+  const auto = rpAutoDoklad();
+  const prepinac = `<label style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#a8aec8;margin-top:6px;cursor:pointer"><input type="checkbox" ${auto ? 'checked' : ''} onchange="rpAutoDokladNastav(this.checked)"> uschovávat fotky účtenek automaticky</label>`;
+  if (rpScanPro(r)) {
+    const n = window._rpScanFoto.blobs.length;
+    return `<div style="margin-top:6px">
+      ${auto ? `<div style="font-size:.74rem;color:#c9cede">📎 ${n > 1 ? n + ' fotky se uschovají' : 'Fotka se uschová'} při uložení účtenky</div>`
+             : `<button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="rpArchivUlozScan()">📌 Uschovat ${n > 1 ? 'fotky účtenky (' + n + ')' : 'fotku účtenky'}</button>
+                <span style="font-size:.68rem;color:#a8aec8;margin-left:7px">kvůli záruce – uloží se zmenšené</span>`}
+      ${prepinac}
+      <div id="rp_archiv_stav" style="font-size:.72rem;color:#a8aec8;margin-top:4px"></div>
+    </div>`;
+  }
   return `<div style="margin-top:6px">
     <label class="btn btn-ghost btn-sm" style="font-size:.72rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px">
-      📌 Uschovat doklad
-      <input type="file" accept="image/*" style="display:none" onchange="rpArchivNahraj(this.files[0])">
-    </label>
+      📌 Přidat fotku dokladu<input type="file" accept="image/*" multiple style="display:none" onchange="rpArchivNahraj([...this.files])"></label>
     <span style="font-size:.68rem;color:#a8aec8;margin-left:7px">kvůli záruce – uloží se zmenšená fotka</span>
+    ${prepinac}
     <div id="rp_archiv_stav" style="font-size:.72rem;color:#a8aec8;margin-top:4px"></div>
   </div>`;
 }
 window.rpArchivBlok = rpArchivBlok;
 
-async function rpArchivNahraj(file) {
-  const r = window._editReceipt; if (!r || !file) return;
+//  S25: nahraje 1..N fotek k účtence (klíče do photoKeys, photoKey = první kvůli Dokladům a starým verzím)
+async function archivUlozVse(files, receiptId) {
+  const keys = []; let bajtu = 0, posl = null;
+  for (const f of files) { const v = await archivUloz(f, receiptId || ''); keys.push(v.key); bajtu += v.bajtu || 0; posl = v; }
+  return { keys, bajtu, pocet: posl && posl.pocet, limit: posl && posl.limit };
+}
+function rpPripojFotky(r, v) {
+  const keys = rpFotky(r).concat(v.keys);
+  r.photoKeys = keys; r.photoKey = keys[0]; r.photoAt = Date.now(); r.photoBytes = (r.photoBytes || 0) + v.bajtu;
+}
+function _rpJakoSoubor(b) { return b instanceof File ? b : new File([b], 'uctenka.jpg', { type: b.type || 'image/jpeg' }); }
+
+async function rpArchivNahraj(files) {
+  const r = window._editReceipt; files = (Array.isArray(files) ? files : [files]).filter(Boolean);
+  if (!r || !files.length) return;
   const stav = document.getElementById('rp_archiv_stav');
-  if (stav) stav.textContent = '⏳ Ukládám doklad…';
+  if (stav) stav.textContent = files.length > 1 ? `⏳ Ukládám ${files.length} fotky…` : '⏳ Ukládám doklad…';
   try {
-    const v = await archivUloz(file, r.id || '');
-    r.photoKey = v.key; r.photoAt = Date.now(); r.photoBytes = v.bajtu;
+    const v = await archivUlozVse(files, r.id);
+    rpPripojFotky(r, v);
+    // už uložená účtenka (úprava z Historie) dostane klíče hned – nečeká na „Uložit“ v editoru
+    const ul = (S.receipts || []).find(x => x && r.id && x.id === r.id);
+    if (ul) { ul.photoKeys = r.photoKeys; ul.photoKey = r.photoKey; ul.photoAt = r.photoAt; ul.photoBytes = r.photoBytes; save(); }
     if (typeof rpRender === 'function') rpRender();
-    if (typeof showToast === 'function') showToast(`📎 Doklad uschován (${Math.round(v.bajtu/1024)} kB · ${v.pocet}/${v.limit})`);
+    if (typeof showToast === 'function') showToast(`📎 Uschováno ${v.keys.length > 1 ? v.keys.length + ' fotek' : ''} (${Math.round(v.bajtu/1024)} kB · ${v.pocet}/${v.limit})`);
   } catch (e) {
     if (stav) stav.textContent = '⚠️ ' + e.message;
   }
 }
 window.rpArchivNahraj = rpArchivNahraj;
-
-async function rpArchivZobraz() {
-  const r = window._editReceipt; if (!r || !r.photoKey) return;
-  try {
-    const blob = await archivVolej('get', { key: r.photoKey });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) { const a = document.createElement('a'); a.href = url; a.download = 'uctenka.jpg'; a.click(); }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-  } catch (e) { alert('Doklad se nepodařilo načíst: ' + e.message); }
+function rpArchivUlozScan() {
+  const r = window._editReceipt; if (!rpScanPro(r)) return;
+  return rpArchivNahraj(window._rpScanFoto.blobs.map(_rpJakoSoubor));
 }
+window.rpArchivUlozScan = rpArchivUlozScan;
+
+//  Automatické uschování při uložení účtenky (addReceiptAsTx) – na pozadí, chyba nic nezastaví.
+async function rpArchivAuto(ulozena, scanTok) {
+  try {
+    const s = window._rpScanFoto;
+    if (!rpAutoDoklad() || !ulozena || rpFotky(ulozena).length || !s || s.tok !== scanTok) return;
+    const v = await archivUlozVse(s.blobs.map(_rpJakoSoubor), ulozena.id);
+    rpPripojFotky(ulozena, v); save();
+    if (typeof showToast === 'function') showToast(`📎 Fotk${v.keys.length > 1 ? 'y účtenky uschovány' : 'a účtenky uschována'}`);
+  } catch (e) { console.warn('Automatické uschování dokladu:', e.message); }
+}
+window.rpArchivAuto = rpArchivAuto;
+
+//  Prohlížeč dokladu – všechny fotky pod sebou v okně (window.open pro víc fotek blokuje prohlížeč)
+async function archivProhlizec(keys) {
+  if (!keys || !keys.length) return;
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.92);overflow-y:auto;overscroll-behavior:contain;padding:14px;text-align:center';
+  ov.innerHTML = `<button type="button" class="btn btn-ghost" style="position:sticky;top:0;float:right;background:var(--surface)" onclick="this.closest('div').remove()">✕ Zavřít</button>
+    <div id="arch-prohl" style="clear:both;color:#c9cede;font-size:.8rem;padding-top:8px">⏳ Načítám ${keys.length > 1 ? keys.length + ' fotky' : 'doklad'}…</div>`;
+  document.body.appendChild(ov);
+  const box = ov.querySelector('#arch-prohl'); const urls = [];
+  try {
+    for (const k of keys) urls.push(URL.createObjectURL(await archivVolej('get', { key: k })));
+    box.innerHTML = urls.map(u => `<img src="${u}" alt="doklad" style="max-width:100%;border-radius:8px;margin:0 auto 12px;display:block">`).join('');
+  } catch (e) { box.textContent = 'Doklad se nepodařilo načíst: ' + e.message; }
+  new MutationObserver((m, o) => { if (!document.body.contains(ov)) { urls.forEach(u => URL.revokeObjectURL(u)); o.disconnect(); } }).observe(document.body, { childList: true });
+}
+window.archivProhlizec = archivProhlizec;
+async function archivSmazVse(r) { for (const k of rpFotky(r)) await archivSmaz(k); delete r.photoKeys; delete r.photoKey; delete r.photoAt; delete r.photoBytes; }
+
+async function rpArchivZobraz() { const r = window._editReceipt; if (r) archivProhlizec(rpFotky(r)); }
 window.rpArchivZobraz = rpArchivZobraz;
 
 async function rpArchivOdstran() {
-  const r = window._editReceipt; if (!r || !r.photoKey) return;
+  const r = window._editReceipt; if (!r || !rpFotky(r).length) return;
   if (!confirm('Odstranit uschovaný doklad? Účtenka zůstane.')) return;
-  await archivSmaz(r.photoKey);
-  delete r.photoKey; delete r.photoAt; delete r.photoBytes;
+  await archivSmazVse(r);
+  const ul = (S.receipts || []).find(x => x && r.id && x.id === r.id);
+  if (ul) { delete ul.photoKeys; delete ul.photoKey; delete ul.photoAt; delete ul.photoBytes; save(); }
   if (typeof rpRender === 'function') rpRender();
   if (typeof showToast === 'function') showToast('Doklad odstraněn');
 }
@@ -4269,6 +4335,7 @@ async function analyzeReceipt(file) {
     if(!receipt.store && !receipt.total) throw new Error('Účtenka nebyla rozpoznána. Ujistěte se že foto je ostré a dobře osvětlené.');
 
     if(status) status.style.display='none';
+    { const tok = 'sc' + Date.now(); receipt._scanTok = tok; window._rpScanFoto = file ? { blobs: [file], at: Date.now(), tok } : null; }   // S25
     _lastReceiptResult = {receipt, n:1};
     if(preview) {
       preview.style.display='block';
@@ -4424,6 +4491,9 @@ function addReceiptAsTx(receipt) {
   if(store && hlavniCatId) saveCategoryMapping(store, hlavniCatId, '');
 
   S.receipts.unshift({...receipt, addedAt:Date.now()});
+  // S25: automatické uschování fotek ze skenu (Analýza účtenek → editor → „uschovávat automaticky“)
+  { const _ul = S.receipts[0], _tok = _ul._scanTok; delete _ul._scanTok;
+    if (_tok && typeof rpArchivAuto === 'function') rpArchivAuto(_ul, _tok); }
   if(receipt.items?.length && typeof publishPricesToCatalog === 'function') {
     publishPricesToCatalog(receipt.items, store, date);
   }

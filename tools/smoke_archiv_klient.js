@@ -5,13 +5,14 @@ let ok=0,bad=0;const T=(n,c)=>{c?ok++:(bad++,console.log('❌',n));};
 const cut=(src,n)=>{let a=src.indexOf('async function '+n+'(');if(a<0)a=src.indexOf('function '+n+'(');let i=src.indexOf('{',a),d=0;for(;i<src.length;i++){if(src[i]==='{')d++;else if(src[i]==='}'){d--;if(!d)break;}}return src.slice(a,i+1);};
 const g=(src,n)=>{const c=cut(src,n);const as=c.startsWith('async');eval(c.replace(/^async /,'').replace(new RegExp('function '+n),'global.'+n+'='+(as?'async ':'')+'function'));};
 global.WORKER_URL='https://w.test';
+global.S={uiCfg:{}};   // S25: rpAutoDoklad čte S.uiCfg
 let volani=[];
 global.window={_currentUser:{getIdToken:async()=>'TOK'}};
 global.fetch=async(u,o)=>{volani.push({u:String(u),body:JSON.parse(o.body),auth:o.headers.Authorization});
   if(/\/upload/.test(u)) return {ok:true,json:async()=>({ok:true,key:'u/me/abc.jpg',size:180000,pocet:3,limit:300})};
   if(/\/get/.test(u)) return {ok:true,blob:async()=>'BLOB'};
   return {ok:true,json:async()=>({ok:true,smazano:1})};};
-['archivVolej','archivUloz','archivSmaz','rpArchivBlok'].forEach(n=>g(R,n));
+['archivVolej','archivUloz','archivSmaz','rpFotky','rpScanPro','rpAutoDoklad','rpArchivBlok'].forEach(n=>g(R,n));   // S25: + pomocné funkce bloku
 (async()=>{
   // upload
   global.archivZmensi=async()=>({base64:'AAA',mime:'image/jpeg',px:1200,bajtu:180000});
@@ -26,12 +27,13 @@ global.fetch=async(u,o)=>{volani.push({u:String(u),body:JSON.parse(o.body),auth:
   T('nedostupná síť při mazání fotky nic neshodí',await archivSmaz('k')===false);
   T('bez klíče se nevolá nic',await archivSmaz('')===false);
   // UI blok
-  T('bez fotky nabídne „Uschovat doklad"',/Uschovat doklad/.test(rpArchivBlok({}))&&/type="file"/.test(rpArchivBlok({})));
+  // S25: bez čerstvého skenu nabídne výběr fotky (Přidat fotku dokladu)
+  T('bez fotky nabídne výběr fotky dokladu',/Přidat fotku dokladu/.test(rpArchivBlok({}))&&/type="file"/.test(rpArchivBlok({})));
   T('s fotkou nabídne zobrazit a odstranit',/Zobrazit/.test(rpArchivBlok({photoKey:'k'}))&&/Odstranit/.test(rpArchivBlok({photoKey:'k'})));
   T('nahrává se jen na kliknutí (žádné auto-uložení při skenu)',!/archivUloz\(/.test(cut(R,'handleReceiptFile')||'')&&/onchange="rpArchivNahraj/.test(R));
   // mazání účtenky
   const dr=cut(R,'deleteReceipt');
-  T('smazání účtenky uklidí fotku',/archivSmaz\(_r\.photoKey\)/.test(dr));
+  T('smazání účtenky uklidí všechny fotky',/rpFotky\(_r\)\.forEach\(k => archivSmaz\(k\)\)/.test(dr));   // S25: více fotek
   T('a až PO potvrzení',dr.indexOf('confirm(')<dr.indexOf('archivSmaz'));
   // mazání účtu
   T('smazání účtu smaže celý archiv (all:true)',/archivVolej\('delete', \{ all: true \}\)/.test(U));

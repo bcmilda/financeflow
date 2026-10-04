@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.24 · 2026-10-02  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.28 · 2026-10-04  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -8,6 +8,8 @@
  *   RESEND_API_KEY           = re_váš-klíč             (Secret)
  *   FIREBASE_SERVICE_ACCOUNT = {...}                   (Secret – Service Account JSON)
  *   FIREBASE_DB_URL          = https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app
+ *   CF_ACCOUNT_ID            = ID účtu Cloudflare            (S25 – měsíční report jako PDF)
+ *   CF_BR_TOKEN              = API token s právem „Browser Rendering – Edit“ (Secret)
  *
  * Bindings (Settings → Bindings → R2 bucket):
  *   ARCHIV                   = ff-uctenky   (R2 bucket, jurisdikce EU)
@@ -257,6 +259,90 @@ function archivKeyOk(key, prefix) {
 //   • posílá po jednom s malou pauzou (Resend má limit na počet za sekundu)
 //     a vrací, kolik skutečně odešlo.
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (Milan): MĚSÍČNÍ REPORT E-MAILEM JAKO PDF
+//  Appka pošle hotové HTML reportu (stejné jako pro tisk), worker ho nechá
+//  vytisknout skutečnému Chromu (Browser Rendering REST API → /pdf), takže
+//  PDF vypadá stejně jako tisk z appky, a pošle ho přes Resend jako přílohu.
+//  • adresát VÝHRADNĚ ověřený e-mail z tokenu – nikdy z těla požadavku
+//  • automatické odeslání max. 1× za měsíc (uzel reportMail/{uid}/{YYYY-MM})
+//  • ruční odeslání max. 5× denně
+// ══════════════════════════════════════════════════════════════════════
+async function handleReportMail(request, env, corsHeaders) {
+  try {
+    const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+    if (!idToken) return json({ error: 'Chybí Authorization header' }, 401, corsHeaders);
+    if (!env.RESEND_API_KEY || !env.CF_ACCOUNT_ID || !env.CF_BR_TOKEN)
+      return json({ error: 'Report e-mailem zatím není na serveru nastavený' }, 500, corsHeaders);
+    const vr = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+    if (!vr.ok) return json({ error: 'Neplatný Firebase token' }, 401, corsHeaders);
+    const u = (await vr.json()).users?.[0];
+    const uid = u?.localId, email = u?.email;
+    if (!uid) return json({ error: 'Firebase uživatel nenalezen' }, 401, corsHeaders);
+    if (!email) return json({ error: 'Účet nemá e-mail' }, 400, corsHeaders);
+
+    const body = await request.json().catch(() => ({}));
+    const mesic = String(body.mesic || '');
+    if (!/^\d{4}-\d{2}$/.test(mesic)) return json({ error: 'Chybí měsíc' }, 400, corsHeaders);
+    let html = String(body.html || '');
+    if (html.length < 200 || html.length > 3_000_000) return json({ error: 'Report má neplatnou velikost' }, 400, corsHeaders);
+    html = html.replace(/<script[\s\S]*?<\/script>/gi, '');   // tisk nic spouštět nepotřebuje
+    const nazev = String(body.nazev || mesic).slice(0, 40).replace(/[<>]/g, '');
+    const auto = !!body.auto;
+
+    const dbUrl = env.FIREBASE_DB_URL || FIREBASE_DB_URL, sec = env.FIREBASE_DB_SECRET;
+    const logRes = await fetch(`${dbUrl}/reportMail/${uid}.json?auth=${sec}`);
+    const log = (logRes.ok && await logRes.json()) || {};
+    if (auto && log[mesic]) return json({ ok: true, dup: true, email }, 200, corsHeaders);
+    const dnes = new Date().toISOString().slice(0, 10);
+    const dnesN = (log._d && log._d[dnes]) || 0;
+    if (!auto && dnesN >= 5) return json({ error: 'Dnes už jsi report poslal 5×, zkus to zítra' }, 429, corsHeaders);
+
+    // HTML → PDF ve skutečném Chromu
+    const pr = await fetch(`https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/browser-rendering/pdf`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${env.CF_BR_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html, gotoOptions: { waitUntil: 'networkidle0', timeout: 30000 },
+        pdfOptions: { format: 'a4', printBackground: true, preferCSSPageSize: true, margin: { top: '0', right: '0', bottom: '0', left: '0' } } }),
+    });
+    const ct = pr.headers.get('content-type') || '';
+    if (!pr.ok || !ct.includes('pdf')) {
+      const t = await pr.text().catch(() => '');
+      console.warn('Browser Rendering /pdf:', pr.status, t.slice(0, 300));
+      return json({ error: pr.status === 429 ? 'Tiskárna je teď vytížená, zkus to za minutu' : 'PDF se nepodařilo vytvořit' }, 502, corsHeaders);
+    }
+    const pdf = new Uint8Array(await pr.arrayBuffer());
+    let bin = ''; for (let i = 0; i < pdf.length; i += 0x8000) bin += String.fromCharCode.apply(null, pdf.subarray(i, i + 0x8000));
+    const b64 = btoa(bin);
+
+    const appUrl = 'https://financeflow.cz/app';
+    const mr = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'FinanceFlow <info@financeflow.cz>', to: [email],
+        subject: `Tvůj měsíční report – ${nazev}`,
+        text: `Ahoj,\n\nv příloze je tvůj měsíční report FinanceFlow za ${nazev}.\n\nCelý report i s dalšími měsíci najdeš v appce: ${appUrl} (Report → Měsíční report).\n\nAutomatické posílání vypneš tamtéž zrušením volby „posílat automaticky každý měsíc“.`,
+        html: `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#1c2333">
+          <p>Ahoj,</p><p>v příloze je tvůj měsíční report FinanceFlow za <b>${nazev}</b>.</p>
+          <p><a href="${appUrl}" style="display:inline-block;background:#1F45C8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Otevřít FinanceFlow</a></p>
+          <hr style="border:none;border-top:1px solid #e3e7ee;margin:24px 0">
+          <div style="font-size:12px;color:#6b7488">Automatické posílání vypneš v appce: Report → Měsíční report → „posílat automaticky každý měsíc“.</div></div>`,
+        attachments: [{ filename: `FinanceFlow-report-${mesic}.pdf`, content: b64 }],
+      }),
+    });
+    if (!mr.ok) { console.warn('Resend report:', mr.status, (await mr.text().catch(() => '')).slice(0, 300)); return json({ error: 'E-mail se nepodařilo odeslat' }, 502, corsHeaders); }
+
+    const zapis = { [`${mesic}`]: { at: Date.now(), auto }, [`_d/${dnes}`]: dnesN + 1 };
+    await fetch(`${dbUrl}/reportMail/${uid}.json?auth=${sec}`, { method: 'PATCH', body: JSON.stringify(zapis) }).catch(() => {});
+    return json({ ok: true, email }, 200, corsHeaders);
+  } catch (e) {
+    console.error('report-mail:', e);
+    return json({ error: 'Chyba serveru při odesílání reportu' }, 500, corsHeaders);
+  }
+}
+
 async function handleMassMail(request, env, corsHeaders) {
   try {
     const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
@@ -969,6 +1055,10 @@ export default {
       return handleCoicop(request, env, corsHeaders);
     }
 
+    //  S25: měsíční report → PDF (Cloudflare Browser Rendering) → e-mail (Resend).
+    if (request.method === 'POST' && new URL(request.url).pathname === '/report-mail') {
+      return handleReportMail(request, env, corsHeaders);
+    }
     if (request.method === 'POST' && new URL(request.url).pathname === '/mass-mail') {
       return handleMassMail(request, env, corsHeaders);
     }
