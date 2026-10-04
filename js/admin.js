@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · admin.js · 2026-10-04
+// FinanceFlow · v11.29 · admin.js · 2026-10-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.29',
+    datum: '2026-10-04',
+    zmeny: [
+      "🔗 PROKLIK Z PREDIKCE (Milan) · cesta: Predikce → klik na skutečnou částku (kategorie i podkategorie, minulé a aktuální měsíce) otevře Transakce vyfiltrované na tu kategorii/podkategorii a měsíc. Ostatní filtry (hledání, peněženka, projekt, typ platby, měna, tag, rozsah dat) se vynulují, aby seznam seděl s číslem v tabulce.",
+      "🔍 DETAIL VOZIDLA ČITELNĚJŠÍ (Milan) · cesta: Vozidla → 📊 Detail. Všechna malá písma zvětšena (nejmenší .72rem místo .5–.66rem), okno roztažené na 1100 px (místo 760) kvůli další analytice. Graf „Útrata za palivo po měsících“: sloupec max 64 px (1 měsíc už není modrý blok přes celou šířku), čitelné popisky měsíců.",
+      "🎨 MĚŘIDLA · cesta: Měřidla → ⚙️ Upravit měřidlo (i odečet, vyúčtování, platba): „💾 Uložit“ zeleně, „Smazat měřidlo“ červeně s bílým textem.",
+      "🧪 tools/smoke_predikce_proklik.js (3); smoke_zobrazeni.js +3 (detail vozidla, graf, tlačítka měřidel).",
+    ]
+  },
   {
     verze: 'v11.28',
     datum: '2026-10-04',

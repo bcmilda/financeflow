@@ -19,4 +19,12 @@ check('resize nepřekresluje při změně jen výšky',()=>{
   require('vm').runInNewContext(imp.slice(i,j),sb);
   sb.h(); assert(sb.n===0,'stejná šířka → nic'); sb.window.innerWidth=800; sb.h(); assert(sb.n===1,'nová šířka → překreslit');
 });
+
+// detail vozidla čitelnější + barevná tlačítka měřidla
+{ const voz=fs.readFileSync(find('vozidla.js'),'utf8'), mer=fs.readFileSync(find('meridla.js'),'utf8');
+  const det=voz.slice(voz.indexOf('function vozidloDetail('),voz.indexOf('function vozidloDetailZavri'));
+  check('detail vozidla: žádné písmo pod .72rem, šířka 1100px',()=>assert(!/font-size:\.(5|6|70)\d*rem/.test(det)&&det.includes('max-width:1100px')));
+  check('graf: sloupec max 64px, popisek .7rem',()=>assert(voz.includes('max-width:64px')&&!voz.includes('font-size:.5rem;color:#8b93ad;margin-top:2px')));
+  check('měřidla: Uložit zeleně, Smazat červeně s bílým textem',()=>assert(/background:#22c55e[^"]*" onclick="merUlozMeridlo/.test(mer)&&/background:#dc2626;color:#fff[^"]*" onclick="merSmazMeridlo/.test(mer)));
+}
 console.log(fails?`❌ ${fails} selhalo`:'✅ vše prošlo'); process.exit(fails?1:0);
