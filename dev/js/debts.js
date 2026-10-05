@@ -1,4 +1,4 @@
-// FinanceFlow · v11.18 · debts.js · 2026-10-01
+// FinanceFlow · v11.28 · debts.js · 2026-10-04
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -743,14 +743,76 @@ function computeDebtPaid(d, D){
   return { txs, paidSum, paidPrincipal:Math.round(pPrin), paidInterest:Math.round(pInt), count:txs.length };
 }
 
+// S25 (v11.29, Milan): výběr kategorie – NEJČASTĚJŠÍ nahoře (podle posledních 90 dní),
+//   zbytek v rozbalovacích SKUPINÁCH, 2 sloupce (na šířku 3), větší písmo, barvy zůstávají.
+//   Skupiny jsou jen ZOBRAZENÍ – data ani logika kategorií se nemění. Vlastní kategorie → Ostatní.
+const CAT_SKUPINY = [
+  { n:'Jídlo',           ids:['cat1','cat20','cat26','cat43'] },
+  { n:'Domácnost',       ids:['cat3','cat17','cat33','cat25','cat34','cat19','cat36'] },
+  { n:'Doprava',         ids:['cat2','cat11','cat22'] },
+  { n:'Zdraví a péče',   ids:['cat4','cat41','cat47'] },
+  { n:'Volný čas',       ids:['cat5','cat18','cat38','cat30','cat29'] },
+  { n:'Finance a úřady', ids:['cat12','cat14','cat27','cat32','cat35','cat42','cat40'] },
+  { n:'Ostatní',         ids:[] },   // vše ostatní včetně vlastních kategorií
+];
+const CAT_TOP_VYCHOZI = ['cat1','cat2','cat3','cat20','cat36','cat5'];
+let _catOpenGrp = null, _catPickSel = null;
+
+// Nejčastější kategorie daného typu za posledních `dni` dní (max `n`), bez historie výchozí sada.
+function catNejcastejsi(cats, txs, n = 6, dni = 90, dnes = new Date()) {
+  const ids = new Set(cats.map(c => c.id));
+  const od = new Date(dnes.getTime() - dni * 864e5).toISOString().slice(0, 10);
+  const cnt = {};
+  (txs || []).forEach(t => {
+    const id = t.catId || t.category;
+    if (!id || id === 'transfer' || !ids.has(id) || !t.date || t.date < od) return;
+    cnt[id] = (cnt[id] || 0) + 1;
+  });
+  const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, n);
+  if (!top.length) return CAT_TOP_VYCHOZI.filter(id => ids.has(id)).slice(0, n);
+  return top;
+}
+// Rozdělí kategorie do skupin (pořadí kategorií ve skupině drží pořadí uživatele).
+function catDoSkupin(cats) {
+  const known = new Set(CAT_SKUPINY.flatMap(g => g.ids));
+  return CAT_SKUPINY.map(g => ({
+    n: g.n,
+    cats: g.ids.length ? cats.filter(c => g.ids.includes(c.id)) : cats.filter(c => !known.has(c.id)),
+  })).filter(g => g.cats.length);
+}
+function catGrpToggle(i) { const g = catDoSkupin(_catPickCats())[i]; if (!g) return; _catOpenGrp = _catOpenGrp === g.n ? null : g.n; renderCatPicker(); }
+function _catPickCats() { const type = curTxType === 'debt' ? 'expense' : curTxType; return (S.categories || []).filter(c => c.type === type || c.type === 'both'); }
+
 function renderCatPicker(){
   const picker=document.getElementById('catPicker');if(!picker)return;
-  const type=curTxType==='debt'?'expense':curTxType;
-  const cats=S.categories.filter(c=>c.type===type||c.type==='both');
-  picker.innerHTML=cats.map(c=>`<div class="cat-chip ${selCatId===c.id?'sel':''}" style="${selCatId===c.id?`background:${c.color}`:'border-color:'+c.color}" onclick="selCatBtn('${c.id}')">${c.icon} ${c.name}</div>`).join('');
+  const cats=_catPickCats();
+  const hex = c => /^#[0-9a-f]{6}$/i.test(c.color||'') ? c.color : '#7e84a0';
+  const chip = c => { const on = selCatId === c.id, col = hex(c);
+    return `<div class="catp-chip ${on?'sel':''}" style="border-color:${col};background:${on?col:col+'1f'}" onclick="selCatBtn('${c.id}')"><span class="ic">${c.icon||'📦'}</span><span class="nm">${c.name}</span></div>`; };
+  // Málo kategorií (např. příjmy) → jen mřížka bez skupin
+  if (cats.length <= 12) {
+    picker.innerHTML = `<div class="catp"><div class="catp-grid">${cats.map(chip).join('')}</div></div>`;
+    renderSubPicker(); return;
+  }
+  const topIds = catNejcastejsi(cats, S.transactions);
+  const top = topIds.map(id => cats.find(c => c.id === id)).filter(Boolean);
+  const grps = catDoSkupin(cats);
+  // Výběr změněný zvenku (nová transakce / úprava) → rozbal skupinu vybrané kategorie, není-li nahoře
+  if (_catPickSel !== selCatId) {
+    _catPickSel = selCatId;
+    const g = selCatId && !topIds.includes(selCatId) ? grps.find(x => x.cats.some(c => c.id === selCatId)) : null;
+    _catOpenGrp = g ? g.n : null;
+  }
+  picker.innerHTML = `<div class="catp">
+    <div class="catp-lbl">NEJČASTĚJŠÍ</div><div class="catp-grid">${top.map(chip).join('')}</div>
+    <div class="catp-lbl" style="margin-top:4px">VŠECHNY KATEGORIE</div>
+    ${grps.map((g, i) => { const open = _catOpenGrp === g.n; const sel = !open && g.cats.find(c => c.id === selCatId);
+      return `<div class="catp-grp" onclick="catGrpToggle(${i})"><span>${g.n}<span class="cnt">${g.cats.length}</span>${sel?`<span class="selnm">✓ ${sel.name}</span>`:''}</span><span>${open?'▴':'▾'}</span></div>`
+        + (open ? `<div class="catp-grid">${g.cats.map(chip).join('')}</div>` : ''); }).join('')}
+  </div>`;
   renderSubPicker();
 }
-function selCatBtn(id){selCatId=id;selSub='';customSub='';document.getElementById('customSubInput').value='';renderCatPicker();}
+function selCatBtn(id){selCatId=id;_catPickSel=id;selSub='';customSub='';document.getElementById('customSubInput').value='';renderCatPicker();}
 function renderSubPicker(){
   const wrap=document.getElementById('subPicker');const inner=document.getElementById('subPickerInner');
   const cat=S.categories.find(c=>c.id===selCatId);

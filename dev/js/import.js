@@ -1,4 +1,4 @@
-// FinanceFlow · v10.14 · import.js · 2026-08-28
+// FinanceFlow · v11.28 · import.js · 2026-10-04
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -363,6 +363,31 @@ function parseImportDate(str) {
 
 // ── Preview importu + mapování kategorií ──
 let _importRows = [];
+// S25 (v11.30, Milan): výpis patří do PENĚŽENKY → zůstatek a historie sedí. Výběr z bankomatu
+//   ve výpisu = přesun do Hotovosti (rozhodnuto v S24), ne výdaj.
+let _importWallet = null, _importAtmTo = null;
+const _IMPORT_ATM_RE = /bankomat|v[ýy]b[ěe]r\s+(z\s+)?(atm|hotovost)|v[ýy]b[ěe]r\s+hotovosti|\batm\b|cash\s*withdrawal/i;
+function importJeBankomat(r) { return r && r.type === 'expense' && _IMPORT_ATM_RE.test([r.name, r.note, r._catName].filter(Boolean).join(' ')); }
+function importVychoziPenezenky(D, wallets) {
+  const ids = new Set(wallets.map(w => w.id));
+  if (_importWallet === null) _importWallet = ((D.uiCfg||{}).importWallet && ids.has(D.uiCfg.importWallet)) ? D.uiCfg.importWallet : ((wallets.find(w => w.type === 'account') || {}).id || '');
+  if (_importAtmTo === null) _importAtmTo = (wallets.find(w => w.type === 'cash' && w.id !== _importWallet) || {}).id || '';
+}
+// Převede řádek výpisu na transakce (1 výdaj/příjem, nebo 2 = přesun z bankomatu).
+function importNaTransakce(r, base, D, idFn) {
+  const wFrom = _importWallet || '';
+  const tx = { ...base, id: idFn() };
+  if (wFrom) { tx.wallet = wFrom; tx.src = 'import'; }
+  const wTo = _importAtmTo || '';
+  const curOf = id => ((D.wallets || []).find(w => w.id === id) || {}).currency || 'CZK';
+  if (wFrom && wTo && wTo !== wFrom && !r.isBalancing && importJeBankomat(r) && curOf(wFrom) === curOf(wTo)) {
+    const transferId = 'tr' + idFn();
+    const out = { ...tx, catId: 'transfer', category: 'transfer', subcat: '', transferId, note: tx.note || 'Výběr z bankomatu' };
+    const inn = { ...out, id: idFn(), type: 'income', wallet: wTo };
+    return [out, inn];
+  }
+  return [tx];
+}
 let _catMappings = {}; // {catName: catId}
 
 // TODO-086: Doporučené přiřazení kategorie z názvu transakce (keyword match)
@@ -440,8 +465,25 @@ async function _showImportPreviewImpl(rows, filename) {
     t.date===r.date && Math.abs((t.amount||t.amt||0)-r.amount)<0.01 && (t.name||'').slice(0,10)===(r.name||'').slice(0,10)
   ));
 
+  // S25 (v11.30): peněženka výpisu + bankomat → Hotovost
+  const _wallets = (typeof getWallets === 'function') ? getWallets(D) : (D.wallets || []);
+  importVychoziPenezenky(D, _wallets);
+  const _atmRows = rows.filter(importJeBankomat);
+  const _wOpt = (sel, prazdna) => `<option value="">${prazdna}</option>` + _wallets.map(w => `<option value="${w.id}" ${w.id === sel ? 'selected' : ''}>${w.name} (${w.currency || 'CZK'})</option>`).join('');
+  const walletBlock = `
+      <div style="background:var(--surface3);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:.8rem;font-weight:700;margin-bottom:6px">💼 Do které peněženky výpis patří?</div>
+        <select class="fi" style="font-size:.82rem" onchange="_importWallet=this.value;var n=document.getElementById('impNoWallet');if(n)n.style.display=this.value?'none':'block'">${_wOpt(_importWallet, '– žádná (zůstatek peněženek se nezmění) –')}</select>
+        <div id="impNoWallet" style="display:${_importWallet ? 'none' : 'block'};font-size:.72rem;color:var(--debt);margin-top:6px">Bez peněženky se transakce nepromítnou do zůstatku ani do historie zůstatku.</div>
+        ${_atmRows.length ? `
+        <div style="font-size:.8rem;font-weight:700;margin:10px 0 6px">🏧 Výběry z bankomatu (${_atmRows.length}) převést do:</div>
+        <select class="fi" style="font-size:.82rem" onchange="_importAtmTo=this.value">${_wOpt(_importAtmTo, '– nepřevádět, nechat jako výdaj –')}</select>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:6px">Výběr není výdaj – peníze jen přejdou do hotovosti. Utratíš je, až je zapíšeš z Hotovosti. Platí jen s vybranou peněženkou výpisu.</div>` : ''}
+      </div>`;
+
   preview.innerHTML = `
     <div style="background:var(--surface2);border-radius:12px;padding:14px;border:1px solid var(--border)">
+      ${walletBlock}
       <!-- Shrnutí -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:${balancingRows.length?'8px':'14px'}">
         <div class="stat-card income"><div class="stat-label">Celkem k importu</div><div class="stat-value up">${rows.length}</div></div>
@@ -648,8 +690,7 @@ function confirmImportInner(filename, openEditor) {
     );
     if(isDup) { skipped++; return; }
 
-    S.transactions.push({
-      id: genTxId(),
+    importNaTransakce(r, {
       name: r.name,
       amount: r.amount, amt: r.amount,
       type: r.type,
@@ -660,7 +701,7 @@ function confirmImportInner(filename, openEditor) {
       note: r.note||'',
       tags: r.tags||[],
       isBalancing: r.isBalancing || false, // FIX-069: vyrovnávací transakce se nezapočítávají
-    });
+    }, D, genTxId).forEach(tx => S.transactions.push(tx));   // S25 (v11.30): peněženka + bankomat = přesun
     imported++;
   });
 
@@ -672,6 +713,7 @@ function confirmImportInner(filename, openEditor) {
     bank: _importBank || 'auto'
   });
   if(S.importHistory.length > 20) S.importHistory = S.importHistory.slice(0,20);
+  S.uiCfg = S.uiCfg || {}; if(_importWallet) S.uiCfg.importWallet = _importWallet; else delete S.uiCfg.importWallet;   // S25: příště předvybrat (uzel uiCfg)
 
   save();
   const preview = document.getElementById('importPreview');
@@ -687,7 +729,7 @@ function confirmImportInner(filename, openEditor) {
   const pdfSt = document.getElementById('pdfStatus');
   if(pdfSt) { pdfSt.style.display = 'block'; pdfSt.innerHTML = msg; }
   
-  _importRows = []; _catMappings = {};
+  _importRows = []; _catMappings = {}; _importWallet = null; _importAtmTo = null;
   
   if(openEditor) {
     // Přepni do editoru transakcí
@@ -962,7 +1004,10 @@ function exportData(){
 // ══════════════════════════════════════════════════════
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='modalSplit')o.classList.remove('open');}));
-window.addEventListener('resize',()=>renderPage());
+// S25 (v11.28): překreslit jen při změně ŠÍŘKY. Na mobilu se výška mění při každém schování
+//   adresního řádku (scroll) – dřív to překreslilo celou stránku pod otevřeným oknem.
+let _ffLastW = window.innerWidth;
+window.addEventListener('resize',()=>{ const w=window.innerWidth; if(w===_ffLastW) return; _ffLastW=w; renderPage(); });
 updateMLabel();
 
 // Affiliate tracking – zachyť ?ref= parametr

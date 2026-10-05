@@ -1,0 +1,30 @@
+// S25 – měsíční report: zůstatek den po dni, e-mail jako PDF (auto od 4. dne), uiCfg uzel.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const find=f=>{for(const d of ['.','js','../js','cloudflare-worker','../cloudflare-worker']){const p=path.join(__dirname,d,f);if(fs.existsSync(p))return p;}throw new Error('nenalezeno '+f)};
+const pick=(src,n)=>{const i=src.indexOf('function '+n);if(i<0)throw new Error('nenalezeno: '+n);let d=0,j=src.indexOf('{',i);for(let k=j;k<src.length;k++){if(src[k]==='{')d++;else if(src[k]==='}'){d--;if(!d)return src.slice(i,k+1)}}};
+const rep=fs.readFileSync(find('report-mesicni.js'),'utf8'),app=fs.readFileSync(find('app.js'),'utf8'),wk=fs.readFileSync(find('worker.js'),'utf8');
+let fails=0;const check=(n,f)=>{try{f();console.log('  ✅',n)}catch(e){fails++;console.log('  ❌',n,'→',e.message)}};
+const assert=(c,m)=>{if(!c)throw new Error(m||'assert')};
+console.log('── S25 · report e-mailem ──');
+const sb={String,Date};vm.createContext(sb);vm.runInContext(pick(rep,'mesReportAutoCil'),sb);
+const tx=[{date:'2026-09-12'}];
+check('4. den → minulý měsíc',()=>{const c=sb.mesReportAutoCil({transactions:tx},new Date(2026,9,4));assert(c&&c.klic==='2026-09'&&c.m===8);});
+check('1.–3. den nic (odklad 3 dní)',()=>assert(sb.mesReportAutoCil({transactions:tx},new Date(2026,9,3))===null));
+check('už odeslaný měsíc se neposílá znovu',()=>assert(sb.mesReportAutoCil({transactions:tx,uiCfg:{reportSent:{'2026-09':1}}},new Date(2026,9,10))===null));
+check('vypnuto → nic',()=>assert(sb.mesReportAutoCil({transactions:tx,uiCfg:{reportEmail:false}},new Date(2026,9,10))===null));
+check('prázdný měsíc → nic',()=>assert(sb.mesReportAutoCil({transactions:[{date:'2026-08-01'}]},new Date(2026,9,10))===null));
+check('leden → prosinec loni',()=>{const c=sb.mesReportAutoCil({transactions:[{date:'2025-12-24'}]},new Date(2026,0,5));assert(c&&c.klic==='2025-12');});
+check('uzel uiCfg je registrovaný na všech 4 místech v app.js',()=>{
+  assert(/_DW_META = \[[^\]]*'uiCfg'/.test(app),'_DW_META'); assert(app.includes('uiCfg: S.uiCfg||{}'),'_dwMetaVals');
+  assert(app.includes('uiCfg:         S.uiCfg         || {}'),'snapshot 1'); assert(app.includes('uiCfg:S.uiCfg||{}'),'snapshot 2');
+});
+check('auto se spouští po načtení dat',()=>assert(app.includes('setTimeout(mesReportAuto, 8000)')));
+check('worker: adresát jen z ověřeného tokenu, ne z těla',()=>{const h=pick(wk,'handleReportMail');assert(h.includes('to: [email]')&&h.includes("u?.email")&&!/body\.email/.test(h));});
+check('worker: auto max 1× za měsíc, ručně max 5× denně, skripty pryč',()=>{const h=pick(wk,'handleReportMail');assert(h.includes('auto && log[mesic]')&&h.includes('dnesN >= 5')&&h.includes("<script"));});
+check('worker: route /report-mail',()=>assert(wk.includes("pathname === '/report-mail'")));
+check('PDF i tisk používají stejné HTML',()=>{assert(pick(rep,'mesReportTisk').includes('mesReportSamostatne(')&&pick(rep,'mesReportPoslat').includes('mesReportSamostatne('));});
+console.log('── S25 · zůstatek den po dni ──');
+check('report počítá zust z walletBalanceAt a graf ho používá',()=>{assert(rep.includes('walletBalanceAt(w.id, D, den)')&&rep.includes('${_rpZust(rd)}')&&rep.includes('dni, dV, dP, kumNet, zust,'));});
+check('_rpZust vykreslí SVG',()=>{const s={Math};vm.createContext(s);vm.runInContext("const _rpT=v=>String(Math.round(v));const _rpKc=v=>Math.round(v)+' Kč';"+pick(rep,'_rpZust'),s);
+  const svg=s._rpZust({zust:[1000,900,1200,800,1500]});assert(svg.startsWith('<svg')&&svg.includes('4. den 800 Kč')&&svg.includes('1500 Kč'));});
+console.log(fails?`❌ ${fails} selhalo`:'✅ vše prošlo'); process.exit(fails?1:0);

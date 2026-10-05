@@ -1,4 +1,4 @@
-// FinanceFlow · v11.25 · ean-sken.js · 2026-10-02
+// FinanceFlow · v11.30 · ean-sken.js · 2026-10-05
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -173,9 +173,14 @@ function eanOkno() {
         <label class="btn btn-sm" style="cursor:pointer">📸 Vyfotit kód
           <input type="file" accept="image/*" capture="environment" style="display:none" onchange="eanZFotky(this.files[0]);this.value=''">
         </label>
+        <label class="btn btn-sm" style="cursor:pointer">🖼️ Ze souboru
+          <input type="file" accept="image/*" style="display:none" onchange="eanZFotky(this.files[0]);this.value=''">
+        </label>
       </div>
       <div id="eanVysledek" style="margin-top:12px"></div>
-      <div style="font-size:.66rem;color:#a8aec8;margin-top:14px">Data o výrobcích: Open Food Facts a sesterské databáze (licence ODbL).</div>
+      <button class="btn" style="width:100%;margin-top:14px" onclick="eanZavri()">✕ Zavřít</button>
+      <div style="font-size:.66rem;color:#a8aec8;margin-top:6px;text-align:center">Název, fotky i přiřazení se ukládají hned – zavřením nic neztratíš.</div>
+      <div style="font-size:.66rem;color:#a8aec8;margin-top:10px">Data o výrobcích: Open Food Facts a sesterské databáze (licence ODbL).</div>
     </div>`;
   document.body.appendChild(o);
   return o;
@@ -338,7 +343,8 @@ function eanKartaHTML(p, ean) {
       ${p.konkretni ? `<div style="font-size:.72rem;color:#a8aec8;margin-top:3px">🗺️ ${escHtml([p.obecny, p.konkretni].filter(Boolean).join(' → '))}</div>` : ''}
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${ns}${nova}${stitky}</div>
     </div>
-  </div>`;
+  </div>${(p.nutriceObal || p.nutrice) ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
+    <div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 g${p.nutriceObal ? ' <span style="font-weight:500;color:#a8aec8">· z tvé fotky obalu</span>' : ''}</div>${eanNutriceHTML(p.nutriceObal || p.nutrice)}</div>` : ''}`;
 }
 window.eanKartaHTML = eanKartaHTML;
 
@@ -477,17 +483,23 @@ function eanZmensiFotku(soubor) {
 }
 function eanFoto(ean, druh, hotovo) {
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
+  //  S25 (Milan: „vyfotil jsem živiny a nic se nestalo“): hlášky šly jen do toastu, který leží
+  //  POD oknem skeneru (z-index 9999 < 10050), a karta živiny nezobrazovala. Nově stav
+  //  v okně skeneru (když je otevřené) a živiny v kartě. Bez capture → i fotka z galerie.
+  inp.type = 'file'; inp.accept = 'image/*';
+  const hlas = (t, chyba) => { if (document.getElementById('eanOkno') && typeof eanZprava === 'function') eanZprava(t, chyba); else if (typeof showToast === 'function') showToast(t); };
   inp.onchange = async () => {
     const f = inp.files && inp.files[0]; if (!f) return;
-    if (typeof showToast === 'function') showToast(druh === 'ziviny' ? '⏳ Čtu tabulku živin…' : '⏳ Čtu obal…');
+    hlas(druh === 'ziviny' ? '⏳ Čtu tabulku živin…' : '⏳ Čtu obal…');
     try {
       const obrazek = await eanZmensiFotku(f);
       const d = await eanDotaz({ ean, akce: 'foto', druh, obrazek });
       if (d.produkt) _eanProdukty[ean] = d.produkt;
-      if (typeof showToast === 'function') showToast((druh === 'ziviny' ? '✅ Živiny z obalu uloženy' : '✅ Údaje z obalu uloženy') + (d.zbyva != null ? ' · zbývá ' + d.zbyva + ' fotek tento měsíc' : ''));
+      const ma = d.produkt && (druh === 'ziviny' ? (d.produkt.nutriceObal && Object.keys(d.produkt.nutriceObal).length) : true);
+      hlas(ma ? (druh === 'ziviny' ? '✅ Živiny z obalu uloženy – najdeš je v kartě výrobku níže' : '✅ Údaje z obalu uloženy') + (d.zbyva != null ? ' · zbývá ' + d.zbyva + ' fotek tento měsíc' : '')
+              : '⚠️ Z fotky se nepodařilo přečíst tabulku živin. Vyfoť ji zblízka, rovně a ostře.', !ma);
       if (typeof hotovo === 'function') hotovo(d.produkt);
-    } catch (e) { if (typeof showToast === 'function') showToast('⚠️ ' + e.message); }
+    } catch (e) { hlas('⚠️ ' + e.message, true); }
   };
   inp.click();
 }
@@ -552,32 +564,67 @@ function eanKandidatiPolozek(D, hledat) {
 }
 window.eanKandidatiPolozek = eanKandidatiPolozek;
 
+//  S25 (Milan): výběr PŘES ÚČTENKY (obchod · datum → položky). Ukazuje i položky, které
+//  už kód mají: „✓ tento výrobek“ (s možností Odebrat – oprava chybného přiřazení) nebo
+//  „má jiný kód“ (klik = přepsat po potvrzení). Kód se tak nikdy tiše nezdvojí.
+function eanPolozkyUctenek(D, hledat, ean) {
+  const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
+  const q = nn(hledat || ''); const vid = {}, skupiny = [];
+  (D.receipts || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(r => {
+    const rows = [];
+    (r.items || []).forEach(it => {
+      if (!it || !it.name) return;
+      const k = eanAliasKlic(r.store, it.name); if (!k || vid[k]) return;
+      vid[k] = 1;
+      if (q && !nn(it.name).includes(q)) return;
+      const kod = it.ean || eanAliasPro(r.store, it.name) || '';
+      rows.push({ raw: it.name, obchod: r.store || '', datum: r.date || '', klic: k, kod, kodNazev: it.eanNazev || '',
+        cena: it.price != null ? it.price : it.total, stav: !kod ? 'volna' : (kod === ean ? 'tento' : 'jiny') });
+    });
+    if (rows.length) skupiny.push({ obchod: r.store || '', datum: r.date || '', rows });
+  });
+  return skupiny;
+}
+window.eanPolozkyUctenek = eanPolozkyUctenek;
+
 function eanVyberPolozku(hledat) {
   const el = document.getElementById('eanVysledek'); if (!el) return;
   const D = (typeof S !== 'undefined') ? S : getData();
-  const k = eanKandidatiPolozek(D, hledat).slice(0, 40);
+  const v = _eanStav.vysledek || {};
+  const sk = eanPolozkyUctenek(D, hledat, v.ean).slice(0, hledat ? 30 : 12);
   const box = document.getElementById('eanVyber') || (() => { const d = document.createElement('div'); d.id = 'eanVyber'; el.appendChild(d); return d; })();
+  const flat = []; const dat = d => d ? d.split('-').reverse().join('. ') : '';
+  const tento = sk.flatMap(g => g.rows).filter(x => x.stav === 'tento');
   box.innerHTML = `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-    <div style="font-weight:700;font-size:.84rem;margin-bottom:6px">Ke které položce patří?</div>
-    <input class="fi" id="eanVyberQ" placeholder="🔍 Hledat v položkách účtenek…" value="${escHtml(hledat || '')}" oninput="eanVyberPolozku(this.value)" style="font-size:.8rem;margin-bottom:6px">
-    ${k.length ? k.map((x, i) => `<div onclick="eanPriradKPolozce(${i})" role="button" style="display:flex;justify-content:space-between;gap:8px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;font-size:.78rem">
-        <span style="overflow-wrap:anywhere"><b>${escHtml(x.raw)}</b></span><span style="color:#a8aec8;white-space:nowrap">${escHtml(x.obchod)}${x.datum ? ' · ' + escHtml(x.datum.split('-').reverse().join('. ')) : ''}</span></div>`).join('')
-      : '<div style="font-size:.76rem;color:#a8aec8">Žádná položka bez kódu' + (hledat ? ' neodpovídá hledání' : '') + '.</div>'}
+    <div style="font-weight:700;font-size:.84rem;margin-bottom:4px">Ke které položce z účtenky patří?</div>
+    ${tento.length ? `<div style="font-size:.74rem;color:var(--income);margin-bottom:6px">✓ Tento výrobek už máš přiřazený: ${tento.map(x => '<b>' + escHtml(x.raw) + '</b>').join(', ')}</div>` : ''}
+    <input class="fi" id="eanVyberQ" placeholder="🔍 Hledat položku…" value="${escHtml(hledat || '')}" oninput="eanVyberPolozku(this.value)" style="font-size:.8rem;margin-bottom:8px">
+    ${sk.length ? sk.map(g => `<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <div style="background:var(--surface2);padding:6px 10px;font-size:.74rem;font-weight:700;display:flex;justify-content:space-between"><span>🧾 ${escHtml(g.obchod || 'Účtenka')}</span><span style="color:#a8aec8;font-weight:500">${escHtml(dat(g.datum))}</span></div>
+        ${g.rows.map(x => { const i = flat.push(x) - 1;
+          const st = x.stav === 'tento' ? `<span style="color:var(--income);font-size:.7rem;white-space:nowrap">✓ tento výrobek</span> <button class="btn btn-sm" style="font-size:.66rem;padding:2px 7px" onclick="event.stopPropagation();eanOdebratZPolozky(${i})">✕ Odebrat</button>`
+                 : x.stav === 'jiny' ? `<span style="color:#fbbf24;font-size:.7rem;white-space:nowrap" title="${escHtml(x.kod)}">má jiný kód${x.kodNazev ? ': ' + escHtml(x.kodNazev.slice(0, 24)) : ''}</span>`
+                 : (x.cena != null ? `<span style="color:#a8aec8;font-size:.72rem;white-space:nowrap">${escHtml(String(x.cena))} Kč</span>` : '');
+          return `<div ${x.stav === 'tento' ? '' : `onclick="eanPriradKPolozce(${i})" role="button"`} style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 10px;border-top:1px solid var(--border);${x.stav === 'tento' ? 'opacity:.85' : 'cursor:pointer'};font-size:.82rem">
+            <span style="overflow-wrap:anywhere"><b>${escHtml(x.raw)}</b></span><span style="display:flex;align-items:center;gap:6px">${st}</span></div>`; }).join('')}
+      </div>`).join('')
+      : '<div style="font-size:.76rem;color:#a8aec8">Žádná položka' + (hledat ? ' neodpovídá hledání' : ' v účtenkách') + '.</div>'}
   </div>`;
-  window._eanKandidati = k;
-  const q = document.getElementById('eanVyberQ'); if (q && hledat != null) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  window._eanKandidati = flat;
+  const q = document.getElementById('eanVyberQ'); if (q && hledat != null && q.focus) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
 
 async function eanPriradKPolozce(i) {
   const x = (window._eanKandidati || [])[i]; const v = _eanStav.vysledek;
   if (!x || !v) return;
+  if (x.stav === 'jiny' && typeof confirm === 'function' && !confirm(`„${x.raw}“ už má jiný kód${x.kodNazev ? ' (' + x.kodNazev + ')' : ''}. Přepsat ho tímto výrobkem?`)) return;
   const p = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
   const nazev = p ? eanNazevVyrobku(p, v.ean) : '';
   //  Kód ke všem položkám se stejnou zkratkou ve stejném obchodě (uloží se s daty).
   const D = (typeof S !== 'undefined') ? S : getData();
   let n = 0;
   (D.receipts || []).forEach(r => (r.items || []).forEach(it => {
-    if (it && it.name && eanAliasKlic(r.store, it.name) === x.klic) { it.ean = v.ean; if (nazev) it.eanNazev = nazev.slice(0, 100); n++; }
+    if (it && it.name && eanAliasKlic(r.store, it.name) === x.klic) { it.ean = v.ean; if (nazev) it.eanNazev = nazev.slice(0, 100); else delete it.eanNazev; n++; }
   }));
   (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => {
     if (it && it.name && eanAliasKlic(t.receiptStore || t.storeName || '', it.name) === x.klic) it.ean = v.ean;
@@ -593,4 +640,24 @@ async function eanPriradKPolozce(i) {
   eanZavri();
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
 }
-Object.assign(window, { eanSkenujVolne, eanVolneObnov, eanVyberPolozku, eanPriradKPolozce });
+
+//  Oprava chybného přiřazení: kód z položky (všech stejných zkratek v obchodě) pryč,
+//  worker ubere tvé potvrzení spojení „obchod + zkratka → kód“ v komunitě.
+async function eanOdebratZPolozky(i) {
+  const x = (window._eanKandidati || [])[i]; const v = _eanStav.vysledek;
+  if (!x || !v) return;
+  if (typeof confirm === 'function' && !confirm(`Odebrat kód od „${x.raw}“?`)) return;
+  const D = (typeof S !== 'undefined') ? S : getData();
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => {
+    if (it && it.name && it.ean === v.ean && eanAliasKlic(r.store, it.name) === x.klic) { delete it.ean; delete it.eanNazev; }
+  }));
+  (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => {
+    if (it && it.name && it.ean === v.ean && eanAliasKlic(t.receiptStore || t.storeName || '', it.name) === x.klic) delete it.ean;
+  }));
+  if (typeof save === 'function') save();
+  try { await eanDotaz({ ean: v.ean, akce: 'odebrat', klic: x.klic }); } catch (e) {}
+  if (_eanAliasy && _eanAliasy[x.klic] && _eanAliasy[x.klic].ean === v.ean) delete _eanAliasy[x.klic];
+  if (typeof showToast === 'function') showToast('Kód odebrán od „' + x.raw + '"');
+  eanVyberPolozku(document.getElementById('eanVyberQ')?.value || '');
+}
+Object.assign(window, { eanSkenujVolne, eanVolneObnov, eanVyberPolozku, eanPriradKPolozce, eanOdebratZPolozky });

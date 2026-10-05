@@ -1,4 +1,4 @@
-// FinanceFlow · v11.22 · vozidla.js · 2026-10-02
+// FinanceFlow · v11.29 · vozidla.js · 2026-10-04
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -395,12 +395,12 @@ function ffGrafSloupce(data, o) {
   if (!data || !data.length) return '';
   const max = Math.max(1e-9, ...data.map(d => (d.a || 0) + (d.b || 0)));
   const vyska = o.vyska || 90;
-  return `<div style="display:flex;align-items:flex-end;gap:${data.length > 24 ? 2 : 4}px;height:${vyska + 16}px;overflow-x:auto">${data.map(d => {
+  return `<div style="display:flex;align-items:flex-end;justify-content:${data.length < 8 ? 'center' : 'flex-start'};gap:${data.length > 24 ? 2 : 6}px;height:${vyska + 20}px;overflow-x:auto">${data.map(d => {
     const ha = (d.a || 0) / max * vyska, hb = (d.b || 0) / max * vyska;
-    return `<div title="${_vozEsc(d.titul || '')}" style="flex:1;min-width:${o.min || 10}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
+    return `<div title="${_vozEsc(d.titul || '')}" style="flex:1;min-width:${o.min || 10}px;max-width:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
       ${hb > 0 ? `<div style="width:100%;height:${Math.max(2, hb)}px;background:${o.barvaB || '#a78bfa'};border-radius:3px 3px 0 0"></div>` : ''}
       <div style="width:100%;height:${Math.max(ha > 0 ? 2 : 0, ha)}px;background:${o.barva || '#60a5fa'};border-radius:${hb > 0 ? '0' : '3px 3px'} 0 0"></div>
-      <div style="font-size:.5rem;color:#8b93ad;margin-top:2px;white-space:nowrap">${_vozEsc(d.popis || '')}</div></div>`;
+      <div style="font-size:.7rem;color:#a8aec8;margin-top:3px;white-space:nowrap">${_vozEsc(d.popis || '')}</div></div>`;
   }).join('')}</div>`;
 }
 //  Čárový graf jedné řady (cena za litr v čase apod.).
@@ -471,10 +471,10 @@ function vozidloDetail(id) {
   const prSum = pr.reduce((a, p) => a + p.castka, 0);
   const cisty = st.kcCelkem - prSum;
   const fmtKc = x => x == null ? '—' : _vozDes(x, 2).replace(/,00$/, '') + ' Kč';
-  const dl = (l, h, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px"><div style="font-size:.66rem;color:#a8aec8">${l}</div>
-      <div style="font-size:1.02rem;font-weight:800;color:var(--text)">${h}</div>${p ? `<div style="font-size:.62rem;color:#8b93ad">${p}</div>` : ''}</div>`;
-  const th = t => `<th style="text-align:right;padding:6px 8px;font-size:.66rem;color:#a8aec8;font-weight:600;white-space:nowrap">${t}</th>`;
-  const td = (t, l) => `<td style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.76rem;white-space:nowrap">${t}</td>`;
+  const dl = (l, h, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px"><div style="font-size:.82rem;color:#a8aec8">${l}</div>
+      <div style="font-size:1.02rem;font-weight:800;color:var(--text)">${h}</div>${p ? `<div style="font-size:.78rem;color:#8b93ad">${p}</div>` : ''}</div>`;
+  const th = t => `<th style="text-align:right;padding:6px 8px;font-size:.82rem;color:#a8aec8;font-weight:600;white-space:nowrap">${t}</th>`;
+  const td = (t, l) => `<td style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.92rem;white-space:nowrap">${t}</td>`;
   const tab = us.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid var(--border)">${th('Datum').replace('right', 'left')}${th('Tachometr')}${th('Ujeto')}${th('Natankováno')}${th('Cena/' + jed)}${th('Zaplaceno')}${th('Spotřeba')}</tr></thead>
       <tbody>${us.slice().reverse().map(x => `<tr style="border-bottom:1px solid var(--border)">
@@ -482,22 +482,22 @@ function vozidloDetail(id) {
         ${td(x.tachometr ? x.tachometr.toLocaleString('cs-CZ') + ' km' : '—')}
         ${td(x.ujeto ? x.ujeto.toLocaleString('cs-CZ') + ' km' : '—')}
         ${td(x.litry ? _vozDes(x.litry, 2) + ' ' + jed : '—')}
-        ${td(x.cenaZaplacenoL ? _vozDes(x.cenaZaplacenoL, 2) + (x.cenaStojan ? `<div style="font-size:.6rem;color:#8b93ad">stojan ${_vozDes(x.cenaStojan, 2)}</div>` : '') : '—')}
+        ${td(x.cenaZaplacenoL ? _vozDes(x.cenaZaplacenoL, 2) + (x.cenaStojan ? `<div style="font-size:.76rem;color:#8b93ad">stojan ${_vozDes(x.cenaStojan, 2)}</div>` : '') : '—')}
         ${td(fmtKc(x.zaplaceno))}
         ${td(x.spotrebaUseku ? _vozDes(x.spotrebaUseku, 1) : '—')}</tr>`).join('')}
       <tr style="font-weight:800">${td('Celkem', true)}${td('')}${td(st.km ? st.km.toLocaleString('cs-CZ') + ' km' : '—')}${td(_vozDes(st.litryCelkem, 2) + ' ' + jed)}${td(st.cenaEfektivni ? _vozDes(st.cenaEfektivni, 2) : '—')}${td(fmtKc(st.kcCelkem))}${td(st.spotreba ? _vozDes(st.spotreba, 1) : '—')}</tr>
       </tbody></table></div>
-      <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Spotřeba úseku = natankováno ÷ ujeto od minula. Bez plné nádrže kolísá – spolehlivý je klouzavý průměr v souhrnu.</div>`
-    : '<div style="font-size:.78rem;color:#a8aec8">Zatím žádné tankování.</div>';
+      <div style="font-size:.8rem;color:#8b93ad;margin-top:4px">Spotřeba úseku = natankováno ÷ ujeto od minula. Bez plné nádrže kolísá – spolehlivý je klouzavý průměr v souhrnu.</div>`
+    : '<div style="font-size:.92rem;color:#a8aec8">Zatím žádné tankování.</div>';
   const mes = st.mesice.slice(-12).map(m => ({ popis: m.mesic.slice(5) + '/' + m.mesic.slice(2, 4), a: m.kc, titul: `${m.mesic}: ${_vozKc(m.kc)} · ${_vozDes(m.litry, 1)} ${jed}` }));
   const ceny = us.filter(x => x.cenaZaplacenoL).map(x => ({ y: x.cenaZaplacenoL, titul: `${x.datum}: ${_vozDes(x.cenaZaplacenoL, 2)} Kč/${jed}` }));
   const prHTML = id ? `<div style="margin-top:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">🤝 Příspěvky na cestu</div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:.88rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">🤝 Příspěvky na cestu</div>
         <button class="btn btn-sm" onclick="vozPrispevekForm('${_vozEsc(id)}')">➕ Zapsat příspěvek</button></div>
-      <div style="font-size:.68rem;color:#8b93ad;margin:4px 0 6px">Kolegové, spolujízda, vratky – zapíše se jako příjem (jednou) a sníží čistý náklad vozidla.</div>
-      ${pr.length ? pr.map(p => `<div style="display:flex;justify-content:space-between;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
-          <span>${_vozEsc(p.datum.split('-').reverse().join('. '))} · ${_vozEsc(p.od || p.nazev || 'příspěvek')}</span><span style="color:var(--income)">+${_vozKc(p.castka)}</span></div>`).join('') : '<div style="font-size:.76rem;color:#a8aec8">Zatím žádné.</div>'}
-      ${(() => { const nep = prispevkyZaznamy(D, ''); return nep.length ? `<div style="font-size:.7rem;color:#fbbf24;margin-top:8px">⚠️ ${nep.length} příspěvků z Transakcí nemá vybrané vozidlo (máš víc vozidel). Otevři transakci a vyber vozidlo v bloku 🚗.</div>` : ''; })()}
+      <div style="font-size:.84rem;color:#8b93ad;margin:4px 0 6px">Kolegové, spolujízda, vratky – zapíše se jako příjem (jednou) a sníží čistý náklad vozidla.</div>
+      ${pr.length ? pr.map(p => `<div style="display:flex;justify-content:space-between;font-size:.92rem;padding:5px 0;border-top:1px solid var(--border)">
+          <span>${_vozEsc(p.datum.split('-').reverse().join('. '))} · ${_vozEsc(p.od || p.nazev || 'příspěvek')}</span><span style="color:var(--income)">+${_vozKc(p.castka)}</span></div>`).join('') : '<div style="font-size:.92rem;color:#a8aec8">Zatím žádné.</div>'}
+      ${(() => { const nep = prispevkyZaznamy(D, ''); return nep.length ? `<div style="font-size:.86rem;color:#fbbf24;margin-top:8px">⚠️ ${nep.length} příspěvků z Transakcí nemá vybrané vozidlo (máš víc vozidel). Otevři transakci a vyber vozidlo v bloku 🚗.</div>` : ''; })()}
     </div>` : '';
   let o = document.getElementById('vozDetailOkno');
   if (!o) {
@@ -506,7 +506,7 @@ function vozidloDetail(id) {
     o.addEventListener('click', e => { if (e.target === o) vozidloDetailZavri(); });
     document.body.appendChild(o);
   }
-  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:760px">
+  o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:1100px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem;color:var(--text)">${ffIlustrace(v && v.typ === 'elektro' ? 'elektro' : 'pumpa', 38)} ${v ? _vozIkona(v) : '⛽'} ${_vozEsc(nazev)} · detail</div>
       <button onclick="vozidloDetailZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
@@ -520,9 +520,9 @@ function vozidloDetail(id) {
       ${id && prSum ? dl('Čistý náklad', _vozKc(cisty), st.km ? _vozDes(cisty / st.km, 2) + ' Kč/km' : '') : ''}
       ${st.usetreno > 0 ? dl('Ušetřeno na kuponech', '<span style="color:var(--income)">' + _vozKc(st.usetreno) + '</span>', '') : ''}
     </div>
-    ${mes.length ? `<div style="margin-top:16px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Útrata za palivo po měsících</div>${ffGrafSloupce(mes, { barva: '#60a5fa' })}` : ''}
-    ${ceny.length >= 2 ? `<div style="margin-top:14px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Zaplacená cena za ${jed}</div>${ffGrafCara(ceny, { barva: '#34d399', fmt: x => _vozDes(x, 2) + ' Kč' })}` : ''}
-    <div style="margin-top:16px;font-size:.72rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Tankování</div>
+    ${mes.length ? `<div style="margin-top:16px;font-size:.88rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Útrata za palivo po měsících</div>${ffGrafSloupce(mes, { barva: '#60a5fa' })}` : ''}
+    ${ceny.length >= 2 ? `<div style="margin-top:14px;font-size:.88rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">Zaplacená cena za ${jed}</div>${ffGrafCara(ceny, { barva: '#34d399', fmt: x => _vozDes(x, 2) + ' Kč' })}` : ''}
+    <div style="margin-top:16px;font-size:.88rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Tankování</div>
     ${tab}
     ${prHTML}
   </div>`;

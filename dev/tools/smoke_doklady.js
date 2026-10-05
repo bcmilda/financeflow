@@ -41,7 +41,7 @@ T('hlavička shrne, kolika dokladům končí záruka',/2<\/b> dokladů má záru
 T('ukáže stav kvóty',/5 z 300/.test(h));
 T('náhled nese klíč pro dotažení z R2',/data-key="k1"/.test(h));
 T('tlačítka: otevřít, záruka, poznámka, smazat',/dokladOtevri\(/.test(h)&&/dokladZaruku\(/.test(h)&&/dokladPoznamka\(/.test(h)&&/dokladSmaz\(/.test(h));
-T('prázdný archiv poradí, kde doklad uschovat',/Uschovat doklad/.test(buildDokladyTab([])));
+T('prázdný archiv poradí, kde doklad uschovat',/Uschovat fotku účtenky/.test(buildDokladyTab([]))&&/Přidat fotku dokladu/.test(buildDokladyTab([])));   // S25: nové popisky
 T('poznámka se escapuje',/&lt;img/.test(buildDokladyTab([{store:'X',date:'2026-01-01',photoKey:'k',photoNote:'<img src=x onerror=alert(1)>'}])));
 // ── zapojení ──
 T('záložka je v liště i v přepínači',/id="utab-doklady"/.test(R)&&/'discounts','doklady','stores'/.test(R));

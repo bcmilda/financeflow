@@ -1,4 +1,4 @@
-// FinanceFlow · v11.22 · meridla.js · 2026-10-02
+// FinanceFlow · v11.29 · meridla.js · 2026-10-04
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -313,8 +313,8 @@ function merFormMeridlo(id) {
       ${_merPole('Cena za jednotku (Kč)', `<input class="fi" id="merCena" inputmode="decimal" placeholder="nepovinné" value="${m && m.cena ? _merEsc(m.cena) : ''}">`, 'jen než zapíšeš vyúčtování')}
       ${_merPole('Měsíční záloha (Kč)', `<input class="fi" id="merZaloha" inputmode="decimal" placeholder="z transakcí" value="${m && m.zaloha ? _merEsc(m.zaloha) : ''}">`, 'prázdné = průměr plateb')}
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merUlozMeridlo('${m ? _merEsc(m.id) : ''}')">💾 Uložit</button>
-    ${m ? `<button class="btn" style="width:100%;margin-top:8px;color:var(--expense)" onclick="merSmazMeridlo('${_merEsc(m.id)}')">Smazat měřidlo</button>` : ''}`);
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merUlozMeridlo('${m ? _merEsc(m.id) : ''}')">💾 Uložit</button>
+    ${m ? `<button class="btn" style="width:100%;margin-top:8px;background:#dc2626;color:#fff;font-weight:700;border:none" onclick="merSmazMeridlo('${_merEsc(m.id)}')">Smazat měřidlo</button>` : ''}`);
 }
 function merZmenDruh() {
   const d = document.getElementById('merDruh').value;
@@ -359,7 +359,7 @@ function merFormOdecet(id) {
       </div>`
     : _merPole('Stav měřidla (' + _merEsc(m.jednotka) + ')', `<input class="fi" id="merOdStav" inputmode="decimal" placeholder="${posl ? _merEsc(merStav(posl)) : '12480'}">`,
       posl ? 'Minule ' + _merDes(merStav(posl), 2) + ' (' + _merDatumCz(posl.datum) + ')' : 'Stačí jednou za čas – každý odečet zpřesní odhad.')}
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merUlozOdecet('${_merEsc(id)}')">💾 Uložit odečet</button>`);
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merUlozOdecet('${_merEsc(id)}')">💾 Uložit odečet</button>`);
 }
 async function merUlozOdecet(id) {
   const m = (_meridla || {})[id]; if (!m) return;
@@ -397,7 +397,7 @@ function merFormVyuctovani(id) {
     </div>
     <div id="merVySaldo" style="font-size:.8rem;margin-top:8px"></div>
     <div style="font-size:.66rem;color:#8b93ad;margin-top:6px;line-height:1.5">💡 Doplatek zapiš jako běžný výdaj do kategorie záloh. Vrácený přeplatek jsou tvoje vlastní peníze zpět, ne nový příjem – výsledek období vidíš tady u vyúčtování.</div>
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merUlozVyuctovani('${_merEsc(id)}')">💾 Uložit vyúčtování</button>`);
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merUlozVyuctovani('${_merEsc(id)}')">💾 Uložit vyúčtování</button>`);
 }
 function merVySaldo() {
   const c = _merCislo(document.getElementById('merVyCena')?.value), z = _merCislo(document.getElementById('merVyZal')?.value);
@@ -665,7 +665,7 @@ function merPlatbaForm(id, vid) {
       ${_merPole('Částka (Kč)', `<input class="fi" id="merPlCastka" inputmode="decimal" value="${Math.abs(Math.round(s)) || ''}">`)}
       ${_merPole('Datum', `<input class="fi" id="merPlDatum" type="date" value="${_merS(Date.now())}">`)}</div>
     ${_merPole(typ === 'doplatek' ? 'Zaplaceno z' : 'Přišlo na', typeof ffPenezenkaSelect === 'function' ? ffPenezenkaSelect('merPlWal') : '<select class="fi" id="merPlWal"></select>')}
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="merPlatbaUloz('${_merEsc(id)}','${_merEsc(vid || '')}','${typ}')">💾 Uložit</button>`);
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merPlatbaUloz('${_merEsc(id)}','${_merEsc(vid || '')}','${typ}')">💾 Uložit</button>`);
 }
 function merPlatbaUloz(id, vid, typ) {
   const m = (_meridla || {})[id]; if (!m) return;

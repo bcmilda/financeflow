@@ -1,4 +1,4 @@
-// FinanceFlow · v10.89 · transactions.js · 2026-09-21
+// FinanceFlow · v11.29 · transactions.js · 2026-10-04
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -30,6 +30,28 @@ function adjustStartBal(){
 // ══════════════════════════════════════════════════════
 //  PREDIKCE
 // ══════════════════════════════════════════════════════
+//  S25 (Milan): PROKLIK Z PREDIKCE – klik na skutečnou částku otevře Transakce
+//  vyfiltrované na kategorii (a podkategorii) v daném měsíci. Ostatní filtry se vynulují,
+//  aby seznam seděl s číslem v tabulce.
+function predKlikAttr(catId, sub, m, y) {
+  return ` onclick="predOtevriTx('${catId}','${encodeURIComponent(sub || '')}',${m},${y})" title="Zobrazit transakce"`;
+}
+function predOtevriTx(catId, subEnc, m, y) {
+  const sub = decodeURIComponent(subEnc || '');
+  S.curMonth = m; S.curYear = y; if (typeof updateMLabel === 'function') updateMLabel();
+  if (typeof _txDateFilter !== 'undefined') _txDateFilter = { active: false, year: 'all', months: new Set() };
+  if (typeof _txTypeFilter !== 'undefined') _txTypeFilter = 'all';
+  ['txProjectFilter','txWalletFilter','txPayTypeFilter','txCurFilter','txTagFilter','txSearchFilter'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  const all = document.getElementById('txSearchAllMonths'); if (all) all.checked = false;
+  showPage('transakce', document.querySelector('.nav-item[onclick*="transakce"]'));
+  const cs = document.getElementById('txCatFilter'); if (cs) cs.value = catId;
+  if (typeof renderTxPage === 'function') renderTxPage();   // přestaví podkategorie podle kategorie
+  const ss = document.getElementById('txSubFilter'); if (ss) ss.value = sub;
+  if (typeof renderTx === 'function') renderTx();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.predOtevriTx = predOtevriTx;
+
 function renderPredikce(){
   const D=getData();
   document.getElementById('predMonth').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;
@@ -110,13 +132,14 @@ function renderPredTable(year,D){
       const pred=predictCat(cat.id,null,m,y,D,_predMode);
       const past=isPast(m,y),cur=isCur(m,y);
       if(past||cur)ytd+=actual;
-      if(cur)return`<td style="background:rgba(74,222,128,.05)"><div class="cell-real">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred">${fmtB(pred)}</div>`:''}</td>`;
+      const klik = actual ? predKlikAttr(cat.id, '', m, y) : '';   // S25: proklik na transakce
+      if(cur)return`<td${klik} style="background:rgba(74,222,128,.05)${actual?';cursor:pointer':''}"><div class="cell-real">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred">${fmtB(pred)}</div>`:''}</td>`;
       if(past){
         const diff = actual && pred ? actual - pred : 0;
         const diffPct = pred && Math.abs(diff/pred)>0.05 ? Math.round(diff/pred*100) : 0;
         const diffEl = diffPct ? `<div style="font-size:.62rem;color:${diff>0?'var(--expense)':'#4ade80'};opacity:.85">${diff>0?'+':''}${fmtB(diff)} (${diffPct>0?'+':''}${diffPct}%)</div>` : '';
         const predEl = pred ? `<div class="cell-pred" style="opacity:.55">${fmtB(pred)}</div>` : '';
-        return`<td><div class="cell-real">${actual?fmtB(actual):'–'}</div>${predEl}${diffEl}</td>`;
+        return`<td${klik}${actual?' style="cursor:pointer"':''}><div class="cell-real">${actual?fmtB(actual):'–'}</div>${predEl}${diffEl}</td>`;
       }
       const globalS=SEASON[m]?.mult||1;
       const isSeas=globalS>1.08||globalS<0.93;
@@ -138,8 +161,9 @@ function renderPredTable(year,D){
         const pred=predictCat(cat.id,sub,m,y,D,_predMode);
         const past=isPast(m,y),cur=isCur(m,y);
         if(past||cur)sytd+=actual;
-        if(cur)return`<td style="background:rgba(74,222,128,.04)"><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred" style="font-size:.68rem">${fmtB(pred)}</div>`:''}</td>`;
-        if(past)return`<td><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div></td>`;
+        const sklik = actual ? predKlikAttr(cat.id, sub, m, y) : '';   // S25
+        if(cur)return`<td${sklik} style="background:rgba(74,222,128,.04)${actual?';cursor:pointer':''}"><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div>${pred?`<div class="cell-pred" style="font-size:.68rem">${fmtB(pred)}</div>`:''}</td>`;
+        if(past)return`<td${sklik}${actual?' style="cursor:pointer"':''}><div style="font-size:.76rem">${actual?fmtB(actual):'–'}</div></td>`;
         return`<td>${pred?`<div style="font-size:.76rem;color:var(--bank)">${fmtB(pred)}</div>`:'–'}</td>`;
       });
       const subYearEst=Array.from({length:12},(_,mi)=>predictCat(cat.id,sub,mi,year,D,_predMode)||0).reduce((a,b)=>a+b,0);

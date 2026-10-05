@@ -1,4 +1,4 @@
-/* FinanceFlow · v9.43 · styles.css · 2026-08-03 */
+/* FinanceFlow · v11.28 · styles.css · 2026-10-04 */
 :root{
   --bg:#0f1117;--bg2:#151820;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;
   --border:#2e3347;--border2:#3a4158;
@@ -14,7 +14,7 @@
   --shadow-lg:0 4px 24px rgba(0,0,0,.4);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{font-size:16px;overscroll-behavior:none}
+html{font-size:16px;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;min-height:100vh;overscroll-behavior:none}
 
 /* ── LOGIN SCREEN ── */
@@ -186,7 +186,10 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);z-index:400;display:none;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex;animation:fadeIn .18s}
 #modalSchedule{z-index:500}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;animation:slideUp .22s;box-shadow:var(--shadow-lg)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:100%;max-width:520px;max-height:92vh;max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;animation:slideUp .22s;box-shadow:var(--shadow-lg)}
+/* S25 (v11.28): otevřené okno zamkne stránku pod sebou – scroll nepřeteče, adresní řádek se neschová a pozadí nezůstane kratší */
+html:has(.overlay.open),html:has(.overlay.open) body{overflow:hidden}
+.overlay{overscroll-behavior:contain}
 .modal-lg{max-width:640px}
 .modal-head{padding:16px 19px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .modal-head h3{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700}
@@ -213,8 +216,19 @@ body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-s
 
 /* ── CAT PICKER ── */
 .cat-scroll{display:flex;gap:6px;flex-wrap:wrap}
-.cat-chip{padding:5px 10px;border-radius:20px;border:1.5px solid var(--border);font-size:.77rem;cursor:pointer;transition:all .15s;color:var(--text2);background:var(--surface2);user-select:none}
+.cat-chip{padding:5px 10px;border-radius:20px;border:1.5px solid var(--border);font-size:.77rem;cursor:pointer;transition:all .15s;color:var(--text2);background:var(--surface2);user-select:none;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .cat-chip.sel{color:#fff;border-color:transparent}
+/* S25 (v11.29): výběr kategorie v transakci – nejčastější + skupiny, 2 sloupce (na šířku 3) */
+.catp{width:100%}
+.catp-lbl{font-size:.68rem;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:2px 0 6px}
+.catp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:7px;margin-bottom:8px}
+.catp-chip{display:flex;align-items:center;gap:7px;min-width:0;padding:9px 10px;border-radius:11px;border:1.5px solid var(--border);font-size:.9rem;color:var(--text);cursor:pointer;user-select:none;white-space:nowrap;transition:background .15s}
+.catp-chip .ic{flex-shrink:0;font-size:1.05rem;line-height:1}
+.catp-chip .nm{overflow:hidden;text-overflow:ellipsis}
+.catp-chip.sel{color:#fff;font-weight:600}
+.catp-grp{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 2px;border-top:1px solid var(--border);font-size:.9rem;color:var(--text);cursor:pointer;user-select:none}
+.catp-grp .cnt{color:var(--text3);font-size:.75rem;margin-left:5px}
+.catp-grp .selnm{color:var(--bank);font-size:.75rem;margin-left:7px}
 .sub-scroll{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 .sub-chip{padding:4px 9px;border-radius:15px;border:1.5px solid var(--border);font-size:.72rem;cursor:pointer;transition:all .15s;color:var(--text3);background:var(--surface2);user-select:none}
 .sub-chip.sel{background:var(--income-bg);border-color:var(--income);color:var(--income)}
