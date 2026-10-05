@@ -1,4 +1,4 @@
-// FinanceFlow · v11.29 · admin.js · 2026-10-04
+// FinanceFlow · v11.30 · admin.js · 2026-10-05
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.30',
+    datum: '2026-10-05',
+    zmeny: [
+      "🐛 FOTKA TABULKY ŽIVIN „NIC NEUDĚLALA“ (Milan) · cesta: Analýza účtenek → 📸 Skenovat → 📷 Skenovat čárový kód výrobku → 📸 Vyfotit tabulku živin. Hlášky šly jen do toastu, který leží POD oknem skeneru, a karta výrobku živiny nezobrazovala. Nově stav přímo v okně (⏳ / ✅ / ⚠️ nepřečteno) a karta výrobku ukazuje „Nutriční hodnoty na 100 g“ (z tvé fotky obalu). Fotka jde vybrat i z galerie.",
+      "🔗 PŘIŘAZENÍ K POLOŽCE PŘES ÚČTENKY (Milan) · cesta: skenování výrobku → 🔗 Přiřadit k položce z účtenky. Seznam seskupený po účtenkách (🧾 obchod · datum → položky s cenou) místo rozházeného výpisu. Nahoře info „✓ Tento výrobek už máš přiřazený: …“. Položky s kódem jsou vidět: „✓ tento výrobek“ (+ ✕ Odebrat) nebo „má jiný kód“ (klik = přepsat po potvrzení).",
+      "🐛 CHYBNÉ PŘIŘAZENÍ NEŠLO OPRAVIT · dřív položka s kódem ze seznamu zmizela a nový výběr kód tiše zdvojil (výrobek na 2 místech). Nově ✕ Odebrat smaže kód z položky (všechny stejné zkratky v obchodě i kopie v transakcích) a worker ubere tvé potvrzení spojení v komunitě (nová akce /ean „odebrat“).",
+      "🖼️ KÓD I ZE SOUBORU · v okně skeneru vedle „📸 Vyfotit kód“ nově „🖼️ Ze souboru“ (screenshot, fotka z galerie).",
+      "🚪 ZAVŘÍT · dole v okně skeneru tlačítko „✕ Zavřít“ s poznámkou, že název, fotky i přiřazení se ukládají hned.",
+      "🧪 tools/smoke_ean_prirazeni.js (13).",
+    ]
+  },
   {
     verze: 'v11.29',
     datum: '2026-10-04',

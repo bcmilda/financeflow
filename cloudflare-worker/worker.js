@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.28 · 2026-10-04  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.30 · 2026-10-05  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -684,6 +684,29 @@ const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 
 //  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
 //  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
 //  v Mapě položek schválí. Každý uživatel se započítá jednou.
+//  S25 (Milan): oprava chybného přiřazení – uživatel odebere kód od zkratky.
+//  Ubere JEHO potvrzení spojení „obchod + zkratka → kód“ (jen když ho opravdu dal).
+async function eanAkceOdebrat(uid, ean, body, env, cors) {
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const get = async p => { const r = await fetch(`${DB}/${p}.json?auth=${S}`); return r.ok ? r.json() : null; };
+  const put = (p, v) => fetch(`${DB}/${p}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(v) });
+  const del = p => fetch(`${DB}/${p}.json?auth=${S}`, { method: 'DELETE' });
+  const klic = String(body.klic || '');
+  if (!/^[a-z0-9_,-]{3,150}$/.test(klic)) return json({ error: 'Neplatná položka' }, 400, cors);
+  const moje = await get(`users/${uid}/eanAliasy/${klic}`);
+  if (!moje || moje.ean !== ean) return json({ ok: true, odebrano: false }, 200, cors);
+  const stary = await get(`community/eanAliasy/${ean}/${klic}`);
+  if (stary && stary.pocet > 1) {
+    await fetch(`${DB}/community/eanAliasy/${ean}/${klic}.json?auth=${S}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pocet: stary.pocet - 1 }) });
+    await put(`community/eanPodleNazvu/${klic}/${ean}`, stary.pocet - 1);
+  } else {
+    await del(`community/eanAliasy/${ean}/${klic}`);
+    await del(`community/eanPodleNazvu/${klic}/${ean}`);
+  }
+  await del(`users/${uid}/eanAliasy/${klic}`);
+  return json({ ok: true, odebrano: true }, 200, cors);
+}
+
 async function eanAkceNazev(uid, ean, body, env, cors) {
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
   const get = async p => { const r = await fetch(`${DB}/${p}.json?auth=${S}`); return r.ok ? r.json() : null; };
@@ -791,6 +814,7 @@ async function handleEan(request, env, cors) {
   //  S24 (v11.24): návrh českého názvu a rozpoznání fotky obalu / tabulky živin.
   if (body.akce === 'nazev') return eanAkceNazev(uid, ean, body, env, cors);
   if (body.akce === 'foto') return eanAkceFoto(uid, ean, body, env, cors);
+  if (body.akce === 'odebrat') return eanAkceOdebrat(uid, ean, body, env, cors);   // S25
 
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
   const S = env.FIREBASE_DB_SECRET;
