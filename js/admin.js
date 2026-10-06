@@ -1,4 +1,4 @@
-// FinanceFlow · v11.30 · admin.js · 2026-10-05
+// FinanceFlow · v11.31 · admin.js · 2026-10-05
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.31',
+    datum: '2026-10-05',
+    zmeny: [
+      "🐛 „VYFOTIT TABULKU ŽIVIN“ OTEVÍRALO GALERII (Milan, regrese z v11.30) · cesta: skenování výrobku → karta výrobku. „📸 Vyfotit tabulku živin“ (i „📸 Vyfotit obal“) otevře znovu rovnou foťák; hotovou fotku vybereš vedlejším tlačítkem „🖼️ z galerie“.",
+      "🇨🇿 ČESKÝ NÁZEV VÝROBKU SE ZNAČKOU · worker: AI návrh českého názvu nově obsahuje značku a řadu, bez gramáže (např. „Lindt Lindor pralinky mix“) – dřív byl bez značky a tedy příliš obecný („Pralinky“). Platí pro nově naskenované výrobky a fotky obalu; už uložené názvy se nemění.",
+      "🧪 smoke_ean_prirazeni.js +2.",
+    ]
+  },
   {
     verze: 'v11.30',
     datum: '2026-10-05',

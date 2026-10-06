@@ -1,4 +1,4 @@
-// FinanceFlow · v11.30 · ean-sken.js · 2026-10-05
+// FinanceFlow · v11.31 · ean-sken.js · 2026-10-05
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -481,12 +481,14 @@ function eanZmensiFotku(soubor) {
     img.src = url;
   });
 }
-function eanFoto(ean, druh, hotovo) {
+function eanFoto(ean, druh, hotovo, zGalerie) {
   const inp = document.createElement('input');
   //  S25 (Milan: „vyfotil jsem živiny a nic se nestalo“): hlášky šly jen do toastu, který leží
   //  POD oknem skeneru (z-index 9999 < 10050), a karta živiny nezobrazovala. Nově stav
-  //  v okně skeneru (když je otevřené) a živiny v kartě. Bez capture → i fotka z galerie.
+  //  v okně skeneru (když je otevřené) a živiny v kartě.
+  //  „📸 Vyfotit…“ otevře rovnou FOŤÁK (capture), „🖼️ z galerie“ vybere hotovou fotku.
   inp.type = 'file'; inp.accept = 'image/*';
+  if (!zGalerie) inp.setAttribute('capture', 'environment');
   const hlas = (t, chyba) => { if (document.getElementById('eanOkno') && typeof eanZprava === 'function') eanZprava(t, chyba); else if (typeof showToast === 'function') showToast(t); };
   inp.onchange = async () => {
     const f = inp.files && inp.files[0]; if (!f) return;
@@ -507,8 +509,10 @@ function eanFoto(ean, druh, hotovo) {
 function eanFotoTlacitkaHTML(ean, p, poHotovo) {
   const potrebaObal = !p || p.stav !== 'nalezeno' || (!p.nazevCesky && !p.nazevCs) || !p.obecnyId;
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-    ${potrebaObal ? `<button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo})">📸 Vyfotit obal</button>` : ''}
+    ${potrebaObal ? `<button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo})">📸 Vyfotit obal</button>
+    <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo},true)" title="Obal z galerie">🖼️</button>` : ''}
     <button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo})">📸 Vyfotit tabulku živin</button>
+    <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo},true)" title="Tabulka živin z galerie">🖼️ z galerie</button>
   </div>
   <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Fotka se neukládá – AI z ní jen přečte údaje. Free 3 fotky měsíčně, s Premium víc.${!p || p.stav !== 'nalezeno' ? ` Výrobek můžeš přidat i do <a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code=${encodeURIComponent(ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Food Facts</a> (web nebo jejich aplikace).` : ''}</div>`;
 }

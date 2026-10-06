@@ -44,5 +44,7 @@ console.log('── S25 · přiřazení kódu výrobku ──');
  t('fotka živin hlásí stav v okně skeneru',src.includes("eanZprava(t, chyba)")&&src.includes('najdeš je v kartě výrobku'));
  const wk=R('worker.js','../cloudflare-worker/worker.js','../worker.js');
  t('worker: akce odebrat ubere jen vlastní potvrzení',wk.includes("body.akce === 'odebrat'")&&/moje\.ean !== ean\) return json\(\{ ok: true, odebrano: false/.test(wk));
+ t('fotka živin: tlačítko foťák (capture) + zvlášť z galerie',src.includes("if (!zGalerie) inp.setAttribute('capture', 'environment');")&&src.includes("'ziviny',${poHotovo},true)"));
+ t('AI název výrobku se značkou, bez gramáže',/značka \(\+ řada\) a co to je/.test(wk)&&wk.includes('se značkou (+ řadou), bez gramáže'));
  console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); if(bad) process.exitCode=1;
 })();
