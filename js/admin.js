@@ -1,4 +1,4 @@
-// FinanceFlow · v11.31 · admin.js · 2026-10-05
+// FinanceFlow · v11.32 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,19 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.32',
+    datum: '2026-10-06',
+    zmeny: [
+      "🐛 DUPLICITNÍ ÚČTENKA NEBYLA NIKDE VIDĚT A PO SMAZÁNÍ ZŮSTALA TRANSAKCE (Milan) · cesta: Analýza účtenek → žlutý banner. Banner nově ukáže, které účtenky to jsou („Zobrazit“: obchod · datum · částka · počet položek), správně skloňuje (1 duplicitní účtenka) a „🗑️ Smazat duplikáty“ smaže kopii účtenky I její transakci v Transakcích (originál a jeho transakce zůstanou).",
+      "🔗 Vazba účtenka ↔ transakce: nové účtenky a jejich transakce sdílí receiptAddedAt; u starších se transakce dohledá podle obchodu, data a částky. Smazání účtenky v Historii nabídne smazat i transakci.",
+      "🐛 OBCHODY: KLIK NA POSLEDNÍ ŘÁDEK ROZBALIL OBCHOD NAD NÍM · „Můj obchod…“ a „Môj obchod…“ měly stejné ID (diakritika → „_“). ID řádku je nově z pořadí. (Oba řádky jsou stejný obchod přečtený z účtenky dvakrát jinak – sjednotíš přejmenováním v Historii.)",
+      "🐛 KARTA VÝROBKU: CENA PŘETÉKALA · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Moje nákupy. Obchod pod názvem položky, cena v samostatném sloupci vpravo.",
+      "🇨🇿 ČESKÝ NÁZEV VÝROBKU (Milan) · „✎ Opravit“ se dřív předvyplnilo cizím názvem z databáze a „Uložit“ ho uložilo jako „tvůj název“, který pak přebíjel český návrh. Nově se předvyplní jen český název (tvůj / schválený / AI), jinak prázdné s nápovědou „jak na českém obalu“; uložení cizího názvu beze změny nic neuloží. Hlášky se ukazují v okně skeneru.",
+      "🤖 worker: AI návrh názvu zpět „jak by byl na českém obalu“ – značka jen volitelně (když bez ní název výrobek nevystihne), zobrazuje se zvlášť. Ruší povinnou značku z v11.31.",
+      "🧪 tools/smoke_uctenky_duplikaty.js (10); smoke_ean_prirazeni.js +3.",
+    ]
+  },
   {
     verze: 'v11.31',
     datum: '2026-10-05',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.31 · ean-sken.js · 2026-10-05
+// FinanceFlow · v11.32 · ean-sken.js · 2026-10-06
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -445,23 +445,37 @@ function eanNazvyHTML(p, ean, idPrefix) {
       <button onclick="eanNazevUprav('${escHtml(ean)}','${id}')" style="background:none;border:none;color:#60a5fa;font-size:.7rem;cursor:pointer;padding:0 0 0 4px">✎ ${cz && cz !== orig ? 'Opravit' : 'Doplnit'}</button></div>
   </div>`;
 }
+//  S25 (Milan): pole se dřív předvyplnilo CIZÍM názvem z databáze a „Uložit“ ho uložilo jako
+//  „tvůj název“ – ten pak přebíjel český návrh. Nově se předvyplní jen český název (tvůj /
+//  schválený / návrh AI), jinak prázdné s nápovědou; uložení beze změny cizího názvu nic neuloží.
+function eanHlas(t, chyba) {
+  if (document.getElementById('eanOkno') && typeof eanZprava === 'function') eanZprava(t, chyba);
+  else if (typeof showToast === 'function') showToast(t);
+}
 function eanNazevUprav(ean, id) {
   const el = document.getElementById(id); if (!el) return;
   const p = _eanProdukty[ean] || null;
+  const moje = _eanMojeNazvy && _eanMojeNazvy[ean] && _eanMojeNazvy[ean].nazev;
+  const cizi = p && p.nazev && !p.nazevCesky ? p.nazev : '';
+  const cz = moje && moje !== cizi ? moje : (p ? (p.nazevCesky ? p.nazev : (p.nazevCs || '')) : '');
   el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-    <input class="fi" id="${id}_in" maxlength="100" value="${escHtml(eanNazevVyrobku(p, ean))}" placeholder="Český název výrobku" style="flex:1;min-width:180px;font-size:.8rem">
+    <input class="fi" id="${id}_in" maxlength="100" value="${escHtml(cz)}" placeholder="např. Mléčná čokoláda s různými náplněmi" style="flex:1;min-width:180px;font-size:.8rem">
     <button class="btn btn-sm btn-primary" onclick="eanNazevUloz('${escHtml(ean)}','${id}')">Uložit</button></div>
-    <div style="font-size:.66rem;color:#8b93ad;margin-top:3px">Původní název z kódu zůstane. Tvůj název platí hned pro tebe, ostatním se ukáže po schválení. Prázdné = zrušit tvůj název.</div>`;
+    <div style="font-size:.66rem;color:#8b93ad;margin-top:3px">Napiš název tak, jak je na českém obalu. Značka se ukazuje zvlášť – do názvu ji dej jen když pomůže. Původní název z kódu zůstane; tvůj platí hned pro tebe, ostatním po schválení. Prázdné = zrušit tvůj název.</div>`;
   document.getElementById(id + '_in')?.focus();
 }
 async function eanNazevUloz(ean, id) {
-  const v = (document.getElementById(id + '_in')?.value || '').trim();
+  let v = (document.getElementById(id + '_in')?.value || '').trim();
+  const p = _eanProdukty[ean] || null;
+  const cizi = p && p.nazev && !p.nazevCesky ? p.nazev : '';
+  const stejnyCizi = !!(v && cizi && v.toLowerCase() === cizi.toLowerCase());
+  if (stejnyCizi) v = '';   // cizí název z databáze není „tvůj český název“
   try {
     await eanDotaz({ ean, akce: 'nazev', nazev: v });
     _eanMojeNazvy = _eanMojeNazvy || {};
     if (v) _eanMojeNazvy[ean] = { nazev: v, kdy: Date.now() }; else delete _eanMojeNazvy[ean];
-    if (typeof showToast === 'function') showToast(v ? '✎ Název uložen' : 'Tvůj název zrušen');
-  } catch (e) { if (typeof showToast === 'function') showToast('⚠️ ' + e.message); }
+    eanHlas(stejnyCizi ? 'Stejný jako původní (nečeský) název – neukládám ho jako tvůj. Napiš název z českého obalu.' : (v ? '✎ Název uložen' : 'Tvůj název zrušen'), stejnyCizi);
+  } catch (e) { eanHlas('⚠️ ' + e.message, true); }
   const el = document.getElementById(id); if (el) el.outerHTML = eanNazvyHTML(_eanProdukty[ean] || null, ean, id.split('_')[0]);
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
 }

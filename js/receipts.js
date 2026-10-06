@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · receipts.js · 2026-10-04
+// FinanceFlow · v11.32 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -164,6 +164,7 @@ function renderUctenky() {
     _seen.add(key); return true;
   });
   const dupCount = receipts.length - uniqueReceipts.length;
+  const dupList = receipts.filter(r => !uniqueReceipts.includes(r));   // S25: ukázat, které to jsou
 
   const hasData = uniqueReceipts.length >= 3;
   const allItems = uniqueReceipts.flatMap(r => (r.items||[]).map(it => ({...it, store:normalizeStoreName(r.store), date:r.date})));
@@ -403,7 +404,9 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-history" onclick="switchUctenkyTab(\'history\',this)">📋 Historie</button>'
     + '</div>'
     + (dupCount > 0 ? `<div style="padding:10px 14px;margin-bottom:10px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <span style="font-size:.8rem;color:var(--text2)">⚠️ Nalezeno <strong>${dupCount} duplicitních účtenek</strong> (stejný obchod + datum + suma + počet položek). Zobrazuji jen unikátní.</span>
+        <span style="font-size:.8rem;color:var(--text2)">⚠️ Nalezen${dupCount === 1 ? 'a' : dupCount < 5 ? 'y' : 'o'} <strong>${dupCount} ${dupCount === 1 ? 'duplicitní účtenka' : dupCount < 5 ? 'duplicitní účtenky' : 'duplicitních účtenek'}</strong> (stejný obchod + datum + suma + počet položek) – v přehledech se počítá jen jednou.
+          <details style="margin-top:6px"><summary style="cursor:pointer;color:var(--bank)">Zobrazit</summary>${dupList.map(r => `<div style="font-size:.76rem;margin-top:4px">🧾 <b>${escHtml(r.store || '—')}</b> · ${escHtml((r.date || '').split('-').reverse().join('. '))} · ${fmtB(Math.round(r.total || 0))} · ${(r.items || []).length} pol.</div>`).join('')}
+            <div style="font-size:.72rem;color:var(--text3);margin-top:4px">Smazáním zmizí kopie účtenky i její transakce v Transakcích – originál zůstane.</div></details></span>
         <button class="btn btn-accent btn-sm" onclick="removeDuplicateReceipts()">🗑️ Smazat duplikáty</button>
       </div>` : '')
     + buildScanTab(uniqueReceipts, totalSpent)
@@ -1804,19 +1807,35 @@ function updatePriceSlider(pi, val, dates) {
 }
 
 // Smaže duplikátní účtenky z S.receipts a uloží
+//  S25 (Milan): účtenka a její transakce nemají přímou vazbu (starší data) → transakci
+//  hledáme podle vazby receiptAddedAt (nové účtenky), jinak podle obchodu, data a částky.
+function rcptNajdiTx(r, D, vynech) {
+  const txs = (D || S).transactions || []; vynech = vynech || new Set();
+  if (r && r.addedAt) { const t = txs.find(t => t.receiptAddedAt === r.addedAt && !vynech.has(t)); if (t) return t; }
+  return txs.find(t => !vynech.has(t) && !t.receiptAddedAt && t.type === 'expense'
+    && (t.receiptStore || '') === (r.store || '') && (t.receiptDate || t.date) === r.date
+    && Math.abs((t.amount || 0) - (r.total || 0)) < 0.01 && String(t.note || '').startsWith('📸')) || null;
+}
+window.rcptNajdiTx = rcptNajdiTx;
+
 function removeDuplicateReceipts() {
-  if(!confirm('Smazat duplikátní účtenky? Tato akce je nevratná.')) return;
-  const seen = new Set();
+  if(!confirm('Smazat duplikátní účtenky i jejich transakce? Originál zůstane. Akce je nevratná.')) return;
+  const seen = new Set(), odstr = [];
   const before = (S.receipts||[]).length;
   S.receipts = (S.receipts||[]).filter(r => {
     const key = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`;
-    if(seen.has(key)) return false;
+    if(seen.has(key)) { odstr.push(r); return false; }
     seen.add(key); return true;
   });
+  //  Transakce ponechaných účtenek si „rezervujeme“, smaže se jen ta navíc.
+  const drz = new Set(); S.receipts.forEach(r => { const t = rcptNajdiTx(r, S, drz); if (t) drz.add(t); });
+  let txN = 0;
+  odstr.forEach(r => { const t = rcptNajdiTx(r, S, drz); if (t) { S.transactions = S.transactions.filter(x => x !== t); drz.add(t); txN++; }
+    if (r.photoKey && typeof archivSmaz === 'function') rpFotky(r).forEach(k => archivSmaz(k)); });
   const removed = before - S.receipts.length;
   save();
   renderUctenky();
-  alert(`✅ Odstraněno ${removed} duplikátů. Zbývá ${S.receipts.length} účtenek.`);
+  alert(`✅ Odstraněno ${removed} duplikátů${txN ? ` a ${txN} ${txN === 1 ? 'transakce' : 'transakcí'}` : ''}. Zbývá ${S.receipts.length} účtenek.`);
 }
 
 function buildStoresTab(storeStats, totalSpent, receipts) {
@@ -1836,10 +1855,12 @@ function buildStoresTab(storeStats, totalSpent, receipts) {
   });
 
   const D = getData();
-  Object.entries(storeStats).sort((a,b)=>b[1].total-a[1].total).forEach(([store,stats]) => {
+  Object.entries(storeStats).sort((a,b)=>b[1].total-a[1].total).forEach(([store,stats], sIdx) => {
     const pct = Math.round(stats.total/totalSpent*100);
     const avg = stats.visits > 1 ? Math.round(stats.total/stats.visits) : null;
-    const storeId = 'store_'+store.replace(/[^a-z0-9]/gi,'_');
+    //  S25 (Milan): ID z pořadí – dřív se diakritika měnila na „_“, takže „Můj obchod…“ a
+    //  „Môj obchod…“ měly STEJNÉ ID a klik na druhý rozbalil první.
+    const storeId = 'store_'+sIdx+'_'+store.replace(/[^a-z0-9]/gi,'_');
     const rcts = storeReceipts[store]||[];
 
     html += `<div class="card" style="margin-bottom:8px;overflow:hidden">
@@ -2456,9 +2477,10 @@ function mapaUzivKartaHTML(i, produkt) {
       <div style="background:var(--bg);border-radius:9px;padding:8px 10px"><div style="font-size:.66rem;color:#a8aec8">Poslední cena</div><div style="font-size:1.05rem;font-weight:800">${posl && posl.cena ? _mapaKc(posl.cena) : '—'}</div></div>
       <div style="background:var(--bg);border-radius:9px;padding:8px 10px"><div style="font-size:.66rem;color:#a8aec8">Za ${jed ? jed.j : 'kg / l'}</div><div style="font-size:1.05rem;font-weight:800">${jed ? _mapaKc(jed.cena) : '—'}</div></div>
     </div>
-    ${ob.map(n => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:.76rem;padding:4px 0;border-top:1px solid var(--border)">
-        <span style="font-family:monospace;font-size:.72rem;overflow-wrap:anywhere">${escHtml(n.raw)}</span>
-        <span style="color:#a8aec8;white-space:nowrap">${escHtml(n.obchodNazev)} · ${n.cena ? _mapaKc(n.cena) : '—'}</span></div>`).join('')}
+    ${ob.map(n => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
+        <span style="min-width:0;flex:1"><span style="font-family:monospace;font-size:.72rem;overflow-wrap:anywhere">${escHtml(n.raw)}</span>
+          <span style="display:block;color:#a8aec8;font-size:.7rem;overflow-wrap:anywhere">${escHtml(n.obchodNazev)}</span></span>
+        <span style="font-weight:700;white-space:nowrap;flex-shrink:0">${n.cena ? _mapaKc(n.cena) : '—'}</span></div>`).join('')}
     ${nejl}`;
 
   // kód
@@ -2970,6 +2992,9 @@ function deleteReceipt(index) {
   //  jinak by v R2 zůstala navždy a uživatel by o ní nevěděl.
   const _r = (S.receipts || [])[index];
   if (_r && _r.photoKey && typeof archivSmaz === 'function') rpFotky(_r).forEach(k => archivSmaz(k));   // S25: všechny fotky
+  //  S25: nabídnout smazání i transakce, která z účtenky vznikla (dřív zůstala v Transakcích)
+  const _t = _r ? rcptNajdiTx(_r, S) : null;
+  if (_t && confirm(`Smazat i transakci „${_t.name || 'účtenka'}“ ${fmtB(Math.round(_t.amount || 0))} z Transakcí?`)) S.transactions = S.transactions.filter(x => x !== _t);
   if(S.receipts)S.receipts.splice(index,1);
   save(); renderUctenky();
   switchUctenkyTab('history',document.getElementById('utab-history'));
@@ -4447,8 +4472,10 @@ function addReceiptAsTx(receipt) {
     : soucetPolozek;
 
   const nazvy = polozky.map(it=>it.name).filter(Boolean).join(', ');
+  const _addedAt = Date.now();   // S25: vazba účtenka ↔ transakce (receiptAddedAt = addedAt účtenky)
   S.transactions.push({
     id: genTxId(),
+    receiptAddedAt: _addedAt,
     name: store,
     amount: castka, amt: castka,
     type: 'expense',
@@ -4490,7 +4517,7 @@ function addReceiptAsTx(receipt) {
   });
   if(store && hlavniCatId) saveCategoryMapping(store, hlavniCatId, '');
 
-  S.receipts.unshift({...receipt, addedAt:Date.now()});
+  S.receipts.unshift({...receipt, addedAt:_addedAt});
   // S25: automatické uschování fotek ze skenu (Analýza účtenek → editor → „uschovávat automaticky“)
   { const _ul = S.receipts[0], _tok = _ul._scanTok; delete _ul._scanTok;
     if (_tok && typeof rpArchivAuto === 'function') rpArchivAuto(_ul, _tok); }

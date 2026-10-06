@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.30 · 2026-10-05  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.32 · 2026-10-06  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -661,7 +661,7 @@ async function eanObohat(env, prod) {
     headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300,
       system: `Pomáháš české aplikaci na osobní finance zařadit výrobek z čárového kódu.
-1) "nazev_cs": krátký ČESKÝ název výrobku, jak by byl na českém obalu (přelož z jiného jazyka; bez gramáže, bez značky).
+1) "nazev_cs": krátký ČESKÝ název výrobku, jak by byl na českém obalu (přelož z jiného jazyka; bez gramáže, např. „Mléčná čokoláda s různými náplněmi“). Značka se zobrazuje zvlášť – do názvu ji dej, jen když bez ní název výrobek nevystihne.
 2) "obecny": JEDEN obecný název PŘESNĚ z tohoto seznamu (řádek = podkategorie: názvy), nejbližší podle toho, CO výrobek je (ne podle přísady – mléčná čokoláda s mandlemi je čokoláda, ne mandle). Když nic nesedí, "".
 ${tax.seznam}
 Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
@@ -745,7 +745,7 @@ async function eanAkceFoto(uid, ean, body, env, cors) {
   if (druh === 'obal') {
     const tax = await eanTaxonomie();
     zadani = `Na fotce je přední strana obalu výrobku. Vrať POUZE JSON:
-{"nazev_cs":"krátký český název výrobku bez gramáže a značky","nazev_obal":"název tak, jak je na obalu","znacka":"","mnozstvi":"např. 100 g nebo 0,5 l","obecny":"JEDEN název přesně z tohoto seznamu podle toho, CO výrobek je, nebo \"\""}
+{"nazev_cs":"krátký český název výrobku jak na českém obalu, bez gramáže (značku jen když bez ní název nic neřekne)","nazev_obal":"název tak, jak je na obalu","znacka":"","mnozstvi":"např. 100 g nebo 0,5 l","obecny":"JEDEN název přesně z tohoto seznamu podle toho, CO výrobek je, nebo \"\""}
 Seznam (podkategorie: názvy):
 ${tax.seznam}`;
   } else {
