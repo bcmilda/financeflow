@@ -1,4 +1,4 @@
-// FinanceFlow · v11.32 · receipts.js · 2026-10-06
+// FinanceFlow · v11.33 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2444,6 +2444,18 @@ function mapaUzivObchody(z) {
 }
 window.mapaUzivObchody = mapaUzivObchody;
 
+//  S25: štítek položky = poslední štítek, který má položka se stejným názvem na účtenkách
+//  (uživatelův přepis má přednost), jinak návrh z taxonomie.
+function mapaStitek(nazev, D) {
+  const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
+  const k = nn(nazev); let tag = '';
+  ((D || S).receipts || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).some(r => (r.items || []).some(it => {
+    if (it && it.tag && nn(it.name) === k) { tag = it.tag; return true; } return false; }));
+  if (!tag && typeof taxNavrh === 'function') { const n = taxNavrh(nazev); if (n && n.info && n.info.nazev) tag = (typeof pgStitekZNazvu === 'function' ? pgStitekZNazvu(n.info.nazev) : n.info.nazev); }
+  return tag;
+}
+window.mapaStitek = mapaStitek;
+
 function mapaUzivKartaHTML(i, produkt) {
   const z = _mapaUziv[i]; if(!z) return '';
   const p = produkt && produkt.stav === 'nalezeno' ? produkt : null;
@@ -2462,11 +2474,18 @@ function mapaUzivKartaHTML(i, produkt) {
   ].filter(Boolean).join('') : '';
 
   // zařazení
-  const zar = z.tax
+  let zar = z.tax
     ? radek('Oblast', escHtml(z.tax.ikona + ' ' + z.tax.oblastNazev)) + radek('Podkategorie', escHtml(z.tax.podNazev))
       + radek('Obecný název', '<b>' + escHtml(z.tax.nazev) + '</b>') + (z.mapa.konkretni ? radek('Konkrétní', escHtml(z.mapa.konkretni)) : '')
       + radek('COICOP', escHtml(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
     : `<div style="font-size:.78rem;color:#a8aec8;line-height:1.5">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě. Pomůže, když přiřadíš čárový kód.</div>`;
+  //  S25 (Milan): na kartě i zelený štítek položky a skupina spotřebního koše ČSÚ (CZ-COICOP)
+  { const stit = mapaStitek(z.nazev, D);
+    if (typeof loadProductDB === 'function') loadProductDB();
+    const pg = typeof productGroupLookup === 'function' ? productGroupLookup(z.nazev) : null;
+    const extra = (stit ? radek('Štítek', `<span style="color:var(--income);font-style:italic">${escHtml(stit)}</span>`) : '')
+      + (pg && pg.group ? radek('Skupina ČSÚ', escHtml((typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code) + ' · ' + pg.group)) : '');
+    if (extra) zar = zar + extra; }
 
   // nákupy
   const ob = mapaUzivObchody(z);

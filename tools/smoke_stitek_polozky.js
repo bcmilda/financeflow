@@ -1,0 +1,23 @@
+// S25 – zelený štítek položky = název v kategorii (taxonomie), ne skupina ČSÚ; karta výrobku ukazuje štítek i skupinu ČSÚ.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+const R=(...c)=>fs.readFileSync(najdi(...c),'utf8');
+let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':JSON.stringify(i));if(!c)bad++;};
+const sb={console,window:{},fetch:()=>Promise.resolve({ok:false})};sb.window=sb;vm.createContext(sb);
+vm.runInContext(R('helpers.js','../js/helpers.js'),sb);
+vm.runInContext(R('taxonomie.js','../js/taxonomie.js'),sb);
+vm.runInContext(R('product-db.js','../js/product-db.js'),sb);
+sb.taxNastav(JSON.parse(R('taxonomie.json','../data/taxonomie.json')));
+vm.runInContext('_productDB='+R('product-groups.json','../data/product-groups.json')+';_pgKeysSorted=Object.keys(_productDB.keywords).sort((a,b)=>b.length-a.length);',sb);
+console.log('── S25 · štítek položky ──');
+const r={items:[{name:'ORION KOFILA OPLATKA 42G'},{name:'CROISSANT VELKÝ 65G'},{name:'BOČEK KOBLIHA 50G'},{name:'XYZ NEZNAMO'},{name:'Rohlík',tag:'Můj'}]};
+sb.productGroupPrefill(r);
+t('oplatka → „Oplatky“ (ne „Pečivo“)',r.items[0].tag==='Oplatky',r.items[0].tag);
+t('croissant → „Croissant“, kobliha → „Kobliha“',r.items[1].tag==='Croissant'&&r.items[2].tag==='Kobliha',[r.items[1].tag,r.items[2].tag]);
+t('neznámá položka bez štítku nebo se skupinou ČSÚ',!r.items[3].tag||typeof r.items[3].tag==='string');
+t('vlastní štítek se nepřepíše',r.items[4].tag==='Můj');
+const pg=sb.productGroupLookup('ORION KOFILA OPLATKA 42G');
+t('COICOP zařazení zůstává: 01.1.1.3 Chléb a pekařské výrobky',pg&&sb.pgKodCsu(pg.code)==='01.1.1.3'&&/pekařské/.test(pg.group),pg);
+const rc=R('receipts.js','../js/receipts.js');
+t('karta výrobku: řádky Štítek a Skupina ČSÚ',rc.includes("radek('Štítek'")&&rc.includes("radek('Skupina ČSÚ'"));
+console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.32 · admin.js · 2026-10-06
+// FinanceFlow · v11.33 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.33',
+    datum: '2026-10-06',
+    zmeny: [
+      "🏷️ ZELENÝ ŠTÍTEK POLOŽKY = NÁZEV V KATEGORII (Milan) · cesta: Analýza účtenek → editor účtenky → zelené pole u položky. Dřív se předvyplnil štítek celé skupiny ČSÚ („Pečivo“ i u oplatky). Nově obecný název z taxonomie Mapy položek (Oplatky, Croissant, Kobliha…); když ho taxonomie nezná, krátký štítek skupiny ČSÚ jako dřív. Vlastní štítek se nepřepisuje, COICOP zařazení se nemění (oplatky dál 01.1.1.3 Chléb a pekařské výrobky). Platí pro nově skenované účtenky.",
+      "🗺️ KARTA VÝROBKU · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Zařazení. Nové řádky „Štítek“ (zelený štítek z účtenek, jinak návrh z taxonomie) a „Skupina ČSÚ“ (kód CZ-COICOP v zápisu ČSÚ + název skupiny, např. 01.1.1.3 · Chléb a pekařské výrobky).",
+      "📋 KOPÍROVÁNÍ SMĚN DO KONCE ROKU (Milan) · cesta: Kalendář → Pracovní → 📋 Kopírovat úsek. Místo zaškrtávátka výběr „vložit jednou / opakovat do konce měsíce / opakovat do konce roku“. 3. krok srozumitelněji: „klikni na den, od kterého se má úsek vložit (první prázdný)“. Po vložení tlačítko „↩ Vrátit poslední vložení“ (vrátí celé vložení, i opakované do konce roku).",
+      "🏖️ DOVOLENÁ V HODINÁCH · cesta: Kalendář → Pracovní → ⚙️ Nastavení úvazku → „Hodin dovolené / rok“. Den dovolené = hodin na směnu (pokud u dne nezadáš jinak); Sumář ukazuje dovolenou a zůstatek v hodinách. Staré nastavení ve dnech se přepočte × hodin/směna.",
+      "💰 ČISTÁ VÝPLATA PRO KAŽDÝ MĚSÍC · cesta: Kalendář → Pracovní → ⚙️ Nastavení úvazku → „Čistá výplata za <měsíc>“. Ukládá se k zobrazenému měsíci (workCal.salaryM); měsíc bez zadání bere poslední dříve zadanou (ukáže ji v nápovědě pole). Hodinová sazba a mzdová karta počítají s výplatou daného měsíce.",
+      "🧪 tools/smoke_kalendar_prace.js (12), smoke_stitek_polozky.js (6).",
+    ]
+  },
   {
     verze: 'v11.32',
     datum: '2026-10-06',
