@@ -1,4 +1,4 @@
-// FinanceFlow · v11.36 · statistika-polozek.js · 2026-10-06
+// FinanceFlow · v11.37 · statistika-polozek.js · 2026-10-06
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -31,7 +31,13 @@ function spRadky(receipts, mapa, D) {
     //  S25: kód z taxonomie (bývá hlubší, až 5. úroveň přílohy potravin), jinak z koše ČSÚ
     const kod = tax && tax.coicop ? (typeof coicopNorm === 'function' ? coicopNorm(tax.coicop) : tax.coicop) : (pg ? kodCsu(pg.code) : '');
     const kat = kats[(m && m.z.catId) || it.itemCatId || ''];
+    //  S25: cena za kg / l – vážené zboží přímo, balené z gramáže (samostatné pole nebo z názvu)
+    const bal = it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null);
+    let zaJed = null, jed = '';
+    if (vaz(it)) { zaJed = q ? castka / q : null; jed = (it.unit === 'l' ? 'l' : 'kg'); }
+    else if (bal && (bal.j === 'g' || bal.j === 'ml') && bal.m > 0) { zaJed = castka / (q * bal.m / 1000); jed = bal.j === 'g' ? 'kg' : 'l'; }
     out.push({
+      zaJed, jed, baleni: bal,
       datum: r.date || '', mesic: String(r.date || '').slice(0, 7), obchod: obch(r.store || '') || '—',
       nazev: (m && m.z.nazev) || it.name, klic, mapaI: m ? m.i : -1,
       castka, mnozstvi: q, vazene: vaz(it), cenaJed: q ? castka / q : castka,
@@ -99,14 +105,16 @@ function spSeskup(radky, podle) {
 function spPolozky(radky) {
   const g = {};
   radky.forEach(x => {
-    const s = g[x.klic] || (g[x.klic] = { klic: x.klic, nazev: x.nazev, mapaI: x.mapaI, castka: 0, pocet: 0, ceny: {}, vazene: x.vazene, ean: x.ean });
+    const s = g[x.klic] || (g[x.klic] = { klic: x.klic, nazev: x.nazev, mapaI: x.mapaI, castka: 0, pocet: 0, ceny: {}, vazene: x.vazene, ean: x.ean, zaJed: [], jed: x.jed, baleni: x.baleni });
     s.castka += x.castka; s.pocet++;
+    if (x.zaJed != null && isFinite(x.zaJed)) { s.zaJed.push(x.zaJed); s.jed = x.jed; }
     const c = s.ceny[x.obchod] || (s.ceny[x.obchod] = []); c.push(x.cenaJed);
   });
   return Object.values(g).map(s => {
     const prum = Object.entries(s.ceny).map(([o, a]) => ({ o, c: a.reduce((p, v) => p + v, 0) / a.length })).sort((a, b) => a.c - b.c);
     const vse = [].concat(...Object.values(s.ceny));
     return { ...s, castka: Math.round(s.castka * 100) / 100, prumCena: vse.reduce((p, v) => p + v, 0) / vse.length,
+      prumZaJed: s.zaJed.length ? s.zaJed.reduce((p, v) => p + v, 0) / s.zaJed.length : null,
       nejlevneji: prum.length > 1 ? prum[0] : null, obchodu: prum.length };
   }).sort((a, b) => b.castka - a.castka);
 }
@@ -181,10 +189,11 @@ function spRender() {
         <div style="font-size:.62rem;color:#a8aec8;margin-top:3px">${e(m.klic.slice(5, 7) + '/' + m.klic.slice(2, 4))}</div></div>`).join('')}</div>` : ''}
     <div style="font-weight:700;font-size:.84rem;margin:16px 0 6px">Položky</div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:420px">
-      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Položka</th><th style="padding:5px 4px;text-align:right">Útrata</th><th style="padding:5px 4px;text-align:right">Ks</th><th style="padding:5px 4px;text-align:right">Ø cena</th><th style="padding:5px 4px">Nejlevněji</th></tr>
+      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Položka</th><th style="padding:5px 4px;text-align:right">Útrata</th><th style="padding:5px 4px;text-align:right">Ks</th><th style="padding:5px 4px;text-align:right">Ø cena</th><th style="padding:5px 4px;text-align:right">Ø za kg/l</th><th style="padding:5px 4px">Nejlevněji</th></tr>
       ${pol.map(p => `<tr style="border-top:1px solid var(--border);${p.mapaI >= 0 ? 'cursor:pointer' : ''}" ${p.mapaI >= 0 ? `onclick="mapaUzivDetail(${p.mapaI})"` : ''}>
-        <td style="padding:6px 4px;overflow-wrap:anywhere">${p.ean ? '▮▮ ' : ''}${e(p.nazev)}</td><td style="padding:6px 4px;text-align:right;font-weight:700;white-space:nowrap">${kc(p.castka)}</td>
-        <td style="padding:6px 4px;text-align:right">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${kc(p.prumCena)}${p.vazene ? '/kg' : ''}</td>
+        <td style="padding:6px 4px;overflow-wrap:anywhere">${p.ean ? '▮▮ ' : ''}${e(typeof nazevBezGramaze === 'function' ? nazevBezGramaze(p.nazev) : p.nazev)}${p.baleni && typeof baleniText === 'function' ? ` <span style="color:#a8aec8">${e(baleniText(p.baleni))}</span>` : ''}</td><td style="padding:6px 4px;text-align:right;font-weight:700;white-space:nowrap">${kc(p.castka)}</td>
+        <td style="padding:6px 4px;text-align:right">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.vazene ? '—' : kc(p.prumCena)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.prumZaJed != null ? kc(p.prumZaJed) + '/' + e(p.jed) : '<span style="color:#a8aec8">—</span>'}</td>
         <td style="padding:6px 4px;color:var(--income)">${p.nejlevneji ? e(p.nejlevneji.o) : '<span style="color:#a8aec8">—</span>'}</td></tr>`).join('')}
     </table></div>
     ${spPolozky(r).length > 40 ? `<div style="font-size:.7rem;color:#a8aec8;margin-top:6px">Zobrazeno 40 položek s nejvyšší útratou – zužte filtry.</div>` : ''}

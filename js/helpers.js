@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · helpers.js · 2026-09-25
+// FinanceFlow · v11.37 · helpers.js · 2026-10-06
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -938,6 +938,25 @@ function normQty(text) {
   return { hodnota: Math.round(h * 1000) / 1000, jednotka: j };
 }
 
+//  S25 (Milan): GRAMÁŽ JAKO SAMOSTATNÉ POLE. „ORION KOFILA OPLATKA 42G“ →
+//  název „ORION KOFILA OPLATKA“ + balení {m:42, j:'g'}. Název z účtenky (alias) zůstává
+//  beze změny, oddělená gramáž se ukládá k položce a kartě.
+function nazevBezGramaze(text) {
+  return String(text || '').replace(/\s*\d+(?:[.,]\d+)?\s*(kg|g|mg|l|dl|cl|ml|ks|x)\b\.?/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+function baleniZNazvu(text) {
+  const q = normQty(text); if (!q || q.jednotka === 'cm') return null;
+  return { m: q.hodnota, j: q.jednotka };   // g / ml / ks / x
+}
+//  „42 g“, „1,5 l“, „6 ks“ – pro zobrazení
+function baleniText(b) {
+  if (!b || !b.m) return '';
+  const f = v => String(Math.round(v * 1000) / 1000).replace('.', ',');
+  if (b.j === 'g') return b.m >= 1000 ? f(b.m / 1000) + ' kg' : f(b.m) + ' g';
+  if (b.j === 'ml') return b.m >= 1000 ? f(b.m / 1000) + ' l' : f(b.m) + ' ml';
+  if (b.j === 'x') return f(b.m) + '×';
+  return f(b.m) + ' ' + b.j;
+}
 function normName(text) {
   return String(text || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')      // diakritika pryč

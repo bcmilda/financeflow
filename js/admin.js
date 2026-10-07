@@ -1,4 +1,4 @@
-// FinanceFlow · v11.36 · admin.js · 2026-10-06
+// FinanceFlow · v11.37 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.37',
+    datum: '2026-10-06',
+    zmeny: [
+      "⚖️ GRAMÁŽ JAKO SAMOSTATNÉ POLE (Milan, katalog krok 2) · nově naskenované položky dostanou balení zvlášť (it.baleni = {m: 42, j: 'g'}), název z účtenky zůstává jako alias beze změny; balení se ukládá i do položek transakce. Starší položky ho dopočítají z názvu.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Titulek bez gramáže (u položek bez kódu), „Množství“ v sekci Výrobek a balení i u položek bez kódu se zdrojem (databáze / z účtenky). Cena za kg/l počítá s gramáží ze samostatného pole a u váženého zboží s cenou za kg.",
+      "🏷️ NÁZVY ZVLÁŠŤ · cesta: Mapa položek → výrobek → Názvy a aliasy. Každý název na vlastním řádku: Používá se (který appka zobrazuje + zdroj), Originální název (+ jazyk), Název na obalu (z fotky obalu), Český z databáze, Překlad AI (z fotky / schválil admin), Tvůj název. Pod tím názvy z účtenek po obchodech.",
+      "🤖 worker: fotka obalu nově ukládá „název na obalu“ jako samostatné pole (nazevObal) a obnova výrobku ho nesmaže.",
+      "📐 STATISTIKA POLOŽEK · tabulka položek: název bez gramáže + balení zvlášť, nový sloupec „Ø za kg/l“ (z gramáže nebo u váženého zboží).",
+      "🧪 tools/smoke_gramaz_nazvy.js (11).",
+    ]
+  },
   {
     verze: 'v11.36',
     datum: '2026-10-06',

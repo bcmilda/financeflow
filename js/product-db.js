@@ -1,4 +1,4 @@
-// FinanceFlow · v11.36 · product-db.js · 2026-10-06
+// FinanceFlow · v11.37 · product-db.js · 2026-10-06
 //  PRODUKTOVÁ DB – ČSÚ spotřební koš 2026 (Session 12.1)
 //  Mapuje názvy položek z účtenek na produktové skupiny
 //  (CZ-COICOP třídy) a krátké tagy. Zdroj: data/product-groups.json
@@ -128,6 +128,8 @@ function productGroupPrefill(receipt){
   //  co jednou opravíš, příště se nabídne samo.
   const moje = pgMojeStitky();
   receipt.items.forEach(it => {
+    //  S25: gramáž z názvu do samostatného pole (název z účtenky zůstává jako alias)
+    if (it && it.name && !it.baleni && typeof baleniZNazvu === 'function') { const b = baleniZNazvu(it.name); if (b) it.baleni = b; }
     if(it && it.name && !it.tag){
       const k = _pgNorm(it.name);
       if (k && moje[k]) { it.tag = moje[k]; filled++; return; }

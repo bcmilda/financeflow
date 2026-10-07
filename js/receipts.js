@@ -1,4 +1,4 @@
-// FinanceFlow · v11.36 · receipts.js · 2026-10-06
+// FinanceFlow · v11.37 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2238,7 +2238,8 @@ function mapaUzivData(receipts, D) {
     z.pocet++;
     //  S24 (v11.09): nákupy pro kartu výrobku – obchod, cena, zkratka, kód.
     z.nakupy.push({ obchod: r.store||'', datum: d, cena: parseFloat(it.price)||0, qty: parseFloat(it.qty)||1,
-                    unit: it.unit||'', raw: nazev, ean: it.ean||'' });
+                    unit: it.unit||'', raw: nazev, ean: it.ean||'', baleni: it.baleni || null });
+    if(it.baleni && d >= (z._balD||'')) { z.baleni = it.baleni; z._balD = d; }   // S25: gramáž zvlášť
     if(it.ean && d >= z._eanD) { z.ean = it.ean; z._eanD = d; }
     if(d >= z.datum) { z.datum = d; z.nazev = nazev; z.catId = it.itemCatId||''; z.subcat = it.itemSubcat||''; }
   }));
@@ -2264,7 +2265,8 @@ function mapaUzivData(receipts, D) {
     //  Kód: z položky účtenky, jinak z vlastního spojení „obchod + zkratka → EAN".
     const ean = eanZ;
     z.nakupy.sort((a,b) => (b.datum||'').localeCompare(a.datum||''));
-    return { ...z, ean, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam, tax: (mapa && mapa.tax) || null };
+    const baleni = z.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(z.nazev) : null);
+    return { ...z, ean, baleni, catId, subcat, stav, mapa, lisiSe, maOsobni: !!osobniZaznam, tax: (mapa && mapa.tax) || null };
   }).sort((a,b) => b.pocet - a.pocet || a.nazev.localeCompare(b.nazev, 'cs'));
 }
 window.mapaUzivData = mapaUzivData;
@@ -2447,10 +2449,12 @@ function mapaUzivSeznamHTML() {
 function mapaUzivCenaZaJednotku(n) {
   if(!n || !n.cena) return null;
   if(n.unit === 'kg' || n.unit === 'l') return { cena: n.cena, j: n.unit };
-  const q = (typeof normQty === 'function') ? normQty(n.raw) : null;
-  if(!q || !q.hodnota) return null;
-  if(q.jednotka === 'g') return { cena: n.cena / q.hodnota * 1000, j: 'kg' };
-  if(q.jednotka === 'ml') return { cena: n.cena / q.hodnota * 1000, j: 'l' };
+  if(n.qty && Math.abs(n.qty - Math.round(n.qty)) > 1e-9) return { cena: n.cena, j: 'kg' };   // S25: vážené zboží – cena je za kg
+  //  S25: gramáž ze samostatného pole, jinak z názvu
+  const b = n.baleni || ((typeof normQty === 'function') ? (q => q ? { m: q.hodnota, j: q.jednotka } : null)(normQty(n.raw)) : null);
+  if(!b || !b.m) return null;
+  if(b.j === 'g') return { cena: n.cena / b.m * 1000, j: 'kg' };
+  if(b.j === 'ml') return { cena: n.cena / b.m * 1000, j: 'l' };
   return null;
 }
 window.mapaUzivCenaZaJednotku = mapaUzivCenaZaJednotku;
@@ -2492,19 +2496,26 @@ function mapaKartaKatalog(z, p, produkt, radek, gram) {
   (z.nakupy || []).forEach(n => { const k = (n.raw || '').trim(); if (!k) return;
     const a = aliasy[k] || (aliasy[k] = { raw: k, obchody: new Set(), pocet: 0 }); a.pocet++; if (n.obchod) a.obchody.add(n.obchod); });
   const al = Object.values(aliasy).sort((a, b) => b.pocet - a.pocet);
+  //  S25 (krok 2): názvy ZVLÁŠŤ – originál, na obalu, český z databáze, AI překlad, tvůj; nahoře ten, který appka používá
   let nazvy = '';
-  if (p && p.nazev && !p.nazevCesky) nazvy += radek('Originální název', e(p.nazev) + (p.jazyk && JAZ[p.jazyk] ? ` <span style="color:#a8aec8">(${JAZ[p.jazyk]})</span>` : ''));
-  if (cesky) nazvy += radek('Český název', '<b>' + e(cesky) + '</b>' + (zdrojCz ? ` <span style="color:#a8aec8">· ${zdrojCz}</span>` : ''));
+  const sed = t => ` <span style="color:#a8aec8">${t}</span>`;
+  if (cesky) nazvy += radek('Používá se', '<b>' + e(cesky) + '</b>' + (zdrojCz ? sed('· ' + zdrojCz) : ''));
+  if (p && p.nazev && !p.nazevCesky) nazvy += radek('Originální název', e(p.nazev) + (p.jazyk && JAZ[p.jazyk] ? sed('(' + JAZ[p.jazyk] + ')') : ''));
+  if (p && p.nazevObal) nazvy += radek('Název na obalu', e(p.nazevObal) + sed('· 📸 fotka'));
+  if (p && p.nazevCesky && p.nazev) nazvy += radek('Český z databáze', e(p.nazev));
+  if (p && p.nazevCs) nazvy += radek('Překlad AI', e(p.nazevCs) + (p.nazevCsZdroj === 'foto' ? sed('· z fotky obalu') : p.nazevCsZdroj === 'admin' ? sed('· schválil admin') : ''));
+  if (moje) nazvy += radek('Tvůj název', e(moje));
   if (p && (p.nazvyJine || []).length) nazvy += radek('Jiné názvy', e(p.nazvyJine.join(' · ')));
   if (al.length) nazvy += `<div style="font-size:.72rem;color:#a8aec8;margin:6px 0 3px">Názvy z účtenek (aliasy)</div>` + al.map(a =>
     `<div style="display:flex;justify-content:space-between;gap:8px;font-size:.74rem;padding:2px 0"><span style="font-family:monospace;overflow-wrap:anywhere">${e(a.raw)}</span><span style="color:#a8aec8;white-space:nowrap">${e([...a.obchody].join(', '))}${a.pocet > 1 ? ' · ' + a.pocet + '×' : ''}</span></div>`).join('');
   // Výrobek a balení
   let vyr = '';
+  if (gram) vyr += radek('Množství', e(gram) + sed(p && p.mnozstvi ? '· databáze' : '· z účtenky'));
   if (p) {
     if (p.znacka) vyr += radek('Značka', e(p.znacka));
     if (p.vyrobce) vyr += radek('Výrobce', e(p.vyrobce));
     if (p.konkretni || p.obecny) vyr += radek('Druh výrobku', e(p.konkretni || p.obecny));
-    if (gram) vyr += radek('Množství', e(gram));
+
     if ((p.obal || []).length) vyr += radek('Obal', e(p.obal.join(', ')));
     if (p.puvod) vyr += radek('Země původu', e(p.puvod));
     if ((p.zeme || []).length) vyr += radek('Prodává se v', e(p.zeme.join(', ')));
@@ -2541,9 +2552,9 @@ function mapaUzivKartaHTML(i, produkt) {
   const D = getData();
   const sekce = (t, obsah) => `<div style="margin-top:14px"><div style="font-size:.7rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${t}</div>${obsah}</div>`;
   const radek = (l, v) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:.8rem;padding:3px 0"><span style="color:#a8aec8">${l}</span><span style="color:var(--text);text-align:right">${v}</span></div>`;
-  const q = p && p.mnozstvi ? p.mnozstvi : ((typeof normQty === 'function') ? normQty(z.nazev) : null);
+  const q = p && p.mnozstvi ? p.mnozstvi : (z.baleni ? { hodnota: z.baleni.m, jednotka: z.baleni.j } : ((typeof normQty === 'function') ? normQty(z.nazev) : null));
   const gram = q ? (q.hodnota >= 1000 && (q.jednotka==='g'||q.jednotka==='ml') ? (q.hodnota/1000).toLocaleString('cs-CZ') + (q.jednotka==='g'?' kg':' l') : q.hodnota + ' ' + q.jednotka) : '';
-  const titul = (p && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(p, z.ean) : (p && p.nazev)) || z.mapa?.konkretni || (z.tax ? _mapaVelke(z.tax.nazev) : z.nazev);
+  const titul = (p && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(p, z.ean) : (p && p.nazev)) || z.mapa?.konkretni || (z.tax ? _mapaVelke(z.tax.nazev) : (typeof nazevBezGramaze === 'function' ? nazevBezGramaze(z.nazev) : z.nazev));
   const NB = { a:'#038141', b:'#85bb2f', c:'#fecb02', d:'#ee8100', e:'#e63e11' };
   const znacky = p ? [
     p.nutriscore ? `<span title="Nutri-Score: celková nutriční kvalita, A nejlepší" style="background:${NB[p.nutriscore]};color:#fff;font-weight:800;border-radius:6px;padding:3px 8px;font-size:.72rem">Nutri-Score ${p.nutriscore.toUpperCase()}</span>` : '',
@@ -4616,6 +4627,7 @@ function addReceiptAsTx(receipt) {
       lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
+      ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
     })),
     receiptDate: receipt.date || '',
     receiptStore: receipt.store || '',
@@ -4879,6 +4891,7 @@ function syncReceiptToTransactions(r) {
       tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
+      ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
     }));
     //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
     if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;
