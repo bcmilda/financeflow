@@ -1,4 +1,4 @@
-// FinanceFlow · v11.35 · receipts.js · 2026-10-06
+// FinanceFlow · v11.36 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2191,6 +2191,7 @@ function switchUctenkyTab(tab, btn) {
     typeof loadTaxRozpocet==='function' ? loadTaxRozpocet() : null,
     typeof eanNactiAliasy==='function' ? eanNactiAliasy() : null,
     typeof eanNactiMojeNazvy==='function' ? eanNactiMojeNazvy() : null,
+    typeof loadCoicop==='function' ? loadCoicop() : null,   // S25: číselník CZ-COICOP
   ]).then(async ()=>{
     mapaUzivKresli();
     //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
@@ -2203,6 +2204,7 @@ function switchUctenkyTab(tab, btn) {
       typeof loadProductMap==='function' ? loadProductMap() : null,
       typeof loadTaxonomie==='function' ? loadTaxonomie() : null,
       typeof loadProductDB==='function' ? loadProductDB() : null,
+      typeof loadCoicop==='function' ? loadCoicop() : null,
     ]).then(()=>{ _mapaUziv = mapaUzivData(_mapaUzivReceipts); spRender(); }).catch(()=>spRender());
   }
   const button = btn || document.getElementById('utab-'+tab);
@@ -2522,6 +2524,17 @@ function mapaKartaKatalog(z, p, produkt, radek, gram) {
 }
 window.mapaKartaKatalog = mapaKartaKatalog;
 
+//  S25: kód CZ-COICOP v zápisu ČSÚ + název nejhlubší úrovně + cesta číselníkem
+function mapaCoicopHTML(code) {
+  if (typeof coicopCesta !== 'function') return escHtml(String(code || ''));
+  const c = coicopCesta(code); const k = coicopNorm(code);
+  if (!c.length) return escHtml(k);
+  const posl = c[c.length - 1];
+  return `<b>${escHtml(posl.kod)}</b> ${escHtml(posl.nazev)}`
+    + (c.length > 1 ? `<div style="font-size:.64rem;color:#8b93ad;line-height:1.4;margin-top:2px">${c.slice(0, -1).map(x => escHtml(x.kod + ' ' + x.nazev)).join(' › ')}</div>` : '');
+}
+window.mapaCoicopHTML = mapaCoicopHTML;
+
 function mapaUzivKartaHTML(i, produkt) {
   const z = _mapaUziv[i]; if(!z) return '';
   const p = produkt && produkt.stav === 'nalezeno' ? produkt : null;
@@ -2543,14 +2556,14 @@ function mapaUzivKartaHTML(i, produkt) {
   let zar = z.tax
     ? radek('Oblast', escHtml(z.tax.ikona + ' ' + z.tax.oblastNazev)) + radek('Podkategorie', escHtml(z.tax.podNazev))
       + radek('Obecný název', '<b>' + escHtml(z.tax.nazev) + '</b>') + (z.mapa.konkretni ? radek('Konkrétní', escHtml(z.mapa.konkretni)) : '')
-      + radek('COICOP', escHtml(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
+      + radek('COICOP', mapaCoicopHTML(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
     : `<div style="font-size:.78rem;color:#a8aec8;line-height:1.5">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě. Pomůže, když přiřadíš čárový kód.</div>`;
   //  S25 (Milan): na kartě i zelený štítek položky a skupina spotřebního koše ČSÚ (CZ-COICOP)
   { const stit = mapaStitek(z.nazev, D);
     if (typeof loadProductDB === 'function') loadProductDB();
     const pg = typeof productGroupLookup === 'function' ? productGroupLookup(z.nazev) : null;
     const extra = (stit ? radek('Štítek', `<span style="color:var(--income);font-style:italic">${escHtml(stit)}</span>`) : '')
-      + (pg && pg.group ? radek('Skupina ČSÚ', escHtml((typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code) + ' · ' + pg.group)) : '');
+      + (pg && pg.group ? radek('Spotřební koš ČSÚ', escHtml((typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code) + ' · ' + pg.group) + (pg.w ? ` <span style="color:#a8aec8">· váha ${String(Math.round(pg.w * 100) / 100).replace('.', ',')} ‰</span>` : '')) : '');
     if (extra) zar = zar + extra; }
 
   // nákupy

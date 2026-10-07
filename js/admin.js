@@ -1,4 +1,4 @@
-// FinanceFlow · v11.35 · admin.js · 2026-10-06
+// FinanceFlow · v11.36 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.36',
+    datum: '2026-10-06',
+    zmeny: [
+      "📚 ČÍSELNÍK CZ-COICOP 2018 V APPCE (Milan, jeho XLSX) · nový soubor data/coicop2018.json: 871 kódů v 5 úrovních – oddíl › skupina › třída › podtřída (COICOP 2018) › položka přílohy potravin ČSÚ (269 položek, např. 01.1.1.1.2 Rýže), s typem (netrvanlivé / střednědobé / služby). Zkrácené kódy appky (01.113, 01.122.1) se převádí na zápis ČSÚ (01.1.1.3, 01.1.2.2.1).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → Zařazení. Řádek COICOP ukazuje kód v zápisu ČSÚ, název nejhlubší úrovně a cestu číselníkem (oddíl › skupina › třída › podtřída); „Spotřební koš ČSÚ“ i s váhou v ‰.",
+      "📐 STATISTIKA POLOŽEK · filtr COICOP nabízí všechny úrovně číselníku s názvy (odsazeně od oddílu po položku přílohy); „Útrata podle“ nově COICOP oddíl / skupina / třída / podtřída / položka přílohy potravin. Kód se bere z taxonomie (bývá hlubší), jinak z koše ČSÚ.",
+      "🧪 tools/smoke_coicop_ciselnik.js (6); smoke_statistika_polozek.js upraven.",
+    ]
+  },
   {
     verze: 'v11.35',
     datum: '2026-10-06',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.35 · statistika-polozek.js · 2026-10-06
+// FinanceFlow · v11.36 · statistika-polozek.js · 2026-10-06
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -28,12 +28,14 @@ function spRadky(receipts, mapa, D) {
     const q = parseFloat(it.qty) || 1;
     const pg = (typeof productGroupLookup === 'function') ? productGroupLookup(it.name) : null;
     const tax = m && m.z.tax;
+    //  S25: kód z taxonomie (bývá hlubší, až 5. úroveň přílohy potravin), jinak z koše ČSÚ
+    const kod = tax && tax.coicop ? (typeof coicopNorm === 'function' ? coicopNorm(tax.coicop) : tax.coicop) : (pg ? kodCsu(pg.code) : '');
     const kat = kats[(m && m.z.catId) || it.itemCatId || ''];
     out.push({
       datum: r.date || '', mesic: String(r.date || '').slice(0, 7), obchod: obch(r.store || '') || '—',
       nazev: (m && m.z.nazev) || it.name, klic, mapaI: m ? m.i : -1,
       castka, mnozstvi: q, vazene: vaz(it), cenaJed: q ? castka / q : castka,
-      coicop: pg ? kodCsu(pg.code) : '', csu: pg ? pg.group : '', oddil: pg ? String(pg.code).slice(0, 2) : '',
+      coicop: kod, csu: spNazevKodu(kod) || (pg ? pg.group : ''), oddil: kod ? kod.slice(0, 2) : '',
       oblast: tax ? tax.oblastNazev : '', pod: tax ? tax.podNazev : '', obecny: tax ? tax.nazev : '',
       stitek: it.tag || '', kat: kat ? ((kat.icon || '') + ' ' + kat.name).trim() : '', ean: (m && m.z.ean) || it.ean || '',
     });
@@ -50,15 +52,32 @@ function spFiltruj(radky, f, dnes = new Date()) {
   }
   return radky.filter(x =>
     (!od || x.mesic >= od) &&
-    (!f.coicop || x.coicop === f.coicop || x.coicop.startsWith(f.coicop + '.') || x.oddil === f.coicop) &&
+    (!f.coicop || x.coicop === f.coicop || x.coicop.startsWith(f.coicop + '.')) &&
     (!f.oblast || x.oblast === f.oblast) && (!f.pod || x.pod === f.pod) &&
     (!f.obchod || x.obchod === f.obchod) && (!f.stitek || x.stitek === f.stitek) && (!f.kat || x.kat === f.kat) &&
     (!f.kod || !!x.ean) && (!q || x.nazev.toLowerCase().includes(q) || x.obecny.toLowerCase().includes(q)));
 }
 
+//  Úroveň číselníku CZ-COICOP: 1 oddíl, 2 skupina, 3 třída, 4 podtřída, 5 položka přílohy potravin
+function spUroven(x, n) {
+  if (!x.coicop) return '— nezařazeno v COICOP';
+  const p = x.coicop.split('.'); if (p.length < n) return '— bez ' + n + '. úrovně';
+  const k = p.slice(0, n).join('.'); const nz = spNazevKodu(k);
+  return k + (nz ? ' · ' + nz : '');
+}
+function spNazevKodu(k) {
+  if (!k) return '';
+  const n = typeof coicopNazev === 'function' ? coicopNazev(k) : '';
+  if (n) return n;
+  if (k.length === 2 && typeof COICOP_GROUPS_DEF !== 'undefined') { const g = COICOP_GROUPS_DEF.find(c => String(c.id).padStart(2, '0') === k); if (g) return g.name; }
+  return '';
+}
 const SP_PODLE = {
-  csu: { n: 'Skupina ČSÚ', k: x => x.coicop ? x.coicop + ' · ' + x.csu : '— mimo koš ČSÚ' },
-  oddil: { n: 'Oddíl COICOP', k: x => x.oddil ? spOddilNazev(x.oddil) : '— nezařazeno' },
+  csu: { n: 'COICOP · podtřída (koš ČSÚ)', k: x => spUroven(x, 4) },
+  oddil: { n: 'COICOP · oddíl', k: x => spUroven(x, 1) },
+  skupina: { n: 'COICOP · skupina', k: x => spUroven(x, 2) },
+  trida: { n: 'COICOP · třída', k: x => spUroven(x, 3) },
+  pol5: { n: 'COICOP · položka přílohy potravin', k: x => spUroven(x, 5) },
   oblast: { n: 'Oblast', k: x => x.oblast || '— mimo taxonomii' },
   pod: { n: 'Podkategorie', k: x => x.pod || '— mimo taxonomii' },
   obecny: { n: 'Obecný název', k: x => x.obecny || '— mimo taxonomii' },
@@ -68,10 +87,7 @@ const SP_PODLE = {
   polozka: { n: 'Položka', k: x => x.nazev },
   mesic: { n: 'Měsíc', k: x => x.mesic || '—' },
 };
-function spOddilNazev(o) {
-  const g = (typeof COICOP_GROUPS_DEF !== 'undefined') ? COICOP_GROUPS_DEF.find(c => String(c.id).padStart(2, '0') === o) : null;
-  return o + (g ? ' · ' + g.name : '');
-}
+function spOddilNazev(o) { const n = spNazevKodu(o); return o + (n ? ' · ' + n : ''); }
 
 function spSeskup(radky, podle) {
   const fn = (SP_PODLE[podle] || SP_PODLE.csu).k; const g = {};
@@ -115,10 +131,10 @@ function spRender() {
   const uniq = (fn, base) => [...new Set((base || vse).map(fn).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'cs'));
   const sel = (k, label, opts, fmt) => `<label style="display:flex;flex-direction:column;gap:3px;font-size:.66rem;color:#a8aec8;min-width:0">${label}
     <select class="fi" style="font-size:.76rem;padding:6px" onchange="spNastav('${k}',this.value)"><option value="">Vše</option>${opts.map(o => `<option value="${e(o)}" ${f[k] === o ? 'selected' : ''}>${e(fmt ? fmt(o) : o)}</option>`).join('')}</select></label>`;
-  //  COICOP volby: oddíly + třídy, které se v datech vyskytují
-  const coicopOpts = uniq(x => x.oddil).concat(uniq(x => x.coicop));
-  const csuNazev = {}; vse.forEach(x => { if (x.coicop) csuNazev[x.coicop] = x.csu; });
-  const fmtCoicop = o => o.length === 2 ? spOddilNazev(o) : o + ' · ' + (csuNazev[o] || '');
+  //  COICOP volby: všechny úrovně číselníku, které se v datech vyskytují (oddíl … 5. úroveň)
+  const pref = new Set(); vse.forEach(x => { if (!x.coicop) return; const p = x.coicop.split('.'); for (let i = 1; i <= p.length; i++) pref.add(p.slice(0, i).join('.')); });
+  const coicopOpts = [...pref].sort((a, b) => a.localeCompare(b, 'cs', { numeric: true }));
+  const fmtCoicop = o => '\u00a0'.repeat((o.split('.').length - 1) * 2) + o + (spNazevKodu(o) ? ' · ' + spNazevKodu(o) : '');
 
   const celkem = r.reduce((a, x) => a + x.castka, 0);
   const uctenek = new Set(r.map(x => x.datum + '|' + x.obchod)).size;

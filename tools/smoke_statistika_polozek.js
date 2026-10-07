@@ -26,7 +26,7 @@ t('filtr třídy 01.1.1.3 = rohlíky',sb.spFiltruj(r,{obdobi:'vse',coicop:'01.1.
 t('filtr obchod + štítek',sb.spFiltruj(r,{obdobi:'vse',obchod:'LIDL',stitek:'Pečivo'},dnes).length===1);
 t('jen s čárovým kódem',sb.spFiltruj(r,{obdobi:'vse',kod:true},dnes).length===0);
 const g=sb.spSeskup(sb.spFiltruj(r,{obdobi:'vse'},dnes),'csu');
-t('seskupení podle skupiny ČSÚ, seřazené podle útraty',g[0].klic.startsWith('02.1.1.0')&&g.some(x=>x.klic==='— mimo koš ČSÚ'),g.map(x=>x.klic));
+t('seskupení podle skupiny ČSÚ, seřazené podle útraty',g[0].klic.startsWith('02.1.1.0')&&g.some(x=>x.klic==='— nezařazeno v COICOP'),g.map(x=>x.klic));
 t('seskupení podle oddílu má název z číselníku',sb.spSeskup(r,'oddil').some(x=>x.klic==='01 · Potraviny a nealkoholické nápoje'));
 const p=sb.spPolozky(r).find(x=>x.klic==='rohlík');
 t('tabulka položek: útrata, počet, nejlevnější obchod',p.castka===42&&p.pocet===3&&p.nejlevneji&&p.obchodu===2,p);
