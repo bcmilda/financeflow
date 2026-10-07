@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.39 · 2026-10-07  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.43 · 2026-10-07  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -735,7 +735,7 @@ Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
   return o;
 }
 
-const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal'];
+const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal', 'nutricePredchozi'];
 
 //  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
 //  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
@@ -842,11 +842,57 @@ ${tax.seznam}`;
     ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'].forEach(x => { const v = parseFloat(j[x]); if (isFinite(v) && v >= 0 && v < 1000) n[x] = Math.round(v * 10) / 10; });
     if (!Object.keys(n).length) return json({ error: 'V tabulce jsem nenašel hodnoty – vyfoť ji zblízka a rovně.' }, 422, cors);
     p = p || { ean, stav: 'nalezeno', zdroj: 'fotka obalu', kdy: Date.now() };
+    if (p.nutriceObal) p.nutricePredchozi = p.nutriceObal;   // S25 v11.43: záloha předchozích hodnot
     p.nutriceObal = Object.assign(n, { kdy: Date.now() });
     if (j.slozeni_cs) p.slozeniObal = eanStr(j.slozeni_cs, 1500);
   }
   await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
   return json({ ok: true, ean, produkt: p, zbyva: q.limit != null ? Math.max(0, q.limit - q.used) : null }, 200, cors);
+}
+
+//  S25 (v11.43, Milan): ruční zadání / oprava živin z obalu (bez AI, bez limitu fotek).
+//  Kontrola jako v appce: čísla 0–100 g (energie ≤ 900 kcal), „z toho“ ≤ celkem,
+//  součet gramů ≤ 100. Nesoulad energie s živinami appka hlásí a uživatel potvrdí –
+//  worker ho jen poznačí (nesedi). Předchozí hodnoty se zálohují (nutricePredchozi)
+//  a do community/eanZivinyLog/{ean}/{uid} se zapíše, kdo naposledy měnil (pro admina).
+const EAN_ZIVINY_KLICE = ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'];
+function eanZivinyOver(h) {
+  const n = {};
+  for (const k of EAN_ZIVINY_KLICE) {
+    if (h == null || h[k] == null || h[k] === '') continue;
+    const v = Number(h[k]);
+    if (!isFinite(v) || v < 0 || v > (k === 'kcal' ? 900 : 100)) return { chyba: 'Neplatná hodnota: ' + k };
+    n[k] = Math.round(v * 10) / 10;
+  }
+  if (Object.keys(n).length < 2) return { chyba: 'Vyplň aspoň energii a jednu živinu.' };
+  if (n.nasycene != null && n.tuky != null && n.nasycene > n.tuky + 0.05) return { chyba: 'Nasycené tuky nemůžou být víc než tuky celkem.' };
+  if (n.cukry != null && n.sacharidy != null && n.cukry > n.sacharidy + 0.05) return { chyba: 'Cukry nemůžou být víc než sacharidy celkem.' };
+  if (['tuky', 'sacharidy', 'vlaknina', 'bilkoviny', 'sul'].reduce((a, k) => a + (n[k] || 0), 0) > 101) return { chyba: 'Součet živin je víc než 100 g.' };
+  let nesedi = false;
+  if (n.kcal != null && n.tuky != null && n.sacharidy != null && n.bilkoviny != null) {
+    const v = 9 * n.tuky + 4 * n.sacharidy + 4 * n.bilkoviny + 2 * (n.vlaknina || 0);
+    nesedi = Math.abs(n.kcal - v) > Math.max(20, v * 0.15);
+  }
+  return { n, nesedi };
+}
+async function eanAkceZiviny(uid, ean, body, env, cors) {
+  const o = eanZivinyOver(body.hodnoty);
+  if (o.chyba) return json({ error: o.chyba }, 400, cors);
+  if (o.nesedi && !body.potvrzeno) return json({ error: 'Energie nesedí s živinami – zkontroluj čísla a potvrď.' }, 400, cors);
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const url = `${DB}/community/eanProdukty/${ean}.json?auth=${S}`;
+  let p = null; try { p = await (await fetch(url)).json(); } catch (e) {}
+  p = p || { ean, stav: 'nalezeno', zdroj: 'zadáno ručně', kdy: Date.now() };
+  if (p.nutriceObal) p.nutricePredchozi = p.nutriceObal;
+  const nova = Object.assign({}, o.n, { kdy: Date.now(), zdroj: 'rucne' });
+  if (body.na === 'ml') nova.na = 'ml';
+  if (o.nesedi) nova.nesedi = true;
+  p.nutriceObal = nova;
+  const sl = eanStr(body.slozeni, 1500);
+  if (sl) p.slozeniObal = sl;
+  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+  try { await fetch(`${DB}/community/eanZivinyLog/${ean}/${uid}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kdy: Date.now(), hodnoty: nova }) }); } catch (e) {}
+  return json({ ok: true, ean, produkt: p }, 200, cors);
 }
 
 async function handleEan(request, env, cors) {
@@ -872,6 +918,7 @@ async function handleEan(request, env, cors) {
   if (body.akce === 'nazev') return eanAkceNazev(uid, ean, body, env, cors);
   if (body.akce === 'foto') return eanAkceFoto(uid, ean, body, env, cors);
   if (body.akce === 'odebrat') return eanAkceOdebrat(uid, ean, body, env, cors);   // S25
+  if (body.akce === 'ziviny') return eanAkceZiviny(uid, ean, body, env, cors);   // S25 v11.43
 
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
   const S = env.FIREBASE_DB_SECRET;

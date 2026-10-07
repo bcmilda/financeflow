@@ -55,7 +55,7 @@ const odp=r=>JSON.parse(r.body);
  t('fotka: neznámý výrobek → obal + Open Food Facts',f.includes('Vyfotit obal')&&f.includes('Open Food Facts')&&f.includes('neukládá'));
  t('fotka: kompletní výrobek → jen živiny',!c.eanFotoTlacitkaHTML('1',{stav:'nalezeno',nazevCesky:true,obecnyId:'x'},'cb').includes('Vyfotit obal'));
  const RC=R('receipts.js','../js/receipts.js');
- t('karta: živiny z obalu mají přednost a popisek',/p\.nutriceObal \|\| p\.nutrice/.test(RC)&&RC.includes('podle českého obalu'));
+ t('karta: živiny z obalu mají přednost a popisek',/p\.nutriceObal \|\| p\.nutrice/.test(RC)&&(RC.includes('podle českého obalu')||RC.includes('eanZivinyZdroj(p.nutriceObal)')));   // S25: popisek podle zdroje (fotka / ručně)
  const RL=JSON.parse(R('database.rules.json','../database.rules.json').replace(/^\s*\/\/.*$/mg,''));
  t('pravidla: návrhy názvů jen worker/admin',RL.rules.community.eanNavrhyNazvu['.write'].includes('LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'));
  console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

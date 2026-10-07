@@ -1,4 +1,4 @@
-// FinanceFlow · v11.42 · admin.js · 2026-10-07
+// FinanceFlow · v11.43 · admin.js · 2026-10-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.43',
+    datum: '2026-10-07',
+    zmeny: [
+      "Karta výrobku a skener: ruční zadání / oprava nutričních hodnot na 100 g (100 ml) – předvyplní se z fotky obalu nebo z databáze, kJ se přepočte na kcal, nepovinně složení",
+      "Kontrola živin: „z toho“ nesmí být víc než celkem, součet ≤ 100 g, energie ≤ 900 kcal; nesoulad energie s živinami (4/4/9 kcal, vláknina 2) upozorní a uložit jde po potvrzení",
+      "Worker: akce „ziviny“ s kontrolou na serveru, záloha předchozích hodnot (i u fotky živin) a záznam poslední změny pro admina; admin vidí ruční zadání a předchozí hodnoty",
+    ]
+  },
   {
     verze: 'v11.42',
     datum: '2026-10-07',
@@ -7958,7 +7967,7 @@ function mapaAdminEanRadek(ean) {
     <div style="font-size:.68rem;color:var(--text3);margin:4px 0">${Object.values(al).map(a => _vzEsc((a.obchod || '?') + ': ' + (a.raw || '') + (a.pocet > 1 ? ' (' + a.pocet + '×)' : ''))).join(' · ')}</div>
     ${(() => { const nv = Object.values(((d.navrhy || {})[ean]) || {}).sort((x, y) => (y.pocet || 0) - (x.pocet || 0));
       return nv.length ? `<div style="font-size:.7rem;margin:4px 0">✎ Návrhy názvu od uživatelů: ${nv.map(n => `<button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:1px 6px" onclick="document.getElementById('eanCs_${e}').value=this.dataset.n" data-n="${_vzEsc(n.nazev)}">${_vzEsc(n.nazev)} (${n.pocet}×)</button>`).join(' ')}</div>` : ''; })()}
-    ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">📸 živiny podle českého obalu (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})</div>` : ''}
+    ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">${p.nutriceObal.zdroj === 'rucne' ? '✍️ živiny zadané ručně' : '📸 živiny podle českého obalu'} (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})${p.nutriceObal.nesedi ? ' <span style="color:#fbbf24">· energie nesedí s živinami (uživatel potvrdil)</span>' : ''}${p.nutricePredchozi ? ` <span style="color:var(--text3)">· předchozí: ${_vzEsc(Object.entries(p.nutricePredchozi).filter(([k]) => !['kdy', 'zdroj', 'na', 'nesedi'].includes(k)).map(([k, v]) => k + ' ' + v).join(', '))}</span>` : ''}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px">
       <input class="fi" id="eanCs_${e}" style="font-size:.76rem;padding:6px 8px" placeholder="Český název výrobku" value="${_vzEsc(nazev)}">
       <input class="fi" id="eanOb_${e}" list="taxDatalist" style="font-size:.76rem;padding:6px 8px" placeholder="Obecný název (taxonomie)" value="${_vzEsc(info ? info.nazev : '')}">

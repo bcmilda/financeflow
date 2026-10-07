@@ -1,4 +1,4 @@
-// FinanceFlow · v11.40 · ean-sken.js · 2026-10-07
+// FinanceFlow · v11.43 · ean-sken.js · 2026-10-07
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -345,7 +345,7 @@ function eanKartaHTML(p, ean) {
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${ns}${nova}${stitky}</div>
     </div>
   </div>${(p.nutriceObal || p.nutrice) ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
-    <div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 g${p.nutriceObal ? ' <span style="font-weight:500;color:#a8aec8">· z tvé fotky obalu</span>' : ''}</div>${eanNutriceHTML(p.nutriceObal || p.nutrice)}</div>` : ''}${(p.slozeniObal || p.slozeni) ? `<details style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
+    <div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 ${(p.nutriceObal || p.nutrice || {}).na === 'ml' ? 'ml' : 'g'}${p.nutriceObal ? ' <span style="font-weight:500;color:#a8aec8">· ' + eanZivinyZdroj(p.nutriceObal) + '</span>' : ''}</div>${eanNutriceHTML(p.nutriceObal || p.nutrice)}</div>` : ''}${(p.slozeniObal || p.slozeni) ? `<details style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
     <summary style="font-size:.74rem;font-weight:700;cursor:pointer">Složení${p.slozeniObal ? ' <span style="font-weight:500;color:#a8aec8">· z fotky obalu</span>' : ''}</summary>
     <div style="font-size:.74rem;color:#c9cede;line-height:1.5;margin-top:6px">${escHtml(p.slozeniObal || p.slozeni)}</div></details>` : ''}`;
 }
@@ -531,10 +531,142 @@ function eanFotoTlacitkaHTML(ean, p, poHotovo) {
     <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo},true)" title="Obal z galerie">🖼️</button>` : ''}
     <button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo})">📸 Vyfotit tabulku živin</button>
     <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo},true)" title="Tabulka živin z galerie">🖼️ z galerie</button>
+    <button class="btn btn-sm" onclick="eanZivinyForm('${escHtml(ean)}','${poHotovo}')" title="Opsat nebo opravit hodnoty z obalu ručně">✍️ Zadat živiny ručně</button>
   </div>
-  <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Fotka se neukládá – AI z ní jen přečte údaje. Free 3 fotky měsíčně, s Premium víc.${!p || p.stav !== 'nalezeno' ? ` Výrobek můžeš přidat i do <a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code=${encodeURIComponent(ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Food Facts</a> (web nebo jejich aplikace).` : ''}</div>`;
+  <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Fotka se neukládá – AI z ní jen přečte údaje. Free 3 fotky měsíčně, s Premium víc. Ruční zadání živin je bez limitu.${!p || p.stav !== 'nalezeno' ? ` Výrobek můžeš přidat i do <a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code=${encodeURIComponent(ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Food Facts</a> (web nebo jejich aplikace).` : ''}</div>`;
 }
 Object.assign(window, { eanNactiMojeNazvy, eanZdrojNazvu, eanNazvyHTML, eanNazevUprav, eanNazevUloz, eanFoto, eanFotoTlacitkaHTML, eanZmensiFotku });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.43, Milan): RUČNÍ ZADÁNÍ / OPRAVA ŽIVIN
+//  Když výrobek není v Open Food Facts, fotka se nepovede nebo AI přečte číslo špatně,
+//  hodnoty na 100 g (ml) se opíšou z obalu. Formulář se předvyplní z fotky obalu nebo
+//  z databáze. Kontrola: „z toho“ ≤ celkem, součet gramů ≤ 100 g, energie sedí s živinami
+//  (4 kcal/g bílkoviny a sacharidy, 9 tuky, 2 vláknina – nesedí → upozornění, uložit jde
+//  až po potvrzení). Ukládá worker do sdílené karty výrobku (nutriceObal, zdroj „rucne“);
+//  předchozí hodnoty si worker nechá pro případ vrácení.
+// ══════════════════════════════════════════════════════════════════════
+const EAN_ZIVINY_POLE = [
+  ['kcal', 'Energie', 'kcal'], ['tuky', 'Tuky', 'g'], ['nasycene', '– z toho nasycené mastné kyseliny', 'g'],
+  ['sacharidy', 'Sacharidy', 'g'], ['cukry', '– z toho cukry', 'g'], ['vlaknina', 'Vláknina', 'g'],
+  ['bilkoviny', 'Bílkoviny', 'g'], ['sul', 'Sůl', 'g'],
+];
+function eanZivinyZdroj(n) {
+  if (!n) return 'databáze';
+  return n.zdroj === 'rucne' ? '✍️ zadáno ručně podle obalu' : '📸 z fotky obalu';
+}
+function eanCislo(v) {
+  const t = String(v == null ? '' : v).trim().replace(/\s/g, '').replace(',', '.');
+  if (t === '') return null;
+  const x = Number(t); return isFinite(x) ? x : NaN;
+}
+//  Kontrola hodnot na 100 g. Vrací { chyby (nejde uložit), varovani (jde po potvrzení), vypocet (kcal z živin) }.
+function eanZivinyKontrola(n) {
+  const chyby = [], varovani = []; const f = v => String(Math.round(v * 10) / 10).replace('.', ',');
+  const pole = EAN_ZIVINY_POLE.map(x => x[0]).filter(k => n[k] != null);
+  if (pole.some(k => Number.isNaN(n[k]))) chyby.push('Některé pole není číslo.');
+  if (pole.length < 2) chyby.push('Vyplň aspoň energii a jednu živinu.');
+  pole.forEach(k => { if (n[k] < 0) chyby.push('Hodnoty nemůžou být záporné.'); });
+  if (n.kcal > 900) chyby.push('Energie nad 900 kcal na 100 g nejde (čistý tuk má 900). Nezadal jsi kJ?');
+  ['tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'].forEach(k => { if (n[k] > 100) chyby.push('Žádná živina nemá víc než 100 g na 100 g.'); });
+  if (n.nasycene != null && n.tuky != null && n.nasycene > n.tuky + 0.05) chyby.push(`Nasycené (${f(n.nasycene)} g) nemůžou být víc než tuky celkem (${f(n.tuky)} g).`);
+  if (n.cukry != null && n.sacharidy != null && n.cukry > n.sacharidy + 0.05) chyby.push(`Cukry (${f(n.cukry)} g) nemůžou být víc než sacharidy celkem (${f(n.sacharidy)} g).`);
+  const soucet = ['tuky', 'sacharidy', 'vlaknina', 'bilkoviny', 'sul'].reduce((a, k) => a + (n[k] || 0), 0);
+  if (soucet > 101) chyby.push(`Tuky + sacharidy + vláknina + bílkoviny + sůl = ${f(soucet)} g, víc než 100 g se do 100 g nevejde.`);
+  let vypocet = null;
+  if (n.tuky != null && n.sacharidy != null && n.bilkoviny != null) {
+    vypocet = 9 * n.tuky + 4 * n.sacharidy + 4 * n.bilkoviny + 2 * (n.vlaknina || 0);
+    if (n.kcal != null && !chyby.length) {
+      const rozdil = Math.abs(n.kcal - vypocet);
+      if (rozdil > Math.max(20, vypocet * 0.15)) varovani.push(`Energie ${f(n.kcal)} kcal nesedí s živinami (vychází ${Math.round(vypocet)} kcal). Zkontroluj čísla – u nápojů s alkoholem nebo výrobků se sladidly to může být v pořádku.`);
+    }
+  }
+  return { chyby: [...new Set(chyby)], varovani, vypocet };
+}
+let _eanZivinyStav = null;   // { ean, hotovo, potvrzeno }
+function eanZivinyForm(ean, hotovo) {
+  const p = _eanProdukty[ean] || {};
+  const zdroj = p.nutriceObal ? p.nutriceObal : (p.nutrice || {});
+  const odkud = p.nutriceObal ? eanZivinyZdroj(p.nutriceObal) : (p.nutrice && Object.keys(p.nutrice).length ? 'databáze Open Food Facts' : '');
+  _eanZivinyStav = { ean, hotovo: hotovo || '', potvrzeno: false };
+  const sl = p.slozeniObal || (p.slozeniCesky ? p.slozeni : '') || '';
+  const inp = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 8px;font-size:.86rem;width:100%;box-sizing:border-box';
+  let o = document.getElementById('eanZiviny'); if (o) o.remove();
+  o = document.createElement('div'); o.id = 'eanZiviny';
+  o.style.cssText = 'position:fixed;inset:0;z-index:10070;background:rgba(8,10,20,.88);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px calc(16px + env(safe-area-inset-bottom))';
+  o.innerHTML = `<div style="width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-weight:700;font-size:.95rem;flex:1;color:var(--text)">✍️ Nutriční hodnoty z obalu</div>
+      <button onclick="eanZivinyZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:4px 0 10px;line-height:1.5">${escHtml(eanNazevVyrobku(p) || ean)}<br>Opiš sloupec <b>na 100 g</b> (u nápojů 100 ml), ne na porci. Prázdné pole = na obalu není.${odkud ? ' Předvyplněno: ' + escHtml(odkud) + '.' : ''}</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;font-size:.78rem">
+      <label style="display:flex;gap:4px;align-items:center"><input type="radio" name="ezNa" value="g" ${zdroj.na !== 'ml' ? 'checked' : ''} onchange="eanZivinyKontrolujForm()"> na 100 g</label>
+      <label style="display:flex;gap:4px;align-items:center;margin-left:10px"><input type="radio" name="ezNa" value="ml" ${zdroj.na === 'ml' ? 'checked' : ''} onchange="eanZivinyKontrolujForm()"> na 100 ml</label>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 110px;gap:6px 10px;align-items:center">
+      ${EAN_ZIVINY_POLE.map(([k, l, j]) => `<label for="ez_${k}" style="font-size:.78rem;color:${l.startsWith('–') ? '#a8aec8' : 'var(--text)'};${l.startsWith('–') ? 'padding-left:10px' : ''}">${escHtml(l)}</label>
+        <div style="display:flex;align-items:center;gap:4px"><input id="ez_${k}" inputmode="decimal" autocomplete="off" style="${inp}" value="${zdroj[k] != null ? String(zdroj[k]).replace('.', ',') : ''}" oninput="eanZivinyKontrolujForm()"><span style="font-size:.7rem;color:#8b93ad;width:28px">${j}</span></div>`
+        + (k === 'kcal' ? `<label for="ez_kj" style="font-size:.7rem;color:#8b93ad;padding-left:10px">nebo kJ (přepočte se)</label>
+        <div style="display:flex;align-items:center;gap:4px"><input id="ez_kj" inputmode="decimal" autocomplete="off" style="${inp}" oninput="eanZivinyKj()"><span style="font-size:.7rem;color:#8b93ad;width:28px">kJ</span></div>` : '')).join('')}
+    </div>
+    <details style="margin-top:10px"><summary style="font-size:.78rem;cursor:pointer;color:var(--text)">Složení (nepovinné)</summary>
+      <textarea id="ez_slozeni" rows="4" maxlength="1500" style="${inp};margin-top:6px;resize:vertical" placeholder="Opiš složení z českého obalu">${escHtml(sl)}</textarea></details>
+    <div id="ezKontrola" style="font-size:.74rem;line-height:1.5;margin-top:10px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" onclick="eanZivinyZavri()">Zrušit</button>
+      <button id="ezUlozit" class="btn btn-accent" style="flex:1;justify-content:center" onclick="eanZivinyUloz()">💾 Uložit živiny</button>
+    </div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Hodnoty se uloží ke kódu ${escHtml(ean)} pro všechny uživatele (bez tvého jména). Přepíšou údaje z databáze i z fotky; ty předchozí zůstanou zálohované.</div>
+  </div>`;
+  document.body.appendChild(o);
+  eanZivinyKontrolujForm();
+}
+function eanZivinyZavri() { _eanZivinyStav = null; const o = document.getElementById('eanZiviny'); if (o) o.remove(); }
+function eanZivinyKj() {
+  const kj = eanCislo((document.getElementById('ez_kj') || {}).value);
+  const k = document.getElementById('ez_kcal');
+  if (k && kj != null && !Number.isNaN(kj)) k.value = String(Math.round(kj / 4.184)).replace('.', ',');
+  eanZivinyKontrolujForm();
+}
+function eanZivinyZFormu() {
+  const n = {};
+  EAN_ZIVINY_POLE.forEach(([k]) => { const el = document.getElementById('ez_' + k); const v = el ? eanCislo(el.value) : null; if (v != null) n[k] = v; });
+  return n;
+}
+function eanZivinyKontrolujForm() {
+  const box = document.getElementById('ezKontrola'), bt = document.getElementById('ezUlozit'); if (!box || !bt) return;
+  if (_eanZivinyStav) _eanZivinyStav.potvrzeno = false;
+  const k = eanZivinyKontrola(eanZivinyZFormu());
+  const f = v => String(Math.round(v)).replace('.', ',');
+  box.innerHTML = k.chyby.map(c => `<div style="color:var(--expense)">⛔ ${escHtml(c)}</div>`).join('')
+    + k.varovani.map(c => `<div style="color:#fbbf24">⚠️ ${escHtml(c)}</div>`).join('')
+    + (!k.chyby.length && !k.varovani.length && k.vypocet != null ? `<div style="color:var(--income)">✅ Energie sedí s živinami (z živin ${f(k.vypocet)} kcal).</div>` : '');
+  bt.disabled = !!k.chyby.length; bt.style.opacity = k.chyby.length ? '.5' : '1';
+  bt.textContent = k.varovani.length ? '💾 Uložit i tak' : '💾 Uložit živiny';
+}
+async function eanZivinyUloz() {
+  const st = _eanZivinyStav; if (!st) return;
+  const n = eanZivinyZFormu(); const k = eanZivinyKontrola(n);
+  if (k.chyby.length) return eanZivinyKontrolujForm();
+  const bt = document.getElementById('ezUlozit');
+  const box = document.getElementById('ezKontrola');
+  const na = (document.querySelector('input[name="ezNa"]:checked') || {}).value === 'ml' ? 'ml' : 'g';
+  const slozeni = ((document.getElementById('ez_slozeni') || {}).value || '').trim();
+  if (bt) { bt.disabled = true; bt.textContent = '⏳ Ukládám…'; }
+  try {
+    const d = await eanDotaz({ ean: st.ean, akce: 'ziviny', hodnoty: n, na, slozeni, potvrzeno: !!k.varovani.length });
+    if (d.produkt) _eanProdukty[st.ean] = d.produkt;
+    const fn = st.hotovo && typeof window[st.hotovo] === 'function' ? window[st.hotovo] : null;
+    eanZivinyZavri();
+    eanHlas('✅ Živiny uloženy – najdeš je v kartě výrobku');
+    if (fn) fn(d.produkt);
+  } catch (e) {
+    if (box) box.innerHTML = `<div style="color:var(--expense)">⚠️ ${escHtml(e.message || 'Uložení selhalo')}</div>`;
+    if (bt) { bt.disabled = false; bt.textContent = '💾 Zkusit znovu'; }
+  }
+}
+Object.assign(window, { eanZivinyZdroj, eanZivinyKontrola, eanZivinyForm, eanZivinyZavri, eanZivinyKj, eanZivinyKontrolujForm, eanZivinyUloz });
 
 
 // ══════════════════════════════════════════════════════

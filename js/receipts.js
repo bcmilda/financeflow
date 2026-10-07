@@ -1,4 +1,4 @@
-// FinanceFlow · v11.42 · receipts.js · 2026-10-07
+// FinanceFlow · v11.43 · receipts.js · 2026-10-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2560,7 +2560,7 @@ function mapaKartaKatalog(z, p, produkt, radek, gram) {
   let zdr = '';
   if (z.ean) zdr += radek('Kód (GTIN)', `<span style="font-family:monospace">${e(z.ean)}</span> <span style="color:#a8aec8">GTIN-${String(z.ean).length}</span>`);
   if (p && p.zdroj) zdr += radek('Zdroj údajů', e(p.zdroj) + (p.kdy ? ` <span style="color:#a8aec8">· načteno ${new Date(p.kdy).toLocaleDateString('cs-CZ')}</span>` : ''));
-  if (p && (p.nutriceObal || p.nutrice)) zdr += radek('Živiny', p.nutriceObal ? '📸 tvoje fotka obalu' : 'databáze');
+  if (p && (p.nutriceObal || p.nutrice)) zdr += radek('Živiny', p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 fotka obalu') : 'databáze');
   if (p && (p.slozeniObal || p.slozeni)) zdr += radek('Složení', p.slozeniObal ? '📸 fotka obalu' : (p.slozeniCesky ? 'databáze (česky)' : 'databáze (nečesky)'));
   if (z.tax) zdr += radek('Zařazení', z.mapa && z.mapa.zdrojTax === 'ean' ? 'podle čárového kódu' : z.mapa && z.mapa.zdrojTax === 'nazev' ? 'podle názvu (odhad)' : 'komunitní mapa');
   const data = (z.nakupy || []).map(n => n.datum).filter(Boolean).sort();
@@ -2748,9 +2748,10 @@ function mapaUzivKartaHTML(i, produkt) {
     ${katalog.vyrobek ? sekce('Výrobek a balení', katalog.vyrobek) : ''}
     ${sekce('Moje nákupy', nak)}
     ${typeof cenyDoKarty === 'function' ? sekce('Ceny v kraji', '<div id="mkCeny" style="font-size:.76rem;color:#a8aec8">⏳ Načítám…</div>') : ''}
-    ${p && (p.nutriceObal || p.nutrice) ? sekce('Nutriční hodnoty na 100 g', (typeof eanNutriceHTML === 'function' ? eanNutriceHTML(p.nutriceObal || p.nutrice) : '')
-      + `<div style="font-size:.64rem;color:#8b93ad;margin-top:4px">${p.nutriceObal ? '📸 podle českého obalu (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : 'z databáze Open Food Facts – nesedí s obalem? 📸 vyfoť tabulku živin'}</div>`)
-      : (z.ean ? sekce('Nutriční hodnoty na 100 g', `<div style="font-size:.76rem;color:#a8aec8;line-height:1.5">Databáze je u tohoto výrobku zatím nemá. <button class="btn btn-sm" style="font-size:.72rem;margin-left:4px" onclick="eanFoto('${escHtml(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button></div>`) : '')}
+    ${p && (p.nutriceObal || p.nutrice) ? sekce('Nutriční hodnoty na 100 ' + ((p.nutriceObal || p.nutrice).na === 'ml' ? 'ml' : 'g'), (typeof eanNutriceHTML === 'function' ? eanNutriceHTML(p.nutriceObal || p.nutrice) : '')
+      + `<div style="font-size:.64rem;color:#8b93ad;margin-top:4px">${p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : 'z databáze Open Food Facts – nesedí s obalem? 📸 vyfoť tabulku živin nebo je přepiš'}
+        <button class="btn btn-sm" style="font-size:.68rem;margin-left:4px;padding:1px 8px" onclick="eanZivinyForm('${escHtml(z.ean)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div>`)
+      : (z.ean ? sekce('Nutriční hodnoty na 100 g', `<div style="font-size:.76rem;color:#a8aec8;line-height:1.5">Databáze je u tohoto výrobku zatím nemá. <button class="btn btn-sm" style="font-size:.72rem;margin-left:4px" onclick="eanFoto('${escHtml(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button> <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${escHtml(z.ean)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button></div>`) : '')}
     ${p && (p.slozeniObal || p.slozeni || (p.alergeny||[]).length) ? sekce('Složení a alergeny', `<div style="font-size:.76rem;color:#c3c8dc;line-height:1.5">${escHtml(p.slozeniObal||p.slozeni||'')}${(p.alergeny||[]).length ? `<div style="color:#fbbf24;margin-top:4px">Alergeny: ${escHtml(p.alergeny.join(', '))}</div>` : ''}</div>`) : ''}
     ${katalog.zdroje ? sekce('Identifikace a zdroje dat', katalog.zdroje) : ''}
     <div style="margin-top:14px">${rozp}</div>
