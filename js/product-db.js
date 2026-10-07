@@ -1,4 +1,4 @@
-// FinanceFlow · v11.33 · product-db.js · 2026-10-06
+// FinanceFlow · v11.34 · product-db.js · 2026-10-06
 //  PRODUKTOVÁ DB – ČSÚ spotřební koš 2026 (Session 12.1)
 //  Mapuje názvy položek z účtenek na produktové skupiny
 //  (CZ-COICOP třídy) a krátké tagy. Zdroj: data/product-groups.json
@@ -61,6 +61,14 @@ function productGroupLookup(name){
   return null;
 }
 
+//  Štítky, které uživatel položkám dal na dřívějších účtenkách (nejnovější vyhrává).
+function pgMojeStitky(D) {
+  const out = {};
+  const R = ((D || (typeof S !== 'undefined' ? S : null) || {}).receipts || []).slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  R.forEach(r => (r.items || []).forEach(it => { if (it && it.name && it.tag) { const k = _pgNorm(it.name); if (k) out[k] = it.tag; } }));
+  return out;
+}
+window.pgMojeStitky = pgMojeStitky;
 function pgStitekZNazvu(n) { n = String(n || '').trim(); return n ? n.charAt(0).toUpperCase() + n.slice(1) : ''; }
 // CZ-COICOP kód z produktové DB („01.113“) v zápisu ČSÚ („01.1.1.3“)
 function pgKodCsu(code) { const [a, b] = String(code || '').split('.'); return b ? a + '.' + b.split('').join('.') : String(code || ''); }
@@ -70,15 +78,15 @@ function productGroupPrefill(receipt){
   if(!receipt || !Array.isArray(receipt.items)) return 0;
   if(!_productDB){ loadProductDB(); return 0; } // DB se dotáhne pro příští analýzu
   let filled = 0;
-  //  S25 (Milan): zelený štítek = NÁZEV V KATEGORII (oplatky, croissant, kobliha), ne skupina
-  //  ČSÚ („Pečivo“). Nejdřív obecný název z taxonomie Mapy položek, teprve když ho nenajdeme,
-  //  krátký štítek skupiny ČSÚ jako dřív. Zařazení do COICOP se nemění.
-  const tax = (typeof taxNavrh === 'function') ? taxNavrh : null;
-  if (tax && typeof taxData === 'function' && !taxData() && typeof loadTaxonomie === 'function') loadTaxonomie();
+  //  S25 (Milan, v11.34): štítek podle modelu ČSÚ (skupina spotřebního koše). Pokus o „název
+  //  v kategorii“ z taxonomie (v11.33) dělal chyby („RELAX JABL-ARONIE“ → Jablko místo džusu),
+  //  proto zpět na ČSÚ. Nově ale nejdřív TVŮJ štítek, který jsi stejné položce dal dřív –
+  //  co jednou opravíš, příště se nabídne samo.
+  const moje = pgMojeStitky();
   receipt.items.forEach(it => {
     if(it && it.name && !it.tag){
-      const nav = tax ? tax(it.name) : null;
-      if (nav && nav.info && nav.info.nazev) { it.tag = pgStitekZNazvu(nav.info.nazev); filled++; return; }
+      const k = _pgNorm(it.name);
+      if (k && moje[k]) { it.tag = moje[k]; filled++; return; }
       const hit = productGroupLookup(it.name);
       if(hit && hit.tag){ it.tag = hit.tag; filled++; }
     }

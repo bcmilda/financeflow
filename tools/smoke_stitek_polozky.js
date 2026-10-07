@@ -1,4 +1,4 @@
-// S25 – zelený štítek položky = název v kategorii (taxonomie), ne skupina ČSÚ; karta výrobku ukazuje štítek i skupinu ČSÚ.
+// S25 (v11.34) – zelený štítek položky podle modelu ČSÚ; nejdřív tvůj dřívější štítek stejné položky; karta ukazuje štítek i skupinu ČSÚ.
 const fs=require('fs'),path=require('path'),vm=require('vm');
 const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
 const R=(...c)=>fs.readFileSync(najdi(...c),'utf8');
@@ -10,12 +10,13 @@ vm.runInContext(R('product-db.js','../js/product-db.js'),sb);
 sb.taxNastav(JSON.parse(R('taxonomie.json','../data/taxonomie.json')));
 vm.runInContext('_productDB='+R('product-groups.json','../data/product-groups.json')+';_pgKeysSorted=Object.keys(_productDB.keywords).sort((a,b)=>b.length-a.length);',sb);
 console.log('── S25 · štítek položky ──');
-const r={items:[{name:'ORION KOFILA OPLATKA 42G'},{name:'CROISSANT VELKÝ 65G'},{name:'BOČEK KOBLIHA 50G'},{name:'XYZ NEZNAMO'},{name:'Rohlík',tag:'Můj'}]};
+vm.runInContext("var S={receipts:[{date:'2026-09-01',items:[{name:'RELAX JABL-ARONIE',tag:'Džus'}]}]}",sb);
+const r={items:[{name:'ORION KOFILA OPLATKA 42G'},{name:'RELAX JABL-ARONIE 1L'},{name:'Rohlík',tag:'Můj'},{name:'PRAŽSKÁ VODKA'}]};
 sb.productGroupPrefill(r);
-t('oplatka → „Oplatky“ (ne „Pečivo“)',r.items[0].tag==='Oplatky',r.items[0].tag);
-t('croissant → „Croissant“, kobliha → „Kobliha“',r.items[1].tag==='Croissant'&&r.items[2].tag==='Kobliha',[r.items[1].tag,r.items[2].tag]);
-t('neznámá položka bez štítku nebo se skupinou ČSÚ',!r.items[3].tag||typeof r.items[3].tag==='string');
-t('vlastní štítek se nepřepíše',r.items[4].tag==='Můj');
+t('model ČSÚ: oplatka → Pečivo (01.1.1.3)',r.items[0].tag==='Pečivo',r.items[0].tag);
+t('tvůj dřívější štítek stejné položky má přednost (džus, ne jablko)',r.items[1].tag==='Džus',r.items[1].tag);
+t('vlastní štítek se nepřepíše',r.items[2].tag==='Můj');
+t('vodka → štítek skupiny ČSÚ (ne taxonomie)',!!r.items[3].tag&&r.items[3].tag!=='Vodka',r.items[3].tag);
 const pg=sb.productGroupLookup('ORION KOFILA OPLATKA 42G');
 t('COICOP zařazení zůstává: 01.1.1.3 Chléb a pekařské výrobky',pg&&sb.pgKodCsu(pg.code)==='01.1.1.3'&&/pekařské/.test(pg.group),pg);
 const rc=R('receipts.js','../js/receipts.js');

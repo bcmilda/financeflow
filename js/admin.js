@@ -1,4 +1,4 @@
-// FinanceFlow · v11.33 · admin.js · 2026-10-06
+// FinanceFlow · v11.34 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.34',
+    datum: '2026-10-06',
+    zmeny: [
+      "↩️ ZELENÝ ŠTÍTEK ZPĚT PODLE MODELU ČSÚ (Milan) · cesta: editor účtenky → zelené pole u položky. Pokus z v11.33 (název z taxonomie) dělal chyby („RELAX JABL-ARONIE“ → Jablko místo džusu). Nově: 1) tvůj štítek, který jsi stejné položce dal na dřívější účtence (co jednou opravíš, příště se nabídne samo), 2) štítek skupiny spotřebního koše ČSÚ jako dřív.",
+      "🐛 VÁŽENÉ ZBOŽÍ UKAZOVALO CENU ZA KG (Milan) · cesta: Analýza účtenek → editor účtenky → položka s váhou (0,192 kg). V poli ceny je nově ČÁSTKA ZA POLOŽKU jako na účtence (např. 55,49 Kč), jednotka kg/l místo „ks“, cena za kg drobně pod tím. Úprava částky nebo váhy dopočítá cenu za kg; součet účtenky sedí s částkou z účtenky.",
+      "🗂️ ROZŠÍŘENÁ KARTA VÝROBKU (Milan, návrh „Produktový katalog“) · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek. Nové sekce: „Názvy a aliasy“ (originální název + jazyk, český název se zdrojem – tvůj / databáze / návrh AI, jiné názvy, názvy z účtenek po obchodech s počtem), „Výrobek a balení“ (značka, výrobce, druh, množství, obal, země původu, kde se prodává, kategorie OFF), „Identifikace a zdroje dat“ (GTIN-13/8, zdroj a datum načtení, zdroj živin, složení a zařazení, poprvé / naposledy koupeno). Chybějící živiny: sekce s tlačítkem „📸 Vyfotit tabulku živin“. Zobrazuje se jen to, co je opravdu známo.",
+      "🤖 worker: výrobek nově ukládá výrobce, zemi původu, země prodeje, obal a jazyk originálního názvu (Open Food Facts). Výrobky uložené dřív se při dalším skenu jednou obnoví (kv: 2); co doplnil admin, AI nebo fotka obalu, zůstává. Když obnova selže, použijí se stará data.",
+      "🧪 tools/smoke_karta_vyrobku.js (10); smoke_stitek_polozky.js přepsán na model ČSÚ (6).",
+    ]
+  },
   {
     verze: 'v11.33',
     datum: '2026-10-06',
