@@ -1,0 +1,27 @@
+// S25 (katalog krok 3) – pobočka z hlavičky účtenky: adresa, město, kraj, IČO; použití v kartě, statistice a Obchodech.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+const rc=fs.readFileSync(najdi('receipts.js','../js/receipts.js'),'utf8'),sp=fs.readFileSync(najdi('statistika-polozek.js','../js/statistika-polozek.js'),'utf8'),wk=fs.readFileSync(najdi('worker.js','../cloudflare-worker/worker.js','../worker.js'),'utf8');
+const pick=n=>{let i=rc.indexOf('function '+n+'(');let d=0,j=rc.indexOf('{',i);for(let k=j;k<rc.length;k++){if(rc[k]==='{')d++;else if(rc[k]==='}'){d--;if(!d)return rc.slice(i,k+1)}}};
+let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':JSON.stringify(i));if(!c)bad++;};
+const sb={String,window:{},lineAmt:it=>(it.price||0)*(it.qty||1)};vm.createContext(sb);
+const k0=rc.indexOf('const RCPT_KRAJE');vm.runInContext(rc.slice(k0,rc.indexOf('\n',k0))+'\n'+['rcptKraj','rcptPobockaNorm','validateReceiptJSON'].map(pick).join('\n')+';this.RK=RCPT_KRAJE;',sb);
+console.log('── S25 · pobočka z účtenky ──');
+t('14 krajů',sb.RK.length===14);
+t('kraj z různých zápisů',sb.rcptKraj('Moravskoslezský kraj')==='Moravskoslezský'&&sb.rcptKraj('Hlavní město Praha')==='Praha'&&sb.rcptKraj('Kraj Vysočina')==='Vysočina'&&sb.rcptKraj('moravskoslezsky')==='Moravskoslezský');
+t('mimo ČR stát, nesmysl nic',sb.rcptKraj('Slovensko')==='Slovensko'&&sb.rcptKraj('Bavorsko xyz')===''&&sb.rcptKraj(null)==='');
+const r=sb.validateReceiptJSON({store:'PENNY MARKET',storeAddress:'Hlavní 12, 708 00 Ostrava',storeCity:'Ostrava',storeRegion:'Moravskoslezský kraj',storeIco:'64945880',total:100,items:[{name:'KLOBÁSA',price:289,qty:0.192,unit:'kg'},{name:'Rohlík',price:3,qty:2,unit:'ks'}]});
+t('validace: adresa, město, kraj, IČO uloženy',r.storeCity==='Ostrava'&&r.storeRegion==='Moravskoslezský'&&r.storeIco==='64945880'&&r.storeAddress.includes('Ostrava'));
+t('validace: vážená položka si drží jednotku kg, kusová ne',r.items[0].unit==='kg'&&!('unit' in r.items[1]));
+const r2=sb.validateReceiptJSON({store:'X',storeCity:'null',storeRegion:'',storeIco:'abc',total:5,items:[]});
+t('prázdné / „null“ hodnoty se neuloží (Firebase)',!('storeCity' in r2)&&!('storeRegion' in r2)&&!('storeIco' in r2)&&!('storeAddress' in r2));
+t('worker: prompt žádá adresu, město, kraj ze seznamu a IČO',wk.includes('"storeCity":"město pobočky nebo null"')&&wk.includes('Moravskoslezský; mimo ČR název státu')&&wk.includes('"storeIco"'));
+t('editor: pole Město a výběr kraje',rc.includes('id="rp_city"')&&rc.includes('id="rp_region"')&&rc.includes("rpPobocka('storeRegion',this.value)"));
+t('jednoduchý sken i vícefotkový sken normalizují pobočku',rc.includes("rcptPobockaNorm(receipt);   // S25: pobočka")&&pick('validateReceiptJSON').includes('rcptPobockaNorm(r)'));
+t('karta: alias s městem, nákupy s městem a krajem',rc.includes("n.obchod + (n.mesto ? ' (' + n.mesto + ')' : '')")&&rc.includes("' · 📍 ' + escHtml(n.mesto)"));
+t('Obchody: města poboček',rc.includes('📍 ${escHtml([...stats.mesta].join'));
+const s2={Math,Date,String,Set,Object,window:{}};vm.createContext(s2);vm.runInContext(sp,s2);
+const rows=s2.spRadky([{date:'2026-10-01',store:'Penny',storeCity:'Ostrava',storeRegion:'Moravskoslezský',items:[{name:'A',price:10,qty:1}]},{date:'2026-10-02',store:'Penny',storeCity:'Brno',storeRegion:'Jihomoravský',items:[{name:'A',price:12,qty:1}]}],[],{});
+t('statistika: filtr kraje a města',s2.spFiltruj(rows,{obdobi:'vse',kraj:'Moravskoslezský'}).length===1&&s2.spFiltruj(rows,{obdobi:'vse',mesto:'Brno'}).length===1);
+t('statistika: seskupení podle kraje a obchod + město',s2.spSeskup(rows,'kraj').length===2&&s2.spSeskup(rows,'pobocka').some(g=>g.klic==='Penny · Brno'));
+console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

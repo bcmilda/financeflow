@@ -1,4 +1,4 @@
-// FinanceFlow · v11.37 · statistika-polozek.js · 2026-10-06
+// FinanceFlow · v11.38 · statistika-polozek.js · 2026-10-06
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -9,7 +9,7 @@
 //  Čisté funkce spRadky / spFiltruj / spSeskup jsou testované (smoke_statistika_polozek.js).
 // ══════════════════════════════════════════════════════════════════════
 
-let _spFiltr = { obdobi: '12', coicop: '', oblast: '', pod: '', obchod: '', stitek: '', kat: '', kod: false, q: '', podle: 'csu' };
+let _spFiltr = { obdobi: '12', coicop: '', oblast: '', pod: '', obchod: '', kraj: '', mesto: '', stitek: '', kat: '', kod: false, q: '', podle: 'csu' };
 
 //  Řádky položek obohacené o zařazení (COICOP z modelu ČSÚ, taxonomie z Mapy položek).
 function spRadky(receipts, mapa, D) {
@@ -38,6 +38,7 @@ function spRadky(receipts, mapa, D) {
     else if (bal && (bal.j === 'g' || bal.j === 'ml') && bal.m > 0) { zaJed = castka / (q * bal.m / 1000); jed = bal.j === 'g' ? 'kg' : 'l'; }
     out.push({
       zaJed, jed, baleni: bal,
+      mesto: r.storeCity || '', kraj: r.storeRegion || '',   // S25: pobočka z hlavičky účtenky
       datum: r.date || '', mesic: String(r.date || '').slice(0, 7), obchod: obch(r.store || '') || '—',
       nazev: (m && m.z.nazev) || it.name, klic, mapaI: m ? m.i : -1,
       castka, mnozstvi: q, vazene: vaz(it), cenaJed: q ? castka / q : castka,
@@ -60,7 +61,7 @@ function spFiltruj(radky, f, dnes = new Date()) {
     (!od || x.mesic >= od) &&
     (!f.coicop || x.coicop === f.coicop || x.coicop.startsWith(f.coicop + '.')) &&
     (!f.oblast || x.oblast === f.oblast) && (!f.pod || x.pod === f.pod) &&
-    (!f.obchod || x.obchod === f.obchod) && (!f.stitek || x.stitek === f.stitek) && (!f.kat || x.kat === f.kat) &&
+    (!f.obchod || x.obchod === f.obchod) && (!f.kraj || x.kraj === f.kraj) && (!f.mesto || x.mesto === f.mesto) && (!f.stitek || x.stitek === f.stitek) && (!f.kat || x.kat === f.kat) &&
     (!f.kod || !!x.ean) && (!q || x.nazev.toLowerCase().includes(q) || x.obecny.toLowerCase().includes(q)));
 }
 
@@ -88,6 +89,9 @@ const SP_PODLE = {
   pod: { n: 'Podkategorie', k: x => x.pod || '— mimo taxonomii' },
   obecny: { n: 'Obecný název', k: x => x.obecny || '— mimo taxonomii' },
   obchod: { n: 'Obchod', k: x => x.obchod },
+  kraj: { n: 'Kraj', k: x => x.kraj || '— kraj neznámý' },
+  mesto: { n: 'Město pobočky', k: x => x.mesto ? x.mesto + (x.kraj ? ' (' + x.kraj + ')' : '') : '— město neznámé' },
+  pobocka: { n: 'Obchod + město', k: x => x.obchod + (x.mesto ? ' · ' + x.mesto : '') },
   stitek: { n: 'Štítek', k: x => x.stitek || '— bez štítku' },
   kat: { n: 'Kategorie rozpočtu', k: x => x.kat || '— nezařazeno' },
   polozka: { n: 'Položka', k: x => x.nazev },
@@ -122,9 +126,10 @@ function spPolozky(radky) {
 function spNastav(k, v) {
   _spFiltr[k] = v;
   if (k === 'oblast') _spFiltr.pod = '';
+  if (k === 'kraj') _spFiltr.mesto = '';
   spRender();
 }
-function spReset() { _spFiltr = { obdobi: '12', coicop: '', oblast: '', pod: '', obchod: '', stitek: '', kat: '', kod: false, q: '', podle: _spFiltr.podle }; spRender(); }
+function spReset() { _spFiltr = { obdobi: '12', coicop: '', oblast: '', pod: '', obchod: '', kraj: '', mesto: '', stitek: '', kat: '', kod: false, q: '', podle: _spFiltr.podle }; spRender(); }
 
 function spRender() {
   const el = document.getElementById('utab-polstat-content'); if (!el) return;
@@ -161,6 +166,8 @@ function spRender() {
       ${sel('oblast', 'Oblast', uniq(x => x.oblast))}
       ${sel('pod', 'Podkategorie', uniq(x => x.pod, f.oblast ? vse.filter(x => x.oblast === f.oblast) : vse))}
       ${sel('obchod', 'Obchod', uniq(x => x.obchod))}
+      ${sel('kraj', 'Kraj', uniq(x => x.kraj))}
+      ${sel('mesto', 'Město pobočky', uniq(x => x.mesto, f.kraj ? vse.filter(x => x.kraj === f.kraj) : vse))}
       ${sel('stitek', 'Štítek', uniq(x => x.stitek))}
       ${sel('kat', 'Kategorie rozpočtu', uniq(x => x.kat))}
       <label style="display:flex;flex-direction:column;gap:3px;font-size:.66rem;color:#a8aec8">Hledat

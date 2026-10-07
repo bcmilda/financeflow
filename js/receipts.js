@@ -1,4 +1,4 @@
-// FinanceFlow · v11.37 · receipts.js · 2026-10-06
+// FinanceFlow · v11.38 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -185,6 +185,7 @@ function renderUctenky() {
     storeStats[s].total += r.total||0;
     storeStats[s].count += (r.items||[]).length;
     storeStats[s].visits++;
+    if (r.storeCity) { (storeStats[s].mesta = storeStats[s].mesta || new Set()).add(r.storeCity); }   // S25: města poboček
   });
   const totalSpent = uniqueReceipts.reduce((a,r)=>a+(r.total||0),0);
   const avgReceipt = uniqueReceipts.length ? Math.round(totalSpent/uniqueReceipts.length) : 0;
@@ -1881,6 +1882,7 @@ function buildStoresTab(storeStats, totalSpent, receipts) {
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:1rem;color:var(--text)">${store}</div>
           <div style="font-size:.78rem;color:var(--text2);margin-top:3px">${stats.visits} ${stats.visits===1?'návštěva':stats.visits<5?'návštěvy':'návštěv'} · ${stats.count} položek</div>
+          ${stats.mesta && stats.mesta.size ? `<div style="font-size:.72rem;color:#a8aec8;margin-top:2px">📍 ${escHtml([...stats.mesta].join(', '))}</div>` : ''}
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-family:Syne,sans-serif;font-size:1.25rem;font-weight:800;color:var(--expense)">${fmtB(Math.round(stats.total))}</div>
@@ -2238,7 +2240,8 @@ function mapaUzivData(receipts, D) {
     z.pocet++;
     //  S24 (v11.09): nákupy pro kartu výrobku – obchod, cena, zkratka, kód.
     z.nakupy.push({ obchod: r.store||'', datum: d, cena: parseFloat(it.price)||0, qty: parseFloat(it.qty)||1,
-                    unit: it.unit||'', raw: nazev, ean: it.ean||'', baleni: it.baleni || null });
+                    unit: it.unit||'', raw: nazev, ean: it.ean||'', baleni: it.baleni || null,
+                    mesto: r.storeCity || '', kraj: r.storeRegion || '' });   // S25: pobočka
     if(it.baleni && d >= (z._balD||'')) { z.baleni = it.baleni; z._balD = d; }   // S25: gramáž zvlášť
     if(it.ean && d >= z._eanD) { z.ean = it.ean; z._eanD = d; }
     if(d >= z.datum) { z.datum = d; z.nazev = nazev; z.catId = it.itemCatId||''; z.subcat = it.itemSubcat||''; }
@@ -2494,7 +2497,8 @@ function mapaKartaKatalog(z, p, produkt, radek, gram) {
   const zdrojCz = moje ? 'tvůj název' : p && p.nazevCesky ? 'z databáze' : p && p.nazevCs ? 'návrh AI' : '';
   const aliasy = {};
   (z.nakupy || []).forEach(n => { const k = (n.raw || '').trim(); if (!k) return;
-    const a = aliasy[k] || (aliasy[k] = { raw: k, obchody: new Set(), pocet: 0 }); a.pocet++; if (n.obchod) a.obchody.add(n.obchod); });
+    const a = aliasy[k] || (aliasy[k] = { raw: k, obchody: new Set(), pocet: 0 }); a.pocet++;
+    if (n.obchod) a.obchody.add(n.obchod + (n.mesto ? ' (' + n.mesto + ')' : '')); });   // S25: + město pobočky
   const al = Object.values(aliasy).sort((a, b) => b.pocet - a.pocet);
   //  S25 (krok 2): názvy ZVLÁŠŤ – originál, na obalu, český z databáze, AI překlad, tvůj; nahoře ten, který appka používá
   let nazvy = '';
@@ -2588,7 +2592,7 @@ function mapaUzivKartaHTML(i, produkt) {
     </div>
     ${ob.map(n => `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
         <span style="min-width:0;flex:1"><span style="font-family:monospace;font-size:.72rem;overflow-wrap:anywhere">${escHtml(n.raw)}</span>
-          <span style="display:block;color:#a8aec8;font-size:.7rem;overflow-wrap:anywhere">${escHtml(n.obchodNazev)}</span></span>
+          <span style="display:block;color:#a8aec8;font-size:.7rem;overflow-wrap:anywhere">${escHtml(n.obchodNazev)}${n.mesto ? ' · 📍 ' + escHtml(n.mesto) + (n.kraj ? ', ' + escHtml(n.kraj) : '') : ''}</span></span>
         <span style="font-weight:700;white-space:nowrap;flex-shrink:0">${n.cena ? _mapaKc(n.cena) : '—'}</span></div>`).join('')}
     ${nejl}`;
 
@@ -3520,6 +3524,12 @@ function buildReceiptPreviewHTML(receipt, n) {
         <input id="rp_store" class="fi" value="${(r.store||'').replace(/"/g,'&quot;')}" placeholder="Název obchodu"
           style="font-weight:700;font-size:.95rem;margin-bottom:6px"
           oninput="window._editReceipt.store=this.value;rpUpdateTotal()">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <input id="rp_city" class="fi" value="${escHtml(r.storeCity||'')}" placeholder="📍 Město pobočky" title="${escHtml(r.storeAddress||'')}"
+            style="font-size:.78rem;flex:1 1 130px;min-width:120px" oninput="rpPobocka('storeCity',this.value)">
+          <select id="rp_region" class="fi" style="font-size:.78rem;flex:1 1 140px;min-width:130px" onchange="rpPobocka('storeRegion',this.value)">
+            <option value="">— kraj —</option>${RCPT_KRAJE.concat(r.storeRegion && !RCPT_KRAJE.includes(r.storeRegion) ? [r.storeRegion] : []).map(k => `<option value="${escHtml(k)}" ${r.storeRegion === k ? 'selected' : ''}>${escHtml(k)}</option>`).join('')}</select>
+        </div>
         <!--  S22 (Milan): na mobilu se datum i kategorie mačkaly vedle sebe do
               jednoho řádku a nebylo pořádně vidět ani jedno. flex-wrap je
               pod sebe zalomí, min-width drží čitelnou šířku. -->
@@ -3768,10 +3778,31 @@ function guessItemCategory(name, receiptCat) {
 
 // ── TODO-008: Validace JSON odpovědí z AI ──
 // Zajišťuje že AI vrátila správný formát před dalším zpracováním
+//  S25: 14 krajů ČR (krátké názvy). Cokoli mimo seznam = stát/zahraničí, nebo nic.
+const RCPT_KRAJE = ['Praha', 'Středočeský', 'Jihočeský', 'Plzeňský', 'Karlovarský', 'Ústecký', 'Liberecký', 'Královéhradecký', 'Pardubický', 'Vysočina', 'Jihomoravský', 'Olomoucký', 'Zlínský', 'Moravskoslezský'];
+function rcptKraj(t) {
+  const s = String(t || '').trim(); if (!s) return '';
+  const n = x => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\bkraj\b|\bhlavni mesto\b/g, '').trim();
+  const k = n(s); if (k === 'kraj vysocina' || k === 'vysocina') return 'Vysočina';
+  const hit = RCPT_KRAJE.find(x => n(x) === k || k.startsWith(n(x)));
+  if (hit) return hit;
+  return /^(slovensko|slovakia|polsko|poland|rakousko|austria|nemecko|germany|madarsko|hungary)$/i.test(k) ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+}
+function rcptPobockaNorm(r) {
+  const t = (v, n) => (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null') ? v.trim().slice(0, n) : '';
+  const a = t(r.storeAddress, 120), c = t(r.storeCity, 60), k = rcptKraj(r.storeRegion), i = t(r.storeIco, 12).replace(/\D/g, '');
+  delete r.storeAddress; delete r.storeCity; delete r.storeRegion; delete r.storeIco;   // žádné prázdné / null do Firebase
+  if (a) r.storeAddress = a; if (c) r.storeCity = c; if (k) r.storeRegion = k; if (i.length === 8) r.storeIco = i;
+  return r;
+}
+window.RCPT_KRAJE = RCPT_KRAJE; window.rcptKraj = rcptKraj; window.rcptPobockaNorm = rcptPobockaNorm;
+
 function validateReceiptJSON(r) {
   if(!r || typeof r !== 'object') throw new Error('Odpověď není objekt');
   // store – fallback na 'Neznámý obchod'
   if(!r.store || typeof r.store !== 'string') r.store = 'Neznámý obchod';
+  //  S25 (katalog krok 3): pobočka – adresa, město, kraj, IČO z hlavičky účtenky
+  rcptPobockaNorm(r);
   // total – musí být číslo nebo null
   if(r.total !== null && r.total !== undefined) {
     r.total = parseFloat(r.total);
@@ -3788,6 +3819,7 @@ function validateReceiptJSON(r) {
       name: String(it.name||'').trim().slice(0,80),
       price: Math.abs(parseFloat(it.price)||0),
       qty: parseFloat(it.qty)||1,
+      ...(/^(kg|l)$/i.test(String(it.unit||'')) ? { unit: String(it.unit).toLowerCase() } : {}),   // S25: vážené zboží
       itemCat: it.itemCat || '',
       itemCatId: it.itemCatId || '',
     }))
@@ -4123,6 +4155,12 @@ async function saveItemTagMapping(itemName, tag) {
 }
 
 // Oddělené handlery – zachovány pro zpětnou kompatibilitu
+function rpPobocka(pole, v) {   // S25: město / kraj pobočky v editoru (prázdné = smazat, žádné '' do Firebase)
+  const r = window._editReceipt; if (!r) return;
+  v = String(v || '').trim().slice(0, 60);
+  if (v) r[pole] = v; else delete r[pole];
+}
+window.rpPobocka = rpPobocka;
 function rpItemName(i, val) { if(window._editReceipt?.items?.[i]) window._editReceipt.items[i].name = val; }
 // Session 10: varování když je datum účtenky v budoucnosti (špatně přečtené AI)
 function rpCheckFutureDate(){
@@ -4491,6 +4529,7 @@ async function analyzeReceipt(file) {
       throw new Error('Claude nevrátil validní JSON. Zkuste čitelnější foto účtenky.');
     }
     if(!receipt.store && !receipt.total) throw new Error('Účtenka nebyla rozpoznána. Ujistěte se že foto je ostré a dobře osvětlené.');
+    if (typeof rcptPobockaNorm === 'function') rcptPobockaNorm(receipt);   // S25: pobočka (město, kraj)
 
     if(status) status.style.display='none';
     { const tok = 'sc' + Date.now(); receipt._scanTok = tok; window._rpScanFoto = file ? { blobs: [file], at: Date.now(), tok } : null; }   // S25

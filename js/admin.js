@@ -1,4 +1,4 @@
-// FinanceFlow · v11.37 · admin.js · 2026-10-06
+// FinanceFlow · v11.38 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,19 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.38',
+    datum: '2026-10-06',
+    zmeny: [
+      "📍 POBOČKA Z HLAVIČKY ÚČTENKY (Milan, katalog krok 3) · worker: analýza účtenky nově vrací adresu pobočky, město, kraj (jeden ze 14 krajů ČR, mimo ČR stát) a IČO. Appka hodnoty zkontroluje (kraj podle seznamu, IČO 8 číslic, prázdné / „null“ neukládá) a uloží k účtence (storeAddress, storeCity, storeRegion, storeIco).",
+      "✏️ EDITOR ÚČTENKY · cesta: Analýza účtenek → editor účtenky (i úprava z Historie). Pod názvem obchodu pole „📍 Město pobočky“ a výběr kraje – u starších účtenek se dá doplnit ručně.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Názvy z účtenek ukazují obchod i s městem, „Moje nákupy“ obchod · 📍 město, kraj.",
+      "📐 STATISTIKA POLOŽEK · nové filtry Kraj a Město pobočky (město se zúží podle kraje), „Útrata podle“ nově Kraj, Město pobočky a Obchod + město.",
+      "🏪 OBCHODY · cesta: Analýza účtenek → 🏪 Obchody. U obchodu řádek 📍 s městy poboček.",
+      "🐛 Vážené položky si po analýze drží jednotku kg / l (validace ji dřív zahazovala).",
+      "🧪 tools/smoke_pobocka.js (13).",
+    ]
+  },
   {
     verze: 'v11.37',
     datum: '2026-10-06',
