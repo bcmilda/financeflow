@@ -1,4 +1,4 @@
-// FinanceFlow · v11.34 · admin.js · 2026-10-06
+// FinanceFlow · v11.35 · admin.js · 2026-10-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.35',
+    datum: '2026-10-06',
+    zmeny: [
+      "📐 STATISTIKA POLOŽEK – NOVÝ MODUL (Milan) · cesta: Analýza účtenek → 📐 Statistika položek (Premium, nový soubor js/statistika-polozek.js). Každá položka z účtenek zařazená podle číselníku ČSÚ (CZ-COICOP), taxonomie Mapy položek, obchodu, štítku a kategorie rozpočtu. Filtry: období, COICOP oddíl / skupina ČSÚ, oblast, podkategorie, obchod, štítek, kategorie rozpočtu, jen s čárovým kódem, hledání. Výstupy: útrata, počet položek, různých výrobků, nákupů a průměr na nákup; útrata podle zvolené dimenze (skupina ČSÚ, oddíl COICOP, oblast, podkategorie, obecný název, obchod, štítek, kategorie, položka, měsíc) s podílem; vývoj po měsících; tabulka položek (útrata, počet, Ø cena – u váženého zboží za kg, nejlevnější obchod), klik = karta výrobku.",
+      "🧪 tools/smoke_statistika_polozek.js (11).",
+    ]
+  },
   {
     verze: 'v11.34',
     datum: '2026-10-06',

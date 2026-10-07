@@ -1,4 +1,4 @@
-// FinanceFlow · v11.34 · receipts.js · 2026-10-06
+// FinanceFlow · v11.35 · receipts.js · 2026-10-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -404,6 +404,7 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-scan" onclick="switchUctenkyTab(\'scan\',this)">📸 Skenovat</button>'
     + '<button class="tx-filt-btn" id="utab-learn" onclick="switchUctenkyTab(\'learn\',this)">🧠 Učení</button>'
     + '<button class="tx-filt-btn" id="utab-mapa" onclick="switchUctenkyTab(\'mapa\',this)">🗺️ Mapa položek</button>'
+    + '<button class="tx-filt-btn" id="utab-polstat" onclick="switchUctenkyTab(\'polstat\',this)">📐 Statistika položek'+_utDia()+'</button>'
     + '<button class="tx-filt-btn" id="utab-stats" onclick="switchUctenkyTab(\'stats\',this)\">📊 Statistiky'+_utDia()+'</button>'
     + '<button class="tx-filt-btn" id="utab-compare" onclick="switchUctenkyTab(\'compare\',this)\">🇨🇿 Srovnání ČR'+_utDia()+'</button>'
     + '<button class="tx-filt-btn" id="utab-trend" onclick="switchUctenkyTab(\'trend\',this)\">📈 Trend'+_utDia()+'</button>'
@@ -422,6 +423,7 @@ function renderUctenky() {
     + buildScanTab(uniqueReceipts, totalSpent)
     + buildLearnTab(uniqueReceipts, allItems, storeStats, totalSpent)
     + buildMapaTab(uniqueReceipts)
+    + (typeof spTabHTML === 'function' ? spTabHTML() : '')   // S25: Statistika položek (statistika-polozek.js)
     + buildStatsTab(hasData, uniqueReceipts, totalSpent, allItems, catStats)
     + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, uniqueReceipts, catStats, householdSize)
     + buildTrendTab(coicopMonthly, COICOP_GROUPS_DEF, last6Months)
@@ -2135,7 +2137,7 @@ function toggleHistReceipt(id) {
 //  S24 (v11.16, Milan): Free = 3 skeny měsíčně + Skenovat / Učení / Mapa položek /
 //  Historie. Nástroje nad účtenkami jsou Premium (💎). Limit skenů hlídá worker
 //  (AI_LIMITS.free.receipt = 3), tady je jen zobrazení a brána záložek.
-const UCTENKY_PREMIUM_TABS = ['stats','compare','trend','prices','discounts','doklady','stores'];
+const UCTENKY_PREMIUM_TABS = ['stats','compare','trend','prices','discounts','doklady','stores','polstat'];
 const UCTENKY_FREE_SKENY = 3;
 function uctenkyMaPremium() { return typeof hasPremiumAccess !== 'function' || hasPremiumAccess(); }
 function _utDia() { return uctenkyMaPremium() ? '' : ' <span style="font-size:.62rem" title="Premium">💎</span>'; }
@@ -2171,7 +2173,7 @@ function switchUctenkyTab(tab, btn) {
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
   window._receiptEditorOpen = false;
   window._editReceipt = null;
-  ['scan','learn','mapa','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
+  ['scan','learn','mapa','polstat','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
     if(c)c.style.display='none';
@@ -2194,6 +2196,15 @@ function switchUctenkyTab(tab, btn) {
     //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
     if(typeof eanNactiVse==='function') { const n = await eanNactiVse(_mapaUziv.map(z=>z.ean)); if(n) mapaUzivKresli(); }
   }).catch(()=>mapaUzivKresli());
+  //  S25: Statistika položek – zařazení potřebuje taxonomii, komunitní mapu a produktovou DB ČSÚ
+  if(tab==='polstat' && typeof spRender==='function') {
+    spRender();
+    Promise.all([
+      typeof loadProductMap==='function' ? loadProductMap() : null,
+      typeof loadTaxonomie==='function' ? loadTaxonomie() : null,
+      typeof loadProductDB==='function' ? loadProductDB() : null,
+    ]).then(()=>{ _mapaUziv = mapaUzivData(_mapaUzivReceipts); spRender(); }).catch(()=>spRender());
+  }
   const button = btn || document.getElementById('utab-'+tab);
   if(button)button.classList.add('active');
 }
