@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.32 · 2026-10-06  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.39 · 2026-10-07  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -268,6 +268,56 @@ function archivKeyOk(key, prefix) {
 //  • automatické odeslání max. 1× za měsíc (uzel reportMail/{uid}/{YYYY-MM})
 //  • ruční odeslání max. 5× denně
 // ══════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (Milan, katalog krok 4): SDÍLENÉ CENY PO KRAJÍCH
+//  Ukládá jen SOUHRN community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec} =
+//  {n, s, min, max, u, j, h}. „h“ = krátké HMAC otisky (sha256 tajemství + uid +
+//  cesta) – každý uzel má jiné, takže nejdou spojit s účtem ani mezi výrobky; slouží
+//  jen k tomu, aby jeden člověk přispěl k uzlu jednou a „u“ = počet různých lidí.
+//  Max 25 údajů na požadavek (limit 50 podpožadavků Workers Free).
+// ══════════════════════════════════════════════════════════════════════
+const CENY_KRAJE = ['praha', 'stredocesky', 'jihocesky', 'plzensky', 'karlovarsky', 'ustecky', 'liberecky', 'kralovehradecky', 'pardubicky', 'vysocina', 'jihomoravsky', 'olomoucky', 'zlinsky', 'moravskoslezsky', 'slovensko', 'polsko', 'rakousko', 'nemecko', 'madarsko'];
+async function handleCeny(request, env, cors) {
+  try {
+    const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+    if (!idToken) return json({ error: 'Chybí Authorization header' }, 401, cors);
+    const vr = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyDtEdQw4WccmEzxXzMwPQlenqfnjoiVw4A',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) });
+    if (!vr.ok) return json({ error: 'Neplatný Firebase token' }, 401, cors);
+    const uid = (await vr.json()).users?.[0]?.localId;
+    if (!uid) return json({ error: 'Firebase uživatel nenalezen' }, 401, cors);
+    const b = await request.json().catch(() => ({}));
+    const kraj = String(b.kraj || ''), obchod = String(b.obchod || ''), mesic = String(b.mesic || '');
+    if (!CENY_KRAJE.includes(kraj)) return json({ error: 'Neznámý kraj' }, 400, cors);
+    if (!/^[a-z0-9_]{2,60}$/.test(obchod)) return json({ error: 'Neplatný obchod' }, 400, cors);
+    const ted = new Date(); const min = new Date(ted.getFullYear(), ted.getMonth() - 3, 1).toISOString().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(mesic) || mesic > ted.toISOString().slice(0, 7) || mesic < min) return json({ ok: true, ulozeno: 0, pozn: 'mimo období' }, 200, cors);
+    const obs = (Array.isArray(b.obs) ? b.obs : []).slice(0, 25).filter(o => o && /^[a-z0-9_]{2,80}$/.test(String(o.k || ''))
+      && isFinite(o.c) && o.c > 0 && o.c < 100000 && ['ks', 'kg', 'l'].includes(o.j));
+    if (!obs.length) return json({ ok: true, ulozeno: 0 }, 200, cors);
+    const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+    const otisk = async (cesta) => { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(S + '|' + uid + '|' + cesta));
+      return [...new Uint8Array(d)].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join(''); };
+    const patch = {}; let n = 0;
+    for (const o of obs) {
+      const cesta = `community/ceny/${o.k}/${kraj}/${mesic}/${obchod}`;
+      const h = await otisk(cesta);
+      const r = await fetch(`${DB}/${cesta}.json?auth=${S}`); const x = (r.ok && await r.json()) || null;
+      if (x && x.h && x.h[h]) continue;   // tento člověk už k uzlu přispěl
+      const c = Math.round(o.c * 100) / 100;
+      patch[cesta] = { n: ((x && x.n) || 0) + 1, s: Math.round((((x && x.s) || 0) + c) * 100) / 100,
+        min: x && x.min != null ? Math.min(x.min, c) : c, max: x && x.max != null ? Math.max(x.max, c) : c,
+        u: ((x && x.u) || 0) + 1, j: o.j, h: Object.assign({}, (x && x.h) || {}, { [h]: 1 }) };
+      n++;
+    }
+    if (n) await fetch(`${DB}/.json?auth=${S}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    return json({ ok: true, ulozeno: n }, 200, cors);
+  } catch (e) {
+    console.error('ceny:', e);
+    return json({ error: 'Chyba serveru' }, 500, cors);
+  }
+}
+
 async function handleReportMail(request, env, corsHeaders) {
   try {
     const idToken = (request.headers.get('Authorization') || '').replace('Bearer ', '').trim();
@@ -584,7 +634,7 @@ function eanNormalizuj(ean, p, zdroj) {
   Object.keys(nutrice).forEach(k => { if (nutrice[k] === null) delete nutrice[k]; });
   const grade = (g) => /^[a-e]$/.test(String(g || '')) ? g : null;
   const o = {
-    ean, stav: 'nalezeno', zdroj, kdy: Date.now(),
+    ean, stav: 'nalezeno', zdroj, kdy: Date.now(), kv: 2,
     nazev, nazevCesky: !!nazevCs,
     nazvyJine: [eanStr(p.product_name, 100), eanStr(p.product_name_en, 100), eanStr(p.generic_name, 100)].filter((x, i, a) => x && x !== nazev && a.indexOf(x) === i).slice(0, 3),
     znacka: eanStr(String(p.brands || '').split(',')[0], 60),
@@ -602,6 +652,12 @@ function eanNormalizuj(ean, p, zdroj) {
     aditiva: (p.additives_tags || []).slice(0, 30).map(t => eanTag(t).split(' ')[0].toUpperCase()),
     nutrice,
     stitky: [...new Set((p.labels_tags || []).map(t => EAN_STITKY[t]).filter(Boolean))],
+    //  S25 (Milan, návrh Produktový katalog): další údaje na kartu výrobku
+    jazyk: /^[a-z]{2}$/.test(String(p.lang || '')) ? p.lang : null,
+    vyrobce: eanStr(p.brand_owner || p.manufacturing_places, 80),
+    puvod: eanStr(p.origins, 80),
+    zeme: (p.countries_tags || []).slice(0, 6).map(eanTag),
+    obal: (p.packaging_tags || []).slice(0, 4).map(eanTag),
   };
   //  Firebase nesnese null ani prázdná pole – vyhodíme je, klient počítá s chybějícím klíčem.
   Object.keys(o).forEach(k => {
@@ -679,7 +735,7 @@ Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
   return o;
 }
 
-const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal'];
+const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal'];
 
 //  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
 //  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
@@ -780,6 +836,7 @@ ${tax.seznam}`;
       if (!p.mnozstvi && m) p.mnozstvi = m;
     }
     if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
+    if (j.nazev_obal) p.nazevObal = eanStr(j.nazev_obal, 100);   // S25: název přesně jak je na obalu – samostatné pole
   } else {
     const n = {};
     ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'].forEach(x => { const v = parseFloat(j[x]); if (isFinite(v) && v >= 0 && v < 1000) n[x] = Math.round(v * 10) / 10; });
@@ -825,7 +882,10 @@ async function handleEan(request, env, cors) {
     _eanStary = ulozeny;
     if (ulozeny && ulozeny.kdy) {
       const platnost = ulozeny.stav === 'nalezeno' ? EAN_PLATNOST_OK : EAN_PLATNOST_NIC;
-      if (Date.now() - ulozeny.kdy < platnost) produkt = ulozeny;
+      //  S25: výrobek uložený před rozšířením karty (bez kv ≥ 2) se jednou obnoví – doplní
+      //  výrobce, původ, země, obal a jazyk. Admin/AI/fotka obalu se zachová (EAN_ZACHOVAT).
+      const stareSchema = ulozeny.stav === 'nalezeno' && !(ulozeny.kv >= 2);
+      if (Date.now() - ulozeny.kdy < platnost && !stareSchema) produkt = ulozeny;
     }
   } catch (e) {}
   //  Výrobek uložený před v11.23 ještě nemá český název ani zařazení → doplnit jednou.
@@ -840,6 +900,7 @@ async function handleEan(request, env, cors) {
     produkt = await eanZDatabazi(ean);
     //  S24 (v11.24): obnova po 90 dnech nesmí smazat, co doplnil admin, AI nebo fotka obalu.
     if (produkt && _eanStary) EAN_ZACHOVAT.forEach(k => { if (_eanStary[k] != null && produkt[k] == null) produkt[k] = _eanStary[k]; });
+    if (!produkt && _eanStary && _eanStary.stav === 'nalezeno') produkt = _eanStary;   // S25: obnova selhala → stará data
     if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
     try { produkt = await eanObohat(env, produkt); } catch (e) {}   // S24 (v11.23): český název + obecný název z taxonomie
     try {
@@ -1079,6 +1140,10 @@ export default {
       return handleCoicop(request, env, corsHeaders);
     }
 
+    //  S25: sdílené ceny po krajích – jen souhrny (ceny-kraje.js)
+    if (request.method === 'POST' && new URL(request.url).pathname === '/ceny') {
+      return handleCeny(request, env, corsHeaders);
+    }
     //  S25: měsíční report → PDF (Cloudflare Browser Rendering) → e-mail (Resend).
     if (request.method === 'POST' && new URL(request.url).pathname === '/report-mail') {
       return handleReportMail(request, env, corsHeaders);
@@ -1198,7 +1263,7 @@ Buď stručný (max 300 slov pokud není požadováno jinak).`,
                 type: 'text',
                 text: `${multiNote}
 Analyzuj účtenku a vrať POUZE validní JSON bez jakéhokoli dalšího textu:
-{"store":"název obchodu","date":"YYYY-MM-DD nebo null","total":číslo,"currency":"CZK","items":[{"name":"název","price":CENA,"qty":množství,"unit":"ks nebo kg nebo g nebo l","lineTotal":CELKOVA_CENA_RADKU}],"category":"Jídlo & Nákupy nebo Drogerie nebo Elektronika nebo Restaurace nebo Benzín nebo Jiné"}
+{"store":"název obchodu","storeAddress":"adresa pobočky z hlavičky (ulice, PSČ město) nebo null","storeCity":"město pobočky nebo null","storeRegion":"kraj pobočky – přesně jeden z: Praha, Středočeský, Jihočeský, Plzeňský, Karlovarský, Ústecký, Liberecký, Královéhradecký, Pardubický, Vysočina, Jihomoravský, Olomoucký, Zlínský, Moravskoslezský; mimo ČR název státu; nebo null","storeIco":"IČO obchodu nebo null","date":"YYYY-MM-DD nebo null","total":číslo,"currency":"CZK","items":[{"name":"název","price":CENA,"qty":množství,"unit":"ks nebo kg nebo g nebo l","lineTotal":CELKOVA_CENA_RADKU}],"category":"Jídlo & Nákupy nebo Drogerie nebo Elektronika nebo Restaurace nebo Benzín nebo Jiné"}
 
 !!! KRITICKÁ PRAVIDLA !!!
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.38 · admin.js · 2026-10-06
+// FinanceFlow · v11.39 · admin.js · 2026-10-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,18 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.39',
+    datum: '2026-10-07',
+    zmeny: [
+      "📊 SDÍLENÉ CENY PO KRAJÍCH (Milan, katalog krok 4) · nový modul js/ceny-kraje.js + worker /ceny. Při uložení nové účtenky se u potravin, nápojů, alkoholu, tabáku a drogerie (CZ-COICOP 01, 02, 05.6.1, 13.1.2; nikdy lékárna/zdraví) anonymně pošle jen výrobek, cena, řetězec, kraj a měsíc. Worker ukládá jen souhrn community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec} (počet, součet, min, max, počet lidí); od jednoho člověka jeden údaj na uzel (otisk platný jen pro ten uzel, nejde spojit s účtem). Výrobek = čárový kód (srovnatelné napříč obchody), jinak název z účtenky + balení.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → „Ceny v kraji“: průměr po obchodech za poslední měsíc (🏆 nejlevněji, rozpětí min–max, počet lidí) a „ty jsi platil o X víc“. Zobrazí se až od 3 lidí; admin vidí i pod prahem. Bez kraje u účtenek nápověda doplnit 📍 v editoru.",
+      "⚙️ NASTAVENÍ · cesta: Nastavení → Data & Soukromí → „Sdílet ceny z účtenek (anonymně)“ – zapnuto všem, lze vypnout (uiCfg.sdiletCeny). Ceny ostatních jsou vidět i po vypnutí. Jednorázové oznámení v Analýze účtenek („Rozumím“).",
+      "📄 legal.html: odstavec „Sdílené ceny po krajích“ (co se sdílí, souhrny od 3 lidí, oprávněný zájem, jak vypnout), aktualizace 7. 10. 2026.",
+      "🔒 database.rules.json: nový uzel community/ceny – čte každý přihlášený, zapisuje jen worker.",
+      "🧪 tools/smoke_ceny_kraje.js (14).",
+    ]
+  },
   {
     verze: 'v11.38',
     datum: '2026-10-06',

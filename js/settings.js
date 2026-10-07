@@ -1,4 +1,4 @@
-// FinanceFlow · v11.20 · settings.js · 2026-10-02
+// FinanceFlow · v11.39 · settings.js · 2026-10-07
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -675,6 +675,16 @@ function renderSettingsPage() {
     <!-- ── DATA & SOUKROMÍ ── -->
     <div class="settings-section">
       <div class="settings-section-title">Data & Soukromí</div>
+
+      <!-- S25: sdílené ceny po krajích – zapnuto všem, tady se dá vypnout -->
+      <label class="settings-item" style="cursor:pointer">
+        <span class="settings-icon">📊</span>
+        <div class="settings-item-body">
+          <div class="settings-item-title">Sdílet ceny z účtenek (anonymně)</div>
+          <div class="settings-item-sub">Výrobek, cena, řetězec, kraj a měsíc – bez jména a účtu. Potraviny, nápoje, alkohol, tabák, drogerie; nikdy lékárna. Ukáže se až od 3 lidí.</div>
+        </div>
+        <input type="checkbox" ${((S.uiCfg || {}).sdiletCeny !== false) ? 'checked' : ''} onchange="cenyNastav(this.checked)" style="width:20px;height:20px;accent-color:#4ade80;flex-shrink:0">
+      </label>
 
       <div class="settings-item" onclick="restoreDashboardCards()">
         <span class="settings-icon">🔄</span>

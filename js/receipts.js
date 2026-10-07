@@ -1,4 +1,4 @@
-// FinanceFlow · v11.38 · receipts.js · 2026-10-06
+// FinanceFlow · v11.39 · receipts.js · 2026-10-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -401,7 +401,8 @@ function renderUctenky() {
 
   // Kontrola kompletnosti se počítá přímo v buildCompareTab
 
-  el.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
+  el.innerHTML = (typeof cenyInfoBannerHTML === 'function' ? cenyInfoBannerHTML() : '')   // S25: jednorázové oznámení o sdílení cen
+    + '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
     + '<button class="tx-filt-btn" id="utab-scan" onclick="switchUctenkyTab(\'scan\',this)">📸 Skenovat</button>'
     + '<button class="tx-filt-btn" id="utab-learn" onclick="switchUctenkyTab(\'learn\',this)">🧠 Učení</button>'
     + '<button class="tx-filt-btn" id="utab-mapa" onclick="switchUctenkyTab(\'mapa\',this)">🗺️ Mapa položek</button>'
@@ -2645,6 +2646,7 @@ function mapaUzivKartaHTML(i, produkt) {
     ${katalog.nazvy ? sekce('Názvy a aliasy', katalog.nazvy) : ''}
     ${katalog.vyrobek ? sekce('Výrobek a balení', katalog.vyrobek) : ''}
     ${sekce('Moje nákupy', nak)}
+    ${typeof cenyDoKarty === 'function' ? sekce('Ceny v kraji', '<div id="mkCeny" style="font-size:.76rem;color:#a8aec8">⏳ Načítám…</div>') : ''}
     ${p && (p.nutriceObal || p.nutrice) ? sekce('Nutriční hodnoty na 100 g', (typeof eanNutriceHTML === 'function' ? eanNutriceHTML(p.nutriceObal || p.nutrice) : '')
       + `<div style="font-size:.64rem;color:#8b93ad;margin-top:4px">${p.nutriceObal ? '📸 podle českého obalu (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : 'z databáze Open Food Facts – nesedí s obalem? 📸 vyfoť tabulku živin'}</div>`)
       : (z.ean ? sekce('Nutriční hodnoty na 100 g', `<div style="font-size:.76rem;color:#a8aec8;line-height:1.5">Databáze je u tohoto výrobku zatím nemá. <button class="btn btn-sm" style="font-size:.72rem;margin-left:4px" onclick="eanFoto('${escHtml(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button></div>`) : '')}
@@ -2668,7 +2670,8 @@ async function mapaUzivDetail(i) {
   }
   const kresli = (prod) => { o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:520px;position:relative">
       <button onclick="mapaUzivKartaZavri()" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button>
-      ${mapaUzivKartaHTML(i, prod)}</div>`; };
+      ${mapaUzivKartaHTML(i, prod)}</div>`;
+    if (typeof cenyDoKarty === 'function') cenyDoKarty(i); };   // S25: sdílené ceny v kraji
   kresli(null);
   if(z.ean && typeof eanNactiProdukt === 'function') {
     const prod = await eanNactiProdukt(z.ean);
@@ -4693,7 +4696,8 @@ function addReceiptAsTx(receipt) {
   S.receipts.unshift({...receipt, addedAt:_addedAt});
   // S25: automatické uschování fotek ze skenu (Analýza účtenek → editor → „uschovávat automaticky“)
   { const _ul = S.receipts[0], _tok = _ul._scanTok; delete _ul._scanTok;
-    if (_tok && typeof rpArchivAuto === 'function') rpArchivAuto(_ul, _tok); }
+    if (_tok && typeof rpArchivAuto === 'function') rpArchivAuto(_ul, _tok);
+    if (typeof cenyOdeslat === 'function') cenyOdeslat(_ul); }   // S25: anonymní ceny po krajích (lze vypnout v Nastavení)
   if(receipt.items?.length && typeof publishPricesToCatalog === 'function') {
     publishPricesToCatalog(receipt.items, store, date);
   }
