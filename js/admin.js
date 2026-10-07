@@ -1,4 +1,4 @@
-// FinanceFlow · v11.41 · admin.js · 2026-10-07
+// FinanceFlow · v11.42 · admin.js · 2026-10-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,13 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.42',
+    datum: '2026-10-07',
+    zmeny: [
+      "Karta výrobku – srovnání s váhou ČSÚ: volba období pro tvůj podíl (posledních 12 měsíců / jednotlivé roky z účtenek / celá doba); na kartě je vidět, z jakého období se počítá a kolik Kč z kolika",
+    ]
+  },
   {
     verze: 'v11.41',
     datum: '2026-10-07',

@@ -23,10 +23,15 @@ const rc=R('receipts.js','../js/receipts.js'),sp=R('statistika-polozek.js','../j
 t('karta: řádek COICOP s 5. úrovní + váha ČSÚ a tvůj podíl, koš zvlášť jen bez taxonomie',rc.includes("mapaCoicopHTML(z.tax.coicop5 || z.tax.coicop) + mapaVahaHTML(z.tax.coicop, D)")&&rc.includes("(z.tax ? '' : mapaKosRadek(pg, '', radek))"));
 const pick=n=>{let a=rc.indexOf('function '+n+'(');let d=0,j=rc.indexOf('{',a);for(let k=j;k<rc.length;k++){if(rc[k]==='{')d++;else if(rc[k]==='}'){d--;if(!d)return rc.slice(a,k+1)}}};
 const s2={escHtml:s=>String(s),coicopNorm:sb.coicopNorm,Math,Date,getData:()=>({}),_productDB:{groups:{'01.113':{n:'Chléb',w:21.399},'01.145':{n:'Sýry',w:20},'02.110':{n:'Lihoviny',w:10}}},coicopNazev:k=>k==='01'?'Potraviny a nealkoholické nápoje':'',_mapaUziv:[],_mapaUzivReceipts:[{}],
-  spRadky:()=>[{mesic:'2099-01',castka:48,coicop:'01.1.1.3.1'},{mesic:'2099-01',castka:952,coicop:'01.1.4.5.0'}]};
-vm.createContext(s2);vm.runInContext(['mapaVahaPodtridy','mapaVahaOddilu','mapaMujPodil','mapaVahaHTML'].map(pick).join('\n'),s2);
+  spRadky:()=>[{mesic:'2099-01',castka:48,coicop:'01.1.1.3.1'},{mesic:'2099-01',castka:952,coicop:'01.1.4.5.0'},{mesic:'2020-05',castka:500,coicop:'01.1.1.3.1'},{mesic:'2020-05',castka:500,coicop:'01.1.4.5.0'}]};
+vm.createContext(s2);vm.runInContext("let _mapaVahaObdobi='12';\n"+['mapaVahaPodtridy','mapaVahaOddilu','mapaVahaRadky','mapaVahaRoky','mapaVahaObdobiNazev','mapaMujPodil','mapaVahaHTML'].map(pick).join('\n'),s2);
 const h=s2.mapaVahaHTML('01.113',{});
 t('váha ČSÚ 21,4 ‰ + srovnání uvnitř oddílu: průměr 51,7 % · ty 4,8 % (−91 %)',h.includes('váha ČSÚ 21,4 ‰')&&h.includes('průměr 51,7 %')&&h.includes('ty 4,8 %')&&h.includes('(-91 %)'),h.replace(/\s+/g,' ').slice(0,200));
+t('na kartě je vidět, z jakého období se počítá + volba období (12 měsíců / roky z účtenek / celá doba)',h.includes('počítá se z účtenek za posledních 12 měsíců')&&h.includes('48 Kč z 1')&&h.includes('<option value="2099"')&&h.includes('<option value="2020"')&&h.includes('<option value="vse"')&&h.includes('mapaVahaObdobi(this.value)'));
+vm.runInContext("_mapaVahaObdobi='2020'",s2);const h20=s2.mapaVahaHTML('01.113',{});
+t('rok 2020: jen účtenky z toho roku (500 z 1 000 Kč → 50 %)',h20.includes('ty 50 %')&&h20.includes('z účtenek za rok 2020')&&h20.includes('<option value="2020" selected'));
+vm.runInContext("_mapaVahaObdobi='vse'",s2);const hv=s2.mapaVahaHTML('01.113',{});
+t('vše: 548 z 2 000 Kč → 27,4 %',hv.includes('ty 27,4 %')&&hv.includes('z účtenek za celou dobu'),hv.replace(/\s+/g,' ').slice(180,420));
 t('statistika bere 5. úroveň, když ji taxonomie má',sp.includes('tax.coicop5 || tax.coicop'));
 t('taxonomie se po změně načte znovu (nová verze v adrese)',R('taxonomie.js','../js/taxonomie.js').includes("taxonomie.json?v=1.2-20261007"));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

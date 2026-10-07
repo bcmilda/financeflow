@@ -1,4 +1,4 @@
-// FinanceFlow · v11.41 · receipts.js · 2026-10-07
+// FinanceFlow · v11.42 · receipts.js · 2026-10-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2587,7 +2587,7 @@ window.mapaCoicopHTML = mapaCoicopHTML;
 //  S25 (Milan): v řádku COICOP oficiální váha podtřídy z koše ČSÚ + TVŮJ podíl z účtenek.
 //  Váha ČSÚ (‰) je ze VŠECH výdajů domácnosti, účtenky jsou hlavně potraviny – proto se
 //  srovnává uvnitř stejného oddílu: kolik % útrat za potraviny jde na tuto podtřídu
-//  u průměrné domácnosti (ČSÚ) a u tebe (účtenky za posledních 12 měsíců).
+//  u průměrné domácnosti (ČSÚ) a u tebe (účtenky za zvolené období, výchozí 12 měsíců).
 function mapaVahaPodtridy(kod4) {
   if (typeof _productDB === 'undefined' || !_productDB || !_productDB.groups || typeof coicopNorm !== 'function') return null;
   const k = Object.keys(_productDB.groups).find(g => coicopNorm(g) === kod4);
@@ -2598,15 +2598,26 @@ function mapaVahaOddilu(odd) {
   const s = Object.entries(_productDB.groups).filter(([g]) => coicopNorm(g).startsWith(odd + '.')).reduce((a, [, x]) => a + (x.w || 0), 0);
   return s || null;
 }
-function mapaMujPodil(kod4, D) {   // {podtrida, oddil} v Kč z účtenek za 12 měsíců
-  if (typeof spRadky !== 'function' || typeof _mapaUziv === 'undefined') return null;
-  const od = new Date(); od.setMonth(od.getMonth() - 12); const ods = od.toISOString().slice(0, 7);
-  const r = spRadky(typeof _mapaUzivReceipts !== 'undefined' && _mapaUzivReceipts.length ? _mapaUzivReceipts : ((D || getData()).receipts || []), _mapaUziv, D || getData())
-    .filter(x => !x.mesic || x.mesic >= ods);
+//  S25 (Milan): období pro „tvůj podíl" volitelné – výchozí posledních 12 měsíců (váhy ČSÚ jsou
+//  roční, celý rok nezkreslí sezónnost), dál jednotlivé roky z účtenek nebo vše. Období je vidět na kartě.
+let _mapaVahaObdobi = '12';
+function mapaVahaRadky(D) {
+  if (typeof spRadky !== 'function' || typeof _mapaUziv === 'undefined') return [];
+  return spRadky(typeof _mapaUzivReceipts !== 'undefined' && _mapaUzivReceipts.length ? _mapaUzivReceipts : ((D || getData()).receipts || []), _mapaUziv, D || getData());
+}
+function mapaVahaRoky(r) { return [...new Set(r.map(x => String(x.mesic || '').slice(0, 4)).filter(y => /^\d{4}$/.test(y)))].sort().reverse(); }
+function mapaVahaObdobiNazev(o) { return o === 'vse' ? 'celou dobu' : /^\d{4}$/.test(o) ? 'rok ' + o : 'posledních 12 měsíců'; }
+function mapaMujPodil(kod4, D, obdobi) {   // {podtrida, oddil, pocet} v Kč z účtenek za zvolené období
+  const o = obdobi || _mapaVahaObdobi;
+  let r = mapaVahaRadky(D);
+  if (o === '12') { const od = new Date(); od.setMonth(od.getMonth() - 12); const ods = od.toISOString().slice(0, 7); r = r.filter(x => !x.mesic || x.mesic >= ods); }
+  else if (/^\d{4}$/.test(o)) r = r.filter(x => String(x.mesic || '').slice(0, 4) === o);
   const odd = kod4.slice(0, 2);
   const sum = fn => r.filter(fn).reduce((a, x) => a + x.castka, 0);
   return { podtrida: sum(x => x.coicop && (x.coicop === kod4 || x.coicop.startsWith(kod4 + '.'))), oddil: sum(x => x.coicop && x.coicop.startsWith(odd + '.')) };
 }
+function mapaVahaObdobi(v) { _mapaVahaObdobi = v || '12'; if (typeof _mapaKartaI !== 'undefined' && _mapaKartaI >= 0 && typeof mapaUzivDetail === 'function') mapaUzivDetail(_mapaKartaI); }
+window.mapaVahaObdobi = mapaVahaObdobi;
 function mapaVahaHTML(code, D) {
   if (typeof coicopNorm !== 'function') return '';
   const kod4 = coicopNorm(code).split('.').slice(0, 4).join('.'); if (kod4.split('.').length < 4) return '';
@@ -2614,12 +2625,19 @@ function mapaVahaHTML(code, D) {
   const w = mapaVahaPodtridy(kod4), wOdd = mapaVahaOddilu(odd), m = mapaMujPodil(kod4, D);
   if (w == null) return '';
   const f = v => (Math.round(v * 10) / 10).toLocaleString('cs-CZ');
+  const kc = v => Math.round(v).toLocaleString('cs-CZ') + ' Kč';
   const csuPct = wOdd ? w / wOdd * 100 : null, mujPct = m && m.oddil > 0 ? m.podtrida / m.oddil * 100 : null;
-  const oddN = (typeof coicopNazev === 'function' && coicopNazev(odd)) || 'oddílu ' + odd;
-  return `<div style="font-size:.68rem;margin-top:3px;line-height:1.5" title="Váha ČSÚ: z každých 1 000 Kč všech výdajů průměrné domácnosti (stálé váhy spotřebního koše, podle nich se počítá inflace). Srovnání uvnitř oddílu: jaká část útrat za ${escHtml(oddN.toLowerCase())} jde na tuto podtřídu – u průměrné domácnosti a u tebe (účtenky za 12 měsíců).">
+  const oddN = ((typeof coicopNazev === 'function' && coicopNazev(odd)) || 'oddílu ' + odd).toLowerCase();
+  const roky = mapaVahaRoky(mapaVahaRadky(D));
+  const opt = [['12', 'posledních 12 měsíců'], ...roky.map(y => [y, 'rok ' + y]), ['vse', 'celá doba']];
+  const sel = `<select onchange="mapaVahaObdobi(this.value)" style="font-size:.66rem;padding:1px 4px;background:#1a1f35;color:#e8eaf0;border:1px solid #2d3555;border-radius:6px">${opt.map(([v, n]) => `<option value="${v}"${v === _mapaVahaObdobi ? ' selected' : ''}>${escHtml(n)}</option>`).join('')}</select>`;
+  return `<div style="font-size:.68rem;margin-top:3px;line-height:1.5" title="Váha ČSÚ: z každých 1 000 Kč všech výdajů průměrné domácnosti (stálé váhy spotřebního koše, podle nich se počítá inflace). Srovnání uvnitř oddílu: jaká část útrat za ${escHtml(oddN)} jde na tuto podtřídu – u průměrné domácnosti a u tebe.">
     <span style="color:#fbbf24">váha ČSÚ ${f(w)} ‰</span> <span style="color:#8b93ad">ze všech výdajů · podtřída ${escHtml(kod4)}</span>
-    ${csuPct != null && mujPct != null ? `<br><span style="color:#8b93ad">z útrat za ${escHtml(oddN.toLowerCase())}:</span> <span style="color:#fbbf24">průměr ${f(csuPct)} %</span> · <span style="color:#4ade80">ty ${f(mujPct)} %</span>
-      <span style="color:${mujPct > csuPct * 1.25 ? '#f87171' : mujPct < csuPct * 0.8 ? '#4ade80' : '#a8aec8'}">(${mujPct >= csuPct ? '+' : ''}${Math.round((mujPct - csuPct) / csuPct * 100)} %)</span>` : ''}</div>`;
+    ${csuPct != null && mujPct != null ? `<br><span style="color:#8b93ad">z útrat za ${escHtml(oddN)}:</span> <span style="color:#fbbf24">průměr ${f(csuPct)} %</span> · <span style="color:#4ade80">ty ${f(mujPct)} %</span>
+      <span style="color:${mujPct > csuPct * 1.25 ? '#f87171' : mujPct < csuPct * 0.8 ? '#4ade80' : '#a8aec8'}">(${mujPct >= csuPct ? '+' : ''}${Math.round((mujPct - csuPct) / csuPct * 100)} %)</span>
+      <br><span style="color:#8b93ad">tvůj podíl: ${kc(m.podtrida)} z ${kc(m.oddil)} · počítá se z účtenek za ${escHtml(mapaVahaObdobiNazev(_mapaVahaObdobi))}</span>`
+      : `<br><span style="color:#8b93ad">tvůj podíl: za ${escHtml(mapaVahaObdobiNazev(_mapaVahaObdobi))} nejsou účtenky z tohoto oddílu</span>`}
+    <div style="margin-top:2px;color:#8b93ad">období: ${sel}</div></div>`;
 }
 window.mapaVahaHTML = mapaVahaHTML;
 
