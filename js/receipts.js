@@ -1,4 +1,4 @@
-// FinanceFlow · v11.40 · receipts.js · 2026-10-07
+// FinanceFlow · v11.41 · receipts.js · 2026-10-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1603,7 +1603,19 @@ function buildPricesTab(priceChanges, allItems) {
     const _pick = window._pricePick.filter(n=>_allNames.includes(n));
     const _filtered = _pick.length ? priceChanges.filter(p=>_pick.includes(p.name)) : priceChanges;
 
-    html += `<div class="card" style="margin-bottom:12px"><div class="card-body">
+    const shrinkItems = _filtered.filter(p=>p.shrinkflation);
+    const kgItems = _filtered.filter(p=>!p.shrinkflation && p.perUnitData);
+    const stdItems = _filtered.filter(p=>!p.shrinkflation && !p.perUnitData);
+
+    html += `<div style="background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;color:var(--text2);border:1px solid var(--border)">
+      📊 Vývoj cen · <strong>${priceChanges.length} položek</strong> ·
+      ${shrinkItems.length ? `<span style="color:var(--expense)">🔻 ${shrinkItems.length} shrinkflation</span> · ` : ''}
+      ${kgItems.length ? `<span style="color:var(--debt)">⚖️ ${kgItems.length} sledovaných kg/l</span> · ` : ''}
+      ${stdItems.length ? `<span style="color:var(--text2)">${stdItems.length} cenových změn</span>` : ''}
+    </div>`;
+
+    //  S25 (Milan): výběr sledovaných položek přímo nad kartami (dřív nahoře nad souhrnem + hledací pole)
+    const _pickerHTML = `<div class="card" style="margin-bottom:12px"><div class="card-body">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <span style="font-size:.76rem;color:#c9cede;font-weight:600">🔍 Sledované položky</span>
         <select onchange="pricePickToggle(this.value);this.selectedIndex=0"
@@ -1625,20 +1637,7 @@ function buildPricesTab(priceChanges, allItems) {
       </div>
     </div></div>`;
 
-    const shrinkItems = _filtered.filter(p=>p.shrinkflation);
-    const kgItems = _filtered.filter(p=>!p.shrinkflation && p.perUnitData);
-    const stdItems = _filtered.filter(p=>!p.shrinkflation && !p.perUnitData);
-
-    html += `<div style="background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.76rem;color:var(--text2);border:1px solid var(--border)">
-      📊 Vývoj cen · <strong>${priceChanges.length} položek</strong> ·
-      ${shrinkItems.length ? `<span style="color:var(--expense)">🔻 ${shrinkItems.length} shrinkflation</span> · ` : ''}
-      ${kgItems.length ? `<span style="color:var(--debt)">⚖️ ${kgItems.length} sledovaných kg/l</span> · ` : ''}
-      ${stdItems.length ? `<span style="color:var(--text2)">${stdItems.length} cenových změn</span>` : ''}
-    </div>`;
-
-    //  S25 (Milan): rychlé hledání v kartách (seznam se brzy zahltí); „Sledované položky“ výš je trvalý výběr
-    html += `<input type="search" placeholder="🔍 Najít položku v seznamu…" oninput="priceHledej(this.value)" autocomplete="off"
-      style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 11px;color:var(--text);font-size:.8rem;margin-bottom:12px">`;
+    html += _pickerHTML;
 
     // ── Shrinkflation varování ──
     if(shrinkItems.length) {
@@ -2223,6 +2222,7 @@ function switchUctenkyTab(tab, btn) {
     typeof eanNactiAliasy==='function' ? eanNactiAliasy() : null,
     typeof eanNactiMojeNazvy==='function' ? eanNactiMojeNazvy() : null,
     typeof loadCoicop==='function' ? loadCoicop() : null,   // S25: číselník CZ-COICOP
+    typeof loadProductDB==='function' ? loadProductDB() : null,   // S25: váhy koše ČSÚ na kartě
   ]).then(async ()=>{
     mapaUzivKresli();
     if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();   // S25
@@ -2584,6 +2584,45 @@ window.mapaCoicopHTML = mapaCoicopHTML;
 //  S25 (Milan): koš ČSÚ jen jednou. Stejný kód jako COICOP (nebo jeho nadřazená úroveň) →
 //  jen řádek s váhou; jiný kód → celé zařazení koše. Váha ‰ = kolik z každých 1000 Kč
 //  výdajů průměrné domácnosti připadá na tuto skupinu (podíl v indexu inflace).
+//  S25 (Milan): v řádku COICOP oficiální váha podtřídy z koše ČSÚ + TVŮJ podíl z účtenek.
+//  Váha ČSÚ (‰) je ze VŠECH výdajů domácnosti, účtenky jsou hlavně potraviny – proto se
+//  srovnává uvnitř stejného oddílu: kolik % útrat za potraviny jde na tuto podtřídu
+//  u průměrné domácnosti (ČSÚ) a u tebe (účtenky za posledních 12 měsíců).
+function mapaVahaPodtridy(kod4) {
+  if (typeof _productDB === 'undefined' || !_productDB || !_productDB.groups || typeof coicopNorm !== 'function') return null;
+  const k = Object.keys(_productDB.groups).find(g => coicopNorm(g) === kod4);
+  return k && _productDB.groups[k].w ? _productDB.groups[k].w : null;
+}
+function mapaVahaOddilu(odd) {
+  if (typeof _productDB === 'undefined' || !_productDB || !_productDB.groups || typeof coicopNorm !== 'function') return null;
+  const s = Object.entries(_productDB.groups).filter(([g]) => coicopNorm(g).startsWith(odd + '.')).reduce((a, [, x]) => a + (x.w || 0), 0);
+  return s || null;
+}
+function mapaMujPodil(kod4, D) {   // {podtrida, oddil} v Kč z účtenek za 12 měsíců
+  if (typeof spRadky !== 'function' || typeof _mapaUziv === 'undefined') return null;
+  const od = new Date(); od.setMonth(od.getMonth() - 12); const ods = od.toISOString().slice(0, 7);
+  const r = spRadky(typeof _mapaUzivReceipts !== 'undefined' && _mapaUzivReceipts.length ? _mapaUzivReceipts : ((D || getData()).receipts || []), _mapaUziv, D || getData())
+    .filter(x => !x.mesic || x.mesic >= ods);
+  const odd = kod4.slice(0, 2);
+  const sum = fn => r.filter(fn).reduce((a, x) => a + x.castka, 0);
+  return { podtrida: sum(x => x.coicop && (x.coicop === kod4 || x.coicop.startsWith(kod4 + '.'))), oddil: sum(x => x.coicop && x.coicop.startsWith(odd + '.')) };
+}
+function mapaVahaHTML(code, D) {
+  if (typeof coicopNorm !== 'function') return '';
+  const kod4 = coicopNorm(code).split('.').slice(0, 4).join('.'); if (kod4.split('.').length < 4) return '';
+  const odd = kod4.slice(0, 2);
+  const w = mapaVahaPodtridy(kod4), wOdd = mapaVahaOddilu(odd), m = mapaMujPodil(kod4, D);
+  if (w == null) return '';
+  const f = v => (Math.round(v * 10) / 10).toLocaleString('cs-CZ');
+  const csuPct = wOdd ? w / wOdd * 100 : null, mujPct = m && m.oddil > 0 ? m.podtrida / m.oddil * 100 : null;
+  const oddN = (typeof coicopNazev === 'function' && coicopNazev(odd)) || 'oddílu ' + odd;
+  return `<div style="font-size:.68rem;margin-top:3px;line-height:1.5" title="Váha ČSÚ: z každých 1 000 Kč všech výdajů průměrné domácnosti (stálé váhy spotřebního koše, podle nich se počítá inflace). Srovnání uvnitř oddílu: jaká část útrat za ${escHtml(oddN.toLowerCase())} jde na tuto podtřídu – u průměrné domácnosti a u tebe (účtenky za 12 měsíců).">
+    <span style="color:#fbbf24">váha ČSÚ ${f(w)} ‰</span> <span style="color:#8b93ad">ze všech výdajů · podtřída ${escHtml(kod4)}</span>
+    ${csuPct != null && mujPct != null ? `<br><span style="color:#8b93ad">z útrat za ${escHtml(oddN.toLowerCase())}:</span> <span style="color:#fbbf24">průměr ${f(csuPct)} %</span> · <span style="color:#4ade80">ty ${f(mujPct)} %</span>
+      <span style="color:${mujPct > csuPct * 1.25 ? '#f87171' : mujPct < csuPct * 0.8 ? '#4ade80' : '#a8aec8'}">(${mujPct >= csuPct ? '+' : ''}${Math.round((mujPct - csuPct) / csuPct * 100)} %)</span>` : ''}</div>`;
+}
+window.mapaVahaHTML = mapaVahaHTML;
+
 function mapaKosRadek(pg, taxKod, radek) {
   if (!pg || !pg.group) return '';
   const kod = typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code;
@@ -2616,14 +2655,14 @@ function mapaUzivKartaHTML(i, produkt) {
   let zar = z.tax
     ? radek('Oblast', escHtml(z.tax.ikona + ' ' + z.tax.oblastNazev)) + radek('Podkategorie', escHtml(z.tax.podNazev))
       + radek('Obecný název', '<b>' + escHtml(z.tax.nazev) + '</b>') + (z.mapa.konkretni ? radek('Konkrétní', escHtml(z.mapa.konkretni)) : '')
-      + radek('COICOP', mapaCoicopHTML(z.tax.coicop)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
+      + radek('COICOP', mapaCoicopHTML(z.tax.coicop5 || z.tax.coicop) + mapaVahaHTML(z.tax.coicop, D)) + radek('Zdroj', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa')
     : `<div style="font-size:.78rem;color:#a8aec8;line-height:1.5">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě. Pomůže, když přiřadíš čárový kód.</div>`;
   //  S25 (Milan): na kartě i zelený štítek položky a skupina spotřebního koše ČSÚ (CZ-COICOP)
   { const stit = mapaStitek(z.nazev, D);
     if (typeof loadProductDB === 'function') loadProductDB();
     const pg = typeof productGroupLookup === 'function' ? productGroupLookup(z.nazev) : null;
     const extra = (stit ? radek('Štítek', `<span style="color:var(--income);font-style:italic">${escHtml(stit)}</span>`) : '')
-      + mapaKosRadek(pg, z.tax ? z.tax.coicop : '', radek);
+      + (z.tax ? '' : mapaKosRadek(pg, '', radek));   // S25: s taxonomií je váha přímo v řádku COICOP
     if (extra) zar = zar + extra; }
 
   // nákupy

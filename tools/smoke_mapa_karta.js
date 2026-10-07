@@ -41,7 +41,7 @@ t('cena za kg u vážené položky',ctx.mapaUzivCenaZaJednotku({cena:32.9,unit:'
 const ob=ctx.mapaUzivObchody(d[ir]); t('obchody seřazené od nejlevnějšího',ob[0].cena===3.9&&ob.length===2);
 let k=ctx.mapaUzivKartaHTML(ir,null);
 t('karta bez kódu: výzva a vysvětlení',k.includes('📷 Vyfotit čárový kód')&&k.includes('Na účtence je jen zkratka'));
-t('karta: zařazení',k.includes('Pečivo')&&k.includes('COICOP')&&k.includes('01.113'));
+t('karta: zařazení',k.includes('Pečivo')&&k.includes('COICOP')&&(k.includes('01.113')||k.includes('01.1.1.3')));
 t('karta: moje nákupy + nejlevněji',k.includes('Kaufland')||k.includes('KAUFLAND'));
 t('karta: nejlevnější obchod se slevou',/Nejlevněji/.test(k)&&/−13 %/.test(k),k.match(/Nejlevněji.{0,120}/));
 t('karta: rozpočet je až v rozbalovacím bloku',k.indexOf('💼 Rozpočet')>k.indexOf('Moje nákupy'));

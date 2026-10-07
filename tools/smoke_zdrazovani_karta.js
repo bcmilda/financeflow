@@ -15,7 +15,7 @@ const p=v.polozky[0];
 t('vedle Kč/kg i Kč/ks (první a poslední měsíc)',p&&p.prvniKs===10.9&&p.posledniKs===12.9&&p.j==='kg',p&&[p.prvniKs,p.posledniKs]);
 t('nákupy zůstávají pro rozbalení detailu',p.nakupy.length===2&&p.nakupy[0].cenaKs===10.9);
 t('podkategorie žlutě, klik rozbalí detail, legenda křivky',rc.includes('font-size:.68rem;color:#fbbf24">${escHtml(p.podNazev)}')&&rc.includes("document.getElementById('taxDet${pi}')")&&rc.includes('Modrá křivka = vývoj ceny po měsících'));
-t('Sledování ceny: hledání v kartách',rc.includes('oninput="priceHledej(this.value)"')&&rc.includes('class="card price-card" data-pn='));
+t('Sledování ceny: rozbalovací výběr položek přímo nad kartami, bez hledacího pole',!rc.includes('oninput="priceHledej(this.value)"')&&rc.indexOf('html += _pickerHTML')>rc.indexOf('📊 Vývoj cen · <strong>')&&rc.indexOf('html += _pickerHTML')<rc.indexOf('// ── Shrinkflation varování ──'));
 t('rozdíl ceny bez chyby plovoucí čárky (↑ 4 Kč, ne 4,00)',rc.includes('Math.round((h.price - prev) * 100) / 100'));
 console.log('── S25 · karta výrobku ──');
 const s2={escHtml:s=>String(s),pgKodCsu:c=>'01.1.1.3',coicopNorm:c=>c==='01.113'?'01.1.1.3':c,String,Math};vm.createContext(s2);vm.runInContext(pick(rc,'mapaKosRadek'),s2);

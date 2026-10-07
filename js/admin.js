@@ -1,4 +1,4 @@
-// FinanceFlow · v11.40 · admin.js · 2026-10-07
+// FinanceFlow · v11.41 · admin.js · 2026-10-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,17 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.41',
+    datum: '2026-10-07',
+    zmeny: [
+      "🔢 5. ÚROVEŇ CZ-COICOP V TAXONOMII (Milan) · data/taxonomie.json v1.2: každý obecný název potravin a nápojů (470 názvů) má nový kód 5. úrovně z přílohy potravin ČSÚ (c5), např. rohlík → 01.1.1.3.1 Chléb a pečivo, oplatky / croissant → 01.1.1.3.9 Ostatní pekařské výrobky, jablko → 01.1.6.3.1, máslo → 01.1.5.2.1. Kód 4. úrovně u podkategorie zůstává beze změny – Srovnání ČR a inflace se nemění. Drogerie a ostatní zboží 5. úroveň nemají (ČSÚ ji vede jen u potravin).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → Zařazení → COICOP. Kód 5. úrovně s názvem a cestou číselníkem; přímo v řádku oficiální „váha ČSÚ ‰ ze všech výdajů“ (stálé váhy koše) a srovnání uvnitř oddílu: jaká část útrat za potraviny jde na tuto podtřídu u průměrné domácnosti a u tebe (účtenky za 12 měsíců), s rozdílem v %. Samostatný řádek „Spotřební koš ČSÚ“ jen u položek mimo taxonomii.",
+      "📐 STATISTIKA POLOŽEK · filtr a seskupení COICOP sahají u potravin do 5. úrovně (položka přílohy potravin).",
+      "🔍 ZDRAŽOVÁNÍ · cesta: Analýza účtenek → 💹 Zdražování. Rozbalovací výběr „🔍 Sledované položky“ přesunut přímo nad karty (pod souhrn), hledací pole z v11.40 zrušeno.",
+      "🧪 tools/smoke_coicop5.js (8); smoke_zdrazovani_karta.js upraven.",
+    ]
+  },
   {
     verze: 'v11.40',
     datum: '2026-10-07',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.38 · statistika-polozek.js · 2026-10-06
+// FinanceFlow · v11.41 · statistika-polozek.js · 2026-10-07
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -29,7 +29,8 @@ function spRadky(receipts, mapa, D) {
     const pg = (typeof productGroupLookup === 'function') ? productGroupLookup(it.name) : null;
     const tax = m && m.z.tax;
     //  S25: kód z taxonomie (bývá hlubší, až 5. úroveň přílohy potravin), jinak z koše ČSÚ
-    const kod = tax && tax.coicop ? (typeof coicopNorm === 'function' ? coicopNorm(tax.coicop) : tax.coicop) : (pg ? kodCsu(pg.code) : '');
+    const kodT = tax && (tax.coicop5 || tax.coicop);   // S25: 5. úroveň, když ji taxonomie má
+    const kod = kodT ? (typeof coicopNorm === 'function' ? coicopNorm(kodT) : kodT) : (pg ? kodCsu(pg.code) : '');
     const kat = kats[(m && m.z.catId) || it.itemCatId || ''];
     //  S25: cena za kg / l – vážené zboží přímo, balené z gramáže (samostatné pole nebo z názvu)
     const bal = it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null);

@@ -1,12 +1,13 @@
 {
  "meta": {
   "nazev": "Taxonomie výrobků FinanceFlow",
-  "verze": "1.1",
+  "verze": "1.2",
   "session": "S24 (T1, návrh ke kontrole)",
   "model": "raw z účtenky → výrobek (Mapa položek) → obecný název → podkategorie → oblast; COICOP u podkategorie, výjimka u obecného názvu",
   "coicop": "CZ-COICOP 2018 v zápisu ČSÚ (kódy z data/product-groups.json, spotřební koš 2026)",
   "rozpocet": "výchozí rozpočtová kategorie (id výchozí sady); podkategorie může mít vlastní",
-  "pravidla": "id podkategorie ani obecného názvu se po nasazení NEMĚNÍ (odkazují na ně záznamy mapy). Přejmenovat = změnit nazev, ne id."
+  "pravidla": "id podkategorie ani obecného názvu se po nasazení NEMĚNÍ (odkazují na ně záznamy mapy). Přejmenovat = změnit nazev, ne id.",
+  "c5": "S25: c5 = kód CZ-COICOP 2018 5. úrovně (příloha potravin ČSÚ) pro obecný název – jen pro kartu výrobku a Statistiku položek; podkategorie.coicop (4. úroveň) zůstává pro Srovnání ČR."
  },
  "oblasti": [
   {
@@ -51,7 +52,40 @@
       "ciabatta",
       "grahamový rohlík",
       "sýrová bageta"
-     ]
+     ],
+     "c5": {
+      "rohlík": "01.1.1.3.1",
+      "houska": "01.1.1.3.1",
+      "bageta": "01.1.1.3.1",
+      "veka": "01.1.1.3.1",
+      "dalamánek": "01.1.1.3.1",
+      "kaiserka": "01.1.1.3.1",
+      "bulka": "01.1.1.3.1",
+      "chléb": "01.1.1.3.1",
+      "toustový chléb": "01.1.1.3.1",
+      "celozrnný chléb": "01.1.1.3.1",
+      "žitný chléb": "01.1.1.3.1",
+      "kváskový chléb": "01.1.1.3.1",
+      "croissant": "01.1.1.3.9",
+      "loupák": "01.1.1.3.9",
+      "kobliha": "01.1.1.3.9",
+      "koláč": "01.1.1.3.9",
+      "buchta": "01.1.1.3.9",
+      "šáteček": "01.1.1.3.9",
+      "záviny": "01.1.1.3.9",
+      "vánočka": "01.1.1.3.9",
+      "mazanec": "01.1.1.3.9",
+      "donut": "01.1.1.3.9",
+      "muffin": "01.1.1.3.9",
+      "preclík": "01.1.1.3.1",
+      "tortilla": "01.1.1.3.1",
+      "knäckebrot": "01.1.1.3.1",
+      "makovka": "01.1.1.3.1",
+      "pita": "01.1.1.3.1",
+      "ciabatta": "01.1.1.3.1",
+      "grahamový rohlík": "01.1.1.3.1",
+      "sýrová bageta": "01.1.1.3.1"
+     }
     },
     {
      "id": "trvanlive-pecivo",
@@ -71,7 +105,19 @@
        "n": "cereální tyčinka",
        "coicop": "01.114"
       }
-     ]
+     ],
+     "c5": {
+      "sušenky": "01.1.1.3.9",
+      "oplatky": "01.1.1.3.9",
+      "piškoty": "01.1.1.3.9",
+      "perník": "01.1.1.3.9",
+      "krekry": "01.1.1.3.9",
+      "slané tyčinky": "01.1.1.3.9",
+      "rohlíčky": "01.1.1.3.9",
+      "suchary": "01.1.1.3.9",
+      "rýžové chlebíčky": "01.1.1.3.9",
+      "cereální tyčinka": "01.1.1.4.0"
+     }
     },
     {
      "id": "mouka-obiloviny",
@@ -106,7 +152,22 @@
        "n": "ovesné otruby",
        "coicop": "01.111"
       }
-     ]
+     ],
+     "c5": {
+      "hladká mouka": "01.1.1.2.1",
+      "polohrubá mouka": "01.1.1.2.1",
+      "hrubá mouka": "01.1.1.2.1",
+      "celozrnná mouka": "01.1.1.2.1",
+      "špaldová mouka": "01.1.1.2.1",
+      "žitná mouka": "01.1.1.2.9",
+      "kukuřičná mouka": "01.1.1.2.6",
+      "krupice": "01.1.1.2.1",
+      "strouhanka": "01.1.1.9.0",
+      "kroupy": "01.1.1.1.4",
+      "pohanka": "01.1.1.1.9",
+      "jáhly": "01.1.1.1.5",
+      "ovesné otruby": "01.1.1.1.9"
+     }
     },
     {
      "id": "cerealie",
@@ -121,7 +182,17 @@
       "kaše",
       "instantní kaše",
       "jáhlové vločky"
-     ]
+     ],
+     "c5": {
+      "ovesné vločky": "01.1.1.4.0",
+      "müsli": "01.1.1.4.0",
+      "granola": "01.1.1.4.0",
+      "cornflakes": "01.1.1.4.0",
+      "cereálie": "01.1.1.4.0",
+      "kaše": "01.1.1.4.0",
+      "instantní kaše": "01.1.1.4.0",
+      "jáhlové vločky": "01.1.1.4.0"
+     }
     },
     {
      "id": "testoviny",
@@ -147,7 +218,22 @@
        "n": "noky",
        "coicop": "01.119"
       }
-     ]
+     ],
+     "c5": {
+      "těstoviny": "01.1.1.5.0",
+      "špagety": "01.1.1.5.0",
+      "penne": "01.1.1.5.0",
+      "fusilli": "01.1.1.5.0",
+      "kolínka": "01.1.1.5.0",
+      "vřetena": "01.1.1.5.0",
+      "farfalle": "01.1.1.5.0",
+      "tagliatelle": "01.1.1.5.0",
+      "lasagne": "01.1.1.5.0",
+      "nudle do polévky": "01.1.1.5.0",
+      "celozrnné těstoviny": "01.1.1.5.0",
+      "gnocchi": "01.1.1.9.0",
+      "noky": "01.1.1.9.0"
+     }
     },
     {
      "id": "ryze-prilohy",
@@ -178,7 +264,21 @@
        "n": "bramborová kaše instantní",
        "coicop": "01.179"
       }
-     ]
+     ],
+     "c5": {
+      "rýže": "01.1.1.1.2",
+      "basmati rýže": "01.1.1.1.2",
+      "jasmínová rýže": "01.1.1.1.2",
+      "natural rýže": "01.1.1.1.2",
+      "rýže na rizoto": "01.1.1.1.2",
+      "kuskus": "01.1.1.1.1",
+      "bulgur": "01.1.1.1.1",
+      "quinoa": "01.1.1.1.7",
+      "knedlík": "01.1.1.9.0",
+      "bramborový knedlík": "01.1.1.9.0",
+      "houskový knedlík": "01.1.1.9.0",
+      "bramborová kaše instantní": "01.1.7.9.2"
+     }
     },
     {
      "id": "drubez",
@@ -204,7 +304,22 @@
        "n": "kuřecí srdce",
        "coicop": "01.124"
       }
-     ]
+     ],
+     "c5": {
+      "kuřecí prsa": "01.1.2.2.4",
+      "kuřecí stehna": "01.1.2.2.4",
+      "kuřecí paličky": "01.1.2.2.4",
+      "kuřecí křídla": "01.1.2.2.4",
+      "celé kuře": "01.1.2.2.4",
+      "kuřecí čtvrtky": "01.1.2.2.4",
+      "krůtí prsa": "01.1.2.2.4",
+      "krůtí maso": "01.1.2.2.4",
+      "kachna": "01.1.2.2.4",
+      "kachní prsa": "01.1.2.2.4",
+      "husa": "01.1.2.2.4",
+      "kuřecí játra": "01.1.2.4.0",
+      "kuřecí srdce": "01.1.2.4.0"
+     }
     },
     {
      "id": "veprove",
@@ -224,7 +339,19 @@
        "n": "vepřová játra",
        "coicop": "01.124"
       }
-     ]
+     ],
+     "c5": {
+      "vepřová krkovice": "01.1.2.2.2",
+      "vepřová kotleta": "01.1.2.2.2",
+      "vepřová plec": "01.1.2.2.2",
+      "vepřová panenka": "01.1.2.2.2",
+      "vepřový bůček": "01.1.2.2.2",
+      "vepřová kýta": "01.1.2.2.2",
+      "vepřová žebra": "01.1.2.2.2",
+      "vepřové koleno": "01.1.2.2.2",
+      "vepřové na guláš": "01.1.2.2.2",
+      "vepřová játra": "01.1.2.4.0"
+     }
     },
     {
      "id": "hovezi-ostatni",
@@ -248,7 +375,20 @@
        "n": "zvěřina",
        "coicop": "01.122"
       }
-     ]
+     ],
+     "c5": {
+      "hovězí zadní": "01.1.2.2.1",
+      "hovězí přední": "01.1.2.2.1",
+      "hovězí na guláš": "01.1.2.2.1",
+      "hovězí svíčková": "01.1.2.2.1",
+      "hovězí roštěná": "01.1.2.2.1",
+      "hovězí kližka": "01.1.2.2.1",
+      "hovězí žebro": "01.1.2.2.1",
+      "telecí maso": "01.1.2.2.1",
+      "jehněčí maso": "01.1.2.2.1",
+      "králík": "01.1.2.2.5",
+      "zvěřina": "01.1.2.2.9"
+     }
     },
     {
      "id": "mlete-maso",
@@ -260,7 +400,14 @@
       "mleté hovězí",
       "mleté kuřecí",
       "mleté mix"
-     ]
+     ],
+     "c5": {
+      "mleté maso": "01.1.2.2.9",
+      "mleté vepřové": "01.1.2.2.2",
+      "mleté hovězí": "01.1.2.2.1",
+      "mleté kuřecí": "01.1.2.2.4",
+      "mleté mix": "01.1.2.2.9"
+     }
     },
     {
      "id": "uzeniny",
@@ -289,7 +436,31 @@
       "anglická slanina",
       "uzené maso",
       "gothaj"
-     ]
+     ],
+     "c5": {
+      "šunka": "01.1.2.3.2",
+      "kuřecí šunka": "01.1.2.3.9",
+      "krůtí šunka": "01.1.2.3.9",
+      "dušená šunka": "01.1.2.3.2",
+      "pršut": "01.1.2.3.2",
+      "salám": "01.1.2.3.2",
+      "vysočina": "01.1.2.3.2",
+      "poličan": "01.1.2.3.2",
+      "herkules": "01.1.2.3.2",
+      "čabajka": "01.1.2.3.2",
+      "chorizo": "01.1.2.3.2",
+      "mortadela": "01.1.2.3.2",
+      "klobása": "01.1.2.3.2",
+      "párky": "01.1.2.3.2",
+      "vídeňské párky": "01.1.2.3.2",
+      "špekáčky": "01.1.2.3.2",
+      "debrecínka": "01.1.2.3.2",
+      "kabanos": "01.1.2.3.2",
+      "slanina": "01.1.2.3.2",
+      "anglická slanina": "01.1.2.3.2",
+      "uzené maso": "01.1.2.3.2",
+      "gothaj": "01.1.2.3.2"
+     }
     },
     {
      "id": "masne-vyrobky",
@@ -306,7 +477,19 @@
       "škvarky",
       "aspik",
       "karbanátky"
-     ]
+     ],
+     "c5": {
+      "paštika": "01.1.2.5.3",
+      "játrová paštika": "01.1.2.5.3",
+      "tlačenka": "01.1.2.5.1",
+      "jitrnice": "01.1.2.5.1",
+      "jelito": "01.1.2.5.1",
+      "sekaná": "01.1.2.5.9",
+      "masová pomazánka": "01.1.2.5.9",
+      "škvarky": "01.1.2.5.9",
+      "aspik": "01.1.2.5.9",
+      "karbanátky": "01.1.2.5.9"
+     }
     },
     {
      "id": "ryby",
@@ -361,7 +544,27 @@
        "n": "mušle",
        "coicop": "01.136"
       }
-     ]
+     ],
+     "c5": {
+      "losos": "01.1.3.1.2",
+      "treska": "01.1.3.1.4",
+      "pangasius": "01.1.3.1.1",
+      "pstruh": "01.1.3.1.2",
+      "kapr": "01.1.3.1.1",
+      "makrela": "01.1.3.1.6",
+      "tilapie": "01.1.3.1.1",
+      "rybí filé": "01.1.3.1.9",
+      "tuňák": "01.1.3.3.1",
+      "sardinky": "01.1.3.3.2",
+      "rybí prsty": "01.1.3.3.9",
+      "rybí salát": "01.1.3.3.9",
+      "uzený losos": "01.1.3.2.1",
+      "uzená makrela": "01.1.3.2.9",
+      "zavináč": "01.1.3.2.9",
+      "krevety": "01.1.3.6.1",
+      "kalamáry": "01.1.3.6.4",
+      "mušle": "01.1.3.6.3"
+     }
     },
     {
      "id": "mleko",
@@ -389,7 +592,18 @@
        "n": "sušené mléko",
        "coicop": "01.149"
       }
-     ]
+     ],
+     "c5": {
+      "mléko": "01.1.4.2.0",
+      "polotučné mléko": "01.1.4.2.0",
+      "plnotučné mléko": "01.1.4.1.1",
+      "nízkotučné mléko": "01.1.4.2.0",
+      "trvanlivé mléko": "01.1.4.2.0",
+      "čerstvé mléko": "01.1.4.1.1",
+      "bezlaktózové mléko": "01.1.4.2.0",
+      "kondenzované mléko": "01.1.4.9.0",
+      "sušené mléko": "01.1.4.9.0"
+     }
     },
     {
      "id": "jogurty",
@@ -421,7 +635,19 @@
        "n": "probiotický nápoj",
        "coicop": "01.147"
       }
-     ]
+     ],
+     "c5": {
+      "jogurt": "01.1.4.6.0",
+      "bílý jogurt": "01.1.4.6.0",
+      "ovocný jogurt": "01.1.4.6.0",
+      "řecký jogurt": "01.1.4.6.0",
+      "skyr": "01.1.4.6.0",
+      "kefír": "01.1.4.7.0",
+      "acidofilní mléko": "01.1.4.7.0",
+      "podmáslí": "01.1.4.7.0",
+      "zakysané mléko": "01.1.4.7.0",
+      "probiotický nápoj": "01.1.4.7.0"
+     }
     },
     {
      "id": "mlecne-dezerty",
@@ -435,7 +661,16 @@
       "pribináček",
       "mléčný dezert",
       "mléčný koktejl"
-     ]
+     ],
+     "c5": {
+      "pudink": "01.1.4.7.0",
+      "mléčná rýže": "01.1.4.7.0",
+      "termix": "01.1.4.7.0",
+      "tvarohový dezert": "01.1.4.7.0",
+      "pribináček": "01.1.4.7.0",
+      "mléčný dezert": "01.1.4.7.0",
+      "mléčný koktejl": "01.1.4.7.0"
+     }
     },
     {
      "id": "syry",
@@ -464,7 +699,31 @@
       "halloumi",
       "tvaroh",
       "sýr plátky"
-     ]
+     ],
+     "c5": {
+      "sýr": "01.1.4.5.0",
+      "eidam": "01.1.4.5.0",
+      "gouda": "01.1.4.5.0",
+      "ementál": "01.1.4.5.0",
+      "čedar": "01.1.4.5.0",
+      "mozzarella": "01.1.4.5.0",
+      "parmazán": "01.1.4.5.0",
+      "feta": "01.1.4.5.0",
+      "balkánský sýr": "01.1.4.5.0",
+      "hermelín": "01.1.4.5.0",
+      "camembert": "01.1.4.5.0",
+      "niva": "01.1.4.5.0",
+      "tvarůžky": "01.1.4.5.0",
+      "tavený sýr": "01.1.4.5.0",
+      "cottage": "01.1.4.5.0",
+      "lučina": "01.1.4.5.0",
+      "žervé": "01.1.4.5.0",
+      "mascarpone": "01.1.4.5.0",
+      "ricotta": "01.1.4.5.0",
+      "halloumi": "01.1.4.5.0",
+      "tvaroh": "01.1.4.5.0",
+      "sýr plátky": "01.1.4.5.0"
+     }
     },
     {
      "id": "smetana",
@@ -488,7 +747,17 @@
        "n": "ghí",
        "coicop": "01.152"
       }
-     ]
+     ],
+     "c5": {
+      "smetana na vaření": "01.1.4.3.3",
+      "smetana ke šlehání": "01.1.4.3.3",
+      "zakysaná smetana": "01.1.4.3.3",
+      "šlehačka": "01.1.4.3.3",
+      "crème fraîche": "01.1.4.3.3",
+      "máslo": "01.1.5.2.1",
+      "přepuštěné máslo": "01.1.5.2.9",
+      "ghí": "01.1.5.2.9"
+     }
     },
     {
      "id": "vejce",
@@ -498,7 +767,12 @@
       "vejce",
       "slepičí vejce",
       "křepelčí vejce"
-     ]
+     ],
+     "c5": {
+      "vejce": "01.1.4.8.1",
+      "slepičí vejce": "01.1.4.8.1",
+      "křepelčí vejce": "01.1.4.8.1"
+     }
     },
     {
      "id": "oleje-tuky",
@@ -527,7 +801,19 @@
        "n": "husí sádlo",
        "coicop": "01.159"
       }
-     ]
+     ],
+     "c5": {
+      "olej": "01.1.5.1.9",
+      "slunečnicový olej": "01.1.5.1.1",
+      "řepkový olej": "01.1.5.1.9",
+      "olivový olej": "01.1.5.1.3",
+      "kokosový olej": "01.1.5.1.6",
+      "sezamový olej": "01.1.5.1.9",
+      "margarín": "01.1.5.3.0",
+      "rostlinný tuk": "01.1.5.3.0",
+      "sádlo": "01.1.5.9.1",
+      "husí sádlo": "01.1.5.9.2"
+     }
     },
     {
      "id": "ovoce",
@@ -610,7 +896,34 @@
        "n": "granátové jablko",
        "coicop": "01.161"
       }
-     ]
+     ],
+     "c5": {
+      "jablko": "01.1.6.3.1",
+      "hruška": "01.1.6.3.2",
+      "švestka": "01.1.6.3.6",
+      "broskev": "01.1.6.3.5",
+      "nektarinka": "01.1.6.3.5",
+      "meruňka": "01.1.6.3.3",
+      "třešně": "01.1.6.3.4",
+      "višně": "01.1.6.3.4",
+      "banán": "01.1.6.1.2",
+      "ananas": "01.1.6.1.7",
+      "mango": "01.1.6.1.5",
+      "kiwi": "01.1.6.1.9",
+      "avokádo": "01.1.6.1.1",
+      "pomeranč": "01.1.6.2.3",
+      "mandarinka": "01.1.6.2.4",
+      "citron": "01.1.6.2.2",
+      "limetka": "01.1.6.2.2",
+      "grapefruit": "01.1.6.2.1",
+      "jahody": "01.1.6.4.5",
+      "borůvky": "01.1.6.4.6",
+      "maliny": "01.1.6.4.3",
+      "hroznové víno": "01.1.6.4.9",
+      "rybíz": "01.1.6.4.1",
+      "meloun": "01.1.6.5.4",
+      "granátové jablko": "01.1.6.1.9"
+     }
     },
     {
      "id": "orechy-susene",
@@ -655,7 +968,26 @@
        "n": "ovocné pyré",
        "coicop": "01.169"
       }
-     ]
+     ],
+     "c5": {
+      "vlašské ořechy": "01.1.6.8.6",
+      "lískové ořechy": "01.1.6.8.4",
+      "mandle": "01.1.6.8.1",
+      "kešu": "01.1.6.8.2",
+      "arašídy": "01.1.6.8.8",
+      "pistácie": "01.1.6.8.5",
+      "slunečnicová semínka": "01.1.6.8.9",
+      "dýňová semínka": "01.1.6.8.9",
+      "lněné semínko": "01.1.6.8.9",
+      "chia semínka": "01.1.6.8.9",
+      "sušené ovoce": "01.1.6.7.9",
+      "rozinky": "01.1.6.7.1",
+      "sušené švestky": "01.1.6.7.2",
+      "brusinky sušené": "01.1.6.7.9",
+      "kompot": "01.1.6.9.2",
+      "mražené ovoce": "01.1.6.9.9",
+      "ovocné pyré": "01.1.6.9.3"
+     }
     },
     {
      "id": "zelenina",
@@ -744,7 +1076,40 @@
        "coicop": "01.171"
       },
       "jarní cibulka"
-     ]
+     ],
+     "c5": {
+      "cibule": "01.1.7.4.3",
+      "česnek": "01.1.7.4.2",
+      "mrkev": "01.1.7.4.1",
+      "petržel": "01.1.7.4.9",
+      "celer": "01.1.7.4.9",
+      "pórek": "01.1.7.4.4",
+      "kedlubna": "01.1.7.4.9",
+      "ředkvičky": "01.1.7.4.9",
+      "řepa": "01.1.7.4.9",
+      "zázvor": "01.1.7.4.9",
+      "žampiony": "01.1.7.4.5",
+      "houby": "01.1.7.4.5",
+      "hlíva": "01.1.7.4.5",
+      "rajčata": "01.1.7.2.4",
+      "cherry rajčata": "01.1.7.2.4",
+      "okurka": "01.1.7.2.2",
+      "paprika": "01.1.7.2.1",
+      "cuketa": "01.1.7.2.5",
+      "lilek": "01.1.7.2.3",
+      "dýně": "01.1.7.2.5",
+      "chilli paprička": "01.1.7.2.1",
+      "salát": "01.1.7.1.4",
+      "ledový salát": "01.1.7.1.4",
+      "rukola": "01.1.7.1.4",
+      "špenát": "01.1.7.1.5",
+      "zelí": "01.1.7.1.2",
+      "brokolice": "01.1.7.1.3",
+      "květák": "01.1.7.1.3",
+      "kapusta": "01.1.7.1.2",
+      "polníček": "01.1.7.1.4",
+      "jarní cibulka": "01.1.7.4.4"
+     }
     },
     {
      "id": "brambory",
@@ -754,7 +1119,12 @@
       "brambory",
       "rané brambory",
       "batáty"
-     ]
+     ],
+     "c5": {
+      "brambory": "01.1.7.5.1",
+      "rané brambory": "01.1.7.5.1",
+      "batáty": "01.1.7.5.2"
+     }
     },
     {
      "id": "lusteniny",
@@ -767,7 +1137,15 @@
       "cizrna",
       "hrách",
       "sója"
-     ]
+     ],
+     "c5": {
+      "čočka": "01.1.7.6.4",
+      "červená čočka": "01.1.7.6.4",
+      "fazole": "01.1.7.6.1",
+      "cizrna": "01.1.7.6.3",
+      "hrách": "01.1.7.6.5",
+      "sója": "01.1.7.6.9"
+     }
     },
     {
      "id": "mrazena-zelenina",
@@ -781,7 +1159,16 @@
       "hranolky",
       "americké brambory",
       "krokety"
-     ]
+     ],
+     "c5": {
+      "mražená zelenina": "01.1.7.8.0",
+      "zeleninová směs mražená": "01.1.7.8.0",
+      "hrášek mražený": "01.1.7.8.0",
+      "špenát mražený": "01.1.7.8.0",
+      "hranolky": "01.1.7.8.0",
+      "americké brambory": "01.1.7.8.0",
+      "krokety": "01.1.7.8.0"
+     }
     },
     {
      "id": "zeleninove-konzervy",
@@ -801,7 +1188,22 @@
       "chipsy",
       "brambůrky",
       "tyčinky bramborové"
-     ]
+     ],
+     "c5": {
+      "kukuřice konzerva": "01.1.7.9.2",
+      "fazole konzerva": "01.1.7.9.2",
+      "sterilované okurky": "01.1.7.9.2",
+      "kyselé zelí": "01.1.7.9.2",
+      "olivy": "01.1.7.9.3",
+      "rajčatový protlak": "01.1.7.9.2",
+      "drcená rajčata": "01.1.7.9.2",
+      "lečo": "01.1.7.9.2",
+      "hummus": "01.1.7.9.9",
+      "sušená rajčata": "01.1.7.9.9",
+      "chipsy": "01.1.7.9.9",
+      "brambůrky": "01.1.7.9.9",
+      "tyčinky bramborové": "01.1.7.9.9"
+     }
     },
     {
      "id": "cukr-dzemy",
@@ -836,7 +1238,19 @@
        "n": "javorový sirup",
        "coicop": "01.183"
       }
-     ]
+     ],
+     "c5": {
+      "cukr": "01.1.8.1.2",
+      "krupicový cukr": "01.1.8.1.2",
+      "moučkový cukr": "01.1.8.1.2",
+      "třtinový cukr": "01.1.8.1.1",
+      "sladidlo": "01.1.8.2.0",
+      "med": "01.1.8.3.1",
+      "džem": "01.1.8.3.9",
+      "marmeláda": "01.1.8.3.9",
+      "povidla": "01.1.8.3.9",
+      "javorový sirup": "01.1.8.3.9"
+     }
     },
     {
      "id": "cokolada",
@@ -879,7 +1293,24 @@
        "n": "marshmallow",
        "coicop": "01.189"
       }
-     ]
+     ],
+     "c5": {
+      "čokoláda": "01.1.8.5.1",
+      "mléčná čokoláda": "01.1.8.5.1",
+      "hořká čokoláda": "01.1.8.5.1",
+      "čokoládová tyčinka": "01.1.8.5.9",
+      "bonboniéra": "01.1.8.5.9",
+      "pralinky": "01.1.8.5.9",
+      "kakao": "01.1.8.5.3",
+      "lískooříšková pomazánka": "01.1.8.5.9",
+      "bonbony": "01.1.8.9.9",
+      "želé bonbony": "01.1.8.9.9",
+      "lízátko": "01.1.8.9.9",
+      "žvýkačky": "01.1.8.9.9",
+      "karamely": "01.1.8.9.9",
+      "müsli tyčinka": "01.1.8.9.9",
+      "marshmallow": "01.1.8.9.9"
+     }
     },
     {
      "id": "zmrzlina",
@@ -891,7 +1322,14 @@
       "kornout",
       "sorbet",
       "mražený krém"
-     ]
+     ],
+     "c5": {
+      "zmrzlina": "01.1.8.6.0",
+      "nanuk": "01.1.8.6.0",
+      "kornout": "01.1.8.6.0",
+      "sorbet": "01.1.8.6.0",
+      "mražený krém": "01.1.8.6.0"
+     }
     },
     {
      "id": "hotova-jidla",
@@ -912,7 +1350,23 @@
       "hotový salát",
       "pelmeně",
       "mražené knedlíky"
-     ]
+     ],
+     "c5": {
+      "pizza": "01.1.9.1.4",
+      "mražená pizza": "01.1.9.1.4",
+      "hotové jídlo": "01.1.9.1.9",
+      "lasagne hotové": "01.1.9.1.1",
+      "instantní polévka": "01.1.9.1.6",
+      "polévka": "01.1.9.1.6",
+      "instantní nudle": "01.1.9.1.1",
+      "bageta balená": "01.1.9.1.4",
+      "sendvič": "01.1.9.1.4",
+      "wrap": "01.1.9.1.4",
+      "sushi": "01.1.9.1.2",
+      "hotový salát": "01.1.9.1.3",
+      "pelmeně": "01.1.9.1.1",
+      "mražené knedlíky": "01.1.9.1.1"
+     }
     },
     {
      "id": "ochucovadla",
@@ -971,7 +1425,31 @@
        "n": "vanilka",
        "coicop": "01.194"
       }
-     ]
+     ],
+     "c5": {
+      "sůl": "01.1.9.3.1",
+      "ocet": "01.1.9.3.9",
+      "kečup": "01.1.9.3.9",
+      "hořčice": "01.1.9.3.9",
+      "majonéza": "01.1.9.3.9",
+      "tatarská omáčka": "01.1.9.3.9",
+      "sójová omáčka": "01.1.9.3.9",
+      "pesto": "01.1.9.3.9",
+      "dresink": "01.1.9.3.9",
+      "salsa": "01.1.9.3.9",
+      "bujón": "01.1.9.3.9",
+      "worcester": "01.1.9.3.9",
+      "koření": "01.1.9.4.0",
+      "pepř": "01.1.9.4.0",
+      "paprika mletá": "01.1.9.4.0",
+      "kmín": "01.1.9.4.0",
+      "majoránka": "01.1.9.4.0",
+      "oregano": "01.1.9.4.0",
+      "bazalka": "01.1.9.4.0",
+      "skořice": "01.1.9.4.0",
+      "kari": "01.1.9.4.0",
+      "vanilka": "01.1.9.4.0"
+     }
     },
     {
      "id": "ostatni-potraviny",
@@ -986,7 +1464,17 @@
       "jedlá soda",
       "kakao na pečení",
       "polevy"
-     ]
+     ],
+     "c5": {
+      "droždí": "01.1.9.9.0",
+      "prášek do pečiva": "01.1.9.9.0",
+      "vanilkový cukr": "01.1.9.9.0",
+      "puding prášek": "01.1.9.9.0",
+      "želatina": "01.1.9.9.0",
+      "jedlá soda": "01.1.9.9.0",
+      "kakao na pečení": "01.1.9.9.0",
+      "polevy": "01.1.9.9.0"
+     }
     }
    ]
   },
@@ -1009,7 +1497,14 @@
        "n": "kojenecká voda",
        "coicop": "01.192"
       }
-     ]
+     ],
+     "c5": {
+      "minerální voda": "01.2.5.0.0",
+      "perlivá voda": "01.2.5.0.0",
+      "neperlivá voda": "01.2.5.0.0",
+      "jemně perlivá voda": "01.2.5.0.0",
+      "kojenecká voda": "01.1.9.2.9"
+     }
     },
     {
      "id": "limonady",
@@ -1026,7 +1521,16 @@
        "n": "sirup",
        "coicop": "01.290"
       }
-     ]
+     ],
+     "c5": {
+      "limonáda": "01.2.6.0.0",
+      "cola": "01.2.6.0.0",
+      "kofola": "01.2.6.0.0",
+      "tonik": "01.2.6.0.0",
+      "ochucená voda": "01.2.6.0.0",
+      "ledový čaj": "01.2.6.0.0",
+      "sirup": "01.2.9.0.0"
+     }
     },
     {
      "id": "dzusy",
@@ -1040,7 +1544,16 @@
       "smoothie",
       "mošt",
       "fresh"
-     ]
+     ],
+     "c5": {
+      "džus": "01.2.1.0.0",
+      "pomerančový džus": "01.2.1.0.0",
+      "jablečný džus": "01.2.1.0.0",
+      "nektar": "01.2.1.0.0",
+      "smoothie": "01.2.1.0.0",
+      "mošt": "01.2.1.0.0",
+      "fresh": "01.2.1.0.0"
+     }
     },
     {
      "id": "kava",
@@ -1053,7 +1566,15 @@
       "instantní káva",
       "kávové kapsle",
       "cikorka"
-     ]
+     ],
+     "c5": {
+      "káva": "01.2.2.0.1",
+      "zrnková káva": "01.2.2.0.1",
+      "mletá káva": "01.2.2.0.1",
+      "instantní káva": "01.2.2.0.1",
+      "kávové kapsle": "01.2.2.0.1",
+      "cikorka": "01.2.2.0.2"
+     }
     },
     {
      "id": "caj",
@@ -1066,7 +1587,15 @@
       "ovocný čaj",
       "bylinný čaj",
       "matcha"
-     ]
+     ],
+     "c5": {
+      "čaj": "01.2.3.0.9",
+      "černý čaj": "01.2.3.0.2",
+      "zelený čaj": "01.2.3.0.1",
+      "ovocný čaj": "01.2.3.0.9",
+      "bylinný čaj": "01.2.3.0.9",
+      "matcha": "01.2.3.0.1"
+     }
     },
     {
      "id": "energy",
@@ -1077,7 +1606,13 @@
       "iontový nápoj",
       "proteinový nápoj",
       "kombucha"
-     ]
+     ],
+     "c5": {
+      "energetický nápoj": "01.2.9.0.0",
+      "iontový nápoj": "01.2.9.0.0",
+      "proteinový nápoj": "01.2.9.0.0",
+      "kombucha": "01.2.9.0.0"
+     }
     },
     {
      "id": "kakao-napoje",
@@ -1087,7 +1622,12 @@
       "kakao nápoj",
       "mléčný nápoj",
       "ochucené mléko"
-     ]
+     ],
+     "c5": {
+      "kakao nápoj": "01.1.4.7.0",
+      "mléčný nápoj": "01.1.4.7.0",
+      "ochucené mléko": "01.1.4.7.0"
+     }
     },
     {
      "id": "rostlinne-napoje",
@@ -1099,7 +1639,14 @@
       "mandlový nápoj",
       "rýžový nápoj",
       "kokosový nápoj"
-     ]
+     ],
+     "c5": {
+      "ovesný nápoj": "01.2.9.0.0",
+      "sójový nápoj": "01.2.9.0.0",
+      "mandlový nápoj": "01.2.9.0.0",
+      "rýžový nápoj": "01.2.9.0.0",
+      "kokosový nápoj": "01.2.9.0.0"
+     }
     }
    ]
   },
@@ -1123,7 +1670,10 @@
       },
       "radler",
       "ipa"
-     ]
+     ],
+     "c5": {
+      "nealkoholické pivo": "01.2.9.0.0"
+     }
     },
     {
      "id": "vino",
@@ -2031,7 +2581,14 @@
       "příkrm",
       "dětská kaše",
       "dětský přesnídávkový sáček"
-     ]
+     ],
+     "c5": {
+      "dětská výživa": "01.1.9.2.3",
+      "kojenecké mléko": "01.1.9.2.1",
+      "příkrm": "01.1.9.2.3",
+      "dětská kaše": "01.1.9.2.2",
+      "dětský přesnídávkový sáček": "01.1.9.2.3"
+     }
     },
     {
      "id": "detska-kosmetika",
