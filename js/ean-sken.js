@@ -1,4 +1,4 @@
-// FinanceFlow · v11.32 · ean-sken.js · 2026-10-06
+// FinanceFlow · v11.40 · ean-sken.js · 2026-10-07
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -318,6 +318,7 @@ async function eanSvetlo() {
 function eanZavri() {
   eanStopKamery();
   const o = document.getElementById('eanOkno'); if (o) o.remove();
+  if (typeof eanNaskenovaneKresli === 'function') setTimeout(eanNaskenovaneKresli, 0);   // S25
 }
 
 // ── výsledek ──
@@ -344,7 +345,9 @@ function eanKartaHTML(p, ean) {
       <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${ns}${nova}${stitky}</div>
     </div>
   </div>${(p.nutriceObal || p.nutrice) ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
-    <div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 g${p.nutriceObal ? ' <span style="font-weight:500;color:#a8aec8">· z tvé fotky obalu</span>' : ''}</div>${eanNutriceHTML(p.nutriceObal || p.nutrice)}</div>` : ''}`;
+    <div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 g${p.nutriceObal ? ' <span style="font-weight:500;color:#a8aec8">· z tvé fotky obalu</span>' : ''}</div>${eanNutriceHTML(p.nutriceObal || p.nutrice)}</div>` : ''}${(p.slozeniObal || p.slozeni) ? `<details style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px">
+    <summary style="font-size:.74rem;font-weight:700;cursor:pointer">Složení${p.slozeniObal ? ' <span style="font-weight:500;color:#a8aec8">· z fotky obalu</span>' : ''}</summary>
+    <div style="font-size:.74rem;color:#c9cede;line-height:1.5;margin-top:6px">${escHtml(p.slozeniObal || p.slozeni)}</div></details>` : ''}`;
 }
 window.eanKartaHTML = eanKartaHTML;
 
@@ -358,6 +361,7 @@ async function eanNalezen(kod) {
   try {
     const d = await eanDotaz({ ean });
     _eanStav.vysledek = { ean, produkt: d.produkt || null };
+    eanZapamatuj(ean);   // S25: naskenovaný výrobek zůstane v seznamu i po zavření okna
     eanZprava(d.produkt && d.produkt.stav === 'nalezeno' ? '✅ Nalezeno' + (d.produkt.zdroj ? ' · ' + escHtml(d.produkt.zdroj) : '') : '🤷 Kód je platný, výrobek zatím nikdo nezapsal.');
     if (d.produkt) _eanProdukty[ean] = d.produkt;
     const volne = !!(_eanStav.cil && _eanStav.cil.volne);
@@ -541,6 +545,74 @@ Object.assign(window, { eanNactiMojeNazvy, eanZdrojNazvu, eanNazvyHTML, eanNazev
 //  (seznam položek bez kódu, s hledáním). Výrobek se do komunity uloží už při
 //  skenu; přiřazení vytvoří spojení „obchod + zkratka → EAN" jako v editoru.
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (Milan): NASKENOVANÉ VÝROBKY – po zavření okna skeneru nic nezmizí.
+//  Seznam posledních 40 kódů (uiCfg.eanSken) v Analýze účtenek → Skenovat a v Mapě
+//  položek. Klepnutí otevře výrobek (název, značka, Nutri-Score, živiny, složení)
+//  a tlačítko „Přiřadit k položce z účtenky“ – i dny po skenu.
+// ══════════════════════════════════════════════════════════════════════
+function eanZapamatuj(ean) {
+  if (typeof S === 'undefined' || !ean) return;
+  S.uiCfg = S.uiCfg || {};
+  const a = (S.uiCfg.eanSken || []).filter(x => x && x.e !== ean);
+  a.unshift({ e: ean, k: Date.now() });
+  S.uiCfg.eanSken = a.slice(0, 40);
+  if (typeof save === 'function') save();
+  setTimeout(eanNaskenovaneKresli, 0);
+}
+//  Čistá funkce: naskenované kódy + zda už jsou přiřazené k položce některé účtenky
+function eanNaskenovane(D) {
+  const pri = new Set();
+  ((D || {}).receipts || []).forEach(r => (r.items || []).forEach(it => { if (it && it.ean) pri.add(it.ean); }));
+  return (((D || {}).uiCfg || {}).eanSken || []).filter(x => x && x.e).map(x => ({ ean: x.e, kdy: x.k || 0, prirazeno: pri.has(x.e) }));
+}
+function eanNaskenovaneOdeber(ean) {
+  S.uiCfg = S.uiCfg || {}; S.uiCfg.eanSken = (S.uiCfg.eanSken || []).filter(x => x && x.e !== ean); save(); eanNaskenovaneKresli();
+}
+function eanNaskenovaneHTML(D) {
+  const l = eanNaskenovane(D); if (!l.length) return '';
+  const fmtD = t => t ? new Date(t).toLocaleDateString('cs-CZ') : '';
+  const nep = l.filter(x => !x.prirazeno).length;
+  return `<details ${nep ? 'open' : ''} style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+    <summary style="cursor:pointer;font-weight:700;font-size:.84rem;color:#60a5fa">📷 Naskenované výrobky (${l.length})${nep ? ` <span style="color:#fbbf24;font-weight:500;font-size:.74rem">· ${nep} nepřiřazen${nep === 1 ? 'ý' : nep < 5 ? 'é' : 'ých'}</span>` : ''}</summary>
+    <div style="font-size:.7rem;color:#a8aec8;margin:4px 0 6px">Klepni na výrobek – uvidíš živiny i složení a můžeš ho přiřadit k položce z účtenky.</div>
+    ${l.map(x => { const p = eanProduktZCache(x.ean); const n = p && p.stav === 'nalezeno' ? (eanNazevVyrobku(p, x.ean) || p.nazev) : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
+        ${p && p.foto ? `<img src="${escHtml(p.foto)}" alt="" style="width:34px;height:34px;object-fit:contain;background:#fff;border-radius:6px;flex-shrink:0">` : '<span style="width:34px;text-align:center">▮▮</span>'}
+        <div onclick="eanOtevriNaskenovany('${escHtml(x.ean)}')" role="button" style="flex:1;min-width:0;cursor:pointer">
+          <div style="font-size:.8rem;font-weight:600;overflow-wrap:anywhere">${escHtml(n || 'Kód ' + x.ean)}</div>
+          <div style="font-size:.68rem;color:#a8aec8">${[p && p.znacka ? escHtml(p.znacka) : '', fmtD(x.kdy), x.prirazeno ? '<span style="color:var(--income)">✓ přiřazeno</span>' : '<span style="color:#fbbf24">nepřiřazeno</span>'].filter(Boolean).join(' · ')}</div>
+        </div>
+        ${p && p.nutriscore ? `<span style="background:${EAN_NUTRI_BARVA[p.nutriscore]};color:#fff;font-weight:800;border-radius:5px;padding:1px 6px;font-size:.66rem">${escHtml(String(p.nutriscore).toUpperCase())}</span>` : ''}
+        <button class="btn btn-sm" title="Odebrat ze seznamu" style="font-size:.66rem;padding:2px 7px" onclick="eanNaskenovaneOdeber('${escHtml(x.ean)}')">✕</button>
+      </div>`; }).join('')}
+  </details>`;
+}
+//  Vyplní všechny boxy .eanNaskBox (Skenovat i Mapa položek); názvy dotáhne z databáze.
+async function eanNaskenovaneKresli() {
+  if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+  const boxy = document.querySelectorAll('.eanNaskBox'); if (!boxy.length || typeof S === 'undefined') return;
+  const kresli = () => { const h = eanNaskenovaneHTML(S); boxy.forEach(b => { b.innerHTML = h; }); };
+  kresli();
+  try { const n = await eanNactiVse(eanNaskenovane(S).map(x => x.ean)); if (n) kresli(); } catch (e) {}
+}
+//  Otevře uložený výrobek v okně skeneru (bez kamery) – karta, živiny, složení, přiřazení.
+async function eanOtevriNaskenovany(ean) {
+  _eanStav.cil = { volne: true, raw: '', obchod: '' }; _eanStav.i = -1;
+  eanOkno();
+  document.getElementById('eanPolozka').innerHTML = 'Naskenovaný výrobek. Můžeš ho přiřadit k položce z některé své účtenky.';
+  document.getElementById('eanVysledek').innerHTML = '';
+  eanZprava('⏳ Načítám výrobek ' + escHtml(ean) + '…');
+  try {
+    let p = _eanProdukty[ean];
+    if (!p) { const d = await eanDotaz({ ean }); p = d.produkt || null; if (p) _eanProdukty[ean] = p; }
+    _eanStav.vysledek = { ean, produkt: p };
+    eanZprava(p && p.stav === 'nalezeno' ? '' : '🤷 Kód je platný, výrobek zatím nikdo nezapsal.');
+    eanNalezenZobraz(ean, p);
+  } catch (e) { eanZprava('⚠️ ' + escHtml(e.message || 'Načtení selhalo'), true); }
+}
+Object.assign(window, { eanZapamatuj, eanNaskenovane, eanNaskenovaneOdeber, eanNaskenovaneHTML, eanNaskenovaneKresli, eanOtevriNaskenovany });
+
 function eanSkenujVolne() {
   if (typeof eanNactiMojeNazvy === 'function') eanNactiMojeNazvy();
   eanNactiAliasy();

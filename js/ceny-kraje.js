@@ -1,4 +1,4 @@
-// FinanceFlow · v11.39 · ceny-kraje.js · 2026-10-07
+// FinanceFlow · v11.40 · ceny-kraje.js · 2026-10-07
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan, katalog krok 4): SDÍLENÉ CENY PO KRAJÍCH
 //  Při uložení nové účtenky se u potravin, nápojů, alkoholu, tabáku a drogerie
@@ -119,7 +119,7 @@ async function cenyDoKarty(i) {
       return;
     }
     const moje = posl.cena;
-    el.innerHTML = `<div style="font-size:.7rem;color:#a8aec8;margin-bottom:4px">${escHtml(posl.kraj)} · ${escHtml(s.mesic.split('-').reverse().join('/'))}${admin && s.radky.some(x => x.lidi < CENY_MIN_LIDI) ? ' · <span style="color:#fbbf24">admin vidí i pod prahem</span>' : ''}</div>`
+    el.innerHTML = `<div style="font-size:.7rem;color:#a8aec8;margin-bottom:4px">${escHtml(posl.kraj)} · ${escHtml(s.mesic.split('-').reverse().join('/'))}</div>`
       + s.radky.map((x, k) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:.78rem;padding:3px 0;border-top:1px solid var(--border)">
           <span>${k === 0 && s.radky.length > 1 ? '🏆 ' : ''}${escHtml(x.obchod.replace(/_/g, ' '))} <span style="color:#a8aec8;font-size:.68rem">${x.lidi} ${x.lidi === 1 ? 'člověk' : x.lidi < 5 ? 'lidé' : 'lidí'}</span></span>
           <span style="white-space:nowrap"><b>${kc(x.prum)}</b>${x.j !== 'ks' ? '/' + x.j : ''} <span style="color:#a8aec8;font-size:.68rem">${x.min !== x.max ? kc(x.min) + '–' + kc(x.max) : ''}</span></span></div>`).join('')

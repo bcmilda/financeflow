@@ -1,4 +1,4 @@
-// FinanceFlow · v11.39 · admin.js · 2026-10-07
+// FinanceFlow · v11.40 · admin.js · 2026-10-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,20 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.40',
+    datum: '2026-10-07',
+    zmeny: [
+      "🧭 ZDRAŽOVÁNÍ → PODLE VÝROBKŮ (Milan) · cesta: Analýza účtenek → 💹 Zdražování. U baleného zboží nově i cena za kus (Kč/ks první → poslední měsíc) nad cenou za kg/l. Klepnutí na výrobek rozbalí jednotlivé nákupy (datum, zkratka z účtenky, obchod, Kč/ks, Kč/kg) a medián po obchodech. Podkategorie (Pečivo, Zelenina…) žlutě. Vysvětlivka: modrá křivka = vývoj ceny po měsících, vpravo změna mezi prvním a posledním měsícem, „1 měs.“ = data jen z jednoho měsíce; podmínky zobrazení výrobku.",
+      "🔍 SLEDOVÁNÍ CENY · cesta: Zdražování → nad kartami pole „🔍 Najít položku v seznamu…“ (filtruje karty Shrinkflation, kg/l i Cenové změny podle názvu). Trvalý výběr dál přes „Sledované položky“.",
+      "🐛 Rozdíl ceny v časové ose: „↑ 4,00 Kč“ vs „↑ 3 Kč“ – chyba plovoucí čárky, rozdíl se nově zaokrouhlí (i u ceny za kg).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Nadpisy sekcí barevně (modře, tučně). Spotřební koš ČSÚ už není dvakrát: když má stejný kód jako COICOP, ukáže se jen „Váha v koši ČSÚ“ (‰ = Kč z každých 1 000 Kč útrat domácnosti, s vysvětlením); jiný kód → celé zařazení koše.",
+      "📷 NASKENOVANÉ VÝROBKY NEZMIZÍ (Milan) · cesta: Analýza účtenek → 📸 Skenovat (pod tlačítkem čárového kódu) a 🗺️ Mapa položek. Každý naskenovaný kód se zapamatuje (posledních 40, uiCfg.eanSken), s fotkou, značkou, Nutri-Score a stavem ✓ přiřazeno / nepřiřazeno. Klepnutí otevře výrobek (karta, živiny, složení, název) s tlačítkem „🔗 Přiřadit k položce z účtenky“ – i dny po skenu. ✕ odebere ze seznamu.",
+      "🧾 Okno skeneru: karta výrobku ukazuje i složení (rozbalovací, z databáze nebo fotky obalu).",
+      "📊 Ceny v kraji: odstraněna poznámka „admin vidí i pod prahem“.",
+      "🧪 tools/smoke_zdrazovani_karta.js (15).",
+    ]
+  },
   {
     verze: 'v11.39',
     datum: '2026-10-07',

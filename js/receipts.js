@@ -1,4 +1,4 @@
-// FinanceFlow · v11.39 · receipts.js · 2026-10-07
+// FinanceFlow · v11.40 · receipts.js · 2026-10-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -451,6 +451,7 @@ function renderUctenky() {
 
 function buildScanTab(receipts, totalSpent) {
   setTimeout(uctenkyKvotaObnov, 0);
+  setTimeout(() => { if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli(); }, 0);   // S25
   return `<div id="utab-scan-content">
     <div id="uctenkyKvota"></div>
     <!-- S24 (v11.25, Milan): samostatné skenování čárového kódu výrobku -->
@@ -459,6 +460,7 @@ function buildScanTab(receipts, totalSpent) {
       <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)"><b>Čárový kód výrobku</b><br><span style="color:#a8aec8">Naskenuj obal kdykoli – uvidíš co to je, opravíš český název a přiřadíš ho k položce z účtenky.</span></span>
       <button class="btn btn-sm" onclick="if(typeof eanSkenujVolne==='function')eanSkenujVolne()">📷 Skenovat čárový kód</button>
     </div>
+    <div class="eanNaskBox"></div>
     <div class="card" style="margin-bottom:14px"><div class="card-body">
       <div style="font-size:.8rem;color:var(--text2);margin-bottom:14px">
         Claude přečte účtenku, rozpozná obchod a položky. Jedním kliknutím přidáte transakci.<br>
@@ -1475,7 +1477,8 @@ function taxCenyVyvoj(items, D) {
     pokryto += castka;
     const jc = taxJednotkovaCena(it); if (!jc) return;
     const g = skup[m.tax.id] || (skup[m.tax.id] = { id: m.tax.id, nazev: m.tax.nazev, podNazev: m.tax.podNazev, ikona: m.tax.ikona, nakupy: [] });
-    g.nakupy.push({ datum: it.date || '', obchod: it.store || '', raw: it.name || '', cena: jc.cena, j: jc.j });
+    const vaz = it.unit === 'kg' || it.unit === 'l';   // S25: u kusového zboží i cena za kus
+    g.nakupy.push({ datum: it.date || '', obchod: it.store || '', raw: it.name || '', cena: jc.cena, j: jc.j, cenaKs: vaz ? null : (parseFloat(it.price) || null), baleni: jc.baleni ? jc.baleni + ' ' + jc.bj : '' });
   });
   const vysl = Object.values(skup).map(g => {
     //  Jen převažující jednotka (kg × ks se nesčítá).
@@ -1488,7 +1491,11 @@ function taxCenyVyvoj(items, D) {
     const prvni = mesice[0].cena, posledni = mesice[mesice.length - 1].cena;
     const ob = {}; n.forEach(x => { if (x.obchod) (ob[x.obchod] = ob[x.obchod] || []).push(x.cena); });
     const obchody = Object.entries(ob).map(([o, c]) => ({ obchod: o, cena: _taxMedian(c), pocet: c.length })).sort((a, b) => a.cena - b.cena);
-    return { ...g, nakupy: undefined, j, pocet: n.length, mesice, prvni, posledni,
+    //  S25 (Milan): Kč/ks vedle Kč/kg – medián za první a poslední měsíc
+    const mesKs = {}; n.forEach(x => { if (x.cenaKs) (mesKs[x.datum.slice(0, 7)] = mesKs[x.datum.slice(0, 7)] || []).push(x.cenaKs); });
+    const kk = Object.keys(mesKs).sort();
+    const prvniKs = kk.length ? _taxMedian(mesKs[kk[0]]) : null, posledniKs = kk.length ? _taxMedian(mesKs[kk[kk.length - 1]]) : null;
+    return { ...g, nakupy: n, j, pocet: n.length, mesice, prvni, posledni, prvniKs, posledniKs,
       zmena: mesice.length >= 2 && prvni > 0 ? Math.round((posledni - prvni) / prvni * 100) : null,
       obchody, zkratek: new Set(n.map(x => (typeof normName === 'function') ? normName(x.raw) : x.raw)).size };
   }).filter(Boolean).sort((a, b) => (Math.abs(b.zmena || 0) - Math.abs(a.zmena || 0)) || b.pocet - a.pocet);
@@ -1528,18 +1535,29 @@ function taxZdrazovaniHTML(items) {
   const fmtC = (c, j) => (c >= 100 ? Math.round(c).toLocaleString('cs-CZ') : c.toFixed(2).replace('.', ',')) + ' Kč/' + j;
   const spark = ms => { if (ms.length < 2) return ''; const mn = Math.min(...ms.map(x => x.cena)), mx = Math.max(...ms.map(x => x.cena)), r = (mx - mn) || 1;
     return `<svg viewBox="0 0 60 18" width="60" height="18" style="flex-shrink:0"><polyline fill="none" stroke="#60a5fa" stroke-width="1.6" points="${ms.map((x, i) => (i * 60 / (ms.length - 1)).toFixed(1) + ',' + (16 - (x.cena - mn) / r * 14).toFixed(1)).join(' ')}"/></svg>`; };
-  const radky = v.polozky.slice(0, 20).map(p => {
+  const fmtKs = c => c.toFixed(2).replace('.', ',') + ' Kč/ks';
+  const radky = v.polozky.slice(0, 20).map((p, pi) => {
     const nej = p.obchody.length > 1 ? p.obchody[0] : null, draz = p.obchody.length > 1 ? p.obchody[p.obchody.length - 1] : null;
-    return `<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+    //  S25: klik = rozbalit nákupy (datum, obchod, zkratka, Kč/ks, Kč/kg) a ceny po obchodech
+    const det = `<div id="taxDet${pi}" style="display:none;padding:4px 0 10px 32px">
+      ${p.nakupy.slice().reverse().map(x => `<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:.72rem;padding:3px 0;border-top:1px solid var(--border)">
+        <span style="min-width:74px;color:#a8aec8">${escHtml(x.datum.split('-').reverse().join('. '))}</span>
+        <span style="flex:1;min-width:120px;font-family:monospace;overflow-wrap:anywhere">${escHtml(x.raw)}</span>
+        <span style="color:#a8aec8">${escHtml(x.obchod)}</span>
+        ${x.cenaKs ? `<b style="white-space:nowrap">${fmtKs(x.cenaKs)}</b>` : ''}<span style="white-space:nowrap;color:#c9cede">${fmtC(x.cena, x.j)}</span></div>`).join('')}
+      ${p.obchody.length > 1 ? `<div style="font-size:.7rem;color:#a8aec8;margin-top:5px">Medián po obchodech: ${p.obchody.map(o => escHtml(o.obchod) + ' ' + fmtC(o.cena, p.j)).join(' · ')}</div>` : ''}
+    </div>`;
+    return `<div onclick="var d=document.getElementById('taxDet${pi}');if(d)d.style.display=d.style.display==='none'?'block':'none'" style="cursor:pointer;display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:1.1rem">${escHtml(p.ikona)}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:.86rem;color:var(--text)">${escHtml(p.nazev.charAt(0).toLocaleUpperCase('cs') + p.nazev.slice(1))} <span style="font-weight:400;font-size:.68rem;color:#8b93ad">${escHtml(p.podNazev)}</span></div>
-        <div style="font-size:.72rem;color:#a8aec8">${fmtC(p.prvni, p.j)} → <b style="color:var(--text)">${fmtC(p.posledni, p.j)}</b> · ${p.pocet} nákupů${p.zkratek > 1 ? ' · ' + p.zkratek + ' různé zkratky' : ''}</div>
+        <div style="font-weight:700;font-size:.86rem;color:var(--text)">${escHtml(p.nazev.charAt(0).toLocaleUpperCase('cs') + p.nazev.slice(1))} <span style="font-weight:400;font-size:.68rem;color:#fbbf24">${escHtml(p.podNazev)}</span></div>
+        ${p.prvniKs != null && p.j !== 'ks' ? `<div style="font-size:.72rem;color:#a8aec8">${fmtKs(p.prvniKs)} → <b style="color:var(--text)">${fmtKs(p.posledniKs)}</b></div>` : ''}
+        <div style="font-size:.72rem;color:#a8aec8">${fmtC(p.prvni, p.j)} → <b style="color:var(--text)">${fmtC(p.posledni, p.j)}</b> · ${p.pocet} nákupů${p.zkratek > 1 ? ' · ' + p.zkratek + ' různé zkratky' : ''} <span style="color:#60a5fa">▾</span></div>
         ${nej && draz && draz.cena > nej.cena * 1.02 ? `<div style="font-size:.68rem;color:var(--income)">Nejlevněji ${escHtml(nej.obchod)} (${fmtC(nej.cena, p.j)}), o ${Math.round((1 - nej.cena / draz.cena) * 100)} % levněji než ${escHtml(draz.obchod)}</div>` : ''}
       </div>
       ${spark(p.mesice)}
-      <div style="text-align:right;min-width:52px;font-weight:800;font-size:.86rem;color:${p.zmena == null ? '#8b93ad' : p.zmena > 2 ? 'var(--expense)' : p.zmena < -2 ? 'var(--income)' : '#a8aec8'}">${p.zmena == null ? '1 měs.' : (p.zmena > 0 ? '↑' : p.zmena < 0 ? '↓' : '') + Math.abs(p.zmena) + ' %'}</div>
-    </div>`;
+      <div title="${p.zmena == null ? 'Zatím nákupy jen z 1 měsíce – změna se spočítá s dalším měsícem' : 'Změna ceny za ' + p.j + ' mezi prvním a posledním měsícem'}" style="text-align:right;min-width:52px;font-weight:800;font-size:.86rem;color:${p.zmena == null ? '#8b93ad' : p.zmena > 2 ? 'var(--expense)' : p.zmena < -2 ? 'var(--income)' : '#a8aec8'}">${p.zmena == null ? '1 měs.' : (p.zmena > 0 ? '↑' : p.zmena < 0 ? '↓' : '') + Math.abs(p.zmena) + ' %'}</div>
+    </div>${det}`;
   }).join('');
   const shHTML = sh.length ? `<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3)">
       <div style="font-weight:700;font-size:.82rem;margin-bottom:4px">📉 Shrinkflace napříč obchody</div>
@@ -1550,7 +1568,7 @@ function taxZdrazovaniHTML(items) {
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
       <div style="font-weight:700;font-size:.92rem">🧭 Podle výrobků</div>
       <div style="font-size:.7rem;color:#a8aec8">taxonomie pokrývá <b style="color:${v.pokryti >= 70 ? 'var(--income)' : v.pokryti >= 40 ? '#fbbf24' : 'var(--expense)'}">${v.pokryti} %</b> útraty z účtenek</div></div>
-    <div style="font-size:.72rem;color:#a8aec8;margin:4px 0 6px;line-height:1.45">Stejný výrobek z různých obchodů a pod různými zkratkami dohromady, srovnáno za kilo, litr nebo kus. Čím víc položek zařadíš v Mapě položek, tím přesnější.</div>
+    <div style="font-size:.72rem;color:#a8aec8;margin:4px 0 6px;line-height:1.45">Stejný výrobek z různých obchodů a pod různými zkratkami dohromady, srovnáno za kilo, litr nebo kus (u balených i cena za kus). Modrá křivka = vývoj ceny po měsících, vpravo změna mezi prvním a posledním měsícem („1 měs.“ = zatím data jen z jednoho měsíce). Klepni na výrobek pro jednotlivé nákupy. Zobrazí se výrobky aspoň se 2 nákupy, s gramáží v názvu nebo vážené, a zařazené v Mapě položek.</div>
     ${radky || '<div style="font-size:.78rem;color:#a8aec8;padding:6px 0">Zatím málo dat – potřeba aspoň 2 nákupy stejného výrobku s gramáží v názvu (nebo vážené zboží).</div>'}
     ${shHTML}
   </div></div>`;
@@ -1618,6 +1636,10 @@ function buildPricesTab(priceChanges, allItems) {
       ${stdItems.length ? `<span style="color:var(--text2)">${stdItems.length} cenových změn</span>` : ''}
     </div>`;
 
+    //  S25 (Milan): rychlé hledání v kartách (seznam se brzy zahltí); „Sledované položky“ výš je trvalý výběr
+    html += `<input type="search" placeholder="🔍 Najít položku v seznamu…" oninput="priceHledej(this.value)" autocomplete="off"
+      style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 11px;color:var(--text);font-size:.8rem;margin-bottom:12px">`;
+
     // ── Shrinkflation varování ──
     if(shrinkItems.length) {
       html += `<div style="padding:10px 14px;margin-bottom:14px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.3);border-radius:10px">
@@ -1638,7 +1660,7 @@ function buildPricesTab(priceChanges, allItems) {
 
       const timeline = p.history.map((h, i) => {
         const prev = i > 0 ? p.history[i-1].price : null;
-        const diff = prev !== null ? h.price - prev : 0;
+        const diff = prev !== null ? Math.round((h.price - prev) * 100) / 100 : 0;   // S25: bez „4,00“ vs „3“ z plovoucí čárky
         const diffStr = diff !== 0 ? `<span style="font-size:.7rem;color:${diff>0?'var(--expense)':'var(--income)'}">
           ${diff>0?'↑':'↓'} ${fmtP(Math.abs(diff))} Kč</span>` : '';
         const barW = range > 0 ? Math.round((h.price - minP) / range * 80) + 10 : 50;
@@ -1672,7 +1694,7 @@ function buildPricesTab(priceChanges, allItems) {
           </div>
           ${ud.history.map((h,i)=>{
             const prev = i>0?ud.history[i-1].pricePerUnit:null;
-            const diff = prev!==null?h.pricePerUnit-prev:0;
+            const diff = prev!==null?Math.round((h.pricePerUnit-prev)*100)/100:0;
             return `<div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:.76rem">
               <span style="min-width:76px;color:var(--text3)">${h.date||''}</span>
               <span style="font-weight:700;color:${diff>0?'var(--expense)':diff<0?'var(--income)':'var(--text)'}">${fmtP(h.pricePerUnit)} ${ud.unit}</span>
@@ -1692,7 +1714,7 @@ function buildPricesTab(priceChanges, allItems) {
           </div>
         </div>` : '';
 
-      return `<div class="card" style="margin-bottom:10px;border:1px solid ${highlight?'rgba(248,113,113,.4)':'var(--border)'}">
+      return `<div class="card price-card" data-pn="${escHtml(String(p.displayName||p.name).toLowerCase())}" style="margin-bottom:10px;border:1px solid ${highlight?'rgba(248,113,113,.4)':'var(--border)'}">
         <div style="padding:11px 14px;border-bottom:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
@@ -1728,6 +1750,12 @@ function buildPricesTab(priceChanges, allItems) {
   }
   return html + '</div>';
 }
+
+function priceHledej(q) {   // S25: filtr karet Zdražování podle názvu
+  q = String(q || '').toLowerCase().trim();
+  document.querySelectorAll('#utab-prices-content .price-card').forEach(el => { el.style.display = !q || (el.dataset.pn || '').includes(q) ? '' : 'none'; });
+}
+window.priceHledej = priceHledej;
 
 // ── v8.58 (TODO-147): Graf vývoje cen (SVG, osy + legenda + tooltip) ──
 // Compute: vybere top 5 položek s největší |změnou| a připraví body (datum→x, cena→y).
@@ -2197,6 +2225,7 @@ function switchUctenkyTab(tab, btn) {
     typeof loadCoicop==='function' ? loadCoicop() : null,   // S25: číselník CZ-COICOP
   ]).then(async ()=>{
     mapaUzivKresli();
+    if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();   // S25
     //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
     if(typeof eanNactiVse==='function') { const n = await eanNactiVse(_mapaUziv.map(z=>z.ean)); if(n) mapaUzivKresli(); }
   }).catch(()=>mapaUzivKresli());
@@ -2331,6 +2360,7 @@ function buildMapaTab(receipts) {
       <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:12px">
         Co doopravdy kupuješ: každá položka z účtenek zařazená do <b style="color:var(--text)">taxonomie výrobků</b>. Podle ní se počítají statistiky, zdražování a inflace. Klepni na položku pro kartu s podrobnostmi.
       </div>
+      <div class="eanNaskBox"></div>
       ${_mapaUziv.length ? `
       <div id="mapaUzivStat">${mapaUzivStatHTML()}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px" id="mapaUzivFiltry">${mapaUzivFiltryHTML()}</div>
@@ -2551,11 +2581,25 @@ function mapaCoicopHTML(code) {
 }
 window.mapaCoicopHTML = mapaCoicopHTML;
 
+//  S25 (Milan): koš ČSÚ jen jednou. Stejný kód jako COICOP (nebo jeho nadřazená úroveň) →
+//  jen řádek s váhou; jiný kód → celé zařazení koše. Váha ‰ = kolik z každých 1000 Kč
+//  výdajů průměrné domácnosti připadá na tuto skupinu (podíl v indexu inflace).
+function mapaKosRadek(pg, taxKod, radek) {
+  if (!pg || !pg.group) return '';
+  const kod = typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code;
+  const tk = taxKod && typeof coicopNorm === 'function' ? coicopNorm(taxKod) : '';
+  const w = pg.w ? String(Math.round(pg.w * 100) / 100).replace('.', ',') : '';
+  const vaha = w ? `<span title="Z každých 1 000 Kč výdajů průměrné domácnosti jde ${w} Kč na tuto skupinu – tak moc ovlivňuje inflaci.">${w} ‰</span>` : '';
+  if (tk && (tk === kod || tk.startsWith(kod + '.'))) return vaha ? radek('Váha v koši ČSÚ', vaha + ` <span style="color:#a8aec8">· ${pg.w.toFixed(2).replace('.', ',')} Kč z každých 1 000 Kč útrat</span>`) : '';
+  return radek('Spotřební koš ČSÚ', escHtml(kod + ' · ' + pg.group) + (vaha ? ` <span style="color:#a8aec8">· váha ${vaha}</span>` : ''));
+}
+window.mapaKosRadek = mapaKosRadek;
+
 function mapaUzivKartaHTML(i, produkt) {
   const z = _mapaUziv[i]; if(!z) return '';
   const p = produkt && produkt.stav === 'nalezeno' ? produkt : null;
   const D = getData();
-  const sekce = (t, obsah) => `<div style="margin-top:14px"><div style="font-size:.7rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${t}</div>${obsah}</div>`;
+  const sekce = (t, obsah) => `<div style="margin-top:14px"><div style="font-size:.72rem;color:#60a5fa;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${t}</div>${obsah}</div>`;   // S25: barevné nadpisy
   const radek = (l, v) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:.8rem;padding:3px 0"><span style="color:#a8aec8">${l}</span><span style="color:var(--text);text-align:right">${v}</span></div>`;
   const q = p && p.mnozstvi ? p.mnozstvi : (z.baleni ? { hodnota: z.baleni.m, jednotka: z.baleni.j } : ((typeof normQty === 'function') ? normQty(z.nazev) : null));
   const gram = q ? (q.hodnota >= 1000 && (q.jednotka==='g'||q.jednotka==='ml') ? (q.hodnota/1000).toLocaleString('cs-CZ') + (q.jednotka==='g'?' kg':' l') : q.hodnota + ' ' + q.jednotka) : '';
@@ -2579,7 +2623,7 @@ function mapaUzivKartaHTML(i, produkt) {
     if (typeof loadProductDB === 'function') loadProductDB();
     const pg = typeof productGroupLookup === 'function' ? productGroupLookup(z.nazev) : null;
     const extra = (stit ? radek('Štítek', `<span style="color:var(--income);font-style:italic">${escHtml(stit)}</span>`) : '')
-      + (pg && pg.group ? radek('Spotřební koš ČSÚ', escHtml((typeof pgKodCsu === 'function' ? pgKodCsu(pg.code) : pg.code) + ' · ' + pg.group) + (pg.w ? ` <span style="color:#a8aec8">· váha ${String(Math.round(pg.w * 100) / 100).replace('.', ',')} ‰</span>` : '')) : '');
+      + mapaKosRadek(pg, z.tax ? z.tax.coicop : '', radek);
     if (extra) zar = zar + extra; }
 
   // nákupy
