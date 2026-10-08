@@ -1,4 +1,4 @@
-// FinanceFlow · v11.46 · admin.js · 2026-10-08
+// FinanceFlow · v11.47 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.47',
+    datum: '2026-10-08',
+    zmeny: [
+      "Měsíční report (Premium): AI komentář – shrnutí měsíce, hodnocení, 3 postřehy, doporučení a komentář k výhledu. AI dostane jen spočítaná čísla (žádné transakce ani jména) a každé číslo v jejím textu appka ověří; text s neověřeným číslem nahradí výpočet appky",
+      "Report: uzavřený měsíc se okomentuje sám, běžící na tlačítko „✨ Napsat AI komentář“; komentář se uloží k měsíci a bez změny dat se znovu negeneruje; e-mailový report ho obsahuje taky",
+      "Worker: oprava tarifu – platící uživatelé a trial dostávali limity Free (worker četl jiná pole než appka ukládá)",
+    ]
+  },
   {
     verze: 'v11.46',
     datum: '2026-10-08',

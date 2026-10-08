@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.43 · 2026-10-07  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.47 · 2026-10-08  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -77,10 +77,10 @@ async function getFirebaseAdminToken(env) {
 // Limity dle ADR-041 (Free / Trial / Premium)
 const AI_LIMITS = {
   //  S24 (v11.16, Milan): Free = 3 naskenované účtenky měsíčně (dřív 15). Appka ukazuje „zbývá X ze 3".
-  free:    { receipt: 3,  bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1, ean_foto: 3 },   // S24 v11.24: ean_foto = fotka obalu / tabulky živin
-  trial:   { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 30 },
-  premium: { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 100 },
-  admin:   { receipt: 9999, bank_statement_text: 9999, chat: 9999, advisor_report: 9999, wish_url: 9999, price_alert: 9999, contact_form: 9999, ean_foto: 9999 },
+  free:    { receipt: 3,  bank_statement_text: 2,  chat: 20, advisor_report: 1, wish_url: 5,  price_alert: 5,  contact_form: 1, ean_foto: 3, report_ai: 0 },   // S24 v11.24: ean_foto = fotka obalu / tabulky živin
+  trial:   { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 30, report_ai: 5 },
+  premium: { receipt: 50, bank_statement_text: 5,  chat: 80, advisor_report: 5, wish_url: 15, price_alert: 15, contact_form: 3, ean_foto: 100, report_ai: 15 },
+  admin:   { receipt: 9999, bank_statement_text: 9999, chat: 9999, advisor_report: 9999, wish_url: 9999, price_alert: 9999, contact_form: 9999, ean_foto: 9999, report_ai: 9999 },
 };
 
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -90,13 +90,19 @@ async function getPremiumTier(uid, token, env) {
   try {
     const url = `${env.FIREBASE_DB_URL}/users/${uid}/premium.json`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (!data) return 'free';
-    const now = Date.now();
-    if (data.type === 'premium' && data.validUntil > now) return 'premium';
-    if (data.type === 'trial'   && data.trialEnd   > now) return 'trial';
-    return 'free';
+    return tierZPremium(await res.json());
   } catch (e) { return 'free'; }
+}
+//  S25 (v11.47): OPRAVA – appka, admin i Stripe webhook ukládají `premiumUntil` a `trialUntil`,
+//  worker ale četl `validUntil` a `trialEnd` → KAŽDÝ platící uživatel i trial dostal limity Free
+//  (třeba 3 účtenky měsíčně). Typ 'pro' se nepočítal vůbec. Stará jména polí zůstávají jako záloha.
+function tierZPremium(data) {
+  if (!data) return 'free';
+  const now = Date.now();
+  const doKdy = data.premiumUntil || data.validUntil || 0;
+  if ((data.type === 'premium' || data.type === 'pro') && doKdy > now) return 'premium';
+  if (data.type === 'trial' && (data.trialUntil || data.trialEnd || 0) > now) return 'trial';
+  return 'free';
 }
 
 async function checkAndIncrementQuota(uid, type, env) {
@@ -1033,6 +1039,142 @@ Vrať POUZE JSON pole bez dalšího textu: [{"i":0,"coicop":11,"skupina":"11.1"}
   return pole;
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.47, TODO-317 F3, Milan): AI KOMENTÁŘ MĚSÍČNÍHO REPORTU
+//  Appka pošle PŘEDPOČÍTANÁ čísla reportu (žádné transakce, jména ani e-mail). Claude
+//  napíše shrnutí, hodnocení, 3 postřehy, 2–3 doporučení a komentář k výhledu.
+//  AI čísla NEPOČÍTÁ – každé číslo v textu se ověří proti podkladům; text s číslem,
+//  které v podkladech není, se zahodí a appka ukáže text spočítaný pravidly.
+//  Jen Premium/trial (kvóta report_ai). Výsledek se uloží do users/{uid}/reportAI/{RRRR-MM}
+//  s otiskem podkladů – dokud se čísla nezmění, další otevření nic nestojí.
+// ══════════════════════════════════════════════════════════════════════
+const REPORT_AI_ZNAMKY = ['výborný', 'dobrý', 'průměrný', 'slabý', 'špatný'];
+//  Všechna čísla z podkladů (i z textů – „Mléko 1,5 %“) → seznam povolených hodnot.
+function reportAIPovolena(data) {
+  const out = [];
+  const projdi = v => {
+    if (typeof v === 'number' && isFinite(v)) out.push(Math.abs(v));
+    else if (typeof v === 'string') reportAICisla(v).forEach(c => out.push(c.v));
+    else if (Array.isArray(v)) v.forEach(projdi);
+    else if (v && typeof v === 'object') Object.values(v).forEach(projdi);
+  };
+  projdi(data);
+  return out;
+}
+//  Čísla v českém textu: „12 345 Kč“, „1,5 %“, „-3 200“, „12 tis.“ → [{v, pct, kc}]
+function reportAICisla(text) {
+  const out = [], re = /(\d{1,3}(?:[   ]\d{3})+|\d+)(?:[,.](\d+))?(\s*(?:%|tis\.?|mil\.?|Kč))?/g;
+  let m;
+  while ((m = re.exec(String(text || '')))) {
+    let v = parseFloat(m[1].replace(/[   ]/g, '') + (m[2] ? '.' + m[2] : ''));
+    const suf = (m[3] || '').trim();
+    if (/^tis/.test(suf)) v *= 1000; else if (/^mil/.test(suf)) v *= 1e6;
+    out.push({ v, pct: suf === '%', kc: suf === 'Kč' || /^(tis|mil)/.test(suf) });
+  }
+  return out;
+}
+//  Sedí každé číslo v textu? Volná jsou jen malá celá čísla bez jednotky (počty, dny) a roky.
+function reportAITextOk(text, povolena) {
+  return reportAICisla(text).every(c => {
+    if (!c.pct && !c.kc && Number.isInteger(c.v) && (c.v <= 31 || (c.v >= 1990 && c.v <= 2100))) return true;
+    const tol = a => c.pct ? 1 : Math.max(1, a * 0.02, c.v % 100 === 0 ? 50 : 0);
+    return povolena.some(a => Math.abs(c.v - a) <= tol(a));
+  });
+}
+function reportAIStr(v, max) { return String(v == null ? '' : v).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max); }
+//  Očistí a ověří výstup AI. Vrací { vysledek, vyrazeno }.
+function reportAIOver(j, data) {
+  const pov = reportAIPovolena(data);
+  const ok = t => !t || reportAITextOk(t, pov);
+  let vyrazeno = 0;
+  const v = { shrnuti: null, hodnoceni: null, postrehy: [], doporuceni: [], vyhled: null };
+  const sh = reportAIStr(j && j.shrnuti, 360);
+  if (sh) { if (ok(sh)) v.shrnuti = sh; else vyrazeno++; }
+  const h = j && j.hodnoceni;
+  if (h && REPORT_AI_ZNAMKY.includes(String(h.znamka || '').toLowerCase())) {
+    const proc = reportAIStr(h.proc, 160);
+    v.hodnoceni = { znamka: String(h.znamka).toLowerCase(), proc: ok(proc) ? proc : '' };
+    if (proc && !ok(proc)) vyrazeno++;
+  }
+  ((j && Array.isArray(j.postrehy)) ? j.postrehy : []).slice(0, 4).forEach(x => {
+    const t = reportAIStr(x && x.titulek, 70), tx = reportAIStr(x && x.text, 260);
+    if (!t || !tx) return;
+    if (ok(t) && ok(tx)) v.postrehy.push({ titulek: t, text: tx }); else vyrazeno++;
+  });
+  v.postrehy = v.postrehy.slice(0, 3);
+  ((j && Array.isArray(j.doporuceni)) ? j.doporuceni : []).slice(0, 4).forEach(x => {
+    const t = reportAIStr(x && x.titulek, 70), pr = reportAIStr(x && x.prinos, 60), tx = reportAIStr(x && x.text, 260);
+    if (!t || !tx) return;
+    if (ok(t) && ok(pr) && ok(tx)) v.doporuceni.push({ titulek: t, prinos: pr, text: tx }); else vyrazeno++;
+  });
+  v.doporuceni = v.doporuceni.slice(0, 3);
+  const vy = reportAIStr(j && j.vyhled, 240);
+  if (vy) { if (ok(vy)) v.vyhled = vy; else vyrazeno++; }
+  return { vysledek: v, vyrazeno };
+}
+async function reportAIOtisk(data) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(data)));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+const REPORT_AI_ZADANI = `Jsi finanční analytik české aplikace FinanceFlow. Komentuješ měsíční report jednoho uživatele z dat v JSON. Píšeš česky, tykáš, věcně a lidsky – bez moralizování, bez obecných frází a bez emoji.
+PRAVIDLA:
+1. Používej VÝHRADNĚ čísla, která v datech jsou. Nic nepočítej, nesčítej, neodečítej ani nepřepočítávej na rok – když potřebné číslo v datech není, řekni to slovy bez čísla.
+2. Částky piš celé s mezerou mezi tisíci a „Kč“ (např. 12 345 Kč), procenta se znakem % (např. 18 %). Nepoužívej zkratky tis. a mil.
+3. Žádné investiční, daňové ani právní rady, nejmenuj konkrétní banky ani finanční produkty.
+4. Když obdobi.probiha = true, měsíc ještě neskončil – piš o něm jako o rozběhnutém, ne uzavřeném.
+5. Postřehy vyber z toho, co je v datech nejzajímavější (odchylky skupin od průměru, rozpočty, osobní inflace z účtenek, míra úspor, dluhy, rezerva). Neopakuj stejnou věc dvakrát.
+6. Doporučení musí být konkrétní, proveditelná a vycházet z dat. Pole „prinos“ vyplň jen číslem, které je v datech (např. z pravidelnePlatby.drobneRocne nebo prebytek.polovinaRocne), jinak krátce slovy.
+Odpověz POUZE platným JSON, nic jiného:
+{"shrnuti":"2–3 věty o měsíci, nejvýš 320 znaků","hodnoceni":{"znamka":"výborný|dobrý|průměrný|slabý|špatný","proc":"jedna věta, nejvýš 140 znaků"},"postrehy":[{"titulek":"nejvýš 60 znaků","text":"nejvýš 220 znaků"}],"doporuceni":[{"titulek":"nejvýš 60 znaků","prinos":"nejvýš 50 znaků","text":"nejvýš 220 znaků"}],"vyhled":"1–2 věty k odhadu příštího měsíce, nejvýš 200 znaků"}
+Postřehy přesně 3, doporučení 2 nebo 3.`;
+
+async function handleReportAI(request, env, cors) {
+  const a = await archivAuth(request);
+  if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
+  const uid = a.uid;
+  try {
+    const cache = caches.default;
+    const k = new Request(`https://ff-ratelimit/reportai/${uid}/${new Date().toISOString().slice(0, 13)}`);
+    const c = await cache.match(k); const n = c ? parseInt(await c.text(), 10) || 0 : 0;
+    if (n >= 20) return json({ error: 'Příliš mnoho požadavků, zkus to za hodinu.' }, 429, cors);
+    await cache.put(k, new Response(String(n + 1), { headers: { 'Cache-Control': 'max-age=3600' } }));
+  } catch (e) {}
+  let body = {}; try { body = await request.json(); } catch (e) {}
+  const mesic = String(body.mesic || '');
+  if (!/^\d{4}-\d{2}$/.test(mesic)) return json({ error: 'Chybí měsíc' }, 400, cors);
+  const data = body.data;
+  if (!data || typeof data !== 'object' || JSON.stringify(data).length > 30000) return json({ error: 'Neplatné podklady reportu' }, 400, cors);
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const get = async p => { const r = await fetch(`${DB}/${p}.json?auth=${S}`); return r.ok ? r.json() : null; };
+  const tier = ADMIN_UIDS.includes(uid) ? 'admin' : tierZPremium(await get(`users/${uid}/premium`));
+  if (tier === 'free') return json({ error: 'AI komentář reportu je součástí Premium.', premium: true }, 403, cors);
+
+  const otisk = await reportAIOtisk(data);
+  const ulozeny = await get(`users/${uid}/reportAI/${mesic}`);
+  if (ulozeny && ulozeny.otisk === otisk && !body.znovu) return json({ ok: true, ai: ulozeny, cache: true }, 200, cors);
+  if (!env.ANTHROPIC_API_KEY) return json({ error: 'AI není nastavená' }, 500, cors);
+  const q = await checkAndIncrementQuota(uid, 'report_ai', env);
+  if (!q.ok) return json({ error: `Měsíční limit AI komentářů je vyčerpán (${q.used}/${q.limit}).`, used: q.used, limit: q.limit }, 429, cors);
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, system: REPORT_AI_ZADANI,
+      messages: [{ role: 'user', content: 'Data reportu:\n' + JSON.stringify(data) }] }),
+  });
+  if (!r.ok) return json({ error: 'AI teď neodpovídá, zkus to později.' }, 502, cors);
+  const d = await r.json();
+  const text = (d.content || []).map(x => x.text || '').join('');
+  let j = null; try { j = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch (e) {}
+  if (!j) return json({ error: 'AI vrátila nečitelnou odpověď, zkus to znovu.' }, 502, cors);
+  const { vysledek, vyrazeno } = reportAIOver(j, data);
+  if (!vysledek.shrnuti && !vysledek.postrehy.length && !vysledek.doporuceni.length)
+    return json({ error: 'AI komentář neprošel kontrolou čísel – report zůstává s texty spočítanými pravidly.', vyrazeno }, 422, cors);
+  const ai = Object.assign(vysledek, { otisk, kdy: Date.now(), model: 'claude-sonnet-4-6', vyrazeno });
+  await fetch(`${DB}/users/${uid}/reportAI/${mesic}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ai) });
+  return json({ ok: true, ai, cache: false }, 200, cors);
+}
+
 async function handleCoicop(request, env, cors) {
   const a = await archivAuth(request);
   if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -1194,6 +1336,10 @@ export default {
     //  S25: měsíční report → PDF (Cloudflare Browser Rendering) → e-mail (Resend).
     if (request.method === 'POST' && new URL(request.url).pathname === '/report-mail') {
       return handleReportMail(request, env, corsHeaders);
+    }
+    //  S25 (v11.47): AI komentář měsíčního reportu (jen Premium, ověřená čísla)
+    if (request.method === 'POST' && new URL(request.url).pathname === '/report-ai') {
+      return handleReportAI(request, env, corsHeaders);
     }
     if (request.method === 'POST' && new URL(request.url).pathname === '/mass-mail') {
       return handleMassMail(request, env, corsHeaders);

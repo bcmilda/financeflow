@@ -27,7 +27,7 @@ t('Free: 2 strany s upoutávkou',(f.match(/class="page/g)||[]).length===2&&f.inc
 t('Premium: 4 strany, vodopád, účtenky prázdný stav, doporučení',(p.match(/class="page/g)||[]).length===4&&p.includes('Od příjmu k úspoře')&&p.includes('nemáš žádnou naskenovanou účtenku')&&p.includes('Doporučení na listopad'));
 t('doporučení neruší nájem',!/zruš[^<]*Nájem/.test(p)&&p.includes('Netflix'));
 t('bez undefined/NaN',!/undefined|NaN/.test(f+p));
-t('postřehy označené jako spočítané, ne AI',p.includes('AI komentář přibude')&&!p.includes('✦ AI'));
+t('bez AI komentáře jsou postřehy označené jako spočítané z čísel',p.includes('Spočítané z tvých čísel')&&!p.includes('✨'));   // S25 (F3): AI vrstva hotová – smoke_report_ai.js
 const RJ=R('report.js','../js/report.js'),PM=R('premium.js','../js/premium.js');
 t('Report2: záložky, matice jen Premium',/rep2Tab\('mesicni'/.test(RJ)||RJ.includes("btn('mesicni'")&&RJ.includes("if (t === 'matice' && !pro)"));
 t('Report2 odemčen pro Free',!/const PREMIUM_PAGES = \[[^\]]*'report2'/.test(PM));
