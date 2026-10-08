@@ -1,4 +1,4 @@
-// FinanceFlow · v11.37 · helpers.js · 2026-10-06
+// FinanceFlow · v11.51 · helpers.js · 2026-10-08
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -723,6 +723,10 @@ function bankSeries(n,data){
 //  NAV
 // ══════════════════════════════════════════════════════
 function showPage(name,el){
+  //  S25 (v11.51): zapamatuj předchozí stránku pro tlačítko Zpět (ne když se zpět právě vracíme)
+  if(typeof _ffZpet!=='undefined' && !_ffZpet.zpetBezi && typeof curPage!=='undefined' && curPage && curPage!==name){
+    _ffZpet.stack.push(curPage); if(_ffZpet.stack.length>30) _ffZpet.stack.shift();
+  }
   curPage=name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -757,6 +761,81 @@ function changeMonth(d){if(typeof _txDateFilter!=='undefined'&&_txDateFilter.act
 function _rp_force(){ if(typeof forceRender==='function') forceRender(); else renderPage(); }
 function updateMLabel(){document.getElementById('mlabel').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.51, Milan: „často z aplikace vyskočím tlačítkem zpět, i když se chci vrátit o krok“)
+//  TLAČÍTKO ZPĚT NA TELEFONU. Appka dřív historii prohlížeče vůbec nepoužívala, takže Zpět
+//  zavřelo celou stránku. Nově je nad vstupem do appky „strážní“ záznam a Zpět postupně:
+//    1. zavře nejvrchnější okno (karta výrobku, skener, formulář, modal, paywall) nebo menu,
+//    2. vrátí se na předchozí stránku appky,
+//    3. skočí na Dashboard,
+//    4. na Dashboardu odejde až druhým Zpět do 2,5 s („Stiskni Zpět ještě jednou“).
+//  Chrome přeskakuje záznamy přidané bez dotyku uživatele – proto se strážce obnoví hned
+//  a pro jistotu znovu při nejbližším dotyku (pak už ho tlačítko Zpět respektuje).
+// ══════════════════════════════════════════════════════════════════════
+const _ffZpet = { stack: [], zpetBezi: false, odchodDo: 0, obnovit: false, aktivni: false };
+const FF_ZPET_ZAVRI = { eanKartaOkno: 'eanKartaZavri', eanZiviny: 'eanZivinyZavri', eanOkno: 'eanZavri', mapaKarta: 'mapaUzivKartaZavri', paywallScreen: 'closePaywall' };
+const FF_ZPET_NECHAT = ['bannedOverlay'];
+function _ffZpetStraz() { try { history.pushState({ ff: 'straz' }, ''); } catch (e) {} }
+//  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
+function ffZpetZavriVrchni(doc) {
+  doc = doc || document;
+  const kand = [];
+  const vidi = el => { try { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; } catch (e) { return true; } };
+  const pevne = el => el && el.style && el.style.position === 'fixed' && (el.style.inset === '0px' || el.style.inset === '0');
+  Array.from((doc.body && doc.body.children) || []).forEach(el => {
+    if (pevne(el)) kand.push(el);
+    else if (el.firstElementChild && pevne(el.firstElementChild)) kand.push(el.firstElementChild);
+  });
+  doc.querySelectorAll('.overlay.open, .paywall-screen.open, #ffNotifModal').forEach(el => { if (!kand.includes(el)) kand.push(el); });
+  const z = el => { try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (e) { return 0; } };
+  const top = kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a))[0];
+  if (top) {
+    const fn = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
+    if (typeof fn === 'function') fn();
+    else if (top.classList.contains('open')) { top.classList.remove('open'); if (top.classList.contains('paywall-screen')) doc.body.style.overflow = ''; }
+    else top.remove();
+    return true;
+  }
+  const sb = doc.getElementById('sidebar');
+  if (sb && sb.classList.contains('open')) { sb.classList.remove('open'); return true; }
+  return false;
+}
+function _ffZpetNavEl(name) {
+  return Array.from(document.querySelectorAll('.nav-item')).find(n => (n.getAttribute('onclick') || '').includes(`'${name}'`)) || null;
+}
+function ffZpetPopstate() {
+  if (Date.now() < _ffZpet.odchodDo) { history.back(); return; }            // druhé Zpět → pryč z appky
+  //  nepřihlášený (přihlašovací obrazovka) → Zpět se chová normálně
+  if (!window._currentUser && !(typeof _isLocalMode !== 'undefined' && _isLocalMode)) { history.back(); return; }
+  const hotovo = () => { _ffZpetStraz(); _ffZpet.obnovit = true; };
+  if (ffZpetZavriVrchni()) return hotovo();
+  let prev = _ffZpet.stack.pop();
+  while (prev && prev === curPage) prev = _ffZpet.stack.pop();
+  const cil = prev || (curPage !== 'prehled' ? 'prehled' : null);
+  if (cil && document.getElementById('page-' + cil)) {
+    _ffZpet.zpetBezi = true;
+    try { showPage(cil, _ffZpetNavEl(cil)); } finally { _ffZpet.zpetBezi = false; }
+    return hotovo();
+  }
+  _ffZpet.odchodDo = Date.now() + 2500;
+  if (typeof showToast === 'function') showToast('Pro odchod z aplikace stiskni Zpět ještě jednou');
+  hotovo();
+}
+function ffZpetInit() {
+  if (_ffZpet.aktivni || typeof window === 'undefined' || !window.history || !history.pushState || !window.addEventListener) return;
+  _ffZpet.aktivni = true;
+  try { history.replaceState({ ff: 'zaklad' }, ''); } catch (e) {}
+  _ffZpetStraz(); _ffZpet.obnovit = true;
+  window.addEventListener('popstate', ffZpetPopstate);
+  const dotyk = () => { if (_ffZpet.obnovit) { _ffZpet.obnovit = false; _ffZpetStraz(); } };
+  window.addEventListener('pointerdown', dotyk, { capture: true, passive: true });
+  window.addEventListener('keydown', dotyk, { capture: true, passive: true });
+}
+if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+  if (document.readyState === 'complete') ffZpetInit(); else window.addEventListener('load', ffZpetInit);
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffZpetInit, ffZpetPopstate, ffZpetZavriVrchni });
 
 // ══════════════════════════════════════════════════════
 

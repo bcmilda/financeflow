@@ -1,4 +1,4 @@
-// FinanceFlow · v11.50 · admin.js · 2026-10-08
+// FinanceFlow · v11.51 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.51',
+    datum: '2026-10-08',
+    zmeny: [
+      "Tlačítko Zpět na telefonu: nejdřív zavře otevřené okno/menu, pak předchozí stránka, pak Dashboard – z aplikace odejdeš až druhým Zpět",
+      "Analýza účtenek → 📸 Skenovat: místo dlouhého seznamu jen „K vyřízení“ (kódy bez názvu nebo nepřiřazené) s názvem z účtenky a tlačítky ✍️ Zapiš název / 🔗 Přiřadit; vyřízené jsou v Mapa položek → 📦 Moje výrobky",
+      "Karta výrobku ukáže název z účtenky (🧾 Na účtence: …) i u neznámého kódu",
+    ]
+  },
   {
     verze: 'v11.50',
     datum: '2026-10-08',
