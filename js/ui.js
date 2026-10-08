@@ -1,4 +1,4 @@
-// FinanceFlow · v11.21 · ui.js · 2026-10-02
+// FinanceFlow · v11.46 · ui.js · 2026-10-08
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -712,6 +712,9 @@ function renderDashboard(){
     const bdays=(D.birthdays||[]).filter(b=>daysUntilBday(b)<=7);
     bEl.innerHTML=bdays.length?bdays.map(b=>`<div class="insight-item warn" style="margin-bottom:10px"><div class="insight-icon">🎂</div><div class="insight-text"><strong>${b.name}</strong> – narozeniny za ${daysUntilBday(b)} dní${b.gift?` · Dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join(''):'';
   }
+  // S25 (TODO-309): doklady se zárukou ke konci (Analýza účtenek → 📎 Doklady)
+  const zEl=document.getElementById('zarukaAlert');
+  if(zEl) zEl.innerHTML=(typeof dokladyUpozorneniHTML==='function' && (typeof viewingUid==='undefined' || !viewingUid)) ? dokladyUpozorneniHTML(S.receipts||[]) : '';
   // Recent tx
   const rEl=document.getElementById('recentTxList');
   if(rEl){

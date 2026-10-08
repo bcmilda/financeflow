@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v11.45</title>
+<title>FinanceFlow v11.46</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v11.45 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v11.46 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -432,6 +432,7 @@
     <div id="emptyMonthBanner" style="display:none"></div>
     <div id="summaryCards"></div>
     <div id="bdayAlert"></div>
+    <div id="zarukaAlert"></div>
     <div class="grid2">
       <div class="card">
         <div class="card-header"><span class="card-title">Poslední transakce</span><button class="btn btn-ghost btn-sm" onclick="showPageByName('transakce')">Vše →</button></div>
@@ -1083,7 +1084,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 11.45</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 11.46</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -2245,23 +2246,23 @@ window.addEventListener('error', function(e){
 </script>
 <script src="js/app.js?v=3d7adb066166f77f" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
 <script src="js/helpers.js?v=9e3778896aba754b" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
-<script src="js/ui.js?v=c6b0a09007b1a378" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/ui.js?v=54e6aec0b8550d08" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
 <script src="js/transactions.js?v=0e4960ed5588e250" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
 <script src="js/report.js?v=9ea06828a966440d" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
 <script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
-<script src="js/inflace.js?v=75f736b0b6474371" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
+<script src="js/inflace.js?v=9c84dbf95ceb9366" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
 <script src="js/charts.js?v=12e372f4b8c72439" onerror="window._ffScriptFail&&window._ffScriptFail('js/charts.js')"></script>
 <script src="js/stats.js?v=fe8e526bf018753e" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
 <script src="js/debts.js?v=5ee88f1ddae2f3b1" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
 <script src="js/ai.js?v=3ace4c75ee055cae" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/premium.js?v=632db4fc1e18e47b" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
-<script src="js/projects.js?v=e92a5be305f63d51" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
+<script src="js/projects.js?v=5f3f477cc7cfcf47" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
 <script src="js/taxonomie.js?v=fdbe8bd33aec6017" onerror="window._ffScriptFail&&window._ffScriptFail('js/taxonomie.js')"></script>
 <script src="js/ceny-kraje.js?v=cf4a13bebbfea848" onerror="window._ffScriptFail&&window._ffScriptFail('js/ceny-kraje.js')"></script>
 <script src="js/statistika-polozek.js?v=568039f38a227d5b" onerror="window._ffScriptFail&&window._ffScriptFail('js/statistika-polozek.js')"></script>
-<script src="js/receipts.js?v=2459680df56fab91" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/receipts.js?v=54550adfa9b08f01" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
 <script src="js/ean-sken.js?v=101aebc657960ffe" onerror="window._ffScriptFail&&window._ffScriptFail('js/ean-sken.js')"></script>
 <script src="js/offline-sync.js?v=11672e9dbe7c620d" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
 <script src="js/settings.js?v=eb7e3ced2d30ed01" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
@@ -2284,7 +2285,7 @@ window.addEventListener('error', function(e){
 <script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=f1b9e7c27205a4de" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
-<script src="js/admin.js?v=6b89f441590df780" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=2e39e7660078eccd" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=ac60332d8ecfb891" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=c372947f013a8e1a" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.43 · receipts.js · 2026-10-07
+// FinanceFlow · v11.46 · receipts.js · 2026-10-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1335,6 +1335,29 @@ function dokladySeznam(receipts, dnes) {
     .sort((a, b) => (RADA[a.z.stav] - RADA[b.z.stav])
       || (a.z.stav === 'konci' ? a.z.dni - b.z.dni : String(b.r.date || '').localeCompare(String(a.r.date || ''))));
 }
+
+//  S25 (TODO-309, Milan): upozornění na Dashboardu, že doklad má záruku ke konci (≤ 60 dní).
+//  Dřív to bylo vidět jen v Analýza účtenek → 📎 Doklady, kam se člověk musel podívat sám.
+//  Prošlá záruka se nehlásí (už se nedá nic dělat), jen ta, která ještě běží.
+function dokladyUpozorneniHTML(receipts, dnes) {
+  const konci = dokladySeznam(receipts, dnes).filter(x => x.z.stav === 'konci');
+  if (!konci.length) return '';
+  const nazev = x => escHtml(x.r.photoNote || x.r.store || 'doklad');
+  const kdy = d => d === 0 ? 'dnes' : d === 1 ? 'zítra' : 'za ' + d + ' ' + (d <= 4 ? 'dny' : 'dní');
+  const prvni = konci[0];
+  const text = konci.length === 1
+    ? `<strong>${nazev(prvni)}</strong> – záruka končí ${kdy(prvni.z.dni)} (${escHtml(prvni.z.datum)}). Pokud něco nefunguje, reklamuj ještě teď.`
+    : `<strong>${konci.length} ${konci.length < 5 ? 'doklady' : 'dokladů'}</strong> ${konci.length < 5 ? 'mají' : 'má'} záruku ke konci: ${konci.slice(0, 3).map(x => `${nazev(x)} (${kdy(x.z.dni)})`).join(', ')}${konci.length > 3 ? ' a další' : ''}.`;
+  return `<div class="insight-item warn" style="margin-bottom:10px;cursor:pointer" onclick="dokladyOtevriZDashboardu()" title="Otevřít Doklady">
+    <div class="insight-icon">🛡️</div><div class="insight-text">${text} <span style="color:#60a5fa;white-space:nowrap">Otevřít doklady ›</span></div></div>`;
+}
+function dokladyOtevriZDashboardu() {
+  if (typeof showPage === 'function') showPage('uctenky');
+  if (typeof _activeUctenkyTab !== 'undefined') _activeUctenkyTab = 'doklady';
+  setTimeout(() => { const b = document.getElementById('utab-doklady'); if (b) switchUctenkyTab('doklady', b); }, 60);
+}
+window.dokladyUpozorneniHTML = dokladyUpozorneniHTML;
+window.dokladyOtevriZDashboardu = dokladyOtevriZDashboardu;
 
 function buildDokladyTab(receipts) {
   const list = dokladySeznam(receipts);
@@ -2980,6 +3003,7 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   allItems.forEach(it=>{
     const k=(it.name||'').trim().toLowerCase();
     if(k.length<3)return;
+    if(rpIsGenericName(it.name))return;   // S25 (TODO-276): „Pečivo 14×“ není výrobek, ale oddělení
     if(!itemFreq[k])itemFreq[k]={name:it.name,count:0,total:0,stores:new Set()};
     itemFreq[k].count++;
     itemFreq[k].total+=it.price||0;

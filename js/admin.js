@@ -1,4 +1,4 @@
-// FinanceFlow · v11.45 · admin.js · 2026-10-08
+// FinanceFlow · v11.46 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.46',
+    datum: '2026-10-08',
+    zmeny: [
+      "Dashboard: upozornění, že dokladu končí záruka (≤ 60 dní) – klepnutím otevře Analýza účtenek → 📎 Doklady",
+      "Inflace, Detektor úspor a „Pravidelně nakupuješ“: položky s obecným názvem oddělení („Pečivo“, „Uzeniny 21 %“) se už nepočítají jako výrobek – dělaly falešné zdražení o stovky %; Inflace ukáže, kolik jich vynechala",
+      "Detektor úspor: zdražování za 3 měsíce už neslučuje podobné výrobky (název se neořezává na 25 znaků)",
+      "Finanční obraz: karty Čisté jmění, Rezerva vydrží a Wealth Momentum bez dat ukážou, co chybí a kde to doplnit – dřív zmizely nebo ukazovaly „0 Kč“ a „Ani jeden měsíc v mínusu“",
+    ]
+  },
   {
     verze: 'v11.45',
     datum: '2026-10-08',

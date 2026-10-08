@@ -1,4 +1,4 @@
-// FinanceFlow · v11.26 · inflace.js · 2026-10-02
+// FinanceFlow · v11.46 · inflace.js · 2026-10-08
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -41,6 +41,7 @@ let _inflSort = 'impact';
 function _inflCollect() {
   const receipts = S.receipts || [];
   const seen = new Set(), obs = [];
+  let obecne = 0;   // S25 (TODO-276): položky s obecným názvem (oddělení, ne výrobek)
   //  S23 (TODO-290): oddíl COICOP 1–13 z kategorie položky (fallback kategorie
   //  účtenky) – aby šla osobní inflace porovnat s oficiální po oddílech.
   const _cats = S.categories || [];
@@ -92,6 +93,10 @@ function _inflCollect() {
         .map(w => /\d/.test(w) ? w : w.slice(0, 5))          // slova zkrátit, čísla ne
         .join(' ');
       if (key.length < 3) return;
+      //  S25 (TODO-276): „Pečivo“, „Uzeniny 21 %“ = oddělení, ne výrobek. Pod jedním
+      //  názvem je jednou rohlík, jindy celý nákup → falešné „zdražení“ o stovky %.
+      //  Stejné pravidlo jako Zdražování v Analýze účtenek (FIX-357).
+      if (typeof rpIsGenericName === 'function' && rpIsGenericName(it.name)) { obecne++; return; }
 
       // ── FIX-269 (S19, nahlásil Milan): SLEVA SE DO CENY NEPROMÍTALA ──
       //  Bralo se `it.price`, tedy cena PŘED slevou. Zbytek aplikace používá
@@ -138,7 +143,7 @@ function _inflCollect() {
   });
   const stores = [...new Set(obs.map(o => o.store).filter(Boolean))].sort();
   const items = [...new Set(obs.map(o => o.key))].sort();  // klíč obsahuje |jednotku
-  return { obs, stores, items };
+  return { obs, stores, items, obecne };
 }
 
 const _median = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -410,6 +415,7 @@ function renderInflace() {
       <input type="checkbox" ${_inflInclDiscount ? 'checked' : ''} onchange="inflToggleDiscount(this.checked)" style="width:15px;height:15px;cursor:pointer">
       Počítat i slevněné položky <span style="color:#a8aec8">(${discCount} cen se slevou)</span>
     </label>
+    ${all.obecne ? `<div style="font-size:.68rem;color:#8b93ad;margin-top:6px;line-height:1.5" title="Na účtence je jen oddělení (např. „Pečivo“, „Uzeniny 21 %“), ne konkrétní výrobek – pod jedním názvem je pokaždé jiný nákup, cena se nedá porovnat.">Vynecháno ${all.obecne} ${all.obecne === 1 ? 'položka' : all.obecne < 5 ? 'položky' : 'položek'} s obecným názvem oddělení (např. „Pečivo“) – nejsou to výrobky, jejich cena se nedá porovnávat.</div>` : ''}
   </div></div>`;
 
   // ── S17.20 (Milan): JEDNA POLOŽKA NAPŘÍČ OBCHODY ──
