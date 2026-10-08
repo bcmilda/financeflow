@@ -1,4 +1,4 @@
-// FinanceFlow · v11.43 · admin.js · 2026-10-07
+// FinanceFlow · v11.44 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,16 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.44',
+    datum: '2026-10-08',
+    zmeny: [
+      "Oprava dat v letním čase: několik míst převádělo místní půlnoc přes UTC, takže v Česku vycházel předchozí den – splátkový kalendář dluhů (15. 4. → 14. 4.), Budoucí platby („Zaznamenat“ zapsalo o den dřív, platba splatná 1. se kontrolovala proti minulému měsíci), automatické šablony, jednorázová platba v Příštím měsíci",
+      "Dluhy: uložené splátkové kalendáře posunuté o den se při otevření stránky Dluhy opraví (jen data – částky a „zaplaceno“ zůstanou); datum příští splátky po 31. padne na konec kratšího měsíce",
+      "Export: výchozí datum „od“ je 1. den měsíce (dřív poslední den minulého); Projekty: splátky „příští měsíc“ se braly z tohoto měsíce",
+      "Landing page: hamburger menu na mobilu a tabletu (Jak to funguje, Co získáš, Ceník, Časté otázky, Nápověda, Kontakt), na mobilu se už nezalamují tlačítka v horní liště",
+    ]
+  },
   {
     verze: 'v11.43',
     datum: '2026-10-07',

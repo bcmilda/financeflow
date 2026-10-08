@@ -1,4 +1,4 @@
-// FinanceFlow · v11.23 · projects.js · 2026-10-02
+// FinanceFlow · v11.44 · projects.js · 2026-10-08
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2111,7 +2111,7 @@ function renderRadar() {
 
   // ── Nadcházející splátky dluhů (příští měsíc) ──
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth()+1, 1);
-  const nextMonthStr = nextMonthDate.toISOString().slice(0,7);
+  const nextMonthStr = nextMonthDate.getFullYear()+'-'+String(nextMonthDate.getMonth()+1).padStart(2,'0');   // S25 v11.44: dřív přes UTC → vyšel TENTO měsíc
   const upcomingPayments = (D.debts||[]).reduce((a,d)=>{
     const s = d.schedule?.find(s=>s.date.startsWith(nextMonthStr)&&!s.paid);
     return a + (s?.payment||d.payment||0);
@@ -7619,7 +7619,7 @@ function msEnsureTrackStart(){
                              : new Date(Math.min(...txs.map(t=>new Date(t.date).getTime()).filter(x=>!isNaN(x))));
     if(isNaN(d)) return;
     S.milestones.push({ id:'ms_track', auto:'trackStart', kind:'point',
-      date: d.toISOString().slice(0,10), icon:'🎯',
+      date: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(d), icon:'🎯',   // S25 v11.44: místní datum
       label:'Začal jsem sledovat výdaje',
       note:'Od tohoto dne máš data z aplikace. Starší období je tu z importů – porovnáním obojího uvidíš, co se změnilo.' });
     if(typeof save==='function') save();

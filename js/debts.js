@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · debts.js · 2026-10-04
+// FinanceFlow · v11.44 · debts.js · 2026-10-08
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -713,12 +713,9 @@ function toggleDebtRecurring(){
   const opts=document.getElementById('debtRecurringOpts'); if(opts)opts.style.display=on?'block':'none';
 }
 // f3: datum příští splátky podle frekvence
+//  S25 (v11.44): místní kalendář a ořez dne (31. 1. → 28. 2.) – sdílí výpočet s kalendářem splátek.
 function _nextPeriodDate(dateStr, freq){
-  const d=new Date(dateStr||new Date());
-  if(freq==='weekly') d.setDate(d.getDate()+7);
-  else if(freq==='biweekly') d.setDate(d.getDate()+14);
-  else d.setMonth(d.getMonth()+1);
-  return d.toISOString().slice(0,10);
+  return debtDatumSplatky(debtStartStr(dateStr || new Date()), freq || 'monthly', 1);
 }
 // f2: zaplaceno / na jistině / na úrocích – počítáno z REÁLNÝCH transakcí (debtId),
 // nezávisle na schedule.paid (odolné proti driftu). Jistina/úrok = mapování na kalendář.
@@ -860,6 +857,44 @@ function calcAnnuity(principal, annualRate, periodsPerYear, totalPeriods) {
   return principal * r * Math.pow(1+r, totalPeriods) / (Math.pow(1+r, totalPeriods) - 1);
 }
 
+//  S25 (v11.44): datum splátky v MÍSTNÍM čase. `new Date('2026-01-15')` je UTC půlnoc
+//  a `toISOString()` vrací UTC → v Česku v letním čase (duben–říjen) vycházela splátka
+//  o den dřív. Počítáme čistě s rokem/měsícem/dnem bez časové zóny.
+//  FIX-283: měsíční splátka nejdřív na 1., pak den oříznout na délku měsíce (31. → 28./29. 2.).
+function debtStartStr(v) {
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+  const d = v ? new Date(v) : new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function debtDatumSplatky(startStr, freq, periodNum) {
+  const [y, m, dd] = startStr.split('-').map(Number);
+  const p = n => String(n).padStart(2, '0');
+  let d;
+  if (freq === 'weekly' || freq === 'biweekly') d = new Date(y, m - 1, dd + periodNum * (freq === 'weekly' ? 7 : 14), 12);
+  else {
+    const mm = m - 1 + periodNum, rok = y + Math.floor(mm / 12), mes = ((mm % 12) + 12) % 12;
+    d = new Date(rok, mes, Math.min(dd, new Date(rok, mes + 1, 0).getDate()), 12);
+  }
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+//  Oprava už uložených kalendářů (posunutých o den) – jen data, částky a „zaplaceno“ zůstanou.
+//  Volá se při otevření Dluhů; uloží se jen při změně.
+function debtOpravDataSplatek(debts) {
+  let zmen = 0;
+  (debts || []).forEach(d => {
+    if (!d || !d.startDate || !Array.isArray(d.schedule)) return;
+    const st = debtStartStr(d.startDate), f = d.freq || 'monthly';
+    d.schedule.forEach((s, i) => {
+      if (!s) return;
+      const ok = debtDatumSplatky(st, f, (s.num || i + 1) - 1);
+      if (s.date !== ok) { s.date = ok; zmen++; }
+    });
+  });
+  return zmen;
+}
+window.debtOpravDataSplatek = debtOpravDataSplatek;
+
 function generateSchedule(debt) {
   const principal = debt.remaining || debt.total || 0;
   const annualRate = debt.interest || 0;
@@ -867,7 +902,8 @@ function generateSchedule(debt) {
   const periodsPerYear = freq === 'weekly' ? 52 : freq === 'biweekly' ? 26 : 12;
   const payment = debt.payment || calcAnnuity(principal, annualRate, periodsPerYear, 24);
   const ratePerPeriod = annualRate / 100 / periodsPerYear;
-  const startDate = new Date(debt.startDate || new Date());
+  const startDate = new Date(debt.startDate || new Date());   // jen pro zpětnou kompatibilitu; data splátek počítá debtDatumSplatky
+  const startStr = debtStartStr(debt.startDate);
   const schedule = [];
   let remaining = principal;
   let periodNum = 0;
@@ -880,25 +916,11 @@ function generateSchedule(debt) {
     if(principalPart <= 0 && annualRate > 0) break;
     const actualPayment = Math.min(payment, remaining + interest);
     remaining = Math.max(0, remaining - principalPart);
-    const d = new Date(startDate);
-    if(freq === 'weekly') d.setDate(d.getDate() + periodNum * 7);
-    else if(freq === 'biweekly') d.setDate(d.getDate() + periodNum * 14);
-    else {
-      // FIX-283 (S20): `d.setMonth(d.getMonth()+periodNum)` přetéká. U splatnosti
-      //   31. v měsíci vycházelo: 31.1. → 3.3. (únor přeskočen) → 31.3. (dvě splátky
-      //   v březnu) → 1.5. → 31.5. Únor a duben neměly splátku vůbec.
-      //   Týkalo se každého dluhu se splatností 29.–31., tedy i hypoték.
-      //   Řešení: nejdřív na 1. (tam setMonth přetéct nemůže), pak den oříznout
-      //   na délku cílového měsíce – splatnost 31. tak v únoru padne na 28./29.
-      const dueDay = startDate.getDate();
-      d.setDate(1);
-      d.setMonth(d.getMonth() + periodNum);
-      const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-      d.setDate(Math.min(dueDay, daysInMonth));
-    }
+    //  S25 (v11.44): datum přes místní kalendář – dřív toISOString() (UTC) posouval splátky
+    //  v letním čase o den dřív (15. 4. → 14. 4.). Výpočet v debtDatumSplatky (FIX-283 zachován).
     schedule.push({
       num: periodNum+1,
-      date: d.toISOString().slice(0,10),
+      date: debtDatumSplatky(startStr, freq, periodNum),
       payment: Math.round(actualPayment),
       principal: Math.round(principalPart),
       interest: Math.round(interest),

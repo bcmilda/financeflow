@@ -20,7 +20,8 @@ function mkSandbox(txs){
     return (w&&w.currency==='EUR')?amt*25:amt;
   };
   vm.createContext(sb);
-  vm.runInContext([pick('_budouciWords'),pick('_budouciNameMatch'),pick('_budouciAmtMatch'),pick('budouciIsPaid')].join('\n'),sb);
+  const helpers=src.split('\n').filter(l=>/^const _b(Iso|Den) =/.test(l)).join('\n').replace(/^const /gm,'var ');   // S25 v11.44: místní datum
+  vm.runInContext([helpers,pick('_budouciWords'),pick('_budouciNameMatch'),pick('_budouciAmtMatch'),pick('budouciIsPaid')].join('\n'),sb);
   return sb;
 }
 const item=(name,amount,dateStr,isTransfer)=>({name,amount,date:new Date(dateStr),isTransfer:!!isTransfer});

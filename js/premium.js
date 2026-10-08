@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · premium.js · 2026-10-04
+// FinanceFlow · v11.44 · premium.js · 2026-10-08
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1128,7 +1128,10 @@ function processAutoSablony() {
   try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }
   if(!S.sablony)return;
   const today=new Date(); today.setHours(0,0,0,0);
-  const iso=d=>d.toISOString().slice(0,10);
+  //  S25 (v11.44): datum v MÍSTNÍM čase. toISOString() bralo UTC → místní půlnoc vyšla
+  //  v Česku jako předchozí den: jednorázová platba se zapsala o den později a měsíční
+  //  auto-transakce dostala datum o den dřív (den splatnosti 15. → 14.).
+  const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   S.transactions=S.transactions||[];
   let added=0;
 
@@ -1348,7 +1351,7 @@ function applySettings() {
   updateHouseholdEquiv();
   // Set export date defaults
   const today=new Date().toISOString().slice(0,10);
-  const firstOfMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().slice(0,10);
+  const firstOfMonth=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0')+'-01';   // S25 v11.44: dřív přes UTC → poslední den minulého měsíce
   const ef=document.getElementById('exportFrom');if(ef&&!ef.value)ef.value=firstOfMonth;
   const et=document.getElementById('exportTo');if(et&&!et.value)et.value=today;
   // Show/hide local mode card
