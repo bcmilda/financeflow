@@ -1,4 +1,4 @@
-// FinanceFlow · v11.43 · ean-sken.js · 2026-10-07
+// FinanceFlow · v11.48 · ean-sken.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -809,6 +809,45 @@ function eanPolozkyUctenek(D, hledat, ean) {
 }
 window.eanPolozkyUctenek = eanPolozkyUctenek;
 
+//  S25 (v11.48, Milan: „když mám jen čárový kód, není podle čeho položku vybrat“):
+//  odhad, která položka z účtenek k výrobku patří – zkratka na účtence vs. název výrobku,
+//  značka, gramáž a druh (obecný název z taxonomie). Vrací { skore, proc[] }.
+function eanShodaPolozky(p, ean, raw, D) {
+  if (!p || p.stav !== 'nalezeno') return { skore: 0, proc: [] };
+  const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
+  const tok = t => nn(t).split(' ').filter(w => w.length >= 3 && !/^\d/.test(w));
+  const moje = (typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[ean]) ? _eanMojeNazvy[ean].nazev : '';
+  const prod = [p.nazevCs, p.nazev, p.nazevObal, p.obecny, moje, ...(p.nazvyJine || [])].filter(Boolean).flatMap(tok);
+  const znacka = tok(p.znacka || '');
+  const it = [...new Set(tok(raw))];
+  //  zkratka z účtenky („COKOL“) je začátek slova z názvu („cokolada“) – a naopak
+  const sedi = (a, b) => a === b || b.startsWith(a) || (b.length >= 4 && a.startsWith(b));
+  let skore = 0; const proc = [];
+  const zn = it.filter(w => znacka.some(z => sedi(w, z)));
+  if (zn.length) { skore += 4; proc.push('značka'); }
+  const slova = it.filter(w => !zn.includes(w) && prod.some(x => sedi(w, x)));
+  if (slova.length) { skore += Math.min(6, slova.length * 2); proc.push('název'); }
+  const q = (typeof normQty === 'function') ? normQty(raw) : null, m = p.mnozstvi;
+  if (q && m && q.jednotka === m.jednotka && Math.abs(q.hodnota - m.hodnota) < 0.5) {
+    skore += 3; proc.push('gramáž ' + (m.hodnota >= 1000 ? (m.hodnota / 1000).toLocaleString('cs-CZ') + (m.jednotka === 'g' ? ' kg' : ' l') : m.hodnota + ' ' + m.jednotka));
+  }
+  if (p.obecnyId && typeof rpMapaNavrh === 'function') {
+    try { const mp = rpMapaNavrh(raw, D || getData()); if (mp && mp.tax && mp.tax.id === p.obecnyId) { skore += 4; proc.push('druh: ' + (p.obecny || '').toLowerCase()); } } catch (e) {}
+  }
+  return { skore, proc };
+}
+window.eanShodaPolozky = eanShodaPolozky;
+//  Nejpravděpodobnější volné položky (bez kódu) – max. 3, jen s dostatečnou shodou.
+function eanNavrhyPolozek(D, ean, p) {
+  if (!p || p.stav !== 'nalezeno') return [];
+  return eanPolozkyUctenek(D, '', ean).flatMap(g => g.rows).filter(x => x.stav === 'volna')
+    .map(x => Object.assign({}, x, eanShodaPolozky(p, ean, x.raw, D)))
+    .filter(x => x.skore >= 5)
+    .sort((a, b) => b.skore - a.skore || String(b.datum).localeCompare(String(a.datum)))
+    .slice(0, 3);
+}
+window.eanNavrhyPolozek = eanNavrhyPolozek;
+
 function eanVyberPolozku(hledat) {
   const el = document.getElementById('eanVysledek'); if (!el) return;
   const D = (typeof S !== 'undefined') ? S : getData();
@@ -817,9 +856,19 @@ function eanVyberPolozku(hledat) {
   const box = document.getElementById('eanVyber') || (() => { const d = document.createElement('div'); d.id = 'eanVyber'; el.appendChild(d); return d; })();
   const flat = []; const dat = d => d ? d.split('-').reverse().join('. ') : '';
   const tento = sk.flatMap(g => g.rows).filter(x => x.stav === 'tento');
+  const vp = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
+  const navrhy = hledat ? [] : eanNavrhyPolozek(D, v.ean, vp);
+  const navrhyHTML = navrhy.length ? `<div style="margin-bottom:10px;border:1px solid #4ade8066;border-radius:10px;overflow:hidden">
+      <div style="background:#4ade8014;padding:6px 10px;font-size:.74rem;font-weight:700;color:var(--income)">🎯 Nejspíš – podle značky, druhu a gramáže</div>
+      ${navrhy.map(x => { const i = flat.push(x) - 1;
+        return `<div onclick="eanPriradKPolozce(${i})" role="button" style="padding:9px 10px;border-top:1px solid var(--border);cursor:pointer">
+          <div style="display:flex;justify-content:space-between;gap:8px"><b style="overflow-wrap:anywhere">${escHtml(x.raw)}</b>${x.cena != null ? `<span style="color:#a8aec8;font-size:.72rem;white-space:nowrap">${escHtml(String(x.cena))} Kč</span>` : ''}</div>
+          <div style="font-size:.68rem;color:#a8aec8;margin-top:2px">🧾 ${escHtml(x.obchod || 'Účtenka')} · ${escHtml(dat(x.datum))} · sedí: ${x.proc.map(escHtml).join(', ')}</div></div>`; }).join('')}
+    </div>` : (!hledat && !vp ? `<div style="font-size:.74rem;color:#fbbf24;line-height:1.5;margin-bottom:8px">Výrobek databáze nezná, takže nevím, podle čeho položku hledat. Nahoře 📸 vyfoť obal – pak ti položky seřadím podle značky, druhu a gramáže. Nebo vyhledej slovo z obalu a vyber účtenku podle data nákupu.</div>` : '');
   box.innerHTML = `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
     <div style="font-weight:700;font-size:.84rem;margin-bottom:4px">Ke které položce z účtenky patří?</div>
     ${tento.length ? `<div style="font-size:.74rem;color:var(--income);margin-bottom:6px">✓ Tento výrobek už máš přiřazený: ${tento.map(x => '<b>' + escHtml(x.raw) + '</b>').join(', ')}</div>` : ''}
+    ${navrhyHTML}
     <input class="fi" id="eanVyberQ" placeholder="🔍 Hledat položku…" value="${escHtml(hledat || '')}" oninput="eanVyberPolozku(this.value)" style="font-size:.8rem;margin-bottom:8px">
     ${sk.length ? sk.map(g => `<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
         <div style="background:var(--surface2);padding:6px 10px;font-size:.74rem;font-weight:700;display:flex;justify-content:space-between"><span>🧾 ${escHtml(g.obchod || 'Účtenka')}</span><span style="color:#a8aec8;font-weight:500">${escHtml(dat(g.datum))}</span></div>

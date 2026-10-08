@@ -1,4 +1,4 @@
-// FinanceFlow · v11.46 · receipts.js · 2026-10-08
+// FinanceFlow · v11.48 · receipts.js · 2026-10-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -163,6 +163,16 @@ function renderUctenky() {
     // → flag i osiřelý stav vyčisti, ať render i příští otevření fungují.
     window._receiptEditorOpen = false;
     window._editReceipt = null;
+  }
+  //  S25 (v11.48, Milan: „čárové kódy se nepřiřadily, štítek jsem přepisoval dvakrát“):
+  //  ROZPRACOVANÁ NOVÁ ÚČTENKA. Chráněný byl jen editor z Historie. Každé save() (od v11.40
+  //  i sken čárového kódu – seznam naskenovaných) spustí synchronizaci → renderUctenky →
+  //  editor se znovu postavil z PŮVODNÍHO výsledku skenu (_lastReceiptResult.receipt) a všechny
+  //  úpravy – kódy, štítky, názvy, kategorie – zmizely. Podle toho, jestli sync doběhl před
+  //  přiřazením kódu, nebo po něm, se část kódů uložila a část ne.
+  if (_lastReceiptResult && _lastReceiptResult.historyIndex === undefined && window._editReceipt) {
+    const pv = document.getElementById('receiptPreview');
+    if (pv && pv.style.display !== 'none' && pv.querySelector('#receiptEditForm')) return;
   }
   const receipts = S.receipts || [];
 
@@ -4489,7 +4499,12 @@ async function rpArchivAuto(ulozena, scanTok) {
     const s = window._rpScanFoto;
     if (!rpAutoDoklad() || !ulozena || rpFotky(ulozena).length || !s || s.tok !== scanTok) return;
     const v = await archivUlozVse(s.blobs.map(_rpJakoSoubor), ulozena.id);
-    rpPripojFotky(ulozena, v); save();
+    //  S25 (v11.48, Milan: „účtenka se neuložila, i když mám automatické uschovávání“):
+    //  během nahrávání proběhla synchronizace a S.receipts obsahuje NOVÉ objekty – klíče fotek
+    //  se zapsaly do starého (odpojeného) objektu a save() je neuložil. Fotka ležela v úložišti
+    //  bez odkazu. Nově se účtenka hledá v aktuálních datech podle id.
+    const aktualni = (S.receipts || []).find(x => x && ulozena.id && x.id === ulozena.id) || ulozena;
+    rpPripojFotky(aktualni, v); save();
     if (typeof showToast === 'function') showToast(`📎 Fotk${v.keys.length > 1 ? 'y účtenky uschovány' : 'a účtenky uschována'}`);
   } catch (e) { console.warn('Automatické uschování dokladu:', e.message); }
 }
@@ -4819,7 +4834,9 @@ function addReceiptAsTx(receipt) {
   });
   if(store && hlavniCatId) saveCategoryMapping(store, hlavniCatId, '');
 
-  S.receipts.unshift({...receipt, addedAt:_addedAt});
+  //  S25 (v11.48): účtenka dostane stálé id – synchronizace z Firebase nahrazuje objekty v S,
+  //  takže pozdější zápis (uschovaná fotka) musí účtenku najít podle id, ne podle odkazu.
+  S.receipts.unshift({...receipt, id: receipt.id || ('rc' + _addedAt.toString(36) + Math.random().toString(36).slice(2, 6)), addedAt:_addedAt});
   // S25: automatické uschování fotek ze skenu (Analýza účtenek → editor → „uschovávat automaticky“)
   { const _ul = S.receipts[0], _tok = _ul._scanTok; delete _ul._scanTok;
     if (_tok && typeof rpArchivAuto === 'function') rpArchivAuto(_ul, _tok);

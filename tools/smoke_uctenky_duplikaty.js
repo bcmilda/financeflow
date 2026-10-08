@@ -19,7 +19,7 @@ t('smazání duplikátu: zmizí kopie účtenky i JEDNA její transakce, origin�
 t('cizí transakce se stejnou částkou zůstala',c.S.transactions.some(x=>x.id===4));
 t('hláška počítá i transakci',/1 transakce/.test(c.msg),c.msg);
 t('banner: správné skloňování a seznam duplikátů',rc.includes("'duplicitní účtenka'")&&rc.includes('<summary style="cursor:pointer;color:var(--bank)">Zobrazit</summary>'));
-t('nová účtenka má vazbu na transakci',rc.includes('receiptAddedAt: _addedAt,')&&rc.includes('S.receipts.unshift({...receipt, addedAt:_addedAt});'));
+t('nová účtenka má vazbu na transakci',rc.includes('receiptAddedAt: _addedAt,')&&(rc.includes('S.receipts.unshift({...receipt,')&&rc.includes('addedAt:_addedAt});')));
 t('smazání účtenky nabídne smazat i transakci',pick('deleteReceipt').includes('rcptNajdiTx(_r, S)'));
 console.log('── S25 · Obchody a karta výrobku ──');
 t('ID řádku obchodu z pořadí (Můj/Môj už nekolidují)',rc.includes("const storeId = 'store_'+sIdx+'_'+store"));

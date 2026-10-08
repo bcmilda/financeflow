@@ -1,4 +1,4 @@
-// FinanceFlow · v11.47 · admin.js · 2026-10-08
+// FinanceFlow · v11.48 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.48',
+    datum: '2026-10-08',
+    zmeny: [
+      "Analýza účtenek → editor nové účtenky: úpravy (čárové kódy, štítky, názvy, kategorie) se už neztrácejí – každý sken kódu uložil seznam naskenovaných a synchronizace pak editor postavila znovu z původního skenu",
+      "Automatické uschování fotky účtenky: fotka se nahrála, ale odkaz se zapsal do starých dat a neuložil se – nově se účtenka hledá podle stálého id",
+      "Čárový kód → položka: nahoře „🎯 Nejspíš“ – položky z účtenek seřazené podle značky, názvu, gramáže a druhu výrobku; u neznámého výrobku rada vyfotit obal",
+    ]
+  },
   {
     verze: 'v11.47',
     datum: '2026-10-08',
