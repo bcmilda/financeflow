@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · admin.js · 2026-10-08
+// FinanceFlow · v11.45 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,14 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.45',
+    datum: '2026-10-08',
+    zmeny: [
+      "Můj účet → Smazat účet: kromě dat se nově smaže i přihlašovací účet (Firebase) – požadavek Google Play; když Firebase chce čerstvé přihlášení, appka vyzve k novému přihlášení a zopakování",
+      "Nová stránka financeflow.cz/smazani-uctu.html – postup smazání v aplikaci i e-mailem, co se smaže, co zůstane a jak dlouho; odkaz z patičky webu a ze Zásad (GDPR)",
+    ]
+  },
   {
     verze: 'v11.44',
     datum: '2026-10-08',
