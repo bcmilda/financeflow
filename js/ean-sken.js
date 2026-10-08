@@ -1,4 +1,4 @@
-// FinanceFlow · v11.48 · ean-sken.js · 2026-10-08
+// FinanceFlow · v11.49 · ean-sken.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -688,9 +688,10 @@ function eanZapamatuj(ean) {
   S.uiCfg = S.uiCfg || {};
   const a = (S.uiCfg.eanSken || []).filter(x => x && x.e !== ean);
   a.unshift({ e: ean, k: Date.now() });
-  S.uiCfg.eanSken = a.slice(0, 40);
+  S.uiCfg.eanSken = a.slice(0, 300);   // S25 v11.49: Moje výrobky – i čisté skeny bez účtenky (dřív 40)
   if (typeof save === 'function') save();
   setTimeout(eanNaskenovaneKresli, 0);
+  setTimeout(() => { if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli(); }, 0);   // S25 v11.49
 }
 //  Čistá funkce: naskenované kódy + zda už jsou přiřazené k položce některé účtenky
 function eanNaskenovane(D) {
@@ -744,6 +745,95 @@ async function eanOtevriNaskenovany(ean) {
   } catch (e) { eanZprava('⚠️ ' + escHtml(e.message || 'Načtení selhalo'), true); }
 }
 Object.assign(window, { eanZapamatuj, eanNaskenovane, eanNaskenovaneOdeber, eanNaskenovaneHTML, eanNaskenovaneKresli, eanOtevriNaskenovany });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.49, Milan): 📦 MOJE VÝROBKY – cesta: Analýza účtenek → 🗺️ Mapa položek
+//  Katalog všech výrobků, které znáš podle čárového kódu: z položek účtenek (it.ean) i čisté
+//  skeny bez účtenky (uiCfg.eanSken, nově až 300). U každého: název, značka, gramáž, kolikrát
+//  a kde koupeno, poslední cena a co mu chybí (neznámý / bez živin / bez českého názvu /
+//  nepřiřazený). Klepnutí otevře kartu výrobku (živiny, složení, foto obalu, přiřazení).
+// ══════════════════════════════════════════════════════════════════════
+const _eanMoje = { f: 'vse', q: '', vic: false };
+function eanMojeVyrobky(D) {
+  const m = {};
+  const zaz = e => m[e] || (m[e] = { ean: e, nakupy: 0, posledni: '', cena: null, obchody: new Set(), nazvy: new Set(), nask: 0 });
+  ((D || {}).receipts || []).forEach(r => (r.items || []).forEach(it => {
+    if (!it || !it.ean) return;
+    const z = zaz(it.ean); z.nakupy++;
+    if (r.store) z.obchody.add(r.store);
+    if (it.name) z.nazvy.add(it.name);
+    if (String(r.date || '') >= z.posledni) { z.posledni = String(r.date || ''); z.cena = it.price != null ? it.price : null; }
+  }));
+  (((D || {}).uiCfg || {}).eanSken || []).forEach(x => { if (x && x.e) { const z = zaz(x.e); z.nask = Math.max(z.nask, x.k || 0); } });
+  return Object.values(m).map(z => Object.assign(z, { obchody: [...z.obchody], nazvy: [...z.nazvy],
+    akt: Math.max(z.posledni ? Date.parse(z.posledni) || 0 : 0, z.nask) })).sort((a, b) => b.akt - a.akt);
+}
+//  Co výrobku chybí (podle uložené karty z databáze).
+function eanMojeStav(z, p) {
+  const nalez = !!(p && p.stav === 'nalezeno');
+  const ziv = nalez && ((p.nutriceObal && Object.keys(p.nutriceObal).length > 1) || (p.nutrice && Object.keys(p.nutrice).length));
+  const moje = typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[z.ean];
+  const cz = nalez && (p.nazevCesky || p.nazevCs || moje);
+  return { nacteno: p !== undefined && p !== null || (typeof _eanProdukty !== 'undefined' && _eanProdukty[z.ean] !== undefined),
+    neznamy: !nalez, bezZivin: nalez && !ziv, bezCz: nalez && !cz, neprirazeny: !z.nakupy };
+}
+window.eanMojeVyrobky = eanMojeVyrobky; window.eanMojeStav = eanMojeStav;
+function eanMojeVyrobkyHTML(D) {
+  const vse = eanMojeVyrobky(D); if (!vse.length) return '';
+  const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
+  const radky = vse.map(z => { const p = eanProduktZCache(z.ean); return { z, p, st: eanMojeStav(z, p) }; });
+  const chybi = x => x.st.neznamy || x.st.bezZivin || x.st.bezCz;
+  const pocty = { vse: radky.length, neprirazene: radky.filter(x => x.st.neprirazeny).length, chybi: radky.filter(chybi).length };
+  const q = nn(_eanMoje.q);
+  let l = radky.filter(x => _eanMoje.f === 'neprirazene' ? x.st.neprirazeny : _eanMoje.f === 'chybi' ? chybi(x) : true);
+  if (q) l = l.filter(x => nn([x.z.ean, x.p && eanNazevVyrobku(x.p, x.z.ean), x.p && x.p.znacka, ...x.z.nazvy].filter(Boolean).join(' ')).includes(q));
+  const kolik = _eanMoje.vic ? l.length : Math.min(l.length, 30);
+  const mn = p => p && p.mnozstvi ? (p.mnozstvi.hodnota >= 1000 ? (p.mnozstvi.hodnota / 1000).toLocaleString('cs-CZ') + (p.mnozstvi.jednotka === 'g' ? ' kg' : ' l') : p.mnozstvi.hodnota + ' ' + p.mnozstvi.jednotka) : '';
+  const dat = d => d ? d.split('-').reverse().join('. ') : '';
+  const stit = (t, b) => `<span style="font-size:.62rem;border:1px solid ${b}55;color:${b};border-radius:5px;padding:0 5px;white-space:nowrap">${t}</span>`;
+  const chip = (id, t) => `<button class="tx-filt-btn${_eanMoje.f === id ? ' active' : ''}" onclick="eanMojeFiltr('${id}')">${t} <span style="opacity:.7">${pocty[id]}</span></button>`;
+  return `<details ${_eanMoje.otevreno === false ? '' : 'open'} ontoggle="_eanMojeOtevreno(this.open)" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+    <summary style="cursor:pointer;font-weight:700;font-size:.86rem;color:#60a5fa">📦 Moje výrobky (${pocty.vse})${pocty.neprirazene ? ` <span style="color:#fbbf24;font-weight:500;font-size:.74rem">· ${pocty.neprirazene} nepřiřazen${pocty.neprirazene === 1 ? 'ý' : 'ých'}</span>` : ''}</summary>
+    <div style="font-size:.7rem;color:#a8aec8;margin:4px 0 8px;line-height:1.5">Všechno, co znáš podle čárového kódu – z účtenek i ze samostatného skenování. Klepni na výrobek: živiny, složení, foto obalu a přiřazení k položce.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${chip('vse', 'Vše')}${chip('neprirazene', 'Nepřiřazené')}${chip('chybi', 'Chybí údaje')}</div>
+    <input type="search" placeholder="🔍 Název, značka, kód nebo zkratka z účtenky…" value="${escHtml(_eanMoje.q)}" oninput="eanMojeHledej(this.value)" autocomplete="off"
+      style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:var(--text);font-size:.8rem;margin-bottom:6px">
+    ${l.slice(0, kolik).map(({ z, p, st }) => {
+      const n = p && p.stav === 'nalezeno' ? (eanNazevVyrobku(p, z.ean) || p.nazev) : '';
+      return `<div onclick="eanOtevriNaskenovany('${escHtml(z.ean)}')" role="button" style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--border);cursor:pointer">
+        ${p && p.foto ? `<img src="${escHtml(p.foto)}" alt="" loading="lazy" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:7px;flex-shrink:0">` : '<span style="width:38px;text-align:center;flex-shrink:0;color:#8b93ad">▮▮</span>'}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.8rem;font-weight:600;overflow-wrap:anywhere">${escHtml(n || (z.nazvy[0] ? z.nazvy[0] : 'Kód ' + z.ean))}</div>
+          <div style="font-size:.66rem;color:#a8aec8">${[p && p.znacka ? escHtml(p.znacka) : '', escHtml(mn(p)), z.nakupy ? `${z.nakupy}× koupeno${z.obchody.length ? ' · ' + escHtml(z.obchody.slice(0, 2).join(', ')) : ''}` : '', z.posledni ? 'naposledy ' + dat(z.posledni) : ''].filter(Boolean).join(' · ')}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">
+            ${!st.nacteno ? stit('načítám…', '#8b93ad') : st.neznamy ? stit('🤷 databáze nezná – vyfoť obal', '#fbbf24') : ''}
+            ${st.bezZivin ? stit('bez živin', '#fbbf24') : ''}${st.bezCz ? stit('bez českého názvu', '#fbbf24') : ''}
+            ${st.neprirazeny ? stit('nepřiřazený k účtence', '#f87171') : ''}
+            ${st.nacteno && !st.neznamy && !st.bezZivin && !st.bezCz && !st.neprirazeny ? stit('✓ kompletní', '#34d399') : ''}
+          </div>
+        </div>
+        ${z.cena != null ? `<span style="font-size:.74rem;color:#c9cede;white-space:nowrap">${escHtml(String(z.cena).replace('.', ','))} Kč</span>` : ''}
+        ${p && p.nutriscore ? `<span style="background:${EAN_NUTRI_BARVA[p.nutriscore]};color:#fff;font-weight:800;border-radius:5px;padding:1px 6px;font-size:.66rem">${escHtml(String(p.nutriscore).toUpperCase())}</span>` : ''}
+      </div>`; }).join('') || '<div style="font-size:.76rem;color:#a8aec8;padding:8px 0">Nic neodpovídá filtru.</div>'}
+    ${l.length > kolik ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;font-size:.74rem" onclick="eanMojeVic()">Zobrazit všech ${l.length}</button>` : ''}
+  </details>`;
+}
+async function eanMojeVyrobkyKresli() {
+  if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function' || typeof S === 'undefined') return;
+  const boxy = document.querySelectorAll('.eanMojeBox'); if (!boxy.length) return;
+  const kresli = () => { const h = eanMojeVyrobkyHTML(S); boxy.forEach(b => { b.innerHTML = h; }); };
+  kresli();
+  try { const n = await eanNactiVse(eanMojeVyrobky(S).map(z => z.ean)); if (n) kresli(); } catch (e) {}
+}
+function _eanMojeOtevreno(o) { _eanMoje.otevreno = !!o; }
+function eanMojeFiltr(f) { _eanMoje.f = f; _eanMoje.vic = false; eanMojeVyrobkyKresli(); }
+function eanMojeVic() { _eanMoje.vic = true; eanMojeVyrobkyKresli(); }
+let _eanMojeT = null;
+function eanMojeHledej(q) {
+  _eanMoje.q = q; clearTimeout(_eanMojeT);
+  _eanMojeT = setTimeout(() => { eanMojeVyrobkyKresli(); const i = document.querySelector('.eanMojeBox input[type=search]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250);
+}
+Object.assign(window, { eanMojeVyrobkyHTML, eanMojeVyrobkyKresli, eanMojeFiltr, eanMojeVic, eanMojeHledej, _eanMojeOtevreno });
 
 function eanSkenujVolne() {
   if (typeof eanNactiMojeNazvy === 'function') eanNactiMojeNazvy();

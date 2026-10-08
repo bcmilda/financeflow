@@ -30,7 +30,7 @@ s3.eanZapamatuj('222');s3.eanZapamatuj('111');s3.eanZapamatuj('222');
 const l=s3.eanNaskenovane(S);
 t('sken se zapamatuje (nejnovější nahoře, bez duplicit)',l.length===2&&l[0].ean==='222'&&ul===3);
 t('pozná, co už je přiřazené k účtence',l.find(x=>x.ean==='111').prirazeno&&!l[0].prirazeno);
-t('zapamatuje se při každém nalezeném kódu; seznam ve Skenovat i v Mapě položek',pick(ean,'eanNalezen').includes('eanZapamatuj(ean)')&&(rc.match(/class="eanNaskBox"/g)||[]).length===2);
+t('zapamatuje se při každém nalezeném kódu; seznam ve Skenovat i v Mapě položek',pick(ean,'eanNalezen').includes('eanZapamatuj(ean)')&&(rc.match(/class="eanNaskBox"/g)||[]).length===1&&rc.includes('class="eanMojeBox"'));
 t('karta výrobku v okně ukazuje i složení',ean.includes('<summary style="font-size:.74rem;font-weight:700;cursor:pointer">Složení'));
 t('ceny v kraji: bez poznámky pro admina',!ck.includes('admin vidí i pod prahem'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

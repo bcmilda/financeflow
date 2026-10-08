@@ -4,7 +4,7 @@ let ok=0,bad=0;const T=(n,c)=>{c?ok++:(bad++,console.log('❌',n));};
 const cut=n=>{let a=R.indexOf('async function '+n+'(');if(a<0)a=R.indexOf('function '+n+'(');let i=R.indexOf('{',a),d=0;for(;i<R.length;i++){if(R[i]==='{')d++;else if(R[i]==='}'){d--;if(!d)break;}}return R.slice(a,i+1);};
 const g=n=>{const c=cut(n);eval(c.replace(/^async /,'').replace('function '+n,'global.'+n+'='+(c.startsWith('async')?'async ':'')+'function'));};
 eval(R.slice(R.indexOf('const DOKLAD_VAROVANI_DNI'),R.indexOf('\n',R.indexOf('const DOKLAD_VAROVANI_DNI'))).replace('const ','global.'));
-['dokladZaruka','dokladySeznam','buildDokladyTab'].forEach(g);
+['dokladZaruka','dokladySeznam','buildDokladyTab','dokladySirotciBlok'].forEach(g);   // S25 v11.49: + fotky bez účtenky
 global.escHtml=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 global.fmtP=v=>String(v);
 const D=(s)=>new Date(s).getTime();

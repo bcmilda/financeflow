@@ -1,4 +1,4 @@
-// FinanceFlow · v11.48 · receipts.js · 2026-10-08
+// FinanceFlow · v11.49 · receipts.js · 2026-10-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -462,6 +462,7 @@ function renderUctenky() {
 function buildScanTab(receipts, totalSpent) {
   setTimeout(uctenkyKvotaObnov, 0);
   setTimeout(() => { if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli(); }, 0);   // S25
+  setTimeout(() => { if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli(); }, 0);   // S25 v11.49
   return `<div id="utab-scan-content">
     <div id="uctenkyKvota"></div>
     <!-- S24 (v11.25, Milan): samostatné skenování čárového kódu výrobku -->
@@ -1379,7 +1380,7 @@ function buildDokladyTab(receipts) {
         Po naskenování účtenky dej v editoru <b>📌 Uschovat fotku účtenky</b>, nebo zapni <b>uschovávat automaticky</b>.
         Ke starší účtence přidáš fotku v <b>Historii</b> (tužka) → <b>📌 Přidat fotku dokladu</b>.
         Hodí se u spotřebičů a nábytku – k dokladu si pak nastavíš záruku a appka ti řekne, než skončí.
-      </div></div></div></div>`;
+      </div></div></div></div>${dokladySirotciBlok()}`;
     return html + '</div>';
   }
   const konci = list.filter(x => x.z.stav === 'konci');
@@ -1413,9 +1414,75 @@ function buildDokladyTab(receipts) {
   }).join('');
   html += `</div><div style="font-size:.66rem;color:#8b93ad;padding:0 14px 12px;line-height:1.5">
       Fotky leží mimo appku v úložišti EU, u účtenky je jen odkaz. Smazáním účtenky nebo účtu zmizí i doklad.
-    </div></div>`;
+    </div></div>${dokladySirotciBlok()}`;
   return html + '</div>';
 }
+
+//  S25 (v11.49, Milan: „jak obnovit účtenku, aby se zobrazila v uložených?“): FOTKY BEZ ÚČTENKY.
+//  Do v11.47 se automaticky uschovaná fotka mohla nahrát, ale odkaz se k účtence neuložil.
+//  Fotka pak ležela v úložišti, zabírala místo z 300 a v Dokladech nebyla. Tady se najde
+//  (worker /archiv/list), doporučí se účtenka uložená nejblíž času nahrání a jedním klepnutím
+//  se připojí – bez nového nahrávání. Nebo se smaže a uvolní místo.
+function dokladySirotci(soubory, receipts) {
+  const pouzite = new Set(); (receipts || []).forEach(r => rpFotky(r).forEach(k => pouzite.add(k)));
+  return (soubory || []).filter(f => f && f.key && !pouzite.has(f.key)).map(f => {
+    let ts = Date.parse(f.uploaded || '');
+    if (!ts) { const m = /\/([0-9a-z]+)-[^/]*$/.exec(f.key); ts = m ? parseInt(m[1], 36) : 0; }
+    let tip = -1, nej = Infinity;
+    (receipts || []).forEach((r, i) => { if (!r || !r.addedAt) return; const d = Math.abs(r.addedAt - ts); if (d < nej && d < 30 * 60000) { nej = d; tip = i; } });
+    return { key: f.key, size: f.size || 0, ts, tip };
+  }).sort((a, b) => b.ts - a.ts);
+}
+window.dokladySirotci = dokladySirotci;
+function dokladySirotciBlok() {
+  return `<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" style="font-size:.74rem" onclick="dokladySirotciNajdi()">🔎 Najít fotky bez účtenky</button>
+    <span style="font-size:.66rem;color:#8b93ad;margin-left:6px">uschované fotky, které nejsou připojené k žádné účtence</span>
+    <div id="dokSirotci" style="margin-top:8px"></div></div>`;
+}
+let _dokSirotci = [];
+async function dokladySirotciNajdi() {
+  const box = document.getElementById('dokSirotci'); if (!box) return;
+  box.innerHTML = '<div style="font-size:.76rem;color:#a8aec8">⏳ Prohledávám úložiště…</div>';
+  try {
+    const d = await archivVolej('list', {});
+    _dokSirotci = dokladySirotci(d.soubory, S.receipts || []);
+    const misto = `<div style="font-size:.7rem;color:#8b93ad;margin-bottom:6px">Využito ${d.pocet} z ${d.limit} fotek (${Math.round((d.bajtu || 0) / 1024)} kB).</div>`;
+    if (!_dokSirotci.length) { box.innerHTML = misto + '<div style="font-size:.76rem;color:var(--income)">✓ Žádná osiřelá fotka – všechny patří k účtenkám.</div>'; return; }
+    const rec = (S.receipts || []).map((r, i) => ({ r, i })).filter(x => x.r && x.r.date).sort((a, b) => String(b.r.date).localeCompare(String(a.r.date))).slice(0, 60);
+    const nazevR = r => escHtml((r.store || 'Účtenka') + ' · ' + (r.date || '') + (r.total ? ' · ' + fmtP(r.total) + ' Kč' : ''));
+    box.innerHTML = misto + `<div class="card"><div class="card-body" style="padding:6px 14px">
+      <div style="font-size:.78rem;font-weight:700;margin:6px 0">${_dokSirotci.length} ${_dokSirotci.length === 1 ? 'fotka bez účtenky' : _dokSirotci.length < 5 ? 'fotky bez účtenky' : 'fotek bez účtenky'}</div>
+      ${_dokSirotci.map((x, j) => `<div style="display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--border);align-items:flex-start">
+        <div id="dok-sir-${j}" data-key="${escHtml(x.key)}" onclick="archivProhlizec(['${escHtml(x.key)}'])" style="width:54px;height:54px;border-radius:9px;background:var(--surface2);flex-shrink:0;cursor:pointer;display:grid;place-items:center;overflow:hidden">📄</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.74rem;color:#a8aec8">nahráno ${x.ts ? new Date(x.ts).toLocaleString('cs-CZ') : '?'} · ${Math.round(x.size / 1024)} kB</div>
+          ${x.tip >= 0 ? `<button class="btn btn-accent btn-sm" style="font-size:.72rem;margin-top:5px" onclick="dokladSirotekPripoj(${j},${x.tip})">📎 Připojit k ${nazevR(S.receipts[x.tip])}</button>` : ''}
+          <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
+            <select id="dok-sir-sel-${j}" class="fi" style="font-size:.72rem;padding:4px 6px;flex:1;min-width:150px">${rec.map(y => `<option value="${y.i}"${y.i === x.tip ? ' selected' : ''}>${nazevR(y.r)}</option>`).join('')}</select>
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="dokladSirotekPripoj(${j},+document.getElementById('dok-sir-sel-${j}').value)">Připojit</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem;color:var(--expense)" onclick="dokladSirotekSmaz(${j})">🗑️ Smazat</button>
+          </div></div></div>`).join('')}
+    </div></div>`;
+    for (let j = 0; j < _dokSirotci.length; j++) {
+      const b = document.getElementById('dok-sir-' + j); if (!b) continue;
+      try { const blob = await archivVolej('get', { key: b.dataset.key }); b.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="" style="width:100%;height:100%;object-fit:cover">`; } catch (e) { b.textContent = '⚠️'; }
+    }
+  } catch (e) { box.innerHTML = `<div style="font-size:.76rem;color:var(--expense)">⚠️ ${escHtml(e.message)}</div>`; }
+}
+function dokladSirotekPripoj(j, recIdx) {
+  const x = _dokSirotci[j], r = (S.receipts || [])[recIdx];
+  if (!x || !r) return;
+  rpPripojFotky(r, { keys: [x.key], bajtu: x.size });
+  save();
+  if (typeof showToast === 'function') showToast('📎 Fotka připojena k účtence ' + (r.store || ''));
+  if (typeof renderUctenky === 'function') renderUctenky();
+}
+async function dokladSirotekSmaz(j) {
+  const x = _dokSirotci[j]; if (!x) return;
+  if (!confirm('Smazat tuhle fotku z úložiště? Uvolní se jedno místo z limitu.')) return;
+  if (await archivSmaz(x.key)) dokladySirotciNajdi(); else alert('Fotku se nepodařilo smazat, zkus to znovu.');
+}
+Object.assign(window, { dokladySirotciNajdi, dokladSirotekPripoj, dokladSirotekSmaz });
 
 //  Náhledy se tahají až při otevření záložky a každý jen jednou.
 async function dokladyNactiNahledy() {
@@ -2259,6 +2326,7 @@ function switchUctenkyTab(tab, btn) {
   ]).then(async ()=>{
     mapaUzivKresli();
     if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();   // S25
+    if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli();   // S25 v11.49
     //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
     if(typeof eanNactiVse==='function') { const n = await eanNactiVse(_mapaUziv.map(z=>z.ean)); if(n) mapaUzivKresli(); }
   }).catch(()=>mapaUzivKresli());
@@ -2393,7 +2461,7 @@ function buildMapaTab(receipts) {
       <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:12px">
         Co doopravdy kupuješ: každá položka z účtenek zařazená do <b style="color:var(--text)">taxonomie výrobků</b>. Podle ní se počítají statistiky, zdražování a inflace. Klepni na položku pro kartu s podrobnostmi.
       </div>
-      <div class="eanNaskBox"></div>
+      <div class="eanMojeBox"></div>
       ${_mapaUziv.length ? `
       <div id="mapaUzivStat">${mapaUzivStatHTML()}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px" id="mapaUzivFiltry">${mapaUzivFiltryHTML()}</div>

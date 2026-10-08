@@ -1,4 +1,4 @@
-// FinanceFlow · v11.48 · admin.js · 2026-10-08
+// FinanceFlow · v11.49 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -569,6 +569,15 @@ function switchAdminTab(tab, btn) {
 }
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.49',
+    datum: '2026-10-08',
+    zmeny: [
+      "Analýza účtenek → 🗺️ Mapa položek: 📦 Moje výrobky – všechny výrobky podle čárového kódu (z účtenek i samostatného skenování), kolikrát a kde koupeno, poslední cena, co chybí (neznámý / bez živin / bez českého názvu / nepřiřazený), filtry a hledání",
+      "Samostatné skeny čárových kódů se pamatují až 300 (dřív 40)",
+      "Analýza účtenek → 📎 Doklady: 🔎 Najít fotky bez účtenky – uschovaná fotka, která se kvůli chybě do v11.47 nepřipojila, jde jedním klepnutím připojit k účtence (appka doporučí tu uloženou ve stejnou chvíli) nebo smazat; ukáže i využití 300 míst",
+    ]
+  },
   {
     verze: 'v11.48',
     datum: '2026-10-08',
