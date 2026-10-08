@@ -1,4 +1,4 @@
-// FinanceFlow · v11.49 · admin.js · 2026-10-08
+// FinanceFlow · v11.50 · admin.js · 2026-10-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -95,6 +95,16 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-reports" onclick="switchAdminTab('reports',this)">🚩 Hlášení účtenek</button>
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
+      <button class="tx-filt-btn"        id="atab-uloziste" onclick="switchAdminTab('uloziste',this)">💾 Úložiště</button>
+    </div>
+
+    <!-- S25 (v11.50, Milan): ÚLOŽIŠTĚ DOKLADŮ – zaplněno / zbývá celkem i po uživatelích -->
+    <div id="atab-uloziste-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">💾 Úložiště dokladů (Cloudflare R2)</span>
+          <button class="btn btn-ghost btn-sm" onclick="renderAdminUloziste()" style="font-size:.72rem">↻ Obnovit</button></div>
+        <div class="card-body" id="adminUlozisteBody"><div style="color:#a8aec8;font-size:.82rem">Načítám…</div></div>
+      </div>
     </div>
 
     <!-- S20 (Milan): ZDRAVÍ APLIKACE – rozcestník. Panel měl 15 záložek a žádný
@@ -543,7 +553,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports','uloziste'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -566,9 +576,66 @@ function switchAdminTab(tab, btn) {
   if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
   if(tab==='skore'){ if(typeof renderScoringSim==='function') renderScoringSim(); }             // S22
   if(tab==='reports'){ if(typeof renderReceiptReports==='function') renderReceiptReports(); }   // S22
+  if(tab==='uloziste') renderAdminUloziste();   // S25 v11.50
 }
 
+//  S25 (v11.50): přehled úložiště – worker /archiv/admin-stav sečte celý bucket po uživatelích,
+//  jména a tarify se doplní z načteného seznamu uživatelů. Limit: Free 300, Premium/trial 1 000.
+function adminArchivLimit(u, limity) {
+  const L = limity || { free: 300, trial: 1000, premium: 1000, admin: 100000 };
+  if (!u) return L.free;
+  if (u.isAdmin) return L.admin;
+  const p = u.premium || {}, now = Date.now();
+  if ((p.type === 'premium' || p.type === 'pro') && (p.premiumUntil || 0) > now) return L.premium;
+  if (p.type === 'trial' && (p.trialUntil || 0) > now) return L.trial;
+  return L.free;
+}
+function adminUlozisteHTML(d, users) {
+  const mb = b => { const m = (b || 0) / 1048576; return m >= 1024 ? (m / 1024).toFixed(2).replace('.', ',') + ' GB' : m >= 1 ? m.toFixed(1).replace('.', ',') + ' MB' : Math.round((b || 0) / 1024) + ' kB'; };
+  const pct = Math.min(100, d.zdarmaBajtu ? d.bajtu / d.zdarmaBajtu * 100 : 0);
+  const byUid = {}; (users || []).forEach(u => { byUid[u.uid] = u; });
+  const radky = (d.uzivatele || []).map(x => { const u = byUid[x.uid], lim = adminArchivLimit(u, d.limity); return { ...x, u, lim, p: Math.min(100, x.soubory / lim * 100) }; });
+  const plni = radky.filter(x => x.p >= 80).length;
+  const bar = (p, c) => `<div style="height:7px;border-radius:4px;background:var(--border);overflow:hidden"><div style="width:${p}%;height:100%;background:${c}"></div></div>`;
+  const barva = p => p >= 90 ? 'var(--expense)' : p >= 75 ? '#fbbf24' : 'var(--income)';
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+      ${[['Zaplněno', mb(d.bajtu)], ['Zbývá zdarma', mb(Math.max(0, d.zdarmaBajtu - d.bajtu)) + ' z ' + mb(d.zdarmaBajtu)], ['Fotek celkem', d.soubory.toLocaleString('cs-CZ')], ['Uživatelů s doklady', radky.length + (plni ? ` · ${plni} nad 80 %` : '')]]
+        .map(([l, v]) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px"><div style="font-size:.66rem;color:#a8aec8">${l}</div><div style="font-size:1.05rem;font-weight:800">${_vzEsc(v)}</div></div>`).join('')}
+    </div>
+    <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px">Bezplatná kvóta Cloudflare R2: ${pct.toFixed(1).replace('.', ',')} %</div>${bar(pct, barva(pct))}
+    <div style="font-size:.66rem;color:#8b93ad;margin:4px 0 12px">Nad 10 GB účtuje Cloudflare zhruba 0,015 USD za GB měsíčně. Limity na uživatele: Free ${d.limity.free}, Premium a trial ${d.limity.premium.toLocaleString('cs-CZ')} fotek.</div>
+    ${radky.length ? `<table style="width:100%;font-size:.74rem;border-collapse:collapse">
+      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Uživatel</th><th style="padding:5px 4px">Fotky / limit</th><th style="padding:5px 4px;text-align:right">Velikost</th><th style="padding:5px 4px;text-align:right">Naposledy</th></tr>
+      ${radky.map(x => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px 4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_vzEsc(x.uid)}">${_vzEsc(x.u ? (x.u.displayName || x.u.email || x.uid.slice(0, 8)) : x.uid.slice(0, 8) + '…')}${x.u && x.u.email && x.u.displayName ? `<div style="font-size:.64rem;color:#8b93ad">${_vzEsc(x.u.email)}</div>` : ''}</td>
+        <td style="padding:6px 4px;min-width:120px"><div style="display:flex;justify-content:space-between;font-size:.68rem"><span>${x.soubory} / ${x.lim.toLocaleString('cs-CZ')}</span><span style="color:${barva(x.p)}">${Math.round(x.p)} %</span></div>${bar(x.p, barva(x.p))}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${mb(x.bajtu)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap;color:#a8aec8">${x.posledni ? new Date(x.posledni).toLocaleDateString('cs-CZ') : '–'}</td></tr>`).join('')}
+    </table>` : '<div style="font-size:.78rem;color:#a8aec8">Zatím nikdo nemá uschovaný doklad.</div>'}`;
+}
+async function renderAdminUloziste() {
+  const el = document.getElementById('adminUlozisteBody'); if (!el) return;
+  el.innerHTML = '<div style="color:#a8aec8;font-size:.82rem">⏳ Sčítám úložiště…</div>';
+  try {
+    if ((!_cachedUsers || !_cachedUsers.length) && typeof loadUsersList === 'function') { try { await loadUsersList(); } catch (e) {} }
+    const d = await archivVolej('admin-stav', {});
+    el.innerHTML = adminUlozisteHTML(d, _cachedUsers);
+  } catch (e) { el.innerHTML = `<div style="color:var(--expense);font-size:.82rem">⚠️ ${_vzEsc(e.message)}</div>`; }
+}
+window.renderAdminUloziste = renderAdminUloziste;
+
 const VERZE_LOG = [
+  {
+    verze: 'v11.50',
+    datum: '2026-10-08',
+    zmeny: [
+      "Úložiště dokladů podle tarifu: Free 300, Premium a trial 1 000 fotek; v Analýza účtenek → 📎 Doklady počítadlo „X z Y fotek · MB · zbývá“ (dřív natvrdo „z 300“ a počítaly se účtenky)",
+      "Admin panel → 💾 Úložiště: zaplněno / zbývá z bezplatných 10 GB Cloudflare R2, fotek celkem a po uživatelích (fotky z limitu podle tarifu, velikost, poslední nahrání)",
+      "Čárový kód, který databáze nezná: „✍️ Zapsat název / založit kartu výrobku“ ve skeneru i v Mých výrobcích – název, značka, balení (předvyplní se z účtenky), druh; u známého výrobku doplní jen chybějící údaje",
+      "Moje výrobky: u neznámého kódu se ukáže aspoň název z účtenky a výzva „Zapiš název výrobku“",
+      "Worker: výrobek doplněný z fotky obalu nebo ručně se po 90 dnech už nepřepíše na „nenalezeno“",
+    ]
+  },
   {
     verze: 'v11.49',
     datum: '2026-10-08',

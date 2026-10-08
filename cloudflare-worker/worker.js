@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.47 · 2026-10-08  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.50 · 2026-10-08  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -231,7 +231,18 @@ async function refundQuota(uid, type, env) {
 //     ARCHIV_MAX_FILE na soubor, ARCHIV_MAX_FILES na účet.
 // ══════════════════════════════════════════════════════
 const ARCHIV_MAX_FILE  = 2 * 1024 * 1024;   // 2 MB – appka posílá ~250 kB zmenšenou fotku
-const ARCHIV_MAX_FILES = 300;               // na uživatele; 300 × 250 kB ≈ 75 MB
+const ARCHIV_MAX_FILES = 300;               // Free na uživatele; 300 × 250 kB ≈ 75 MB
+//  S25 (v11.50, Milan): Premium a trial 1 000 fotek (≈ 250 MB), admin bez limitu.
+const ARCHIV_LIMITY = { free: 300, trial: 1000, premium: 1000, admin: 100000 };
+const ARCHIV_R2_ZDARMA = 10 * 1024 * 1024 * 1024;   // Cloudflare R2: 10 GB zdarma, pak ~0,015 USD/GB/měs.
+async function archivLimit(uid, env) {
+  if (ADMIN_UIDS.includes(uid)) return ARCHIV_LIMITY.admin;
+  try {
+    const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+    const r = await fetch(`${DB}/users/${uid}/premium.json?auth=${S}`);
+    return ARCHIV_LIMITY[tierZPremium(r.ok ? await r.json() : null)] || ARCHIV_MAX_FILES;
+  } catch (e) { return ARCHIV_MAX_FILES; }
+}
 const ARCHIV_MIME = { 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp' };
 
 //  Ověření tokenu + prefix uživatele. Vrací {uid, prefix} nebo {err}.
@@ -478,9 +489,11 @@ async function handleArchiv(request, env, corsHeaders, akce) {
 
       //  Kvóta – kolik už jich uživatel má. List je Class A operace, ale běží
       //  jen při ukládání, ne při každém čtení.
-      const list = await env.ARCHIV.list({ prefix: a.prefix, limit: ARCHIV_MAX_FILES + 1 });
-      if (list.objects.length >= ARCHIV_MAX_FILES) {
-        return json({ error: `Archiv je plný (${ARCHIV_MAX_FILES} účtenek). Smaž některé starší.`, full: true }, 409, corsHeaders);
+      const limit = await archivLimit(a.uid, env);
+      let pocet = 0, cursor;
+      do { const l = await env.ARCHIV.list({ prefix: a.prefix, limit: 1000, cursor }); pocet += l.objects.length; cursor = l.truncated ? l.cursor : null; } while (cursor && pocet < limit);
+      if (pocet >= limit) {
+        return json({ error: `Úložiště dokladů je plné (${pocet} z ${limit} fotek). Smaž starší doklady${limit < ARCHIV_LIMITY.premium ? ', nebo s Premium máš místo na ' + ARCHIV_LIMITY.premium : ''}.`, full: true, pocet, limit }, 409, corsHeaders);
       }
 
       const rid = String(body.receiptId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || 'u';
@@ -488,7 +501,7 @@ async function handleArchiv(request, env, corsHeaders, akce) {
       await env.ARCHIV.put(key, bytes, {
         httpMetadata: { contentType: mime, cacheControl: 'private, max-age=31536000' }
       });
-      return json({ ok: true, key, size: bytes.length, pocet: list.objects.length + 1, limit: ARCHIV_MAX_FILES }, 200, corsHeaders);
+      return json({ ok: true, key, size: bytes.length, pocet: pocet + 1, limit }, 200, corsHeaders);
     }
 
     // ── VÝDEJ FOTKY ──
@@ -507,12 +520,31 @@ async function handleArchiv(request, env, corsHeaders, akce) {
 
     // ── SEZNAM ──
     if (akce === 'list') {
-      const list = await env.ARCHIV.list({ prefix: a.prefix, limit: 1000 });
+      const obj = []; let cursor;
+      do { const l = await env.ARCHIV.list({ prefix: a.prefix, limit: 1000, cursor }); obj.push(...l.objects); cursor = l.truncated ? l.cursor : null; } while (cursor);
       return json({
-        ok: true, limit: ARCHIV_MAX_FILES, pocet: list.objects.length,
-        bajtu: list.objects.reduce((s, o) => s + (o.size || 0), 0),
-        soubory: list.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+        ok: true, limit: await archivLimit(a.uid, env), pocet: obj.length,
+        bajtu: obj.reduce((s, o) => s + (o.size || 0), 0),
+        soubory: body.jenPocet ? [] : obj.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
       }, 200, corsHeaders);
+    }
+
+    // ── S25 (v11.50): PŘEHLED ÚLOŽIŠTĚ PRO ADMINA – celý bucket po uživatelích ──
+    if (akce === 'admin-stav') {
+      if (!ADMIN_UIDS.includes(a.uid)) return json({ error: 'Jen pro admina' }, 403, corsHeaders);
+      const po = {}; let celkem = 0, bajtu = 0, cursor;
+      do {
+        const l = await env.ARCHIV.list({ prefix: 'u/', limit: 1000, cursor });
+        l.objects.forEach(o => {
+          const uid = (o.key.split('/')[1] || '?');
+          const z = po[uid] || (po[uid] = { uid, soubory: 0, bajtu: 0, posledni: 0 });
+          z.soubory++; z.bajtu += o.size || 0; celkem++; bajtu += o.size || 0;
+          const t = Date.parse(o.uploaded || '') || 0; if (t > z.posledni) z.posledni = t;
+        });
+        cursor = l.truncated ? l.cursor : null;
+      } while (cursor);
+      return json({ ok: true, soubory: celkem, bajtu, zdarmaBajtu: ARCHIV_R2_ZDARMA, limity: ARCHIV_LIMITY,
+        uzivatele: Object.values(po).sort((x, y) => y.bajtu - x.bajtu) }, 200, corsHeaders);
     }
 
     // ── MAZÁNÍ ──
@@ -901,6 +933,34 @@ async function eanAkceZiviny(uid, ean, body, env, cors) {
   return json({ ok: true, ean, produkt: p }, 200, cors);
 }
 
+//  S25 (v11.50, Milan: „samotný EAN k ničemu není – zapiš název nebo založ kartu výrobku“):
+//  ruční karta výrobku. Databáze kód nezná → založí se nová karta (zdroj „zadáno ručně“).
+//  Databáze ho zná → doplní se jen to, co chybí (český název, značka, gramáž, zařazení);
+//  údaje z databáze se nepřepisují. Uživatelův název platí i jako „tvůj název“.
+async function eanAkceKarta(uid, ean, body, env, cors) {
+  const nazev = eanStr(body.nazev, 100).replace(/\s+/g, ' ').trim();
+  if (nazev.length < 2) return json({ error: 'Napiš název výrobku (aspoň 2 znaky).' }, 400, cors);
+  const znacka = eanStr(body.znacka, 60).replace(/\s+/g, ' ').trim();
+  const m = body.mnozstvi ? eanMnozstvi({ quantity: String(body.mnozstvi) }) : null;
+  const tax = await eanTaxonomie();
+  const k = body.obecny ? eanTaxKlic(body.obecny) : '';
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const url = `${DB}/community/eanProdukty/${ean}.json?auth=${S}`;
+  let p = null; try { p = await (await fetch(url)).json(); } catch (e) {}
+  if (!p || p.stav !== 'nalezeno') {
+    p = Object.assign({}, p && p.stav !== 'nalezeno' ? {} : p, { ean, stav: 'nalezeno', zdroj: 'zadáno ručně', kdy: Date.now(), kv: 2,
+      nazev, nazevCesky: true, rucneKdy: Date.now() });
+  } else if (!p.nazevCesky && !p.nazevCs) { p.nazevCs = nazev; p.nazevCsZdroj = 'uzivatel'; }
+  if (znacka && !p.znacka) p.znacka = znacka;
+  if (m && !p.mnozstvi) p.mnozstvi = m;
+  if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
+  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+  try { await fetch(`${DB}/community/eanKartyLog/${ean}/${uid}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kdy: Date.now(), nazev, znacka, mnozstvi: m || null }) }); } catch (e) {}
+  //  i jako uživatelův vlastní název (stejně jako „✎ Opravit český název“)
+  try { await eanAkceNazev(uid, ean, { nazev }, env, cors); } catch (e) {}
+  return json({ ok: true, ean, produkt: p }, 200, cors);
+}
+
 async function handleEan(request, env, cors) {
   const a = await archivAuth(request);
   if (a.err) return new Response(a.err.body, { status: a.err.status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -925,6 +985,7 @@ async function handleEan(request, env, cors) {
   if (body.akce === 'foto') return eanAkceFoto(uid, ean, body, env, cors);
   if (body.akce === 'odebrat') return eanAkceOdebrat(uid, ean, body, env, cors);   // S25
   if (body.akce === 'ziviny') return eanAkceZiviny(uid, ean, body, env, cors);   // S25 v11.43
+  if (body.akce === 'karta') return eanAkceKarta(uid, ean, body, env, cors);   // S25 v11.50
 
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
   const S = env.FIREBASE_DB_SECRET;
@@ -954,6 +1015,9 @@ async function handleEan(request, env, cors) {
     //  S24 (v11.24): obnova po 90 dnech nesmí smazat, co doplnil admin, AI nebo fotka obalu.
     if (produkt && _eanStary) EAN_ZACHOVAT.forEach(k => { if (_eanStary[k] != null && produkt[k] == null) produkt[k] = _eanStary[k]; });
     if (!produkt && _eanStary && _eanStary.stav === 'nalezeno') produkt = _eanStary;   // S25: obnova selhala → stará data
+    //  S25 (v11.50): výrobek, který databáze nezná, ale doplnil ho uživatel (fotka obalu, ruční
+    //  karta), se po 90 dnech NESMÍ přepsat na „nenalezeno“ – zůstane, jak ho lidé založili.
+    if (produkt && produkt.stav !== 'nalezeno' && _eanStary && _eanStary.stav === 'nalezeno') produkt = Object.assign({}, _eanStary, { kdy: Date.now() });
     if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
     try { produkt = await eanObohat(env, produkt); } catch (e) {}   // S24 (v11.23): český název + obecný název z taxonomie
     try {

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.49 · ean-sken.js · 2026-10-08
+// FinanceFlow · v11.50 · ean-sken.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -327,7 +327,8 @@ const EAN_NUTRI_BARVA = { a: '#038141', b: '#85bb2f', c: '#fecb02', d: '#ee8100'
 function eanKartaHTML(p, ean) {
   if (!p || p.stav !== 'nalezeno') {
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:.8rem;line-height:1.5">
-      <b>Kód ${escHtml(ean)}</b> zatím nezná žádná databáze.<br>
+      <b>Kód ${escHtml(ean)}</b> zatím nezná žádná databáze.${typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[ean] ? `<br>Tvůj název: <b>${escHtml(_eanMojeNazvy[ean].nazev)}</b>` : ''}<br>
+      <button class="btn btn-accent btn-sm" style="margin:8px 0 6px" onclick="eanKartaForm('${escHtml(ean)}')">✍️ Zapsat název / založit kartu výrobku</button><br>
       <span style="color:#a8aec8">Přiřadit se i tak vyplatí: položka tím dostane jednoznačnou identitu a ve všech obchodech se spojí se stejným výrobkem. Pak v kartě výrobku stačí 📸 vyfotit obal, nebo ho přidej do <a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code=${encodeURIComponent(ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Food Facts</a>.</span>
     </div>`;
   }
@@ -351,6 +352,19 @@ function eanKartaHTML(p, ean) {
 }
 window.eanKartaHTML = eanKartaHTML;
 
+//  Výsledek skenu v okně skeneru – v editoru účtenky „Přiřadit k položce“, při samostatném
+//  skenu „Přiřadit k položce z účtenky“ (+ názvy a fotky). Volá se i po založení karty.
+function eanVysledekKresli(ean, p) {
+  const el = document.getElementById('eanVysledek'); if (!el) return;
+  const volne = !!(_eanStav.cil && _eanStav.cil.volne);
+  el.innerHTML = eanKartaHTML(p, ean)
+    + (volne ? `<div style="margin-top:8px">${eanNazvyHTML(p && p.stav === 'nalezeno' ? p : {}, ean, 'sk')}${eanFotoTlacitkaHTML(ean, p, 'eanVolneObnov')}</div>` : '') + `
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" style="flex:1" onclick="${volne ? 'eanVyberPolozku()' : 'eanPrirad()'}">${volne ? '🔗 Přiřadit k položce z účtenky' : '✅ Přiřadit k položce'}</button>
+      <button class="btn" onclick="document.getElementById('eanVysledek').innerHTML='';eanStartKamery()">↺ Skenovat znovu</button>
+    </div>`;
+}
+
 async function eanNalezen(kod) {
   const ean = String(kod).replace(/\D/g, '');
   if (eanJeObchodni(ean)) {
@@ -364,13 +378,7 @@ async function eanNalezen(kod) {
     eanZapamatuj(ean);   // S25: naskenovaný výrobek zůstane v seznamu i po zavření okna
     eanZprava(d.produkt && d.produkt.stav === 'nalezeno' ? '✅ Nalezeno' + (d.produkt.zdroj ? ' · ' + escHtml(d.produkt.zdroj) : '') : '🤷 Kód je platný, výrobek zatím nikdo nezapsal.');
     if (d.produkt) _eanProdukty[ean] = d.produkt;
-    const volne = !!(_eanStav.cil && _eanStav.cil.volne);
-    document.getElementById('eanVysledek').innerHTML = eanKartaHTML(d.produkt, ean)
-      + (volne ? `<div style="margin-top:8px">${eanNazvyHTML(d.produkt && d.produkt.stav === 'nalezeno' ? d.produkt : {}, ean, 'sk')}${eanFotoTlacitkaHTML(ean, d.produkt, 'eanVolneObnov')}</div>` : '') + `
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" style="flex:1" onclick="${volne ? 'eanVyberPolozku()' : 'eanPrirad()'}">${volne ? '🔗 Přiřadit k položce z účtenky' : '✅ Přiřadit k položce'}</button>
-        <button class="btn" onclick="document.getElementById('eanVysledek').innerHTML='';eanStartKamery()">↺ Skenovat znovu</button>
-      </div>`;
+    eanVysledekKresli(ean, d.produkt);
   } catch (e) {
     eanZprava('⚠️ ' + escHtml(e.message || 'Hledání selhalo'), true);
   }
@@ -799,18 +807,20 @@ function eanMojeVyrobkyHTML(D) {
     <input type="search" placeholder="🔍 Název, značka, kód nebo zkratka z účtenky…" value="${escHtml(_eanMoje.q)}" oninput="eanMojeHledej(this.value)" autocomplete="off"
       style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:var(--text);font-size:.8rem;margin-bottom:6px">
     ${l.slice(0, kolik).map(({ z, p, st }) => {
-      const n = p && p.stav === 'nalezeno' ? (eanNazevVyrobku(p, z.ean) || p.nazev) : '';
+      const n = eanNazevVyrobku(p && p.stav === 'nalezeno' ? p : null, z.ean) || (p && p.stav === 'nalezeno' ? p.nazev : '');
+      const vyzva = st.nacteno && (st.neznamy && !n || st.bezCz);
       return `<div onclick="eanOtevriNaskenovany('${escHtml(z.ean)}')" role="button" style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--border);cursor:pointer">
         ${p && p.foto ? `<img src="${escHtml(p.foto)}" alt="" loading="lazy" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:7px;flex-shrink:0">` : '<span style="width:38px;text-align:center;flex-shrink:0;color:#8b93ad">▮▮</span>'}
         <div style="flex:1;min-width:0">
-          <div style="font-size:.8rem;font-weight:600;overflow-wrap:anywhere">${escHtml(n || (z.nazvy[0] ? z.nazvy[0] : 'Kód ' + z.ean))}</div>
+          <div style="font-size:.8rem;font-weight:600;overflow-wrap:anywhere">${n ? escHtml(n) : z.nazvy[0] ? `<span style="color:#c9cede">📝 ${escHtml(z.nazvy[0])}</span> <span style="font-size:.64rem;color:#8b93ad;font-weight:400">(z účtenky)</span>` : 'Kód ' + escHtml(z.ean)}</div>
           <div style="font-size:.66rem;color:#a8aec8">${[p && p.znacka ? escHtml(p.znacka) : '', escHtml(mn(p)), z.nakupy ? `${z.nakupy}× koupeno${z.obchody.length ? ' · ' + escHtml(z.obchody.slice(0, 2).join(', ')) : ''}` : '', z.posledni ? 'naposledy ' + dat(z.posledni) : ''].filter(Boolean).join(' · ')}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">
-            ${!st.nacteno ? stit('načítám…', '#8b93ad') : st.neznamy ? stit('🤷 databáze nezná – vyfoť obal', '#fbbf24') : ''}
+            ${!st.nacteno ? stit('načítám…', '#8b93ad') : st.neznamy && !n ? stit('🤷 databáze nezná', '#fbbf24') : st.neznamy ? stit('✍️ tvoje karta', '#60a5fa') : ''}
             ${st.bezZivin ? stit('bez živin', '#fbbf24') : ''}${st.bezCz ? stit('bez českého názvu', '#fbbf24') : ''}
             ${st.neprirazeny ? stit('nepřiřazený k účtence', '#f87171') : ''}
             ${st.nacteno && !st.neznamy && !st.bezZivin && !st.bezCz && !st.neprirazeny ? stit('✓ kompletní', '#34d399') : ''}
           </div>
+          ${vyzva ? `<button class="btn btn-accent btn-sm" style="font-size:.7rem;margin-top:5px;padding:3px 10px" onclick="event.stopPropagation();eanKartaForm('${escHtml(z.ean)}')">✍️ ${st.neznamy ? 'Zapiš název výrobku' : 'Doplň český název'}</button>` : ''}
         </div>
         ${z.cena != null ? `<span style="font-size:.74rem;color:#c9cede;white-space:nowrap">${escHtml(String(z.cena).replace('.', ','))} Kč</span>` : ''}
         ${p && p.nutriscore ? `<span style="background:${EAN_NUTRI_BARVA[p.nutriscore]};color:#fff;font-weight:800;border-radius:5px;padding:1px 6px;font-size:.66rem">${escHtml(String(p.nutriscore).toUpperCase())}</span>` : ''}
@@ -834,6 +844,74 @@ function eanMojeHledej(q) {
   _eanMojeT = setTimeout(() => { eanMojeVyrobkyKresli(); const i = document.querySelector('.eanMojeBox input[type=search]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250);
 }
 Object.assign(window, { eanMojeVyrobkyHTML, eanMojeVyrobkyKresli, eanMojeFiltr, eanMojeVic, eanMojeHledej, _eanMojeOtevreno });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.50, Milan: „samotný EAN k ničemu není – podnět zapiš název nebo založ kartu“):
+//  ✍️ KARTA VÝROBKU RUČNĚ. Název (povinný), značka, balení, druh (obecný název z taxonomie).
+//  Neznámý kód → nová karta pro všechny; známý → doplní jen chybějící údaje. Název z účtenky
+//  se ukáže jako nápověda. Fotka obalu (AI) a živiny jdou doplnit hned potom v kartě.
+// ══════════════════════════════════════════════════════════════════════
+function eanNazvyZUctenek(ean, D) {
+  const out = new Set();
+  (((D || (typeof S !== 'undefined' ? S : {})) || {}).receipts || []).forEach(r => (r.items || []).forEach(it => { if (it && it.ean === ean && it.name) out.add(it.name); }));
+  return [...out];
+}
+function eanKartaForm(ean) {
+  const p = _eanProdukty[ean] || null, nalez = !!(p && p.stav === 'nalezeno');
+  const moje = (typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[ean]) ? _eanMojeNazvy[ean].nazev : '';
+  const zUct = eanNazvyZUctenek(ean);
+  //  balení z databáze, jinak gramáž ze zkratky na účtence („CHIPSY PAPR.150G“ → 150 g)
+  const qU = !(p && p.mnozstvi) && zUct.length && typeof normQty === 'function' ? normQty(zUct[0]) : null;
+  const mn = p && p.mnozstvi ? (p.mnozstvi.hodnota + ' ' + p.mnozstvi.jednotka) : qU && /^(g|ml)$/.test(qU.jednotka) ? (String(qU.hodnota).replace('.', ',') + ' ' + qU.jednotka) : '';
+  const tax = typeof taxSeznam === 'function' ? taxSeznam() : [];
+  const inp = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 9px;font-size:.86rem;width:100%;box-sizing:border-box';
+  let o = document.getElementById('eanKartaOkno'); if (o) o.remove();
+  o = document.createElement('div'); o.id = 'eanKartaOkno';
+  o.style.cssText = 'position:fixed;inset:0;z-index:10070;background:rgba(8,10,20,.88);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px calc(16px + env(safe-area-inset-bottom))';
+  o.innerHTML = `<div style="width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px">
+    <div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:.95rem;flex:1">✍️ ${nalez ? 'Doplnit kartu výrobku' : 'Založit kartu výrobku'}</div>
+      <button onclick="eanKartaZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:4px 0 10px;line-height:1.5">Kód ${escHtml(ean)}${nalez ? ' – databáze ho zná, doplníš jen to, co chybí.' : ' – databáze ho zatím nezná. Napiš, co to je, ať výrobek poznáš i ty a ostatní.'}
+      ${zUct.length ? `<br>Na účtence: <b style="color:#c9cede">${zUct.slice(0, 3).map(escHtml).join(', ')}</b>` : ''}</div>
+    <label style="font-size:.76rem;color:#c9cede">Název výrobku <span style="color:var(--expense)">*</span></label>
+    <input id="ek_nazev" style="${inp};margin:3px 0 8px" maxlength="100" placeholder="např. Mléčná čokoláda s lískovými oříšky" value="${escHtml(moje || (nalez ? eanNazevVyrobku(p, ean) : ''))}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label style="font-size:.76rem;color:#c9cede">Značka</label><input id="ek_znacka" style="${inp};margin-top:3px" maxlength="60" placeholder="např. Milka" value="${escHtml(p && p.znacka || '')}"></div>
+      <div><label style="font-size:.76rem;color:#c9cede">Balení</label><input id="ek_mn" style="${inp};margin-top:3px" maxlength="20" placeholder="např. 100 g, 0,5 l" value="${escHtml(mn)}"></div>
+    </div>
+    <label style="font-size:.76rem;color:#c9cede;display:block;margin-top:8px">Druh (obecný název)</label>
+    <input id="ek_obecny" list="ekTaxList" style="${inp};margin-top:3px" placeholder="začni psát: čokoláda, jogurt, pivo…" value="${escHtml(p && p.obecny || '')}">
+    <datalist id="ekTaxList">${tax.map(z => `<option value="${escHtml(z.nazev)}" label="${escHtml(z.podNazev || '')}">`).join('')}</datalist>
+    <div id="ek_chyba" style="font-size:.74rem;color:var(--expense);margin-top:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" onclick="eanKartaZavri()">Zrušit</button>
+      <button id="ek_ulozit" class="btn btn-accent" style="flex:1;justify-content:center" onclick="eanKartaUloz('${escHtml(ean)}')">💾 Uložit kartu</button></div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Karta se uloží ke kódu pro všechny uživatele (bez tvého jména). Údaje, které databáze zná, se nepřepíšou. Živiny a foto obalu doplníš potom v kartě výrobku.</div>
+  </div>`;
+  document.body.appendChild(o);
+  const n = document.getElementById('ek_nazev'); if (n && n.focus) n.focus();
+}
+function eanKartaZavri() { const o = document.getElementById('eanKartaOkno'); if (o) o.remove(); }
+async function eanKartaUloz(ean) {
+  const g = id => ((document.getElementById(id) || {}).value || '').trim();
+  const nazev = g('ek_nazev'), chyba = document.getElementById('ek_chyba'), bt = document.getElementById('ek_ulozit');
+  if (nazev.length < 2) { if (chyba) chyba.textContent = 'Napiš název výrobku.'; return; }
+  if (bt) { bt.disabled = true; bt.textContent = '⏳ Ukládám…'; }
+  try {
+    const d = await eanDotaz({ ean, akce: 'karta', nazev, znacka: g('ek_znacka'), mnozstvi: g('ek_mn'), obecny: g('ek_obecny') });
+    if (d.produkt) _eanProdukty[ean] = d.produkt;
+    if (typeof _eanMojeNazvy !== 'undefined') { _eanMojeNazvy = _eanMojeNazvy || {}; _eanMojeNazvy[ean] = { nazev, kdy: Date.now() }; }
+    eanKartaZavri();
+    if (_eanStav.vysledek && _eanStav.vysledek.ean === ean) { _eanStav.vysledek.produkt = d.produkt; eanZprava('✅ Karta výrobku uložena'); eanVysledekKresli(ean, d.produkt); }
+    if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli();
+    if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
+    if (typeof showToast === 'function') showToast('✅ Karta výrobku uložena');
+  } catch (e) {
+    if (chyba) chyba.textContent = '⚠️ ' + (e.message || 'Uložení selhalo');
+    if (bt) { bt.disabled = false; bt.textContent = '💾 Zkusit znovu'; }
+  }
+}
+Object.assign(window, { eanKartaForm, eanKartaZavri, eanKartaUloz, eanNazvyZUctenek, eanVysledekKresli });
 
 function eanSkenujVolne() {
   if (typeof eanNactiMojeNazvy === 'function') eanNactiMojeNazvy();

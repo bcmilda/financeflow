@@ -1,4 +1,4 @@
-// FinanceFlow · v11.49 · receipts.js · 2026-10-08
+// FinanceFlow · v11.50 · receipts.js · 2026-10-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1380,7 +1380,7 @@ function buildDokladyTab(receipts) {
         Po naskenování účtenky dej v editoru <b>📌 Uschovat fotku účtenky</b>, nebo zapni <b>uschovávat automaticky</b>.
         Ke starší účtence přidáš fotku v <b>Historii</b> (tužka) → <b>📌 Přidat fotku dokladu</b>.
         Hodí se u spotřebičů a nábytku – k dokladu si pak nastavíš záruku a appka ti řekne, než skončí.
-      </div></div></div></div>${dokladySirotciBlok()}`;
+      </div></div></div></div><div class="dokPocitadlo" style="margin-top:10px"></div>${dokladySirotciBlok()}`;
     return html + '</div>';
   }
   const konci = list.filter(x => x.z.stav === 'konci');
@@ -1390,7 +1390,8 @@ function buildDokladyTab(receipts) {
       ⏰ <b>${konci.length}</b> ${konci.length === 1 ? 'doklad má' : 'dokladů má'} záruku ke konci: ${konci.slice(0, 3).map(x => escHtml(x.r.store || 'účtenka') + ' (' + x.z.dni + ' dní)').join(', ')}</div></div>`;
   }
   html += `<div class="card"><div class="card-header"><span class="card-title">📎 Uschované doklady</span>
-      <span style="font-size:.68rem;color:#a8aec8">${list.length} z 300 · ${Math.round(bajtu / 1024)} kB</span></div>
+      <span style="font-size:.68rem;color:#a8aec8">${list.length} ${list.length === 1 ? 'doklad' : list.length < 5 ? 'doklady' : 'dokladů'} · ${Math.round(bajtu / 1024)} kB</span></div>
+    <div class="dokPocitadlo" style="padding:0 14px"></div>
     <div class="card-body" style="padding:6px 14px">`;
   html += list.map(x => {
     const r = x.r, z = x.z;
@@ -1485,6 +1486,23 @@ async function dokladSirotekSmaz(j) {
 Object.assign(window, { dokladySirotciNajdi, dokladSirotekPripoj, dokladSirotekSmaz });
 
 //  Náhledy se tahají až při otevření záložky a každý jen jednou.
+//  S25 (v11.50, Milan): POČITADLO ÚLOŽIŠTĚ – skutečný počet fotek z úložiště a limit podle tarifu
+//  (Free 300, Premium 1 000). Dřív tu bylo natvrdo „z 300“ a počítaly se účtenky, ne fotky.
+function dokladyPocitadloHTML(d) {
+  if (!d || !d.limit) return '';
+  const pct = Math.min(100, Math.round(d.pocet / d.limit * 100)), barva = pct >= 90 ? 'var(--expense)' : pct >= 75 ? '#fbbf24' : 'var(--income)';
+  const mb = (d.bajtu || 0) / 1048576;
+  return `<div style="font-size:.72rem;color:#c9cede;margin:4px 0 10px">
+    <div style="display:flex;justify-content:space-between"><span>💾 Úložiště dokladů: <b>${d.pocet}</b> z ${d.limit.toLocaleString('cs-CZ')} fotek</span><span style="color:#a8aec8">${mb < 1 ? Math.round(mb * 1024) + ' kB' : mb.toFixed(1).replace('.', ',') + ' MB'} · zbývá ${Math.max(0, d.limit - d.pocet).toLocaleString('cs-CZ')}</span></div>
+    <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:4px"><div style="width:${pct}%;height:100%;background:${barva}"></div></div>
+    ${pct >= 75 && d.limit < 1000 ? '<div style="font-size:.66rem;color:#fbbf24;margin-top:3px">S Premium máš místo na 1 000 fotek.</div>' : ''}</div>`;
+}
+async function dokladyPocitadlo() {
+  const boxy = document.querySelectorAll('.dokPocitadlo'); if (!boxy.length || !window._currentUser) return;
+  try { const d = await archivVolej('list', { jenPocet: true }); boxy.forEach(b => { b.innerHTML = dokladyPocitadloHTML(d); }); } catch (e) {}
+}
+window.dokladyPocitadloHTML = dokladyPocitadloHTML;
+
 async function dokladyNactiNahledy() {
   const boxy = document.querySelectorAll('[id^="dok-nahled-"]');
   for (const b of boxy) {
@@ -2314,6 +2332,7 @@ function switchUctenkyTab(tab, btn) {
   //  S23 (TODO-304): náhledy dokladů se stahují z R2 až při otevření záložky,
   //  ne při každém vykreslení Analýzy účtenek.
   if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
+  if(tab==='doklady' && typeof dokladyPocitadlo==='function') dokladyPocitadlo();   // S25 v11.50
   //  S24: komunitní mapa se dotáhne při otevření (když ještě není) a seznam se překreslí.
   if(tab==='mapa' && typeof loadProductMap==='function') Promise.all([
     loadProductMap(),
