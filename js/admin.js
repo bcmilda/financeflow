@@ -1,4 +1,4 @@
-// FinanceFlow · v11.56 · admin.js · 2026-10-09
+// FinanceFlow · v11.57 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.57',
+    datum: '2026-10-09',
+    zmeny: [
+      "Karta výrobku → Výrobek: tři názvy – Název z EAN (databáze, s jazykem), Obal – přední strana (📸 fotka) a Obal – CZ popisek (📸 fotka české nálepky, nebo opsaný ručně) – u zahraničních výrobků se liší; u každého zdroj a tlačítko na fotku",
+      "Nová fotka „📸 Vyfotit český popisek“: AI přečte název z české nálepky (+ složení a dovozce); název z popisku má v appce přednost (WORKER)",
+      "Karta výrobku → Zařazení: číselník COICOP a srovnání výdajů se rozbalují přímo z řádku COICOP; tlačítka živin jen v bloku Balení a složení (+ z galerie)",
+    ]
+  },
   {
     verze: 'v11.56',
     datum: '2026-10-09',

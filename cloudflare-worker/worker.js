@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.50 · 2026-10-08  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.57 · 2026-10-09  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -773,7 +773,7 @@ Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
   return o;
 }
 
-const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal', 'nutricePredchozi'];
+const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal', 'nutricePredchozi', 'nazevPopisek', 'dovozce'];
 
 //  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
 //  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
@@ -827,8 +827,10 @@ async function eanAkceNazev(uid, ean, body, env, cors) {
 //  Fotka obalu (název, značka, gramáž, zařazení) nebo tabulky živin z českého
 //  obalu. Fotka se NIKDE neukládá – AI ji jen přečte, uloží se výsledná data.
 //  Limit ean_foto (Free 3 měsíčně).
+//  S25 (v11.57, Milan: „název na přední straně a na českém popisku se u zahraničních výrobků
+//  liší“): druh 'popisek' = český popisek (nálepka/etiketa dovozce) → nazevPopisek (+ složení, dovozce).
 async function eanAkceFoto(uid, ean, body, env, cors) {
-  const druh = body.druh === 'ziviny' ? 'ziviny' : 'obal';
+  const druh = body.druh === 'ziviny' ? 'ziviny' : body.druh === 'popisek' ? 'popisek' : 'obal';
   const obr = String(body.obrazek || '');
   if (!/^[A-Za-z0-9+/=]{100,}$/.test(obr) || obr.length > 2800000) return json({ error: 'Fotka chybí nebo je příliš velká' }, 400, cors);
   if (!env.ANTHROPIC_API_KEY) return json({ error: 'AI není nastavená' }, 500, cors);
@@ -842,6 +844,9 @@ async function eanAkceFoto(uid, ean, body, env, cors) {
 {"nazev_cs":"krátký český název výrobku jak na českém obalu, bez gramáže (značku jen když bez ní název nic neřekne)","nazev_obal":"název tak, jak je na obalu","znacka":"","mnozstvi":"např. 100 g nebo 0,5 l","obecny":"JEDEN název přesně z tohoto seznamu podle toho, CO výrobek je, nebo \"\""}
 Seznam (podkategorie: názvy):
 ${tax.seznam}`;
+  } else if (druh === 'popisek') {
+    zadani = `Na fotce je český popisek výrobku (nálepka nebo etiketa s údaji v češtině, typicky u dovezeného zboží). Vrať POUZE JSON:
+{"nazev_cs":"název výrobku přesně tak, jak je napsaný na českém popisku, bez gramáže","slozeni_cs":"složení česky, pokud je na fotce, jinak \"\"","dovozce":"dovozce nebo distributor pro ČR, pokud je uveden, jinak \"\""}`;
   } else {
     zadani = `Na fotce je tabulka výživových údajů z obalu. Přečti hodnoty NA 100 g (nebo 100 ml). Vrať POUZE JSON s čísly (desetinná tečka), chybějící hodnotu vynech:
 {"kcal":0,"tuky":0,"nasycene":0,"sacharidy":0,"cukry":0,"vlaknina":0,"bilkoviny":0,"sul":0,"slozeni_cs":"složení, pokud je na fotce česky, jinak \"\""}`;
@@ -875,6 +880,13 @@ ${tax.seznam}`;
     }
     if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
     if (j.nazev_obal) p.nazevObal = eanStr(j.nazev_obal, 100);   // S25: název přesně jak je na obalu – samostatné pole
+  } else if (druh === 'popisek') {
+    if (!j.nazev_cs) return json({ error: 'Na fotce jsem nenašel český název – vyfoť český popisek zblízka a ostře.' }, 422, cors);
+    p = p || { ean, stav: 'nalezeno', zdroj: 'fotka obalu', kdy: Date.now(), nazev: eanStr(j.nazev_cs, 100), nazevCesky: false };
+    p.nazevPopisek = eanStr(j.nazev_cs, 100);
+    if (!p.nazevCesky && !p.nazevCs) { p.nazevCs = p.nazevPopisek; p.nazevCsZdroj = 'foto'; }
+    if (j.slozeni_cs && !p.slozeniObal) p.slozeniObal = eanStr(j.slozeni_cs, 1500);
+    if (j.dovozce) p.dovozce = eanStr(j.dovozce, 100);
   } else {
     const n = {};
     ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'].forEach(x => { const v = parseFloat(j[x]); if (isFinite(v) && v >= 0 && v < 1000) n[x] = Math.round(v * 10) / 10; });

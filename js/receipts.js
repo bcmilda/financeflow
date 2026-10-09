@@ -1,4 +1,4 @@
-// FinanceFlow · v11.56 · receipts.js · 2026-10-09
+// FinanceFlow · v11.57 · receipts.js · 2026-10-09
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2917,12 +2917,23 @@ function mapaKoicopPanelHTML(code, D) {
         <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div></div>`;
   }
   if (!hier && !srov) return '';
-  return `<details class="mk-roz"${_mapaKoicopOtevreno ? ' open' : ''} ontoggle="_mapaKoicopOtevreno=this.open" style="border-top:1px solid var(--border)">
-    <summary style="padding:8px 12px;font-size:.74rem;color:#60a5fa;display:flex;justify-content:space-between;align-items:center">
-      <span>Zařazení ve statistice a srovnání výdajů</span><span class="sip">⌄</span></summary>
-    <div style="padding:0 12px 12px">${hier}${srov}</div></details>`;
+  return `<div style="padding:0 12px 12px">${hier}${srov}</div>`;
 }
 window.mapaKoicopPanelHTML = mapaKoicopPanelHTML;
+//  S25 (v11.57, Milan: „rozbalovací menu číselníku hned na řádku COICOP“): řádek COICOP je sám
+//  rozbalovací – klepnutí na kód ukáže hierarchii číselníku a srovnání výdajů přímo pod ním.
+function mapaKoicopRadekHTML(kodC, posl, D) {
+  const e = t => escHtml(String(t == null ? '' : t));
+  const hodnota = posl ? `<span style="font-family:monospace;font-weight:700">${e(posl.kod)}</span><span class="mk-sub">${e(posl.nazev)}</span>` : e(typeof coicopNorm === 'function' ? coicopNorm(kodC) : kodC);
+  const telo = mapaKoicopPanelHTML(kodC, D);
+  if (!telo) return mkR('COICOP', hodnota);
+  return `<details class="mk-roz"${_mapaKoicopOtevreno ? ' open' : ''} ontoggle="_mapaKoicopOtevreno=this.open" style="border-top:1px solid var(--border)">
+    <summary class="mk-r" style="border-top:none;cursor:pointer"><span class="l">COICOP</span>
+      <span class="v" style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><span style="min-width:0">${hodnota}<span class="mk-sub" style="color:#60a5fa">číselník a srovnání výdajů</span></span>
+        <span class="sip" style="color:#60a5fa;font-size:1rem;line-height:1">⌄</span></span></summary>
+    ${telo}</details>`;
+}
+window.mapaKoicopRadekHTML = mapaKoicopRadekHTML;
 
 function mapaUzivKartaHTML(i, produkt) {
   const z = _mapaUziv[i]; if(!z) return '';
@@ -2945,8 +2956,6 @@ function mapaUzivKartaHTML(i, produkt) {
 
   // ── VÝROBEK ──
   const moje = z.ean && typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[z.ean] && _eanMojeNazvy[z.ean].nazev;
-  const cesky = p ? (moje || (p.nazevCesky ? p.nazev : (p.nazevCs || ''))) : (moje || '');
-  const zdrojCz = moje ? 'tvůj název' : p && p.nazevCesky ? 'z databáze' : p && p.nazevCs ? (p.nazevCsZdroj === 'foto' ? 'z fotky obalu' : p.nazevCsZdroj === 'admin' ? 'schválený komunitou' : 'návrh AI') : '';
   const JAZ = { cs:'čeština', sk:'slovenština', en:'angličtina', de:'němčina', pl:'polština', hu:'maďarština', fr:'francouzština', it:'italština', es:'španělština', nl:'nizozemština', at:'němčina' };
   const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
   let vyr = '';
@@ -2955,18 +2964,37 @@ function mapaUzivKartaHTML(i, produkt) {
          <span style="font-family:monospace">${e(z.ean)}</span><button class="btn btn-sm" style="font-size:.7rem" onclick="mapaUzivKartaSken(${i})">▮▮ Změnit</button></span></div>`
     : `<div class="mk-r" style="align-items:center"><span class="l">EAN / GTIN</span><span class="v" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
          <span style="color:#8b93ad;font-size:.74rem;letter-spacing:.04em">— ZATÍM NEPŘIŘAZEN</span><button class="btn btn-sm btn-primary" style="font-size:.72rem" onclick="mapaUzivKartaSken(${i})">▮▮ Naskenovat kód</button></span></div>`;
+  //  S25 (v11.57, Milan): TŘI NÁZVY – u zahraničních výrobků se liší. Z EAN (databáze),
+  //  z přední strany obalu (fotka) a z českého popisku (fotka nálepky, nebo opsaný ručně).
+  const nic = t => `<span style="color:#8b93ad">—</span>${t ? `<span class="mk-sub">${t}</span>` : ''}`;
+  const fotoBtn = (druh, txt) => `<button class="mk-btn-link" style="margin:3px 0 0;display:block" onclick="eanFoto('${e(z.ean)}','${druh}',mapaUzivFotoHotovo)">${txt}</button>`;
   if (z.ean && produkt) {
-    if (cesky) vyr += `<div class="mk-r"><span class="l">Český název</span><span class="v" id="mk_${e(z.ean)}"><b>${e(cesky)}</b>${zdrojCz ? `<span class="mk-sub">${e(zdrojCz)}</span>` : ''}<button class="mk-btn-link" style="margin:2px 0 0" onclick="eanNazevUprav('${e(z.ean)}','mk_${e(z.ean)}')">✎ Opravit</button></span></div>`;
-  } else if (!z.ean) vyr += mkR('Český název', e(titul), 'odvozený z účtenek – přesný dodá čárový kód');
-  if (p && p.nazev && nn(p.nazev) !== nn(cesky)) vyr += mkR('Název z EAN', e(p.nazev), p.jazyk && JAZ[p.jazyk] ? 'originál · ' + JAZ[p.jazyk] : 'originál z databáze');
-  if (p && p.nazevObal && nn(p.nazevObal) !== nn(cesky)) vyr += mkR('Na obalu', e(p.nazevObal), '📸 z fotky');
+    const zDb = p && p.nazev && p.zdroj !== 'fotka obalu' ? p.nazev : '';
+    vyr += zDb ? mkR('Název z EAN', e(zDb), (p.jazyk && JAZ[p.jazyk] ? JAZ[p.jazyk] + ' · ' : '') + e(p.zdroj || 'databáze'))
+               : mkR('Název z EAN', nic('databáze kód nezná'));
+    vyr += `<div class="mk-r"><span class="l">Obal – přední strana</span><span class="v">${p && p.nazevObal ? e(p.nazevObal) + '<span class="mk-sub">📸 z fotky obalu</span>' : nic('')}
+      ${fotoBtn('obal', p && p.nazevObal ? '📸 Vyfotit znovu' : '📸 Vyfotit přední stranu')}</span></div>`;
+    //  CZ popisek: fotka popisku → tvůj (opsaný) → český z přední strany → český z databáze → návrh AI
+    const cz = p && p.nazevPopisek ? [p.nazevPopisek, '📸 z českého popisku']
+      : moje ? [moje, '✍️ opsáno ručně']
+      : p && p.nazevCs && p.nazevCsZdroj === 'foto' ? [p.nazevCs, '📸 česky z přední strany']
+      : p && p.nazevCesky && p.nazev ? [p.nazev, 'český název z databáze']
+      : p && p.nazevCs ? [p.nazevCs, p.nazevCsZdroj === 'admin' ? 'schválený komunitou' : 'návrh AI – ověř podle popisku'] : null;
+    vyr += cz
+      ? `<div class="mk-r"><span class="l">Obal – CZ popisek</span><span class="v" id="mk_${e(z.ean)}"><b>${e(cz[0])}</b><span class="mk-sub">${cz[1]}${cz[0] === titul ? ' · používá se v appce' : ''}</span>
+          <span style="display:flex;gap:10px;flex-wrap:wrap;margin-top:3px"><button class="mk-btn-link" style="margin:0" onclick="eanNazevUprav('${e(z.ean)}','mk_${e(z.ean)}')">✎ Opravit</button>${p && p.nazevPopisek ? '' : `<button class="mk-btn-link" style="margin:0" onclick="eanFoto('${e(z.ean)}','popisek',mapaUzivFotoHotovo)">📸 Vyfotit popisek</button>`}</span></span></div>`
+      : `<div class="mk-r"><span class="l">Obal – CZ popisek</span><span class="v">${nic('')}${fotoBtn('popisek', '📸 Vyfotit český popisek')}</span></div>`;
+  } else if (!z.ean) vyr += mkR('Název', e(titul), 'odvozený z účtenek – přesný dodá čárový kód');
   if (p && (p.nazvyJine || []).length) vyr += mkR('Jiné názvy', e(p.nazvyJine.join(' · ')));
   if (z.ean) vyr += mkR('Značka', p && p.znacka ? e(p.znacka) : '<span style="color:#8b93ad">nezjištěno</span>');
   if (p && p.vyrobce && p.vyrobce !== p.znacka) vyr += mkR('Výrobce', e(p.vyrobce));
+  if (p && p.dovozce) vyr += mkR('Dovozce', e(p.dovozce), '📸 z českého popisku');
   if (z.ean && produkt && produkt.stav === 'nenalezeno') vyr += mkR('Databáze', '<span style="color:#fbbf24">výrobek zatím nezná</span>');
+  //  CZ název chybí úplně → rovnou pole k opsání (stejné jako ve skeneru)
+  const czChybi = z.ean && produkt && !(p && (p.nazevPopisek || p.nazevCs || p.nazevCesky)) && !moje;
   const vyrPod = z.ean
-    ? ((typeof eanNazvyHTML === 'function' && produkt && !cesky ? `<div style="margin-top:8px">${eanNazvyHTML(p || {}, z.ean, 'mk')}</div>` : '')
-      + (typeof eanFotoTlacitkaHTML === 'function' && produkt ? `<div style="margin-top:6px">${eanFotoTlacitkaHTML(z.ean, produkt, 'mapaUzivFotoHotovo')}</div>` : ''))
+    ? ((typeof eanNazvyHTML === 'function' && produkt && czChybi ? `<div style="margin-top:8px">${eanNazvyHTML(p || {}, z.ean, 'mk')}</div>` : '')
+      )   // v11.57: fotky obalu jsou u řádků názvů, živiny v bloku Balení a složení
     : `<div style="font-size:.74rem;color:#a8aec8;line-height:1.5;margin-top:6px">Na účtence je jen zkratka. Čárový kód z obalu doplní přesný název, značku, složení, Nutri-Score a živiny – a appka pak pozná stejný výrobek i v jiném obchodě.</div>`;
 
   // ── ZAŘAZENÍ ──
@@ -2977,7 +3005,7 @@ function mapaUzivKartaHTML(i, produkt) {
     const posl = cc.length ? cc[cc.length - 1] : null;
     zar = mkR('Oblast', e(z.tax.ikona + ' ' + z.tax.oblastNazev)) + mkR('Kategorie', e(z.tax.podNazev))
       + mkR('Obecný název', '<b>' + e(z.tax.nazev) + '</b>') + (z.mapa.konkretni ? mkR('Konkrétní', e(z.mapa.konkretni)) : '')
-      + mkR('COICOP', posl ? `<span style="font-family:monospace;font-weight:700">${e(posl.kod)}</span>` : e(typeof coicopNorm === 'function' ? coicopNorm(kodC) : kodC), posl ? e(posl.nazev) : '')
+      + mapaKoicopRadekHTML(kodC, posl, D)
       + mkR('Zdroj zařazení', z.mapa.zdrojTax === 'nazev' ? '🧭 podle názvu' : z.mapa.zdrojTax === 'ean' ? '▮▮ podle čárového kódu' : '🗺️ komunitní mapa');
   } else zar = `<div class="mk-pozn" style="color:#a8aec8">Zatím mimo taxonomii – zařadí ji admin v komunitní mapě. Pomůže, když přiřadíš čárový kód.</div>`;
   { const stit = mapaStitek(z.nazev, D);
@@ -2985,7 +3013,7 @@ function mapaUzivKartaHTML(i, produkt) {
     const pg = typeof productGroupLookup === 'function' ? productGroupLookup(z.nazev) : null;
     if (stit) zar += mkR('Štítek', `<span style="color:var(--income);font-style:italic">${e(stit)}</span>`);
     if (!z.tax) zar += mapaKosRadek(pg, '', radek); }
-  const zarPanel = z.tax ? mapaKoicopPanelHTML(z.tax.coicop5 || z.tax.coicop, D) : '';
+  const zarPanel = '';   // v11.57: číselník se rozbaluje přímo z řádku COICOP (mapaKoicopRadekHTML)
 
   // ── NÁZVY Z ÚČTENEK ──
   const al = mapaAliasySkupiny(z);
@@ -3010,6 +3038,7 @@ function mapaUzivKartaHTML(i, produkt) {
         <button class="mk-btn-link" onclick="eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div></div>`
     : (z.ean ? `<div class="mk-box mk-pozn" style="margin-top:8px;color:#a8aec8">Živiny databáze zatím nemá.
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button>
+        <button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo,true)">🖼️ z galerie</button>
         <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button></div></div>` : '');
 
   // ── MOJE NÁKUPY ──
@@ -3061,7 +3090,7 @@ function mapaUzivKartaHTML(i, produkt) {
     ${typeof cenyDoKarty === 'function' ? tit('Ceny v kraji') + '<div class="mk-box mk-pozn"><div id="mkCeny" style="font-size:.76rem;color:#a8aec8">⏳ Načítám…</div></div>' : ''}
     ${katalog.zdroje ? `<details class="mk-roz" style="margin-top:16px"><summary class="mk-tit" style="margin:0 0 6px;display:flex;justify-content:space-between">Identifikace a zdroje dat <span class="sip">⌄</span></summary><div class="mk-box">${katalog.zdroje}</div></details>` : ''}
     <div style="margin-top:14px">${rozp}</div>
-    ${p ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:12px;line-height:1.5">Data o výrobku: Open Food Facts a sesterské databáze (licence ODbL) – zapisují je dobrovolníci, mohou být neúplná. Nesedí složení nebo živiny? <a href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Oprav je na Open Food Facts ↗</a>${p.nazevCs && !p.nazevCesky ? ' · český název doplnila AI' : ''}</div>` : ''}`;
+    ${p ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:12px;line-height:1.5">Data o výrobku: Open Food Facts a sesterské databáze (licence ODbL) – zapisují je dobrovolníci, mohou být neúplná. Nesedí složení nebo živiny? <a href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Oprav je na Open Food Facts ↗</a>${p.nazevCs && !p.nazevCesky && !p.nazevPopisek && p.nazevCsZdroj !== 'foto' ? ' · český název doplnila AI' : ''}</div>` : ''}`;
 }
 window.mapaUzivKartaHTML = mapaUzivKartaHTML;
 

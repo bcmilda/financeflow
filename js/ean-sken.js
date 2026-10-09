@@ -1,4 +1,4 @@
-// FinanceFlow · v11.56 · ean-sken.js · 2026-10-09
+// FinanceFlow · v11.57 · ean-sken.js · 2026-10-09
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -105,7 +105,8 @@ async function eanNactiVse(eany) {
 function eanNazevVyrobku(p, ean) {
   const moje = ean && _eanMojeNazvy && _eanMojeNazvy[ean] && _eanMojeNazvy[ean].nazev;
   if (moje) return moje;
-  return p ? (p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || '')) : '';
+  //  S25 (v11.57): název z českého popisku (fotka) má přednost – přesně tak výrobek v ČR prodávají
+  return p ? (p.nazevPopisek || (p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || ''))) : '';
 }
 Object.assign(window, { eanProduktZCache, eanNactiVse, eanNazevVyrobku });
 
@@ -560,13 +561,13 @@ function eanFoto(ean, druh, hotovo, zGalerie) {
   const hlas = (t, chyba) => { if (document.getElementById('eanOkno') && typeof eanZprava === 'function') eanZprava(t, chyba); else if (typeof showToast === 'function') showToast(t); };
   inp.onchange = async () => {
     const f = inp.files && inp.files[0]; if (!f) return;
-    hlas(druh === 'ziviny' ? '⏳ Čtu tabulku živin…' : '⏳ Čtu obal…');
+    hlas(druh === 'ziviny' ? '⏳ Čtu tabulku živin…' : druh === 'popisek' ? '⏳ Čtu český popisek…' : '⏳ Čtu obal…');
     try {
       const obrazek = await eanZmensiFotku(f);
       const d = await eanDotaz({ ean, akce: 'foto', druh, obrazek });
       if (d.produkt) _eanProdukty[ean] = d.produkt;
       const ma = d.produkt && (druh === 'ziviny' ? (d.produkt.nutriceObal && Object.keys(d.produkt.nutriceObal).length) : true);
-      hlas(ma ? (druh === 'ziviny' ? '✅ Živiny z obalu uloženy – najdeš je v kartě výrobku níže' : '✅ Údaje z obalu uloženy') + (d.zbyva != null ? ' · zbývá ' + d.zbyva + ' fotek tento měsíc' : '')
+      hlas(ma ? (druh === 'ziviny' ? '✅ Živiny z obalu uloženy – najdeš je v kartě výrobku níže' : druh === 'popisek' ? '✅ Název z českého popisku uložen' : '✅ Údaje z obalu uloženy') + (d.zbyva != null ? ' · zbývá ' + d.zbyva + ' fotek tento měsíc' : '')
               : '⚠️ Z fotky se nepodařilo přečíst tabulku živin. Vyfoť ji zblízka, rovně a ostře.', !ma);
       if (typeof hotovo === 'function') hotovo(d.produkt);
     } catch (e) { hlas('⚠️ ' + e.message, true); }
@@ -574,8 +575,9 @@ function eanFoto(ean, druh, hotovo, zGalerie) {
   inp.click();
 }
 //  Tlačítka pro kartu výrobku.
-function eanFotoTlacitkaHTML(ean, p, poHotovo) {
-  const potrebaObal = !p || p.stav !== 'nalezeno' || (!p.nazevCesky && !p.nazevCs) || !p.obecnyId;
+function eanFotoTlacitkaHTML(ean, p, poHotovo, bezObalu) {
+  //  bezObalu: karta výrobku má fotky obalu přímo u řádků názvů (v11.57)
+  const potrebaObal = !bezObalu && (!p || p.stav !== 'nalezeno' || (!p.nazevCesky && !p.nazevCs) || !p.obecnyId);
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
     ${potrebaObal ? `<button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo})">📸 Vyfotit obal</button>
     <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','obal',${poHotovo},true)" title="Obal z galerie">🖼️</button>` : ''}
