@@ -21,4 +21,11 @@ T('bez dat nespadne',scoreZobrazeni(null).max===0);
 T('Dashboard používá scoreZobrazeni',/const _z = scoreZobrazeni\(sc\)/.test(cut(P,'renderFinancialScore')));
 T('report používá scoreZobrazeni, ne rawTotal/rawMax',/scoreZobrazeni\(fs\)/.test(J)&&!/score: sc, max: fs \? fs\.rawMax/.test(J));
 T('report ukazuje „nezměřeno" místo 0 u nedostupných složek',/c\.avail===false\) return/.test(J)&&/nezměřeno/.test(J));
+// S25 (v11.59, Milan: „report 0 z 310, Dashboard 202“ + čísla „cik cak“)
+T('neměřený měsíc: místo 0 pomlčka a „zatím nelze určit“',/\$\{_nemer \? '–' : mo\.score\}/.test(J)&&/zatím nelze určit/.test(J));
+T('neměřený měsíc: žádné „Nejvyšší pásmo 🏆 dosaženo“ ani „+0 bodů“',/\$\{_nemer \? `<div[\s\S]*?Změřit jde/.test(J)&&/mo\.mereno !== false && _pz && _pz\.max === mo\.max/.test(J));
+T('změna proti minulému měsíci na stejné škále (ne rawTotal)',!/mo\.score - _pf\.rawTotal/.test(J)&&/mo\.score - _pz\.tot/.test(J));
+T('patička říká, za který měsíc a proč se liší od Dashboardu',/Stejný výpočet jako skóre na Dashboardu, za \$\{_mesTxt\}/.test(J)&&!/Stejné číslo jako na Dashboardu/.test(J));
+T('11 · Z účtenek: sloupec pod-hodnot má pevnou šířku vždy (čísla v jedné svislici)',/width:92px;flex-shrink:0;text-align:right">\$\{sub\|\|''\}<\/span>/.test(J)&&!/\$\{sub\?`<span/.test(J));
+T('9: „nezměřeno“ má stejný sloupec odznaku jako měřené složky (čísla pod sebou)',/nezměřeno<\/span><span style="min-width:56px"><\/span>/.test(J));
 console.log(`Skóre report vs Dashboard: ${ok} OK, ${bad} chyb`);process.exit(bad?1:0);

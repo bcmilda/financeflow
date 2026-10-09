@@ -1,4 +1,4 @@
-// FinanceFlow · v11.58 · admin.js · 2026-10-09
+// FinanceFlow · v11.59 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.59',
+    datum: '2026-10-09',
+    zmeny: [
+      "🐛 MĚSÍČNÍ REPORT: ČÍSLA „CIK CAK“ (Milan, screenshot) · cesta: Měsíční report → 11 · Z účtenek tohoto měsíce. Řádky bez doplňkového údaje (Utraceno na účtenkách) měly číslo u pravého okraje, ostatní o sloupec vlevo. Doplňkový sloupec má teď pevnou šířku vždy, takže všechna čísla stojí pod sebou",
+      "🐛 MĚSÍČNÍ REPORT UKAZOVAL „0 z 310“, DASHBOARD 202 (Milan) · cesta: Měsíční report → 9 · Vývoj finančního skóre (1 měsíc). Výpočet je stejný jako na Dashboardu, ale za měsíc zvolený nahoře (na screenshotu leden 2026 – bez příjmů šlo změřit jen Zadluženost a Rozpočet, tedy 35 % skóre, pod 50 % se známka nedává). Report přitom ukazoval velkou nulu, „vs. prosinec +0 bodů“ a „Nejvyšší pásmo 🏆 dosaženo“. Nově: „–“ a „zatím nelze určit“, kolik % skóre jde změřit a co chybí; u měřeného měsíce i „ve hře 202 z 310“, když se část nedá změřit",
+      "🐛 Měsíční report → 9: řádky „nezměřeno“ mají stejný sloupec jako měřené složky – „78 / 78“ a „31 / 31“ už neuskakují doleva",
+      "🐛 Měsíční report → 9: změna proti minulému měsíci se odečítala z jiné škály (310 proti 202) – nově na stejné škále a jen když jdou změřit oba měsíce; patička říká, za který měsíc skóre je",
+      "🧪 tools/smoke_skore_report.js +6 (15)",
+    ]
+  },
   {
     verze: 'v11.58',
     datum: '2026-10-09',
