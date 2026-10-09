@@ -18,7 +18,7 @@ t('prázdné / „null“ hodnoty se neuloží (Firebase)',!('storeCity' in r2)&
 t('worker: prompt žádá adresu, město, kraj ze seznamu a IČO',wk.includes('"storeCity":"město pobočky nebo null"')&&wk.includes('Moravskoslezský; mimo ČR název státu')&&wk.includes('"storeIco"'));
 t('editor: pole Město a výběr kraje',rc.includes('id="rp_city"')&&rc.includes('id="rp_region"')&&rc.includes("rpPobocka('storeRegion',this.value)"));
 t('jednoduchý sken i vícefotkový sken normalizují pobočku',rc.includes("rcptPobockaNorm(receipt);   // S25: pobočka")&&pick('validateReceiptJSON').includes('rcptPobockaNorm(r)'));
-t('karta: alias s městem, nákupy s městem a krajem',rc.includes("n.obchod + (n.mesto ? ' (' + n.mesto + ')' : '')")&&rc.includes("' · 📍 ' + escHtml(n.mesto)"));
+t('karta: alias s městem, nákupy s městem a krajem',rc.includes("(n.obchodNazev || n.obchod) + (n.mesto ? ' · ' + n.mesto : '')")&&rc.includes("📍 ${e(n.mesto)}${n.kraj ? ', ' + e(n.kraj) : ''}"));
 t('Obchody: města poboček',rc.includes('📍 ${escHtml([...stats.mesta].join'));
 const s2={Math,Date,String,Set,Object,window:{}};vm.createContext(s2);vm.runInContext(sp,s2);
 const rows=s2.spRadky([{date:'2026-10-01',store:'Penny',storeCity:'Ostrava',storeRegion:'Moravskoslezský',items:[{name:'A',price:10,qty:1}]},{date:'2026-10-02',store:'Penny',storeCity:'Brno',storeRegion:'Jihomoravský',items:[{name:'A',price:12,qty:1}]}],[],{});

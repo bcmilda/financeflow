@@ -20,11 +20,11 @@ T.oblasti.forEach(o=>o.podkategorie.forEach(p=>(p.nazvy||[]).forEach(x=>{const n
 t('každý obecný název potravin a nápojů má platný kód 5. úrovně pod svou podtřídou',!chyb.length&&!bez.length,{n,chyb:chyb.slice(0,5),bez:bez.slice(0,5)});
 console.log('     přiřazeno:',n,'názvů');
 const rc=R('receipts.js','../js/receipts.js'),sp=R('statistika-polozek.js','../js/statistika-polozek.js');
-t('karta: řádek COICOP s 5. úrovní + váha ČSÚ a tvůj podíl, koš zvlášť jen bez taxonomie',rc.includes("mapaCoicopHTML(z.tax.coicop5 || z.tax.coicop) + mapaVahaHTML(z.tax.coicop, D)")&&rc.includes("(z.tax ? '' : mapaKosRadek(pg, '', radek))"));
+t('karta: řádek COICOP s 5. úrovní + váha ČSÚ a tvůj podíl, koš zvlášť jen bez taxonomie',rc.includes("const zarPanel = z.tax ? mapaKoicopPanelHTML(z.tax.coicop5 || z.tax.coicop, D) : '';")&&rc.includes("mkR('COICOP', posl ?")&&rc.includes("if (!z.tax) zar += mapaKosRadek(pg, '', radek)"));
 const pick=n=>{let a=rc.indexOf('function '+n+'(');let d=0,j=rc.indexOf('{',a);for(let k=j;k<rc.length;k++){if(rc[k]==='{')d++;else if(rc[k]==='}'){d--;if(!d)return rc.slice(a,k+1)}}};
 const s2={escHtml:s=>String(s),coicopNorm:sb.coicopNorm,Math,Date,getData:()=>({}),_productDB:{groups:{'01.113':{n:'Chléb',w:21.399},'01.145':{n:'Sýry',w:20},'02.110':{n:'Lihoviny',w:10}}},coicopNazev:k=>k==='01'?'Potraviny a nealkoholické nápoje':'',_mapaUziv:[],_mapaUzivReceipts:[{}],
   spRadky:()=>[{mesic:'2099-01',castka:48,coicop:'01.1.1.3.1'},{mesic:'2099-01',castka:952,coicop:'01.1.4.5.0'},{mesic:'2020-05',castka:500,coicop:'01.1.1.3.1'},{mesic:'2020-05',castka:500,coicop:'01.1.4.5.0'}]};
-vm.createContext(s2);vm.runInContext("let _mapaVahaObdobi='12';\n"+['mapaVahaPodtridy','mapaVahaOddilu','mapaVahaRadky','mapaVahaRoky','mapaVahaObdobiNazev','mapaMujPodil','mapaVahaHTML'].map(pick).join('\n'),s2);
+vm.createContext(s2);vm.runInContext("let _mapaVahaObdobi='12';\n"+['mapaObdobiOd','mapaVyberObdobi','mapaVahaPodtridy','mapaVahaOddilu','mapaVahaRadky','mapaVahaRoky','mapaVahaObdobiNazev','mapaMujPodil','mapaVahaHTML'].map(pick).join('\n'),s2);
 const h=s2.mapaVahaHTML('01.113',{});
 t('váha ČSÚ 21,4 ‰ + srovnání uvnitř oddílu: průměr 51,7 % · ty 4,8 % (−91 %)',h.includes('váha ČSÚ 21,4 ‰')&&h.includes('průměr 51,7 %')&&h.includes('ty 4,8 %')&&h.includes('(-91 %)'),h.replace(/\s+/g,' ').slice(0,200));
 t('na kartě je vidět, z jakého období se počítá + volba období (12 měsíců / roky z účtenek / celá doba)',h.includes('počítá se z účtenek za posledních 12 měsíců')&&h.includes('48 Kč z 1')&&h.includes('<option value="2099"')&&h.includes('<option value="2020"')&&h.includes('<option value="vse"')&&h.includes('mapaVahaObdobi(this.value)'));

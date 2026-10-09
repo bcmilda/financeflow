@@ -22,7 +22,7 @@ const s2={escHtml:s=>String(s),pgKodCsu:c=>'01.1.1.3',coicopNorm:c=>c==='01.113'
 const radek=(l,x)=>`[${l}:${x}]`, pg={code:'01.113',group:'Chléb a pekařské výrobky',w:21.399};
 t('stejný kód jako COICOP → jen váha, žádné druhé zařazení',/^\[Váha v koši ČSÚ:/.test(s2.mapaKosRadek(pg,'01.113',radek))&&s2.mapaKosRadek(pg,'01.113',radek).includes('21,40 Kč z každých 1 000 Kč'));
 t('jiný kód → celé zařazení koše',/^\[Spotřební koš ČSÚ:01\.1\.1\.3 · Chléb/.test(s2.mapaKosRadek(pg,'01.189',radek)));
-t('nadpisy sekcí barevně',rc.includes("color:#60a5fa;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px\">${t}"));
+t('nadpisy sekcí barevně',rc.includes(".mk-tit{font-size:.7rem;color:#60a5fa;font-weight:700;text-transform:uppercase"));
 console.log('── S25 · naskenované výrobky ──');
 const S={uiCfg:{},receipts:[{items:[{name:'X',ean:'111'}]}]};let ul=0;
 const s3={S,save(){ul++},setTimeout(){},eanNaskenovaneKresli(){},Date,Set};vm.createContext(s3);vm.runInContext(['eanZapamatuj','eanNaskenovane'].map(n=>pick(ean,n)).join('\n'),s3);

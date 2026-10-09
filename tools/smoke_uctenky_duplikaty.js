@@ -23,5 +23,5 @@ t('nová účtenka má vazbu na transakci',rc.includes('receiptAddedAt: _addedAt
 t('smazání účtenky nabídne smazat i transakci',pick('deleteReceipt').includes('rcptNajdiTx(_r, S)'));
 console.log('── S25 · Obchody a karta výrobku ──');
 t('ID řádku obchodu z pořadí (Můj/Môj už nekolidují)',rc.includes("const storeId = 'store_'+sIdx+'_'+store"));
-t('karta výrobku: cena v samostatném sloupci, obchod pod názvem',rc.includes('<span style="font-weight:700;white-space:nowrap;flex-shrink:0">${n.cena ? _mapaKc(n.cena)'));
+t('karta výrobku: cena v samostatném sloupci, obchod pod názvem',rc.includes('<span class="v" style="text-align:right;font-weight:700">${n.cena ? _mapaKc(n.cena)'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); if(bad) process.exitCode=1;

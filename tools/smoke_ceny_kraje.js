@@ -29,5 +29,5 @@ t('admin vidí i pod prahem',sb.cenySouhrn(data,true).radky.length===2);
 t('worker: endpoint /ceny, jen souhrn, 1 údaj od člověka, kraj ze seznamu, max 25',wk.includes("pathname === '/ceny'")&&wk.includes('if (x && x.h && x.h[h]) continue;')&&wk.includes("CENY_KRAJE.includes(kraj)")&&wk.includes('.slice(0, 25)'));
 t('pravidla DB: community/ceny čte přihlášený, zapisuje jen worker',/"ceny":\s*\{\s*"\.read":\s*"auth != null",\s*"\.write":\s*false/.test(rules));
 t('Nastavení: přepínač, oznámení v Analýze účtenek, text v zásadách',st.includes('onchange="cenyNastav(this.checked)"')&&rc.includes('cenyInfoBannerHTML()')&&lg.includes('Sdílené ceny po krajích'));
-t('odeslání při uložení účtenky + sekce na kartě + modul v app.html',rc.includes('cenyOdeslat(_ul)')&&rc.includes("sekce('Ceny v kraji'")&&app.includes('js/ceny-kraje.js?v='));
+t('odeslání při uložení účtenky + sekce na kartě + modul v app.html',rc.includes('cenyOdeslat(_ul)')&&rc.includes("tit('Ceny v kraji')")&&app.includes('js/ceny-kraje.js?v='));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

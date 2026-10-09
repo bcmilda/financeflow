@@ -20,5 +20,5 @@ t('vodka → štítek skupiny ČSÚ (ne taxonomie)',!!r.items[3].tag&&r.items[3]
 const pg=sb.productGroupLookup('ORION KOFILA OPLATKA 42G');
 t('COICOP zařazení zůstává: 01.1.1.3 Chléb a pekařské výrobky',pg&&sb.pgKodCsu(pg.code)==='01.1.1.3'&&/pekařské/.test(pg.group),pg);
 const rc=R('receipts.js','../js/receipts.js');
-t('karta výrobku: řádky Štítek a Spotřební koš ČSÚ',rc.includes("radek('Štítek'")&&rc.includes("radek('Spotřební koš ČSÚ'"));
+t('karta výrobku: řádky Štítek a Spotřební koš ČSÚ',rc.includes("mkR('Štítek'")&&rc.includes("radek('Spotřební koš ČSÚ'"));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

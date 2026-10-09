@@ -23,6 +23,6 @@ t('výrobek: značka, výrobce, množství, obal, původ, země',['Značka','Vý
 t('zdroje: GTIN-13, zdroj údajů, zařazení, poprvé/naposledy',k.zdroje.includes('GTIN-13')&&k.zdroje.includes('Open Food Facts')&&k.zdroje.includes('podle čárového kódu')&&k.zdroje.includes('01. 09. 2026 · 06. 10. 2026'));
 const k2=sb.mapaKartaKatalog({nakupy:[]},null,null,radek,'');
 t('bez dat nic nevymýšlí',!k2.nazvy&&!k2.vyrobek&&!k2.zdroje);
-t('chybějící živiny: karta nabídne vyfotit tabulku',rc.includes('Databáze je u tohoto výrobku zatím nemá.'));
+t('chybějící živiny: karta nabídne vyfotit tabulku',rc.includes('Živiny databáze zatím nemá.')&&rc.includes('📸 Vyfotit tabulku živin'));
 t('worker: výrobce, původ, země, obal, jazyk + jednorázová obnova starých záznamů',['vyrobce:','puvod:','zeme:','obal:','jazyk:','kv: 2','stareSchema'].every(x=>wk.includes(x)));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

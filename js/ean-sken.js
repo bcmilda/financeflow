@@ -1,4 +1,4 @@
-// FinanceFlow · v11.55 · ean-sken.js · 2026-10-09
+// FinanceFlow · v11.56 · ean-sken.js · 2026-10-09
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -530,6 +530,8 @@ async function eanNazevUloz(ean, id) {
   } catch (e) { eanHlas('⚠️ ' + e.message, true); }
   const el = document.getElementById(id); if (el) el.outerHTML = eanNazvyHTML(_eanProdukty[ean] || null, ean, id.split('_')[0]);
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
+  //  S25 (v11.56): otevřená karta výrobku se překreslí celá (nový vzhled, název v řádku Český název)
+  if (typeof _mapaKartaI !== 'undefined' && _mapaKartaI >= 0 && typeof mapaUzivDetail === 'function' && document.getElementById('mapaKarta')) mapaUzivDetail(_mapaKartaI);
 }
 
 //  Fotka → zmenšený JPEG (max 1280 px) → base64 bez hlavičky. Nic se neukládá.
@@ -937,6 +939,7 @@ async function eanKartaUlozData(ean, data) {
   if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli();
   if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
+  if (typeof _mapaKartaI !== 'undefined' && _mapaKartaI >= 0 && typeof mapaUzivDetail === 'function' && document.getElementById('mapaKarta')) mapaUzivDetail(_mapaKartaI);
   return d;
 }
 function eanKartaForm(ean) {

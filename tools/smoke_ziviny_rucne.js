@@ -33,7 +33,7 @@ t('worker: záloha se zachová při obnově z databáze (EAN_ZACHOVAT)',/EAN_ZAC
 t('worker: i fotka živin zálohuje předchozí hodnoty',(wk.match(/p\.nutricePredchozi = p\.nutriceObal/g)||[]).length===2);
 // UI
 t('tlačítko „✍️ Zadat živiny ručně“ u fotek (skener i karta)',es.includes("onclick=\"eanZivinyForm('${escHtml(ean)}','${poHotovo}')\""));
-t('karta v Mapě: „✍️ Opravit ručně“ i „✍️ Zadat ručně“, když živiny chybí',rc.includes("eanZivinyForm('${escHtml(z.ean)}','mapaUzivFotoHotovo')\">✍️ Opravit ručně")&&rc.includes("eanZivinyForm('${escHtml(z.ean)}','mapaUzivFotoHotovo')\">✍️ Zadat ručně"));
+t('karta v Mapě: „✍️ Opravit ručně“ i „✍️ Zadat ručně“, když živiny chybí',rc.includes("eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')\">✍️ Opravit ručně")&&rc.includes("eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')\">✍️ Zadat ručně"));
 t('formulář: na 100 g / 100 ml, kJ přepočet, složení, okno nad kartou i skenerem',es.includes('name="ezNa" value="ml"')&&es.includes('kj / 4.184')&&es.includes('id="ez_slozeni"')&&es.includes('z-index:10070'));
 t('admin vidí ruční zadání, nesoulad a předchozí hodnoty',ad.includes("p.nutriceObal.zdroj === 'rucne'")&&ad.includes('p.nutricePredchozi'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);
