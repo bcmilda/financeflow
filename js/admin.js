@@ -1,4 +1,4 @@
-// FinanceFlow · v11.52 · admin.js · 2026-10-09
+// FinanceFlow · v11.53 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.53',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 📸 Skenovat: během analýzy čekací okno přes celou obrazovku – přesýpací hodiny, co se právě děje (fotka → odeslání → AI čte položky → kontrola), uběhlý čas a průběh; pod oknem nejde nic zmáčknout",
+      "Po 20 s se nabídne Zrušit (opravdu zastaví dotaz); tlačítko Zpět na telefonu okno nezavře",
+      "Dvojí ťuknutí už nespustí dvě analýzy (dřív dva dotazy = dvě spotřebované analýzy)",
+    ]
+  },
   {
     verze: 'v11.52',
     datum: '2026-10-09',

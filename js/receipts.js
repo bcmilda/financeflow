@@ -1,4 +1,4 @@
-// FinanceFlow · v11.52 · receipts.js · 2026-10-09
+// FinanceFlow · v11.53 · receipts.js · 2026-10-09
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3570,6 +3570,11 @@ function clearReceiptQueue() {
 }
 
 async function analyzeMultiReceipt() {
+  if(_rpAnalyzaBezi) return;                 // S25 (v11.53): jedna analýza naráz (viz analyzeReceipt)
+  _rpAnalyzaBezi = true;
+  try { return await _analyzeMultiReceipt(); } finally { _rpAnalyzaBezi = false; }
+}
+async function _analyzeMultiReceipt() {
   if(typeof gateFeature==='function' && !gateFeature('receiptAnalyze','Analýza účtenek')) return; // S12.1p
   if(!_receiptQueue.length) return;
   const status = document.getElementById('receiptStatus');
@@ -3630,10 +3635,22 @@ async function analyzeMultiReceipt() {
   const n = _receiptQueue.length;
   if(status) { status.style.display='block'; status.innerHTML=`<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Claude analyzuje ${n === 1 ? 'účtenku' : n + ' části účtenky'}...</div></div>`; }
   if(preview) preview.style.display='none';
+  //  S25 (v11.53, Milan): čekací okno – přesýpací hodiny, co se děje, nedá se mezitím nikam kliknout
+  const ctrl = new AbortController();
+  let zruseno = false, krokTimer = null;
+  if(typeof ffCekaniStart==='function') {
+    ffCekaniStart({
+      titulek: n === 1 ? 'Analyzuji účtenku' : `Analyzuji účtenku (${n} fotky)`,
+      podtitulek: 'Nezavírej aplikaci a nikam neodcházej, výsledek se otevře sám.',
+      kroky: ['Připravuji ' + (n === 1 ? 'fotku' : 'fotky'), 'Posílám účtenku ke čtení', 'AI čte obchod, položky a ceny', 'Kontroluji výsledek'],
+      odhadS: 20 + 8 * (n - 1), odhadText: n === 1 ? '10–30 s' : '20–50 s',
+      zrusit: () => { zruseno = true; ctrl.abort(); },
+    });
+    ffCekaniKrok(1); krokTimer = setTimeout(() => ffCekaniKrok(2), 2000);   // fotky jsou ve frontě už zmenšené
+  }
 
   try {
     // FIX-061 (Session 8): 60s timeout – ochrana před viseními Worker volánímami.
-    const ctrl = new AbortController();
     const timeoutId = setTimeout(() => ctrl.abort(), 60000);
     let res;
     try {
@@ -3651,11 +3668,13 @@ async function analyzeMultiReceipt() {
     } catch (fetchErr) {
       clearTimeout(timeoutId);
       if (fetchErr.name === 'AbortError') {
-        throw new Error('Analýza trvala déle než 60 sekund. Zkuste znovu nebo s menším počtem fotek.');
+        throw new Error(zruseno ? 'Analýza zrušena.' : 'Analýza trvala déle než 60 sekund. Zkuste znovu nebo s menším počtem fotek.');
       }
       throw fetchErr;
     }
     clearTimeout(timeoutId);
+    if(krokTimer) clearTimeout(krokTimer);
+    if(typeof ffCekaniKrok==='function') ffCekaniKrok(3);
 
     if(!res.ok) {
       const err = await res.json().catch(()=>({}));
@@ -3674,6 +3693,7 @@ async function analyzeMultiReceipt() {
       throw new Error('Claude nevrátil validní JSON: ' + e.message + '. Zkuste čitelnější foto.');
     }
 
+    if(typeof ffCekaniKonec==='function') ffCekaniKonec();
     if(status) status.style.display='none';
     // S25 (Milan): fotka z právě naskenované účtenky – „📌 Uschovat tuto fotku“ ji nahraje bez nového výběru
     { const blobs = _receiptQueue.map(q => q && q.blob).filter(Boolean);   // S25: VŠECHNY fotky účtenky (dlouhá = víc fotek)
@@ -3696,11 +3716,16 @@ async function analyzeMultiReceipt() {
   } catch(e) {
     if(status) {
       status.style.display='block';
-      status.innerHTML=`<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">
+      status.innerHTML = zruseno
+        ? `<div class="insight-item warn"><div class="insight-icon">✋</div><div class="insight-text">Analýza zrušena. Fotky zůstaly připravené, můžeš to zkusit znovu.</div></div>`
+        : `<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">
         <strong>Nepodařilo se analyzovat</strong><br>
-        <span style="font-size:.76rem">${e.message}</span>
+        <span style="font-size:.76rem">${escHtml(e.message)}</span>
       </div></div>`;
     }
+  } finally {
+    if(krokTimer) clearTimeout(krokTimer);
+    if(typeof ffCekaniKonec==='function') ffCekaniKonec();   // okno zmizí vždy – i po chybě
   }
 }
 
@@ -4689,7 +4714,15 @@ function handleReceiptDrop(e) {
   if(file&&file.type.startsWith('image/'))addReceiptPhoto(file);
 }
 
+//  S25 (v11.53): jedna analýza naráz – pojistka hned na začátku (dvojí ťuknutí přijde dřív,
+//  než se stihne otevřít čekací okno → dřív odešly dva dotazy a spotřebovaly dvě analýzy).
+let _rpAnalyzaBezi = false;
 async function analyzeReceipt(file) {
+  if(_rpAnalyzaBezi) return;
+  _rpAnalyzaBezi = true;
+  try { return await _analyzeReceipt(file); } finally { _rpAnalyzaBezi = false; }
+}
+async function _analyzeReceipt(file) {
   if(typeof gateFeature==='function' && !gateFeature('receiptAnalyze','Analýza účtenek')) return; // S12.1p
   if(!file) return;
   const status = document.getElementById('receiptStatus');
@@ -4703,6 +4736,16 @@ async function analyzeReceipt(file) {
 
   if(status) { status.style.display='block'; status.innerHTML='<div class="insight-item warn"><div class="insight-icon">⏳</div><div class="insight-text">Claude analyzuje účtenku...</div></div>'; }
   if(preview) preview.style.display='none';
+  //  S25 (v11.53, Milan): čekací okno – přesýpací hodiny, co se děje, nedá se mezitím nikam kliknout
+  const ctrl = new AbortController();
+  let zruseno = false, krokTimer = null;
+  if(typeof ffCekaniStart==='function') ffCekaniStart({
+    titulek: 'Analyzuji účtenku',
+    podtitulek: 'Nezavírej aplikaci a nikam neodcházej, výsledek se otevře sám.',
+    kroky: ['Připravuji fotku', 'Posílám účtenku ke čtení', 'AI čte obchod, položky a ceny', 'Kontroluji výsledek'],
+    odhadS: 20, odhadText: '10–30 s',
+    zrusit: () => { zruseno = true; ctrl.abort(); },
+  });
 
   try {
     // Zmenš obrázek pokud je větší než 4MB (Claude limit je 5MB)
@@ -4729,10 +4772,11 @@ async function analyzeReceipt(file) {
       img.onerror = () => rej(new Error('Nepodařilo se načíst obrázek'));
       img.src = objectUrl;
     });
+    if(zruseno) throw new Error('Analýza zrušena.');
+    if(typeof ffCekaniKrok==='function'){ ffCekaniKrok(1); krokTimer = setTimeout(() => ffCekaniKrok(2), 2000); }
 
     // FIX-061 (Session 8): 60s timeout – pokud Worker nereaguje, neblokovat UI navěky.
     // AbortController odpojí fetch a vyhodí chybu, kterou catch zachytí jako "timeout".
-    const ctrl = new AbortController();
     const timeoutId = setTimeout(() => ctrl.abort(), 60000);
     let response;
     try {
@@ -4751,11 +4795,13 @@ async function analyzeReceipt(file) {
     } catch (fetchErr) {
       clearTimeout(timeoutId);
       if (fetchErr.name === 'AbortError') {
-        throw new Error('Analýza trvala déle než 60 sekund. Zkuste foto znovu nebo později.');
+        throw new Error(zruseno ? 'Analýza zrušena.' : 'Analýza trvala déle než 60 sekund. Zkuste foto znovu nebo později.');
       }
       throw fetchErr;
     }
     clearTimeout(timeoutId);
+    if(krokTimer) clearTimeout(krokTimer);
+    if(typeof ffCekaniKrok==='function') ffCekaniKrok(3);
 
     if(!response.ok) {
       const err = await response.json().catch(()=>({}));
@@ -4775,6 +4821,7 @@ async function analyzeReceipt(file) {
     if(!receipt.store && !receipt.total) throw new Error('Účtenka nebyla rozpoznána. Ujistěte se že foto je ostré a dobře osvětlené.');
     if (typeof rcptPobockaNorm === 'function') rcptPobockaNorm(receipt);   // S25: pobočka (město, kraj)
 
+    if(typeof ffCekaniKonec==='function') ffCekaniKonec();
     if(status) status.style.display='none';
     { const tok = 'sc' + Date.now(); receipt._scanTok = tok; window._rpScanFoto = file ? { blobs: [file], at: Date.now(), tok } : null; }   // S25
     _lastReceiptResult = {receipt, n:1};
@@ -4785,12 +4832,17 @@ async function analyzeReceipt(file) {
   } catch(e) {
     if(status) {
       status.style.display='block';
-      status.innerHTML=`<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">
+      status.innerHTML = zruseno
+        ? `<div class="insight-item warn"><div class="insight-icon">✋</div><div class="insight-text">Analýza zrušena. Fotku můžeš poslat znovu.</div></div>`
+        : `<div class="insight-item bad"><div class="insight-icon">❌</div><div class="insight-text">
         <strong>Nepodařilo se analyzovat účtenku</strong><br>
-        <span style="font-size:.76rem">${e.message}</span><br>
+        <span style="font-size:.76rem">${escHtml(e.message)}</span><br>
         <span style="font-size:.72rem;color:var(--text3)">Tip: Ujistěte se že jste přihlášeni přes Google a foto je čitelné.</span>
       </div></div>`;
     }
+  } finally {
+    if(krokTimer) clearTimeout(krokTimer);
+    if(typeof ffCekaniKonec==='function') ffCekaniKonec();   // okno zmizí vždy – i po chybě
   }
 }
 
