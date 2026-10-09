@@ -1,4 +1,4 @@
-// FinanceFlow · v11.57 · admin.js · 2026-10-09
+// FinanceFlow · v11.58 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.58',
+    datum: '2026-10-09',
+    zmeny: [
+      "🎨 VLASTNÍ IKONY (Milan, TODO-323, styl B „obrys + jemná výplň“) · nový modul js/ikony.js: jednotná sada SVG ikon (24×24, stejná čára) místo emoji, které vypadají na každém telefonu jinak – 13 oblastí taxonomie ve svých barvách, 12 podkategorií (pečivo, mléko, jogurty, sýry, vejce, maso, ryby, ovoce, zelenina, čokoláda, káva, voda), ikony karty výrobku a akcí",
+      "🧭 IKONY SE PŘIŘAZUJÍ SAMY přes taxonomii: podkategorie s vlastní ikonou (jogurt → kelímek, uzeniny → maso) → jinak ikona a barva oblasti (pivo → Alkohol) → položka mimo taxonomii šedá „Nezařazené“; po zařazení v Mapě položek se ikona změní sama i u starých účtenek",
+      "🗺️ cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek (karta): dlaždice výrobku v barvě oblasti, ikony u nadpisů bloků (Výrobek, Zařazení, Názvy z účtenek, Balení a složení, Moje nákupy, Ceny v kraji, Identifikace), u Oblast a Kategorie, u tlačítek Naskenovat kód / Změnit, Vyfotit a Opravit",
+      "🗺️ cesta: Analýza účtenek → 🗺️ Mapa položek: ikony v seznamu položek, ve filtrech oblastí a v „Podkategorie → rozpočet“; 📦 Moje výrobky: výrobek bez fotky má ikonu podle druhu; 💹 Zdražování → Podle výrobků a 🧭 Za co utrácíš: ikony podkategorií",
+      "🧪 tools/smoke_ikony.js (24); smoke_karta_v2.js upraven",
+    ]
+  },
   {
     verze: 'v11.57',
     datum: '2026-10-09',

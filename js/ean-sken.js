@@ -1,4 +1,4 @@
-// FinanceFlow · v11.57 · ean-sken.js · 2026-10-09
+// FinanceFlow · v11.58 · ean-sken.js · 2026-10-09
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -878,7 +878,7 @@ function eanMojeVyrobkyHTML(D, samostatne) {
       const n = eanNazevVyrobku(p && p.stav === 'nalezeno' ? p : null, z.ean) || (p && p.stav === 'nalezeno' ? p.nazev : '');
       const vyzva = st.nacteno && (st.neznamy && !n || st.bezCz);
       return `<div onclick="eanOtevriNaskenovany('${escHtml(z.ean)}')" role="button" style="display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--border);cursor:pointer">
-        ${p && p.foto ? `<img src="${escHtml(p.foto)}" alt="" loading="lazy" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:7px;flex-shrink:0">` : '<span style="width:38px;text-align:center;flex-shrink:0;color:#8b93ad">▮▮</span>'}
+        ${p && p.foto ? `<img src="${escHtml(p.foto)}" alt="" loading="lazy" style="width:38px;height:38px;object-fit:contain;background:#fff;border-radius:7px;flex-shrink:0">` : (typeof ffIkonaDlazdice === 'function' ? ffIkonaDlazdice(ffIkonaTaxVyrobku(p, z.nazvy), 38, 22) : '<span style="width:38px;text-align:center;flex-shrink:0;color:#8b93ad">▮▮</span>')}
         <div style="flex:1;min-width:0">
           <div style="font-size:.8rem;font-weight:600;overflow-wrap:anywhere">${n ? escHtml(n) : z.nazvy[0] ? `<span style="color:#c9cede">📝 ${escHtml(z.nazvy[0])}</span> <span style="font-size:.64rem;color:#8b93ad;font-weight:400">(z účtenky)</span>` : 'Kód ' + escHtml(z.ean)}</div>
           <div style="font-size:.66rem;color:#a8aec8">${[p && p.znacka ? escHtml(p.znacka) : '', escHtml(mn(p)), z.nakupy ? `${z.nakupy}× koupeno${z.obchody.length ? ' · ' + escHtml(z.obchody.slice(0, 2).join(', ')) : ''}` : '', z.posledni ? 'naposledy ' + dat(z.posledni) : ''].filter(Boolean).join(' · ')}</div>

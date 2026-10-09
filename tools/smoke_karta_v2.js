@@ -25,7 +25,7 @@ ok('období: výběr 3 / 6 / rok / vše', sb.mapaVyberObdobi(r, '3').length === 
 const karta = rc.slice(rc.indexOf('function mapaUzivKartaHTML('), rc.indexOf('window.mapaUzivKartaHTML'));
 ok('bloky: Výrobek → Zařazení → Názvy z účtenek → Balení a složení → Moje nákupy', ['Výrobek', 'Zařazení', 'Názvy z účtenek', 'Balení a složení', 'Moje nákupy'].every((t, i, a) => karta.indexOf("tit('" + t + "')") > -1 && (i === 0 || karta.indexOf("tit('" + a[i - 1] + "')") < karta.indexOf("tit('" + t + "')"))));
 ok('řádky v mřížce (popisek | hodnota) – hodnota se zalomí, nepřeteče', /\.mk-r\{display:grid;grid-template-columns:minmax\(92px,36%\) minmax\(0,1fr\)/.test(rc) && /\.mk-r>\.v\{[^}]*overflow-wrap:anywhere/.test(rc));
-ok('EAN: kód nebo „zatím nepřiřazen“ + Naskenovat kód', /— ZATÍM NEPŘIŘAZEN/.test(karta) && /▮▮ Naskenovat kód/.test(karta));
+ok('EAN: kód nebo „zatím nepřiřazen“ + Naskenovat kód', /— ZATÍM NEPŘIŘAZEN/.test(karta) && /\$\{rpIk\('skenovat', 16\) \|\| '▮▮'\} Naskenovat kód/.test(karta));
 ok('název z EAN jen z databáze (ne z fotky)', /const zDb = p && p\.nazev && p\.zdroj !== 'fotka obalu' \? p\.nazev : '';/.test(karta));
 ok('COICOP: kód + název v řádku, hierarchie a srovnání v panelu', /mapaKoicopRadekHTML\(/.test(karta) && /const telo = mapaKoicopPanelHTML\(kodC, D\);/.test(rc));
 const panel = vyrez(rc, 'mapaKoicopPanelHTML');
