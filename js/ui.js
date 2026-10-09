@@ -1,4 +1,4 @@
-// FinanceFlow · v11.46 · ui.js · 2026-10-08
+// FinanceFlow · v11.52 · ui.js · 2026-10-09
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -17,6 +17,8 @@ function renderPage(){
     if(!_renderForce && _sig===_lastRenderSig){ return; }
     _lastRenderSig=_sig; _renderForce=false;
   }
+  //  S25 (v11.52): stránka se přestaví → co bylo rozepsané ve formuláři, je pryč (nebo uložené)
+  if(typeof _ffRozprac!=='undefined'){ _ffRozprac.formular=null; }
   if(typeof rebuildTransferCatIds==='function') rebuildTransferCatIds();
   renderSummaryCards();
   if(curPage==='prehled')renderDashboard();

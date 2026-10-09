@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · app.js · 2026-10-04
+// FinanceFlow · v11.52 · app.js · 2026-10-09
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -324,6 +324,8 @@ async function saveSnapshot() {
       pristiCfg:     S.pristiCfg     || {},
       uiCfg:         S.uiCfg         || {},   // S25
       _savedAt: Date.now(),
+      //  S25 (v11.52): základ pro offline start – co server měl naposledy (podpisy diff-zápisu)
+      _zaklad: (typeof _ffZakladProSnimek === 'function') ? _ffZakladProSnimek() : null,
     };
     const db = await _openSnapDB();
     await new Promise((res, rej) => {
@@ -625,7 +627,21 @@ function resetAppState() {
       try { _off(_ref(_db, `users/${uid}/data`), 'value', _partnerListeners[uid]); } catch(_) {}
     });
     _partnerListeners = {};
+    //  S25 (v11.52): odpoj i rozdělené listenery (sekce + transakce). Dřív zůstaly viset
+    //  a do chvíle, než se připojily nové, mohly zapsat data předchozího účtu do nového S.
+    if (typeof _splitRefs !== 'undefined') {
+      _splitRefs.forEach(x => { try { window._offEv ? _offEv(x.ref, x.ev, x.cb) : _off(x.ref, x.ev, x.cb); } catch(_) {} });
+      _splitRefs = [];
+    }
   } catch(_) {}
+  if (typeof _ffJenSnimek !== 'undefined') {
+    _ffJenSnimek = false; _ffZeSnimku = false; _ffPripojeno = null; _ffBylOdpojen = false; _ffNutnoSloucit = false; _ffSloucBezi = false;
+    if (_ffConn) { try { _off(_ffConn.ref, 'value', _ffConn.cb); } catch(_) {} _ffConn = null; }
+    if (_ffOpakTimer) { clearTimeout(_ffOpakTimer); _ffOpakTimer = null; }
+    if (_ffSnimekTimer) { clearTimeout(_ffSnimekTimer); _ffSnimekTimer = null; }
+    _ffNepotvrzeno.meta.clear(); _ffNepotvrzeno.tx.clear(); _ffSelhani.clear();
+  }
+  if (typeof _remoteTimer !== 'undefined' && _remoteTimer) { clearTimeout(_remoteTimer); _remoteTimer = null; }
   // Vynuluj veškerý uživatelský stav v paměti
   S = { transactions:[], debts:[], categories:[], bank:{startBalance:0},
         birthdays:[], wishes:[], wallets:[], payTypes:[], sablony:[],
@@ -696,8 +712,17 @@ window.onUserSignedIn = async function(user) {
       sanitizeUserData(S); // S16.5 (P0-1)
       S.curMonth = new Date().getMonth();
       S.curYear = new Date().getFullYear();
+      //  S25 (v11.52): snímek nese i ZÁKLAD (podpisy posledního stavu serveru). Díky němu se
+      //  pozná, co se změnilo tady (offline nebo neodeslané před zavřením), a po připojení se
+      //  to sloučí se serverem a odešle – dřív to příchozí data přepsala.
+      const zakl = S._zaklad; delete S._zaklad; delete S._savedAt;
+      if (zakl && zakl.meta && Array.isArray(zakl.tx)) {
+        _dw.metaSig = zakl.meta; _dw.txSig = new Map(zakl.tx); _dw.ready = true;
+        S.schemaV = 2; _ffZeSnimku = true; _ffNutnoSloucit = true;
+      }
       if (!navigator.onLine && typeof showToast === 'function') showToast('📴 Offline – zobrazena poslední uložená data');
     }
+    _ffJenSnimek = true;
     // Bez snapshotu necháme prázdné defaults; onValue listener data dorovná po připojení.
   } else if (!snap.exists()) {
     // First time - seed default data
@@ -715,6 +740,10 @@ window.onUserSignedIn = async function(user) {
     if(!S.bank) S.bank={startBalance:0};
     S.curMonth = new Date().getMonth();
     S.curYear = new Date().getFullYear();
+    //  S25 (v11.52): S = přesně to, co je na serveru → hned podepsat. Jinak první uložení
+    //  (doplnění základních dat) šlo PLNÝM zápisem celého uzlu a přepsalo i to, co mezi
+    //  načtením a zápisem přibylo, plus klíče mimo _DW_META.
+    if (S.schemaV === 2 && typeof _dwSeed === 'function') _dwSeed();
     saveSnapshot(); // ulož čerstvý snapshot pro offline
   }
 
@@ -1002,7 +1031,10 @@ async function backupRestore(key) {
     //    by v databázi zůstaly (mazání se odvozuje z předchozích podpisů) a při
     //    dalším načtení by se vrátily. `ready=false` vynutí PLNÝ zápis přes _set(),
     //    který celý uzel nahradí – tedy přesně obnovu, ne sloučení.
-    _dw.ready = false;
+    //  S25 (v11.52): dřív `_dw.ready = false` – jenže to listener chápe jako „ještě nemám data
+    //    ze serveru“ a příchozí změnu by vzal přes obnovená data. Plný zápis se teď vynutí
+    //    zvlášť; podpisy zůstanou, takže obnovené sekce se tváří jako rozpracované a počkají.
+    _dw.vynutPlny = true;
     save();
     return { ok: true, n: (parsed.transactions || []).length };
   } catch (e) {
@@ -1280,6 +1312,371 @@ function _detachOwnListeners(userRef){
   _splitRefs = [];
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.52) – AUDIT „PŘEPISUJE SE, NEULOŽÍ SE“ (Milan: „toto se musí odhalit a napravit“)
+//  Dřívější opravy (v7.68 editor účtenky, v11.48 fotka a EAN) řešily vždy jeden příznak.
+//  Společná příčina byla tady, v synchronizaci, a měla čtyři podoby:
+//
+//   1. OZVĚNA VLASTNÍHO ULOŽENÍ. Firebase po každém zápisu pošle změněný uzel zpátky
+//      (i vlastní zápis). Listener ho vzal jako novou hodnotu: `S[k] = snap.val()` – CELÉ
+//      pole nových objektů. Kód, který si držel odkaz na účtenku/položku (nahrávání fotky,
+//      AI, přiřazení EAN), pak zapsal do odpojeného objektu a save() nic neuložil.
+//      → Ozvěna se pozná (kanonické porovnání) a zahodí. Skutečná změna z jiného zařízení
+//        se do dat SLOUČÍ na místě: stejný záznam (podle id) zůstane stejným objektem.
+//
+//   2. „VYSÁVÁNÍ“ NEULOŽENÝCH ZMĚN. Po každé vzdálené změně se volal _dwSeed(), který
+//      přepočítal podpisy diff-zápisu z CELÉHO lokálního stavu. Změna, která ještě
+//      nebyla odeslaná (offline, rozdělaná akce), se tím tvářila jako uložená a už se
+//      nikdy neodeslala – po obnovení stránky zmizela.
+//      → Podpis se obnovuje jen u klíče/transakce, která opravdu přišla ze serveru.
+//
+//   3. ZAHOZENÉ VZDÁLENÉ ZMĚNY. Během 1,2 s čekání na uložení se VŠECHNY příchozí změny
+//      zahazovaly (`if(saveTimeout) return`). Následný zápis pak celou sekci (např. všechny
+//      účtenky) přepsal lokální verzí – účtenka přidaná na telefonu zmizela i z cloudu,
+//      když jsem současně upravoval jinou na počítači.
+//      → TŘÍBODOVÉ SLOUČENÍ: základ (co server měl naposledy), moje změny, jeho změny.
+//        Záznamy se párují podle id: nové odjinud přibudou, smazané odjinud zmizí, změněné
+//        odjinud se převezmou – a co jsem změnil já, zůstane moje. Výsledek se odešle.
+//
+//   4. PŘEKRESLENÍ PŘES ROZDĚLANOU PRÁCI. Každá ozvěna spustila renderPage(), který
+//      přestavěl otevřený editor/formulář z uložených dat.
+//      → Ozvěna nic nepřekresluje a skutečná vzdálená změna počká, až nic nepíšeš
+//        (ffRenderBezpecne v helpers.js).
+// ══════════════════════════════════════════════════════════════════════
+let _ffJenSnimek = false;         // data jsou jen z lokálního snímku (offline start) – server je ještě nepotvrdil
+let _ffZeSnimku = false;          // start ze snímku VČETNĚ základu podpisů → po připojení dorovnat smazané transakce
+let _ffPripojeno = null;          // .info/connected (null = zatím nevíme → bere se jako připojeno)
+let _ffBylOdpojen = false;
+let _ffNutnoSloucit = false;      // po výpadku: sekce se nesmí psát, dokud se nesloučí se serverem
+let _ffConn = null;               // listener .info/connected (zvlášť – přežije pád rozděleného čtení)
+let _ffOpakTimer = null;          // jediný časovač odloženého zápisu (žádné paralelní smyčky)
+let _ffSloucBezi = false;
+const _ffSelhani = new Map();     // cesta → kolikrát po sobě ji server odmítl
+//  Zápisy odeslané, ale serverem ještě nepotvrzené: klíč/id → { pred: podpis před zápisem, n: počet dávek }.
+//  Do snímku pro offline start jde podpis PŘED nimi – co server nepotvrdil, se po restartu
+//  musí poznat jako neodeslané (dřív se offline transakce po restartu smazala jako „smazaná jinde“).
+const _ffNepotvrzeno = { meta: new Map(), tx: new Map() };
+function _ffNepotvrzenoPridej(mapa, klic, pred){ const x = mapa.get(klic); if (x) x.n++; else mapa.set(klic, { pred, n: 1 }); }
+function _ffNepotvrzenoPotvrd(mapa, klic){ const x = mapa.get(klic); if (x && --x.n <= 0) mapa.delete(klic); }
+//  Základ pro snímek = co server opravdu má (potvrzené podpisy).
+function _ffZakladProSnimek(){
+  if (!_dw || !_dw.ready || !_dw.txSig) return null;
+  const meta = Object.assign({}, _dw.metaSig);
+  _ffNepotvrzeno.meta.forEach((x, k) => { if (x.pred === undefined) delete meta[k]; else meta[k] = x.pred; });
+  const tx = new Map(_dw.txSig);
+  _ffNepotvrzeno.tx.forEach((x, id) => { if (x.pred === undefined) tx.delete(id); else tx.set(id, x.pred); });
+  return { meta, tx: Array.from(tx) };
+}
+let _ffSnimekTimer = null;
+function _ffSnimekPozdeji(){ if (_ffSnimekTimer) clearTimeout(_ffSnimekTimer); _ffSnimekTimer = setTimeout(() => { _ffSnimekTimer = null; try { saveSnapshot(); } catch(e){} }, 2000); }
+function _ffOpakujZapis(ms){
+  if (_ffOpakTimer) return;
+  _ffOpakTimer = setTimeout(() => { _ffOpakTimer = null; if (typeof saveToFirebase === 'function') saveToFirebase(); }, ms || 5000);
+}
+
+//  Spojení se serverem. Bez něj se sekce nepíšou (viz saveToFirebase) a po návratu se
+//  rozpracované sekce nejdřív sloučí s tím, co je na serveru, a teprve pak odešlou.
+function _ffOdpojeno(){
+  if (_ffPripojeno !== null) return _ffPripojeno === false;                 // skutečný stav spojení s Firebase
+  return typeof navigator !== 'undefined' && navigator.onLine === false;    // dokud ho neznáme
+}
+let _ffVypadky = 0;               // každý výpadek +1 – sloučení, během kterého spojení spadlo, neplatí
+function _ffZmenaPripojeni(p){
+  _ffPripojeno = p;
+  if (!p) { _ffVypadky++; if (_dw.ready) { _ffBylOdpojen = true; _ffNutnoSloucit = true; } return; }
+  if (_ffBylOdpojen || _ffJenSnimek || _ffZeSnimku || _ffNutnoSloucit) { _ffBylOdpojen = false; setTimeout(_ffPoPripojeni, 300); }
+}
+//  Čtení po bariéře (syncPing): listenery se po připojení přihlásí znovu dřív, než odejde
+//  ping, a server pošle jejich data dřív, než ping potvrdí – po potvrzení je tedy mezipaměť
+//  aktuální. Dotaz (query) je jen pojistka navíc, zaručuje to bariéra.
+async function _ffCtiZeServeru(cesta){
+  try {
+    if (typeof window._query === 'function' && typeof window._limitToLast === 'function')
+      return await _get(_query(_ref(_db, cesta), _limitToLast(1000000)));
+  } catch(e){}
+  return await _get(_ref(_db, cesta));
+}
+async function _ffPoPripojeni(){
+  if (!window._currentUser || _isLocalMode || viewingUid || _ffOdpojeno() || _ffSloucBezi) return;
+  const uid = window._currentUser.uid, vypadky = _ffVypadky;
+  const platne = () => window._currentUser && window._currentUser.uid === uid && !_isLocalMode;   // mezitím odhlášení?
+  let zmena = false;
+  _ffSloucBezi = true;
+  try {
+    //  0) bariéra: drobný zápis a čekání na potvrzení – server posílá data listenerům dřív,
+    //     než potvrdí pozdější zápis, takže potom už listenery mají aktuální stav
+    try { await _set(_ref(_db, `users/${uid}/syncPing`), Date.now()); } catch(e){}
+    //  1) rozpracované sekce: aktuální stav serveru → sloučit → teprve potom zapsat
+    for (const k of _DW_META) {
+      if (!_ffMetaSpinava(k)) continue;
+      const sn = await _ffCtiZeServeru(`users/${uid}/data/${k}`);
+      if (!platne()) { _ffSloucBezi = false; return; }
+      if (_ffPrijmiMeta(k, sn.exists(), sn.exists() ? sn.val() : undefined)) zmena = true;
+    }
+    //  2) start ze snímku: transakce, které mezitím někdo smazal (snímek je ještě má)
+    if (_ffZeSnimku) {
+      _ffZeSnimku = false;
+      const st = await _get(_ref(_db, `users/${uid}/data/transactions`));
+      if (!platne()) { _ffSloucBezi = false; return; }
+      const v = st.exists() ? st.val() : {}, srv = new Set();
+      (Array.isArray(v) ? v : Object.values(v || {})).forEach(t => { if (t && t.id != null) srv.add(String(t.id)); });
+      (S.transactions || []).slice().forEach(l => {
+        const id = l && l.id != null ? String(l.id) : null;
+        if (id && !srv.has(id) && _dw.txSig && _dw.txSig.has(id) && !_ffTxSpinava(id, l) && _ffPrijmiTx(id, undefined)) zmena = true;
+      });
+    }
+    if (_ffVypadky !== vypadky) {
+      //  Během slučování spojení spadlo – čtení mohla přijít z mezipaměti. Neplatí; znovu.
+      _ffSloucBezi = false;
+      setTimeout(_ffPoPripojeni, 1000);
+      return;
+    }
+    _ffNutnoSloucit = false;                  // sloučeno → sekce se smí zase psát
+  } catch(e){
+    console.warn('[sync] dorovnání po připojení se nepovedlo, zkusím znovu:', e);
+    _ffSloucBezi = false;
+    if (platne()) setTimeout(_ffPoPripojeni, 5000);
+    return;
+  }
+  _ffSloucBezi = false;
+  if (!platne()) return;
+  if (zmena) _remoteApply();
+  if (typeof save === 'function') save();
+}
+
+//  Kanonický tvar pro porovnání „je to totéž?“ – Firebase řadí klíče, zahazuje null
+//  a prázdná pole/objekty a řídké pole vrací jako objekt. Tohle všechno se srovná.
+function _ffKanon(v){
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'number') return isFinite(v) ? v : undefined;
+  if (typeof v !== 'object') return v;
+  const out = {}; let n = 0;
+  //  klíče stejně jako _fbSafeKeys (Firebase nebere . # $ / [ ]) – lokální „Školka/škola“ = serverová „Školka-škola“
+  Object.keys(v).sort().forEach(k => { const x = _ffKanon(v[k]); if (x !== undefined) { out[String(k).replace(_FB_ZAKAZANE, '-')] = x; n++; } });
+  return n ? out : undefined;
+}
+function _ffKanonStr(v){ const k = _ffKanon(v); return k === undefined ? '' : JSON.stringify(k); }
+function _ffJeObj(x){ return x !== null && typeof x === 'object'; }
+
+//  Sloučení NA MÍSTĚ: výsledek má obsah ze serveru, ale objekty, které už existovaly,
+//  zůstanou stejnými objekty (odkazy držené rozdělanou akcí dál platí).
+function _ffSloucObj(L, R){
+  Object.keys(L).forEach(k => { if (!(k in R) && _ffKanon(L[k]) !== undefined) delete L[k]; });
+  Object.keys(R).forEach(k => { const r = R[k], l = L[k]; L[k] = (_ffJeObj(r) && _ffJeObj(l)) ? _ffSlouc(l, r) : r; });
+  return L;
+}
+function _ffSlouc(L, R){
+  if (!_ffJeObj(R)) return R;
+  //  řídké pole přijde jako {0:…, 2:…} – lokálně je to pole, nech ho polem
+  if (Array.isArray(L) && !Array.isArray(R) && Object.keys(R).every(k => /^\d+$/.test(k))) {
+    R = Object.keys(R).sort((a, b) => a - b).map(k => R[k]);
+  }
+  if (Array.isArray(R)) {
+    if (!Array.isArray(L)) return R;
+    const podleId = new Map(), bezId = [];
+    L.forEach(o => { if (_ffJeObj(o) && !Array.isArray(o) && o.id != null) podleId.set(String(o.id), o); else bezId.push({ o, sig: null, pouzit: false }); });
+    const out = R.map(r => {
+      if (_ffJeObj(r) && !Array.isArray(r) && r.id != null) {
+        const l = podleId.get(String(r.id));
+        if (l) { podleId.delete(String(r.id)); return _ffSloucObj(l, r); }
+        return r;
+      }
+      //  záznam bez id: stejný obsah = stejný objekt, jinak nový
+      const sig = _ffKanonStr(r);
+      const b = bezId.find(x => !x.pouzit && (x.sig === null ? (x.sig = _ffKanonStr(x.o)) : x.sig) === sig);
+      if (b) { b.pouzit = true; return b.o; }
+      return r;
+    });
+    L.length = 0; out.forEach(x => L.push(x));
+    return L;
+  }
+  if (!_ffJeObj(L) || Array.isArray(L)) return R;
+  return _ffSloucObj(L, R);
+}
+
+//  Třícestné sloučení: B = základ (poslední známý stav serveru), L = tady, R = ze serveru.
+//  Mění L na místě, kde to jde. Co změnily obě strany a nejde rozdělit, vyhrává L (tady).
+function _ffIdOf(o){ return (_ffJeObj(o) && !Array.isArray(o) && o.id != null) ? String(o.id) : null; }
+//  Pole změněné na obou stranách:
+//   · záznamy s id → párují se podle id (přidané/smazané/změněné jinde i tady),
+//   · logy bez id (fixedLog, importHistory) a seznamy hodnot (noSyncKeys, štítky) → multimnožina:
+//     přidané jinde = v R navíc oproti B, smazané jinde = v B a už ne v R, totéž přidané oběma jen jednou,
+//   · ostatní pole objektů bez id (položky účtenky…) → po pozicích, jen když se délka nezměnila;
+//     jinak vyhrává tohle zařízení (multimnožina by tu z jedné upravené položky udělala dvě).
+const _FF_LOGY = { fixedLog: 'konec', importHistory: 'zacatek' };
+function _ff3Pole(B, L, R, klic){
+  const b = _ffJakoPole(B), r = _ffJakoPole(R);
+  const vse = b.concat(L, r);
+  const sId = vse.some(o => _ffIdOf(o) != null);
+  const primitivni = vse.every(o => !_ffJeObj(o));
+  const cisla = primitivni && vse.length > 0 && vse.every(o => typeof o === 'number');   // [0,0,5,0] = hodnoty po pozicích
+  const multi = (primitivni && !cisla) || (!sId && !!_FF_LOGY[klic]);
+  if (!sId && !multi) {
+    if (b.length === L.length && r.length === L.length) {
+      for (let i = 0; i < L.length; i++) { const v = _ff3(b[i], L[i], r[i]); L[i] = v === undefined ? L[i] : v; }
+    }
+    return L;
+  }
+  const mB = new Map(), mR = new Map();
+  b.forEach(o => { const id = _ffIdOf(o); if (id != null) mB.set(id, o); });
+  r.forEach(o => { const id = _ffIdOf(o); if (id != null) mR.set(id, o); });
+  const pocty = arr => { const m = new Map(); arr.forEach(o => { if (_ffIdOf(o) == null) { const k = _ffKanonStr(o); m.set(k, (m.get(k) || 0) + 1); } }); return m; };
+  const nB = multi ? pocty(b) : new Map(), nR = multi ? pocty(r) : new Map(), nL = multi ? pocty(L) : new Map();
+  const smazanoJinde = new Map(), pridanoJinde = new Map(), pridanoTady = new Map();
+  nB.forEach((n, k) => { const d = n - (nR.get(k) || 0); if (d > 0) smazanoJinde.set(k, d); });
+  nR.forEach((n, k) => { const d = n - (nB.get(k) || 0); if (d > 0) pridanoJinde.set(k, d); });
+  nL.forEach((n, k) => { const d = n - (nB.get(k) || 0); if (d > 0) pridanoTady.set(k, d); });
+  const out = [], tady = new Set(), nove = [];
+  L.forEach(l => {
+    const id = _ffIdOf(l);
+    if (id == null) {
+      if (multi) {
+        const k = _ffKanonStr(l), d = smazanoJinde.get(k) || 0;
+        if (d > 0) { smazanoJinde.set(k, d - 1); return; }                    // smazané jinde
+      }
+      out.push(l); return;                                                    // (bez id ve smíšeném poli: zůstává jak je tady)
+    }
+    tady.add(id);
+    const bo = mB.get(id), ro = mR.get(id);
+    if (!bo) { out.push(l); return; }                                         // přidané tady
+    if (!ro) { if (_ffKanonStr(l) !== _ffKanonStr(bo)) out.push(l); return; } // smazané jinde (moje úprava ho drží)
+    out.push(_ff3(bo, l, ro));
+  });
+  r.forEach(ro => {
+    const id = _ffIdOf(ro);
+    if (id != null) { if (!tady.has(id) && !mB.has(id)) nove.push(ro); return; }   // přidané jinde
+    if (!multi) return;
+    const k = _ffKanonStr(ro), d = pridanoJinde.get(k) || 0;
+    if (d <= 0) return;
+    pridanoJinde.set(k, d - 1);
+    const t = pridanoTady.get(k) || 0;                                        // totéž přidali oba → jen jednou
+    if (t > 0) { pridanoTady.set(k, t - 1); return; }
+    nove.push(ro);
+  });
+  const vysledek = _FF_LOGY[klic] === 'zacatek' ? nove.concat(out) : out.concat(nove);   // importHistory: nejnovější nahoře
+  L.length = 0; vysledek.forEach(x => L.push(x));
+  return L;
+}
+function _ffJakoPole(x){
+  if (Array.isArray(x)) return x.filter(o => o != null);
+  if (_ffJeObj(x)) return Object.keys(x).sort((a, b) => a - b).map(k => x[k]).filter(o => o != null);
+  return [];
+}
+function _ff3(B, L, R, klic){
+  const kB = _ffKanonStr(B), kL = _ffKanonStr(L), kR = _ffKanonStr(R);
+  if (kL === kR) return L;
+  if (kL === kB) return (_ffJeObj(L) && _ffJeObj(R)) ? _ffSlouc(L, R) : R;   // změnil jen server
+  if (kR === kB) return L;                                                    // změnil jsem jen já
+  //  změnily obě strany
+  if (Array.isArray(L) && (R === undefined || Array.isArray(R) || (_ffJeObj(R) && Object.keys(R).every(k => /^\d+$/.test(k))))) {
+    return _ff3Pole(B, L, R, klic);
+  }
+  if (_ffJeObj(L) && !Array.isArray(L) && _ffJeObj(R) && !Array.isArray(R)) {
+    const b = (_ffJeObj(B) && !Array.isArray(B)) ? B : {};
+    new Set(Object.keys(L).concat(Object.keys(R))).forEach(k => {
+      const v = _ff3(b[k], L[k], R[k]);
+      if (v === undefined) delete L[k]; else L[k] = v;
+    });
+    return L;
+  }
+  return L;
+}
+
+function _ffLokalniMeta(k){ return _DW_META.indexOf(k) >= 0 ? _dwMetaVals()[k] : S[k]; }
+//  Výchozí prázdná hodnota sekce (stejná jako v _dwMetaVals) – pro smazání celé sekce jinde.
+function _ffPrazdne(k){
+  if (k === 'bank') return { startBalance: 0 };
+  if (k === 'payslipTemplate') return null;
+  const v = S[k];
+  if (Array.isArray(v)) return [];
+  if (_ffJeObj(v)) return {};
+  return v;
+}
+function _dwSeedKey(k){
+  if (!_dw.ready || _DW_META.indexOf(k) < 0) return;
+  try { _dw.metaSig[k] = JSON.stringify(_fbSafeKeys(_dwMetaVals()[k])); } catch(e){ _dw.metaSig[k] = ''; }
+}
+function _dwSeedTx(id, t){ if (_dw.ready && _dw.txSig) { try { _dw.txSig.set(String(id), JSON.stringify(t)); } catch(e){} } }
+//  Má sekce lokální změnu, která ještě neodešla?
+function _ffMetaSpinava(k){
+  if (!_dw.ready || _DW_META.indexOf(k) < 0 || _dw.metaSig[k] === undefined) return false;
+  let sig; try { sig = JSON.stringify(_fbSafeKeys(_dwMetaVals()[k])); } catch(e){ return false; }
+  return sig !== _dw.metaSig[k];
+}
+function _ffTxSpinava(id, l){
+  if (!_dw.ready || !_dw.txSig) return false;
+  const s = _dw.txSig.get(String(id));
+  if (s === undefined) return true;            // nová lokální transakce, ještě neodeslaná
+  try { return JSON.stringify(l) !== s; } catch(e){ return false; }
+}
+function _ffParse(sig){ try { return sig ? JSON.parse(sig) : undefined; } catch(e){ return undefined; } }
+function _ffUlozPozdeji(){ if (typeof save === 'function' && !_isLocalMode) save(); }
+
+//  Příchozí hodnota jedné sekce. Vrací true, když se lokální data změnila.
+function _ffPrijmiMeta(k, existuje, R){
+  if (!existuje) {
+    if (!_splitSeen[k]) return false;          // FIX-265: nikdy neviděný klíč ≠ smazaný
+    R = undefined;
+  } else _splitSeen[k] = true;
+  const remS = _ffKanonStr(R);
+  if (remS === _ffKanonStr(_fbSafeKeys(_ffLokalniMeta(k)))) { _dwSeedKey(k); return false; }   // ozvěna / beze změny
+  if (!_ffMetaSpinava(k)) {
+    if (R === undefined) S[k] = _ffPrazdne(k);                              // skutečné smazání (i objekty: poznámky, deník…)
+    else S[k] = _ffSlouc(S[k], R);
+    try { const t = {}; t[k] = S[k]; sanitizeUserData(t); } catch(e){}
+    _dwSeedKey(k);
+    return true;
+  }
+  //  Mám tu neodeslanou změnu a server mezitím dostal jinou → sloučit, ne přepsat.
+  const v = _ff3(_ffParse(_dw.metaSig[k]), S[k], R, k);
+  S[k] = v !== undefined ? v : _ffPrazdne(k);
+  try { const t = {}; t[k] = S[k]; sanitizeUserData(t); } catch(e){}
+  _dw.metaSig[k] = R === undefined ? '' : JSON.stringify(R);   // nový základ = co má server
+  if (_ffKanonStr(_fbSafeKeys(_ffLokalniMeta(k))) !== remS) _ffUlozPozdeji();   // sloučené pošli zpět
+  else _dwSeedKey(k);
+  console.log('[sync] sloučeno se změnou z jiného zařízení:', k);
+  return true;
+}
+//  Index id → pozice (při připojení přijdou tisíce transakcí jednotlivě; findIndex by byl kvadratický).
+let _ffTxIdx = null, _ffTxIdxPole = null;
+function _ffNajdiTx(arr, id){
+  const postav = () => { _ffTxIdx = new Map(); _ffTxIdxPole = arr; arr.forEach((x, i) => { if (x && x.id != null) _ffTxIdx.set(String(x.id), i); }); };
+  if (_ffTxIdxPole !== arr || !_ffTxIdx) postav();
+  let i = _ffTxIdx.get(id);
+  if (i === undefined || !arr[i] || String(arr[i].id) !== id) { postav(); i = _ffTxIdx.get(id); }
+  return i === undefined ? -1 : i;
+}
+//  Příchozí transakce (t === undefined = smazaná jinde).
+function _ffPrijmiTx(id, t){
+  id = String(id);
+  if (!Array.isArray(S.transactions)) S.transactions = [];
+  const arr = S.transactions;
+  const i = _ffNajdiTx(arr, id);
+  const l = i >= 0 ? arr[i] : null;
+  if (t === undefined) {
+    if (!l) return false;
+    if (_ffTxSpinava(id, l)) {                 // smazaná jinde, ale tady rozpracovaná → nech, odešle se znovu
+      if (_dw.txSig) _dw.txSig.delete(id); _ffUlozPozdeji(); return false;
+    }
+    arr.splice(i, 1); if (_dw.txSig) _dw.txSig.delete(id);
+    return true;
+  }
+  if (l && _ffKanonStr(t) === _ffKanonStr(l)) { _dwSeedTx(id, l); return false; }
+  //  Tady smazaná a ještě neodeslaná (podpis ji zná, v datech už není) → nevracet zpět.
+  //  (Po restartu offline by ji jinak první načtení ze serveru vrátilo a smazání by se ztratilo.)
+  if (!l && _dw.ready && _dw.txSig && _dw.txSig.has(id)) return false;
+  try { sanitizeUserData({ transactions: [t] }); } catch(e){}
+  if (l && _ffTxSpinava(id, l)) {
+    _ff3(_ffParse(_dw.txSig.get(id)), l, t);
+    if (_ffKanonStr(l) !== _ffKanonStr(t)) { if (_dw.txSig) _dw.txSig.set(id, JSON.stringify(t)); _ffUlozPozdeji(); }
+    else _dwSeedTx(id, l);
+    return true;
+  }
+  if (l) _ffSloucObj(l, t); else { arr.push(t); if (_ffTxIdxPole === arr && _ffTxIdx) _ffTxIdx.set(id, arr.length - 1); }
+  _dwSeedTx(id, l || t);
+  return true;
+}
+
 // Společné dokončení po JAKÉKOLI vzdálené změně (debounced – při připojení
 // listenerů se jich spustí ~20 najednou a nesmí to 20× překreslit stránku).
 function _remoteApply(){
@@ -1296,39 +1693,44 @@ function _remoteApply(){
     if(!S.nakupList) S.nakupList=[];
     if(!Array.isArray(S.transactions)) S.transactions=[];
     setSyncStatus('ok');
-    if(typeof _dwSeed==='function') _dwSeed();
+    _ffJenSnimek = false;                       // server se ozval – data jsou potvrzená
+    //  S25 (v11.52): JEN poprvé. Dřív se tu přepočítaly podpisy z celého lokálního stavu
+    //  a neodeslané změny se tím tvářily jako uložené (viz bod 2 výše).
+    if(!_dw.ready && typeof _dwSeed==='function') _dwSeed();
     try { saveSnapshot(); } catch(e){}
     if(viewingUid === null){
-      if(typeof renderPageDebounced === 'function') renderPageDebounced();
+      if(typeof ffRenderBezpecne === 'function') ffRenderBezpecne('vzdalene');
+      else if(typeof renderPageDebounced === 'function') renderPageDebounced();
       else if(typeof renderPage === 'function') renderPage();
     }
   }, 140);
 }
 
-function _txUpsert(t){
-  if(!t || !t.id) return;
-  if(!Array.isArray(S.transactions)) S.transactions = [];
-  const i = S.transactions.findIndex(x => x && x.id === t.id);
-  if(i >= 0) S.transactions[i] = t; else S.transactions.push(t);
-}
-function _txRemove(id){
-  if(!Array.isArray(S.transactions)) return;
-  const i = S.transactions.findIndex(x => x && x.id === id);
-  if(i >= 0) S.transactions.splice(i, 1);
-}
+function _txUpsert(t){ if(t && t.id != null) _ffPrijmiTx(t.id, t); }
+function _txRemove(id){ _ffPrijmiTx(id, undefined); }
 
 // Původní chování – celý uzel jedním listenerem. Používá se jako fallback.
+//  S25 (v11.52): už NENAHRAZUJE celé S – každá sekce a transakce jde přes stejné sloučení.
 function _attachFullListener(userRef){
   _dbListener = _onValue(userRef, (snapshot) => {
     if(!snapshot.exists()) return;
-    if(saveTimeout) return;                 // probíhá lokální zápis – nepřepisovat
-    const fresh = snapshot.val();
-    const cm = S.curMonth, cy = S.curYear;
-    S = Object.assign({transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[],projects:[],nakupList:[],assets:[]}, fresh);
-    sanitizeUserData(S);
-    if(fresh && fresh.schemaV===2) S.schemaV=2;
-    S.curMonth = cm; S.curYear = cy;
-    _remoteApply();
+    const fresh = snapshot.val() || {};
+    let zmena = !_dw.ready;
+    const klice = new Set(Object.keys(fresh).filter(k => !/^-/.test(k)).concat(_DW_META)); klice.delete('transactions');
+    klice.forEach(k => { const v = fresh[k]; if (_ffPrijmiMeta(k, v !== undefined && v !== null, v)) zmena = true; });
+    const tx = fresh.transactions, vzd = new Map();
+    (Array.isArray(tx) ? tx : Object.values(tx || {})).forEach(t => { if (t && t.id != null) vzd.set(String(t.id), t); });
+    vzd.forEach((t, id) => {
+      //  tady smazaná a ještě neodeslaná (je v podpisech, ale už ne v S) → nevracet zpět
+      if (_dw.ready && _dw.txSig && _dw.txSig.has(id) && _ffNajdiTx(S.transactions || [], id) < 0) return;
+      if (_ffPrijmiTx(id, t)) zmena = true;
+    });
+    (S.transactions || []).slice().forEach(l => {
+      const id = l && l.id != null ? String(l.id) : null;
+      if (id && !vzd.has(id) && _dw.txSig && _dw.txSig.has(id) && _ffPrijmiTx(id, undefined)) zmena = true;
+    });
+    if(fresh.schemaV===2) S.schemaV=2;
+    if(zmena) _remoteApply();
   });
 }
 
@@ -1343,48 +1745,54 @@ function _attachOwnListeners(userRef, uid, initialVal){
   // Bez query/child exportů (starší firebase.js v cache) musíme na původní cestu
   if(typeof window._onChildAdded !== 'function') useSplit = false;
 
+  //  S25 (v11.52): stav spojení (bez něj se sekce nepíšou; po návratu se nejdřív sloučí).
+  //  Drží se zvlášť – kdyby rozdělené čtení spadlo na zálohu, stav spojení nesmí zmizet.
+  if(!_ffConn){
+    try {
+      const cr = _ref(_db, '.info/connected');
+      const ccb = _onValue(cr, (snap) => _ffZmenaPripojeni(!!(snap && snap.val && snap.val() === true)));
+      _ffConn = { ref: cr, cb: ccb };
+    } catch(e){ console.warn('[sync] .info/connected nedostupné:', e); _ffPripojeno = null; }
+  }
+
   if(!useSplit){ _attachFullListener(userRef); return; }
 
   try {
     // ── 1) Seznam meta klíčů: _DW_META + skaláry + cokoli navíc ze snapshotu ──
     const known = _DW_META.concat(['schemaV','settings','premiumHint']);
     const seen  = initialVal ? Object.keys(initialVal) : [];
-    const metaKeys = Array.from(new Set(known.concat(seen))).filter(k => k !== 'transactions');
-    const extra = seen.filter(k => k !== 'transactions' && known.indexOf(k) < 0);
+    //  S25 (v11.52): uzly „-N…“ jsou smetí po starém sendBeacon (push), ne data – neposlouchat.
+    const metaKeys = Array.from(new Set(known.concat(seen))).filter(k => k !== 'transactions' && !/^-/.test(k));
+    const smeti = seen.filter(k => /^-/.test(k));
+    if(smeti.length) console.warn('[diff-read] pod data jsou uzly po starém sendBeacon (lze smazat):', smeti);
+    const extra = seen.filter(k => k !== 'transactions' && known.indexOf(k) < 0 && !/^-/.test(k));
     if(extra.length) console.warn('[diff-read] klíče mimo _DW_META, poslouchám je navíc:', extra);
 
     // ── 2) META: onValue na každý klíč zvlášť ──
     metaKeys.forEach(k => {
       const r  = _ref(_db, `users/${uid}/data/${k}`);
       const cb = _onValue(r, (snap) => {
-        if(saveTimeout) return;
-        // FIX-265 (S19, nahlásil Milan): tenhle řádek uživateli MAZAL data.
-        //   Původně: S[k] = snap.exists() ? snap.val() : (Array.isArray(S[k]) ? [] : S[k])
-        //   Když klíč v databázi NEEXISTOVAL, lokální pole se přepsalo na [].
-        //   U nového účtu tak zmizely kategorie hned po přihlášení – a znovu
-        //   i poté, co si je uživatel ručně obnovil, protože uzel pořád chyběl.
-        //   Nelze rozlišit „nikdy nezapsáno" od „smazáno", ale ROZLIŠIT SE DÁ,
-        //   jestli klíč v TOMTO sezení už existoval: dokud jsme ho nikdy neviděli,
-        //   je chybějící uzel nepřítomnost dat, ne jejich smazání → neber lokální.
-        //   Jakmile jednou existoval a pak zmizel, jde o skutečné smazání → vyprázdni.
-        if(snap.exists()){
-          S[k] = snap.val();
-          _splitSeen[k] = true;
-        } else if(_splitSeen[k]){
-          S[k] = Array.isArray(S[k]) ? [] : S[k];   // skutečné smazání
-        }
-        // jinak: klíč jsme nikdy neviděli → nech lokální hodnotu být
-        if(k === 'schemaV' && S.schemaV === 2) S.schemaV = 2;
-        _remoteApply();
+        // FIX-265 (S19): chybějící klíč, který jsme v tomto sezení nikdy neviděli, je
+        //   nepřítomnost dat, ne smazání (dřív to novým účtům mazalo kategorie) – řeší
+        //   _ffPrijmiMeta. S25 (v11.52): už žádné `if(saveTimeout) return` ani `S[k] = snap.val()`
+        //   – ozvěna se zahodí, jinak se změna sloučí na místě (i s mou neodeslanou změnou).
+        const zmena = _ffPrijmiMeta(k, snap.exists(), snap.exists() ? snap.val() : undefined);
+        if(zmena || !_dw.ready) _remoteApply();
       });
       _splitRefs.push({ref:r, ev:'value', cb});
     });
 
     // ── 3) TRANSAKCE: jen změněný záznam, ne celé pole ──
     const txRef = _ref(_db, `users/${uid}/data/transactions`);
-    const cbA = _onChildAdded(txRef,   (s) => { if(saveTimeout) return; _txUpsert(s.val()); _remoteApply(); });
-    const cbC = _onChildChanged(txRef, (s) => { if(saveTimeout) return; _txUpsert(s.val()); _remoteApply(); });
-    const cbR = _onChildRemoved(txRef, (s) => { if(saveTimeout) return; _txRemove(s.key);  _remoteApply(); });
+    //  S25 (v11.52): dřív `if(saveTimeout) return` – změna z jiného zařízení během čekání na
+    //    uložení se zahodila. Teď se sloučí (rozpracovaná transakce: tříbodově).
+    const _tx = (zmena) => { if(zmena || !_dw.ready) _remoteApply(); };
+    //  Páruje se VÝHRADNĚ podle t.id (jako dřív _txUpsert). Klíč uzlu je u starého schématu
+    //  index pole (0,1,2…) – podle něj by vznikaly duplikáty nebo se mazala jiná transakce.
+    const _id = (s) => { const t = s.val(); return t && t.id != null ? t.id : null; };
+    const cbA = _onChildAdded(txRef,   (s) => { const id = _id(s); if (id != null) _tx(_ffPrijmiTx(id, s.val())); });
+    const cbC = _onChildChanged(txRef, (s) => { const id = _id(s); if (id != null) _tx(_ffPrijmiTx(id, s.val())); });
+    const cbR = _onChildRemoved(txRef, (s) => { const id = _id(s); if (id != null) _tx(_ffPrijmiTx(id, undefined)); });
     _splitRefs.push({ref:txRef, ev:'child_added',   cb:cbA});
     _splitRefs.push({ref:txRef, ev:'child_changed', cb:cbC});
     _splitRefs.push({ref:txRef, ev:'child_removed', cb:cbR});
@@ -1408,10 +1816,43 @@ function _attachOwnListeners(userRef, uid, initialVal){
 const _DW_META = ['debts','categories','bank','birthdays','wishes','wallets','payTypes','sablony','projects','receipts','nakupList','assets','noSyncKeys','importHistory','shareSettings','calNotes','workCal','payslips','payslipTemplate','diary','fixedLog','idleCfg','milestones','reportSectors','pristiCfg','uiCfg'];
 let _dw = { ready:false, metaSig:{}, txSig:null };
 
+//  S25 (v11.52): id staré účtenky z jejího obsahu – dvě zařízení tak stejné účtence dají
+//  STEJNÉ id (náhodné by při slučování udělalo z jedné účtenky dvě). Shoda obsahu → pořadí.
+function ffIdUctenky(r){
+  const txt = [r.date, r.store, r.total, r._addedAt || r.addedAt || r.createdAt || '',
+               (r.items || []).map(i => i ? (i.name || '') + ':' + (i.price != null ? i.price : '') : '').join(',')].join('|');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < txt.length; i++) { h ^= txt.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  let id = 'rcs' + h.toString(36), n = 1;
+  const pouzite = new Set((S.receipts || []).map(x => x && x.id).filter(Boolean));
+  while (pouzite.has(id)) id = 'rcs' + h.toString(36) + '-' + (++n);
+  return id;
+}
+window.ffIdUctenky = ffIdUctenky;
+//  S25 (v11.52): limity z database.rules.json hlídané už tady. Server delší text odmítne
+//  a Firebase pak transakci tiše vrátí zpět / odebere – uživatel by přišel o celý záznam.
+//  Radši text zkrátit (a říct to) než ztratit transakci.
+const _FF_LIMITY = { transactions: { name: 299, note: 999 }, milestones: { label: 199, note: 599, icon: 15 } };
+function _ffHlidejLimity(){
+  let n = 0;
+  Object.keys(_FF_LIMITY).forEach(sekce => {
+    const lim = _FF_LIMITY[sekce];
+    (Array.isArray(S[sekce]) ? S[sekce] : []).forEach(o => {
+      if (!o || typeof o !== 'object') return;
+      Object.keys(lim).forEach(f => { if (typeof o[f] === 'string' && o[f].length > lim[f]) { o[f] = o[f].slice(0, lim[f] - 1) + '…'; n++; } });
+    });
+  });
+  if (n && typeof showToast === 'function') showToast('✂️ Velmi dlouhý text byl zkrácen na povolenou délku (' + n + '×)');
+  return n;
+}
 function _dwEnsureIds(){
+  _ffHlidejLimity();
   // Každá transakce musí mít id (klíč v objektu). Doplní chybějící (staré importy ap.).
   let n=0;
   (S.transactions||[]).forEach(t=>{ if(t && (t.id==null||t.id==='')){ t.id='tx_'+Date.now().toString(36)+'_'+(n++)+Math.random().toString(36).slice(2,7); } });
+  //  S25 (v11.52): i účtenky musí mít id – jinak je synchronizace ani editor nemůžou najít
+  //  spolehlivě (dřív podle pozice v seznamu). Staré účtenky ho dostanou při prvním uložení.
+  (S.receipts||[]).forEach(r=>{ if(r && typeof r==='object' && (r.id==null||r.id==='')) r.id = ffIdUctenky(r); });
 }
 // ══════════════════════════════════════════════════════
 //  S20 (Krok 0): ÚLOŽIŠTĚ ≠ VÝDEJNÍ OKÉNKO
@@ -1445,10 +1886,15 @@ function _dwEnsureIds(){
 // ══════════════════════════════════════════════════════════════════════
 const _FB_ZAKAZANE = /[.#$/\[\]]/g;
 function _fbSafeKeys(v){
+  //  S25 (v11.52): undefined a NaN/Infinity Firebase odmítne CELÝ zápis („contains undefined“) –
+  //  jedna taková hodnota by zastavila ukládání všeho. Zahodí se jako v JSON.
+  if (v === undefined) return null;
+  if (typeof v === 'number' && !isFinite(v)) return null;
   if (Array.isArray(v)) return v.map(_fbSafeKeys);
   if (v && typeof v === 'object'){
     const out = {};
     for (const k of Object.keys(v)){
+      if (v[k] === undefined || (typeof v[k] === 'number' && !isFinite(v[k]))) continue;
       const bezpecny = String(k).replace(_FB_ZAKAZANE, '-');
       if (!bezpecny) continue;                 // prázdný klíč Firebase taky nebere
       if (bezpecny !== k) {
@@ -1645,7 +2091,7 @@ function _shCatSums(){
   return out;
 }
 function _dwSeed(){
-  _dw.metaSig={}; const mv=_dwMetaVals();
+  _dw.metaSig={}; const mv=_fbSafeKeys(_dwMetaVals());   // S25: stejně jako diff-zápis (jinak zbytečný zápis kategorií)
   _DW_META.forEach(k=>{ try{ _dw.metaSig[k]=JSON.stringify(mv[k]); }catch(e){ _dw.metaSig[k]=''; } });
   _dw.txSig=new Map(); const to=_dwTxObj();
   Object.keys(to).forEach(id=>{ try{ _dw.txSig.set(id, JSON.stringify(to[id])); }catch(e){} });
@@ -1731,8 +2177,20 @@ async function saveToFirebase() {
     _dwEnsureIds();
     const dataRef = _ref(_db, `users/${uid}/data`);
 
-    // ── Migrace / první uložení: plný v2 zápis + jednorázová záloha v1 ──
-    if(S.schemaV!==2 || !_dw.ready){
+    //  S25 (v11.52): start bez připojení a bez lokálního snímku = S jsou prázdné výchozí
+    //  hodnoty. Plný zápis by je poslal přes skutečná data v cloudu (smazal by je, jakmile
+    //  se síť vrátí). Dokud server data nepotvrdí, plný zápis se odkládá.
+    const plny = S.schemaV!==2 || !_dw.ready || _dw.vynutPlny;
+    //  …a stejně tak bez spojení: plný zápis by se ve frontě Firebase dočkal připojení
+    //  a přepsal všechno, co mezitím přibylo na jiném zařízení.
+    if((_ffJenSnimek && !_dw.ready) || (plny && (_ffOdpojeno() || _ffNutnoSloucit))){
+      setSyncStatus('syncing');
+      _ffOpakujZapis(5000);                     // jeden časovač; po připojení zapíše i _ffPoPripojeni
+      return;
+    }
+
+    // ── Migrace / první uložení / obnova zálohy: plný v2 zápis + jednorázová záloha v1 ──
+    if(plny){
       // Jednorázová záloha starého pole transakcí (rollback) – jen při přechodu z v1
       try{
         const bkey='ff_dwBackup_'+uid;
@@ -1742,9 +2200,13 @@ async function saveToFirebase() {
         }
       }catch(e){ console.warn('[diff-write] záloha v1 přeskočena:', e); }
       const full = _fbSafeKeys(Object.assign({}, _dwMetaVals(), { transactions: _dwTxObj(), schemaV: 2 }));   // FIX-315
-      await _set(dataRef, full);
+      //  S25 (v11.52): podepsat HNED z toho, co odchází (dřív až po dokončení zápisu – úprava
+      //  udělaná během nahrávání velké zálohy se tím tvářila jako uložená a nikdy neodešla).
+      _dw.vynutPlny = false;
       S.schemaV = 2;
       _dwSeed();
+      try { await _set(dataRef, full); }
+      catch(e){ _dw.vynutPlny = true; throw e; }    // nepovedlo se → příště znovu plný zápis
       // Side-write (vlastní try/catch): výdejní okénko je bonus, ne podmínka
       // toho, aby se uživateli uložila data. Když selže, uloženo je pořád.
       try { if(_hasPartners()) await _shWrite(uid); }
@@ -1756,14 +2218,58 @@ async function saveToFirebase() {
 
     // ── Diff zápis ──
     const updates = {};
+    //  S25 (v11.52): bez spojení se sekce (celé seznamy) NEPÍŠOU – fronta Firebase by je po
+    //  připojení poslala přes novější data z jiného zařízení. Zůstanou „rozpracované“ a po
+    //  připojení se nejdřív sloučí se serverem (_ffPoPripojeni). Transakce jdou po jedné, ty ano.
+    const jenTx = _ffOdpojeno() || _ffNutnoSloucit;
+    const predMeta = {}, predTx = new Map();      // podpisy před zápisem (nepotvrzené zápisy → snímek)
     const mv = _fbSafeKeys(_dwMetaVals());   // FIX-315
-    _DW_META.forEach(k=>{ let sig; try{ sig=JSON.stringify(mv[k]); }catch(e){ sig=''; } if(sig!==_dw.metaSig[k]){ updates[k]=mv[k]; _dw.metaSig[k]=sig; } });
+    if(!jenTx) _DW_META.forEach(k=>{ let sig; try{ sig=JSON.stringify(mv[k]); }catch(e){ sig=''; } if(sig!==_dw.metaSig[k]){ updates[k]=mv[k]; predMeta[k]=_dw.metaSig[k]; _dw.metaSig[k]=sig; } });
     const to = _dwTxObj(); const seen=new Set();
-    Object.keys(to).forEach(id=>{ seen.add(id); let sig; try{ sig=JSON.stringify(to[id]); }catch(e){ sig=''; } if(sig!==_dw.txSig.get(id)){ updates['transactions/'+id]=to[id]; _dw.txSig.set(id,sig); } });
-    _dw.txSig.forEach((_v,id)=>{ if(!seen.has(id)){ updates['transactions/'+id]=null; _dw.txSig.delete(id); } });
+    Object.keys(to).forEach(id=>{ seen.add(id); let sig; try{ sig=JSON.stringify(to[id]); }catch(e){ sig=''; } if(sig!==_dw.txSig.get(id)){ updates['transactions/'+id]=_fbSafeKeys(to[id]); predTx.set(id,_dw.txSig.get(id)); _dw.txSig.set(id,sig); } });
+    _dw.txSig.forEach((_v,id)=>{ if(!seen.has(id)){ updates['transactions/'+id]=null; predTx.set(id,_v); _dw.txSig.delete(id); } });
 
+    //  Dřív stránku po uložení překreslila až ozvěna z Firebase (ta je teď zahozená).
+    //  Stejné překreslení, ale nikdy přes rozdělanou práci.
+    if(Object.keys(updates).length && viewingUid === null && typeof ffRenderBezpecne === 'function') ffRenderBezpecne('ulozeni');
     if(Object.keys(updates).length){
-      await _update(dataRef, updates);
+      //  S25 (v11.52): dokud server zápis nepotvrdí, pamatuj si podpis PŘED ním (snímek pro
+      //  offline start z něj pozná, co ještě neodešlo).
+      Object.keys(predMeta).forEach(k => _ffNepotvrzenoPridej(_ffNepotvrzeno.meta, k, predMeta[k]));
+      predTx.forEach((v, id) => _ffNepotvrzenoPridej(_ffNepotvrzeno.tx, id, v));
+      const potvrd = (cesty) => cesty.forEach(c => { if(c.startsWith('transactions/')) _ffNepotvrzenoPotvrd(_ffNepotvrzeno.tx, c.slice(13)); else _ffNepotvrzenoPotvrd(_ffNepotvrzeno.meta, c); });
+      const cesty = Object.keys(updates);
+      try {
+        await _update(dataRef, updates);
+        potvrd(cesty);
+      } catch(e){
+        //  Dávku server odmítl (pravidla: např. příliš dlouhý název) nebo neprošla kontrolou.
+        //  Dřív: buď se tvářila jako uložená, nebo by jedna vadná hodnota zastavila VŠECHNY
+        //  další zápisy. Teď se zkusí po jedné – co projde, je uložené; vadná položka se
+        //  odloží (nebude se donekonečna opakovat) a uživatel se to dozví.
+        console.warn('[diff-write] dávka odmítnuta, zkouším po jedné:', e && e.message);
+        const vysl = await Promise.allSettled(cesty.map(c => { try { return _update(dataRef, { [c]: updates[c] }); } catch(x){ return Promise.reject(x); } }));
+        const spatne = cesty.filter((c, i) => vysl[i].status === 'rejected');
+        potvrd(cesty);
+        cesty.forEach(c => { if(!spatne.includes(c)) _ffSelhani.delete(c); });
+        if(spatne.length){
+          console.error('[diff-write] neuloženo:', spatne, vysl.filter(v => v.status === 'rejected').map(v => v.reason && v.reason.message));
+          //  Přechodná chyba → podpis zpět, zkusí se znovu. Po 3 neúspěších po sobě je to vadná
+          //  hodnota (pravidla) → odložit, ať neblokuje, a říct to uživateli.
+          let vzdano = 0;
+          spatne.forEach(c => {
+            const n = (_ffSelhani.get(c) || 0) + 1;
+            if(n >= 3){ _ffSelhani.delete(c); vzdano++; return; }
+            _ffSelhani.set(c, n);
+            if(c.startsWith('transactions/')){ const id = c.slice(13), v = predTx.get(id); if(v === undefined) _dw.txSig.delete(id); else _dw.txSig.set(id, v); }
+            else { if(predMeta[c] === undefined) delete _dw.metaSig[c]; else _dw.metaSig[c] = predMeta[c]; }
+          });
+          if(vzdano && typeof showToast === 'function') showToast('⚠️ Část změn se nepodařilo uložit (' + vzdano + '×) – zkontroluj velmi dlouhé názvy nebo poznámky');
+          if(vzdano < spatne.length) _ffOpakujZapis(10000);
+          throw new Error('neuloženo: ' + spatne.join(', '));
+        }
+      }
+      _ffSnimekPozdeji();                       // snímek se základem po potvrzeném zápisu
     }
     // Side-write (vlastní try/catch) – viz výše
     try { if(_hasPartners()) await _shWrite(uid); }
@@ -1789,19 +2295,19 @@ function save() {
     setSyncStatus('ok');
     return;
   }
-  // TODO-002: Offline detekce – pokud není internet, uloži do IndexedDB fronty
+  // TODO-002: Offline detekce – poslední transakce jde i do IndexedDB fronty (přežije zavření appky)
+  //  S25 (v11.52): dřív tady save() SKONČIL – offline se do cloudu nezapsalo nic jiného
+  //  (úprava, smazání, účtenka, dluh…). Firebase umí zápisy podržet a odeslat po připojení,
+  //  proto teď zápis pokračuje normálně dál.
   if (!navigator.onLine && window.OfflineSync) {
-    // Najdi nejnovější transakci (právě přidanou) a ulož ji offline
     const lastTx = S.transactions?.[S.transactions.length - 1];
     if (lastTx) {
       window.OfflineSync.saveTxOffline(lastTx).then(() => {
-        setSyncStatus('ok');
         if (typeof showToast === 'function') {
-          showToast('⏳ Offline – transakce bude uložena po připojení k internetu');
+          showToast('⏳ Offline – změny se odešlou po připojení k internetu');
         }
       }).catch(e => console.error('Offline save error:', e));
     }
-    return;
   }
   clearTimeout(saveTimeout);
   setSyncStatus('syncing');
@@ -1819,37 +2325,24 @@ function save() {
 }
 
 // FIX-063 (Session 8): Pokud uživatel zavře tab/refresh během save debounce (1200ms),
-// data se ztratí. beforeunload handler vyflushuje debounce SYNCHRONNĚ.
-// Pozn.: navigator.sendBeacon je nejspolehlivější způsob – funguje i při unload.
-window.addEventListener('beforeunload', (e) => {
-  if (saveTimeout && !_isLocalMode && !viewingUid && navigator.onLine) {
+// data se ztratí → při odchodu se čekající zápis odešle hned.
+//  S25 (v11.52): DŘÍV sendBeacon na `users/{uid}/data.json`. sendBeacon umí jen POST a POST
+//  v REST API Firebase = push: v lepším případě prohlížeč požadavek odmítl (JSON typ), v horším
+//  vznikl pod `data` nový náhodný uzel (-N…) s kopií transakcí a účtenek. Skutečná změna se
+//  neuložila ani v jednom případě.
+//  Navíc na telefonu beforeunload často vůbec nepřijde – appka jde jen do pozadí.
+//  Teď: při skrytí appky (přepnutí, zhasnutí, zavření) se čekající zápis pošle okamžitě
+//  normální cestou (diff-zápis přes otevřené spojení).
+function _ffOdesliHned() {
+  if (saveTimeout && !_isLocalMode && !viewingUid) {
     clearTimeout(saveTimeout);
     saveTimeout = null;
-    // Pokus o synchronní save přes sendBeacon (POST do Firebase REST API)
-    try {
-      const uid = window._currentUser?.uid;
-      if (uid && window._idTokenCache) {
-        const url = `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/data.json?auth=${window._idTokenCache}`;
-        const dataToSave = {
-          transactions: S.transactions || [],
-          categories: S.categories || [],
-          debts: S.debts || [],
-          birthdays: S.birthdays || [],
-          settings: S.settings || {},
-          receipts: S.receipts || [],
-          // Další pole...
-        };
-        const blob = new Blob([JSON.stringify(dataToSave)], { type: 'application/json' });
-        navigator.sendBeacon(url, blob);
-        console.log('[Save] beforeunload: sendBeacon dispatched');
-      }
-    } catch(err) {
-      console.error('[Save] beforeunload sendBeacon failed:', err);
-    }
-    // Také vyvolat normální save jako fallback (může nestihnout, ale zkusíme)
-    saveToFirebase();
+    try { saveToFirebase(); } catch (e) { console.error('[Save] okamžitý zápis selhal:', e); }
   }
-});
+}
+window.addEventListener('beforeunload', _ffOdesliHned);
+window.addEventListener('pagehide', _ffOdesliHned);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _ffOdesliHned(); });
 
 // FIX-063: Cache idToken pro sendBeacon (sendBeacon je sync – nemůže await getIdToken)
 async function refreshIdTokenCache() {

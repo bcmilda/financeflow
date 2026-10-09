@@ -1,4 +1,4 @@
-// FinanceFlow · v11.50 · receipts.js · 2026-10-08
+// FinanceFlow · v11.52 · receipts.js · 2026-10-09
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3284,6 +3284,8 @@ function deleteAllReceipts() {
 function editReceiptFromHistory(index) {
   const r = S.receipts?.[index];
   if(!r) return;
+  //  S25 (v11.52): editor si účtenku pamatuje podle id (ne podle pozice) – stará účtenka ho dostane hned
+  if(!r.id && typeof ffIdUctenky === 'function') r.id = ffIdUctenky(r);
   // FIX (S12.1m): TVRDÝ reset stavu před otevřením – po překliknutí stránek mohl
   // zůstat _receiptEditorOpen=true a osiřelé _editReceipt/_lastReceiptResult z minula,
   // což blokovalo render i nové otevření (editor „zmizel").
@@ -4639,8 +4641,19 @@ function rpSave() {
 
   // Pokud editujeme existující účtenku z historie, přepiš ji
   const histIdx = (_lastReceiptResult?.historyIndex) ?? (window._editReceipt?._historyIdx);
-  if(histIdx !== undefined && S.receipts?.[histIdx]) {
-    S.receipts[histIdx] = {...S.receipts[histIdx], ...r, updatedAt: Date.now()};
+  //  S25 (v11.52, audit přepisů): pořadí účtenek se může během úprav změnit (synchronizace,
+  //  smazání na jiném zařízení). Zápis podle POZICE by pak přepsal JINOU účtenku (a její fotky
+  //  by se vmíchaly do téhle). Hledá se proto podle id. Když účtenka mezitím zmizela (smazaná
+  //  jinde), úprava ji vrátí – nepřepíše cizí ani nezaloží novou s transakcemi navíc.
+  //  Úprava se zapisuje DO existujícího objektu (odkazy držené jinde dál platí).
+  if(histIdx !== undefined) {
+    if(!Array.isArray(S.receipts)) S.receipts = [];
+    let i = -1;
+    if(r.id) i = S.receipts.findIndex(x => x && x.id === r.id);
+    else if(S.receipts[histIdx] && !S.receipts[histIdx].id) i = histIdx;   // jen úplně stará účtenka bez id
+    const cil = i >= 0 ? S.receipts[i] : null;
+    const upr = Object.assign({}, r, { updatedAt: Date.now() }); delete upr._historyIdx;
+    if(cil) Object.assign(cil, upr); else S.receipts.push(upr);
     // FIX (Úkol 3): re-sync tagy + receiptItems do propojených transakcí (podle data+obchodu)
     syncReceiptToTransactions(r);
     save();

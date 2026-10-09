@@ -1,4 +1,4 @@
-// FinanceFlow · v11.51 · admin.js · 2026-10-08
+// FinanceFlow · v11.52 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.52',
+    datum: '2026-10-09',
+    zmeny: [
+      "Synchronizace – AUDIT PŘEPISŮ: ozvěna vlastního uložení už nenahrazuje data novými objekty (společná příčina ztracených fotek účtenek a EAN kódů z 11.43–11.48)",
+      "Neodeslaná změna se po synchronizaci jiné části dat už netváří jako uložená (dřív se po obnovení stránky ztratila)",
+      "Změny z jiného zařízení se slučují po záznamech (základ / tady / jinde) – účtenka přidaná na telefonu nezmizí, když současně upravuješ jinou na PC",
+      "Rozepsaný formulář, otevřený editor účtenky, karta nebo okno se při synchronizaci nepřekreslí – změny odjinud počkají, až dopíšeš",
+      "Offline: části dat se zapíšou až po sloučení se serverem, restart appky offline nic neztratí, při zavření/přepnutí appky se čekající uložení odešle hned (dřív chybný sendBeacon)",
+      "Editor účtenky ukládá podle id (dřív podle pozice – mohl přepsat jinou účtenku); staré účtenky dostanou id",
+      "Jedna vadná hodnota (příliš dlouhý text, prázdná hodnota) už nezastaví ukládání ostatního; text se zkrátí na povolenou délku",
+    ]
+  },
   {
     verze: 'v11.51',
     datum: '2026-10-08',

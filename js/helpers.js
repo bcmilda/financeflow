@@ -1,4 +1,4 @@
-// FinanceFlow · v11.51 · helpers.js · 2026-10-08
+// FinanceFlow · v11.52 · helpers.js · 2026-10-09
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -728,6 +728,7 @@ function showPage(name,el){
     _ffZpet.stack.push(curPage); if(_ffZpet.stack.length>30) _ffZpet.stack.shift();
   }
   curPage=name;
+  if(typeof _ffRozprac!=='undefined') _ffRozprac.formular=null;   // S25 (v11.52): jiná stránka = nic rozepsaného
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -777,19 +778,26 @@ const _ffZpet = { stack: [], zpetBezi: false, odchodDo: 0, obnovit: false, aktiv
 const FF_ZPET_ZAVRI = { eanKartaOkno: 'eanKartaZavri', eanZiviny: 'eanZivinyZavri', eanOkno: 'eanZavri', mapaKarta: 'mapaUzivKartaZavri', paywallScreen: 'closePaywall' };
 const FF_ZPET_NECHAT = ['bannedOverlay'];
 function _ffZpetStraz() { try { history.pushState({ ff: 'straz' }, ''); } catch (e) {} }
-//  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
-function ffZpetZavriVrchni(doc) {
+//  Všechna otevřená okna (karty, skener, formuláře, modaly, paywall) seřazená od nejvrchnějšího.
+//  S25 (v11.52): vyčleněno, aby to mohla použít i ochrana rozdělané práce (ffRozpracovano).
+function ffOtevrenaOkna(doc) {
   doc = doc || document;
+  if (!doc || !doc.body) return [];
   const kand = [];
   const vidi = el => { try { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; } catch (e) { return true; } };
   const pevne = el => el && el.style && el.style.position === 'fixed' && (el.style.inset === '0px' || el.style.inset === '0');
-  Array.from((doc.body && doc.body.children) || []).forEach(el => {
+  Array.from(doc.body.children || []).forEach(el => {
     if (pevne(el)) kand.push(el);
     else if (el.firstElementChild && pevne(el.firstElementChild)) kand.push(el.firstElementChild);
   });
   doc.querySelectorAll('.overlay.open, .paywall-screen.open, #ffNotifModal').forEach(el => { if (!kand.includes(el)) kand.push(el); });
   const z = el => { try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (e) { return 0; } };
-  const top = kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a))[0];
+  return kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a));
+}
+//  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
+function ffZpetZavriVrchni(doc) {
+  doc = doc || document;
+  const top = ffOtevrenaOkna(doc)[0];
   if (top) {
     const fn = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
     if (typeof fn === 'function') fn();
@@ -835,7 +843,85 @@ function ffZpetInit() {
 if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
   if (document.readyState === 'complete') ffZpetInit(); else window.addEventListener('load', ffZpetInit);
 }
-Object.assign(typeof window !== 'undefined' ? window : {}, { ffZpetInit, ffZpetPopstate, ffZpetZavriVrchni });
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffZpetInit, ffZpetPopstate, ffZpetZavriVrchni, ffOtevrenaOkna });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.52) – OCHRANA ROZDĚLANÉ PRÁCE (Milan: „chci stabilitu bez přepisování rozdělané práce“)
+//  Stránka se dřív překreslovala po každé synchronizaci – i když jsem zrovna psal do
+//  formuláře, měl otevřený editor účtenky nebo kartu výrobku. Překreslení postavilo
+//  formulář znovu z uložených dat a rozepsané zmizelo.
+//  Teď se překreslení, které NESPUSTIL uživatel (změna z jiného zařízení, dokončené
+//  uložení na pozadí), odloží, dokud:
+//    · je kurzor v poli (input/textarea/select),
+//    · je otevřený editor účtenky, okno, karta, skener nebo modal,
+//    · je na stránce rozepsaný formulář (psal jsem a ještě nic neuložil/nepřepnul),
+//    · nebo prvek nese data-rozprac.
+//  Jakmile nic z toho neplatí, stránka se překreslí sama.
+// ══════════════════════════════════════════════════════════════════════
+const _ffRozprac = { formular: null, formularKdy: 0, ceka: false, timer: null, toastKdy: 0 };
+//  Editor účtenky (z Historie i nově naskenovaná) – jen když je opravdu vidět. Samotný příznak
+//  _receiptEditorOpen nestačí: po přepnutí stránky může zůstat viset a blokoval by vše.
+function _ffEditorUctenky() {
+  const videt = el => !!el && (el.offsetParent !== null || el.getClientRects().length > 0);
+  if (window._receiptEditorOpen && Array.from(document.querySelectorAll('[id^="rcpt_hist_"]'))
+      .some(x => x.style.display === 'block' && x.innerHTML.trim() && videt(x))) return true;
+  const pv = document.getElementById('receiptPreview');
+  return !!(pv && pv.style.display !== 'none' && pv.querySelector('#receiptEditForm') && videt(pv));
+}
+function ffRozpracovano() {
+  if (typeof document === 'undefined' || !document.body) return false;
+  if (_ffEditorUctenky()) return true;
+  const a = document.activeElement;
+  if (a && a !== document.body && a.matches && a.matches('textarea, select, [contenteditable="true"], [contenteditable=""], input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color])')) return true;
+  if (_ffRozprac.formular && typeof curPage !== 'undefined' && _ffRozprac.formular === curPage) {
+    if (Date.now() - (_ffRozprac.formularKdy || 0) < FF_ROZPRAC_VYPRSI) return true;
+    _ffRozprac.formular = null;                    // zapomenutý rozepsaný formulář už nebrzdí
+  }
+  if (document.querySelector('[data-rozprac]')) return true;
+  return ffOtevrenaOkna().length > 0;
+}
+function _ffRenderTed() {
+  if (typeof renderPageDebounced === 'function') renderPageDebounced();
+  else if (typeof renderPage === 'function') renderPage();
+}
+//  zdroj: 'vzdalene' (přišlo z jiného zařízení) | 'ulozeni' (dokončený zápis)
+function ffRenderBezpecne(zdroj) {
+  if (!ffRozpracovano()) { _ffRozprac.ceka = false; _ffRenderTed(); return true; }
+  _ffRozprac.ceka = true;
+  if (zdroj === 'vzdalene' && Date.now() - _ffRozprac.toastKdy > 60000 && typeof showToast === 'function') {
+    _ffRozprac.toastKdy = Date.now();
+    showToast('🔄 Přišly změny z jiného zařízení – ukážu je, až dokončíš úpravu');
+  }
+  if (!_ffRozprac.timer) {
+    _ffRozprac.timer = setInterval(() => {
+      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; return; }
+      if (ffRozpracovano()) return;
+      clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffRozprac.ceka = false;
+      _ffRenderTed();
+    }, 800);
+  }
+  return false;
+}
+//  Psaní do formuláře na stránce = rozpracováno (do překreslení/přepnutí stránky, nejdéle 5 min).
+//  Nepočítají se filtry a vyhledávání (výběry, zaškrtávátka, hledací pole) – ty nic
+//  neuchovávají a jinak by zbytečně zdržely zobrazení novějších dat.
+const FF_ROZPRAC_VYPRSI = 5 * 60 * 1000;
+function _ffJeFiltr(t) {
+  if (!t || !t.tagName) return true;
+  if (t.tagName === 'SELECT') return true;
+  if (t.tagName === 'INPUT' && /^(checkbox|radio|range|search|button|submit|file|color)$/i.test(t.type || '')) return true;
+  const jm = ((t.id || '') + ' ' + (t.name || '') + ' ' + (t.getAttribute && t.getAttribute('placeholder') || '')).toLowerCase();
+  return /search|filtr|filter|hled|query|vyhled/.test(jm);
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t && t.closest && t.closest('.page') && !_ffJeFiltr(t) && typeof curPage !== 'undefined') {
+      _ffRozprac.formular = curPage; _ffRozprac.formularKdy = Date.now();
+    }
+  }, true);
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffRozpracovano, ffRenderBezpecne });
 
 // ══════════════════════════════════════════════════════
 
