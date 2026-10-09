@@ -72,6 +72,25 @@ nav{position:sticky;top:0;z-index:100;background:rgba(8,12,18,.9);backdrop-filte
 .nav-links a{font-size:.83rem;font-weight:600;padding:7px 13px;border-radius:9px;color:var(--text3);transition:.15s}
 .nav-links a:hover{color:var(--text);background:var(--surface)}
 .nav-cta{display:flex;gap:8px}
+.nav-cta .btn{white-space:nowrap}
+/* Hamburger menu (S25) – na mobilu a tabletu místo skrytých odkazů */
+.nav-burger{display:none;flex-shrink:0;width:42px;height:42px;border-radius:11px;border:1px solid var(--border);background:var(--surface);cursor:pointer;align-items:center;justify-content:center;padding:0}
+.nav-burger:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.nav-burger i{position:relative;display:block;width:18px;height:2px;border-radius:2px;background:var(--text);transition:background .15s}
+.nav-burger i::before,.nav-burger i::after{content:"";position:absolute;left:0;width:18px;height:2px;border-radius:2px;background:var(--text);transition:transform .2s,top .2s}
+.nav-burger i::before{top:-6px}.nav-burger i::after{top:6px}
+.nav-burger[aria-expanded="true"] i{background:transparent}
+.nav-burger[aria-expanded="true"] i::before{top:0;transform:rotate(45deg)}
+.nav-burger[aria-expanded="true"] i::after{top:0;transform:rotate(-45deg)}
+.nav-menu{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--border);box-shadow:0 18px 40px rgba(0,0,0,.45);max-height:calc(100vh - 68px);overflow-y:auto}
+.nav-menu.open{display:block}
+.nav-menu-in{max-width:var(--max);margin:0 auto;padding:6px 20px 18px}
+.nav-menu a.nm-link{display:flex;align-items:center;justify-content:space-between;padding:15px 4px;font-size:1rem;font-weight:600;color:var(--text2);border-bottom:1px solid var(--border)}
+.nav-menu a.nm-link::after{content:"›";color:var(--text3);font-size:1.2rem}
+.nav-menu a.nm-link:hover,.nav-menu a.nm-link:focus-visible{color:var(--text)}
+.nav-menu .nm-badge{display:block;margin:14px 0 4px;font-size:.78rem;color:var(--yellow)}
+.nav-menu .nm-cta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.nav-menu .nm-badge,.nav-menu .nm-cta{display:none}   /* nad 560 px jsou v liště */
 
 /* ── HERO ── */
 .hero-section{padding:88px 24px 72px;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(125,211,79,.1) 0%,transparent 60%)}
@@ -231,6 +250,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
   .pricing-grid,.testi-grid{grid-template-columns:1fr}
   .enemy-stats{gap:28px}
   .nav-links{display:none}
+  .nav-burger{display:inline-flex}
   .footer-top{flex-direction:column}
   .footer-bottom{flex-direction:column;text-align:center}
   .footer-legal a{margin:0 10px 0 0}
@@ -239,6 +259,12 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
 @media(max-width:560px){
   .hero-section{padding:64px 20px 52px}
   .nav-badge{display:none}
+  .nav-in{padding:0 16px;gap:10px}
+  .nav-cta .btn-ghost{display:none}
+  .nav-menu .nm-badge{display:block}
+  .nav-menu .nm-cta{display:grid}
+  .nav-cta .btn-primary .arr{display:none}
+  .logo-tx{font-size:1.05rem}
   .comp-table th,.comp-table td{padding:10px 12px;font-size:.8rem}
 }
 </style>
@@ -270,10 +296,44 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
     </div>
     <div class="nav-cta" style="margin-left:auto">
       <a href="/app" class="btn btn-sm btn-ghost">Přihlásit se</a>
-      <a href="#pricing" class="btn btn-sm btn-primary">Začít zdarma →</a>
+      <a href="#pricing" class="btn btn-sm btn-primary">Začít zdarma<span class="arr">&nbsp;→</span></a>
+    </div>
+    <button type="button" class="nav-burger" id="navBurger" aria-label="Otevřít menu" aria-expanded="false" aria-controls="navMenu"><i></i></button>
+  </div>
+  <div class="nav-menu" id="navMenu" hidden>
+    <div class="nav-menu-in">
+      <a class="nm-link" href="#journey">Jak to funguje</a>
+      <a class="nm-link" href="#outcomes">Co získáš</a>
+      <a class="nm-link" href="#pricing">Ceník</a>
+      <a class="nm-link" href="#faq">Časté otázky</a>
+      <a class="nm-link" href="/napoveda.html">Nápověda</a>
+      <a class="nm-link" href="mailto:info@financeflow.cz">Kontakt</a>
+      <span class="nm-badge">⚡ Zakládající členové — 99 Kč/měs</span>
+      <div class="nm-cta">
+        <a href="/app" class="btn btn-md btn-ghost">Přihlásit se</a>
+        <a href="#pricing" class="btn btn-md btn-primary">Začít zdarma</a>
+      </div>
     </div>
   </div>
 </nav>
+<script>
+// Hamburger menu (S25): otevřít/zavřít, zavřít po kliknutí na odkaz, klávesou Esc,
+// klepnutím mimo menu a při rozšíření okna nad 920 px (kdy jsou odkazy zase v liště).
+(function(){
+  var btn=document.getElementById('navBurger'), menu=document.getElementById('navMenu');
+  if(!btn||!menu) return;
+  function nastav(otevrit){
+    btn.setAttribute('aria-expanded', otevrit?'true':'false');
+    btn.setAttribute('aria-label', otevrit?'Zavřít menu':'Otevřít menu');
+    menu.classList.toggle('open', otevrit); menu.hidden=!otevrit;
+  }
+  btn.addEventListener('click', function(e){ e.stopPropagation(); nastav(btn.getAttribute('aria-expanded')!=='true'); });
+  menu.addEventListener('click', function(e){ if(e.target.closest('a')) nastav(false); });
+  document.addEventListener('click', function(e){ if(menu.classList.contains('open') && !menu.contains(e.target) && e.target!==btn) nastav(false); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && menu.classList.contains('open')){ nastav(false); btn.focus(); } });
+  window.addEventListener('resize', function(){ if(window.innerWidth>920) nastav(false); });
+})();
+</script>
 
 <!-- ─── HERO ─────────────────────────────────── -->
 <div class="hero-section">
@@ -732,6 +792,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:48px 24p
           <a href="/legal.html">Ochrana soukromí</a>
           <a href="/legal.html#terms">Podmínky použití</a>
           <a href="/legal.html#gdpr">GDPR práva</a>
+          <a href="/smazani-uctu.html">Smazání účtu</a>
         </div>
         <div class="footer-col">
           <h4>Kontakt</h4>

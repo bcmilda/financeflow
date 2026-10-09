@@ -50,12 +50,12 @@ const odp=r=>JSON.parse(r.body);
  t('karta: název z kódu i český se zdrojem',h.includes('Název z kódu:')&&h.includes('Vollmilch Schokolade')&&h.includes('Mléčná čokoláda s mandlemi')&&h.includes('návrh AI')&&h.includes('✎ Opravit'));
  vm.runInContext('_eanMojeNazvy={"4056489321453":{nazev:"Moje čokoláda"}}',c);
  t('tvůj název má přednost',c.eanNazevVyrobku(P,'4056489321453')==='Moje čokoláda'&&c.eanZdrojNazvu(P,'4056489321453')==='tvůj název');
- t('chybí český název → Doplnit',c.eanNazvyHTML({stav:'nalezeno',nazev:'X',nazevCesky:false},'1','mk').includes('zatím chybí'));
+ t('chybí český název → výrazné pole Český název výrobku',(h=>h.includes('Český název výrobku')&&h.includes('id="mk_1_in"'))(c.eanNazvyHTML({stav:'nalezeno',nazev:'X',nazevCesky:false},'1','mk')));
  const f=c.eanFotoTlacitkaHTML('1',{stav:'nenalezeno'},'cb');
  t('fotka: neznámý výrobek → obal + Open Food Facts',f.includes('Vyfotit obal')&&f.includes('Open Food Facts')&&f.includes('neukládá'));
  t('fotka: kompletní výrobek → jen živiny',!c.eanFotoTlacitkaHTML('1',{stav:'nalezeno',nazevCesky:true,obecnyId:'x'},'cb').includes('Vyfotit obal'));
  const RC=R('receipts.js','../js/receipts.js');
- t('karta: živiny z obalu mají přednost a popisek',/p\.nutriceObal \|\| p\.nutrice/.test(RC)&&RC.includes('podle českého obalu'));
+ t('karta: živiny z obalu mají přednost a popisek',/p\.nutriceObal \|\| p\.nutrice/.test(RC)&&(RC.includes('podle českého obalu')||RC.includes('eanZivinyZdroj(p.nutriceObal)')));   // S25: popisek podle zdroje (fotka / ručně)
  const RL=JSON.parse(R('database.rules.json','../database.rules.json').replace(/^\s*\/\/.*$/mg,''));
  t('pravidla: návrhy názvů jen worker/admin',RL.rules.community.eanNavrhyNazvu['.write'].includes('LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'));
  console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

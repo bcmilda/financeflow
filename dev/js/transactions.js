@@ -1,4 +1,4 @@
-// FinanceFlow · v11.29 · transactions.js · 2026-10-04
+// FinanceFlow · v11.44 · transactions.js · 2026-10-08
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -645,6 +645,7 @@ function renderDebtTxTable(d, paid, D){
 }
 
 function renderDebts(){
+  if(typeof debtOpravDataSplatek==='function' && debtOpravDataSplatek(S.debts) && typeof save==='function') save();   // S25 v11.44: kalendáře posunuté o den (UTC)
   const D=getData(); const ro=viewingUid!==null;
   renderDebtRealityWidget(D);
   renderDebtStressWidget(D);

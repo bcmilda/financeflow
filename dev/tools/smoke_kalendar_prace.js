@@ -1,0 +1,33 @@
+// S25 – pracovní kalendář: kopírování do konce roku + vrácení, dovolená v hodinách, výplata po měsících.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+const src=fs.readFileSync(najdi('kalendar.js','../js/kalendar.js'),'utf8');
+const pick=n=>{let i=src.indexOf('function '+n+'(');let d=0,j=src.indexOf('{',i);for(let k=j;k<src.length;k++){if(src[k]==='{')d++;else if(src[k]==='}'){d--;if(!d)return src.slice(i,k+1)}}};
+let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':JSON.stringify(i));if(!c)bad++;};
+const sb={S:{curYear:2026,curMonth:10,workCal:{hpd:12,vacQuota:20,days:{}}},Object,Math,Date,String,window:{},renderKalendar(){},save(){},showToast(){}};
+sb.window=sb; vm.createContext(sb);
+vm.runInContext(['_workCfg','_workSave','_workSalary','_workVacH','workCopyClick','workCopyUndo'].map(pick).join('\n')+"\nfunction _ck(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}",sb);
+console.log('── S25 · pracovní kalendář ──');
+const c=sb._workCfg();
+t('dovolená v hodinách: staré nastavení 20 dní × 12 h = 240 h',c.vacQuotaH===240,c.vacQuotaH);
+t('den dovolené = hodin/směna, nebo zadané hodiny',sb._workVacH({type:'dovolena'},c)===12&&sb._workVacH({type:'dovolena',hours:8},c)===8);
+// vzor: 1.–2. 11. směna, 3. volno
+sb.S.workCal.days={'2026-11-01':{type:'smena',hours:12},'2026-11-02':{type:'smena',hours:12}};
+sb._workCopy={on:true,start:{y:2026,m:10,d:1},end:{y:2026,m:10,d:3},opak:'rok'};
+sb.workCopyClick(4,10,2026);
+const D=sb.S.workCal.days;
+t('opakovat do konce roku: vzor dojde až do prosince',!!D['2026-12-31']&&D['2026-12-31'].type==='smena'&&!D['2027-01-01'],Object.keys(D).slice(-3));
+t('jen do 31. 12. cílového roku',!Object.keys(D).some(k=>k.startsWith('2027')));
+sb.workCopyUndo();
+t('↩ Vrátit vrátí celé vložení',Object.keys(sb.S.workCal.days).length===2);
+sb._workCopy={on:true,start:{y:2026,m:10,d:1},end:{y:2026,m:10,d:3},opak:'mesic'}; sb.workCopyClick(4,10,2026);
+t('opakovat do konce měsíce zůstává',!!sb.S.workCal.days['2026-11-29']&&!Object.keys(sb.S.workCal.days).some(k=>k.startsWith('2026-12')));
+sb.S.workCal.salary=30000; sb.S.workCal.salaryM={'2026-09':31000,'2026-11':33500};
+const cf=sb._workCfg();
+t('výplata zadaná pro měsíc',sb._workSalary(cf,2026,10).castka===33500&&sb._workSalary(cf,2026,10).zadana);
+t('měsíc bez zadání = poslední zadaná dřív',sb._workSalary(cf,2026,9).castka===31000&&!sb._workSalary(cf,2026,9).zadana);
+t('před první zadanou = výchozí',sb._workSalary(cf,2026,5).castka===30000);
+t('ukládání drží salaryM i vacQuotaH (zapisovač nic nemaže)',(sb._workSave({hpd:12}),sb.S.workCal.salaryM['2026-11']===33500&&sb.S.workCal.vacQuotaH===240));
+t('text 3. kroku srozumitelný, bez „CÍLOVÝ den“',!src.includes('CÍLOVÝ den')&&src.includes('od kterého se má úsek vložit'));
+t('mzdová karta bere výplatu měsíce',pick('_workWageCard').includes('_workSalary(cfg, y, m).castka'));
+console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

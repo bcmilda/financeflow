@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · helpers.js · 2026-09-25
+// FinanceFlow · v11.53 · helpers.js · 2026-10-09
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -723,7 +723,12 @@ function bankSeries(n,data){
 //  NAV
 // ══════════════════════════════════════════════════════
 function showPage(name,el){
+  //  S25 (v11.51): zapamatuj předchozí stránku pro tlačítko Zpět (ne když se zpět právě vracíme)
+  if(typeof _ffZpet!=='undefined' && !_ffZpet.zpetBezi && typeof curPage!=='undefined' && curPage && curPage!==name){
+    _ffZpet.stack.push(curPage); if(_ffZpet.stack.length>30) _ffZpet.stack.shift();
+  }
   curPage=name;
+  if(typeof _ffRozprac!=='undefined') _ffRozprac.formular=null;   // S25 (v11.52): jiná stránka = nic rozepsaného
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -757,6 +762,260 @@ function changeMonth(d){if(typeof _txDateFilter!=='undefined'&&_txDateFilter.act
 function _rp_force(){ if(typeof forceRender==='function') forceRender(); else renderPage(); }
 function updateMLabel(){document.getElementById('mlabel').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;}
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.51, Milan: „často z aplikace vyskočím tlačítkem zpět, i když se chci vrátit o krok“)
+//  TLAČÍTKO ZPĚT NA TELEFONU. Appka dřív historii prohlížeče vůbec nepoužívala, takže Zpět
+//  zavřelo celou stránku. Nově je nad vstupem do appky „strážní“ záznam a Zpět postupně:
+//    1. zavře nejvrchnější okno (karta výrobku, skener, formulář, modal, paywall) nebo menu,
+//    2. vrátí se na předchozí stránku appky,
+//    3. skočí na Dashboard,
+//    4. na Dashboardu odejde až druhým Zpět do 2,5 s („Stiskni Zpět ještě jednou“).
+//  Chrome přeskakuje záznamy přidané bez dotyku uživatele – proto se strážce obnoví hned
+//  a pro jistotu znovu při nejbližším dotyku (pak už ho tlačítko Zpět respektuje).
+// ══════════════════════════════════════════════════════════════════════
+const _ffZpet = { stack: [], zpetBezi: false, odchodDo: 0, obnovit: false, aktivni: false };
+const FF_ZPET_ZAVRI = { eanKartaOkno: 'eanKartaZavri', eanZiviny: 'eanZivinyZavri', eanOkno: 'eanZavri', mapaKarta: 'mapaUzivKartaZavri', paywallScreen: 'closePaywall' };
+const FF_ZPET_NECHAT = ['bannedOverlay'];
+function _ffZpetStraz() { try { history.pushState({ ff: 'straz' }, ''); } catch (e) {} }
+//  Všechna otevřená okna (karty, skener, formuláře, modaly, paywall) seřazená od nejvrchnějšího.
+//  S25 (v11.52): vyčleněno, aby to mohla použít i ochrana rozdělané práce (ffRozpracovano).
+function ffOtevrenaOkna(doc) {
+  doc = doc || document;
+  if (!doc || !doc.body) return [];
+  const kand = [];
+  const vidi = el => { try { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; } catch (e) { return true; } };
+  const pevne = el => el && el.style && el.style.position === 'fixed' && (el.style.inset === '0px' || el.style.inset === '0');
+  Array.from(doc.body.children || []).forEach(el => {
+    if (pevne(el)) kand.push(el);
+    else if (el.firstElementChild && pevne(el.firstElementChild)) kand.push(el.firstElementChild);
+  });
+  doc.querySelectorAll('.overlay.open, .paywall-screen.open, #ffNotifModal').forEach(el => { if (!kand.includes(el)) kand.push(el); });
+  const z = el => { try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (e) { return 0; } };
+  return kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a));
+}
+//  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
+function ffZpetZavriVrchni(doc) {
+  doc = doc || document;
+  const top = ffOtevrenaOkna(doc)[0];
+  if (top) {
+    const fn = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
+    if (typeof fn === 'function') fn();
+    else if (top.classList.contains('open')) { top.classList.remove('open'); if (top.classList.contains('paywall-screen')) doc.body.style.overflow = ''; }
+    else top.remove();
+    return true;
+  }
+  const sb = doc.getElementById('sidebar');
+  if (sb && sb.classList.contains('open')) { sb.classList.remove('open'); return true; }
+  return false;
+}
+function _ffZpetNavEl(name) {
+  return Array.from(document.querySelectorAll('.nav-item')).find(n => (n.getAttribute('onclick') || '').includes(`'${name}'`)) || null;
+}
+function ffZpetPopstate() {
+  if (Date.now() < _ffZpet.odchodDo) { history.back(); return; }            // druhé Zpět → pryč z appky
+  //  nepřihlášený (přihlašovací obrazovka) → Zpět se chová normálně
+  if (!window._currentUser && !(typeof _isLocalMode !== 'undefined' && _isLocalMode)) { history.back(); return; }
+  const hotovo = () => { _ffZpetStraz(); _ffZpet.obnovit = true; };
+  //  S25 (v11.53): běží analýza (čekací okno) → Zpět nic nezavře ani nepřepne
+  if (typeof ffCekaniBezi === 'function' && ffCekaniBezi()) {
+    if (typeof showToast === 'function') showToast('⏳ Počkej prosím, analýza ještě běží');
+    return hotovo();
+  }
+  if (ffZpetZavriVrchni()) return hotovo();
+  let prev = _ffZpet.stack.pop();
+  while (prev && prev === curPage) prev = _ffZpet.stack.pop();
+  const cil = prev || (curPage !== 'prehled' ? 'prehled' : null);
+  if (cil && document.getElementById('page-' + cil)) {
+    _ffZpet.zpetBezi = true;
+    try { showPage(cil, _ffZpetNavEl(cil)); } finally { _ffZpet.zpetBezi = false; }
+    return hotovo();
+  }
+  _ffZpet.odchodDo = Date.now() + 2500;
+  if (typeof showToast === 'function') showToast('Pro odchod z aplikace stiskni Zpět ještě jednou');
+  hotovo();
+}
+function ffZpetInit() {
+  if (_ffZpet.aktivni || typeof window === 'undefined' || !window.history || !history.pushState || !window.addEventListener) return;
+  _ffZpet.aktivni = true;
+  try { history.replaceState({ ff: 'zaklad' }, ''); } catch (e) {}
+  _ffZpetStraz(); _ffZpet.obnovit = true;
+  window.addEventListener('popstate', ffZpetPopstate);
+  const dotyk = () => { if (_ffZpet.obnovit) { _ffZpet.obnovit = false; _ffZpetStraz(); } };
+  window.addEventListener('pointerdown', dotyk, { capture: true, passive: true });
+  window.addEventListener('keydown', dotyk, { capture: true, passive: true });
+}
+if (typeof window !== 'undefined' && window.addEventListener && typeof document !== 'undefined') {
+  if (document.readyState === 'complete') ffZpetInit(); else window.addEventListener('load', ffZpetInit);
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffZpetInit, ffZpetPopstate, ffZpetZavriVrchni, ffOtevrenaOkna });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.52) – OCHRANA ROZDĚLANÉ PRÁCE (Milan: „chci stabilitu bez přepisování rozdělané práce“)
+//  Stránka se dřív překreslovala po každé synchronizaci – i když jsem zrovna psal do
+//  formuláře, měl otevřený editor účtenky nebo kartu výrobku. Překreslení postavilo
+//  formulář znovu z uložených dat a rozepsané zmizelo.
+//  Teď se překreslení, které NESPUSTIL uživatel (změna z jiného zařízení, dokončené
+//  uložení na pozadí), odloží, dokud:
+//    · je kurzor v poli (input/textarea/select),
+//    · je otevřený editor účtenky, okno, karta, skener nebo modal,
+//    · je na stránce rozepsaný formulář (psal jsem a ještě nic neuložil/nepřepnul),
+//    · nebo prvek nese data-rozprac.
+//  Jakmile nic z toho neplatí, stránka se překreslí sama.
+// ══════════════════════════════════════════════════════════════════════
+const _ffRozprac = { formular: null, formularKdy: 0, ceka: false, timer: null, toastKdy: 0 };
+//  Editor účtenky (z Historie i nově naskenovaná) – jen když je opravdu vidět. Samotný příznak
+//  _receiptEditorOpen nestačí: po přepnutí stránky může zůstat viset a blokoval by vše.
+function _ffEditorUctenky() {
+  const videt = el => !!el && (el.offsetParent !== null || el.getClientRects().length > 0);
+  if (window._receiptEditorOpen && Array.from(document.querySelectorAll('[id^="rcpt_hist_"]'))
+      .some(x => x.style.display === 'block' && x.innerHTML.trim() && videt(x))) return true;
+  const pv = document.getElementById('receiptPreview');
+  return !!(pv && pv.style.display !== 'none' && pv.querySelector('#receiptEditForm') && videt(pv));
+}
+function ffRozpracovano() {
+  if (typeof document === 'undefined' || !document.body) return false;
+  if (_ffEditorUctenky()) return true;
+  const a = document.activeElement;
+  if (a && a !== document.body && a.matches && a.matches('textarea, select, [contenteditable="true"], [contenteditable=""], input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color])')) return true;
+  if (_ffRozprac.formular && typeof curPage !== 'undefined' && _ffRozprac.formular === curPage) {
+    if (Date.now() - (_ffRozprac.formularKdy || 0) < FF_ROZPRAC_VYPRSI) return true;
+    _ffRozprac.formular = null;                    // zapomenutý rozepsaný formulář už nebrzdí
+  }
+  if (document.querySelector('[data-rozprac]')) return true;
+  return ffOtevrenaOkna().length > 0;
+}
+function _ffRenderTed() {
+  if (typeof renderPageDebounced === 'function') renderPageDebounced();
+  else if (typeof renderPage === 'function') renderPage();
+}
+//  zdroj: 'vzdalene' (přišlo z jiného zařízení) | 'ulozeni' (dokončený zápis)
+function ffRenderBezpecne(zdroj) {
+  if (!ffRozpracovano()) { _ffRozprac.ceka = false; _ffRenderTed(); return true; }
+  _ffRozprac.ceka = true;
+  if (zdroj === 'vzdalene' && Date.now() - _ffRozprac.toastKdy > 60000 && typeof showToast === 'function') {
+    _ffRozprac.toastKdy = Date.now();
+    showToast('🔄 Přišly změny z jiného zařízení – ukážu je, až dokončíš úpravu');
+  }
+  if (!_ffRozprac.timer) {
+    _ffRozprac.timer = setInterval(() => {
+      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; return; }
+      if (ffRozpracovano()) return;
+      clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffRozprac.ceka = false;
+      _ffRenderTed();
+    }, 800);
+  }
+  return false;
+}
+//  Psaní do formuláře na stránce = rozpracováno (do překreslení/přepnutí stránky, nejdéle 5 min).
+//  Nepočítají se filtry a vyhledávání (výběry, zaškrtávátka, hledací pole) – ty nic
+//  neuchovávají a jinak by zbytečně zdržely zobrazení novějších dat.
+const FF_ROZPRAC_VYPRSI = 5 * 60 * 1000;
+function _ffJeFiltr(t) {
+  if (!t || !t.tagName) return true;
+  if (t.tagName === 'SELECT') return true;
+  if (t.tagName === 'INPUT' && /^(checkbox|radio|range|search|button|submit|file|color)$/i.test(t.type || '')) return true;
+  const jm = ((t.id || '') + ' ' + (t.name || '') + ' ' + (t.getAttribute && t.getAttribute('placeholder') || '')).toLowerCase();
+  return /search|filtr|filter|hled|query|vyhled/.test(jm);
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t && t.closest && t.closest('.page') && !_ffJeFiltr(t) && typeof curPage !== 'undefined') {
+      _ffRozprac.formular = curPage; _ffRozprac.formularKdy = Date.now();
+    }
+  }, true);
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffRozpracovano, ffRenderBezpecne });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.53, Milan: „při probíhající analýze účtenky nevím, co se děje – chybí přesýpací
+//  hodiny, okno, abych mezitím nikam neklikal“)
+//  ČEKACÍ OKNO pro dlouhé operace (analýza účtenky trvá 10–40 s). Přes celou obrazovku,
+//  zablokuje klikání pod sebou, ukazuje:
+//    · přesýpací hodiny a co se právě děje (kroky ✓ / ⏳ / ·),
+//    · uběhlý čas a orientační průběh (odhad – skutečný průběh AI nehlásí, proto se pruh
+//      zastaví na 90 % a dojede až s výsledkem),
+//    · po 20 s tlačítko „Zrušit“ (když operace zrušení umí).
+//  Tlačítko Zpět na telefonu okno nezavře (jen připomene, že se čeká).
+// ══════════════════════════════════════════════════════════════════════
+const _ffCek = { el: null, start: 0, timer: null, kroky: [], krok: 0, odhad: 20, zrusit: null };
+function _ffCekStyl() {
+  if (typeof document === 'undefined' || document.getElementById('ffCekaniStyl')) return;
+  const st = document.createElement('style'); st.id = 'ffCekaniStyl';
+  st.textContent = `
+    #ffCekani{position:fixed;inset:0;z-index:12000;background:rgba(8,10,18,.72);display:flex;align-items:center;justify-content:center;padding:16px;touch-action:none;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+    #ffCekani .ffc-karta{background:var(--surface,#1b1f2e);color:var(--text,#e8eaf2);border:1px solid var(--border,#2c3247);border-radius:16px;padding:22px 20px 18px;width:100%;max-width:340px;box-shadow:0 18px 50px rgba(0,0,0,.45);text-align:center}
+    #ffCekani .ffc-hodiny{font-size:2.6rem;line-height:1;display:inline-block;animation:ffcOtoc 2.4s ease-in-out infinite}
+    @keyframes ffcOtoc{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(360deg)}}
+    #ffCekani .ffc-tit{font-weight:700;font-size:1.02rem;margin:10px 0 2px}
+    #ffCekani .ffc-pod{font-size:.76rem;color:var(--text2,#a8aec8);margin-bottom:14px}
+    #ffCekani .ffc-kroky{text-align:left;font-size:.8rem;margin:0 auto 14px;display:inline-block}
+    #ffCekani .ffc-krok{padding:3px 0;color:var(--text3,#7d849c)}
+    #ffCekani .ffc-krok.hotovo{color:var(--income,#34d399)}
+    #ffCekani .ffc-krok.ted{color:var(--text,#e8eaf2);font-weight:600}
+    #ffCekani .ffc-pruh{height:6px;background:var(--surface2,#252a3b);border-radius:4px;overflow:hidden}
+    #ffCekani .ffc-pruh>div{height:100%;width:0;background:var(--accent,#60a5fa);border-radius:4px;transition:width .5s linear}
+    #ffCekani .ffc-cas{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text3,#7d849c);margin-top:6px}
+    #ffCekani .ffc-zrus{margin-top:14px;display:none}
+    @media (prefers-reduced-motion: reduce){#ffCekani .ffc-hodiny{animation:none}}
+  `;
+  document.head.appendChild(st);
+}
+function _ffCekKresli() {
+  const el = _ffCek.el; if (!el) return;
+  const s = Math.floor((Date.now() - _ffCek.start) / 1000);
+  const kroky = _ffCek.kroky.map((t, i) => {
+    const c = i < _ffCek.krok ? 'hotovo' : i === _ffCek.krok ? 'ted' : '';
+    return `<div class="ffc-krok ${c}">${i < _ffCek.krok ? '✓' : i === _ffCek.krok ? '⏳' : '·'} ${escHtml(t)}</div>`;
+  }).join('');
+  const k = el.querySelector('.ffc-kroky'); if (k && k.innerHTML !== kroky) k.innerHTML = kroky;
+  //  orientační průběh: kroky + čas proti odhadu, nikdy ne 100 % před koncem
+  const podilKroku = _ffCek.kroky.length ? _ffCek.krok / _ffCek.kroky.length : 0;
+  const podilCasu = Math.min(1, s / Math.max(1, _ffCek.odhad));
+  const pct = Math.min(90, Math.round(Math.max(podilKroku, podilCasu * 0.9) * 100));
+  const pr = el.querySelector('.ffc-pruh>div'); if (pr) pr.style.width = pct + '%';
+  const cas = el.querySelector('.ffc-cas-ted'); if (cas) cas.textContent = s + ' s';
+  const pozn = el.querySelector('.ffc-cas-pozn');
+  if (pozn) pozn.textContent = s > _ffCek.odhad * 1.5 ? 'trvá to déle než obvykle…' : 'obvykle ' + _ffCek.odhadText;
+  const z = el.querySelector('.ffc-zrus'); if (z && _ffCek.zrusit && s >= 20) z.style.display = 'inline-block';
+}
+//  ffCekaniStart({ titulek, podtitulek, kroky:[…], odhadS, odhadText, zrusit: fn })
+function ffCekaniStart(o) {
+  if (typeof document === 'undefined' || !document.body) return;
+  o = o || {};
+  ffCekaniKonec();
+  _ffCekStyl();
+  Object.assign(_ffCek, { start: Date.now(), kroky: o.kroky || [], krok: 0, odhad: o.odhadS || 20, odhadText: o.odhadText || '10–30 s', zrusit: o.zrusit || null });
+  const el = document.createElement('div');
+  el.id = 'ffCekani';
+  el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-busy', 'true');
+  el.innerHTML = `<div class="ffc-karta">
+      <div class="ffc-hodiny" aria-hidden="true">⏳</div>
+      <div class="ffc-tit">${escHtml(o.titulek || 'Pracuji…')}</div>
+      <div class="ffc-pod">${escHtml(o.podtitulek || 'Nezavírej aplikaci, za chvíli to bude.')}</div>
+      <div class="ffc-kroky"></div>
+      <div class="ffc-pruh"><div></div></div>
+      <div class="ffc-cas"><span class="ffc-cas-ted">0 s</span><span class="ffc-cas-pozn"></span></div>
+      <button type="button" class="btn btn-ghost btn-sm ffc-zrus">Zrušit</button>
+    </div>`;
+  //  nic pod oknem nejde zmáčknout ani posunout
+  ['click', 'pointerdown', 'touchstart', 'wheel'].forEach(ev => el.addEventListener(ev, e => { if (!e.target.closest('.ffc-zrus')) { e.stopPropagation(); if (ev !== 'touchstart' && ev !== 'pointerdown') e.preventDefault(); } }, { passive: false }));
+  el.querySelector('.ffc-zrus').addEventListener('click', () => { const f = _ffCek.zrusit; ffCekaniKonec(); if (typeof f === 'function') f(); });
+  document.body.appendChild(el);
+  _ffCek.el = el;
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+  _ffCekKresli();
+  _ffCek.timer = setInterval(_ffCekKresli, 500);
+}
+function ffCekaniKrok(i) { _ffCek.krok = Math.max(_ffCek.krok, i); _ffCekKresli(); }
+function ffCekaniKonec() {
+  if (_ffCek.timer) { clearInterval(_ffCek.timer); _ffCek.timer = null; }
+  if (_ffCek.el) { const pr = _ffCek.el.querySelector('.ffc-pruh>div'); if (pr) pr.style.width = '100%'; _ffCek.el.remove(); _ffCek.el = null; }
+  _ffCek.zrusit = null;
+}
+function ffCekaniBezi() { return !!_ffCek.el; }
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffCekaniStart, ffCekaniKrok, ffCekaniKonec, ffCekaniBezi });
 
 // ══════════════════════════════════════════════════════
 
@@ -938,6 +1197,25 @@ function normQty(text) {
   return { hodnota: Math.round(h * 1000) / 1000, jednotka: j };
 }
 
+//  S25 (Milan): GRAMÁŽ JAKO SAMOSTATNÉ POLE. „ORION KOFILA OPLATKA 42G“ →
+//  název „ORION KOFILA OPLATKA“ + balení {m:42, j:'g'}. Název z účtenky (alias) zůstává
+//  beze změny, oddělená gramáž se ukládá k položce a kartě.
+function nazevBezGramaze(text) {
+  return String(text || '').replace(/\s*\d+(?:[.,]\d+)?\s*(kg|g|mg|l|dl|cl|ml|ks|x)\b\.?/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+function baleniZNazvu(text) {
+  const q = normQty(text); if (!q || q.jednotka === 'cm') return null;
+  return { m: q.hodnota, j: q.jednotka };   // g / ml / ks / x
+}
+//  „42 g“, „1,5 l“, „6 ks“ – pro zobrazení
+function baleniText(b) {
+  if (!b || !b.m) return '';
+  const f = v => String(Math.round(v * 1000) / 1000).replace('.', ',');
+  if (b.j === 'g') return b.m >= 1000 ? f(b.m / 1000) + ' kg' : f(b.m) + ' g';
+  if (b.j === 'ml') return b.m >= 1000 ? f(b.m / 1000) + ' l' : f(b.m) + ' ml';
+  if (b.j === 'x') return f(b.m) + '×';
+  return f(b.m) + ' ' + b.j;
+}
 function normName(text) {
   return String(text || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')      // diakritika pryč

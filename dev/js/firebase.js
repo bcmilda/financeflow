@@ -1,4 +1,4 @@
-// FinanceFlow · v9.46 · firebase.js · 2026-08-03
+// FinanceFlow · v11.45 · firebase.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  S12.1e: EMAIL + HESLO PŘIHLÁŠENÍ
 // ══════════════════════════════════════════════════════
@@ -217,6 +217,21 @@ window.signInGoogle = async () => {
 window.signOut = () => { if(!confirm('Odhlásit se?')) return; fbSignOut(auth); };
 window._signInGoogle = window.signInGoogle;
 window._signOut = window.signOut;
+//  S25 (v11.45): smazání PŘIHLAŠOVACÍHO účtu (Firebase Auth) – volá se až po smazání dat
+//  v Můj účet → Smazat účet. Google Play vyžaduje smazat účet i data; dřív zůstával
+//  záznam s e-mailem ve Firebase Auth. Vrací 'ok' | 'relogin' (Firebase chce čerstvé
+//  přihlášení – uživatel se přihlásí znovu a smazání zopakuje) | 'chyba'.
+window._deleteAuthUser = async () => {
+  try {
+    const { deleteUser } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    if (!auth.currentUser) return 'chyba';
+    await deleteUser(auth.currentUser);
+    return 'ok';
+  } catch (e) {
+    console.warn('[smazání] přihlašovací účet:', e && e.code);
+    return e && e.code === 'auth/requires-recent-login' ? 'relogin' : 'chyba';
+  }
+};
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.99 · ucet.js · 2026-09-24
+// FinanceFlow · v11.45 · ucet.js · 2026-10-08
 // ══════════════════════════════════════════════════════════════════════
 //  MŮJ ÚČET (TODO-233, S21 – Milan)
 //  Nahrazuje modal „Upravit profil“. Spouštěčem je jméno a ikona úplně
@@ -258,17 +258,26 @@ async function ucetSmazatUcet() {
     // Teprve teď vlastní data
     await _set(_ref(_db, `users/${me.uid}`), null);
 
+    //  S25 (v11.45): nakonec i přihlašovací účet (Firebase Auth), ne jen data –
+    //  požadavek Google Play. Data jsou už pryč, takže „relogin“ jen dokončí smazání účtu.
+    const authStav = typeof window._deleteAuthUser === 'function' ? await window._deleteAuthUser() : 'chyba';
+
     alert('Účet byl smazán.\n\n'
       + (cizich ? `Odpojen od ${cizich} ${cizich === 1 ? 'partnera' : 'partnerů'}.\n` : '')
       + (platici
           ? (stripeZrusen ? 'Předplatné bylo zrušeno.\n'
                           : '⚠️ Předplatné se nepodařilo zrušit automaticky – napiš prosím na info@financeflow.cz, jinak ti Stripe bude účtovat dál.\n')
           : '')
-      + '\nPřihlašovací účet u Googlu zůstává – ten zrušíš ve svém Google účtu.');
+      + (authStav === 'ok'
+          ? '\nPřihlašovací účet ve FinanceFlow je smazaný. (Tvůj Google účet tím nezaniká – ten patří Googlu.)'
+          : authStav === 'relogin'
+            ? '\n⚠️ Data jsou smazaná, ale přihlašovací účet Firebase z bezpečnostních důvodů vyžaduje čerstvé přihlášení. Přihlas se prosím znovu a v Můj účet dej „Smazat účet“ ještě jednou – tím se smaže i přihlašovací účet.'
+            : '\n⚠️ Data jsou smazaná, ale přihlašovací účet se nepodařilo odstranit. Napiš prosím na info@financeflow.cz a smažeme ho ručně.'));
     // Pozor: funkce se jmenuje signOut, ne logout (chytil check_tdz.js –
     //   `node --check` by tenhle překlep pustil a projevil by se až TADY,
     //   tedy po nevratném smazání dat).
-    if (typeof window._signOut === 'function') window._signOut();
+    //  S25: po smazaném přihlašovacím účtu je uživatel odhlášený sám – bez dotazu „Odhlásit se?“.
+    if (authStav !== 'ok' && typeof window._signOut === 'function') window._signOut();
     location.reload();
   } catch (e) {
     alert('Mazání se nezdařilo: ' + e.message + '\n\nData zůstala beze změny.');

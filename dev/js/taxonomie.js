@@ -1,4 +1,4 @@
-// FinanceFlow · v11.16 · taxonomie.js · 2026-09-30
+// FinanceFlow · v11.41 · taxonomie.js · 2026-10-07
 // ══════════════════════════════════════════════════════
 //  S24 (T2, PLAN-mapa-produktu): TAXONOMIE VÝROBKŮ
 //  Zdroj: data/taxonomie.json (13 oblastí · 139 podkategorií · ~900 obecných názvů).
@@ -13,7 +13,7 @@
 //  Když se nenačte, všechny funkce vrací null / [] a appka se chová jako dřív.
 // ══════════════════════════════════════════════════════
 
-const TAX_URL = 'data/taxonomie.json?v=1.1-20260930';   // S24 v11.16: rozpočet Osobní péče → cat47, Zvířata → cat44
+const TAX_URL = 'data/taxonomie.json?v=1.2-20261007';   // S24 v11.16: rozpočet Osobní péče → cat47, Zvířata → cat44
 let _tax = null, _taxIndex = null, _taxNacitani = null, _taxSlova = null;
 
 function _taxNorm(t) {
@@ -33,6 +33,9 @@ function taxPostavIndex(T) {
       podId: p.id, podNazev: p.nazev,
       oblastId: o.id, oblastNazev: o.nazev, ikona: o.ikona || '',
       coicop: (typeof x === 'object' && x.coicop) || p.coicop || '',
+      //  S25: 5. úroveň CZ-COICOP (příloha potravin ČSÚ) – jen karta a Statistika položek;
+      //  „coicop“ (4. úroveň) zůstává pro Srovnání ČR a inflaci.
+      coicop5: (p.c5 && p.c5[n]) || '',
       rozpocet: p.rozpocet || o.rozpocet || '',
     };
   })));

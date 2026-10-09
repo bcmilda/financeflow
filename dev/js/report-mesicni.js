@@ -1,11 +1,11 @@
-// FinanceFlow · v11.28 · report-mesicni.js · 2026-10-04
+// FinanceFlow · v11.47 · report-mesicni.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
 //  Design ze schváleného návrhu report-nahled-v4 (ADR-182): bílý papír A4,
 //  IBCS notace, nadpis grafu = sdělení. Free: 2 strany, Premium: 4 strany.
-//  ⚠️ Postřehy a doporučení jsou zatím SPOČÍTANÉ PRAVIDLY (ne AI) – AI vrstva
-//  (komentář, hodnocení, predikce) přijde přes worker v dalším kroku F3.
+//  Postřehy a doporučení počítají pravidla; v Premium je od v11.47 (F3) nahradí AI texty
+//  z workeru /report-ai – jen když projdou kontrolou čísel (viz AI VRSTVA REPORTU níže).
 //  Všechna čísla z jednoho objektu `rd` (mesReportData) – sedí na sebe.
 // ══════════════════════════════════════════════════════
 
@@ -115,6 +115,91 @@ function mesReportData(D, m, y) {
     fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05) }, txN: tx.length };
 }
 window.mesReportData = mesReportData;
+
+// ══════════════════════════════════════════════════════════════════════
+//  S25 (v11.47, TODO-317 F3): AI VRSTVA REPORTU
+//  Podklady = jen předpočítaná čísla a názvy skupin/kategorií (žádné transakce,
+//  jména lidí ani e-mail). Worker /report-ai napíše shrnutí, hodnocení, postřehy,
+//  doporučení a komentář k výhledu a OVĚŘÍ, že každé číslo v textu je v podkladech.
+//  Uloženo v users/{uid}/reportAI/{RRRR-MM} s otiskem podkladů → bez změny dat se
+//  znovu negeneruje. Uzavřený měsíc se napíše sám, běžící jen na tlačítko (data se denně mění).
+// ══════════════════════════════════════════════════════════════════════
+const _rpR = v => Math.round(v || 0), _rpR100 = v => Math.round((v || 0) / 100) * 100;
+function mesReportAIPodklady(rd) {
+  const dnes = new Date(), probiha = rd.y === dnes.getFullYear() && rd.m === dnes.getMonth();
+  const mira = (p, v) => p ? _rpR((p - v) / p * 100) : 0;
+  const drobne = rd.pravidelne.filter(x => x.mes > 0 && x.mes < 1500), drobneM = drobne.reduce((a, x) => a + x.mes, 0);
+  const pravM = rd.pravidelne.reduce((a, x) => a + x.mes, 0);
+  const dluhZb = rd.dluhy.reduce((a, d) => a + d.zb, 0), dluhSpl = rd.dluhy.reduce((a, d) => a + (d.spl || 0), 0);
+  const penez = rd.penezenky.reduce((a, w) => a + w.b, 0);
+  const u = rd.ucet;
+  return {
+    obdobi: { mesic: RP_MES[rd.m], rok: rd.y, dalsiMesic: RP_MES[rd.nm], probiha, ...(probiha ? { den: dnes.getDate(), dnuVMesici: rd.dni } : {}) },
+    souhrn: { prijmy: _rpR(rd.inc), vydaje: _rpR(rd.vyd), bilance: _rpR(rd.bil), miraUsporPct: _rpR(rd.mira), pocetTransakci: rd.txN },
+    minulyMesic: { prijmy: _rpR(rd.pm.p), vydaje: _rpR(rd.pm.v), bilance: _rpR(rd.pm.p - rd.pm.v), miraUsporPct: mira(rd.pm.p, rd.pm.v) },
+    prumer3Mesice: { prijmy: _rpR(rd.avg.p), vydaje: _rpR(rd.avg.v), bilance: _rpR(rd.avg.p - rd.avg.v), miraUsporPct: mira(rd.avg.p, rd.avg.v) },
+    loni: { prijmy: _rpR(rd.ly.p), vydaje: _rpR(rd.ly.v) },
+    rozdily: { vydajeProtiMinulemu: _rpR(rd.vyd - rd.pm.v), vydajeProtiPrumeru: _rpR(rd.vyd - rd.avg.v), bilanceProtiMinulemu: _rpR(rd.bil - (rd.pm.p - rd.pm.v)) },
+    skupinyVydaju: rd.karty.map(k => ({ nazev: k.n, utrata: _rpR(k.v), minulyMesic: _rpR(k.mm), prumer3Mesice: _rpR(k.avg),
+      rozdilProtiPrumeru: _rpR(k.v - k.avg), podilPct: rd.vyd ? _rpR(k.v / rd.vyd * 100) : 0,
+      nejvic: (k.top || []).map(t => ({ kategorie: t[0], utrata: _rpR(t[1]) })) })),
+    prijmyPodleKategorie: rd.prijmy.slice(0, 4).map(([n, v]) => ({ kategorie: n, castka: _rpR(v) })),
+    rozpocty: rd.rozp.map(r => ({ kategorie: r.n, utrata: _rpR(r.v), limit: _rpR(r.lim), cerpaniPct: r.lim ? _rpR(r.v / r.lim * 100) : 0,
+      ...(r.v > r.lim ? { prekrocenoO: _rpR(r.v - r.lim) } : { zbyva: _rpR(r.lim - r.v) }) })),
+    nejvetsiVydaje: rd.nejvetsi.map(r => ({ kategorie: r.k || 'jiné', castka: _rpR(r.v) })),
+    pravidelnePlatby: { pocet: rd.pravidelne.length, mesicne: _rpR(pravM), rocne: _rpR(pravM * 12),
+      drobne: drobne.slice(0, 5).map(x => ({ nazev: x.n, mesicne: _rpR(x.mes) })), drobneMesicne: _rpR(drobneM), drobneRocne: _rpR(drobneM * 12) },
+    ...(rd.bil > 1000 ? { prebytek: { mesicne: _rpR(rd.bil), polovina: _rpR100(rd.bil / 2), polovinaRocne: _rpR100(rd.bil / 2) * 12 } } : {}),
+    skore: rd.skore ? { body: rd.skore.tot, max: rd.skore.max, znamka: (rd.skore.grade && rd.skore.grade.label) || '', minulyMesic: rd.skoreMM } : null,
+    penezenkyCelkem: _rpR(penez), rezervaMesicu: rd.avg.v > 0 ? Math.round(penez / rd.avg.v * 10) / 10 : null,
+    dluhy: rd.dluhy.length ? { pocet: rd.dluhy.length, zbyva: _rpR(dluhZb), splatkyMesicne: _rpR(dluhSpl),
+      nejvyssiUrokPct: Math.max(0, ...rd.dluhy.map(d => d.urok || 0)) } : null,
+    cile: rd.cile.map(c => ({ nazev: c.n, nasporeno: _rpR(c.ma), cil: _rpR(c.cil), splnenoPct: c.cil ? _rpR(c.ma / c.cil * 100) : 0 })),
+    uctenky: u ? { pocet: u.n, utrataZUctenek: _rpR(u.celkem),
+      osobniInflacePct: u.infl ? Math.round(u.infl.v * 10) / 10 : null, inflaceTyp: u.infl ? u.infl.typ : null,
+      nejvicZdrazuje: (u.inflPod || []).slice(0, 3).map(x => ({ skupina: x.pod && x.pod.nazev, zmenaPct: Math.round((x.zmena || 0) * 10) / 10 })),
+      vyrobkySeZmenouCeny: (u.ceny || []).slice(0, 4).map(x => ({ vyrobek: x.nazev, zmenaPct: x.zmena })),
+      skryteZdrazeni: (u.shr || []).length } : null,
+    vyhledPristiMesic: { prijmy: _rpR(rd.fc.p), vydaje: _rpR(rd.fc.v), bilance: _rpR(rd.fc.b), bilanceOd: _rpR(rd.fc.b - rd.fc.pasmo), bilanceDo: _rpR(rd.fc.b + rd.fc.pasmo) },
+  };
+}
+window.mesReportAIPodklady = mesReportAIPodklady;
+
+//  Stejný otisk jako ve workeru (SHA-256 z JSON podkladů, prvních 16 znaků).
+async function mesReportAIOtisk(data) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(data)));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+}
+const _rpAI = {};        // RRRR-MM → { json, ai } – jen když AI patří přesně k těmto podkladům
+const _rpAIStav = {};    // RRRR-MM → { stav: 'nacitam'|'pise'|'chyba'|'zastarale'|'nic', text, kdy }
+const _rpYm = (m, y) => `${y}-${String(m + 1).padStart(2, '0')}`;
+function mesReportAIPro(rd) {
+  const e = _rpAI[_rpYm(rd.m, rd.y)];
+  return e && e.json === JSON.stringify(mesReportAIPodklady(rd)) ? e.ai : null;
+}
+//  Zajistí AI k reportu: paměť → uložený výsledek (Firebase) → případně vygeneruje.
+//  generovat: true = zavolej worker, když uložené chybí nebo nesedí. Vrací ai nebo null.
+async function mesReportAIZajisti(rd, generovat, znovu) {
+  const ym = _rpYm(rd.m, rd.y), data = mesReportAIPodklady(rd), json = JSON.stringify(data);
+  if (!znovu && _rpAI[ym] && _rpAI[ym].json === json) return _rpAI[ym].ai;
+  const u = window._currentUser;
+  if (!u || !u.getIdToken || u.uid === 'local') return null;
+  const otisk = await mesReportAIOtisk(data);
+  let ulozeny = null;
+  try { if (window._db && window._get && window._ref) { const sn = await window._get(window._ref(window._db, `users/${u.uid}/reportAI/${ym}`)); ulozeny = sn.exists() ? sn.val() : null; } } catch (e) {}
+  if (!znovu && ulozeny && ulozeny.otisk === otisk) { _rpAI[ym] = { json, ai: ulozeny }; return ulozeny; }
+  if (!generovat) { if (!(_rpAIStav[ym] && _rpAIStav[ym].stav === 'chyba')) _rpAIStav[ym] = ulozeny ? { stav: 'zastarale', kdy: ulozeny.kdy } : { stav: 'nic' }; return null; }
+  _rpAIStav[ym] = { stav: 'pise' };
+  const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';
+  const r = await fetch(`${wu}/report-ai`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + await u.getIdToken() },
+    body: JSON.stringify({ mesic: ym, data, znovu: !!znovu }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.ai) { _rpAIStav[ym] = { stav: 'chyba', text: d.error || ('HTTP ' + r.status) }; return null; }
+  _rpAI[ym] = { json, ai: d.ai }; _rpAIStav[ym] = { stav: 'hotovo', kdy: d.ai.kdy };
+  return d.ai;
+}
+window.mesReportAIZajisti = mesReportAIZajisti;
 
 // ── SVG helpery ─────────────────────────────────────────────────────
 function _rpSpark(arr, w, h, col) {
@@ -289,15 +374,15 @@ function _rpPro1(rd) {
     ['Dluhy', dluhSum ? _rpKc(dluhSum) : 'žádné', `<div class="d" style="font-size:6.9pt"><span>${rd.dluhy.length} ${rd.dluhy.length === 1 ? 'půjčka' : 'půjček'}</span></div>`, null]];
   const sc = rd.skore;
   return `<section class="page" aria-label="Premium strana 1">${_rpTop(rd, `Měsíční report · ${RP_MES[rd.m]} ${rd.y}`, true)}
-  <div class="c12 title"><div><h1>${RP_MES[rd.m].charAt(0).toUpperCase() + RP_MES[rd.m].slice(1)} ${rd.y}</h1><p class="lead">${_rpLead(rd)}</p></div>
-    <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}"><b>Míra úspor ${Math.round(rd.mira)} %</b>proti ${a.p ? Math.round(bA / a.p * 100) : 0} % v průměru 3 měsíců</div></div>
+  <div class="c12 title"><div><h1>${RP_MES[rd.m].charAt(0).toUpperCase() + RP_MES[rd.m].slice(1)} ${rd.y}</h1><p class="lead">${rd.ai && rd.ai.shrnuti ? _rpE(rd.ai.shrnuti) : _rpLead(rd)}</p></div>
+    <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}">${rd.ai && rd.ai.hodnoceni ? `<div style="font-size:7.4pt;color:#1F45C8;margin-bottom:1mm">✨ Hodnocení: <b style="display:inline;font-size:inherit;color:inherit">${_rpE(rd.ai.hodnoceni.znamka)} měsíc</b>${rd.ai.hodnoceni.proc ? ` – ${_rpE(rd.ai.hodnoceni.proc)}` : ''}</div>` : ''}<b>Míra úspor ${Math.round(rd.mira)} %</b>proti ${a.p ? Math.round(bA / a.p * 100) : 0} % v průměru 3 měsíců</div></div>
   <div class="c12 kpis" style="grid-template-columns:repeat(6,1fr)">${k.map(x => `<div><div class="l">${x[0]}</div><div class="v" style="font-size:12pt">${x[1]}</div>${x[2]}${x[3] ? _rpSpark(x[3], 70, 16) : ''}</div>`).join('')}</div>
   <div class="c5 sec"><h2>Finanční skóre</h2><div class="sub">Stejné jako na Dashboardu</div>
     ${sc ? `<div style="display:flex;align-items:baseline;gap:2.4mm"><span style="font-size:26pt;font-weight:600;line-height:1">${sc.tot}</span><span class="faint">z ${sc.max}</span><span style="margin-left:auto" class="chip">${_rpE(sc.grade && sc.grade.label || '')}</span></div>
       ${(sc.comps || []).map(c => `<div style="display:grid;grid-template-columns:24mm 1fr 12mm;gap:2mm;align-items:center;font-size:8pt;margin:1.3mm 0"><span>${_rpE(c.label.replace(/^\S+\s/, ''))}</span>
         <div class="bar"><i style="width:${c.max ? c.score / c.max * 100 : 0}%;background:${c.avail === false ? '#E2E8F0' : '#1E293B'}"></i></div><span class="num">${c.avail === false ? '–' : c.score + '/' + c.max}</span></div>`).join('')}` : '<div class="faint">Skóre se nepodařilo spočítat.</div>'}</div>
-  <div class="c7 sec"><h2>Co stojí za pozornost</h2><div class="sub">Spočítané z tvých čísel · AI komentář přibude v další verzi</div>
-    <div style="display:grid;gap:2.4mm">${_rpPostrehy(rd).map(p => `<div class="ai" style="background:#EEF3FF;border-left-color:#1F45C8"><h3>${p[0]}</h3><p style="color:#334155">${p[1]}</p><div class="ft" style="color:#1F45C8"><span>${p[2]}</span></div></div>`).join('')}</div></div>
+  <div class="c7 sec"><h2>Co stojí za pozornost</h2><div class="sub">${rd.ai && rd.ai.postrehy && rd.ai.postrehy.length ? '✨ Napsala AI z tvých čísel · každé číslo ověřené appkou' : 'Spočítané z tvých čísel'}</div>
+    <div style="display:grid;gap:2.4mm">${(rd.ai && rd.ai.postrehy && rd.ai.postrehy.length ? rd.ai.postrehy.map(x => [_rpE(x.titulek), _rpE(x.text), '✨ AI']) : _rpPostrehy(rd)).map(p => `<div class="ai" style="background:#EEF3FF;border-left-color:#1F45C8"><h3>${p[0]}</h3><p style="color:#334155">${p[1]}</p><div class="ft" style="color:#1F45C8"><span>${p[2]}</span></div></div>`).join('')}</div></div>
   ${rd.zust ? `<div class="c12 sec"><h2>Na účtech na konci měsíce ${_rpKc(rd.zust.at(-1))}, nejméně ${rd.zust.indexOf(Math.min(...rd.zust)) + 1}. den</h2><div class="sub">Zůstatek všech peněženek den po dni (v Kč)</div>${_rpZust(rd, 110)}</div>` : `<div class="c12 sec"><h2>${rd.kumNet.at(-1) >= 0 ? 'Měsíc skončil v plusu' : 'Měsíc skončil v mínusu'}, nejníž ${rd.kumNet.indexOf(Math.min(...rd.kumNet)) + 1}. den</h2><div class="sub">Pohyb peněz v měsíci: příjmy − výdaje den po dni (kumulovaně)</div>${_rpKum(rd).replace('viewBox="0 0 330 150"', 'viewBox="0 0 330 110"')}</div>`}
   <div class="foot"><span>Čísla spočítala appka z tvých transakcí. Nejde o investiční doporučení.</span><span>1 / ${rd._stran}</span></div></section>`;
 }
@@ -349,7 +434,7 @@ function _rpPro4(rd) {
   const drobne = rd.pravidelne.filter(x => x.mes > 0 && x.mes < 1500), ps = drobne.reduce((a, x) => a + x.mes, 0);
   if (drobne.length >= 2) rec.push([`Projdi předplatné a drobné pravidelné platby`, `${_rpKc(ps * 12)} ročně`, `${drobne.length} plateb (${drobne.slice(0, 3).map(x => _rpE(x.n)).join(', ')}${drobne.length > 3 ? '…' : ''}) za ${_rpKc(ps)} měsíčně. Co nevyužíváš, zruš – každá stovka měsíčně je 1 200 Kč ročně.`]);
   return `<section class="page dense" aria-label="Premium strana 4">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · výhled a doporučení`, true)}
-  <div class="c12 sec"><h2>${RP_MES[rd.nm].charAt(0).toUpperCase() + RP_MES[rd.nm].slice(1)}: odhad bilance ${_rpKcz(f.b)} (${_rpKcz(f.b - f.pasmo)} až ${_rpKcz(f.b + f.pasmo)})</h2><div class="sub">Graf 4.1 · Bilance posledních 6 měsíců a odhad příštího s pásmem nejistoty</div>${_rpFc(rd)}
+  <div class="c12 sec"><h2>${RP_MES[rd.nm].charAt(0).toUpperCase() + RP_MES[rd.nm].slice(1)}: odhad bilance ${_rpKcz(f.b)} (${_rpKcz(f.b - f.pasmo)} až ${_rpKcz(f.b + f.pasmo)})</h2><div class="sub">${rd.ai && rd.ai.vyhled ? '✨ ' + _rpE(rd.ai.vyhled) : 'Graf 4.1 · Bilance posledních 6 měsíců a odhad příštího s pásmem nejistoty'}</div>${_rpFc(rd)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:1.6mm;font-size:7.8pt"><div><b>Z čeho odhad vychází</b><ul class="list">
       <li><span>Příjmy ${rd.pristi.some(x => x.v > 0) ? '(šablony)' : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
       <div><b>Pevné platby v ${RP_MES6[rd.nm]}</b><ul class="list">${rd.pristi.filter(x => x.v < 0).slice(0, 4).map(x => `<li><span>${x.d}. ${_rpE(x.n)}</span><span>${_rpKcz(x.v)}</span></li>`).join('') || '<li><span class="faint">žádné šablony</span><span></span></li>'}</ul></div></div></div>
@@ -357,7 +442,8 @@ function _rpPro4(rd) {
     ${rd.cile.length ? rd.cile.map(c => `<div style="padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><div style="display:flex;justify-content:space-between"><b>${_rpE(c.n)}</b><span>${_rpKc(c.ma)} / ${_rpKc(c.cil)}</span></div><div class="bar" style="margin-top:1.2mm"><i style="width:${Math.min(100, c.ma / c.cil * 100)}%;background:#1F45C8"></i></div></div>`).join('') : '<div class="faint" style="font-size:8pt">Žádné cíle. Založíš je v Nákupním seznamu / cílech.</div>'}</div>
   <div class="c6 sec"><h2>Dluhy</h2><div class="sub">Zbývá splatit</div>
     ${rd.dluhy.length ? `<table><tr><th class="t">Půjčka</th><th>Zbývá</th><th>Splátka</th><th>Úrok</th></tr>${rd.dluhy.map(d => `<tr><td class="t">${_rpE(d.n)}</td><td><b>${_rpKc(d.zb)}</b></td><td>${d.spl ? _rpKc(d.spl) : '–'}</td><td class="faint">${d.urok ? String(d.urok).replace('.', ',') + ' %' : '–'}</td></tr>`).join('')}</table>` : '<div class="faint" style="font-size:8pt">Žádné půjčky. 👍</div>'}</div>
-  <div class="c12 ai" style="background:#EEF3FF;border-left-color:#1F45C8"><div class="tag" style="color:#1F45C8">Doporučení na ${RP_MES[rd.nm]} <span style="color:#64748B">spočítané z tvých čísel</span></div>
+  ${(() => { if (rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length) { rec.length = 0; rd.ai.doporuceni.forEach(x => rec.push([_rpE(x.titulek), _rpE(x.prinos || ''), _rpE(x.text)])); } return ''; })()}
+  <div class="c12 ai" style="background:#EEF3FF;border-left-color:#1F45C8"><div class="tag" style="color:#1F45C8">Doporučení na ${RP_MES[rd.nm]} <span style="color:#64748B">${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '✨ napsala AI z tvých čísel · čísla ověřená appkou' : 'spočítané z tvých čísel'}</span></div>
     ${rec.length ? rec.slice(0, 3).map(r => `<div class="rec" style="border-top-color:#D6E0FF"><b>${r[0]}</b><span class="k" style="color:#1F45C8">${r[1]}</span><p style="color:#334155">${r[2]}</p></div>`).join('') : '<p>Tento měsíc nic, co by stálo za změnu. 🎉</p>'}</div>
   <div class="c12" style="font-size:7pt;color:#8A94A6;line-height:1.5;border-top:1px solid #E2E8F0;padding-top:2mm"><b style="color:#475569">Metodika.</b> Bilance = příjmy − výdaje bez převodů mezi vlastními účty. Skupiny = karty útraty (účtenky rozdělené po položkách podle taxonomie). Skóre stejné jako na Dashboardu. Odhad: příjmy ze šablon nebo průměr, výdaje vážený průměr (tento měsíc + 2× průměr 3 měsíců), pásmo podle výkyvů posledních 6 měsíců. Report je informativní, nejde o investiční doporučení.</div>
   <div class="foot"><span>FinanceFlow · ${RP_MES[rd.m]} ${rd.y}</span><span>4 / ${rd._stran}</span></div></section>`;
@@ -431,18 +517,65 @@ function renderMesicniReport(el) {
     l.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap'; document.head.appendChild(l); }
   let rd;
   try { rd = mesReportData(D, S.curMonth, S.curYear); } catch (e) { el.innerHTML = `<div class="card"><div class="card-body" style="color:var(--expense)">Report se nepodařilo spočítat: ${_rpE(e.message)}</div></div>`; return; }
+  //  S25 (F3): AI texty jen v Premium, jen u vlastních dat (ne při prohlížení partnera).
+  const _aiSmi = pro && !(typeof viewingUid !== 'undefined' && viewingUid);
+  if (_aiSmi) { try { rd.ai = mesReportAIPro(rd); } catch (e) { rd.ai = null; } }
+  window._rpEl = el;
   el.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <button class="btn btn-primary" onclick="mesReportTisk()">📄 Uložit jako PDF / tisk</button>
       <button class="btn btn-ghost" onclick="mesReportPoslatTlacitko(this)">✉️ Poslat e-mailem</button>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:.76rem;color:#c9cede;cursor:pointer"><input type="checkbox" ${(S.uiCfg || {}).reportEmail === false ? '' : 'checked'} onchange="mesReportAutoNastav(this.checked)"> posílat automaticky každý měsíc (4. den)</label>
       <span style="font-size:.74rem;color:#a8aec8">${pro ? 'Premium report · 4 strany' : 'Základní report · 2 strany · <a href="#" onclick="if(typeof showPaywall===\'function\')showPaywall();return false" style="color:#a78bfa">💎 Premium má 4 strany s rozborem</a>'} · měsíc přepneš nahoře</span></div>
+    ${_aiSmi ? '<div id="rpAIStav" style="font-size:.76rem;color:#c9cede;margin:-2px 0 10px;line-height:1.5"></div>' : ''}
     <div id="rp4wrap" style="overflow:hidden"><div id="rp4scale" class="rp4" style="transform-origin:top left">${mesReportHTML(rd, pro)}</div></div>`;
   const fit = () => { const w = document.getElementById('rp4wrap'), s = document.getElementById('rp4scale'); if (!w || !s) return;
     const k = Math.min(1, w.clientWidth / 800); s.style.transform = `scale(${k})`; s.style.width = (100 / k) + '%'; w.style.height = (s.scrollHeight * k) + 'px'; };
   fit(); setTimeout(fit, 300);
   if (!window._rp4resize) { window._rp4resize = true; window.addEventListener('resize', () => { if (document.getElementById('rp4wrap')) fit(); }); }
+  if (_aiSmi) mesReportAIPoRenderu(el, rd);
 }
 window.renderMesicniReport = renderMesicniReport;
+
+//  Po vykreslení: AI z paměti → uložená → u uzavřeného měsíce vygenerovat (běžící jen tlačítkem).
+async function mesReportAIPoRenderu(el, rd) {
+  const ym = _rpYm(rd.m, rd.y);
+  if (rd.ai) { _rpAIStav[ym] = { stav: 'hotovo', kdy: rd.ai.kdy }; return _rpAIStavKresli(rd); }
+  if (!rd.txN) { _rpAIStav[ym] = { stav: 'prazdny' }; return _rpAIStavKresli(rd); }
+  if (!window._currentUser || window._currentUser.uid === 'local') return;
+  const dnes = new Date(), uzavreny = rd.y * 12 + rd.m < dnes.getFullYear() * 12 + dnes.getMonth();
+  //  Po chybě se samo znovu negeneruje (jinak by každé otevření stálo kvótu) – jen tlačítkem.
+  const bylaChyba = !!(_rpAIStav[ym] && _rpAIStav[ym].stav === 'chyba');
+  if (!bylaChyba) { _rpAIStav[ym] = { stav: uzavreny ? 'pise' : 'nacitam' }; _rpAIStavKresli(rd); }
+  let ai = null;
+  try { ai = await mesReportAIZajisti(rd, uzavreny && !bylaChyba); }
+  catch (e) { _rpAIStav[ym] = { stav: 'chyba', text: e.message }; }
+  if (ai && S.curMonth === rd.m && S.curYear === rd.y && document.getElementById('rp4scale')) return renderMesicniReport(el);
+  _rpAIStavKresli(rd);
+}
+function _rpAIStavKresli(rd) {
+  const box = document.getElementById('rpAIStav'); if (!box) return;
+  const ym = _rpYm(rd.m, rd.y), st = _rpAIStav[ym] || {};
+  const btn = (txt, znovu) => `<button class="btn btn-ghost btn-sm" style="font-size:.72rem;padding:3px 10px;margin-left:6px" onclick="mesReportAINapsat(${znovu ? 'true' : 'false'})">${txt}</button>`;
+  const datum = t => t ? new Date(t).toLocaleDateString('cs-CZ') : '';
+  const dnes = new Date(), bezi = rd.y === dnes.getFullYear() && rd.m === dnes.getMonth();
+  if (rd.ai) box.innerHTML = `✨ <b>AI komentář</b> · napsáno ${datum(rd.ai.kdy)} · ${rd.ai.vyrazeno ? `${rd.ai.vyrazeno} ${rd.ai.vyrazeno === 1 ? 'text' : 'texty'} s neověřeným číslem nahrazeno výpočtem appky` : 'všechna čísla ověřila appka'}${btn('↻ Napsat znovu', true)}`;
+  else if (st.stav === 'pise') box.innerHTML = '⏳ AI píše komentář k reportu… (pár vteřin)';
+  else if (st.stav === 'nacitam') box.innerHTML = '⏳ Hledám AI komentář…';
+  else if (st.stav === 'chyba') box.innerHTML = `<span style="color:#fbbf24">⚠️ ${_rpE(st.text || 'AI komentář se nepodařilo napsat')}</span> – report ukazuje texty spočítané appkou.${btn('Zkusit znovu', true)}`;
+  else if (st.stav === 'zastarale') box.innerHTML = `Data se od AI komentáře (${datum(st.kdy)}) změnila – report teď ukazuje texty spočítané appkou.${btn('✨ Aktualizovat komentář', true)}`;
+  else if (st.stav === 'nic') box.innerHTML = `${btn('✨ Napsat AI komentář', false).replace('margin-left:6px', 'margin-left:0')} <span style="color:#a8aec8">${bezi ? 'Měsíc ještě běží – komentář se sám neaktualizuje, napíšeš ho znovu, kdy chceš.' : ''}</span>`;
+  else box.innerHTML = '';
+}
+async function mesReportAINapsat(znovu) {
+  const el = window._rpEl; if (!el) return;
+  const rd = mesReportData(getData(), S.curMonth, S.curYear), ym = _rpYm(rd.m, rd.y);
+  _rpAIStav[ym] = { stav: 'pise' }; _rpAIStavKresli(rd);
+  let ai = null;
+  try { ai = await mesReportAIZajisti(rd, true, !!znovu); } catch (e) { _rpAIStav[ym] = { stav: 'chyba', text: e.message }; }
+  if (ai) return renderMesicniReport(el);
+  _rpAIStavKresli(rd);
+}
+window.mesReportAINapsat = mesReportAINapsat;
 
 //  S25: samostatné HTML reportu – stejné pro tisk i pro PDF do e-mailu (worker ho dá vytisknout
 //  skutečnému Chromu v Cloudflare, takže vzhled zůstane stejný jako při tisku z appky).
@@ -462,6 +595,10 @@ async function mesReportPoslat(m, y, auto) {
   const D = getData();
   const pro = typeof hasPremiumAccess !== 'function' || hasPremiumAccess();
   const rd = mesReportData(D, m, y);
+  //  S25 (F3): Premium report v e-mailu i s AI komentářem (uložený, nebo se teď napíše; max. 25 s, jinak pravidla).
+  if (pro && rd.txN) {
+    try { rd.ai = await Promise.race([mesReportAIZajisti(rd, true), new Promise(r => setTimeout(() => r(null), 25000))]); } catch (e) { rd.ai = null; }
+  }
   const html = mesReportSamostatne(mesReportHTML(rd, pro), m, y, false);
   const token = await window._currentUser.getIdToken();
   const wu = (typeof WORKER_URL !== 'undefined' && WORKER_URL) || 'https://misty-limit-0523.bc-milda.workers.dev';

@@ -9,7 +9,7 @@ const S={receipts:[
   {date:'2026-09-10',store:'Lidl',items:[{name:'LINDOR 200G',price:129},{name:'Rohlík',ean:'111',eanNazev:'Rohlík tukový'}]},
   {date:'2026-09-20',store:'Lidl',items:[{name:'MLEKO 1L',ean:EAN,eanNazev:'Lindt'},{name:'Banány',price:30}]}],
  transactions:[{receiptStore:'Lidl',receiptItems:[{name:'MLEKO 1L',ean:EAN}]}]};
-const calls=[]; const els={}; const el=()=>({style:{},innerHTML:'',appendChild(){},value:''});
+const calls=[]; const els={}; const el=()=>({style:{},innerHTML:'',appendChild(){},value:'',focus(){},setSelectionRange(){}});
 const c={console,S,getData:()=>S,save(){c._ulozeno=(c._ulozeno||0)+1;},showToast(){},confirm:()=>true,localStorage:{getItem:()=>null},URL,setTimeout,
  document:{getElementById:id=>els[id]||(els[id]=el()),createElement:()=>el(),body:{appendChild(){}},head:{appendChild(){}}},navigator:{},
  fetch:async(u,o)=>{ if(o&&o.body){const b=JSON.parse(o.body);calls.push(b);return {ok:true,status:200,json:async()=>({ok:true})};} return {ok:true,json:async()=>({})};}};
@@ -44,5 +44,13 @@ console.log('── S25 · přiřazení kódu výrobku ──');
  t('fotka živin hlásí stav v okně skeneru',src.includes("eanZprava(t, chyba)")&&src.includes('najdeš je v kartě výrobku'));
  const wk=R('worker.js','../cloudflare-worker/worker.js','../worker.js');
  t('worker: akce odebrat ubere jen vlastní potvrzení',wk.includes("body.akce === 'odebrat'")&&/moje\.ean !== ean\) return json\(\{ ok: true, odebrano: false/.test(wk));
+ t('fotka živin: tlačítko foťák (capture) + zvlášť z galerie',src.includes("if (!zGalerie) inp.setAttribute('capture', 'environment');")&&src.includes("'ziviny',${poHotovo},true)"));
+ t('AI název jak na českém obalu, značka jen volitelně',wk.includes('jak by byl na českém obalu')&&wk.includes('jen když bez ní název výrobek nevystihne')&&!wk.includes('se značkou (+ řadou)'));
+ { vm.runInContext(`_eanProdukty["${EAN}"]={stav:"nalezeno",nazev:"Lindt Lindor Assorted",nazevCesky:false,nazevCs:"Mléčná čokoláda s různými náplněmi"};_eanMojeNazvy={}`,c);
+   c.eanNazevUprav(EAN,'nz_'+EAN);
+   t('úprava názvu: předvyplní český návrh, ne cizí název',els['nz_'+EAN].innerHTML.includes('value="Mléčná čokoláda s různými náplněmi"'));
+   els['nz_'+EAN+'_in']={value:'Lindt Lindor Assorted'}; const n0=calls.length;
+   await c.eanNazevUloz(EAN,'nz_'+EAN);
+   t('uložení beze změny cizího názvu se neuloží jako tvůj',calls[n0]&&calls[n0].nazev===''&&!vm.runInContext('_eanMojeNazvy',c)[EAN]); }
  console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); if(bad) process.exitCode=1;
 })();

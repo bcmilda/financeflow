@@ -28,7 +28,7 @@ check('hlídané jsou všechny lokální skripty',()=>{
 console.log('\n── Admin: hlášení účtenek ──');
 check('záložka existuje a je napojená',()=>{
   assert(/atab-reports/.test(adm),'chybí záložka');
-  assert(/'reports'\]\.forEach/.test(adm) || /,'reports'\]/.test(adm),'není v seznamu záložek');
+  assert(/'reports'\]\.forEach/.test(adm) || /,'reports'[,\]]/.test(adm),'není v seznamu záložek');   // S25 v11.50: za ní přibyla 'uloziste'
   assert(/if\(tab==='reports'\)/.test(adm),'přepnutí nic nevykreslí');
 });
 check('čte se celý uzel receipt_reports, ne jen vlastní podstrom',()=>{

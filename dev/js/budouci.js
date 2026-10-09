@@ -1,4 +1,9 @@
-// FinanceFlow · v10.89 · budouci.js · 2026-09-21
+// FinanceFlow · v11.44 · budouci.js · 2026-10-08
+//  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
+//  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
+//  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
+const _bIso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const _bDen = v => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
 // ══════════════════════════════════════════════════════
 //  BUDOUCÍ PLATBY – FinanceFlow v6.50
 //  TODO-058 · Zdroje: šablony + narozeniny + cíle + dluhy
@@ -28,8 +33,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
     //  S23: jednorázová platba má vlastní datum; hotová se už nezobrazuje.
     let occurrences;
     if (freq === 'once') {
-      const od = s.onceDate ? new Date(s.onceDate) : null;
-      if (od) od.setHours(0,0,0,0);
+      const od = _bDen(s.onceDate);
       occurrences = (s.done || !od || od < today || od > horizon) ? [] : [od];
     } else occurrences = budouciGetOccurrences(freq, den, today, horizon);
 
@@ -42,13 +46,13 @@ function budouciGetAll(D, horizonDays, fromDate) {
     }
     occurrences.forEach(date => {
       items.push({
-        id:       `sablona-${s.id}-${date.toISOString().slice(0,10)}`,
+        id:       `sablona-${s.id}-${_bIso(date)}`,
         source:   'sablona',
         icon:     isTransfer ? '↔️' : '🔄',
         name:     s.name,
         amount:   s.amount || 0,
         date:     date,
-        dateStr:  date.toISOString().slice(0,10),
+        dateStr:  _bIso(date),
         note:     isTransfer
                     ? (walletToName ? '→ '+walletToName : 'přesun') + ' · ' + (FREQ_LABELS[freq]||freq)
                     : (FREQ_LABELS[freq] || freq),
@@ -75,7 +79,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
           name:    `Narozeniny – ${b.name}`,
           amount:  b.gift || 0,
           date,
-          dateStr: date.toISOString().slice(0,10),
+          dateStr: _bIso(date),
           note:    daysTo === 0 ? '🎉 Dnes!' : `za ${daysTo} dní`,
           color:   'var(--bank)',
           bdayId:  b.id,
@@ -93,13 +97,13 @@ function budouciGetAll(D, horizonDays, fromDate) {
     let cur = new Date(today.getFullYear(), today.getMonth() + 1, 1); // začni od příštího 1.
     while (cur <= goalEnd) {
       items.push({
-        id:      `goal-${goal.id}-${cur.toISOString().slice(0,10)}`,
+        id:      `goal-${goal.id}-${_bIso(cur)}`,
         source:  'goal',
         icon:    goal.icon || '🎯',
         name:    `Spoření – ${goal.name}`,
         amount:  goal.monthlyTarget,
         date:    new Date(cur),
-        dateStr: cur.toISOString().slice(0,10),
+        dateStr: _bIso(cur),
         note:    deadlineDate ? `deadline ${fmtD(goal.deadline)}` : 'měsíční vklad',
         color:   'var(--income)',
         goalId:  goal.id,
@@ -118,7 +122,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
     if (debt.schedule && debt.schedule.length) {
       debt.schedule.forEach(sch => {
         if (sch.paid) return;
-        const date = new Date(sch.date); date.setHours(0,0,0,0);
+        const date = _bDen(sch.date); if (!date) return;
         if (date >= today && date <= horizon) {
           items.push({
             id:     `debt-${debt.id}-${sch.date}`,
@@ -127,7 +131,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
             name:   `Splátka – ${debt.name}`,
             amount: sch.payment || payment,
             date,
-            dateStr: date.toISOString().slice(0,10),
+            dateStr: _bIso(date),
             note:   debt.creditor || '',
             color:  'var(--expense)',
             debtId: debt.id,
@@ -140,13 +144,13 @@ function budouciGetAll(D, horizonDays, fromDate) {
       const den  = 1;
       budouciGetOccurrences(freq, den, today, horizon).forEach(date => {
         items.push({
-          id:     `debt-${debt.id}-${date.toISOString().slice(0,10)}`,
+          id:     `debt-${debt.id}-${_bIso(date)}`,
           source: 'debt',
           icon:   '🏦',
           name:   `Splátka – ${debt.name}`,
           amount: payment,
           date,
-          dateStr: date.toISOString().slice(0,10),
+          dateStr: _bIso(date),
           note:   debt.creditor || '',
           color:  'var(--expense)',
           debtId: debt.id,
@@ -398,7 +402,7 @@ function _budouciAmtMatch(expected, actual) {
 
 function budouciIsPaid(item, D, exact) {
   D = D || getData();
-  const dateStr = item.date.toISOString().slice(0, 10);
+  const dateStr = _bIso(item.date);
   const ym = dateStr.slice(0, 7);
   const nm = (item.name || '').trim();
   if (!nm) return false;
@@ -436,7 +440,7 @@ function budouciPayControl(item, today) {
   // splatnost už nastala – shoda na úrovni měsíce (i off-day ruční platba)
   if (budouciIsPaid(item, getData(), false)) return badge('var(--income-bg)', 'var(--income)', '✓ Zaplaceno');
   // po splatnosti a chybí → nabídni zapsání (předvyplní transakci)
-  return `<button type="button" onclick="event.stopPropagation();budouciMarkPaid('${encodeURIComponent(item.name)}',${item.amount},${item.isTransfer ? 1 : 0},'${item.date.toISOString().slice(0, 10)}')"
+  return `<button type="button" onclick="event.stopPropagation();budouciMarkPaid('${encodeURIComponent(item.name)}',${item.amount},${item.isTransfer ? 1 : 0},'${_bIso(item.date)}')"
       title="Není zaznamenáno – zapsat jako transakci"
       style="flex-shrink:0;margin-left:8px;padding:3px 9px;border-radius:6px;border:1px solid rgba(251,191,36,.45);background:rgba(251,191,36,.10);color:var(--debt);font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap">Zaznamenat</button>`;
 }

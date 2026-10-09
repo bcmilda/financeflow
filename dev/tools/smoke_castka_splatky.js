@@ -49,7 +49,9 @@ check('prázdný vstup nespadne',()=>{
 
 // ══════ FIX-283 ══════
 global.calcAnnuity=()=>0;
-eval(pickFrom(fs.readFileSync('debts.js','utf8'),'generateSchedule'));
+const _dbt=fs.readFileSync(require('fs').existsSync('debts.js')?'debts.js':require('path').join(__dirname,'../js/debts.js'),'utf8');
+global.window=global.window||{};
+eval(['debtStartStr','debtDatumSplatky','debtOpravDataSplatek','generateSchedule'].map(n=>pickFrom(_dbt,n)).join('\n'));
 const gen=(startDate,freq)=>generateSchedule({remaining:100000,interest:5,freq:freq||'monthly',payment:5000,startDate});
 
 console.log('\n── FIX-283 · data splátek ──');
@@ -94,5 +96,16 @@ check('částky a úroky zůstaly nedotčené',()=>{
   assert(s[s.length-1].remaining===0,'nedosplaceno: '+s[s.length-1].remaining);
 });
 
+// S25 (v11.44): v letním čase se splátka posouvala o den dřív (UTC) – test běží v časové zóně Prahy
+check('letní čas: splatnost 15. zůstane 15. i v dubnu–říjnu (časová zóna Praha)',()=>{
+  const s=gen('2026-03-15').slice(0,8).map(x=>x.date);
+  assert(s.every(d=>d.endsWith('-15')),'vyšlo '+s.join(','));
+});
+check('oprava uložených kalendářů posunutých o den – data opraví, zaplaceno a částky nechá',()=>{
+  const d={startDate:'2026-01-15',freq:'monthly',schedule:[{num:1,date:'2026-01-15',paid:true,payment:5000},{num:4,date:'2026-04-14',paid:false,payment:5000}]};
+  const n=debtOpravDataSplatek([d]);
+  assert(n===1&&d.schedule[1].date==='2026-04-15'&&d.schedule[0].paid===true&&d.schedule[1].payment===5000,JSON.stringify(d.schedule));
+  assert(debtOpravDataSplatek([d])===0,'podruhé už nic');
+});
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ FIX-282 + FIX-283 OVĚŘENY');
 process.exit(fails?1:0);

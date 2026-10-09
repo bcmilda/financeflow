@@ -1,4 +1,4 @@
-// FinanceFlow · v11.10 · kalendar.js · 2026-09-29
+// FinanceFlow · v11.33 · kalendar.js · 2026-10-06
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -404,7 +404,7 @@ function workFondHodin(rok, mesic, cfg) {
 
 function workPreviewSazba() {
   const el = document.getElementById('workSazbaNahled'); if (!el) return;
-  const vyplata = parseFloat((document.getElementById('workSalary')?.value || '').replace(/\s/g, '').replace(',', '.')) || 0;
+  const vyplata = parseFloat((document.getElementById('workSalary')?.value || '').replace(/\s/g, '').replace(',', '.')) || _workSalary(_workCfg(), S.curYear, S.curMonth).castka || 0;
   if (!vyplata) {
     el.innerHTML = 'Zadej čistou výplatu a spočítám z ní hodinovou sazbu.';
     return;
@@ -433,13 +433,26 @@ function _workCfg() {
   return {
     hpd: w.hpd || 8, vacQuota: (w.vacQuota != null ? w.vacQuota : 20), workdays: w.workdays || [1, 2, 3, 4, 5], days: w.days || {},
     breakMin: (w.breakMin != null ? w.breakMin : 30),        // neplacená přestávka min/den
-    salary: w.salary || 0,                                    // čistá výplata Kč/měs
+    salary: w.salary || 0,                                    // čistá výplata Kč/měs (výchozí)
+    salaryM: w.salaryM || {},                                 // S25: čistá výplata zadaná pro konkrétní měsíc {'YYYY-MM': Kč}
+    //  S25 (Milan): dovolená v HODINÁCH (zákoník práce od 2021). Starší nastavení ve dnech se přepočte × hodin/směna.
+    vacQuotaH: (w.vacQuotaH != null ? w.vacQuotaH : ((w.vacQuota != null ? w.vacQuota : 20) * (w.hpd || 8))),
     bonusOT: (w.bonusOT != null ? w.bonusOT : 25),            // příplatek přesčas %
     bonusWe: (w.bonusWe != null ? w.bonusWe : 10),            // příplatek víkend %
     bonusHol: (w.bonusHol != null ? w.bonusHol : 100),        // příplatek svátek %
     bonusNight: (w.bonusNight != null ? w.bonusNight : 10),   // příplatek noční %
   };
 }
+//  S25: čistá výplata pro měsíc – zadaná pro ten měsíc, jinak poslední zadaná dřív, jinak výchozí.
+function _workSalary(cfg, y, m) {
+  const k = `${y}-${String(m + 1).padStart(2, '0')}`, M = cfg.salaryM || {};
+  if (M[k] != null) return { castka: M[k], zadana: true };
+  const drivejsi = Object.keys(M).filter(x => x < k).sort().pop();
+  return { castka: drivejsi ? M[drivejsi] : (cfg.salary || 0), zadana: false, odkud: drivejsi || '' };
+}
+window._workSalary = _workSalary;
+//  S25: hodiny dovolené dne – zadané u dne, jinak hodin/směna
+function _workVacH(wd, cfg) { return (wd && wd.hours > 0) ? wd.hours : (cfg.hpd || 8); }
 // S17.5: jednotný zapisovač S.workCal – zachovává VŠECHNA pole konfigurace (nové mzdové
 // položky by jinak starší zapisovače tiše smazaly – stejná třída chyby jako Firebase schema).
 function _workSave(patch) {
@@ -474,13 +487,15 @@ function _renderKalWork(D, m, y) {
     const wd = _workDay(y, m, d); if (!wd) continue;
     if (wd.type === 'smena') { shifts++; hours += (wd.hours || 0); overtime += Math.max(0, (wd.hours || 0) - cfg.hpd); }
     else if (wd.type === 'prescas') { hours += (wd.hours || 0); overtime += (wd.hours || 0); }  // S17.7: práce mimo směny = celé přesčas
-    else if (wd.type === 'dovolena') vac++;
+    else if (wd.type === 'dovolena') vac += _workVacH(wd, cfg);
     else if (wd.type === 'nemoc') sick++;
   }
-  // Zůstatek dovolené za CELÝ ROK
+  // Zůstatek dovolené za CELÝ ROK – v hodinách
   let vacYear = 0;
-  Object.keys(cfg.days).forEach(k => { if (k.startsWith(`${y}-`) && cfg.days[k].type === 'dovolena') vacYear++; });
-  const vacLeft = cfg.vacQuota - vacYear;
+  Object.keys(cfg.days).forEach(k => { if (k.startsWith(`${y}-`) && cfg.days[k].type === 'dovolena') vacYear += _workVacH(cfg.days[k], cfg); });
+  const vacLeft = cfg.vacQuotaH - vacYear;
+  const fmtH = v => String(Math.round(v * 10) / 10).replace('.', ',');
+  const sal = _workSalary(cfg, y, m);
 
   // Nastavení úvazku
   const dayToggle = (i, lbl) => {
@@ -497,8 +512,8 @@ function _renderKalWork(D, m, y) {
             <input type="number" id="workHpd" value="${cfg.hpd}" min="1" max="24" step="0.5" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
           <div>
-            <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Dní dovolené / rok</div>
-            <input type="number" id="workVacQuota" value="${cfg.vacQuota}" min="0" max="60" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
+            <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Hodin dovolené / rok</div>
+            <input type="text" inputmode="decimal" id="workVacQuota" value="${fmtH(cfg.vacQuotaH)}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
         </div>
         <div style="font-size:.72rem;color:var(--text3);margin-bottom:6px">Pracovní dny (informativní)</div>
@@ -518,8 +533,8 @@ function _renderKalWork(D, m, y) {
             <input type="text" inputmode="numeric" id="workBreakMin" value="${cfg.breakMin}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
           <div>
-            <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px;line-height:1.35">Čistá výplata (Kč/měs)</div>
-            <input type="text" inputmode="numeric" id="workSalary" value="${cfg.salary || ''}" placeholder="např. 32000"
+            <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px;line-height:1.35">Čistá výplata za ${CZ_M[m].toLowerCase()} ${y} (Kč)</div>
+            <input type="text" inputmode="numeric" id="workSalary" value="${sal.zadana ? sal.castka : ''}" placeholder="${sal.castka ? 'jako ' + (sal.odkud ? 'minule' : 'obvykle') + ': ' + sal.castka : 'např. 32000'}"
                    oninput="workPreviewSazba()"
                    style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text)">
           </div>
@@ -556,24 +571,26 @@ function _renderKalWork(D, m, y) {
           ${sc('Směny', shifts, 'směn', '#4ade80')}
           ${sc('Odpracováno', hours.toFixed(hours % 1 ? 1 : 0), 'h', '#4ade80')}
           ${sc('Přesčasy', overtime.toFixed(overtime % 1 ? 1 : 0), 'h', overtime > 0 ? '#fbbf24' : 'var(--text3)')}
-          ${sc('Dovolená', vac, 'dní', '#60a5fa')}
+          ${sc('Dovolená', fmtH(vac), 'h', '#60a5fa')}
           ${sc('Nemoc', sick, 'dní', sick > 0 ? '#fbbf24' : 'var(--text3)')}
-          ${sc('Zůstatek dov.', vacLeft, 'dní', vacLeft < 0 ? '#f87171' : vacLeft <= 3 ? '#fbbf24' : '#4ade80')}
+          ${sc('Zůstatek dov.', fmtH(vacLeft), 'h', vacLeft < 0 ? '#f87171' : vacLeft <= 3 * (cfg.hpd || 8) ? '#fbbf24' : '#4ade80')}
         </div>
-        <div style="font-size:.72rem;color:var(--text3);margin-top:10px">Zůstatek dovolené = ${cfg.vacQuota} dní/rok − ${vacYear} vyčerpaných v roce ${y}.</div>
+        <div style="font-size:.72rem;color:var(--text3);margin-top:10px">Zůstatek dovolené = ${fmtH(cfg.vacQuotaH)} h/rok − ${fmtH(vacYear)} h vyčerpaných v roce ${y} (den dovolené = ${fmtH(cfg.hpd)} h, pokud u dne nezadáš jinak).</div>
       </div>
     </div>`;
 
   // ── S16 (TODO-165): Kopírování úseku směn ──
-  const CP = window._workCopy || (window._workCopy = { on: false, start: null, end: null, repeat: false });
+  const CP = window._workCopy || (window._workCopy = { on: false, start: null, end: null, opak: '' });
   const _dnum = (yy, mm, dd) => Math.round(new Date(yy, mm, dd).getTime() / 86400000);
   const selA = CP.start ? _dnum(CP.start.y, CP.start.m, CP.start.d) : null;
   const selB = CP.end ? _dnum(CP.end.y, CP.end.m, CP.end.d) : null;
   const copyBar = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button onclick="workCopyToggle()" style="padding:8px 12px;border-radius:9px;cursor:pointer;font-size:.78rem;font-weight:700;border:1px solid ${CP.on ? 'rgba(139,124,246,.5)' : 'var(--border)'};background:${CP.on ? 'rgba(139,124,246,.14)' : 'transparent'};color:${CP.on ? '#b9aefc' : 'var(--text3)'}">📋 Kopírovat úsek</button>
-      ${CP.on ? `<span style="font-size:.74rem;color:#a8aec8;flex:1;min-width:160px">${!CP.start ? '1️⃣ Klikni na PRVNÍ den úseku' : !CP.end ? '2️⃣ Klikni na POSLEDNÍ den úseku' : `✅ Úsek ${CP.start.d}.${CP.start.m + 1}.–${CP.end.d}.${CP.end.m + 1}. (${selB - selA + 1} dní) → 3️⃣ klikni na CÍLOVÝ den`}</span>` : ''}
-      ${CP.on && CP.end ? `<label style="display:flex;align-items:center;gap:5px;font-size:.74rem;color:#a8aec8;cursor:pointer"><input type="checkbox" ${CP.repeat ? 'checked' : ''} onchange="window._workCopy.repeat=this.checked" style="accent-color:#8b7cf6">🔁 opakovat do konce měsíce</label>` : ''}
+      ${CP.on ? `<span style="font-size:.74rem;color:#a8aec8;flex:1;min-width:160px">${!CP.start ? '1️⃣ Klikni na PRVNÍ den úseku' : !CP.end ? '2️⃣ Klikni na POSLEDNÍ den úseku' : `✅ Úsek ${CP.start.d}.${CP.start.m + 1}.–${CP.end.d}.${CP.end.m + 1}. (${selB - selA + 1} dní) → 3️⃣ klikni na den, od kterého se má úsek vložit (první prázdný)`}</span>` : ''}
+      ${CP.on && CP.end ? `<label style="display:flex;align-items:center;gap:5px;font-size:.74rem;color:#a8aec8">🔁 <select onchange="window._workCopy.opak=this.value" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 6px;color:var(--text);font-size:.74rem">
+        <option value="" ${!CP.opak ? 'selected' : ''}>vložit jednou</option><option value="mesic" ${CP.opak === 'mesic' ? 'selected' : ''}>opakovat do konce měsíce</option><option value="rok" ${CP.opak === 'rok' ? 'selected' : ''}>opakovat do konce roku</option></select></label>` : ''}
+      ${!CP.on && window._workUndo ? `<button onclick="workCopyUndo()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:#fbbf24;font-size:.74rem;cursor:pointer">↩ Vrátit poslední vložení</button>` : ''}
       ${CP.on ? `<button onclick="workCopyCancel()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:#f87171;font-size:.74rem;cursor:pointer">✖ Zrušit</button>` : ''}
     </div>`;
 
@@ -650,7 +667,7 @@ function _workWageCard(cfg, y, m, daysInMonth) {
   const breakH = grossH - payH;
   // vážené hodiny: každá příplatková hodina váží (1 + %), přesčas se přičítá jako extra váha
   const weightedH = payH + weH * cfg.bonusWe / 100 + holH * cfg.bonusHol / 100 + nightH * cfg.bonusNight / 100 + Math.min(otH, payH) * cfg.bonusOT / 100;
-  const sal = cfg.salary || 0;
+  const sal = _workSalary(cfg, y, m).castka || 0;   // S25: výplata zadaná pro tento měsíc
   const effRate = payH > 0 ? sal / payH : 0;
   const baseRate = weightedH > 0 ? sal / weightedH : 0;
   const fmt1 = v => (Math.round(v * 10) / 10).toLocaleString('cs-CZ');
@@ -694,12 +711,12 @@ function _workWageCard(cfg, y, m, daysInMonth) {
 function workCopyToggle() {
   const CP = window._workCopy || (window._workCopy = {});
   if (CP.on) { workCopyCancel(); return; }
-  window._workCopy = { on: true, start: null, end: null, repeat: false };
+  window._workCopy = { on: true, start: null, end: null, opak: '' };
   renderKalendar();
 }
 
 function workCopyCancel() {
-  window._workCopy = { on: false, start: null, end: null, repeat: false };
+  window._workCopy = { on: false, start: null, end: null, opak: '' };
   renderKalendar();
 }
 
@@ -724,23 +741,34 @@ function workCopyClick(d, m, y) {
     pattern.push(e ? Object.assign({}, e) : null);   // null = volný den ve vzoru → cíl se vyčistí
   }
   const tgt = new Date(y, m, d);
-  const monthEnd = new Date(S.curYear, S.curMonth + 1, 0);
-  const reps = CP.repeat ? Math.max(1, Math.ceil((dnum(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate()) - dnum(y, m, d) + 1) / len)) : 1;
+  //  S25 (Milan): opakovat do konce měsíce NEBO do konce roku (dřív jen měsíc)
+  const konec = CP.opak === 'rok' ? new Date(y, 11, 31) : new Date(S.curYear, S.curMonth + 1, 0);
+  const reps = CP.opak ? Math.max(1, Math.ceil((dnum(konec.getFullYear(), konec.getMonth(), konec.getDate()) - dnum(y, m, d) + 1) / len)) : 1;
+  window._workUndo = { days: Object.assign({}, cfg.days) };   // ↩ Vrátit poslední vložení
   let written = 0;
   for (let r = 0; r < reps; r++) {
     for (let i = 0; i < len; i++) {
       const dt = new Date(tgt); dt.setDate(tgt.getDate() + r * len + i);
-      if (CP.repeat && dt > monthEnd) break;
+      if (CP.opak && dt > konec) break;
       const key = _ck(dt.getFullYear(), dt.getMonth(), dt.getDate());
       if (pattern[i]) { days[key] = Object.assign({}, pattern[i]); written++; }
       else delete days[key];
     }
   }
   _workSave({ days });  // S17.5: zachovává mzdovou konfiguraci
-  window._workCopy = { on: false, start: null, end: null, repeat: false };
+  window._workCopy = { on: false, start: null, end: null, opak: '' };
   renderKalendar();
-  if (typeof showToast === 'function') showToast(`📋 Vzor vložen (${written} ${written === 1 ? 'den' : written < 5 ? 'dny' : 'dní'})`);
+  if (typeof showToast === 'function') showToast(`📋 Vzor vložen (${written} ${written === 1 ? 'den' : written < 5 ? 'dny' : 'dní'}) · nepovedlo se? ↩ Vrátit`);
 }
+//  S25: vrácení posledního vložení vzoru (celé, i opakované do konce roku)
+function workCopyUndo() {
+  const u = window._workUndo; if (!u) return;
+  _workSave({ days: u.days });
+  window._workUndo = null;
+  renderKalendar();
+  if (typeof showToast === 'function') showToast('↩ Vložení vráceno');
+}
+window.workCopyUndo = workCopyUndo;
 
 function _toggleWorkday(i) {
   const cfg = _workCfg();
@@ -754,12 +782,17 @@ function saveWorkSettings() {
   const num=(id,dflt)=>{ const el=document.getElementById(id); if(!el) return dflt;
     const v=parseFloat(String(el.value).replace(',','.')); return isNaN(v)?dflt:v; };
   const hpd = num('workHpd',8) || 8;
-  const vacQuota = Math.round(num('workVacQuota',20));
+  const vacQuotaH = Math.max(0, num('workVacQuota', _workCfg().vacQuotaH));
+  //  S25: výplata se ukládá k zobrazenému MĚSÍCI; prázdné pole = beze změny (platí poslední zadaná)
+  const cfg0 = _workCfg(); const salaryM = Object.assign({}, cfg0.salaryM);
+  const kM = `${S.curYear}-${String(S.curMonth + 1).padStart(2, '0')}`;
+  const salEl = document.getElementById('workSalary'); const salTxt = salEl ? String(salEl.value).trim() : '';
+  if (salTxt) salaryM[kM] = Math.max(0, Math.round(num('workSalary', 0)));
   // S17.5 (Milan): mzdová konfigurace (přestávka, čistá výplata, příplatky %)
   _workSave({
-    hpd, vacQuota,
+    hpd, vacQuotaH, salaryM,
     breakMin: Math.max(0, Math.round(num('workBreakMin',30))),
-    salary: Math.max(0, Math.round(num('workSalary',0))),
+    salary: salTxt ? Math.max(0, Math.round(num('workSalary',0))) : cfg0.salary,
     bonusOT: Math.max(0, num('workBonusOT',25)),
     bonusWe: Math.max(0, num('workBonusWe',10)),
     bonusHol: Math.max(0, num('workBonusHol',100)),

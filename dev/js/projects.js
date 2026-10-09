@@ -1,4 +1,4 @@
-// FinanceFlow · v11.23 · projects.js · 2026-10-02
+// FinanceFlow · v11.46 · projects.js · 2026-10-08
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -2111,7 +2111,7 @@ function renderRadar() {
 
   // ── Nadcházející splátky dluhů (příští měsíc) ──
   const nextMonthDate = new Date(today.getFullYear(), today.getMonth()+1, 1);
-  const nextMonthStr = nextMonthDate.toISOString().slice(0,7);
+  const nextMonthStr = nextMonthDate.getFullYear()+'-'+String(nextMonthDate.getMonth()+1).padStart(2,'0');   // S25 v11.44: dřív přes UTC → vyšel TENTO měsíc
   const upcomingPayments = (D.debts||[]).reduce((a,d)=>{
     const s = d.schedule?.find(s=>s.date.startsWith(nextMonthStr)&&!s.paid);
     return a + (s?.payment||d.payment||0);
@@ -5001,12 +5001,26 @@ function renderObraz() {
 
   //  v9.70: karta „Rezerva vydrží" – nejhmatatelnější důsledek dražšího
   //  životního stylu. Byla v modelu, v aplikaci chyběla.
+  //  S25 (TODO-272): prázdný stav karty místo zmizení nebo nesmyslné nuly. Stejný vzor
+  //  jako FIX-348 (sekce Lifestyle) – karta řekne, co jí chybí a kde to doplnit.
+  const _obrazPrazdna = (titul, nadpis, text) => `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-body" style="padding:14px">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:6px">${titul}</div>
+        <div style="padding:10px 12px;background:var(--surface2);border-left:3px solid #60a5fa;border-radius:0 10px 10px 0">
+          <div style="font-size:.78rem;font-weight:700;color:#c9cede;margin-bottom:3px">⏳ ${nadpis}</div>
+          <div style="font-size:.74rem;color:#a8aec8;line-height:1.55">${text}</div>
+        </div>
+      </div>
+    </div>`;
   const _rezervaCard = (()=>{
     try{
       const liq = (typeof assetLiqTotals==='function') ? assetLiqTotals(D) : null;
       const rez = liq ? ((liq.wallets||0)+(liq.reserve||0)) : 0;
       const nowE = _lsA.exp, befE = _lsB.exp;
-      if(!rez || !nowE) return '';
+      if(!rez) return _obrazPrazdna('🛡 Rezerva vydrží', 'Zatím nevidím žádnou rezervu',
+        'Karta spočítá, kolik měsíců by tě uživily peníze stranou při současných výdajích. Bere zůstatky <b style="color:#c9cede">Peněženek</b> a rezervu ve <b style="color:#c9cede">Finančních aktivech</b> – doplň je a číslo se objeví.');
+      if(!nowE) return _obrazPrazdna('🛡 Rezerva vydrží', 'Zatím chybí výdaje', 'Rezervu mám (' + fmtB(Math.round(rez)) + '), ale v okně nejsou žádné výdaje, takže nejde říct, na kolik měsíců vystačí. Jakmile zapíšeš výdaje, ukáže se počet měsíců.');
       const nowM = rez/nowE, befM = befE>0 ? rez/befE : null;
       const dM = befM===null ? null : nowM-befM;
       const col = nowM>=3 ? 'var(--income)' : nowM>=1.5 ? 'var(--debt)' : 'var(--expense)';
@@ -5160,7 +5174,9 @@ function renderObraz() {
   //  tedy jen tu část, kterou uživatel skutečně vytvořil sám (součet sald).
   const _nw = (typeof computeAssetsNetWorth==='function') ? computeAssetsNetWorth(D) : null;
   const _savedInWin = series.reduce((a,x)=>a+(x.savings||0), 0);
-  const nwCard = !_nw ? '' : `
+  const _nwPrazdne = !_nw || !((_nw.totalAssets||0) || (_nw.totalWallets||0) || (_nw.totalDebts||0));
+  const nwCard = _nwPrazdne ? _obrazPrazdna('💎 Čisté jmění', 'Zatím není z čeho počítat',
+      'Čisté jmění = majetek minus dluhy. Spočítá se ze zůstatků <b style="color:#c9cede">Peněženek</b>, hodnot ve <b style="color:#c9cede">Finančních aktivech</b> a zbývajících částek v <b style="color:#c9cede">Půjčkách</b>. Zatím je všechno nulové – „0 Kč“ by tu nic neříkalo.') : `
     <div class="card" style="margin-bottom:12px">
       <div class="card-body" style="padding:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -5208,7 +5224,8 @@ function renderObraz() {
     </div>`;
 
   const momColor = momentum.perMonth>=0?'var(--income)':'var(--expense)';
-  const momentumCard = `
+  const momentumCard = !momentum.months ? _obrazPrazdna('🚀 Wealth Momentum', 'Zatím žádný měsíc s daty',
+      'Karta ukáže průměrný měsíční přírůstek – kolik ti každý měsíc zůstává z příjmů po výdajích – a kolik měsíců bylo v plusu. Potřebuje aspoň jeden měsíc se zapsanými příjmy nebo výdaji.') : `
     <div class="card" style="margin-bottom:12px">
       <div class="card-body" style="padding:14px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">
@@ -5780,6 +5797,7 @@ function renderDetektor() {
       (r.items||[]).forEach(it => {
         const key = normName(it.name);   // S23 (PLAN F1): jednotný klíč
         if(key.length < 3) return;
+        if(typeof rpIsGenericName==='function' && rpIsGenericName(it.name)) return;   // S25 (TODO-276): oddělení, ne výrobek
         if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
         agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
         agg[key].qty += (it.qty||1); agg[key].n++;
@@ -6083,8 +6101,12 @@ function fxLossDetailHTML(fx, txs, D){
   // Seskup dle normalized názvu → porovnej cenu letos vs 3M zpět
   const priceByItem3M = {};
   allItems3M.forEach(it=>{
-    const k=(it.name||'').toLowerCase().trim().slice(0,25).replace(/\s+/g,'_');
+    //  S25 (TODO-276): bez ořezu na 25 znaků (slučoval podobné výrobky – stejná chyba jako
+    //  FIX-268 v Inflaci). Čísla a procenta zůstávají: „mléko 1,5 %“ ≠ „mléko 3,5 %“.
+    //  A bez obecných názvů oddělení („Pečivo“).
+    const k=(it.name||'').toLowerCase().trim().replace(/\s+/g,'_');
     if(!k||k.length<3||(it.price||0)<=0) return;
+    if(typeof rpIsGenericName==='function' && rpIsGenericName(it.name)) return;
     if(!priceByItem3M[k]) priceByItem3M[k]={name:it.name,prices:[]};
     priceByItem3M[k].prices.push({price:it.price, month:it.month, year:it.year});
   });
@@ -7619,7 +7641,7 @@ function msEnsureTrackStart(){
                              : new Date(Math.min(...txs.map(t=>new Date(t.date).getTime()).filter(x=>!isNaN(x))));
     if(isNaN(d)) return;
     S.milestones.push({ id:'ms_track', auto:'trackStart', kind:'point',
-      date: d.toISOString().slice(0,10), icon:'🎯',
+      date: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(d), icon:'🎯',   // S25 v11.44: místní datum
       label:'Začal jsem sledovat výdaje',
       note:'Od tohoto dne máš data z aplikace. Starší období je tu z importů – porovnáním obojího uvidíš, co se změnilo.' });
     if(typeof save==='function') save();

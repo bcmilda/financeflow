@@ -99,7 +99,9 @@ await check('OBNOVA: přepíše data a vynutí PLNÝ zápis (jinak zůstanou sir
   assert(r.ok,'err='+r.err);
   assert(r.n===1,'n='+r.n);
   assert(vm.runInContext('S.transactions.length',sb)===1,'data se nepřepsala');
-  assert(vm.runInContext('_dw.ready',sb)===false,'diff-write by nechal v DB smazané transakce');
+  //  Plný zápis se vynucuje příznakem vynutPlny (ready=false by listener chápal jako
+  //  „ještě nemám data ze serveru“ a příchozí změnu by vzal přes obnovená data).
+  assert(vm.runInContext('_dw.vynutPlny',sb)===true,'diff-write by nechal v DB smazané transakce');
 });
 
 await check('OBNOVA vytvoří pojistku „pred-obnovou"',async()=>{

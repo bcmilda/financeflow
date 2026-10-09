@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smazání účtu – FinanceFlow</title>
+<meta name="description" content="Jak smazat účet FinanceFlow a všechna data – v aplikaci pro Android, na webu nebo žádostí e-mailem. Co se smaže, co zůstane a jak dlouho.">
+<link rel="canonical" href="https://financeflow.cz/smazani-uctu.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Mulish:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e1117; --bg2:#151a23; --surface:#1a212c; --border:#262e3b;
+    --text:#e8ecf3; --text2:#aab2c2; --text3:#6b7486;
+    --green:#7dd34f; --green-d:#5fb236; --link:#8fdc63;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:84px}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Mulish',-apple-system,sans-serif;line-height:1.7;font-size:16px;
+    background-image:radial-gradient(900px 500px at 80% -10%, rgba(125,211,79,.07), transparent 60%);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+
+  /* Top bar */
+  header.bar{
+    position:sticky;top:0;z-index:50;background:rgba(14,17,23,.85);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+  }
+  .bar-in{display:flex;align-items:center;gap:14px;height:62px;max-width:860px;margin:0 auto;padding:0 22px}
+  .logo{display:flex;align-items:center;gap:9px;font-family:'Fraunces',serif;font-weight:600;font-size:1.3rem;letter-spacing:-.01em}
+  .logo .heart{font-size:1.25rem}
+  .logo .fin{color:var(--text)} .logo .flow{color:var(--green)}
+  nav.tabs{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+  nav.tabs a{
+    color:var(--text2);text-decoration:none;font-size:.82rem;font-weight:700;
+    padding:7px 12px;border-radius:9px;transition:.15s;white-space:nowrap;
+  }
+  nav.tabs a:hover{color:var(--text);background:var(--surface)}
+
+  /* Hero */
+  .hero{padding:64px 0 34px;text-align:center}
+  .hero .kick{color:var(--green);font-weight:700;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase}
+  .hero h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(2rem,5vw,3rem);line-height:1.1;margin:14px 0 12px;letter-spacing:-.02em}
+  .hero p{color:var(--text2);max-width:560px;margin:0 auto;font-size:1.04rem}
+  .updated{display:inline-block;margin-top:20px;font-size:.8rem;color:var(--text3);border:1px solid var(--border);border-radius:999px;padding:5px 14px}
+
+  /* Sections */
+  section{padding:40px 0;border-top:1px solid var(--border)}
+  section h2{
+    font-family:'Fraunces',serif;font-weight:600;font-size:1.7rem;letter-spacing:-.01em;
+    margin-bottom:6px;display:flex;align-items:center;gap:11px;
+  }
+  section h2 .ic{
+    display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;
+    background:linear-gradient(135deg,rgba(125,211,79,.18),rgba(125,211,79,.06));
+    border:1px solid rgba(125,211,79,.25);border-radius:11px;font-size:1.1rem;flex-shrink:0;
+  }
+  section h2 + .lead{color:var(--text2);margin-bottom:18px}
+  h3{font-size:1.06rem;font-weight:700;margin:24px 0 8px;color:var(--text)}
+  p{margin-bottom:13px;color:var(--text2)}
+  p strong{color:var(--text);font-weight:700}
+  a{color:var(--link)}
+  ul{margin:6px 0 16px;padding-left:4px;list-style:none}
+  li{position:relative;padding-left:24px;margin-bottom:9px;color:var(--text2)}
+  li::before{content:"";position:absolute;left:4px;top:11px;width:7px;height:7px;border-radius:2px;background:var(--green);opacity:.8}
+  li strong{color:var(--text)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .note{background:rgba(125,211,79,.06);border:1px solid rgba(125,211,79,.2);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:.92rem;color:var(--text2)}
+  .warn{background:rgba(240,180,60,.07);border:1px solid rgba(240,180,60,.25);border-radius:12px;padding:14px 18px;margin:16px 0;font-size:.92rem;color:#e7c989}
+  .fill{color:#e7a14a;font-style:italic;font-weight:700}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.9rem}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--text);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  td{color:var(--text2)}
+
+  footer{border-top:1px solid var(--border);padding:34px 0 60px;text-align:center;color:var(--text3);font-size:.85rem}
+  footer a{color:var(--text2)}
+  ol.steps{counter-reset:k;list-style:none;margin:10px 0 18px;padding:0}
+  ol.steps li{counter-increment:k;padding-left:44px;min-height:32px;margin-bottom:14px}
+  ol.steps li::before{content:counter(k);top:0;left:0;width:30px;height:30px;border-radius:9px;opacity:1;
+    background:rgba(125,211,79,.14);border:1px solid rgba(125,211,79,.3);color:var(--green);font-weight:700;
+    display:flex;align-items:center;justify-content:center;font-size:.9rem}
+  .btnmail{display:inline-block;margin-top:6px;background:var(--green);color:#071206;font-weight:700;text-decoration:none;padding:11px 20px;border-radius:11px}
+  .btnmail:hover{background:#92e862}
+  @media(max-width:560px){ nav.tabs{display:none} th,td{padding:9px 8px;font-size:.84rem} }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a href="/" class="logo" style="text-decoration:none"><span class="heart">💚</span><span><span class="fin">Finance</span><span class="flow">Flow</span></span></a>
+    <nav class="tabs">
+      <a href="#v-aplikaci">V aplikaci</a>
+      <a href="#e-mailem">E-mailem</a>
+      <a href="#co-se-smaze">Co se smaže</a>
+      <a href="/legal.html">Soukromí</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div class="kick">Smazání účtu</div>
+    <h1>Jak smazat účet FinanceFlow</h1>
+    <p>Platí pro aplikaci FinanceFlow pro Android i web financeflow.cz – jde o jeden a týž účet. Smazat ho můžeš kdykoli a zdarma.</p>
+    <div class="updated">Poslední aktualizace: 8. října 2026</div>
+  </div>
+
+  <section id="v-aplikaci">
+    <h2><span class="ic">📱</span> Smazání přímo v aplikaci</h2>
+    <p class="lead">Nejrychlejší cesta – účet i data zmizí hned.</p>
+    <ol class="steps">
+      <li>Přihlas se v aplikaci FinanceFlow nebo na <a href="/app">financeflow.cz/app</a>.</li>
+      <li>V menu klepni na své jméno (profil) – otevře se stránka <strong>Můj účet</strong>.</li>
+      <li>Sjeď dolů do části <strong>Nevratné akce</strong> a zvol <strong>Smazat účet</strong>.</li>
+      <li>Potvrď a pro jistotu napiš slovo <strong>SMAZAT</strong>.</li>
+    </ol>
+    <div class="note">Pokud aplikace po smazání dat napíše, že je potřeba se znovu přihlásit, je to bezpečnostní pojistka přihlašovací služby. Přihlas se a smazání účtu zopakuj – data už jsou pryč, druhý krok odstraní i přihlašovací účet.</div>
+    <p>Chceš si data nejdřív uložit? V <strong>Nastavení → Záloha dat (JSON)</strong> si stáhneš kompletní zálohu.</p>
+    <p>Chceš začít znovu, ale účet si nechat? Na stránce Můj účet je i volba <strong>Vymazat data</strong> – smaže obsah, účet a tarif zůstanou.</p>
+  </section>
+
+  <section id="e-mailem">
+    <h2><span class="ic">✉️</span> Žádost o smazání bez aplikace</h2>
+    <p class="lead">Nemáš už aplikaci nebo se nemůžeš přihlásit? Stačí napsat.</p>
+    <p>Pošli e-mail na <a href="mailto:info@financeflow.cz?subject=Sma%C5%BE%C3%A1n%C3%AD%20%C3%BA%C4%8Dtu%20FinanceFlow">info@financeflow.cz</a> s předmětem <strong>„Smazání účtu FinanceFlow“</strong>, a to <strong>z e-mailové adresy, kterou používáš k přihlášení</strong> – podle ní účet poznáme. Pokud píšeš z jiné adresy, ověříme si, že jde opravdu o tvůj účet.</p>
+    <p>Účet i data smažeme nejpozději do 30 dnů a pošleme ti potvrzení.</p>
+    <a class="btnmail" href="mailto:info@financeflow.cz?subject=Sma%C5%BE%C3%A1n%C3%AD%20%C3%BA%C4%8Dtu%20FinanceFlow&amp;body=Pros%C3%ADm%20o%20smaz%C3%A1n%C3%AD%20m%C3%A9ho%20%C3%BA%C4%8Dtu%20FinanceFlow%20a%20v%C5%A1ech%20dat.">Napsat žádost o smazání</a>
+  </section>
+
+  <section id="co-se-smaze">
+    <h2><span class="ic">🗑️</span> Co se smaže</h2>
+    <ul>
+      <li><strong>Všechna tvá finanční data</strong> – transakce, účtenky a jejich položky, peněženky, dluhy, cíle, projekty, šablony, kalendář a výplatní pásky, vozidla, měřidla, poznámky, nastavení a automatické zálohy.</li>
+      <li><strong>Uschované fotky dokladů</strong> (archiv dokladů a záruk).</li>
+      <li><strong>Profil a přihlašovací účet</strong> ve FinanceFlow (jméno, e-mail, avatar).</li>
+      <li><strong>Sdílení</strong> – odchod z domácnosti a ukončení sdílení s partnerem; partner už nic neuvidí.</li>
+      <li><strong>Tvé záznamy v komunitním přehledu.</strong></li>
+      <li><strong>Aktivní předplatné</strong> se při smazání účtu zruší.</li>
+    </ul>
+  </section>
+
+  <section id="co-zustane">
+    <h2><span class="ic">🗂️</span> Co zůstane a jak dlouho</h2>
+    <table>
+      <tr><th>Co</th><th>Proč</th><th>Jak dlouho</th></tr>
+      <tr><td>Záznam o smazání: interní číslo účtu, datum a jednosměrný otisk (hash) e-mailu, ze kterého nejde e-mail zpětně zjistit</td><td>Abychom poznali, že účet existoval a byl smazán, a dohledali případné platby</td><td>3 roky</td></tr>
+      <tr><td>Doklady o zaplaceném předplatném</td><td>Povinnost podle účetních a daňových předpisů</td><td>Po dobu, kterou předpisy vyžadují</td></tr>
+      <tr><td>Šifrované zálohy databáze</td><td>Ochrana před ztrátou dat; zálohy se samy cyklicky přepisují</td><td>Nejdéle 30 dnů</td></tr>
+      <tr><td>Anonymní údaje o výrobcích a cenách (název výrobku k čárovému kódu, nutriční hodnoty, souhrnné ceny v kraji)</td><td>Nejsou to osobní údaje – nenesou tvé jméno ani účet a slouží všem uživatelům</td><td>Trvale</td></tr>
+    </table>
+    <p>Tvůj Google účet (pokud se přihlašuješ přes Google) smazáním FinanceFlow nezaniká – patří Googlu, ne nám.</p>
+    <p>Víc o tom, jak s daty zacházíme, najdeš v <a href="/legal.html">Zásadách ochrany osobních údajů</a>. Dotazy: <a href="mailto:info@financeflow.cz">info@financeflow.cz</a>.</p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p style="margin-bottom:6px">© 2026 FinanceFlow · <a href="/">financeflow.cz</a> · <a href="/legal.html">Soukromí a podmínky</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

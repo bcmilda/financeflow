@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v11.04 · 2026-09-25 (S23: novy uzel community/productMap – Mapa polozek: cte kazdy prihlaseny, zapisuje jen admin.)
+// FinanceFlow · database rules · v11.39 · 2026-10-07 (S25: novy uzel community/ceny – sdilene ceny po krajich: cte kazdy prihlaseny, zapisuje jen worker.)
 {
   "rules": {
     "users": {
@@ -223,6 +223,11 @@
           ".read": "auth != null",
           ".write": false
         }
+      },
+      // S25: sdílené ceny po krajích – jen souhrny, čte každý přihlášený, zapisuje jen worker
+      "ceny": {
+        ".read": "auth != null",
+        ".write": false
       },
       "itemTags": {
         ".read": "auth != null",

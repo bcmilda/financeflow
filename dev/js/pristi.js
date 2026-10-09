@@ -1,4 +1,4 @@
-// FinanceFlow · v11.15 · pristi.js · 2026-09-30
+// FinanceFlow · v11.44 · pristi.js · 2026-10-08
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -100,8 +100,9 @@ function pristiOccurrences(freq, den, from, to, sablona) {
   //  S23 (Milan): jednorázová platba – jediný výskyt k uloženému datu, a jen
   //  když spadne do zobrazeného měsíce a ještě nebyla provedena.
   if (freq === 'once') {
-    const od = sablona && sablona.onceDate ? new Date(sablona.onceDate) : null;
-    if (od) od.setHours(0, 0, 0, 0);
+    //  S25 (v11.44): datum čteme jako místní den (new Date('RRRR-MM-DD') je UTC půlnoc).
+    const _m = sablona && /^(\d{4})-(\d{2})-(\d{2})/.exec(String(sablona.onceDate || ''));
+    const od = _m ? new Date(+_m[1], +_m[2] - 1, +_m[3]) : null;
     if (!od || sablona.done || od < from || od > to) return out;
     return [od];
   }

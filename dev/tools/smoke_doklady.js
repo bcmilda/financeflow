@@ -4,7 +4,7 @@ let ok=0,bad=0;const T=(n,c)=>{c?ok++:(bad++,console.log('❌',n));};
 const cut=n=>{let a=R.indexOf('async function '+n+'(');if(a<0)a=R.indexOf('function '+n+'(');let i=R.indexOf('{',a),d=0;for(;i<R.length;i++){if(R[i]==='{')d++;else if(R[i]==='}'){d--;if(!d)break;}}return R.slice(a,i+1);};
 const g=n=>{const c=cut(n);eval(c.replace(/^async /,'').replace('function '+n,'global.'+n+'='+(c.startsWith('async')?'async ':'')+'function'));};
 eval(R.slice(R.indexOf('const DOKLAD_VAROVANI_DNI'),R.indexOf('\n',R.indexOf('const DOKLAD_VAROVANI_DNI'))).replace('const ','global.'));
-['dokladZaruka','dokladySeznam','buildDokladyTab'].forEach(g);
+['dokladZaruka','dokladySeznam','buildDokladyTab','dokladySirotciBlok'].forEach(g);   // S25 v11.49: + fotky bez účtenky
 global.escHtml=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 global.fmtP=v=>String(v);
 const D=(s)=>new Date(s).getTime();
@@ -38,7 +38,7 @@ T('index ukazuje na původní účtenku',recs[l[0].i].store==='Datart2');
 global.S={receipts:recs};
 const h=buildDokladyTab(recs);
 T('hlavička shrne, kolika dokladům končí záruka',/2<\/b> dokladů má záruku ke konci/.test(h));
-T('ukáže stav kvóty',/5 z 300/.test(h));
+T('ukáže místo pro počítadlo úložiště (počet z limitu podle tarifu načte worker)',/class="dokPocitadlo"/.test(h));   // S25 v11.50: dřív natvrdo „z 300“
 T('náhled nese klíč pro dotažení z R2',/data-key="k1"/.test(h));
 T('tlačítka: otevřít, záruka, poznámka, smazat',/dokladOtevri\(/.test(h)&&/dokladZaruku\(/.test(h)&&/dokladPoznamka\(/.test(h)&&/dokladSmaz\(/.test(h));
 T('prázdný archiv poradí, kde doklad uschovat',/Uschovat fotku účtenky/.test(buildDokladyTab([]))&&/Přidat fotku dokladu/.test(buildDokladyTab([])));   // S25: nové popisky

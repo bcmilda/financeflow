@@ -1,4 +1,4 @@
-// FinanceFlow · v11.30 · admin.js · 2026-10-05
+// FinanceFlow · v11.58 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -95,6 +95,16 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-reports" onclick="switchAdminTab('reports',this)">🚩 Hlášení účtenek</button>
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
+      <button class="tx-filt-btn"        id="atab-uloziste" onclick="switchAdminTab('uloziste',this)">💾 Úložiště</button>
+    </div>
+
+    <!-- S25 (v11.50, Milan): ÚLOŽIŠTĚ DOKLADŮ – zaplněno / zbývá celkem i po uživatelích -->
+    <div id="atab-uloziste-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">💾 Úložiště dokladů (Cloudflare R2)</span>
+          <button class="btn btn-ghost btn-sm" onclick="renderAdminUloziste()" style="font-size:.72rem">↻ Obnovit</button></div>
+        <div class="card-body" id="adminUlozisteBody"><div style="color:#a8aec8;font-size:.82rem">Načítám…</div></div>
+      </div>
     </div>
 
     <!-- S20 (Milan): ZDRAVÍ APLIKACE – rozcestník. Panel měl 15 záložek a žádný
@@ -543,7 +553,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports','uloziste'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -566,9 +576,342 @@ function switchAdminTab(tab, btn) {
   if(tab==='udrzba'){ if(typeof renderDeletedAccounts==='function') renderDeletedAccounts(); }  // TODO-256
   if(tab==='skore'){ if(typeof renderScoringSim==='function') renderScoringSim(); }             // S22
   if(tab==='reports'){ if(typeof renderReceiptReports==='function') renderReceiptReports(); }   // S22
+  if(tab==='uloziste') renderAdminUloziste();   // S25 v11.50
 }
 
+//  S25 (v11.50): přehled úložiště – worker /archiv/admin-stav sečte celý bucket po uživatelích,
+//  jména a tarify se doplní z načteného seznamu uživatelů. Limit: Free 300, Premium/trial 1 000.
+function adminArchivLimit(u, limity) {
+  const L = limity || { free: 300, trial: 1000, premium: 1000, admin: 100000 };
+  if (!u) return L.free;
+  if (u.isAdmin) return L.admin;
+  const p = u.premium || {}, now = Date.now();
+  if ((p.type === 'premium' || p.type === 'pro') && (p.premiumUntil || 0) > now) return L.premium;
+  if (p.type === 'trial' && (p.trialUntil || 0) > now) return L.trial;
+  return L.free;
+}
+function adminUlozisteHTML(d, users) {
+  const mb = b => { const m = (b || 0) / 1048576; return m >= 1024 ? (m / 1024).toFixed(2).replace('.', ',') + ' GB' : m >= 1 ? m.toFixed(1).replace('.', ',') + ' MB' : Math.round((b || 0) / 1024) + ' kB'; };
+  const pct = Math.min(100, d.zdarmaBajtu ? d.bajtu / d.zdarmaBajtu * 100 : 0);
+  const byUid = {}; (users || []).forEach(u => { byUid[u.uid] = u; });
+  const radky = (d.uzivatele || []).map(x => { const u = byUid[x.uid], lim = adminArchivLimit(u, d.limity); return { ...x, u, lim, p: Math.min(100, x.soubory / lim * 100) }; });
+  const plni = radky.filter(x => x.p >= 80).length;
+  const bar = (p, c) => `<div style="height:7px;border-radius:4px;background:var(--border);overflow:hidden"><div style="width:${p}%;height:100%;background:${c}"></div></div>`;
+  const barva = p => p >= 90 ? 'var(--expense)' : p >= 75 ? '#fbbf24' : 'var(--income)';
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
+      ${[['Zaplněno', mb(d.bajtu)], ['Zbývá zdarma', mb(Math.max(0, d.zdarmaBajtu - d.bajtu)) + ' z ' + mb(d.zdarmaBajtu)], ['Fotek celkem', d.soubory.toLocaleString('cs-CZ')], ['Uživatelů s doklady', radky.length + (plni ? ` · ${plni} nad 80 %` : '')]]
+        .map(([l, v]) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px"><div style="font-size:.66rem;color:#a8aec8">${l}</div><div style="font-size:1.05rem;font-weight:800">${_vzEsc(v)}</div></div>`).join('')}
+    </div>
+    <div style="font-size:.72rem;color:#a8aec8;margin-bottom:4px">Bezplatná kvóta Cloudflare R2: ${pct.toFixed(1).replace('.', ',')} %</div>${bar(pct, barva(pct))}
+    <div style="font-size:.66rem;color:#8b93ad;margin:4px 0 12px">Nad 10 GB účtuje Cloudflare zhruba 0,015 USD za GB měsíčně. Limity na uživatele: Free ${d.limity.free}, Premium a trial ${d.limity.premium.toLocaleString('cs-CZ')} fotek.</div>
+    ${radky.length ? `<table style="width:100%;font-size:.74rem;border-collapse:collapse">
+      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Uživatel</th><th style="padding:5px 4px">Fotky / limit</th><th style="padding:5px 4px;text-align:right">Velikost</th><th style="padding:5px 4px;text-align:right">Naposledy</th></tr>
+      ${radky.map(x => `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:6px 4px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_vzEsc(x.uid)}">${_vzEsc(x.u ? (x.u.displayName || x.u.email || x.uid.slice(0, 8)) : x.uid.slice(0, 8) + '…')}${x.u && x.u.email && x.u.displayName ? `<div style="font-size:.64rem;color:#8b93ad">${_vzEsc(x.u.email)}</div>` : ''}</td>
+        <td style="padding:6px 4px;min-width:120px"><div style="display:flex;justify-content:space-between;font-size:.68rem"><span>${x.soubory} / ${x.lim.toLocaleString('cs-CZ')}</span><span style="color:${barva(x.p)}">${Math.round(x.p)} %</span></div>${bar(x.p, barva(x.p))}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${mb(x.bajtu)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap;color:#a8aec8">${x.posledni ? new Date(x.posledni).toLocaleDateString('cs-CZ') : '–'}</td></tr>`).join('')}
+    </table>` : '<div style="font-size:.78rem;color:#a8aec8">Zatím nikdo nemá uschovaný doklad.</div>'}`;
+}
+async function renderAdminUloziste() {
+  const el = document.getElementById('adminUlozisteBody'); if (!el) return;
+  el.innerHTML = '<div style="color:#a8aec8;font-size:.82rem">⏳ Sčítám úložiště…</div>';
+  try {
+    if ((!_cachedUsers || !_cachedUsers.length) && typeof loadUsersList === 'function') { try { await loadUsersList(); } catch (e) {} }
+    const d = await archivVolej('admin-stav', {});
+    el.innerHTML = adminUlozisteHTML(d, _cachedUsers);
+  } catch (e) { el.innerHTML = `<div style="color:var(--expense);font-size:.82rem">⚠️ ${_vzEsc(e.message)}</div>`; }
+}
+window.renderAdminUloziste = renderAdminUloziste;
+
 const VERZE_LOG = [
+  {
+    verze: 'v11.58',
+    datum: '2026-10-09',
+    zmeny: [
+      "🎨 VLASTNÍ IKONY (Milan, TODO-323, styl B „obrys + jemná výplň“) · nový modul js/ikony.js: jednotná sada SVG ikon (24×24, stejná čára) místo emoji, které vypadají na každém telefonu jinak – 13 oblastí taxonomie ve svých barvách, 12 podkategorií (pečivo, mléko, jogurty, sýry, vejce, maso, ryby, ovoce, zelenina, čokoláda, káva, voda), ikony karty výrobku a akcí",
+      "🧭 IKONY SE PŘIŘAZUJÍ SAMY přes taxonomii: podkategorie s vlastní ikonou (jogurt → kelímek, uzeniny → maso) → jinak ikona a barva oblasti (pivo → Alkohol) → položka mimo taxonomii šedá „Nezařazené“; po zařazení v Mapě položek se ikona změní sama i u starých účtenek",
+      "🗺️ cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek (karta): dlaždice výrobku v barvě oblasti, ikony u nadpisů bloků (Výrobek, Zařazení, Názvy z účtenek, Balení a složení, Moje nákupy, Ceny v kraji, Identifikace), u Oblast a Kategorie, u tlačítek Naskenovat kód / Změnit, Vyfotit a Opravit",
+      "🗺️ cesta: Analýza účtenek → 🗺️ Mapa položek: ikony v seznamu položek, ve filtrech oblastí a v „Podkategorie → rozpočet“; 📦 Moje výrobky: výrobek bez fotky má ikonu podle druhu; 💹 Zdražování → Podle výrobků a 🧭 Za co utrácíš: ikony podkategorií",
+      "🧪 tools/smoke_ikony.js (24); smoke_karta_v2.js upraven",
+    ]
+  },
+  {
+    verze: 'v11.57',
+    datum: '2026-10-09',
+    zmeny: [
+      "Karta výrobku → Výrobek: tři názvy – Název z EAN (databáze, s jazykem), Obal – přední strana (📸 fotka) a Obal – CZ popisek (📸 fotka české nálepky, nebo opsaný ručně) – u zahraničních výrobků se liší; u každého zdroj a tlačítko na fotku",
+      "Nová fotka „📸 Vyfotit český popisek“: AI přečte název z české nálepky (+ složení a dovozce); název z popisku má v appce přednost (WORKER)",
+      "Karta výrobku → Zařazení: číselník COICOP a srovnání výdajů se rozbalují přímo z řádku COICOP; tlačítka živin jen v bloku Balení a složení (+ z galerie)",
+    ]
+  },
+  {
+    verze: 'v11.56',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 🗺️ Mapa položek → karta výrobku: PŘESTAVBA – bloky v rámečcích (Výrobek, Zařazení, Názvy z účtenek, Balení a složení, Moje nákupy), řádky popisek | hodnota v mřížce (nic nepřetéká)",
+      "Karta výrobku → Výrobek: EAN / GTIN (nebo „zatím nepřiřazen“ + Naskenovat kód), český název se zdrojem a ✎ Opravit, název z EAN (originál), značka, výrobce",
+      "Karta výrobku → Zařazení: oblast → kategorie → obecný název → COICOP (kód + název); rozbalovací panel s hierarchií COICOP a srovnáním výdajů – období 3/6/12 měsíců, rok, vše a základ výdaje za potraviny / všechny výdaje (ČSÚ i tvůj podíl vždy se stejným základem)",
+      "Karta výrobku → Názvy z účtenek: každý název jen jednou (VELKÁ/malá písmena, diakritika i gramáž sloučené), u něj obchody a počet nákupů",
+      "Karta výrobku: Nutri-Score jen jednou, složení zkrácené s „celé“, identifikace a zdroje dat sbalené",
+    ]
+  },
+  {
+    verze: 'v11.55',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 📦 Moje výrobky: samostatná záložka (hned za 🗺️ Mapa položek, odkud zmizela) – katalog výrobků podle čárového kódu",
+      "Karta výrobku: název z účtenky se do názvu výrobku nepřebírá (zkratka ≠ název z obalu) – pole „Český název výrobku“ je prázdné, zkratka je vidět jen jako nápověda „Na účtence: …“; převzít se dá jen balení (gramáž)",
+      "Karta výrobku: odkaz „přiřadit i k jiné položce“ odebrán – stejný výrobek pod jinou zkratkou spojují aliasy obchod + zkratka",
+    ]
+  },
+  {
+    verze: 'v11.54',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 🗺️ Mapa položek → 📦 Moje výrobky (i 📸 Skenovat → K vyřízení): výrobek se zkratkou z účtenky už nehlásí „databáze nezná“, ale „zatím jen zkratka z účtenky“ s tlačítkem ✓ Potvrdit název – formulář je předvyplněný (Smet.jogurt bílý 1kg KK → název „Smet. jogurt bílý KK“, balení 1000 g)",
+      "Karta výrobku: místo nenápadného „Česky: zatím chybí ✎ Doplnit“ výrazné pole 🇨🇿 Český název výrobku (opiš z obalu) + Uložit a „použít z účtenky“ jedním ťuknutím; u neznámého kódu se tím rovnou založí karta",
+      "Karta výrobku: už přiřazený výrobek ukazuje ✓ Přiřazeno k položce z účtenky (a nenápadné „přiřadit i k jiné položce“) místo hlavního tlačítka Přiřadit",
+    ]
+  },
+  {
+    verze: 'v11.53',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 📸 Skenovat: během analýzy čekací okno přes celou obrazovku – přesýpací hodiny, co se právě děje (fotka → odeslání → AI čte položky → kontrola), uběhlý čas a průběh; pod oknem nejde nic zmáčknout",
+      "Po 20 s se nabídne Zrušit (opravdu zastaví dotaz); tlačítko Zpět na telefonu okno nezavře",
+      "Dvojí ťuknutí už nespustí dvě analýzy (dřív dva dotazy = dvě spotřebované analýzy)",
+    ]
+  },
+  {
+    verze: 'v11.52',
+    datum: '2026-10-09',
+    zmeny: [
+      "Synchronizace – AUDIT PŘEPISŮ: ozvěna vlastního uložení už nenahrazuje data novými objekty (společná příčina ztracených fotek účtenek a EAN kódů z 11.43–11.48)",
+      "Neodeslaná změna se po synchronizaci jiné části dat už netváří jako uložená (dřív se po obnovení stránky ztratila)",
+      "Změny z jiného zařízení se slučují po záznamech (základ / tady / jinde) – účtenka přidaná na telefonu nezmizí, když současně upravuješ jinou na PC",
+      "Rozepsaný formulář, otevřený editor účtenky, karta nebo okno se při synchronizaci nepřekreslí – změny odjinud počkají, až dopíšeš",
+      "Offline: části dat se zapíšou až po sloučení se serverem, restart appky offline nic neztratí, při zavření/přepnutí appky se čekající uložení odešle hned (dřív chybný sendBeacon)",
+      "Editor účtenky ukládá podle id (dřív podle pozice – mohl přepsat jinou účtenku); staré účtenky dostanou id",
+      "Jedna vadná hodnota (příliš dlouhý text, prázdná hodnota) už nezastaví ukládání ostatního; text se zkrátí na povolenou délku",
+    ]
+  },
+  {
+    verze: 'v11.51',
+    datum: '2026-10-08',
+    zmeny: [
+      "Tlačítko Zpět na telefonu: nejdřív zavře otevřené okno/menu, pak předchozí stránka, pak Dashboard – z aplikace odejdeš až druhým Zpět",
+      "Analýza účtenek → 📸 Skenovat: místo dlouhého seznamu jen „K vyřízení“ (kódy bez názvu nebo nepřiřazené) s názvem z účtenky a tlačítky ✍️ Zapiš název / 🔗 Přiřadit; vyřízené jsou v Mapa položek → 📦 Moje výrobky",
+      "Karta výrobku ukáže název z účtenky (🧾 Na účtence: …) i u neznámého kódu",
+    ]
+  },
+  {
+    verze: 'v11.50',
+    datum: '2026-10-08',
+    zmeny: [
+      "Úložiště dokladů podle tarifu: Free 300, Premium a trial 1 000 fotek; v Analýza účtenek → 📎 Doklady počítadlo „X z Y fotek · MB · zbývá“ (dřív natvrdo „z 300“ a počítaly se účtenky)",
+      "Admin panel → 💾 Úložiště: zaplněno / zbývá z bezplatných 10 GB Cloudflare R2, fotek celkem a po uživatelích (fotky z limitu podle tarifu, velikost, poslední nahrání)",
+      "Čárový kód, který databáze nezná: „✍️ Zapsat název / založit kartu výrobku“ ve skeneru i v Mých výrobcích – název, značka, balení (předvyplní se z účtenky), druh; u známého výrobku doplní jen chybějící údaje",
+      "Moje výrobky: u neznámého kódu se ukáže aspoň název z účtenky a výzva „Zapiš název výrobku“",
+      "Worker: výrobek doplněný z fotky obalu nebo ručně se po 90 dnech už nepřepíše na „nenalezeno“",
+    ]
+  },
+  {
+    verze: 'v11.49',
+    datum: '2026-10-08',
+    zmeny: [
+      "Analýza účtenek → 🗺️ Mapa položek: 📦 Moje výrobky – všechny výrobky podle čárového kódu (z účtenek i samostatného skenování), kolikrát a kde koupeno, poslední cena, co chybí (neznámý / bez živin / bez českého názvu / nepřiřazený), filtry a hledání",
+      "Samostatné skeny čárových kódů se pamatují až 300 (dřív 40)",
+      "Analýza účtenek → 📎 Doklady: 🔎 Najít fotky bez účtenky – uschovaná fotka, která se kvůli chybě do v11.47 nepřipojila, jde jedním klepnutím připojit k účtence (appka doporučí tu uloženou ve stejnou chvíli) nebo smazat; ukáže i využití 300 míst",
+    ]
+  },
+  {
+    verze: 'v11.48',
+    datum: '2026-10-08',
+    zmeny: [
+      "Analýza účtenek → editor nové účtenky: úpravy (čárové kódy, štítky, názvy, kategorie) se už neztrácejí – každý sken kódu uložil seznam naskenovaných a synchronizace pak editor postavila znovu z původního skenu",
+      "Automatické uschování fotky účtenky: fotka se nahrála, ale odkaz se zapsal do starých dat a neuložil se – nově se účtenka hledá podle stálého id",
+      "Čárový kód → položka: nahoře „🎯 Nejspíš“ – položky z účtenek seřazené podle značky, názvu, gramáže a druhu výrobku; u neznámého výrobku rada vyfotit obal",
+    ]
+  },
+  {
+    verze: 'v11.47',
+    datum: '2026-10-08',
+    zmeny: [
+      "Měsíční report (Premium): AI komentář – shrnutí měsíce, hodnocení, 3 postřehy, doporučení a komentář k výhledu. AI dostane jen spočítaná čísla (žádné transakce ani jména) a každé číslo v jejím textu appka ověří; text s neověřeným číslem nahradí výpočet appky",
+      "Report: uzavřený měsíc se okomentuje sám, běžící na tlačítko „✨ Napsat AI komentář“; komentář se uloží k měsíci a bez změny dat se znovu negeneruje; e-mailový report ho obsahuje taky",
+      "Worker: oprava tarifu – platící uživatelé a trial dostávali limity Free (worker četl jiná pole než appka ukládá)",
+    ]
+  },
+  {
+    verze: 'v11.46',
+    datum: '2026-10-08',
+    zmeny: [
+      "Dashboard: upozornění, že dokladu končí záruka (≤ 60 dní) – klepnutím otevře Analýza účtenek → 📎 Doklady",
+      "Inflace, Detektor úspor a „Pravidelně nakupuješ“: položky s obecným názvem oddělení („Pečivo“, „Uzeniny 21 %“) se už nepočítají jako výrobek – dělaly falešné zdražení o stovky %; Inflace ukáže, kolik jich vynechala",
+      "Detektor úspor: zdražování za 3 měsíce už neslučuje podobné výrobky (název se neořezává na 25 znaků)",
+      "Finanční obraz: karty Čisté jmění, Rezerva vydrží a Wealth Momentum bez dat ukážou, co chybí a kde to doplnit – dřív zmizely nebo ukazovaly „0 Kč“ a „Ani jeden měsíc v mínusu“",
+    ]
+  },
+  {
+    verze: 'v11.45',
+    datum: '2026-10-08',
+    zmeny: [
+      "Můj účet → Smazat účet: kromě dat se nově smaže i přihlašovací účet (Firebase) – požadavek Google Play; když Firebase chce čerstvé přihlášení, appka vyzve k novému přihlášení a zopakování",
+      "Nová stránka financeflow.cz/smazani-uctu.html – postup smazání v aplikaci i e-mailem, co se smaže, co zůstane a jak dlouho; odkaz z patičky webu a ze Zásad (GDPR)",
+    ]
+  },
+  {
+    verze: 'v11.44',
+    datum: '2026-10-08',
+    zmeny: [
+      "Oprava dat v letním čase: několik míst převádělo místní půlnoc přes UTC, takže v Česku vycházel předchozí den – splátkový kalendář dluhů (15. 4. → 14. 4.), Budoucí platby („Zaznamenat“ zapsalo o den dřív, platba splatná 1. se kontrolovala proti minulému měsíci), automatické šablony, jednorázová platba v Příštím měsíci",
+      "Dluhy: uložené splátkové kalendáře posunuté o den se při otevření stránky Dluhy opraví (jen data – částky a „zaplaceno“ zůstanou); datum příští splátky po 31. padne na konec kratšího měsíce",
+      "Export: výchozí datum „od“ je 1. den měsíce (dřív poslední den minulého); Projekty: splátky „příští měsíc“ se braly z tohoto měsíce",
+      "Landing page: hamburger menu na mobilu a tabletu (Jak to funguje, Co získáš, Ceník, Časté otázky, Nápověda, Kontakt), na mobilu se už nezalamují tlačítka v horní liště",
+    ]
+  },
+  {
+    verze: 'v11.43',
+    datum: '2026-10-07',
+    zmeny: [
+      "Karta výrobku a skener: ruční zadání / oprava nutričních hodnot na 100 g (100 ml) – předvyplní se z fotky obalu nebo z databáze, kJ se přepočte na kcal, nepovinně složení",
+      "Kontrola živin: „z toho“ nesmí být víc než celkem, součet ≤ 100 g, energie ≤ 900 kcal; nesoulad energie s živinami (4/4/9 kcal, vláknina 2) upozorní a uložit jde po potvrzení",
+      "Worker: akce „ziviny“ s kontrolou na serveru, záloha předchozích hodnot (i u fotky živin) a záznam poslední změny pro admina; admin vidí ruční zadání a předchozí hodnoty",
+    ]
+  },
+  {
+    verze: 'v11.42',
+    datum: '2026-10-07',
+    zmeny: [
+      "Karta výrobku – srovnání s váhou ČSÚ: volba období pro tvůj podíl (posledních 12 měsíců / jednotlivé roky z účtenek / celá doba); na kartě je vidět, z jakého období se počítá a kolik Kč z kolika",
+    ]
+  },
+  {
+    verze: 'v11.41',
+    datum: '2026-10-07',
+    zmeny: [
+      "🔢 5. ÚROVEŇ CZ-COICOP V TAXONOMII (Milan) · data/taxonomie.json v1.2: každý obecný název potravin a nápojů (470 názvů) má nový kód 5. úrovně z přílohy potravin ČSÚ (c5), např. rohlík → 01.1.1.3.1 Chléb a pečivo, oplatky / croissant → 01.1.1.3.9 Ostatní pekařské výrobky, jablko → 01.1.6.3.1, máslo → 01.1.5.2.1. Kód 4. úrovně u podkategorie zůstává beze změny – Srovnání ČR a inflace se nemění. Drogerie a ostatní zboží 5. úroveň nemají (ČSÚ ji vede jen u potravin).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → Zařazení → COICOP. Kód 5. úrovně s názvem a cestou číselníkem; přímo v řádku oficiální „váha ČSÚ ‰ ze všech výdajů“ (stálé váhy koše) a srovnání uvnitř oddílu: jaká část útrat za potraviny jde na tuto podtřídu u průměrné domácnosti a u tebe (účtenky za 12 měsíců), s rozdílem v %. Samostatný řádek „Spotřební koš ČSÚ“ jen u položek mimo taxonomii.",
+      "📐 STATISTIKA POLOŽEK · filtr a seskupení COICOP sahají u potravin do 5. úrovně (položka přílohy potravin).",
+      "🔍 ZDRAŽOVÁNÍ · cesta: Analýza účtenek → 💹 Zdražování. Rozbalovací výběr „🔍 Sledované položky“ přesunut přímo nad karty (pod souhrn), hledací pole z v11.40 zrušeno.",
+      "🧪 tools/smoke_coicop5.js (8); smoke_zdrazovani_karta.js upraven.",
+    ]
+  },
+  {
+    verze: 'v11.40',
+    datum: '2026-10-07',
+    zmeny: [
+      "🧭 ZDRAŽOVÁNÍ → PODLE VÝROBKŮ (Milan) · cesta: Analýza účtenek → 💹 Zdražování. U baleného zboží nově i cena za kus (Kč/ks první → poslední měsíc) nad cenou za kg/l. Klepnutí na výrobek rozbalí jednotlivé nákupy (datum, zkratka z účtenky, obchod, Kč/ks, Kč/kg) a medián po obchodech. Podkategorie (Pečivo, Zelenina…) žlutě. Vysvětlivka: modrá křivka = vývoj ceny po měsících, vpravo změna mezi prvním a posledním měsícem, „1 měs.“ = data jen z jednoho měsíce; podmínky zobrazení výrobku.",
+      "🔍 SLEDOVÁNÍ CENY · cesta: Zdražování → nad kartami pole „🔍 Najít položku v seznamu…“ (filtruje karty Shrinkflation, kg/l i Cenové změny podle názvu). Trvalý výběr dál přes „Sledované položky“.",
+      "🐛 Rozdíl ceny v časové ose: „↑ 4,00 Kč“ vs „↑ 3 Kč“ – chyba plovoucí čárky, rozdíl se nově zaokrouhlí (i u ceny za kg).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Nadpisy sekcí barevně (modře, tučně). Spotřební koš ČSÚ už není dvakrát: když má stejný kód jako COICOP, ukáže se jen „Váha v koši ČSÚ“ (‰ = Kč z každých 1 000 Kč útrat domácnosti, s vysvětlením); jiný kód → celé zařazení koše.",
+      "📷 NASKENOVANÉ VÝROBKY NEZMIZÍ (Milan) · cesta: Analýza účtenek → 📸 Skenovat (pod tlačítkem čárového kódu) a 🗺️ Mapa položek. Každý naskenovaný kód se zapamatuje (posledních 40, uiCfg.eanSken), s fotkou, značkou, Nutri-Score a stavem ✓ přiřazeno / nepřiřazeno. Klepnutí otevře výrobek (karta, živiny, složení, název) s tlačítkem „🔗 Přiřadit k položce z účtenky“ – i dny po skenu. ✕ odebere ze seznamu.",
+      "🧾 Okno skeneru: karta výrobku ukazuje i složení (rozbalovací, z databáze nebo fotky obalu).",
+      "📊 Ceny v kraji: odstraněna poznámka „admin vidí i pod prahem“.",
+      "🧪 tools/smoke_zdrazovani_karta.js (15).",
+    ]
+  },
+  {
+    verze: 'v11.39',
+    datum: '2026-10-07',
+    zmeny: [
+      "📊 SDÍLENÉ CENY PO KRAJÍCH (Milan, katalog krok 4) · nový modul js/ceny-kraje.js + worker /ceny. Při uložení nové účtenky se u potravin, nápojů, alkoholu, tabáku a drogerie (CZ-COICOP 01, 02, 05.6.1, 13.1.2; nikdy lékárna/zdraví) anonymně pošle jen výrobek, cena, řetězec, kraj a měsíc. Worker ukládá jen souhrn community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec} (počet, součet, min, max, počet lidí); od jednoho člověka jeden údaj na uzel (otisk platný jen pro ten uzel, nejde spojit s účtem). Výrobek = čárový kód (srovnatelné napříč obchody), jinak název z účtenky + balení.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → „Ceny v kraji“: průměr po obchodech za poslední měsíc (🏆 nejlevněji, rozpětí min–max, počet lidí) a „ty jsi platil o X víc“. Zobrazí se až od 3 lidí; admin vidí i pod prahem. Bez kraje u účtenek nápověda doplnit 📍 v editoru.",
+      "⚙️ NASTAVENÍ · cesta: Nastavení → Data & Soukromí → „Sdílet ceny z účtenek (anonymně)“ – zapnuto všem, lze vypnout (uiCfg.sdiletCeny). Ceny ostatních jsou vidět i po vypnutí. Jednorázové oznámení v Analýze účtenek („Rozumím“).",
+      "📄 legal.html: odstavec „Sdílené ceny po krajích“ (co se sdílí, souhrny od 3 lidí, oprávněný zájem, jak vypnout), aktualizace 7. 10. 2026.",
+      "🔒 database.rules.json: nový uzel community/ceny – čte každý přihlášený, zapisuje jen worker.",
+      "🧪 tools/smoke_ceny_kraje.js (14).",
+    ]
+  },
+  {
+    verze: 'v11.38',
+    datum: '2026-10-06',
+    zmeny: [
+      "📍 POBOČKA Z HLAVIČKY ÚČTENKY (Milan, katalog krok 3) · worker: analýza účtenky nově vrací adresu pobočky, město, kraj (jeden ze 14 krajů ČR, mimo ČR stát) a IČO. Appka hodnoty zkontroluje (kraj podle seznamu, IČO 8 číslic, prázdné / „null“ neukládá) a uloží k účtence (storeAddress, storeCity, storeRegion, storeIco).",
+      "✏️ EDITOR ÚČTENKY · cesta: Analýza účtenek → editor účtenky (i úprava z Historie). Pod názvem obchodu pole „📍 Město pobočky“ a výběr kraje – u starších účtenek se dá doplnit ručně.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Názvy z účtenek ukazují obchod i s městem, „Moje nákupy“ obchod · 📍 město, kraj.",
+      "📐 STATISTIKA POLOŽEK · nové filtry Kraj a Město pobočky (město se zúží podle kraje), „Útrata podle“ nově Kraj, Město pobočky a Obchod + město.",
+      "🏪 OBCHODY · cesta: Analýza účtenek → 🏪 Obchody. U obchodu řádek 📍 s městy poboček.",
+      "🐛 Vážené položky si po analýze drží jednotku kg / l (validace ji dřív zahazovala).",
+      "🧪 tools/smoke_pobocka.js (13).",
+    ]
+  },
+  {
+    verze: 'v11.37',
+    datum: '2026-10-06',
+    zmeny: [
+      "⚖️ GRAMÁŽ JAKO SAMOSTATNÉ POLE (Milan, katalog krok 2) · nově naskenované položky dostanou balení zvlášť (it.baleni = {m: 42, j: 'g'}), název z účtenky zůstává jako alias beze změny; balení se ukládá i do položek transakce. Starší položky ho dopočítají z názvu.",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek. Titulek bez gramáže (u položek bez kódu), „Množství“ v sekci Výrobek a balení i u položek bez kódu se zdrojem (databáze / z účtenky). Cena za kg/l počítá s gramáží ze samostatného pole a u váženého zboží s cenou za kg.",
+      "🏷️ NÁZVY ZVLÁŠŤ · cesta: Mapa položek → výrobek → Názvy a aliasy. Každý název na vlastním řádku: Používá se (který appka zobrazuje + zdroj), Originální název (+ jazyk), Název na obalu (z fotky obalu), Český z databáze, Překlad AI (z fotky / schválil admin), Tvůj název. Pod tím názvy z účtenek po obchodech.",
+      "🤖 worker: fotka obalu nově ukládá „název na obalu“ jako samostatné pole (nazevObal) a obnova výrobku ho nesmaže.",
+      "📐 STATISTIKA POLOŽEK · tabulka položek: název bez gramáže + balení zvlášť, nový sloupec „Ø za kg/l“ (z gramáže nebo u váženého zboží).",
+      "🧪 tools/smoke_gramaz_nazvy.js (11).",
+    ]
+  },
+  {
+    verze: 'v11.36',
+    datum: '2026-10-06',
+    zmeny: [
+      "📚 ČÍSELNÍK CZ-COICOP 2018 V APPCE (Milan, jeho XLSX) · nový soubor data/coicop2018.json: 871 kódů v 5 úrovních – oddíl › skupina › třída › podtřída (COICOP 2018) › položka přílohy potravin ČSÚ (269 položek, např. 01.1.1.1.2 Rýže), s typem (netrvanlivé / střednědobé / služby). Zkrácené kódy appky (01.113, 01.122.1) se převádí na zápis ČSÚ (01.1.1.3, 01.1.2.2.1).",
+      "🗺️ KARTA VÝROBKU · cesta: Mapa položek → výrobek → Zařazení. Řádek COICOP ukazuje kód v zápisu ČSÚ, název nejhlubší úrovně a cestu číselníkem (oddíl › skupina › třída › podtřída); „Spotřební koš ČSÚ“ i s váhou v ‰.",
+      "📐 STATISTIKA POLOŽEK · filtr COICOP nabízí všechny úrovně číselníku s názvy (odsazeně od oddílu po položku přílohy); „Útrata podle“ nově COICOP oddíl / skupina / třída / podtřída / položka přílohy potravin. Kód se bere z taxonomie (bývá hlubší), jinak z koše ČSÚ.",
+      "🧪 tools/smoke_coicop_ciselnik.js (6); smoke_statistika_polozek.js upraven.",
+    ]
+  },
+  {
+    verze: 'v11.35',
+    datum: '2026-10-06',
+    zmeny: [
+      "📐 STATISTIKA POLOŽEK – NOVÝ MODUL (Milan) · cesta: Analýza účtenek → 📐 Statistika položek (Premium, nový soubor js/statistika-polozek.js). Každá položka z účtenek zařazená podle číselníku ČSÚ (CZ-COICOP), taxonomie Mapy položek, obchodu, štítku a kategorie rozpočtu. Filtry: období, COICOP oddíl / skupina ČSÚ, oblast, podkategorie, obchod, štítek, kategorie rozpočtu, jen s čárovým kódem, hledání. Výstupy: útrata, počet položek, různých výrobků, nákupů a průměr na nákup; útrata podle zvolené dimenze (skupina ČSÚ, oddíl COICOP, oblast, podkategorie, obecný název, obchod, štítek, kategorie, položka, měsíc) s podílem; vývoj po měsících; tabulka položek (útrata, počet, Ø cena – u váženého zboží za kg, nejlevnější obchod), klik = karta výrobku.",
+      "🧪 tools/smoke_statistika_polozek.js (11).",
+    ]
+  },
+  {
+    verze: 'v11.34',
+    datum: '2026-10-06',
+    zmeny: [
+      "↩️ ZELENÝ ŠTÍTEK ZPĚT PODLE MODELU ČSÚ (Milan) · cesta: editor účtenky → zelené pole u položky. Pokus z v11.33 (název z taxonomie) dělal chyby („RELAX JABL-ARONIE“ → Jablko místo džusu). Nově: 1) tvůj štítek, který jsi stejné položce dal na dřívější účtence (co jednou opravíš, příště se nabídne samo), 2) štítek skupiny spotřebního koše ČSÚ jako dřív.",
+      "🐛 VÁŽENÉ ZBOŽÍ UKAZOVALO CENU ZA KG (Milan) · cesta: Analýza účtenek → editor účtenky → položka s váhou (0,192 kg). V poli ceny je nově ČÁSTKA ZA POLOŽKU jako na účtence (např. 55,49 Kč), jednotka kg/l místo „ks“, cena za kg drobně pod tím. Úprava částky nebo váhy dopočítá cenu za kg; součet účtenky sedí s částkou z účtenky.",
+      "🗂️ ROZŠÍŘENÁ KARTA VÝROBKU (Milan, návrh „Produktový katalog“) · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek. Nové sekce: „Názvy a aliasy“ (originální název + jazyk, český název se zdrojem – tvůj / databáze / návrh AI, jiné názvy, názvy z účtenek po obchodech s počtem), „Výrobek a balení“ (značka, výrobce, druh, množství, obal, země původu, kde se prodává, kategorie OFF), „Identifikace a zdroje dat“ (GTIN-13/8, zdroj a datum načtení, zdroj živin, složení a zařazení, poprvé / naposledy koupeno). Chybějící živiny: sekce s tlačítkem „📸 Vyfotit tabulku živin“. Zobrazuje se jen to, co je opravdu známo.",
+      "🤖 worker: výrobek nově ukládá výrobce, zemi původu, země prodeje, obal a jazyk originálního názvu (Open Food Facts). Výrobky uložené dřív se při dalším skenu jednou obnoví (kv: 2); co doplnil admin, AI nebo fotka obalu, zůstává. Když obnova selže, použijí se stará data.",
+      "🧪 tools/smoke_karta_vyrobku.js (10); smoke_stitek_polozky.js přepsán na model ČSÚ (6).",
+    ]
+  },
+  {
+    verze: 'v11.33',
+    datum: '2026-10-06',
+    zmeny: [
+      "🏷️ ZELENÝ ŠTÍTEK POLOŽKY = NÁZEV V KATEGORII (Milan) · cesta: Analýza účtenek → editor účtenky → zelené pole u položky. Dřív se předvyplnil štítek celé skupiny ČSÚ („Pečivo“ i u oplatky). Nově obecný název z taxonomie Mapy položek (Oplatky, Croissant, Kobliha…); když ho taxonomie nezná, krátký štítek skupiny ČSÚ jako dřív. Vlastní štítek se nepřepisuje, COICOP zařazení se nemění (oplatky dál 01.1.1.3 Chléb a pekařské výrobky). Platí pro nově skenované účtenky.",
+      "🗺️ KARTA VÝROBKU · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Zařazení. Nové řádky „Štítek“ (zelený štítek z účtenek, jinak návrh z taxonomie) a „Skupina ČSÚ“ (kód CZ-COICOP v zápisu ČSÚ + název skupiny, např. 01.1.1.3 · Chléb a pekařské výrobky).",
+      "📋 KOPÍROVÁNÍ SMĚN DO KONCE ROKU (Milan) · cesta: Kalendář → Pracovní → 📋 Kopírovat úsek. Místo zaškrtávátka výběr „vložit jednou / opakovat do konce měsíce / opakovat do konce roku“. 3. krok srozumitelněji: „klikni na den, od kterého se má úsek vložit (první prázdný)“. Po vložení tlačítko „↩ Vrátit poslední vložení“ (vrátí celé vložení, i opakované do konce roku).",
+      "🏖️ DOVOLENÁ V HODINÁCH · cesta: Kalendář → Pracovní → ⚙️ Nastavení úvazku → „Hodin dovolené / rok“. Den dovolené = hodin na směnu (pokud u dne nezadáš jinak); Sumář ukazuje dovolenou a zůstatek v hodinách. Staré nastavení ve dnech se přepočte × hodin/směna.",
+      "💰 ČISTÁ VÝPLATA PRO KAŽDÝ MĚSÍC · cesta: Kalendář → Pracovní → ⚙️ Nastavení úvazku → „Čistá výplata za <měsíc>“. Ukládá se k zobrazenému měsíci (workCal.salaryM); měsíc bez zadání bere poslední dříve zadanou (ukáže ji v nápovědě pole). Hodinová sazba a mzdová karta počítají s výplatou daného měsíce.",
+      "🧪 tools/smoke_kalendar_prace.js (12), smoke_stitek_polozky.js (6).",
+    ]
+  },
+  {
+    verze: 'v11.32',
+    datum: '2026-10-06',
+    zmeny: [
+      "🐛 DUPLICITNÍ ÚČTENKA NEBYLA NIKDE VIDĚT A PO SMAZÁNÍ ZŮSTALA TRANSAKCE (Milan) · cesta: Analýza účtenek → žlutý banner. Banner nově ukáže, které účtenky to jsou („Zobrazit“: obchod · datum · částka · počet položek), správně skloňuje (1 duplicitní účtenka) a „🗑️ Smazat duplikáty“ smaže kopii účtenky I její transakci v Transakcích (originál a jeho transakce zůstanou).",
+      "🔗 Vazba účtenka ↔ transakce: nové účtenky a jejich transakce sdílí receiptAddedAt; u starších se transakce dohledá podle obchodu, data a částky. Smazání účtenky v Historii nabídne smazat i transakci.",
+      "🐛 OBCHODY: KLIK NA POSLEDNÍ ŘÁDEK ROZBALIL OBCHOD NAD NÍM · „Můj obchod…“ a „Môj obchod…“ měly stejné ID (diakritika → „_“). ID řádku je nově z pořadí. (Oba řádky jsou stejný obchod přečtený z účtenky dvakrát jinak – sjednotíš přejmenováním v Historii.)",
+      "🐛 KARTA VÝROBKU: CENA PŘETÉKALA · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Moje nákupy. Obchod pod názvem položky, cena v samostatném sloupci vpravo.",
+      "🇨🇿 ČESKÝ NÁZEV VÝROBKU (Milan) · „✎ Opravit“ se dřív předvyplnilo cizím názvem z databáze a „Uložit“ ho uložilo jako „tvůj název“, který pak přebíjel český návrh. Nově se předvyplní jen český název (tvůj / schválený / AI), jinak prázdné s nápovědou „jak na českém obalu“; uložení cizího názvu beze změny nic neuloží. Hlášky se ukazují v okně skeneru.",
+      "🤖 worker: AI návrh názvu zpět „jak by byl na českém obalu“ – značka jen volitelně (když bez ní název výrobek nevystihne), zobrazuje se zvlášť. Ruší povinnou značku z v11.31.",
+      "🧪 tools/smoke_uctenky_duplikaty.js (10); smoke_ean_prirazeni.js +3.",
+    ]
+  },
+  {
+    verze: 'v11.31',
+    datum: '2026-10-05',
+    zmeny: [
+      "🐛 „VYFOTIT TABULKU ŽIVIN“ OTEVÍRALO GALERII (Milan, regrese z v11.30) · cesta: skenování výrobku → karta výrobku. „📸 Vyfotit tabulku živin“ (i „📸 Vyfotit obal“) otevře znovu rovnou foťák; hotovou fotku vybereš vedlejším tlačítkem „🖼️ z galerie“.",
+      "🇨🇿 ČESKÝ NÁZEV VÝROBKU SE ZNAČKOU · worker: AI návrh českého názvu nově obsahuje značku a řadu, bez gramáže (např. „Lindt Lindor pralinky mix“) – dřív byl bez značky a tedy příliš obecný („Pralinky“). Platí pro nově naskenované výrobky a fotky obalu; už uložené názvy se nemění.",
+      "🧪 smoke_ean_prirazeni.js +2.",
+    ]
+  },
   {
     verze: 'v11.30',
     datum: '2026-10-05',
@@ -7826,7 +8169,7 @@ function mapaAdminEanRadek(ean) {
     <div style="font-size:.68rem;color:var(--text3);margin:4px 0">${Object.values(al).map(a => _vzEsc((a.obchod || '?') + ': ' + (a.raw || '') + (a.pocet > 1 ? ' (' + a.pocet + '×)' : ''))).join(' · ')}</div>
     ${(() => { const nv = Object.values(((d.navrhy || {})[ean]) || {}).sort((x, y) => (y.pocet || 0) - (x.pocet || 0));
       return nv.length ? `<div style="font-size:.7rem;margin:4px 0">✎ Návrhy názvu od uživatelů: ${nv.map(n => `<button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:1px 6px" onclick="document.getElementById('eanCs_${e}').value=this.dataset.n" data-n="${_vzEsc(n.nazev)}">${_vzEsc(n.nazev)} (${n.pocet}×)</button>`).join(' ')}</div>` : ''; })()}
-    ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">📸 živiny podle českého obalu (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})</div>` : ''}
+    ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">${p.nutriceObal.zdroj === 'rucne' ? '✍️ živiny zadané ručně' : '📸 živiny podle českého obalu'} (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})${p.nutriceObal.nesedi ? ' <span style="color:#fbbf24">· energie nesedí s živinami (uživatel potvrdil)</span>' : ''}${p.nutricePredchozi ? ` <span style="color:var(--text3)">· předchozí: ${_vzEsc(Object.entries(p.nutricePredchozi).filter(([k]) => !['kdy', 'zdroj', 'na', 'nesedi'].includes(k)).map(([k, v]) => k + ' ' + v).join(', '))}</span>` : ''}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px">
       <input class="fi" id="eanCs_${e}" style="font-size:.76rem;padding:6px 8px" placeholder="Český název výrobku" value="${_vzEsc(nazev)}">
       <input class="fi" id="eanOb_${e}" list="taxDatalist" style="font-size:.76rem;padding:6px 8px" placeholder="Obecný název (taxonomie)" value="${_vzEsc(info ? info.nazev : '')}">

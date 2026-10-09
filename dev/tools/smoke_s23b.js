@@ -33,8 +33,9 @@ global.uid=(()=>{let i=0;return()=>'id'+(++i);})();
 global.save=()=>{}; global.renderPage=()=>{}; global.viewingUid=null;
 global.rpFixReceiptTxWallets=()=>0;
 eval(cut(PR,'processAutoSablony'));
-const dnes=new Date().toISOString().slice(0,10);
-const zitra=new Date(Date.now()+86400000).toISOString().slice(0,10);
+const _loc=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');   // S25: místní datum, ne UTC
+const dnes=_loc(new Date());
+const zitra=_loc(new Date(Date.now()+86400000));
 S.sablony=[{id:'s1',name:'Zubař',amount:3000,type:'expense',freq:'once',onceDate:dnes,auto:true,catId:'c1'}];
 S.transactions=[];
 processAutoSablony();
@@ -46,10 +47,17 @@ S.sablony=[{id:'s2',name:'Servis',amount:5000,type:'expense',freq:'once',onceDat
 S.transactions=[]; processAutoSablony();
 T('budoucí datum se nezapisuje předčasně', S.transactions.length===0 && !S.sablony[0].done);
 
+// S25 (v11.44): měsíční auto-šablona dostane přesně svůj den (dřív o den dřív kvůli UTC)
+{ const d0=new Date(); const den=Math.min(28,d0.getDate()+1>28?28:d0.getDate()+1);
+  S.sablony=[{id:'s3',name:'Nájem',amount:9000,type:'expense',freq:'monthly',den,auto:true,catId:'c1'}]; S.transactions=[];
+  processAutoSablony();
+  const ocek=_loc(new Date(d0.getFullYear(),d0.getMonth(),den));
+  T('měsíční auto-šablona má datum svého dne (ne o den dřív)', d0.getDate()>=28 || (S.transactions.length===1 && S.transactions[0].date===ocek)); }
+
 // ── 4) budoucí platby a Příští měsíc ji vidí ──
 eval(cut(PS,'pristiOccurrences'));
 const from=new Date(new Date().getFullYear(), new Date().getMonth(),1), to=new Date(new Date().getFullYear(), new Date().getMonth()+1,0);
-const sab={onceDate:from.toISOString().slice(0,8)+'15'};
+const sab={onceDate:_loc(from).slice(0,8)+'15'};
 T('Příští měsíc zobrazí jednorázovou platbu v daném měsíci', pristiOccurrences('once',1,from,to,sab).length===1);
 T('mimo měsíc ji nezobrazí', pristiOccurrences('once',1,from,to,{onceDate:'2099-01-01'}).length===0);
 T('provedenou ji nezobrazí', pristiOccurrences('once',1,from,to,{onceDate:sab.onceDate,done:true}).length===0);
