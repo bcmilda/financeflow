@@ -1,4 +1,4 @@
-// FinanceFlow · v11.53 · admin.js · 2026-10-09
+// FinanceFlow · v11.54 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.54',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 🗺️ Mapa položek → 📦 Moje výrobky (i 📸 Skenovat → K vyřízení): výrobek se zkratkou z účtenky už nehlásí „databáze nezná“, ale „zatím jen zkratka z účtenky“ s tlačítkem ✓ Potvrdit název – formulář je předvyplněný (Smet.jogurt bílý 1kg KK → název „Smet. jogurt bílý KK“, balení 1000 g)",
+      "Karta výrobku: místo nenápadného „Česky: zatím chybí ✎ Doplnit“ výrazné pole 🇨🇿 Český název výrobku (opiš z obalu) + Uložit a „použít z účtenky“ jedním ťuknutím; u neznámého kódu se tím rovnou založí karta",
+      "Karta výrobku: už přiřazený výrobek ukazuje ✓ Přiřazeno k položce z účtenky (a nenápadné „přiřadit i k jiné položce“) místo hlavního tlačítka Přiřadit",
+    ]
+  },
   {
     verze: 'v11.53',
     datum: '2026-10-09',
