@@ -9,6 +9,7 @@
 > `**(Session N)**`. Doplnění z Milanova merge jsou označena `**(Merge Session 1-3)**`.
 > Konflikty a superseded rozhodnutí jsou explicitně vyznačeny.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1574,3 +1575,125 @@ Styl „výpis z účtu": bílý papír, mřížka 12 sloupců, IBM Plex Sans (t
 IBCS notace (září plně, minulost šedě, plán obrysem, odhad šrafou), barva jen pro dobrou/špatnou odchylku, AI vlastní
 fialovou se štítkem. Nadpis grafu = sdělení. Free 2 strany bez AI s upoutávkou, Premium 4 strany
 (Odpověď / Proč / Účtenky / Co dál). Návrh: `report-nahled-v4.html` + PDF.
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Rozhodnutí ze Session 25. Kontext v `Summary_s25.md`. ADR-183 až ADR-185 jsou dodatek v11.28 (2026-10-04).
+
+### ADR-183 · Zůstatek peněženky „ke dni" **(Session 25, v11.28, Milan)**
+Skutečný zůstatek z banky se zadává k datu. Starší transakce ho nezmění, jen dopočítají historii. Když nesedí, zadá se
+znovu aktuální stav a dnešní datum. Staré peněženky bez data se chovají jako dřív. Umožnilo zůstatek den po dni v reportu.
+
+### ADR-184 · Měsíční report e-mailem jako PDF přes Cloudflare Browser Rendering **(Session 25, v11.28)**
+PDF tiskne worker stejným Chromem jako tisk z appky, takže vypadá stejně. Posílá Resend **jen na e-mail přihlášeného účtu** (z ověřeného Firebase tokenu, ne z požadavku).
+Automaticky za minulý měsíc při prvním otevření od 4. dne, nejvýš 1× měsíčně. Ručně nejvýš 5× denně.
+Proměnné `CF_ACCOUNT_ID`, `CF_BR_TOKEN`.
+
+### ADR-185 · Účtenka může mít víc fotek dokladu (`photoKeys`) **(Session 25, v11.28)**
+„📌 Uschovat fotky účtenky (N)“ uschová všechny fotky jedním klepnutím. Volitelně se uschovávají automaticky
+(`uiCfg.autoDoklad`). `photoKey` = první fotka kvůli zpětné kompatibilitě. Smazání účtenky smaže všechny fotky.
+
+### ADR-186 · Zelený štítek položky: paměť uživatele, pak model ČSÚ **(Session 25, v11.34, Milan)**
+Pokus o štítek z taxonomie (v11.33) dělal chyby, protože z účtenkové zkratky se druh výrobku spolehlivě nepozná. Pořadí:
+1. tvůj štítek stejné položky z dřívější účtenky (co jednou opravíš, příště se nabídne samo)
+2. štítek skupiny spotřebního koše ČSÚ
+
+Zařazení COICOP se štítkem nemění.
+
+### ADR-187 · CZ-COICOP 2018 jako číselník v appce, 5. úroveň jen u potravin **(Session 25, v11.36 / v11.41, Milan)**
+- **Číselník:** `data/coicop2018.json` (871 kódů v 5 úrovních, z Milanova XLSX ČSÚ). Kódy se zobrazují v zápisu ČSÚ (`01.1.1.3`), zkrácené kódy appky se převádí.
+- **Taxonomie v1.2:** 470 obecných názvů potravin a nápojů má kód 5. úrovně (položka přílohy potravin). Kód 4. úrovně u podkategorie se **nemění**, takže Srovnání ČR a inflace zůstávají stejné.
+- **Bez 5. úrovně:** drogerie a ostatní zboží, protože ji ČSÚ vede jen u potravin.
+
+### ADR-188 · Gramáž a pobočka jako samostatná pole účtenky **(Session 25, v11.37 / v11.38, katalog kroky 2–3)**
+- **Balení:** `it.baleni = {m, j}` zvlášť od názvu. Název z účtenky zůstává beze změny jako alias. Starší položky gramáž dopočítají z názvu.
+- **Pobočka:** z hlavičky účtenky: `storeAddress`, `storeCity`, `storeRegion` (jeden ze 14 krajů, mimo ČR stát) a `storeIco` (8 číslic).
+- **Kontrola:** appka hodnoty zkontroluje a prázdné nebo „null“ neukládá.
+
+### ADR-189 · Sdílené ceny po krajích – jen souhrny, od 3 lidí, nikdy zdraví **(Session 25, v11.39, Milan, katalog krok 4)**
+- **Co se sdílí:** Při uložení účtenky se anonymně pošle jen výrobek, cena, řetězec, kraj a měsíc. Jen u potravin, nápojů, alkoholu, tabáku a drogerie (CZ-COICOP 01, 02, 05.6.1, 13.1.2), nikdy lékárna ani zdraví.
+- **Co se ukládá:** Worker ukládá jen souhrn `community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec}` (počet, součet, min, max, počet lidí). Od jednoho člověka jde jeden údaj na uzel a otisk platí jen pro ten uzel, takže nejde spojit s účtem.
+- **Zobrazení:** až od 3 lidí.
+- **Souhlas:** Sdílení je zapnuté všem a lze ho vypnout (`uiCfg.sdiletCeny`), ceny ostatních jsou vidět i po vypnutí. Popsáno v `legal.html` (oprávněný zájem).
+- **Pravidla DB:** `community/ceny` čte přihlášený, zapisuje jen worker.
+
+### ADR-190 · Datum dne se vždy počítá místně, nikdy přes UTC **(Session 25, v11.44)**
+`toISOString()` u místní půlnoci v letním čase vrací předchozí den. Pro „den“ (splátky, budoucí platby, šablony, export)
+se používá místní rok/měsíc/den. Den v měsíci nad délkou měsíce padne na poslední den (FIX-420).
+
+### ADR-191 · Smazání účtu maže i přihlašovací účet Firebase **(Session 25, v11.45, Google Play)**
+Kromě dat se smaže i účet ve Firebase Auth (požadavek Google Play). Když Firebase chce čerstvé přihlášení, appka vyzve
+k novému přihlášení a zopakování. Veřejný postup na `smazani-uctu.html` (v aplikaci i e-mailem, co se smaže a co zůstane).
+
+### ADR-192 · AI komentář reportu jen z ověřených čísel **(Session 25, v11.47)**
+- **Vstup:** AI dostane jen předpočítaná čísla, žádné transakce ani jména.
+- **Kontrola:** Každé číslo v jejím textu appka ověří. Text s neověřeným číslem nahradí výpočtem appky.
+- **Kdy se generuje:** Uzavřený měsíc se okomentuje sám, běžící na tlačítko. Komentář se uloží k měsíci a bez změny dat se znovu negeneruje.
+- **Limit `report_ai`:** Free 0, trial 5, Premium 15.
+
+### ADR-193 · Úložiště dokladů podle tarifu **(Session 25, v11.50)**
+- **Limity:** Free 300 fotek, Premium a trial 1 000 (`ARCHIV_LIMITY` ve workeru).
+- **Počítadlo:** počítají se fotky, ne účtenky.
+- **Admin:** vidí zaplnění bezplatných 10 GB Cloudflare R2.
+
+### ADR-194 · Tlačítko Zpět na telefonu **(Session 25, v11.51, Milan)**
+Pořadí: otevřené okno nebo menu → předchozí stránka → Dashboard → z appky až druhým Zpět. Během čekacího okna (ADR-199)
+Zpět nedělá nic.
+
+### ADR-195 · Synchronizace: tří-cestné slučování po záznamech **(Session 25, v11.52, Milan: „Chci stabilitu bez přepisování rozdělané práce“)**
+Pro každou část dat (`_DW_META`) i transakce platí:
+- **Ozvěna vlastního zápisu:** pozná se kanonickým porovnáním (`_ffKanon`: seřazené klíče, bez null a prázdných) a nic se neděje.
+- **Čistá část:** sloučí se na místě (`_ffSlouc`) se zachováním identity objektů.
+- **Část se změnou, která ještě neodešla:** tří-cestné sloučení `_ff3(základ, tady, jinde)`.
+  - Záznamy s id se párují podle id.
+  - Pole textů a `fixedLog` / `importHistory` se slučují jako multiset.
+  - Ostatní pole bez id po indexech při stejné délce.
+
+Výsledek se uloží. Platí „po záznamech“, ne „vyhrává celý uzel“.
+
+### ADR-196 · Rozpracovaná práce má přednost před příchozí synchronizací **(Session 25, v11.52)**
+`ffRozpracovano()` hlídá:
+- text v poli
+- otevřený editor účtenky
+- formulář se změnou (5 minut)
+- prvek `[data-rozprac]`
+- otevřené okno
+
+Filtry se nepočítají. Když platí, příchozí změna se uloží do dat, ale překreslení počká (`ffRenderBezpecne`, toast „🔄 Přišly změny z jiného zařízení…“).
+
+### ADR-197 · Offline a vadné hodnoty **(Session 25, v11.52)**
+- **Bez spojení:** Při odpojení (`.info/connected`) nebo před dokončeným sloučením se zapisují **jen transakce** (každá zvlášť). Ostatní části počkají.
+- **Snímek:** nese základ (`_zaklad`). Po připojení appka nejdřív zapíše bariéru `users/{uid}/syncPing`, pak načte špinavé části ze serveru a sloučí je.
+- **Vadné hodnoty:** Zápis jde po cestách, s max. 3 pokusy a toastem. Texty se zkrátí na limity pravidel. Jedna vadná hodnota nezastaví zbytek.
+
+### ADR-198 · Účtenka má stálé id, editor ukládá podle id **(Session 25, v11.48 / v11.52)**
+Pozice v poli není identita – synchronizace ji mění. Staré účtenky dostanou deterministické id `ffIdUctenky`
+(FNV hash z data, obchodu, součtu, `addedAt` a položek), takže dvě zařízení vyrobí stejné id.
+
+### ADR-199 · Čekací okno blokuje appku během analýzy účtenky **(Session 25, v11.53, Milan)**
+Přes celou obrazovku se ukáže čekací okno:
+- přesýpací hodiny
+- kroky: fotka → odeslání → AI čte položky → kontrola
+- uběhlý čas a průběh
+
+Pod oknem nejde nic zmáčknout. Po 20 s se nabídne Zrušit, které opravdu zastaví dotaz. Obecné API `ffCekaniStart / Krok / Konec` je k použití i jinde.
+
+### ADR-200 · Zkratka z účtenky se nepřebírá jako název výrobku **(Session 25, v11.55, Milan)**
+„Jsou to různé názvy.“ Pole českého názvu zůstává prázdné. Zkratka je vidět jen jako nápověda „Na účtence: …“ a převzít se dá jen balení.
+Název napíše uživatel, nebo ho v budoucnu navrhne AI (TODO-326).
+Stejný výrobek pod jinou zkratkou spojují **aliasy** (obchod + zkratka), proto odkaz „přiřadit i k jiné položce“ zrušen.
+
+### ADR-201 · 📦 Moje výrobky jako samostatná záložka **(Session 25, v11.55, Milan)**
+Katalog výrobků podle čárového kódu je samostatná záložka Analýzy účtenek hned za 🗺️ Mapa položek, ne pod ní. Mapa
+řeší zařazení názvů, Moje výrobky konkrétní výrobky s kódem.
+
+### ADR-202 · Tři názvy výrobku a jejich pořadí **(Session 25, v11.57, Milan)**
+„Název v popisku CZ se může lišit od názvu na přední straně, především u zahraničních výrobků. Proto 3 názvy: EAN /
+obal přední strana / obal CZ popisek.“
+1. **Název z EAN** – z databáze, s jazykem
+2. **Obal – přední strana** – `nazevObal` z fotky obalu
+3. **Obal – CZ popisek** – `nazevPopisek` z nové fotky „📸 Vyfotit český popisek“; AI přečte i složení a dovozce, popisek jde i opsat ručně
+
+Zobrazovaný název (`eanNazevVyrobku`): tvůj → CZ popisek → český z databáze → AI český → originál.

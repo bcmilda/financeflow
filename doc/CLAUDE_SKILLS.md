@@ -1,6 +1,7 @@
 # FinanceFlow – CLAUDE SKILLS (naučené chyby, kterým se vyhnout)
 
 > Pravidla z opakovaných chyb. Claude je dodržuje při KAŽDÉ úpravě FinanceFlow.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ## SKILL 1 – Text a barvy na tmavém pozadí
 - **NIKDY** nepoužívat `var(--text3)` ani `var(--text2)` pro důležitý/čtený text – jsou špatně čitelné na tmavém pozadí.
@@ -712,3 +713,68 @@ Soubory posílat jednotlivě, ne v zipu (náhledy).
 Náhled reportu tvrdil „+71 Kč" a „víc než všechno pečivo", tabulka ukazovala +58 Kč. AI/šablonové věty skládat z
 proměnných, ne psát čísla ručně; po vykreslení zkontrolovat, že tvrzení v nadpisu sedí s grafem (Graf 2.3 „celý měsíc
 pod křivkou" neplatilo).
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09)
+
+## SKILL 71 – Opakuje-li se stejný druh chyby, hledej společnou příčinu (Session 25)
+Ve v11.43–v11.48 jsem opravoval ztracené fotky účtenek a EAN kódy po jedné (FIX-426, FIX-427). Milan: „Opravoval jsem je
+po jedné, ale příčina pořád zůstává jinde v aplikaci – toto se musí odhalit a napravit.“ Audit ve v11.52 našel šest
+mechanismů. Hlavní byl, že ozvěna vlastního uložení nahrazovala objekty (FIX-432).
+
+Když přijde třetí podobná chyba, místo další záplaty:
+1. Sepsat všechny cesty, kudy data tečou (zápis, příjem, offline, překreslení).
+2. U každé se zeptat, co se stane s objektem, který právě někdo drží.
+3. Opravit mechanismus, ne projev.
+
+## SKILL 72 – Negativní kontrola: test musí na starém kódu selhat (Session 25)
+Nový test synchronizace jsem pustil i proti kódu před opravou a selhal v 15–16 bodech. Teprve to dokazuje, že test chybu
+opravdu chytá. Test, který projde na starém i novém kódu, nic neověřuje.
+
+## SKILL 73 – U kritické vrstvy nezávislá revize ve více kolech (Session 25)
+Sync vrstvu v11.52 kontroloval ve třech kolech agent, který ji nepsal. Našel 16 skutečných chyb (v kole 1 devět, v kole 2
+pět, v kole 3 dvě, viz FIX-438), například offline smazání, které se vrátilo, nebo slučování přerušené odpojením. U dat
+uživatele (sync, mazání, platby) revizi dělat vždy. Kolo končí, až nová kontrola nic nenajde.
+
+## SKILL 74 – Stav hlásit tam, kde se uživatel dívá (Session 25)
+Toast leží **pod** modálním oknem. Hláška „⏳ čtu živiny…“ ze skeneru se tak neukázala a Milan hlásil, že fotka „nic
+neudělala“ (FIX-409). Uvnitř okna se stav (⏳ / ✅ / ⚠️) píše přímo do okna. Toast je jen pro stránku bez okna.
+
+## SKILL 75 – Den nikdy přes UTC (Session 25)
+`new Date(r, m, d).toISOString().slice(0, 10)` v letním čase vrátí předchozí den. Splátky dluhů vycházely o den dřív
+(FIX-420). Pro „den“ skládat místní `getFullYear / getMonth / getDate`. Testy pouštět s `TZ=Europe/Prague`.
+
+## SKILL 76 – Nepřebírat hodnotu mezi významově různými poli (Session 25)
+Navrhl jsem „použít z účtenky“ do názvu výrobku. Milan: „Jsou to různé názvy.“ Zkratka z pokladny („Smet.jogurt bílý 1kg KK“)
+není název z obalu. Podobné pole může mít jiný význam. Převzít se smí jen to, co znamená totéž (balení), a ostatní
+ukázat jako nápovědu (ADR-200).
+
+## SKILL 77 – Každou kartu ověřit v Chromiu na šířce telefonu (Session 25)
+Před přestavbou karty výrobku (v11.56) se:
+- textová pole přelévala
+- číslování se tlačilo
+- název aliasu byl na kartě vícekrát
+
+Na kódu to vidět nebylo, na screenshotu ano. Po každé úpravě karty:
+1. Pustit Playwright s lokálním serverem a appkou přes `signInLocal()`.
+2. Vyfotit kartu na šířce telefonu.
+3. Zkontrolovat `scrollWidth > clientWidth` u všech prvků.
+4. Screenshot poslat Milanovi.
+
+## SKILL 78 – Staré úkoly vysvětlovat z dokumentace, ne z paměti (Session 25)
+TODO-144 jsem popsal jako otevřenou cizí měnu. Ve skutečnosti je hotový od S15 a jen v tabulce S14 zůstalo „⏳ Otevřeno“.
+Před vysvětlením ID vždy `grep -n "TODO-144" doc/todo.md` a číst **všechny** výskyty, hlavně ten nejnovější.
+
+## SKILL 79 – Placená akce potřebuje synchronní zámek (Session 25)
+Dvojí ťuknutí na Analyzovat poslalo dva dotazy a spotřebovalo dvě analýzy (FIX-439). Příznak typu „běží“ nastavit hned
+na začátku handleru, před prvním `await`, a uvolnit ve `finally`. Zakázané tlačítko nestačí, protože se překreslí.
+
+## SKILL 80 – Test na text upravit zároveň se změnou UX (Session 25)
+Záměrné změny textů (např. „Česky: zatím chybí“ → „🇨🇿 Český název výrobku“) rozbily několik starších testů (ve v11.52–v11.57 bylo upraveno 14 testů). Při změně textu
+v UI:
+1. Hned `grep` testy na starý text.
+2. Upravit je ve stejném bumpu.
+3. V odpovědi napsat, které testy se měnily a proč.
+
+Test se nesmí „opravit“ tak, že přestane kontrolovat chování.

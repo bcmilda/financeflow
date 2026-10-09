@@ -11,6 +11,7 @@
 > `**(Session N)**`. Doplnění z Milanova merge jsou označena `**(Merge Session 1-6)**`.
 > Konflikty mezi sessions jsou explicitně vyznačeny.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1810,3 +1811,91 @@ Data: `data/taxonomie.json` (v1.1), `data/categories.json` (cat47 přidána, cat
 ## Pořadí zařazení položky (rozpočtová kategorie)
 osobní volba → komunitní mapa → čárový kód (taxonomie) → taxonomie podle názvu → klíčová slova → 🛍️ Nákup.
 Taxonomie (analýzy): mapa → čárový kód → název (`rpMapaNavrh(name, D, ean)`).
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Technické změny ze Session 25. Kontext v `Summary_s25.md`. Včetně dodatku v11.28–v11.30.
+
+## Nové soubory
+- `js/statistika-polozek.js` (v11.35) – Statistika položek
+- `js/ceny-kraje.js` (v11.39) – odeslání a čtení sdílených cen
+- `data/coicop2018.json` (v11.36) – číselník CZ-COICOP 2018, 5 úrovní
+- `smazani-uctu.html` (v11.45) – veřejná stránka pro Google Play
+- `data/taxonomie.json` v1.2 (pole `c5` u názvů potravin)
+
+## Synchronizační vrstva (`app.js`, blok „S25 (v11.52) – AUDIT“)
+| Funkce | Účel |
+|---|---|
+| `_ffKanon` / `_ffKanonStr` | kanonický tvar pro porovnání (seřazené klíče, bez null/prázdných, klíče jako `_fbSafeKeys`) |
+| `_ffSlouc` / `_ffSloucObj` | sloučení na místě se zachováním identity objektů (párování id, jinak obsah) |
+| `_ff3(B, L, R, klic)` / `_ff3Pole` | tří-cestné sloučení základ / tady / jinde |
+| `_ffPrijmiMeta`, `_ffPrijmiTx`, `_ffNajdiTx` | příjem změny části / transakce: ozvěna = nic, čistá = sloučit, špinavá = `_ff3` + `save()` |
+| `_dwSeedKey`, `_dwSeedTx` | základ po klíčích (ne celý stav); `_remoteApply` seeduje jen při `!_dw.ready` |
+| `_dw.vynutPlny`, `_ffJenSnimek` | plný zápis po obnově zálohy; zákaz plného zápisu při offline startu bez snímku |
+| `_ffPripojeno`, `_ffZmenaPripojeni`, `_ffConn` | `.info/connected` |
+| `_ffNutnoSloucit` | při odpojení a do sloučení se zapisují jen transakce |
+| `_ffPoPripojeni` | bariéra `users/{uid}/syncPing` → `_ffCtiZeServeru` (dirty části) → kontrola uid → srovnání transakcí po startu ze snímku (`_ffZeSnimku`) |
+| `_ffNepotvrzeno`, `_ffZakladProSnimek`, `_ffSnimekPozdeji` | základ do offline snímku (`_zaklad`) až po potvrzeném zápisu |
+| `_ffSelhani` | zápis po cestách (`allSettled`), max. 3 selhání, pak toast |
+| `_fbSafeKeys`, `_ffHlidejLimity` | zahodí `undefined`/`NaN`, zkrátí texty na limity pravidel |
+| `_ffOdesliHned` | `beforeunload` / `pagehide` / `visibilitychange` – místo `sendBeacon` |
+| `ffIdUctenky` | deterministické id účtenky (FNV) |
+
+Uzly `-N…` pod `data` (pozůstatek starého `sendBeacon`) se ignorují. `resetAppState` odpojí i dělené listenery
+a vynuluje všechny příznaky.
+
+## Ochrana rozpracované práce a čekací okno (`helpers.js`)
+- **Okna:** `ffOtevrenaOkna()` vrací otevřená okna.
+- **Detekce rozpracování:** `ffRozpracovano()` sleduje:
+  - focus v poli
+  - `_ffEditorUctenky`
+  - `_ffRozprac.formular` (filtry vyňaty přes `_ffJeFiltr`, platnost 5 min, nuluje `showPage` / `renderPage`)
+  - `[data-rozprac]`
+  - otevřená okna
+- **Odložené překreslení:** `ffRenderBezpecne(zdroj)` odloží překreslení a ukáže toast.
+- **Čekací okno:** `ffCekaniStart({titulek, podtitulek, kroky, odhadS, odhadText, zrusit})`, `ffCekaniKrok`, `ffCekaniKonec`, `ffCekaniBezi`. Zpět během čekání nic nedělá.
+- **Analýza účtenky:** `analyzeReceipt` / `analyzeMultiReceipt` jsou obaly `_analyzeReceipt` / `_analyzeMultiReceipt` s oknem, zrušením a `finally`. Zámek `_rpAnalyzaBezi`.
+
+## Karta výrobku a Moje výrobky (`receipts.js`, `ean-sken.js`)
+- **Karta (`receipts.js`):** `mapaUzivKartaHTML` (v2), styl `mkStyl()` (`.mk-tit`, `.mk-box`, `.mk-r` mřížka), řádek `mkR`.
+- **Aliasy a COICOP:** `mapaAliasySkupiny` (sloučení názvů z účtenek), `mapaKoicopRadekHTML` + `mapaKoicopPanelHTML` (panel z řádku).
+- **Období a základ srovnání:** `mapaObdobiOd` / `mapaVyberObdobi` (3 / 6 / 12 / rok / vše), `_mapaVahaZaklad` (potraviny / vše přes `mapaVsechnyVydaje`).
+- **Záložka `utab-vyrobky`:** „📦 Moje výrobky“ s `eanMojeVyrobkyHTML(D, samostatne)`.
+- **`ean-sken.js` – data karty:** `eanBaleniZUctenky`, `eanKartaUlozData`, `eanNazevRychle`, `eanPrirazeniHTML`.
+- **`ean-sken.js` – fotky:** `eanFoto` umí druh `popisek`, `eanFotoTlacitkaHTML(..., bezObalu)`.
+- **Odstraněno:** `eanNavrhZUctenky` (v11.55).
+- **Zobrazovaný název `eanNazevVyrobku`:** moje → `nazevPopisek` → český z DB → `nazevCs` → `nazev`.
+
+## Nová a změněná data
+- **`users/{uid}/data/uiCfg`** (v11.28, registrováno v `_DW_META` a na všech místech v `app.js`):
+  - `autoDoklad`, peněženka importu, report e-mailem
+  - `sdiletCeny` (v11.39)
+- **`users/{uid}/syncPing`** (v11.52) – zápisová bariéra po připojení (kaskáda `users/$uid`).
+- **Účtenka:**
+  - `id` (stálé), `receiptAddedAt` (vazba na transakci)
+  - `photoKeys[]` (`photoKey` = první)
+  - `storeAddress`, `storeCity`, `storeRegion`, `storeIco`
+- **Položka:** `baleni {m, j}`.
+- **Kalendář:** `workCal.salaryM` (výplata po měsících).
+- **`community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec}`** – souhrn `{n, s, min, max, u, j, h}` (počet, součet, min, max, počet lidí, jednotka, HMAC otisky platné jen pro uzel). Čte přihlášený, zapisuje jen worker, max. 25 údajů na požadavek.
+- **`community/eanProdukty/{ean}`:**
+  - nová pole `nazevPopisek`, `slozeniObal`, `dovozce`, `nutricePredchozi`
+  - záznam poslední ruční změny živin
+
+## Worker (v11.57)
+- **`POST /report-mail`** (v11.28) – PDF přes Cloudflare Browser Rendering (`CF_ACCOUNT_ID`, `CF_BR_TOKEN`) + Resend.
+- **`POST /ean`:**
+  - akce `odebrat` (v11.30), `ziviny` (v11.43, kontrola na serveru + záloha)
+  - `foto` druh `popisek` (v11.57)
+  - pobočka: adresa, město, kraj, IČO z analýzy účtenky (v11.38)
+  - `EAN_ZACHOVAT` se nepřepisuje obnovou (v11.50 / v11.57)
+- **`POST /ceny`** (v11.39) – zápis souhrnu a čtení.
+- **`POST /report-ai`** (v11.47) – AI komentář z předpočítaného JSONu.
+- **`AI_LIMITS`:** nově `report_ai`: free 0 · trial 5 · premium 15.
+- **`ARCHIV_LIMITY`:** free 300 · trial / premium 1 000 · admin 100 000.
+- **Tarif** se čte ze stejných polí, která ukládá appka (FIX-425).
+
+## Pravidla DB (verze v11.39)
+Nový uzel `community/ceny` (`.read: auth != null`, `.write: false`). Ostatní beze změny proti v11.24.

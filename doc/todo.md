@@ -11,6 +11,7 @@
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
 > **Doplnění Session 18** (2026-08-03, `patch-session18.md`): TL;DR přepočítáno, nová sekce na konci souboru. TL;DR mezi Session 9 a 18 nebyla průběžně udržovaná — čísla níže odrážejí až stav po S18.
 > **Doplnění Session 23** (2026-09-25): řádky Session 23 v TL;DR a ROADMAP, nová sekce na konci souboru.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1939,3 +1940,97 @@ K rozhodnutí, ne k implementaci.
 TODO-301 (druhý otisk `assetlinks.json` po nahrání do Play) · TODO-309 (konec záruky na Dashboardu) ·
 Google Play (účet, 12 testerů, IČO a jméno v `legal.html`, screenshoty) · TODO-272, 273, 274, 275, 276.
 Zamítnuto Milanem: rozpad výplaty z Výplatnice na mzdu/přesčas/bonus („komplikace").
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Uzavřené a nové úkoly ze Session 25. Kontext v `Summary_s25.md`. Obsahuje i dodatek v11.28–v11.30 (2026-10-04 až 05), který mezi S24 a S25 nebyl zapsán.
+
+### ✅ Uzavřeno v Session 25
+| ID | Co bylo hotovo |
+|---|---|
+| TODO-317 | Měsíční report F3: zůstatek den po dni a report e-mailem jako PDF (v11.28), **AI komentář** – shrnutí, hodnocení, 3 postřehy, doporučení, výhled – s ověřením každého čísla (v11.47). Zbytek přesunut: odhad příjmů mimo šablony → TODO-325, doladění vzhledu podle Milana průběžně. |
+| TODO-309 | Konec záruky na Dashboardu – upozornění ≤ 60 dní, klepnutím do 📎 Doklady (v11.46) |
+| TODO-276 | Obecné názvy oddělení („Pečivo", „Uzeniny 21 %") se v Inflaci, Detektoru ani „Pravidelně nakupuješ" nepočítají jako výrobek (v11.46) |
+| TODO-322 | Nahrazeno TODO-332 – Milan nasadil do v11.30 a průběžně posílal nálezy (z nich FIX-405 až FIX-442) |
+
+Částečně:
+- **TODO-313** · Filtr a hledání. 📦 Moje výrobky mají filtry neznámý / bez živin / bez českého názvu / nepřiřazený a hledání (v11.49).
+- **TODO-315** · Pokrytí EAN. Neznámý kód jde od v11.50 zapsat ručně a od v11.57 doplnit fotkou českého popisku.
+- **TODO-316** · MD na GitHub. V S25 jsou připravené všechny MD soubory k nahrání, Milan je nahraje.
+
+### Upřesnění starých úkolů
+- **TODO-144** (základní měna) je **hotový od Session 15** (v8.58–v8.61, viz sekce S15). Řádky „⏳ Otevřeno“ v tabulkách S14 jsou historický stav. V S25 jsem ho mylně vykládal jako otevřený (SKILL 78).
+- **TODO-028** (lokalizace EN/SK): Milan: „Cílím na Čechy, ale přišlo mi fajn mít i překlady.“ Zůstává ⏸ na později.
+- **TODO-275** (peněženka u transakcí z účtenek): v S25 padl nápad přiřazovat peněženku podle posledních 4 číslic karty z účtenky. Zatím jen nápad.
+- **TODO-321** (revize kategorií): podklad `kategorie.md` je připravený a čeká na Milanovo rozhodnutí.
+
+### Nové úkoly Session 25
+
+### TODO-323 · Ikony – grafické ztvárnění **(Session 25)**
+- **Popis:** Milan u karty výrobku (v11.57): „Jen ty ikony budeme muset lépe ztvárnit graficky.“ Emoji v kartách a menu nahradit jednotnou SVG sadou (stejná tloušťka čáry, barvy z motivu). Nejdřív poslat vzorky ke schválení.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Otevřené
+
+### TODO-324 · ➕ Přidat doklad bez účtenky **(Session 25)**
+- **Popis:** V 📎 Doklady založit doklad, který není účtenka ze skenu (záruční list, faktura, smlouva), s fotkou, zárukou a poznámkou.
+- **Priorita:** 🟢 P3 · **Stav:** ⏸ Čeká na Milanovo potvrzení
+
+### TODO-325 · Odhad příjmů v Měsíčním reportu i mimo šablony **(Session 25)**
+- **Popis:** Zbytek z TODO-317. Odhad příštího měsíce bere příjmy jen ze šablon, takže příspěvky a další pravidelné příjmy mimo šablony chybí. Napojit na logiku Příštího měsíce (úrovně jistoty 🟢/🟡).
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Otevřené
+
+### TODO-326 · 🤖 Navrhnout název výrobku (volitelné) **(Session 25)**
+- **Popis:** Milan: zkratku z účtenky do názvu nepřebírat, „jedině by AI musela přeformulovat název bez zkratek a značek, nebo ponechat úpravu na uživateli“. Volitelné tlačítko u pole „Obal – CZ popisek“, které z účtenky, značky a balení navrhne název. Uloží se až po potvrzení.
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Otevřené (nápad)
+
+### TODO-327 · Zrychlení načítání appky **(Session 25)**
+- **Popis:** Probírané v S25 (načítání modulů a dat). Milan: „To zrychlení zatím taky nedělej.“
+- **Priorita:** 🟢 P3 · **Stav:** ⏸ Odloženo Milanem
+
+### TODO-328 · Zkrátit dlouhé MD soubory bez ztráty obsahu **(Session 25)**
+- **Popis:** `bugs.md` (~180 kB), `todo.md` (~130 kB), `decisions.md` (~110 kB), `features.md`, `architecture.md` jsou příliš dlouhé pro čtení na začátku session a zaplňují Projekt (95 %). Návrh: staré sekce sessions přesunout beze změny do `doc/archiv/` a v hlavních souborech nechat jen aktuální stav (otevřené úkoly, platná rozhodnutí, poslední 2–3 sessions) s odkazy do archivu.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Návrh, čeká na Milanovo schválení (nic se nemaže, jen přesouvá)
+
+### TODO-329 · Řádek „Průměr uživatelů FinanceFlow" na kartě výrobku **(Session 25)**
+- **Popis:** Na kartě výrobku je srovnání s ČSÚ („průměrná domácnost") a „ty". Třetí řádek by byl komunitní průměr z anonymních souhrnů, stejně jako Ceny v kraji jen od 3 lidí (ADR-189).
+- **Priorita:** 🟢 P3 · **Stav:** ⏸ Později
+
+### TODO-330 · Ověřit `FIREBASE_SERVICE_ACCOUNT` ve workeru **(Session 25)**
+- **Popis:** Na proměnné stojí rate limiting, tarif (FIX-425), `/ceny` a `/report-ai`. Ověřit v Cloudflare, že je nastavená a platná.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Otevřené (Milan)
+
+### TODO-331 · Google Play – zbývající kroky **(Session 25)**
+- **Popis:**
+  - vývojářský účet
+  - testovací účet pro recenzenta
+  - IČO a jméno v `legal.html`
+  - potvrdit dobu uchování 3 roky
+  - druhý otisk `assetlinks.json` (TODO-301)
+  - screenshoty
+
+  Texty a stránka pro smazání účtu jsou hotové (`google-play.md` v3, `smazani-uctu.html`, v11.45).
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Otevřené (Milan)
+
+### TODO-332 · Vyzkoušet v provozu v11.31–v11.57 **(Session 25)**
+- **Popis:**
+  - **Sync (v11.52):**
+    - účtenka na telefonu a současná úprava jiné na PC
+    - rozepsaný formulář během synchronizace
+    - offline zápis a restart offline
+  - **Analýza účtenek:**
+    - čekací okno a Zrušit
+    - Zpět na telefonu
+    - 📦 Moje výrobky
+    - karta výrobku se třemi názvy a fotka českého popisku
+    - Ceny v kraji (od 3 lidí)
+    - 📐 Statistika položek
+    - Doklady a úložiště
+  - **Ostatní:**
+    - AI komentář reportu
+    - smazání účtu na testovacím účtu
+  - **Nasazení:** pořadí podle `Summary_s25.md`
+- **Priorita:** 🔴 P1 · **Stav:** ⬜ Otevřené (Milan)
+
+### Stále otevřené z dřívějška
+TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · TODO-321 · TODO-272, 273, 274, 275.

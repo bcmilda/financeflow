@@ -9,6 +9,7 @@
 > Doplnění z Milanova merge jsou označena `**(Merge Session 1-4)**`.
 > Tento dokument popisuje **aktuální stav** funkcí. Plánované úkoly s detaily jsou v `todo.md`.
 > Poslední aktualizace: 2026-05-15 (Session 7.0 + 7.1 patch).
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1327,3 +1328,149 @@ zdražuje nejvíc" (po podkategoriích podle dopadu). Statistiky → „🧭 Za 
 - Péče o sebe (cat47), výběr z bankomatu jako přesun s nápovědou (v11.16).
 - Hlavní menu na mobilu se zavře klepnutím vedle (v11.18).
 - Vymazat data: záloha Výplatnice, Tankování a Energie do JSON (v11.21).
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Nové a změněné funkce ze Session 25. Kontext v `Summary_s25.md`. Na začátku dodatek v11.28–v11.30.
+
+## Dodatek v11.28–v11.30 (2026-10-04 až 05) **(Session 25)**
+- **Nový výběr kategorie** (v11.28) · `cesta: + Přidat transakci → Kategorie`
+  - nahoře 6 nejčastějších za 90 dní, pod tím rozbalovací skupiny
+  - 2 sloupce, na šířku 3
+  - skupiny jsou jen zobrazení, data se nemění
+- **Zůstatek peněženky ke dni** (v11.28, ADR-183) · `cesta: Peněženky → upravit`
+- **Import výpisu:** peněženka výpisu a výběry z bankomatu jako přesun do Hotovosti (v11.28)
+- **Měsíční report:**
+  - zůstatek den po dni (v11.28)
+  - **✉️ Poslat e-mailem jako PDF**, automaticky 4. den v měsíci (v11.28, ADR-184)
+- **📌 Uschovat fotky účtenky (N)** a automatické uschování (v11.28, ADR-185)
+- **Proklik z Predikce** do Transakcí vyfiltrovaných na kategorii a měsíc (v11.29)
+- **Detail vozidla:** čitelnější písmo a širší okno (v11.29)
+- **Čárové kódy** (v11.30):
+  - přiřazení k položce přes seznam účtenek
+  - ✕ Odebrat chybné přiřazení
+  - kód i ze souboru
+  - ✕ Zavřít ve skeneru
+
+## 📐 Statistika položek – nový modul **(Session 25, v11.35, Premium)**
+`cesta: Analýza účtenek → 📐 Statistika položek` (`js/statistika-polozek.js`). Každá položka z účtenek zařazená podle
+CZ-COICOP, taxonomie, obchodu, štítku a kategorie rozpočtu.
+- **Filtry:**
+  - období, COICOP (všechny úrovně číselníku), oblast, podkategorie
+  - obchod, kraj a město pobočky, štítek, kategorie
+  - jen s čárovým kódem, hledání
+- **Výstupy:**
+  - útrata, počty, průměr na nákup
+  - „Útrata podle“ libovolné dimenze s podílem
+  - vývoj po měsících
+  - tabulka položek: Ø cena, Ø za kg/l, nejlevnější obchod. Klik otevře kartu výrobku.
+
+## 📚 Číselník CZ-COICOP 2018 a 5. úroveň **(Session 25, v11.36 / v11.41)**
+- **Číselník:** `data/coicop2018.json` (871 kódů, 5 úrovní).
+- **Karta výrobku:** kód v zápisu ČSÚ, název nejhlubší úrovně, cesta číselníkem a váha ČSÚ v ‰.
+- **Taxonomie v1.2:** 470 názvů potravin s kódem 5. úrovně.
+- **Zdražování:** výběr „🔍 Sledované položky“ přímo nad kartami (v11.41).
+
+## ⚖️ Gramáž, 📍 pobočka, 📊 ceny po krajích **(Session 25, v11.37–v11.39)**
+- **Balení** jako samostatné pole: titulek karty bez gramáže, cena za kg/l z balení (v11.37).
+- **Pobočka** z hlavičky účtenky (v11.38):
+  - `cesta: editor účtenky → 📍 Město pobočky + kraj` – u starších účtenek ručně
+  - 🏪 Obchody ukazují města poboček
+- **Sdílené ceny po krajích** (v11.39, ADR-189):
+  - `cesta: Mapa položek → výrobek → Ceny v kraji` – průměr po obchodech za poslední měsíc, 🏆 nejlevněji, rozpětí, počet lidí, „ty jsi platil o X víc“
+  - od 3 lidí
+  - vypnutí: `Nastavení → Data & Soukromí → Sdílet ceny z účtenek`
+
+## 🗺️ Karta výrobku – vývoj v S25 **(Session 25, v11.32 → v11.57)**
+- **v11.34 · Rozšířená karta:**
+  - Názvy a aliasy
+  - Výrobek a balení (výrobce, země, obal)
+  - Identifikace a zdroje dat
+  - chybějící živiny s tlačítkem fotky
+- **v11.40:** barevné nadpisy, „Váha v koši ČSÚ“ s vysvětlením ‰.
+- **v11.42:** volba období pro tvůj podíl (12 měsíců / roky / celá doba).
+- **v11.43 · Ruční nutriční hodnoty** na 100 g / 100 ml:
+  - kJ → kcal
+  - kontroly „z toho ≤ celkem“, součet ≤ 100 g, energie ≤ 900 kcal
+  - upozornění na nesoulad 4/4/9 kcal
+  - záloha předchozích hodnot ve workeru
+- **v11.56 · Přestavba v2:**
+  - bloky Výrobek, Zařazení, Názvy z účtenek, Balení a složení, Moje nákupy, Ceny v kraji, Identifikace (sbalená), Rozpočet
+  - mřížka popisek | hodnota
+  - **Zařazení:** oblast → kategorie → obecný název → COICOP
+  - panel COICOP: hierarchie a srovnání výdajů za období 3/6/12 měsíců / rok / vše, se základem potraviny nebo všechny výdaje
+  - **Názvy z účtenek** každý jen jednou, s obchody a počtem nákupů
+- **v11.57:**
+  - **tři názvy**: Název z EAN · Obal – přední strana · Obal – CZ popisek + Dovozce (ADR-202)
+  - **📸 Vyfotit český popisek** (worker druh `popisek`)
+  - panel COICOP rozbalitelný přímo z řádku COICOP
+  - tlačítka živin jen v bloku Balení a složení
+
+## 📦 Moje výrobky a čárové kódy **(Session 25, v11.48–v11.55)**
+- **🎯 Nejspíš** (v11.48) – při přiřazení kódu nahoře položky seřazené podle značky, názvu, gramáže a druhu.
+- **📦 Moje výrobky** (v11.49) – všechny výrobky podle kódu:
+  - kolikrát a kde koupeno, poslední cena
+  - co chybí: neznámý / bez živin / bez českého názvu / nepřiřazený
+  - filtry a hledání
+  - samostatné skeny se pamatují až 300
+- **✍️ Zapsat název / založit kartu výrobku** u neznámého kódu (v11.50) – název, značka, balení, druh.
+- **K vyřízení** (v11.51) – `cesta: 📸 Skenovat` – jen kódy bez názvu nebo nepřiřazené, s ✍️ Zapiš název / 🔗 Přiřadit.
+- **„📝 zatím jen zkratka z účtenky“** (v11.54):
+  - výrazné pole „🇨🇿 Český název výrobku (opiš z obalu)“
+  - ✓ Přiřazeno u hotových
+- **Samostatná záložka** `Analýza účtenek → 📦 Moje výrobky` (v11.55, ADR-201):
+  - zkratka se do názvu nepřebírá (ADR-200)
+  - odkaz „přiřadit i k jiné položce“ zrušen
+
+## ⏳ Čekací okno při analýze účtenky **(Session 25, v11.53, Milan)**
+`cesta: Analýza účtenek → 📸 Skenovat → Analyzovat`:
+- přesýpací hodiny, kroky, uběhlý čas, průběh
+- pod oknem nejde nic zmáčknout
+- po 20 s Zrušit
+- Zpět okno nezavře
+- dvojí ťuknutí nespustí dvě analýzy
+
+## 🔄 Synchronizace bez přepisování **(Session 25, v11.52)**
+Pro uživatele:
+- Změny z telefonu a PC se slučují po záznamech.
+- Rozepsaný formulář, editor, karta ani okno se nepřekreslí. Změny odjinud počkají, toast to oznámí.
+- Offline nic neztratí ani po restartu.
+- Při zavření nebo přepnutí appky se čekající uložení odešle hned.
+- Detaily: ADR-195 až ADR-198, FIX-432 až FIX-438.
+
+## 📎 Doklady a úložiště **(Session 25, v11.46–v11.50)**
+- **Konec záruky** na Dashboardu (≤ 60 dní) (v11.46).
+- **🔎 Najít fotky bez účtenky** (v11.49).
+- **Úložiště podle tarifu** (v11.50):
+  - počítadlo „X z Y fotek · MB · zbývá“
+  - **Admin → 💾 Úložiště**: R2 10 GB, fotky po uživatelích
+
+## 📄 Měsíční report – AI komentář **(Session 25, v11.47, Premium)**
+`cesta: Report → 📄 Měsíční report`:
+- shrnutí, hodnocení, 3 postřehy, doporučení, komentář k výhledu
+- ověřená čísla (ADR-192)
+- uzavřený měsíc se okomentuje sám, běžící přes „✨ Napsat AI komentář“
+- je i v e-mailovém reportu
+
+## Účtenky – další změny **(Session 25)**
+- **Duplicitní účtenky** (v11.32): „Zobrazit“ a smazání i s transakcí; smazání v Historii nabídne smazat transakci.
+- **Zelený štítek** (v11.33 → v11.34): paměť uživatele + model ČSÚ (ADR-186).
+- **Vážené zboží** (v11.34): v poli částka za položku, cena za kg pod tím.
+- **Zdražování → podle výrobků** (v11.40):
+  - cena za kus nad cenou za kg/l
+  - rozbalení jednotlivých nákupů a medián po obchodech
+- **Naskenované výrobky se pamatují** (v11.40).
+
+## Kalendář → Pracovní **(Session 25, v11.33, Milan)**
+- **📋 Kopírovat úsek:** vložit jednou / do konce měsíce / do konce roku, ↩ Vrátit poslední vložení.
+- **Dovolená v hodinách** (`Hodin dovolené / rok`).
+- **Čistá výplata pro každý měsíc** (`workCal.salaryM`).
+
+## Ostatní **(Session 25)**
+- **Smazání účtu i z Firebase Auth** a stránka `financeflow.cz/smazani-uctu.html` (v11.45, ADR-191).
+- **Landing page:** hamburger menu na mobilu a tabletu (v11.44).
+- **Inflace / Detektor / Pravidelně nakupuješ:** bez obecných názvů oddělení (v11.46).
+- **Finanční obraz:** karty bez dat řeknou, co chybí (v11.46).
+- **Tlačítko Zpět na telefonu** (v11.51, ADR-194).

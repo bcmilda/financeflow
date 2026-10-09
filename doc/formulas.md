@@ -9,7 +9,8 @@
 > Každý vzorec označen zdrojovou session: `**(Session N)**`.
 > Konflikty mezi sessions jsou explicitně vyznačeny.
 > Doplnění z Milanova merge jsou označena `**(Merge Session 1-3)**`.
-> Poslední aktualizace: 2026-05-24 (Session 8 patch).
+> Poslední aktualizace: 2026-05-28 (Session 9 patch).
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -986,5 +987,510 @@ getActual(catId, sub, m, y, D):
 **🔗 Cross-reference:** `architecture.md` sekce 18, FIX-069, FIX-073
 
 
-*Konsolidováno: 2026-04-16 | Doplněno z Milan merge S1-3: 2026-05-15 | Sessions: 1 → 8 | Poslední update: Session 8, 2026-05-24 | Autor: Milan Migdal*
+---
+
+## COICOP agregáty **(Session 9, TODO-082)**
+
+### computeCoicopAggregates(txs, D)
+```
+result[coicop] += abs(tx.amount)  // pro každou expense transakci
+  kde coicop = DEFAULT_CATEGORIES[tx.catId].coicop
+            || coicopOverrides[tx.subcat]
+            || D.categories[tx.catId].coicop  // admin přiřazení
+
+Vrátí: {cats: {1: sum, 4: sum, ...}, unassigned: sum}
+```
+
+Upload do Firebase: `community/{month}/users/{uid}/coicop/{group}` (anonymně)
+**🔗 Cross-reference:** ADR-044, `architecture.md` sekce Firebase paths
+
+---
+
+## Cena/kg tracking **(Session 9, TODO-084)**
+
+### extractUnit(name)
+```
+pricePerUnit = price / (unitValue × qty)
+  kde unitValue z názvu:
+    "500g"  → 0.5 kg
+    "1.5l"  → 1.5 l
+    "250ml" → 0.25 l
+    "3ks"   → 3 (počet kusů)
+
+Uloženo: itemStats/{key}.pricePerUnit
+```
+**🔗 Cross-reference:** ADR-046
+
+---
+
+## Shrinkflation detektor **(Session 9, TODO-085)**
+
+```
+weightChange    = (lastWeight - firstWeight) / firstWeight × 100
+shrinkflation   = weightChange < -2 %  // hmotnost klesla o více než 2 %
+realPriceChange = (lastPricePerKg - firstPricePerKg) / firstPricePerKg × 100
+
+Zobrazení: badge 🔻 Shrinkflation v záložce Zdražování
+Podmínka zobrazení: min 2 záznamy s hmotností, weightChange < -2 %
+```
+**🔗 Cross-reference:** ADR-046, TODO-085
+
+
+## Vzorce Session 10 (Finanční radar + predikce)
+
+### OECD ekvivalent domácnosti
+```
+calcOECD = 1,0 + (dospělí − 1) × 0,5 + děti14+ × 0,5 + děti0–13 × 0,3
+```
+- ČSÚ srovnání: režim osoba → `avg_osoba`; režim domácnost → `avg_osoba × calcOECD`.
+
+### Radar – konec měsíce a volné peníze
+```
+eomLeft     = očekávaný příjem − dosud utraceno − známé platby do konce měsíce
+freeToSpend = příjem − utraceno − budoucí platby (rezerva)   // záporné = chybí na závazky
+predEnd     = dosud utraceno + (denní tempo × zbývající dny)
+denní tempo = dosud utraceno / počet dní s daty
+```
+
+### Denní graf – ideální tempo
+```
+idealPace[d] = příjem × (d / počet dní v měsíci)
+```
+- Žlutá referenční čára. Skutečné kumul. výdaje nad ní = utrácíš rychleji než rovnoměrně.
+
+### Spending Pace (tempo utrácení)
+```
+pace = aktuální kumulativní výdaje (ke dni d) / historický průměr kumul. výdajů (ke dni d, 6 měs)
+```
+- < 0,9 = pomaleji (šetříš), 0,9–1,1 = normál, > 1,1 = rychleji než obvykle.
+
+### Trend po týdnech od výplaty
+```
+týden w: dny [výplata + w×7 .. +6]
+Kč/den = součet výdajů týdne / počet dní v týdnu   // férové i pro kratší poslední týden
+```
+
+### Financial Freedom Ratio
+```
+FFR = (pasivní příjem / měsíční výdaje) × 100
+```
+
+### Income Diversification (inverzní HHI)
+```
+HHI = Σ (podíl příjmové kategorie)²
+skóre = (1 − HHI) normalizováno na 0–100
+```
+
+---
+
+*Konsolidováno: 2026-04-16 | Doplněno z Milan merge S1-3: 2026-05-15 | Sessions: 1 → 10 | Poslední update: Session 10, 2026-06-01 | Autor: Milan Migdal*
 *Poznámka ke konsolidaci: Claude consolidated merge S1-3 jako základ. Doplnění tabulky historických DSTI/DTI limitů (sekce 2) a zkráceného vzorce OECD (sekce 6) z Milanova merge `formulas_m1-3_2026-05-08.md`, označeno jako `(Merge Session 1-3)`. Sekce Completeness Score (sekce 7) byla již v Claude verzi přítomna.*
+
+---
+
+## Session 11 – poznámka k lineAmt helper
+
+`lineAmt(it) = it.lineTotal ?? (it.price * (it.qty || 1))`
+
+Helper pro výpočet skutečné ceny položky účtenky. Zpětně kompatibilní – staré záznamy bez `lineTotal` použijí `price × qty`. Viz ADR-059, explanations.md.
+
+PARTNER_BONUS_PTS = 50 – bonus bodů za spárování partnera přes sdílený odkaz.
+
+*Aktualizace Session 11: 2026-06-09*
+
+---
+
+## Doplnění Session 18 (2026-08-03)
+
+### `computeObrazScore(series)` — skóre Finančního obrazu 0–100
+```
+raw = 50 + Σ příspěvků čtyř složek (příjmy, výdaje, úspory, zadluženost)
+  každá složka: +15 / 0 / −15 podle směru změny mezi první a druhou polovinou okna
+score = clamp(raw, 0, 100)
+```
+⚠️ Teoretický rozsah `raw` je −10 až 110 — krajní hodnoty 0 a 100 jsou tím pádem „přeplněné" (dosažitelné dřív, než by si je uživatel zasloužil). Zaznamenáno jako TODO-204, vzorec zatím beze změny.
+
+### Monthly Score / N-měsíční Momentum Score
+```
+Monthly Score = computeObrazScore() za poslední měsíc okna
+Momentum Score = Monthly(teď) − Monthly(začátek okna)
+stálost = (počet meziměsíčních kroků nahoru) ÷ (počet kroků celkem) × 100 %
+```
+
+### Exp. Ratio (tabulka Měsíc po měsíci)
+```
+Exp. Ratio = výdaje měsíce ÷ příjmy měsíce
+```
+
+### Radar — Projekce konce měsíce (denní tempo)
+```
+denní tempo = dosavadní výdaje ÷ uplynulé dny měsíce
+projekce výdajů = dosavadní výdaje + (denní tempo × zbývající dny)
+projekce salda = příjmy − projekce výdajů
+```
+⚠️ Neobsahuje známé budoucí platby (nájem, splátky) — ty jsou v jiném čísle, „Kam směřuju" (viz `explanations.md` S18).
+
+### Radar — horizont budoucích plateb (v9.76)
+```
+horizont (dny) = clamp(dny do konce zvoleného měsíce, min 30, max 400)
+```
+
+*Aktualizace Session 18: 2026-08-03*
+
+---
+
+## Session 19 — nové a opravené vzorce (v9.79–v9.98) **(2026-08-21)**
+
+### ⚠️ OPRAVA: `getHistAvg()` — základ celého predikčního enginu
+```
+PŘED (chybně):  byMonth[k] += t.amt              // nominál, splity dvakrát
+PO   (správně): byMonth[k] += txCZK(t, D)        // + !isBalancing
+                                                 // + vyloučit rodiče splitu S dětmi
+avg = Σ byMonth / počet měsíců
+```
+Filtr je **shodný s `getActual()`** — obě se zobrazují vedle sebe jako „odhad vs. skutečnost".
+`isTransferTx` se **nefiltruje ani v jedné** (viz ADR-100).
+
+### ⚠️ OPRAVA: `computeBaseIncome()` — vstup do celého skóre
+```
+monthInc = Σ txCZK(t, D)   pro t.type==='income' && t.catId===cat.id
+```
+Dřív `t.amount || t.amt`. Vstupuje do **S1, DTI, DSTI, S3, S4**.
+
+### Kurzová ztráta (TODO-215)
+```
+kurzBanky = |amtCZK| / |amount|            // co banka reálně vzala za 1 jednotku
+fair      = |amount| × fxRef               // co by to bylo za kurz ČNB
+ztrata    = |amtCZK| − fair                // může být i záporná (výhodná směna)
+prirazka% = (kurzBanky / fxRef − 1) × 100
+```
+Počítá se **jen** když má transakce `currency ≠ CZK`, `amtCZK` i `fxRef`.
+Záznamy před v9.89 `fxRef` nemají — z výpočtu se vynechají a jejich počet se ukáže.
+
+**Souhrn za období:**
+```
+celkovaPrirazka% = ztrataCelkem / (utracenoCZK − ztrataCelkem) × 100
+```
+Vážená **částkou**, ne průměr procent — jedna drobná nevýhodná směna by jinak
+přebila deset velkých výhodných.
+
+### Příští měsíc (TODO-211)
+```
+váha kategorie   = cat.stabilityWeight ?? (cat.stable ? 1 : 0)
+úroveň jistoty   = 1 (šablona) | 2 (váha ≥ 0,5) | 3 (jinak, MIMO součet)
+
+průměr příjmu    = Σ txCZK(příjmy kategorie za N měsíců) / N     // N = 6 dokončených
+dopočet          = průměr − Σ(šablony téže kategorie)            // < 300 Kč se neukáže
+den výskytu      = medián dne v měsíci z historie
+
+odhad běžných výdajů = max(0, Σ predictCat(všechny výdajové kategorie)
+                              − Σ známé platby s datem)
+```
+Odečet známých plateb je nutný — `predictCat` je počítá z historie, bez odečtu by
+nájem a splátky vešly do součtu **dvakrát**.
+
+**Průběžný zůstatek:** odhad běžných výdajů se rozpouští rovnoměrně
+(`odhad / početDní` na den), aby křivka odpovídala realitě.
+
+**Kotva výplatního cyklu** = den **největšího** 🟢/🟡 příjmu v kalendářním měsíci
+(FIX-253), ne `radarPaydayInfo()`.
+
+### Skóre aktivity uživatele (TODO-213)
+```
+objem     = min(60, round(aktivníDny30 / 20 × 60))
+čerstvost = dny ≤ 1 → 40 | dny ≥ 30 → 0 | jinak round((1 − dny/30) × 40)
+skóre     = objem + čerstvost                        // 0–100
+```
+Bez evidence aktivity vrací **null** — skóre se neukazuje vůbec.
+
+### Měsíční review (TODO-198)
+```
+průměr hodnocení = Σ(priorita × txCZK) / Σ txCZK    // VÁŽENÝ částkou
+pokrytí          = Σ txCZK(ohodnocené) / Σ txCZK(všechny výdaje)
+```
+Pod 15 % pokrytí se přidá varování. Vzorec se ukáže jen při **5+ útratách v koši**
+a rozdílu **0,6+ bodu** mezi nejvyšším a nejnižším košem.
+
+### Karta Projektu (TODO-217)
+```
+casPct   = uplynuléDny / celkemDní × 100
+tempo    = utracenoPct / casPct × 100         // < 100 = utrácíš pomaleji než ubíhá čas
+predikce = utraceno / casPct × 100            // lineární odhad, jen při casPct > 5
+```
+
+### Osa života (TODO-207/B)
+```
+hustota: ≤ 48 měsíců → po měsících
+         ≤ 144       → po čtvrtletích
+         > 144       → po letech
+
+u slučovaných košů:  incA = Σ inc / početMěsíců    // PRŮMĚR na měsíc
+                     cum  = Σ (inc − exp)          // skutečný součet
+```
+Průměr je nutný — jinak by přechod z měsíců na roky udělal umělý dvanáctinásobný skok.
+
+### Peněžní vstupní pole (TODO-216)
+```
+baseToCzk(v)  = v × (1000 / czkToBase(1000))     // zadání → CZK k uložení
+moneyInFill() = czkToBase(czk)                   // CZK → pole v základní měně
+```
+Při základní měně CZK je kurz 1,0 a obě funkce jsou identita.
+
+---
+
+## Session 19 — druhá vlna (v9.99–v10.03) **(2026-08-24)**
+
+### ⚠️ ZMĚNA: Finanční skóre má dynamický jmenovatel (ADR-113)
+```
+PŘED:  total = round((Σ složek + bonus) / 310 × 100)
+       chybějící data = neutrální hodnota (S1=36, S3=25, S4=18, S5=38, S2=plný počet)
+
+PO:    složka je "avail" jen když ji lze změřit
+       availMax = Σ max(avail složek)
+       total    = availMax > 0 ? round(rawTotal / availMax × 100) : null
+       prahy hodnocení se počítají z availMax, ne z 310
+```
+
+**Podmínky dostupnosti:**
+| Složka | avail když |
+|---|---|
+| S1 | `totalInc > 0` |
+| S2 | `debts.length > 0` **nebo** `_settings.hasDebts === false` |
+| S3 | `monthsReserve !== null` |
+| S4 | existuje kategorie `isSaving`/`isInvest` **a** `baseIncome > 0` |
+| S5 | aspoň jedna kategorie má `healthPct > 0` nebo `healthAmt > 0` |
+
+Dopad: nový uživatel 217/310 = 70/100 → **nelze určit**; s příjmy a výdaji **48/100**.
+
+### Kontrola úplnosti účtenky (ADR-115)
+```
+sum  = Σ lineAmt(it)                    // lineTotal ?? price × qty
+diff = total − sum
+ok   = |diff| ≤ 1 Kč
+```
+Bez `total` nebo bez položek se nekontroluje (vrací `null`).
+
+### Klíč položky v Inflaci (ADR-112)
+```
+key = název
+      → lowercase, trim
+      → normalize('NFD'), odstranit diakritiku
+      → 1,5 → 1.5
+      → interpunkce na mezeru, sloučit mezery
+      → každé slovo BEZ číslice zkrátit na 5 znaků
+```
+Čísla a procenta zůstávají. `POLOTUC.` ~ `polotučné` se spáruje, `1,5%` a `3,5%` ne.
+
+### Cena za jednotku v Inflaci (FIX-269)
+```
+qtyRaw = max(0,001, it.qty || 1)
+lineTot = it.lineTotal > 0 ? it.lineTotal : null
+price   = lineTot != null ? lineTot / qtyRaw : it.price
+```
+U váženého zboží je `qty` hmotnost, takže `lineTotal/qty` vyjde Kč/kg — stejná
+jednotka jako `it.price`.
+
+### Komunitní benchmark: medián (TODO-225)
+```
+med(arr) = seřadit → liché: prostřední, sudé: průměr dvou prostředních
+```
+Použito u příjmu, výdajů, míry úspor i jednotlivých kategorií.
+**Minimální počet uživatelů se nezavádí** (rozhodnutí Milana) — při jediném
+přispěvateli je medián roven jeho hodnotě, což je korektní.
+
+### Detektor: nálezy se nepřekrývají (ADR-114)
+```
+_claimed = Set()
+_free(arr)  = arr.filter(t => !_claimed.has(t.id))
+_claim(arr) = arr.forEach(t => _claimed.add(t.id))
+```
+Souhrn:
+```
+dolní = Σ saving(doložitelné)     // Bankovní, Refinancování, Kurzy
+horní = dolní + Σ saving(odhad)
+```
+
+### Karta Projektu — tempo (TODO-217)
+```
+casPct   = uplynuléDny / celkemDní × 100
+tempo    = utracenoPct / casPct × 100      // < 100 = utrácíš pomaleji než ubíhá čas
+predikce = utraceno / casPct × 100         // jen při casPct > 5
+```
+
+### Platnost slevy v Nákupním seznamu (TODO-229)
+```
+age = dnes − latestDate  (dny)
+age ≤ 7    → 'fresh'    plnohodnotný nález
+age ≤ 30   → 'stale'    zobrazí se „BYLA SLEVA", do nálezu se NEPOČÍTÁ
+age > 30   → 'expired'  nález zaniká
+latestDate chybí → null → chová se jako dřív (zpětná kompatibilita)
+
+nakupIsTriggered = drop >= alertPct  A ZÁROVEŇ  stav !== 'stale' && !== 'expired'
+```
+
+---
+
+# Session 22 (2026-09-12 až 2026-09-16) · v10.59 → v10.82
+
+> Nové a změněné vzorce ze Session 22.
+
+### Finanční skóre v2 — vážený průměr (ADR-133/134)
+```
+sub_i     = mscInterpV2(kotvy_i, hodnota_i)      // 0–100 uvnitř složky
+pokrytí   = Σ váha_i  (jen měřitelné složky)     // váhy dávají 100 %
+total     = Σ (váha_i × sub_i) / pokrytí + bonus // 0–100
+zobrazení = round(total × 3,1)                   // 0–310
+```
+Pod `pokrytí < 50 %` se `total` nevrací vůbec (`null`).
+
+### S3 Rezerva (ADR-135)
+```
+měsíců = (spořicí peněženky + rezervní aktiva) / měsíční VÝDAJE
+```
+~~Dříve: / měsíční příjem~~
+
+### Měsíční objem trvalých závazků (FIX-333)
+```
+fixedTotal = Σ |částka| × převod(frekvence)
+převod: týdně 52/12 · 14denně 26/12 · měsíčně 1 · čtvrtletně 1/3 · ročně 1/12
+```
+Vynechává příjmy, převody a ukončené šablony (`endDate` v minulosti).
+
+### Finanční obraz v1 (ADR-138)
+```
+okno    = min(požadované, ⌊historie/2⌋)   // „Celkově" = novější půlka proti starší
+hodnota = 100 + Σ(váha_i × sub_i)/pokrytí + bonus_úsilí
+```
+Rozsah 0–200, **neořezává se**.
+
+### Reálný růst příjmu (ADR-141)
+```
+hrubý  = (Ø příjem za okno − Ø příjem za předchozí okno) / předchozí × 100
+roční  = hrubý × (12 / délka okna)
+reálný = roční − inflace          // inflace: osobní → ČSÚ → 3 %
+```
+
+### Dopad životního stylu
+```
+změna = rezerva/Ø výdaje_teď − rezerva/Ø výdaje_dříve   // v měsících
+```
+Izoluje vliv **výdajů** — appka nedrží historii rezervy.
+
+### Net Worth Momentum (ADR-135)
+```
+Δ         = čisté jmění teď − čisté jmění na začátku okna
+měsíce    = Δ / Ø měsíční výdaje                       // 70 % složky
+zrychlení = (Δ − Δ_předchozí) / Δ_předchozí × 100      // 30 %
+```
+Ze záporného dřívějšího tempa se zrychlení **nepočítá**.
+
+### Koncentrační riziko (ADR-139)
+```
+podíl = největší kategorie / Σ výdaje za okno × 100
+```
+Pod třemi kategoriemi se **neměří**.
+
+### Bonus za úsilí (ADR-140)
+```
+Ø hodin navíc → 0 h: 0 · 8 h: +5 · 20 h: +10 · 35 h: +15
+```
+Ze **stavu**, ne ze změny. Nikdy záporný. Neodpovězený měsíc se do průměru
+nepočítá.
+
+### Kontrola úplnosti účtenky (ADR-144)
+```
+rozdíl       = (subtotal ?? printedTotal) − Σ lineTotal
+zaokrouhlení = total − subtotal
+```
+`|rozdíl| ≤ 1 Kč` se nehlásí.
+
+### Částka tagu (FIX-339)
+```
+tag z položek: částka_tx × (Σ lineTotal s tagem / Σ všechny lineTotal)
+ruční tag:     celá částka transakce
+```
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Nové vzorce ze Session 25. Soubor `formulas.md` byl dosud jen v Projektu, od S25 patří do `doc/`.
+> Mezi Session 22 a 25 se sem nic nedopisovalo – vzorce S23–S24 jsou v `features.md` a `architecture.md`.
+
+### Sdílené ceny po krajích (ADR-189)
+```
+uzel = community/ceny/{výrobek}/{kraj}/{měsíc}/{řetězec}
+příspěvek ceny c:  n += 1 · s += c · min = min(min, c) · max = max(max, c) · u += 1
+                   (jen když otisk h tohoto člověka v uzlu ještě není)
+průměr = s / n          // zobrazí se jen když u ≥ 3
+„o X víc“ = tvoje poslední cena − průměr nejlevnějšího obchodu v kraji
+            (ukáže se jen když tvoje cena > ten průměr × 1,02)
+výrobek = čárový kód, jinak název z účtenky + balení
+```
+
+### Tvůj podíl v COICOP proti ČSÚ (karta výrobku → Zařazení → COICOP)
+```
+w     = váha podtřídy ve stálém koši ČSÚ [‰ ze všech výdajů]
+základ „z výdajů za oddíl“ (výchozí):
+   ČSÚ  = w / w_oddílu × 100                              [%]
+   tvůj = útrata za podtřídu z účtenek / útrata za oddíl z účtenek × 100
+základ „ze všech výdajů“:
+   ČSÚ  = w / 10                                          [%]
+   tvůj = útrata za podtřídu z účtenek / všechny výdaje z transakcí × 100
+období = 3 / 6 / 12 měsíců | kalendářní rok | vše
+rozdíl = round((tvůj − ČSÚ) / ČSÚ × 100)   [% proti průměru; > +25 červeně, < −20 zeleně]
+```
+
+### Cena vážené položky (FIX-417)
+```
+v poli ceny = lineTotal (částka za položku jako na účtence)
+cena za kg  = lineTotal / qty      // qty = hmotnost v kg/l
+úprava částky nebo váhy → přepočet ceny za kg; součet účtenky = Σ lineTotal
+```
+
+### Cena za jednotku (Zdražování podle výrobků, `taxJednotkovaCena`)
+```
+vážené zboží (unit kg / l):  cena = price (už je za kg / l)
+balené:  g  → cena za kus / gramáž × 1000   [Kč/kg]
+         ml → cena za kus / objem × 1000    [Kč/l]
+         ks → cena za balení / počet kusů   [Kč/ks]
+gramáž: Zdražování ji bere z názvu (normQty); Statistika položek a karta výrobku přednostně z pole baleni (od v11.37), jinak z názvu
+```
+
+### Ruční nutriční hodnoty – kontroly (v11.43)
+```
+kcal = round(kJ / 4,184)                      (přepočet z pole kJ)
+CHYBY (nejde uložit):
+  aspoň energie + 1 živina · nic záporného · energie ≤ 900 kcal · žádná živina > 100 g
+  nasycené ≤ tuky (+0,05) · cukry ≤ sacharidy (+0,05)
+  tuky + sacharidy + vláknina + bílkoviny + sůl ≤ 101 g
+VAROVÁNÍ (uložit jde po potvrzení):
+  výpočet = 9 × tuky + 4 × sacharidy + 4 × bílkoviny + 2 × vláknina
+  |kcal − výpočet| > max(20, výpočet × 0,15)
+```
+
+### Stálé id účtenky (ADR-198)
+```
+ffIdUctenky(r) = 'rcs' + base36( FNV-1a 32bit( datum | obchod | celkem | addedAt | název:cena,název:cena… ) )
+kolize s existujícím id → přípona -2, -3…
+```
+Stejná účtenka dá na všech zařízeních stejné id.
+
+### Tří-cestné slučování (ADR-195)
+```
+_ff3(B, L, R):   L == R → L · L == B → R (sloučit na místě) · R == B → L
+                 obojí změněno: pole → _ff3Pole · objekt → _ff3 po klíčích · jinak L
+_ff3Pole – záznamy s id:
+   přidané tady / jinde → zůstanou · v obou → _ff3(b, l, r)
+   smazané jinde a tady beze změny → smazat · smazané jinde, ale tady upravené → ponechat
+   smazané tady → zůstane smazané
+_ff3Pole – texty (ne čísla), fixedLog, importHistory:  multiset (odebrané jinde se odeberou, přidané z obou stran zůstanou)
+_ff3Pole – čísla a objekty bez id:  po indexech, jen když mají B, L i R stejnou délku; jinak L
+ozvěna:  kanon(R) == kanon(odesláno) → nic
+```
+
+### Úložiště dokladů (ADR-193)
+```
+limit = free 300 · trial/premium 1 000 · admin 100 000 fotek
+využito = Σ počet photoKeys (ne počet účtenek) · zbývá = limit − využito
+```

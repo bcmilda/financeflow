@@ -4,6 +4,7 @@
 > Popisuje, **jak aktualizovat** konsolidované `.md` soubory v Project knowledge,
 > **jaký styl a logiku dodržovat**, a obsahuje **konkrétní příklad aktualizace** (Session 5 → `todo.md`).
 > Autor: Milan Migdal + Claude | Vytvořeno: 2026-04-19
+> **Session 25** (2026-10-05 až 2026-10-09, v11.30 → v11.57): obsah souboru beze změny. Přehled session v `doc/Summary_s25.md`.
 
 ---
 

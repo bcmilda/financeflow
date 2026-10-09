@@ -3,6 +3,7 @@
 > Abecední přehled termínů, zkratek a interních pojmů používaných v projektu FinanceFlow.
 > Cíl: Claude i autor okamžitě najdou definici bez hledání v kódu nebo jiných .md souborech.
 > Poslední aktualizace: 2026-04-16.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -179,3 +180,47 @@
 ---
 
 *Vytvořeno: 2026-04-16 | Autor: Milan Migdal*
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Nové pojmy ze Session 25 (abecedně).
+
+**Alias (výrobku)** – dvojice obchod + zkratka z účtenky, která patří k jednomu čárovému kódu. Spojuje stejný výrobek koupený
+jinde pod jinou zkratkou (ADR-200).
+
+**Balení (`baleni`)** – gramáž položky jako samostatné pole `{m, j}` (např. `{m: 42, j: 'g'}`), oddělené od názvu (ADR-188).
+
+**Bariéra (`syncPing`)** – zápis `users/{uid}/syncPing` po připojení. Až po něm se čtou data ze serveru, takže čtení vidí
+i zápisy odeslané před odpojením.
+
+**Čekací okno** – překryv přes celou obrazovku během dlouhé akce (analýza účtenky): přesýpací hodiny, kroky, čas, Zrušit
+(`ffCekaniStart`, ADR-199).
+
+**Ceny v kraji** – blok karty výrobku se sdílenými cenami ostatních (souhrny `community/ceny`, od 3 lidí, ADR-189).
+
+**COICOP 5. úroveň** – položka přílohy potravin ČSÚ (např. `01.1.1.3.1` Chléb a pečivo). V appce jen u potravin a nápojů (ADR-187).
+
+**CZ popisek (`nazevPopisek`)** – název z české nálepky na zahraničním výrobku. Třetí ze tří názvů výrobku, má přednost
+před ostatními kromě vlastního (ADR-202).
+
+**K vyřízení** – seznam v 📸 Skenovat: čárové kódy bez názvu nebo nepřiřazené k položce.
+
+**Moje výrobky (📦)** – záložka Analýzy účtenek s katalogem výrobků podle čárového kódu (ADR-201).
+
+**Ozvěna** – vlastní zápis, který Firebase pošle zpátky jako změnu. Pozná se kanonickým porovnáním a nic nedělá (FIX-432).
+
+**Rozpracováno (`ffRozpracovano`)** – stav, kdy uživatel píše, má otevřený editor, kartu nebo okno. Synchronizace pak
+odloží překreslení (ADR-196).
+
+**Stálé id účtenky (`ffIdUctenky`)** – deterministické id ze základních údajů účtenky, stejné na všech zařízeních (ADR-198).
+
+**Statistika položek (📐)** – modul `statistika-polozek.js`: položky účtenek filtrované a seskupené podle COICOP,
+taxonomie, obchodu, kraje, štítku a kategorie.
+
+**Tří-cestné slučování (`_ff3`)** – sloučení změny „tady“ a „jinde“ proti společnému základu, po záznamech (ADR-195).
+
+**Základ (`_zaklad`, seed)** – poslední stav potvrzený serverem, proti kterému se slučuje. Ukládá se i do offline snímku.
+
+**Zkratka z účtenky** – text řádku z pokladny („Smet.jogurt bílý 1kg KK“). Není to název výrobku a do názvu se nepřebírá (ADR-200).

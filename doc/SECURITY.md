@@ -4,6 +4,7 @@
 > Tento dokument slouží jako **centrální místo** pro vše security-related.
 > Pokud si nejsi jistý, zda něco je bezpečné — podívej se sem dřív, než to uděláš.
 > Poslední aktualizace: 2026-04-16.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -257,3 +258,40 @@ Pravidla, která má Claude dodržovat při práci s FinanceFlow:
 ---
 
 *Vytvořeno: 2026-04-16 | Autor: Milan Migdal*
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Bezpečnost a soukromí v Session 25. Kontext v `Summary_s25.md`.
+
+## Sdílené ceny po krajích (v11.39, ADR-189)
+- **Co se posílá:** jen výrobek, cena, řetězec, kraj a měsíc. Nikdy uid, datum nákupu, celá účtenka, lékárna ani zdraví.
+- **Kategorie:** jen potraviny, nápoje, alkohol, tabák a drogerie (CZ-COICOP 01, 02, 05.6.1, 13.1.2).
+- **Jak worker ukládá:** jen souhrn. Opakovaný příspěvek pozná krátkým HMAC otiskem (tajemství + uid + cesta), který platí jen pro jeden uzel. Mezi uzly ani s účtem nejde otisky spojit.
+- **Zobrazení:** až od 3 různých lidí, aby z průměru nešla vyčíst cena jednoho člověka.
+- **Pravidla:** `community/ceny` čte jen přihlášený, zapisuje jen worker (`.write: false`).
+- **Souhlas:** opt-out v Nastavení → Data & Soukromí, odstavec v `legal.html` (oprávněný zájem).
+
+## AI komentář reportu (v11.47, ADR-192)
+Claude dostane jen předpočítaná čísla, žádné transakce, názvy ani jména. Text se kontroluje číslo po čísle.
+
+## Report e-mailem (v11.28, ADR-184)
+Posílá se **jen na e-mail přihlášeného účtu**, který worker zjistí z ověřeného Firebase tokenu, nikdy na adresu z požadavku. Limity: automaticky 1× za měsíc,
+ručně 5× denně. PDF vzniká ve workeru (Browser Rendering).
+
+## Smazání účtu (v11.45, ADR-191)
+Data i přihlašovací účet Firebase Auth. Při požadavku na čerstvé přihlášení appka vyzve k novému přihlášení a smazání zopakuje.
+Veřejný postup `smazani-uctu.html` (Google Play: odkaz na smazání bez instalace appky).
+
+## Cloudflare Worker – proměnné (nastavit v dashboardu, nikdy v kódu)
+- **Nové:** `CF_ACCOUNT_ID`, `CF_BR_TOKEN` (v11.28 – Browser Rendering).
+- **Ověřit:** `FIREBASE_SERVICE_ACCOUNT` (TODO-330). Na něm stojí tarif, rate limiting, `/ceny` a `/report-ai`.
+- **Tarif:** worker čte tarif ze stejných polí, která ukládá appka. Dřív platící dostávali limity Free (FIX-425), takže chyba byla v náš neprospěch, ne v neprospěch bezpečnosti.
+
+## Odolnost zápisu (v11.52)
+- **Odmítnutí jedné části:** pravidla DB nezastaví celé ukládání. Zápis jde po cestách, s max. 3 pokusy (ADR-197).
+- **Zkrácení textů:** na limity pravidel se zkrátí už v appce (`_ffHlidejLimity`). Pravidla zůstávají poslední obranou.
+- **Bariéra po připojení:** `users/{uid}/syncPing` patří pod kaskádu `users/$uid`, zapisuje jen vlastník.
+- **Kontrola uid:** po připojení appka ověří, že se mezitím nezměnil přihlášený uživatel. Data jednoho účtu se nesmí zapsat do druhého.
+- **Zbytky `sendBeacon`:** uzly `-N…` pod `data` se ignorují. Admin je může smazat.

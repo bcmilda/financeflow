@@ -5,6 +5,7 @@
 > **Doplnění Session 7:** nové JS soubory, počet modulů, pravidlo chainování (2026-05-15)
 > **Datum poslední aktualizace:** 2026-08-24 (Session 19, druhá vlna) — viz `patch-session19-FINAL.md` a `OTEVRENE-body-s19.md`
 > **Doplnění Session 23** (2026-09-25): tři nová pravidla v sekci „Pravidla pro AI asistenta" + sekce Session 23 na konci souboru.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 > **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
 
@@ -485,3 +486,39 @@ TODO-301 (druhý otisk do `assetlinks.json` po nahrání do Play) · TODO-312 (M
 
 ## Otevřené P1/P2
 TODO-301 (otisk Play) · TODO-316 (MD na GitHub) · TODO-317 (report PDF F2) · TODO-322 (vyzkoušet v11.15–v11.26).
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+## Co se změnilo v jádře
+- **Synchronizace (v11.52)** je teď vrstva v `app.js` (blok „S25 (v11.52) – AUDIT“, ADR-195 až ADR-198):
+  - ozvěna vlastního zápisu = nic
+  - čistá změna se sloučí na místě
+  - změna, která ještě neodešla, se sloučí tří-cestně (základ / tady / jinde)
+  - offline se zapisují jen transakce
+  - účtenky mají stálé id
+- **Před každou změnou, která sahá na `S.*` mimo `save()`**, platí:
+  - objekt hledat podle id, ne podle pozice
+  - nedržet si odkaz na objekt přes `await` (synchronizace ho mohla nahradit)
+  - nové pole dat registrovat v `_DW_META` a na všech místech v `app.js`
+- **Rozpracovaná práce:** nová obrazovka s formulářem nebo editorem označit `data-rozprac` nebo nastavit `_ffRozprac.formular`. Překreslení ze synchronizace volat přes `ffRenderBezpecne`.
+- **Dlouhá akce** (AI, upload) běží přes čekací okno `ffCekaniStart / Krok / Konec`. Zámek proti dvojímu spuštění musí být synchronní.
+- **Nové moduly:** `statistika-polozek.js`, `ceny-kraje.js`. Data: `coicop2018.json`.
+
+## Nová pravidla pro práci (S25)
+- **Opakuje-li se stejný druh chyby, nehledat další projev, ale společnou příčinu** (SKILL 71). Milan: „Toto se musí odhalit a napravit.“
+- **U kritických změn negativní kontrola + nezávislá revize** (SKILL 72, 73). Nový test musí na starém kódu selhat. Revizi dělá agent, který kód nepsal.
+- **Na kartě nikdy nepřebírat hodnotu mezi významově různými poli** (zkratka z účtenky ≠ název z obalu, SKILL 76).
+- **Každou upravenou kartu ověřit v Chromiu na šířce telefonu** a uvést přesnou cestu v appce (SKILL 77).
+- **Staré TODO vysvětlovat z `todo.md`, ne z paměti** (SKILL 78).
+- **Jeden bump na odpověď.** Výstupy nemazat, soubory posílat jednotlivě s původními názvy.
+- **Ceny od ostatních lidí** jen jako souhrny, zobrazené od 3 lidí, nikdy lékárna a zdraví (ADR-189).
+
+## Nasazuje se zvlášť
+- `database.rules.json` → Firebase (v11.39: `community/ceny`).
+- `worker.js` → Cloudflare (v11.57). Nové jsou `/ceny` a `/report-ai`, `/ean` má navíc `ziviny`, `odebrat` a fotku `popisek`. Proměnné `CF_ACCOUNT_ID`, `CF_BR_TOKEN` (od v11.28).
+
+## Otevřené P1/P2
+TODO-332 (vyzkoušet v11.31–v11.57) · TODO-323 (ikony) · TODO-328 (zkrácení MD) · TODO-330 (`FIREBASE_SERVICE_ACCOUNT`) ·
+TODO-331 (Google Play) · TODO-316 (MD na GitHub).

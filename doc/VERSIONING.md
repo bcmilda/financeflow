@@ -3,6 +3,7 @@
 > Tento dokument definuje pravidla pro verzování aplikace, souborů a dokumentace.
 > Po schválení Milanem přesunout do `doc/VERSIONING.md`.
 > Vytvořeno: Session 7, 2026-04-23
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -413,3 +414,59 @@ Worker: v11.06 → v11.13 → v11.16 → v11.20 → v11.23 → **v11.24**. Pravi
 ## Pořadí nasazení (Milan má v11.14)
 1. `database.rules.json` → Firebase · 2. `worker.js` → Cloudflare · 3. GitHub: všechny soubory z výstupů v11.15–v11.26
 (`app.html`, `sw.js`, `index.html`, `js/…`, `data/categories.json`, `data/taxonomie.json`, `tools/…`). Od v11.27 navíc nový `js/report-mesicni.js` a `js/report.js`.
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+## Verze
+| Verze | Obsah |
+|---|---|
+| v11.28 | *(dodatek)* okna a scroll, nový výběr kategorie, zůstatek ke dni, import do peněženky, report e-mailem PDF, uschování fotek účtenky |
+| v11.29 | *(dodatek)* proklik z Predikce, detail vozidla, barvy tlačítek Měřidel |
+| v11.30 | *(dodatek)* fotka živin v okně, přiřazení přes účtenky, ✕ Odebrat, kód ze souboru – **stav GitHubu `dev`** |
+| v11.31 | foťák u živin (regrese), AI český název se značkou |
+| v11.32 | duplicitní účtenky + transakce, ID obchodů, český název bez cizího |
+| v11.33 | zelený štítek z taxonomie (vráceno v11.34), kopírování směn do konce roku, dovolená v hodinách, výplata po měsících |
+| v11.34 | štítek podle ČSÚ + paměť, vážené zboží, rozšířená karta výrobku |
+| v11.35 | 📐 Statistika položek (nový modul) |
+| v11.36 | číselník CZ-COICOP 2018 |
+| v11.37 | gramáž jako pole, názvy zvlášť |
+| v11.38 | pobočka z hlavičky účtenky |
+| v11.39 | sdílené ceny po krajích (`/ceny`, pravidla DB) |
+| v11.40 | Zdražování podle výrobků, naskenované výrobky se pamatují |
+| v11.41 | 5. úroveň CZ-COICOP v taxonomii |
+| v11.42 | období pro tvůj podíl |
+| v11.43 | ruční živiny s kontrolou |
+| v11.44 | datum v letním čase, export, landing hamburger |
+| v11.45 | smazání účtu i z Firebase Auth, `smazani-uctu.html` |
+| v11.46 | záruka na Dashboardu, obecné názvy mimo Inflaci, Finanční obraz bez dat |
+| v11.47 | AI komentář reportu, oprava tarifu ve workeru |
+| v11.48 | editor účtenky neztrácí úpravy, 🎯 Nejspíš |
+| v11.49 | 📦 Moje výrobky, fotky bez účtenky |
+| v11.50 | úložiště podle tarifu, admin 💾 Úložiště, zápis názvu neznámého kódu |
+| v11.51 | Zpět na telefonu, K vyřízení |
+| v11.52 | **sync audit** – tří-cestné slučování, rozpracovaná práce, offline |
+| v11.53 | čekací okno analýzy účtenky |
+| v11.54 | karta: zkratka z účtenky, český název, ✓ Přiřazeno |
+| v11.55 | 📦 Moje výrobky jako záložka, bez převzetí zkratky |
+| v11.56 | přestavba karty výrobku v2 |
+| v11.57 | tři názvy výrobku, fotka českého popisku, COICOP panel na řádku |
+
+**Worker:** měněn ve v11.31, v11.32, v11.34, v11.37, v11.38, v11.39, v11.43, v11.47, v11.50 a v11.57 → nasadit **v11.57**. Hlavička ručně: ` * FinanceFlow · Cloudflare Worker · vX.YY · datum`.
+**Pravidla DB:** nasadit verzi z v11.39 (hlavička `// FinanceFlow · database rules · v11.39`).
+
+## Postup verzování v S25
+- Jeden bump na odpověď (Milan). Bump dělá skript (`bump.py STARÁ NOVÁ DATUM log.json soubory…`). Skript upraví:
+  - hlavičky souborů
+  - `VERZE_LOG` v `admin.js`
+  - v `app.html` titulek, sidebar a banner Verze
+  - `?v=` = prvních 16 znaků sha256
+  - `CACHE_NAME` v `sw.js` (`ff-shell-vX.YY`)
+- Testy běží z ploché složky (všechny `js`, `data`, `tools`, html, `worker.js`, `database.rules.json` + kopie `database_rules.json`), `TZ=Europe/Prague`.
+- Kontrola UI v Chromiu (Playwright + lokální server) na šířce telefonu u každé změny karty.
+
+## Pořadí nasazení (GitHub má v11.30)
+1. `database.rules.json` → Firebase
+2. `worker.js` → Cloudflare
+3. GitHub: soubory z výstupů v11.31–v11.57 (seznam v `Summary_s25.md`) + MD soubory S25

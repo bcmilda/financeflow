@@ -10,6 +10,7 @@
 > Každý záznam je označen zdrojovou session: `**(Session N)**`.
 > Doplnění ze `s5` jsou označena `**(Merge S1-5)**`.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -2523,3 +2524,193 @@ Jen kontrola typů (`never`, `string | RegExp`, `diag` na poli). Doplněny JSDoc
 
 ### FIX-404 · Oznámení: neescapovaná ikona zprávy (TODO-289, v11.20) **(Session 24)**
 `announcements.js` – `m.icon` nově přes `escapeAnnounce`. `lepsi-uver.html` prověřen: vkládá jen vlastní spočítané texty.
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+> Opravy ze Session 25. Kontext v `Summary_s25.md`. Cesty v appce uvedeny u každé opravy.
+> FIX-405 až FIX-410 jsou dodatek v11.28–v11.30 (2026-10-04 až 05), který mezi S24 a S25 nebyl zapsán.
+
+## Dodatek v11.28–v11.30
+
+### FIX-405 · Okno při scrollování ukazovalo stránku pod sebou (Milan, v11.28) **(Session 25)**
+`cesta: + Přidat transakci (a všechna okna)` – otevřené okno nově zamkne stránku pod sebou, scroll nepřeteče,
+výška bere `dvh`. Překreslení stránky jen při změně šířky, ne při schování adresního řádku.
+
+### FIX-406 · Po otočení telefonu velké písmo a zalomené kategorie (Milan, v11.28) **(Session 25)**
+Chrome na Androidu zvětšoval text o ~14 %. Doplněno `text-size-adjust:100%`, štítky kategorií se nezalomí.
+
+### FIX-407 · Import výpisu nepřiřazoval peněženku (v11.28) **(Session 25)**
+`cesta: Import → náhled výpisu` – proto se zůstatek po importu neměnil. Nově „💼 Do které peněženky výpis patří?“,
+předvybere se naposledy použitá (`uiCfg`).
+
+### FIX-408 · Úprava peněženky ztrácela ostatní pole (v11.28) **(Session 25)**
+Uložení přepsalo objekt peněženky jen poli z formuláře, mizela např. archivace. Nově se pole slučují.
+
+### FIX-409 · Fotka tabulky živin „nic neudělala" (Milan, v11.30) **(Session 25)**
+`cesta: Analýza účtenek → 📸 Skenovat → 📷 Skenovat čárový kód → 📸 Vyfotit tabulku živin` – hlášky šly do toastu,
+který leží **pod** oknem skeneru, a karta živiny nezobrazovala. Nově stav přímo v okně (⏳ / ✅ / ⚠️) a karta
+ukazuje „Nutriční hodnoty na 100 g“ (SKILL 74).
+
+### FIX-410 · Chybné přiřazení čárového kódu nešlo opravit (v11.30) **(Session 25)**
+Položka s kódem ze seznamu zmizela a nový výběr kód tiše zdvojil. Nově ✕ Odebrat smaže kód z položky (všechny stejné
+zkratky v obchodě i kopie v transakcích) a worker ubere potvrzení spojení v komunitě (`/ean` akce `odebrat`).
+
+## Session 25
+
+### FIX-411 · „Vyfotit tabulku živin“ otevíralo galerii (Milan, regrese z v11.30, v11.31) **(Session 25)**
+Po v11.30 otevíralo „📸 Vyfotit tabulku živin“ (i „📸 Vyfotit obal“) galerii místo foťáku. Nově znovu rovnou foťák, hotovou fotku vybereš vedlejším tlačítkem „🖼️ z galerie“.
+
+### FIX-412 · Duplicitní účtenka nebyla vidět a po smazání zůstala transakce (Milan, v11.32) **(Session 25)**
+`cesta: Analýza účtenek → žlutý banner` – banner ukáže, které účtenky to jsou, a „🗑️ Smazat duplikáty“ smaže kopii
+účtenky **i její transakci**. Vazba účtenka ↔ transakce přes `receiptAddedAt`, u starších dohledání podle obchodu,
+data a částky.
+
+### FIX-413 · Obchody: klik na poslední řádek rozbalil obchod nad ním (v11.32) **(Session 25)**
+„Můj obchod…“ a „Môj obchod…“ měly stejné ID řádku (diakritika → „_“). ID je nově z pořadí.
+
+### FIX-414 · Karta výrobku: cena přetékala (v11.32) **(Session 25)**
+`cesta: Mapa položek → výrobek → Moje nákupy` – obchod pod názvem položky, cena v samostatném sloupci.
+
+### FIX-415 · „✎ Opravit“ český název předvyplnil cizí název a uložil ho jako tvůj (Milan, v11.32) **(Session 25)**
+Uložený „tvůj název“ pak přebíjel český návrh. Předvyplní se jen český název, jinak prázdné; uložení cizího názvu
+beze změny nic neuloží.
+
+### FIX-416 · Zelený štítek z taxonomie dělal chyby (Milan, v11.34) **(Session 25)**
+Pokus z v11.33 („RELAX JABL-ARONIE“ → Jablko místo džusu) vrácen. Štítek: 1) tvůj štítek stejné položky z dřívější
+účtenky, 2) štítek skupiny spotřebního koše ČSÚ (ADR-186).
+
+### FIX-417 · Vážené zboží ukazovalo v poli ceny cenu za kg (Milan, v11.34) **(Session 25)**
+`cesta: editor účtenky → položka s váhou` – v poli je částka za položku jako na účtence, jednotka kg/l, cena za kg
+drobně pod tím. Úprava částky nebo váhy dopočítá cenu za kg, součet účtenky sedí.
+
+### FIX-418 · Vážené položky ztrácely po analýze jednotku kg/l (v11.38) **(Session 25)**
+Validace jednotku zahazovala. Nově se drží.
+
+### FIX-419 · Rozdíl ceny v časové ose „↑ 4,00 Kč“ vs „↑ 3 Kč“ (v11.40) **(Session 25)**
+Chyba plovoucí čárky. Rozdíl se zaokrouhluje (i u ceny za kg).
+
+### FIX-420 · Data v letním čase o den dřív (v11.44) **(Session 25)**
+Místní půlnoc se převáděla přes UTC (`toISOString`), takže v Česku vycházel předchozí den:
+- splátkový kalendář dluhů (15. 4. → 14. 4.)
+- Budoucí platby: „Zaznamenat“ zapsalo o den dřív, platba splatná 1. se kontrolovala proti minulému měsíci
+- automatické šablony
+- jednorázová platba v Příštím měsíci
+
+Uložené kalendáře dluhů se při otevření Dluhů opraví (jen data). Den po 31. padne na konec kratšího měsíce (ADR-190, SKILL 75).
+
+### FIX-421 · Export a Projekty – špatný měsíc (v11.44) **(Session 25)**
+Export: výchozí „od“ je 1. den měsíce (dřív poslední den minulého). Projekty: splátky „příští měsíc“ se braly z tohoto.
+
+### FIX-422 · Falešné zdražení o stovky % z obecných názvů oddělení (v11.46) **(Session 25)**
+„Pečivo“, „Uzeniny 21 %“ se v Inflaci, Detektoru a „Pravidelně nakupuješ“ počítaly jako výrobek. Nově vynechány,
+Inflace ukáže kolik. Uzavírá TODO-276.
+
+### FIX-423 · Detektor úspor slučoval podobné výrobky (v11.46) **(Session 25)**
+Zdražování za 3 měsíce ořezávalo název na 25 znaků. Ořez zrušen.
+
+### FIX-424 · Finanční obraz: karty bez dat ukazovaly „0 Kč“ nebo zmizely (v11.46) **(Session 25)**
+Čisté jmění, Rezerva vydrží a Wealth Momentum nově řeknou, co chybí a kde to doplnit („Ani jeden měsíc v mínusu“ bez dat zmizel).
+
+### FIX-425 · Worker: platící uživatelé a trial dostávali limity Free (v11.47) **(Session 25)**
+Worker četl jiná pole tarifu, než appka ukládá. Opraveno čtení, limity podle `AI_LIMITS`.
+
+### FIX-426 · Editor nové účtenky ztrácel úpravy (Milan, v11.48) **(Session 25)**
+Každý sken čárového kódu uložil seznam naskenovaných. Synchronizace pak editor postavila znovu z původního skenu, takže
+mizely kódy, štítky, názvy i kategorie. Dílčí oprava, společná příčina je FIX-432.
+
+### FIX-427 · Automatické uschování fotky účtenky se neuložilo (v11.48) **(Session 25)**
+Fotka se nahrála, ale odkaz se zapsal do starých dat (objekt už nahrazený synchronizací). Účtenka se hledá podle
+stálého id (ADR-198).
+
+### FIX-428 · Osiřelé fotky účtenek z chyby do v11.47 (v11.49) **(Session 25)**
+`cesta: Analýza účtenek → 📎 Doklady → 🔎 Najít fotky bez účtenky` – připojit jedním klepnutím (appka doporučí účtenku
+uloženou ve stejnou chvíli) nebo smazat.
+
+### FIX-429 · Úložiště dokladů: natvrdo „z 300“ a počítaly se účtenky (v11.50) **(Session 25)**
+Limit podle tarifu (ADR-193), počítají se fotky (`photoKeys`), ukazuje MB a zbývá.
+
+### FIX-430 · Worker: ručně doplněný výrobek se po 90 dnech přepsal na „nenalezeno“ (v11.50) **(Session 25)**
+Obnova z databází přepsala ruční / fotkou doplněná data. Nově se zachovají (seznam `EAN_ZACHOVAT`, rozšířený i ve v11.57 o `nazevPopisek`, `dovozce`).
+
+### FIX-431 · Tlačítko Zpět na telefonu zavřelo appku místo okna (Milan, v11.51) **(Session 25)**
+Pořadí: otevřené okno / menu → předchozí stránka → Dashboard → odchod až druhým Zpět (ADR-194).
+
+### FIX-432 · Ozvěna vlastního uložení nahrazovala objekty – společná příčina přepisů (Milan, v11.52) **(Session 25)**
+Milan: „Opravoval jsem je po jedné, ale příčina pořád zůstává jinde v aplikaci… Toto se musí odhalit a napravit.“
+
+**Příčina:** Firebase vrátí každý vlastní zápis jako změnu. Appka tuto ozvěnu brala jako data odjinud a nahradila
+celé pole novými objekty. Otevřený editor, rozběhnutý upload nebo sken pak držel odkaz na **starý** objekt
+a jeho zápis se ztratil. Odtud ztracené fotky účtenek a EAN kódy ve v11.43–v11.48 (FIX-426, FIX-427).
+
+**Oprava:**
+- Ozvěna se pozná kanonickým porovnáním (`_ffKanon`) a nic nedělá.
+- Skutečná změna se slučuje **na místě** (`_ffSlouc`) se zachováním identity objektů.
+
+Negativní kontrola: nový test na starém kódu selhal v 15–16 bodech.
+
+### FIX-433 · Neodeslaná změna se po synchronizaci jiné části tvářila jako uložená (v11.52) **(Session 25)**
+Příjem dat odjinud přepsal „podpis“ odeslaného stavu i u části, kterou uživatel změnil a ještě neodeslal. Po obnovení
+stránky se změna ztratila. Nově podpis jen u čistých částí; špinavá část se tří-cestně sloučí a odešle.
+
+### FIX-434 · Změny z jiného zařízení přepisovaly celou část (v11.52) **(Session 25)**
+Dřív „vyhrál“ celý uzel. Účtenka přidaná na telefonu mohla zmizet, když se na PC současně upravovala jiná. Nově
+tří-cestné slučování po záznamech (ADR-195).
+
+### FIX-435 · Rozepsaná práce se při synchronizaci přepsala překreslením (v11.52) **(Session 25)**
+Rozepsaný formulář, otevřený editor účtenky, karta nebo okno. Nově se překreslení odloží s toastem
+„🔄 Přišly změny z jiného zařízení…“ (ADR-196).
+
+### FIX-436 · Offline: zápis před sloučením, restart bez základu, chybný sendBeacon (v11.52) **(Session 25)**
+- Offline se zapisovaly i ostatní části dat, které po připojení přepsaly novější data na serveru.
+- Restart appky offline neměl základ pro slučování.
+- Čekající uložení při zavření šlo přes `sendBeacon` – ten umí jen POST, což je v REST API Firebase `push`: změna se neuložila a pod `data` mohl vzniknout náhodný uzel `-N…` s kopií dat (appka ho nově ignoruje).
+
+Nově offline jen transakce (každá zvlášť) a snímek nese `_zaklad`. Po připojení se dirty části načtou ze serveru (po bariéře `syncPing`) a sloučí. Při skrytí, přepnutí nebo zavření appky pošle `_ffOdesliHned` čekající zápis hned normální cestou (ADR-197).
+
+### FIX-437 · Editor účtenky ukládal podle pozice (v11.52) **(Session 25)**
+Po synchronizaci, která změnila pořadí, mohl přepsat jinou účtenku. Nově podle id. Chybějící účtenku obnoví.
+Staré účtenky dostanou deterministické id (`ffIdUctenky`, ADR-198).
+
+### FIX-438 · Jedna vadná hodnota zastavila ukládání všeho (v11.52) **(Session 25)**
+- **Příčina:** Pravidla DB odmítla celý zápis kvůli příliš dlouhému textu nebo `undefined`/`NaN`. Ukládání se pak zastavilo, a to i pro ostatní části.
+- **Oprava:** Zápis po cestách s opakováním (`allSettled`, max 3 pokusy, pak toast). `_fbSafeKeys` zahodí neplatné hodnoty. `_ffHlidejLimity` zkrátí texty na limity pravidel: název transakce 299, poznámka 999, milník 199/599/15.
+
+**Nezávislá revize v11.52 (3 kola) – opraveno před předáním:**
+- **Kolo 1:**
+  - offline snímek bez základu
+  - offline fronta meta zápisů
+  - plný zápis pohltil pozdější úpravy
+  - `rpSave` padal zpět na pozici
+  - `s.key` jako id transakce
+  - mazání klíčů objektů se ignorovalo
+  - pole bez id „vyhrávala lokálně“
+  - zastaralý příznak formuláře
+  - vzkříšení smazaného v listeneru celého uzlu
+- **Kolo 2:**
+  - nepotvrzený `txSig` ve snímku
+  - offline smazání se vrátilo
+  - jedna vadná hodnota zastavila sync
+  - okno při znovupřipojení
+  - multiset použitý na položky
+- **Kolo 3:**
+  - slučování přerušené odpojením
+  - transakce odmítnuté pravidly mizely
+
+### FIX-439 · Dvojí ťuknutí spustilo dvě analýzy účtenky (v11.53) **(Session 25)**
+Dva dotazy = dvě spotřebované analýzy. Synchronní zámek `_rpAnalyzaBezi` (SKILL 79).
+
+### FIX-440 · „Smet.jogurt bílý 1kg KK“ hlášen jako výrobek bez názvu (Milan, v11.54) **(Session 25)**
+`cesta: Analýza účtenek → 📦 Moje výrobky (i 📸 Skenovat → K vyřízení)` – výrobek se zkratkou z účtenky hlásil
+„databáze nezná“. Nově „📝 zatím jen zkratka z účtenky“ a výzva zapsat název z obalu.
+
+### FIX-441 · Přiřazený výrobek pořád nabízel „Přiřadit k položce účtenky“ (Milan, v11.54) **(Session 25)**
+Nově „✓ Přiřazeno k položce z účtenky“. Odkaz „přiřadit i k jiné položce“ z v11.54 odebrán ve v11.55 (ADR-200).
+
+### FIX-442 · Karta výrobku: přetékání, alias vícekrát, COICOP schovával vyšší kategorie (Milan, v11.56–v11.57) **(Session 25)**
+`cesta: Analýza účtenek → 🗺️ Mapa položek / 📦 Moje výrobky → výrobek` – přestavba:
+- bloky v rámečcích, mřížka popisek | hodnota, nic nepřetéká (ověřeno v Chromiu na šířce telefonu)
+- názvy z účtenek sloučené (VELKÁ/malá písmena, diakritika, gramáž)
+- Zařazení: oblast → kategorie → obecný název → COICOP, panel číselníku rozbalitelný přímo z řádku COICOP (v11.57)
+- Nutri-Score jen jednou

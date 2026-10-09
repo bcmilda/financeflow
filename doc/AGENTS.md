@@ -1,17 +1,13 @@
-# FinanceFlow – Claude kontext
-
-> **Zdrojový soubor (základ):** `CLAUDE(1).md` (Session 6 verze)
-> **Aplikované patche Session 6:** sekce CLAUDE.md ze souboru `patch_s6.md` (Session 6, 2026-04-23)
-> **Doplnění Session 7:** nové JS soubory, počet modulů, pravidlo chainování (2026-05-15)
-> **Datum poslední aktualizace:** 2026-05-15 (Session 7.1)
+# FinanceFlow – Codex kontext
 
 > **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
+> **Session 25** (2026-10-05 až 2026-10-09, v11.30 → v11.57): obsah souboru beze změny. Přehled session v `doc/Summary_s25.md`.
 
 ## Session start — povinné čtení
 
 Na začátku každého sezení si přečti následující soubory, než začneš cokoliv dělat:
 
-1. Tento soubor (`CLAUDE.md`)
+1. Tento soubor (`AGENTS.md`)
 2. **Firebase Security Rules** — [`database.rules.json`](https://github.com/bcmilda/financeflow/blob/dev/.github/workflows/database.rules.json) — pravidla přístupu k Realtime Database
 3. **Cloudflare Worker** — [`worker.js`](https://github.com/bcmilda/financeflow/blob/dev/cloudflare-worker/worker.js) — proxy vrstva mezi aplikací a externími API
 
@@ -21,14 +17,31 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 
 **FinanceFlow** je webová aplikace pro správu rodinných financí (příjmy, výdaje, půjčky, projekty, AI analýzy). Postavená jako SPA (Single Page Application) — čistý HTML/CSS/JS bez frameworku, backend je Firebase.
 
+---
+
+## Struktura složek na disku
+
+> **KRITICKÉ:** Existují DVĚ složky – neplést!
+
+- `C:\Users\Milan\Desktop\FinanceFlow\DEV\` — pracovní složka (zde Codex edituje soubory přes MCP)
+- `C:\Users\Milan\Desktop\FinanceFlow\financeflow\financeflow\` — git repozitář (odsud Milan provádí `git push` + `firebase deploy --only hosting`)
+
+**Workflow při opravě:**
+1. Codex upraví soubory v `DEV/`
+2. Milan zkopíruje změněné soubory z `DEV/` do `financeflow/financeflow/`
+3. Milan udělá commit + push z `financeflow/financeflow/` (přes GitHub Desktop nebo cmd)
+4. Milan spustí `firebase deploy --only hosting` z `financeflow/financeflow/`
+
+---
+
 ## Architektura
 
 - `index.html` — hlavní a jediný HTML soubor (SPA)
 - `css/styles.css` — veškeré styly
-- `js/` — 25 modulů **(Session 7.1)** (charts.js, admin.js, ai.js, budouci.js, assets.js, advisor.js, atd.)
+- `js/` — moduly (charts.js, admin.js, ai.js, atd.)
 - `firebase.json` — Firebase Hosting konfigurace
 - `doc/` — plný kontext projektu, přečti si relevantní `.md` soubory podle potřeby a aktuálního úkolu
-- `docs/` — pracovní složka Claude Code pro poznámky a dočasné soubory
+- `docs/` — pracovní složka Codex pro poznámky a dočasné soubory
 
 ### Pravidla pro složku `doc/` (originální, chráněná)
 - **Nikdy nepřepisuj ani nemaž existující obsah**
@@ -46,22 +59,12 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 - `explanations.md` — technické vysvětlivky a poznámky k implementaci
 - `features.md` — přehled funkcí aplikace, jejich stav a popis
 - `todo.md` — seznam úkolů, priorit a otevřených bodů
-- `VERSIONING.md` — pravidla verzování aplikace a dokumentace, change preview workflow **(Session 6)**
-- `UPDATE_RULES.md` — pravidla pro aktualizaci .md souborů, konsolidační postupy **(Session 7)**
 
-### Pravidla pro složku `docs/` (pracovní, Claude Code)
+### Pravidla pro složku `docs/` (pracovní, Codex)
 - Volný přístup — lze vkládat, přepisovat i mazat dle libosti
 - Slouží pro poznámky, rychlé náhledy a pracovní podklady před implementací do `doc/`
 
-## Pravidla pro AI asistenta **(Session 6)**
-
-- **O aplikaci banner** – sekce `page-oAplikaci` v `index.html` obsahuje hardcoded verzi.
-  Při každé změně verze **VŽDY** aktualizovat také tento banner (hledej `Verze 6.XX`).
-- **Patch-only workflow** – AI vytváří pouze `patch-sessionN.md` se změnami, nikdy celé `.md` soubory.
-  Celé soubory zbytečně spotřebovávají tokeny a zvyšují riziko přepsání historických dat.
-- **Chainování souborů (KRITICKÉ)** – VŽDY pracovat s vlastním posledním výstupem. NIKDY znovu kopírovat z `/mnt/project/` pokud byl soubor v téže session upraven. Viz `UPDATE_RULES.md` sekce 6.
-- **Kolize funkcí** – před přidáním nové funkce ověřit grep-em. Kritické: `computeNetWorth()` (premium.js) vs `computeAssetsNetWorth()` (assets.js) — NIKDY přejmenovávat. Viz `decisions.md` ADR-036.
-- **Nové JS soubory pořadí** – za `nakup.js`, před `admin.js`: `budouci.js` → `assets.js` → `advisor.js`
+---
 
 ## Firebase
 
@@ -70,16 +73,20 @@ Na začátku každého sezení si přečti následující soubory, než začneš
 - **DB:** Realtime Database (`financeflow-a249c-default-rtdb.europe-west1`)
 - **Auth:** Google Sign-In + anonymous
 
+---
+
 ## Git workflow
 
 ```
-claude/session-branch  →  dev  →  main
-       (moje změny)     (test)   (produkce)
+dev  →  main
+(test)   (produkce)
 ```
 
 - `dev` → automatický preview deploy (GitHub Actions) při každém push
 - `main` → live deploy (GitHub Actions) při každém push
 - Merge `dev` → `main` provádí vlastník (bcmilda) po otestování
+
+---
 
 ## Konvence
 
@@ -89,10 +96,46 @@ claude/session-branch  →  dev  →  main
 - `.env` obsahuje `RESEND_API_KEY` — nikdy necommitovat (je v `.gitignore`)
 - Admin panel přístupný pouze pro UID: `LNEC8VNB2QPwIv6WWQ9lqgR4O5v1`
 
+### ⚠️ Pravidlo: Aktualizace index.html při změně JS souboru
+
+> **VŽDY** kdykoliv Codex upraví jakýkoliv soubor v `js/`, musí také:
+>
+> 1. Aktualizovat **verzi** v `<title>FinanceFlow vX.XX</title>` (řádek 6, increment +0.01)
+> 2. Aktualizovat **verzi** v sidebar logu: `<small>vX.XX · Premium</small>`
+> 3. Aktualizovat **cache-busting hash** změněného JS souboru na řádku `<script src="js/XYZ.js?v=HASH">` — hash = prvních 8 znaků MD5 nového souboru
+> 4. Přidat záznam do `VERZE_LOG` v `js/admin.js` s datem a popisem změn
+>
+> **Proč:** Bez nového hashe browser cachuje staré JS soubory a opravy se neprojeví.
+>
+> **Jak spočítat hash:** `md5sum js/helpers.js | cut -c1-8`
+
+---
+
 ## Push na GitHub
 
-Přímý `git push` přes proxy nefunguje (403). Použít GitHub API přes Python + PAT:
-```bash
-python3 -c "... urllib.request PUT na api.github.com/repos/bcmilda/financeflow/contents/..."
-```
-PAT uložen uživatelem, vždy vyžádat před push operací.
+Přímý `git push` z `DEV/` nefunguje — repozitář je v `financeflow/financeflow/`.
+Milan provádí push ručně přes GitHub Desktop nebo CMD z `financeflow/financeflow/`.
+
+---
+
+### ⚠️ Pravidlo: Change preview před aktualizací `doc/` souborů
+
+Před každým přepsáním **jakéhokoliv souboru v `doc/`** vytvoř nejprve **change preview soubor** do `docs/`:
+- Pravidlo platí pro všech 9 souborů: `todo.md`, `bugs.md`, `context.md`, `architecture.md`, `decisions.md`, `features.md`, `explanations.md`, `GLOSSARY.md`, `SECURITY.md`
+- Název preview souboru: `docs/change_[název].md` (např. `docs/change_bugs.md`, `docs/change_architecture.md`)
+
+**Co je change preview:**
+Je to **přesná kopie originálu** (`doc/todo.md`) se změnami vyznačenými přímo v textu:
+- `<ins>text</ins>` = nové / doplňené *(GitHub zobrazí zeleně podtžžené)*
+- `<del>text</del>` = odstraněno / přesunuto *(GitHub zobrazí červene přeškrtnuté)*
+- Beze změně = zkopirovaný text originalu bez tagování
+
+Sekčná které se nemění lze nahradit zkratkou `*(beze změn)*`.
+
+**Workflow:**
+1. Codex vytvoří `docs/change_todo.md` jako kopii originálu se `<ins>`/`<del>` označením
+2. Milan zkontroluje a napíše "schváleno"
+3. Codex přepíše `doc/todo.md` finální verzí (bez `<ins>`/`<del>` tagů)
+
+**Výjimka:** Pokud Milan řekne „rovnou přepiš“ nebo „bez preview“, přeskoč krok 1.
+

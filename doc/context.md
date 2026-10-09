@@ -2,6 +2,7 @@
 
 > Tento dokument je aktualizací hlavního `context.md` v Projectu. Datum vytvoření: 2026-05-14
 > Merge dokumentů ´context.md session 1+2+3´ a context_combinate z combinated patche 7 + 7.1
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 Dokument je ze zálohy doc_s4, kde Claude konsolidoval všechny sessions, k tomu bylo přidáno Merge z session 1-3 a -> doplněny informace v souboru CONTEXT_CONSOLIDATED_2026-05-14.md (Claude)
 Tento CONTEXT_CONSOLIDATED_2026-05-14.md byl mergeován s PATCH-session7-COMBINED (s7+7.1) (Claude)
 
@@ -514,3 +515,25 @@ Výstupem je `tools/smoke_schema.js` — audit, který se opakuje sám.
 
 ## Neověřeno v provozu
 Milan má nasazenou v11.14; v11.15–v11.26 čekají na nasazení a vyzkoušení (TODO-322).
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+
+## Co se v Session 25 změnilo v jádře
+- **Stabilita dat:** Synchronizace slučuje po záznamech a nepřepisuje rozepsanou práci. Offline nic neztratí. Milan to
+  zadal výslovně: „Chci stabilitu bez přepisování rozdělané práce.“ Viz ADR-195 až ADR-198.
+- **Produktový katalog:** výrobek má čárový kód a tři názvy (EAN, přední strana obalu, český popisek). Dál balení,
+  zařazení COICOP až do 5. úrovně a ceny v kraji od ostatních uživatelů.
+- **Analýza nákupů:** nový modul 📐 Statistika položek a záložka 📦 Moje výrobky.
+- **Report:** e-mailem jako PDF a AI komentář z ověřených čísel.
+- **Google Play:** smazání účtu i s přihlašovacím účtem, veřejná stránka postupu a podklady `google-play.md` v3.
+
+## Směřování (Milan)
+- Cílovka zůstává česká. Překlady „by bylo fajn“, ale později (TODO-028).
+- Zrychlení načítání zatím ne (TODO-327).
+- Další na řadě je grafické ztvárnění ikon (TODO-323).
+
+## Neověřeno v provozu
+Na GitHubu `dev` je v11.30. Verze v11.31–v11.57 čekají na nasazení a vyzkoušení (TODO-332). Pořadí nasazení je
+v `Summary_s25.md`.
