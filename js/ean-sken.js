@@ -1,4 +1,4 @@
-// FinanceFlow · v11.58 · ean-sken.js · 2026-10-09
+// FinanceFlow · v11.60 · ean-sken.js · 2026-10-09
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -636,11 +636,18 @@ function eanZivinyKontrola(n) {
   return { chyby: [...new Set(chyby)], varovani, vypocet };
 }
 let _eanZivinyStav = null;   // { ean, hotovo, potvrzeno }
+//  S25 (v11.60): klíč „n…“ = položka BEZ čárového kódu → hodnoty se uloží jen uživateli
+//  do jeho karty (S.uiCfg.karty), ne do komunitní databáze. Kód (jen číslice) = jako dřív.
+function eanZivinyLokalni(klic) { return /^n[0-9a-z]+$/.test(String(klic || '')); }
 function eanZivinyForm(ean, hotovo) {
-  const p = _eanProdukty[ean] || {};
+  const lokal = eanZivinyLokalni(ean);
+  const lk = lokal && typeof S !== 'undefined' && S.uiCfg && S.uiCfg.karty ? (S.uiCfg.karty[ean] || {}) : {};
+  const p = lokal ? { nutriceObal: lk.nutrice || null, slozeniObal: lk.slozeni || '' } : (_eanProdukty[ean] || {});
+  const nazevL = lokal ? (lk.nazevPopisek || lk.nazevObal || lk.zkratka
+    || (typeof _mapaUziv !== 'undefined' && typeof _mapaKartaI !== 'undefined' && _mapaUziv[_mapaKartaI] ? _mapaUziv[_mapaKartaI].nazev : '') || 'Položka bez kódu') : '';
   const zdroj = p.nutriceObal ? p.nutriceObal : (p.nutrice || {});
   const odkud = p.nutriceObal ? eanZivinyZdroj(p.nutriceObal) : (p.nutrice && Object.keys(p.nutrice).length ? 'databáze Open Food Facts' : '');
-  _eanZivinyStav = { ean, hotovo: hotovo || '', potvrzeno: false };
+  _eanZivinyStav = { ean, hotovo: hotovo || '', potvrzeno: false, lokal };
   const sl = p.slozeniObal || (p.slozeniCesky ? p.slozeni : '') || '';
   const inp = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 8px;font-size:.86rem;width:100%;box-sizing:border-box';
   let o = document.getElementById('eanZiviny'); if (o) o.remove();
@@ -651,7 +658,7 @@ function eanZivinyForm(ean, hotovo) {
       <div style="font-weight:700;font-size:.95rem;flex:1;color:var(--text)">✍️ Nutriční hodnoty z obalu</div>
       <button onclick="eanZivinyZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button>
     </div>
-    <div style="font-size:.74rem;color:#a8aec8;margin:4px 0 10px;line-height:1.5">${escHtml(eanNazevVyrobku(p) || ean)}<br>Opiš sloupec <b>na 100 g</b> (u nápojů 100 ml), ne na porci. Prázdné pole = na obalu není.${odkud ? ' Předvyplněno: ' + escHtml(odkud) + '.' : ''}</div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:4px 0 10px;line-height:1.5">${escHtml(lokal ? nazevL : (eanNazevVyrobku(p) || ean))}<br>Opiš sloupec <b>na 100 g</b> (u nápojů 100 ml), ne na porci. Prázdné pole = na obalu není.${odkud ? ' Předvyplněno: ' + escHtml(odkud) + '.' : ''}</div>
     <div style="display:flex;gap:6px;margin-bottom:10px;font-size:.78rem">
       <label style="display:flex;gap:4px;align-items:center"><input type="radio" name="ezNa" value="g" ${zdroj.na !== 'ml' ? 'checked' : ''} onchange="eanZivinyKontrolujForm()"> na 100 g</label>
       <label style="display:flex;gap:4px;align-items:center;margin-left:10px"><input type="radio" name="ezNa" value="ml" ${zdroj.na === 'ml' ? 'checked' : ''} onchange="eanZivinyKontrolujForm()"> na 100 ml</label>
@@ -669,7 +676,9 @@ function eanZivinyForm(ean, hotovo) {
       <button class="btn btn-ghost" onclick="eanZivinyZavri()">Zrušit</button>
       <button id="ezUlozit" class="btn btn-accent" style="flex:1;justify-content:center" onclick="eanZivinyUloz()">💾 Uložit živiny</button>
     </div>
-    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Hodnoty se uloží ke kódu ${escHtml(ean)} pro všechny uživatele (bez tvého jména). Přepíšou údaje z databáze i z fotky; ty předchozí zůstanou zálohované.</div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">${lokal
+      ? 'Položka nemá čárový kód – hodnoty se uloží jen tobě ke kartě této položky. Až kód naskenuješ, můžeš je zadat pro všechny.'
+      : `Hodnoty se uloží ke kódu ${escHtml(ean)} pro všechny uživatele (bez tvého jména). Přepíšou údaje z databáze i z fotky; ty předchozí zůstanou zálohované.`}</div>
   </div>`;
   document.body.appendChild(o);
   eanZivinyKontrolujForm();
@@ -706,6 +715,19 @@ async function eanZivinyUloz() {
   const na = (document.querySelector('input[name="ezNa"]:checked') || {}).value === 'ml' ? 'ml' : 'g';
   const slozeni = ((document.getElementById('ez_slozeni') || {}).value || '').trim();
   if (bt) { bt.disabled = true; bt.textContent = '⏳ Ukládám…'; }
+  if (st.lokal) {   // v11.60: položka bez kódu – osobní karta
+    S.uiCfg = S.uiCfg || {}; S.uiCfg.karty = S.uiCfg.karty || {};
+    const o = Object.assign({}, S.uiCfg.karty[st.ean] || {});
+    o.nutrice = Object.assign({}, n, { na, zdroj: 'rucne', kdy: Date.now() });
+    if (slozeni) o.slozeni = slozeni.slice(0, 1500); else delete o.slozeni;
+    o.kdy = Date.now(); S.uiCfg.karty[st.ean] = o;
+    if (typeof save === 'function') save();
+    const fn = st.hotovo && typeof window[st.hotovo] === 'function' ? window[st.hotovo] : null;
+    eanZivinyZavri();
+    eanHlas('✅ Živiny uloženy do karty (jen pro tebe)');
+    if (fn) fn(null);
+    return;
+  }
   try {
     const d = await eanDotaz({ ean: st.ean, akce: 'ziviny', hodnoty: n, na, slozeni, potvrzeno: !!k.varovani.length });
     if (d.produkt) _eanProdukty[st.ean] = d.produkt;
@@ -718,7 +740,7 @@ async function eanZivinyUloz() {
     if (bt) { bt.disabled = false; bt.textContent = '💾 Zkusit znovu'; }
   }
 }
-Object.assign(window, { eanZivinyZdroj, eanZivinyKontrola, eanZivinyForm, eanZivinyZavri, eanZivinyKj, eanZivinyKontrolujForm, eanZivinyUloz });
+Object.assign(window, { eanZivinyLokalni, eanZivinyZdroj, eanZivinyKontrola, eanZivinyForm, eanZivinyZavri, eanZivinyKj, eanZivinyKontrolujForm, eanZivinyUloz });
 
 
 // ══════════════════════════════════════════════════════

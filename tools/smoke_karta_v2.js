@@ -27,7 +27,7 @@ ok('bloky: Výrobek → Zařazení → Názvy z účtenek → Balení a složen�
 ok('řádky v mřížce (popisek | hodnota) – hodnota se zalomí, nepřeteče', /\.mk-r\{display:grid;grid-template-columns:minmax\(92px,36%\) minmax\(0,1fr\)/.test(rc) && /\.mk-r>\.v\{[^}]*overflow-wrap:anywhere/.test(rc));
 ok('EAN: kód nebo „zatím nepřiřazen“ + Naskenovat kód', /— ZATÍM NEPŘIŘAZEN/.test(karta) && /\$\{rpIk\('skenovat', 16\) \|\| '▮▮'\} Naskenovat kód/.test(karta));
 ok('název z EAN jen z databáze (ne z fotky)', /const zDb = p && p\.nazev && p\.zdroj !== 'fotka obalu' \? p\.nazev : '';/.test(karta));
-ok('COICOP: kód + název v řádku, hierarchie a srovnání v panelu', /mapaKoicopRadekHTML\(/.test(karta) && /const telo = mapaKoicopPanelHTML\(kodC, D\);/.test(rc));
+ok('COICOP: kód + název v řádku, hierarchie a srovnání v panelu', /mapaKoicopRadekHTML\(/.test(karta) && /const telo = mapaKoicopPanelHTML\(kodC, D, 'hier'\);/.test(rc));
 const panel = vyrez(rc, 'mapaKoicopPanelHTML');
 ok('panel: přepínač období 3/6/12 měsíců, rok, vše', /\['3', '3 měs\.'\], \['6', '6 měs\.'\], \['12', '12 měs\.'\], \['vse', 'vše'\]/.test(panel) && /rok…/.test(panel));
 ok('panel: přepínač základu – výdaje za potraviny / všechny výdaje', /mapaVahaZaklad\('potraviny'\)/.test(panel) && /mapaVahaZaklad\('vse'\)/.test(panel));
@@ -39,7 +39,7 @@ ok('identifikace a zdroje dat sbalené', /<details class="mk-roz" style="margin-
 const w = R('worker.js'), es = R('ean-sken.js');
 ok('tři názvy: Název z EAN / Obal – přední strana / Obal – CZ popisek', /mkR\('Název z EAN'/.test(karta) && /Obal – přední strana/.test(karta) && /Obal – CZ popisek/.test(karta));
 ok('CZ popisek: fotka popisku → opsaný → česky z přední strany → databáze → návrh AI', /p && p\.nazevPopisek \? \[p\.nazevPopisek, '📸 z českého popisku'\]/.test(karta) && /návrh AI – ověř podle popisku/.test(karta));
-ok('u řádků tlačítka 📸 přední strana / 📸 český popisek', /fotoBtn\('obal'/.test(karta) && /eanFoto\('\$\{e\(z\.ean\)\}','popisek',mapaUzivFotoHotovo\)/.test(karta));
+ok('u řádků tlačítka 📸 přední strana / 📸 český popisek', /fotoBtn\('obal'/.test(karta) && /fotoBtn\('popisek', '📸 Vyfotit popisek'\)/.test(karta));
 ok('COICOP: číselník se rozbaluje přímo z řádku', /<summary class="mk-r" style="border-top:none;cursor:pointer"><span class="l">COICOP<\/span>/.test(rc) && /mapaKoicopRadekHTML\(kodC, posl, D\)/.test(karta));
 ok('worker: fotka „popisek“ → nazevPopisek (+ složení, dovozce), zachová se při obnově', /body\.druh === 'popisek' \? 'popisek'/.test(w) && /p\.nazevPopisek = eanStr\(j\.nazev_cs, 100\)/.test(w) && /'nazevPopisek', 'dovozce'\]/.test(w));
 ok('zobrazovaný název: český popisek má přednost', /return p \? \(p\.nazevPopisek \|\| /.test(es));

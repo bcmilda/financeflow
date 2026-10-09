@@ -1,4 +1,4 @@
-// FinanceFlow · v11.59 · admin.js · 2026-10-09
+// FinanceFlow · v11.60 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.60',
+    datum: '2026-10-09',
+    zmeny: [
+      "🗂️ KARTA VÝROBKU JEDNOTNÁ (Milan) · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek. Každá karta má stejná políčka – s čárovým kódem i bez: Název z EAN, Obal – přední strana, Obal – CZ popisek, Značka, Výrobce, Dovozce; v Balení a složení Čisté množství, Typ výrobku, Obal, Země původu, Prodává se v, Nutri-Score, Složení, Alergeny a Nutriční hodnoty. Co chybí, ukazuje „----“",
+      "✍️ DOPLNIT JDE VŠECHNO · u položky bez kódu (např. Margot 80g Orion) opíšeš z obalu přední stranu, český popisek, značku, výrobce i dovozce (✎ Doplnit ručně) a ✍️ Zadat ručně živiny se složením – uloží se jen tobě do tvé karty (synchronizuje se mezi tvými zařízeními, partner je nevidí). Název opsaný z obalu se ukáže i v seznamu Mapy položek",
+      "📸 Obal – přední strana (Milan): u výrobku s kódem jde vyfotit NEBO opsat ručně; tvůj opis má přednost před fotkou. Značku, výrobce a dovozce z databáze jde opravit pro sebe",
+      "🧮 Zařazení → COICOP: rozbaluje se jen číselník ČSÚ, Srovnání výdajů je v kartě vždy vidět; přepnutí období nebo základu už číselník nerozbalí. Nadpisy „Váha ČSÚ – průměrná domácnost“ a „Tvůj podíl“ žlutě a o něco větší",
+      "🧪 tools/smoke_karta_jednotna.js (21); smoke_coicop5, smoke_karta_v2, smoke_ziviny_rucne upraveny",
+    ]
+  },
   {
     verze: 'v11.59',
     datum: '2026-10-09',
