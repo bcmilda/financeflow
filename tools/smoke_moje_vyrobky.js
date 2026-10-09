@@ -28,7 +28,7 @@ vm.runInContext("_eanMoje.f='vse';_eanMoje.q='mlecna'",sb); h=sb.eanMojeVyrobkyH
 t('hledání i podle zkratky z účtenky („mlecna“)',h.includes('Mléčná čokoláda')&&!h.includes('Kód 333'));
 t('klepnutí otevře kartu výrobku',h.includes("eanOtevriNaskenovany('111')"));
 t('čisté skeny se pamatují až 300 (dřív 40)',es.includes('S.uiCfg.eanSken = a.slice(0, 300);'));
-t('Mapa položek má box Moje výrobky a kreslí se při otevření',rc.includes('<div class="eanMojeBox"></div>')&&rc.includes("eanMojeVyrobkyKresli();   // S25 v11.49"));
+t('Moje výrobky mají vlastní záložku a kreslí se při otevření (v11.55)',rc.includes('<div class="eanMojeBox" data-samostatne="1"></div>')&&/if\(tab==='vyrobky' && typeof eanMojeVyrobkyKresli==='function'\) \{\s*eanMojeVyrobkyKresli\(\);/.test(rc));
 // fotky bez účtenky
 const sd={};vm.createContext(sd);vm.runInContext([pick(rc,'rpFotky'),pick(rc,'dokladySirotci')].join('\n'),sd);
 const ts=Date.parse('2026-10-08T19:00:00Z');

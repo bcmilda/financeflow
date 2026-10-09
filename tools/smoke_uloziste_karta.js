@@ -56,7 +56,7 @@ console.log('── S25 · úložiště a karta výrobku ──');
   t('worker: akce „karta“ v routeru',w.includes("if (body.akce === 'karta') return eanAkceKarta(uid, ean, body, env, cors);"));
   // appka
   t('skener: u neznámého kódu tlačítko „Založit celou kartu“ (název řeší pole Český název)',es.includes("onclick=\"eanKartaForm('${escHtml(ean)}')\">✍️ Založit celou kartu (název, značka, balení, druh)"));
-  t('Moje výrobky: u neznámého výzva „Zapiš název výrobku“, název z účtenky jako nápověda',es.includes("${st.neznamy && z.nazvy[0] ? '✓ Potvrdit název z účtenky' : st.neznamy ? '✍️ Zapiš název výrobku' : '✍️ Doplň český název'}")&&es.includes('(z účtenky)'));
+  t('Moje výrobky: u neznámého výzva „Zapiš název z obalu“, název z účtenky jako nápověda',es.includes("${st.neznamy ? '✍️ Zapiš název z obalu' : '✍️ Doplň český název'}")&&es.includes('(z účtenky)'));
   t('formulář: název z účtenky, druh z taxonomie, povinný název',es.includes('Na účtence: <b')&&es.includes('list="ekTaxList"')&&es.includes("if (nazev.length < 2) { if (chyba) chyba.textContent = 'Napiš název výrobku.'"));
   console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);
 })();

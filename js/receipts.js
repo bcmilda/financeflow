@@ -1,4 +1,4 @@
-// FinanceFlow · v11.53 · receipts.js · 2026-10-09
+// FinanceFlow · v11.55 · receipts.js · 2026-10-09
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -416,6 +416,7 @@ function renderUctenky() {
     + '<button class="tx-filt-btn" id="utab-scan" onclick="switchUctenkyTab(\'scan\',this)">📸 Skenovat</button>'
     + '<button class="tx-filt-btn" id="utab-learn" onclick="switchUctenkyTab(\'learn\',this)">🧠 Učení</button>'
     + '<button class="tx-filt-btn" id="utab-mapa" onclick="switchUctenkyTab(\'mapa\',this)">🗺️ Mapa položek</button>'
+    + '<button class="tx-filt-btn" id="utab-vyrobky" onclick="switchUctenkyTab(\'vyrobky\',this)">📦 Moje výrobky</button>'
     + '<button class="tx-filt-btn" id="utab-polstat" onclick="switchUctenkyTab(\'polstat\',this)">📐 Statistika položek'+_utDia()+'</button>'
     + '<button class="tx-filt-btn" id="utab-stats" onclick="switchUctenkyTab(\'stats\',this)\">📊 Statistiky'+_utDia()+'</button>'
     + '<button class="tx-filt-btn" id="utab-compare" onclick="switchUctenkyTab(\'compare\',this)\">🇨🇿 Srovnání ČR'+_utDia()+'</button>'
@@ -435,6 +436,8 @@ function renderUctenky() {
     + buildScanTab(uniqueReceipts, totalSpent)
     + buildLearnTab(uniqueReceipts, allItems, storeStats, totalSpent)
     + buildMapaTab(uniqueReceipts)
+    //  S25 (v11.55, Milan: „samostatnou kartu“): 📦 Moje výrobky – vlastní záložka (dřív sekce v Mapě položek)
+    + '<div id="utab-vyrobky-content" style="display:none"><div class="card"><div class="card-body"><div class="eanMojeBox" data-samostatne="1"></div></div></div></div>'
     + (typeof spTabHTML === 'function' ? spTabHTML() : '')   // S25: Statistika položek (statistika-polozek.js)
     + buildStatsTab(hasData, uniqueReceipts, totalSpent, allItems, catStats)
     + buildCompareTab(hasData, coicopUserTotals, COICOP_GROUPS_DEF, uniqueReceipts, catStats, householdSize)
@@ -2321,7 +2324,7 @@ function switchUctenkyTab(tab, btn) {
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
   window._receiptEditorOpen = false;
   window._editReceipt = null;
-  ['scan','learn','mapa','polstat','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
+  ['scan','learn','mapa','vyrobky','polstat','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
     if(c)c.style.display='none';
@@ -2333,6 +2336,14 @@ function switchUctenkyTab(tab, btn) {
   //  ne při každém vykreslení Analýzy účtenek.
   if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
   if(tab==='doklady' && typeof dokladyPocitadlo==='function') dokladyPocitadlo();   // S25 v11.50
+  //  S25 (v11.55): 📦 Moje výrobky – názvy, spojení se zkratkami a karty výrobků se dotáhnou při otevření
+  if(tab==='vyrobky' && typeof eanMojeVyrobkyKresli==='function') {
+    eanMojeVyrobkyKresli();
+    Promise.all([
+      typeof eanNactiMojeNazvy==='function' ? eanNactiMojeNazvy() : null,
+      typeof eanNactiAliasy==='function' ? eanNactiAliasy() : null,
+    ]).then(()=>eanMojeVyrobkyKresli()).catch(()=>{});
+  }
   //  S24: komunitní mapa se dotáhne při otevření (když ještě není) a seznam se překreslí.
   if(tab==='mapa' && typeof loadProductMap==='function') Promise.all([
     loadProductMap(),
@@ -2345,7 +2356,6 @@ function switchUctenkyTab(tab, btn) {
   ]).then(async ()=>{
     mapaUzivKresli();
     if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();   // S25
-    if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli();   // S25 v11.49
     //  v11.23: dotáhnout výrobky k čárovým kódům (český název + zařazení) a překreslit.
     if(typeof eanNactiVse==='function') { const n = await eanNactiVse(_mapaUziv.map(z=>z.ean)); if(n) mapaUzivKresli(); }
   }).catch(()=>mapaUzivKresli());
@@ -2480,7 +2490,6 @@ function buildMapaTab(receipts) {
       <div style="font-size:.76rem;color:#a8aec8;line-height:1.5;margin-bottom:12px">
         Co doopravdy kupuješ: každá položka z účtenek zařazená do <b style="color:var(--text)">taxonomie výrobků</b>. Podle ní se počítají statistiky, zdražování a inflace. Klepni na položku pro kartu s podrobnostmi.
       </div>
-      <div class="eanMojeBox"></div>
       ${_mapaUziv.length ? `
       <div id="mapaUzivStat">${mapaUzivStatHTML()}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px" id="mapaUzivFiltry">${mapaUzivFiltryHTML()}</div>

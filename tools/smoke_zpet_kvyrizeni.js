@@ -46,7 +46,7 @@ t('přiřazený, ale databáze nezná → chybí název, ukáže se název z ú�
 t('známý, ale nepřiřazený → jen přiřadit',!c.bezNazvu&&!c.prirazeno);
 t('neznámý a nepřiřazený → obojí',d.bezNazvu&&!d.prirazeno);
 let h=se.eanNaskenovaneHTML(D);
-t('seznam: „K vyřízení (3)“, název z účtenky, tlačítka Zapiš název / Přiřadit',h.includes('K vyřízení (3)')&&h.includes('📝 JOGURT BILY 150G')&&(h.match(/✍️ Zapiš název|✓ Potvrdit název/g)||[]).length===2&&(h.match(/🔗 Přiřadit k položce/g)||[]).length===2);
+t('seznam: „K vyřízení (3)“, název z účtenky, tlačítka Zapiš název / Přiřadit',h.includes('K vyřízení (3)')&&h.includes('📝 JOGURT BILY 150G')&&(h.match(/✍️ Zapiš název/g)||[]).length===2&&(h.match(/🔗 Přiřadit k položce/g)||[]).length===2);
 se._eanMojeNazvy.B={nazev:'Bílý jogurt'};se._eanMojeNazvy.D={nazev:'Neznámé'};D.receipts[0].items.push({name:'X',ean:'C'},{name:'Y',ean:'D'});
 h=se.eanNaskenovaneHTML(D);
 t('všechno vyřízené → krátká věta s odkazem do Mých výrobků',h.includes('Naskenované výrobky jsou vyřízené (4)')&&h.includes('Moje výrobky'));

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.54 · admin.js · 2026-10-09
+// FinanceFlow · v11.55 · admin.js · 2026-10-09
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.55',
+    datum: '2026-10-09',
+    zmeny: [
+      "Analýza účtenek → 📦 Moje výrobky: samostatná záložka (hned za 🗺️ Mapa položek, odkud zmizela) – katalog výrobků podle čárového kódu",
+      "Karta výrobku: název z účtenky se do názvu výrobku nepřebírá (zkratka ≠ název z obalu) – pole „Český název výrobku“ je prázdné, zkratka je vidět jen jako nápověda „Na účtence: …“; převzít se dá jen balení (gramáž)",
+      "Karta výrobku: odkaz „přiřadit i k jiné položce“ odebrán – stejný výrobek pod jinou zkratkou spojují aliasy obchod + zkratka",
+    ]
+  },
   {
     verze: 'v11.54',
     datum: '2026-10-09',
