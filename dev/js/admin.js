@@ -1,4 +1,4 @@
-// FinanceFlow · v11.61 · admin.js · 2026-10-10
+// FinanceFlow · v11.62 · admin.js · 2026-10-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,21 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.62',
+    datum: '2026-10-10',
+    zmeny: [
+      "📍 POZNÁMKY NA OSE ŽIVOTA (Milan) · cesta: Deník → 🗺️ Životní mapa → + Poznámka (nebo Deník → 🗺️ Osa života → + Poznámka). Poznámka = datum, text (předvolby Začala / Skončila topná sezóna, Dovolená, Změna tarifu energií…) a barva (8 barev nebo vlastní). Na ose je tenká svislá čára v její barvě s textem podél čáry; klepnutí ukáže pod grafem detail s možností upravit.",
+      "📈 OSA ŽIVOTA VĚTŠÍ · cesta: Deník → 🗺️ Osa života: graf přes celou šířku karty, vyšší plocha a čitelnější popisky. Karta je nově hned pod Životní mapou.",
+      "🔎 ROZSAH 6M / Rok / 2 roky / Vše · stejná cesta. Výchozí je Vše (ADR-106 – historie se neořezává); kratší rozsah je přiblížení na konec historie k měsíci zvolenému nahoře a kumulovaný tok i tak počítá od začátku záznamů. Volba se pamatuje.",
+      "👁️ FILTR Události / Etapy / Poznámky s počty · stejná cesta.",
+      "🗺️ Měsíční report → 12 · Milníky období: poznámka má místo ikony barevnou čárku. Životní mapa: poznámka má štítek „poznámka“ a tečku v její barvě.",
+      "🐛 Osa života: událost s budoucím datem se kreslila do posledního měsíce – teď se nekreslí. Etapa skončená před zobrazeným obdobím už nezabere celou osu.",
+      "🐛 Deník → 🗺️ Životní mapa → formulář: klepnutí na předvolbu smazalo rozepsané datum a poznámku – teď zůstanou. Výchozí datum je místní (dřív v noci vycházel včerejšek).",
+      "🧪 tools/smoke_osa.js +11 (23)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.61',
     datum: '2026-10-10',
