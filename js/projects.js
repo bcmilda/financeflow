@@ -1,4 +1,4 @@
-// FinanceFlow · v11.59 · projects.js · 2026-10-09
+// FinanceFlow · v11.62 · projects.js · 2026-10-10
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1605,7 +1605,9 @@ function renderReport() {
           <div class="report-section-title">🗺️ 12 · Milníky období</div>
           <div class="card" style="margin-bottom:14px"><div class="card-body" style="padding:12px 14px">
             ${ms.map(x=>`<div style="display:flex;gap:9px;align-items:baseline;padding:4px 0">
-              <span>${x.icon||'📌'}</span><b style="font-size:.84rem">${String(x.label||'').replace(/</g,'&lt;')}</b>
+              ${x.kind==='note' && typeof msBarvaPlatna==='function'
+                ? `<span style="width:3px;height:13px;border-radius:2px;background:${msBarvaPlatna(x.color)};display:inline-block;align-self:center;margin:0 6px"></span>`
+                : `<span>${x.icon||'📌'}</span>`}<b style="font-size:.84rem">${String(x.label||'').replace(/</g,'&lt;')}</b>
               <span style="font-size:.7rem;color:#a8aec8">${new Date(x.date).toLocaleDateString('cs-CZ')}</span>
             </div>${x.note?`<div style="font-size:.72rem;color:#a8aec8;line-height:1.5;margin:0 0 6px 26px">${String(x.note).replace(/</g,'&lt;')}</div>`:''}`).join('')}
             <div style="font-size:.7rem;color:#8b93ad;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);line-height:1.55">
@@ -7582,43 +7584,94 @@ const MS_ERAS = [
   ['🎓','Student'], ['🧍','Svobodný'], ['💑','Pár'], ['👨‍👩‍👦','Rodina'],
   ['👶','Rodina s dítětem'], ['🏠','Vlastní bydlení'], ['🌴','Bez práce'],
 ];
+// S26 (v11.62, Milan): POZNÁMKY – značka na Ose života („Začala topná sezóna").
+//  Na rozdíl od události nejde o zlom v životě, jen o připomínku, co se v tu dobu
+//  dělo. Poznámka nemá ikonu, rozlišuje ji BARVA – v té barvě se na ose kreslí
+//  tenká svislá čára. Ikony jsou v appce na ústupu (ffIkona, v11.58), proto tu
+//  nové emoji nepřidávám.
+const MS_NOTES = ['Začala topná sezóna', 'Skončila topná sezóna', 'Dovolená', 'Změna tarifu energií', 'Zdražení', 'Nové předplatné'];
+const MS_BARVY = [
+  ['#4a90d9','modrá'], ['#4caf50','zelená'], ['#f5a623','oranžová'], ['#e5534b','červená'],
+  ['#9b6dd6','fialová'], ['#26b5b0','tyrkysová'], ['#e8c547','žlutá'], ['#9aa3b5','šedá'],
+];
+const MS_BARVA_VYCHOZI = '#4a90d9';
+//  Barva se ukládá jen jako #rrggbb – do SVG atributu se nesmí dostat nic jiného.
+function msBarvaPlatna(c){ return /^#[0-9a-fA-F]{6}$/.test(String(c||'')) ? String(c).toLowerCase() : MS_BARVA_VYCHOZI; }
+
 let _msForm = null;   // null = zavřeno, {} = nová, {id..} = editace
 
 function msOpen(id, kind){
   const list = S.milestones||[];
+  const k = kind==='era' ? 'era' : kind==='note' ? 'note' : 'point';
   _msForm = id ? Object.assign({}, list.find(x=>x.id===id)) : {
-    kind: kind==='era' ? 'era' : 'point',
-    date: new Date().toISOString().slice(0,10), dateTo:'',
-    icon: kind==='era' ? '🎓' : '💼', label:'', note:''
+    kind: k,
+    //  S26: místní datum, ne toISOString (SKILL 75 – v noci by vyšel včerejšek)
+    date: (d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()), dateTo:'',
+    icon: k==='era' ? '🎓' : k==='note' ? '' : '💼', label:'', note:'',
+    color: k==='note' ? MS_BARVA_VYCHOZI : undefined
   };
   renderDenik();
+  //  Formulář je v kartě Životní mapa – tlačítko „+ Poznámka" je i níž na Ose
+  //  života, takže formulář může být mimo obrazovku. Posunout k němu.
+  try{ const fm=document.querySelector('[data-rozprac="zivotni-mapa"]'); if(fm && fm.scrollIntoView) fm.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
 }
 function msCancel(){ _msForm=null; renderDenik(); }
+//  S26: před překreslením formuláře převzít, co uživatel už napsal – jinak
+//  klepnutí na předvolbu smazalo rozepsanou poznámku a datum.
+function _msSyncInputs(){
+  if(!_msForm) return;
+  const v = id => { const e=document.getElementById(id); return e ? e.value : null; };
+  const d=v('msDate'), dt=v('msDateTo'), l=v('msLabel'), n=v('msNote');
+  if(d!==null) _msForm.date=d;
+  if(dt!==null) _msForm.dateTo=dt;
+  if(l!==null) _msForm.label=l;
+  if(n!==null) _msForm.note=n;
+}
 function msPick(icon,label){
   if(!_msForm) return;
+  _msSyncInputs();
   _msForm.icon=icon;
-  const known = MS_PRESETS.concat(MS_ERAS);
-  if(!_msForm.label || known.some(p=>p[1]===_msForm.label)) _msForm.label=label;
+  const known = MS_PRESETS.concat(MS_ERAS).map(p=>p[1]).concat(MS_NOTES);
+  if(!_msForm.label || known.includes(_msForm.label)) _msForm.label=label;
   renderDenik();
+}
+//  Výběr barvy jen přebarví vzorník, nepřekresluje celý Deník.
+function msBarva(c){
+  if(!_msForm) return;
+  _msForm.color = msBarvaPlatna(c);
+  document.querySelectorAll('[data-ms-barva]').forEach(b=>{
+    const on = b.getAttribute('data-ms-barva')===_msForm.color;
+    b.style.outline = on ? '2px solid #f3ead2' : 'none';
+    b.setAttribute('aria-pressed', on?'true':'false');
+  });
+  const vlastni = document.getElementById('msBarvaVlastni'); if(vlastni && vlastni.value!==_msForm.color) vlastni.value=_msForm.color;
+  const nahled = document.getElementById('msBarvaNahled'); if(nahled) nahled.style.background=_msForm.color;
 }
 function msSave(){
   if(!_msForm) return;
   const date=(document.getElementById('msDate')||{}).value || _msForm.date;
   const label=((document.getElementById('msLabel')||{}).value||'').trim();
   const note=((document.getElementById('msNote')||{}).value||'').trim();
-  if(!label){ if(typeof showToast==='function') showToast('Zadej název události'); return; }
+  const isNote = _msForm.kind==='note';
+  if(!label){ if(typeof showToast==='function') showToast(isNote ? 'Napiš text poznámky' : 'Zadej název události'); return; }
   if(!date){ if(typeof showToast==='function') showToast('Zadej datum'); return; }
   const isEra = _msForm.kind==='era';
   const dateTo = isEra ? (((document.getElementById('msDateTo')||{}).value)||'') : '';
   if(isEra && dateTo && dateTo < date){ if(typeof showToast==='function') showToast('Konec etapy je před začátkem'); return; }
+  const kind = isEra ? 'era' : isNote ? 'note' : 'point';
+  const color = isNote ? msBarvaPlatna(_msForm.color) : null;
   S.milestones = S.milestones||[];
   if(_msForm.id){
+    //  Hledat podle id a hned zapsat – žádný await mezi (sync může objekt nahradit, S25)
     const it=S.milestones.find(x=>x.id===_msForm.id);
-    if(it){ it.date=date; it.dateTo=dateTo; it.label=label.slice(0,120); it.note=note.slice(0,500); it.icon=_msForm.icon; it.kind=_msForm.kind||'point'; }
+    if(it){ it.date=date; it.dateTo=dateTo; it.label=label.slice(0,120); it.note=note.slice(0,500); it.icon=isNote?'':_msForm.icon; it.kind=kind;
+      if(color) it.color=color; else delete it.color; }
   } else {
-    S.milestones.push({ id:'ms_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-      kind: isEra?'era':'point', date, dateTo,
-      icon:_msForm.icon||'📌', label:label.slice(0,120), note:note.slice(0,500) });
+    const nove = { id:'ms_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      kind, date, dateTo,
+      icon: isNote ? '' : (_msForm.icon||'📌'), label:label.slice(0,120), note:note.slice(0,500) };
+    if(color) nove.color = color;
+    S.milestones.push(nove);
   }
   _msForm=null;
   if(typeof save==='function') save();
@@ -7626,7 +7679,9 @@ function msSave(){
 }
 function msDelete(id){
   const it=(S.milestones||[]).find(x=>x.id===id);
-  if(!confirm(it && it.kind==='era' ? 'Opravdu smazat tuto etapu ze životní mapy?' : 'Opravdu smazat tuto událost ze životní mapy?')) return;
+  if(!confirm(it && it.kind==='era' ? 'Opravdu smazat tuto etapu ze životní mapy?'
+            : it && it.kind==='note' ? 'Opravdu smazat tuto poznámku ze životní mapy?'
+            : 'Opravdu smazat tuto událost ze životní mapy?')) return;
   // v9.50: automatický milník se NEMAŽE, jen skryje. Kdyby se odstranil,
   // msEnsureTrackStart() by ho při dalším načtení vytvořil znovu (příznak
   // v paměti se nesynchronizuje) a uživateli by se pořád vracel.
@@ -7818,9 +7873,17 @@ function renderDenik(){
     ${_denikCestaHTML()}
     ${_denikVydajeHTML(m,y)}
     ${_zivotniMapaHTML(m,y)}
+    ${_osaZivotaHTML()}
     ${typeof revDenikHTML==='function'?revDenikHTML(m,y):''}
-    ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}
-    ${_osaZivotaHTML()}`;
+    ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}`;
+  //  S26: Osa života se kreslí na šířku kontejneru. Když byl Deník skrytý
+  //  (clientWidth = 0), vzala se náhradní šířka – po zobrazení ji jednou dorovnáme.
+  try{
+    const host=document.getElementById('osaZivotaHost');
+    if(host && host.dataset.sirka==='nahradni' && !window._osaDorovnano){
+      requestAnimationFrame(()=>{ const w=el.clientWidth; if(w>0){ window._osaDorovnano=1; renderDenik(); window._osaDorovnano=0; } });
+    }
+  }catch(e){}
 }
 
 // ══════════════════════════════════════════════════════
@@ -7913,8 +7976,42 @@ function _denikVydajeHTML(m, y){
 //  Šířka je v PIXELECH podle počtu měsíců + vodorovný posuv, ne width:100 %.
 //  SVG s malým viewBox a width:100 % se na desktopu roztáhne ~4× (SKILL: grafy).
 // ══════════════════════════════════════════════════════
-function _osaZivotaData(D){
+//  S26 (v11.62, Milan): ROZSAH a FILTR osy.
+//  ADR-106 říká „historie se neořezává" – to dál platí pro výchozí volbu Vše.
+//  6M / Rok / 2 roky jsou jen PŘIBLÍŽENÍ na konec historie (k měsíci zvolenému
+//  nahoře), aby šlo číst poslední měsíce a poznámky v nich. Kumulovaný tok se
+//  i v přiblížení počítá od začátku záznamů – je to pořád skutečný součet.
+//  Volba se pamatuje v S.uiCfg.osa (synchronizuje se mezi zařízeními).
+const OSA_ROZSAHY = [['6m','6M',6], ['1r','Rok',12], ['2r','2 roky',24], ['vse','Vše',0]];
+//  Zkratky měsíců – „Čer" by bylo dvakrát (červen, červenec)
+const OSA_MES = ['Led','Úno','Bře','Dub','Kvě','Čvn','Čvc','Srp','Zář','Říj','Lis','Pro'];
+const OSA_MES_2P = ['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince'];
+function _osaCfg(){
+  const c = (typeof S!=='undefined' && S.uiCfg && S.uiCfg.osa && typeof S.uiCfg.osa==='object') ? S.uiCfg.osa : {};
+  const rozsah = OSA_ROZSAHY.some(r=>r[0]===c.rozsah) ? c.rozsah : 'vse';
+  const skryt = (c.skryt && typeof c.skryt==='object') ? c.skryt : {};
+  return { rozsah, skryt: { udalosti: !!skryt.udalosti, etapy: !!skryt.etapy, poznamky: !!skryt.poznamky } };
+}
+function _osaUloz(zmena){
+  S.uiCfg = S.uiCfg || {};
+  const c = _osaCfg();
+  S.uiCfg.osa = Object.assign({}, c, zmena, { skryt: Object.assign({}, c.skryt, (zmena && zmena.skryt) || {}) });
+  if(typeof save==='function') save();
+  renderDenik();
+}
+function osaRozsah(r){ if(OSA_ROZSAHY.some(x=>x[0]===r)) _osaUloz({ rozsah:r }); }
+function osaFiltr(co){
+  if(!['udalosti','etapy','poznamky'].includes(co)) return;
+  const c = _osaCfg();
+  _osaUloz({ skryt: { [co]: !c.skryt[co] } });
+}
+//  Klepnutí na značku v grafu ukáže pod grafem detail (na telefonu nejde najet myší).
+let _osaVybrano = null;
+function osaDetail(id){ _osaVybrano = (_osaVybrano===id) ? null : id; renderDenik(); }
+
+function _osaZivotaData(D, opt){
   D = D || getData();
+  opt = opt || {};
   const txs = (D.transactions||[]).filter(t=>t && t.date && !t.splitParent && !t.isBalancing
     && !(typeof isTransferTx==='function' && isTransferTx(t)));
   if(!txs.length) return null;
@@ -7940,6 +8037,15 @@ function _osaZivotaData(D){
     else if(t.type==='expense') months[i].exp += a;
   });
 
+  // ── Přiblížení (S26): okno posledních N měsíců, kumulace od začátku ──
+  const roz = OSA_ROZSAHY.find(r=>r[0]===opt.rozsah) || OSA_ROZSAHY[3];
+  let start = 0, cum0 = 0;
+  if(roz[2] && months.length > roz[2]){
+    start = months.length - roz[2];
+    for(let i=0;i<start;i++) cum0 += months[i].inc - months[i].exp;
+  }
+  const monthsW = months.slice(start);
+
   // ── Hustota se přizpůsobí délce záznamů, historie se NEOŘEZÁVÁ ──
   //  Osa života má smysl přes desítky let. Kreslit 40 let po měsících by ale
   //  znamenalo 480 bodů na šířku – nečitelné a na mobilu nekonečný posuv.
@@ -7947,32 +8053,32 @@ function _osaZivotaData(D){
   //  zůstávají stejné, mění se jen jemnost. Ukazují se PRŮMĚRY NA MĚSÍC,
   //  aby byl rok srovnatelný s měsícem a křivka neudělala umělý skok.
   let step = 'month';
-  if(months.length > 144) step = 'year';
-  else if(months.length > 48) step = 'quarter';
+  if(monthsW.length > 144) step = 'year';
+  else if(monthsW.length > 48) step = 'quarter';
 
   const win = [];
   if(step === 'month'){
-    months.forEach(x=>win.push({ y:x.y, m:x.m, inc:x.inc, exp:x.exp, n:1,
+    monthsW.forEach(x=>win.push({ y:x.y, m:x.m, inc:x.inc, exp:x.exp, n:1,
       label:`${x.m+1}/${x.y}`, isYearStart:x.m===0 }));
   } else if(step === 'quarter'){
     let cur = null;
-    months.forEach(x=>{
+    monthsW.forEach(x=>{
       const q = Math.floor(x.m/3);
       if(!cur || cur.y!==x.y || cur.q!==q){
-        cur = { y:x.y, q, m:q*3, inc:0, exp:0, n:0, label:`Q${q+1}/${x.y}`, isYearStart:q===0 };
+        cur = { y:x.y, q, m:x.m, inc:0, exp:0, n:0, label:`Q${q+1}/${x.y}`, isYearStart:q===0 };
         win.push(cur);
       }
       cur.inc+=x.inc; cur.exp+=x.exp; cur.n++;
     });
   } else {
     let cur = null;
-    months.forEach(x=>{
-      if(!cur || cur.y!==x.y){ cur = { y:x.y, m:0, inc:0, exp:0, n:0, label:String(x.y), isYearStart:true }; win.push(cur); }
+    monthsW.forEach(x=>{
+      if(!cur || cur.y!==x.y){ cur = { y:x.y, m:x.m, inc:0, exp:0, n:0, label:String(x.y), isYearStart:true }; win.push(cur); }
       cur.inc+=x.inc; cur.exp+=x.exp; cur.n++;
     });
   }
   // průměr na měsíc pro křivky, kumulace ze skutečných součtů
-  let run = 0;
+  let run = cum0;
   win.forEach(b=>{
     b.incA = b.inc / Math.max(1,b.n);
     b.expA = b.exp / Math.max(1,b.n);
@@ -7980,110 +8086,224 @@ function _osaZivotaData(D){
     b.cum = run;
   });
 
-  // Události a etapy se mapují na index koše, ne měsíce
-  const bucketOf = ymStr => {
-    const k = String(ymStr||'').slice(0,7);
-    if(!k) return undefined;
-    const yy = parseInt(k.slice(0,4)), mm = parseInt(k.slice(5,7))-1;
+  //  Pozice na ose jako desetinné číslo koše (i + podíl uvnitř koše).
+  //  Koš začíná měsícem b.m a má b.n měsíců – i u prvního, neúplného čtvrtletí.
+  //  Datum mimo okno (před začátkem nebo po konci) = undefined, ne „přilepit
+  //  k okraji": dřív se budoucí událost kreslila do posledního měsíce.
+  const posOf = dateStr => {
+    const s = String(dateStr||'');
+    const yy = parseInt(s.slice(0,4)), mm = parseInt(s.slice(5,7))-1, dd = parseInt(s.slice(8,10))||1;
     if(isNaN(yy)||isNaN(mm)) return undefined;
-    let best;
-    for(let i=0;i<win.length;i++){
-      const b = win[i];
-      if(b.y < yy || (b.y===yy && b.m<=mm)) best = i; else break;
+    const abs = yy*12+mm;
+    for(let i=win.length-1;i>=0;i--){
+      const b = win[i], bAbs = b.y*12+b.m;
+      if(abs >= bAbs){
+        if(abs >= bAbs + b.n) return undefined;      // za koncem okna
+        const dim = new Date(yy, mm+1, 0).getDate();
+        return i + ((abs-bAbs) + (Math.min(dd,dim)-0.5)/dim) / b.n;
+      }
     }
-    if(best===undefined) return (yy<win[0].y||(yy===win[0].y&&mm<win[0].m)) ? undefined : 0;
-    return best;
+    return undefined;                                // před začátkem okna
   };
-  const ms = (S.milestones||[]).filter(x=>!x.hidden);
-  const events = ms.filter(x=>x.kind!=='era' && x.date)
-    .map(x=>({ ...x, i: bucketOf(x.date) }))
-    .filter(x=>x.i!==undefined)
-    .sort((a,b)=>a.i-b.i);
-  const eras = ms.filter(x=>x.kind==='era' && x.date).map(x=>{
-    const f = bucketOf(x.date), t = x.dateTo ? bucketOf(x.dateTo) : win.length-1;
-    return { ...x, from: (f===undefined?0:f), to: (t===undefined?win.length-1:t) };
-  }).filter(x=>x.to>=x.from);
+  const lastPos = win.length;                        // pravý okraj okna
+  const ms = (S.milestones||[]).filter(x=>!x.hidden && x.date);
+  const events = ms.filter(x=>x.kind!=='era' && x.kind!=='note')
+    .map(x=>({ ...x, pos: posOf(x.date) }))
+    .filter(x=>x.pos!==undefined)
+    .sort((a,b)=>a.pos-b.pos);
+  const notes = ms.filter(x=>x.kind==='note')
+    .map(x=>({ ...x, color: msBarvaPlatna(x.color), pos: posOf(x.date) }))
+    .filter(x=>x.pos!==undefined)
+    .sort((a,b)=>a.pos-b.pos);
+  //  Etapa: začátek před oknem → od okraje; konec před oknem → vůbec nekreslit
+  //  (dřív se taková etapa roztáhla přes celou osu); bez konce = dosud.
+  const winStart = win[0].y*12+win[0].m;
+  const eras = ms.filter(x=>x.kind==='era').map(x=>{
+    const sAbs = (s=>parseInt(s.slice(0,4))*12+parseInt(s.slice(5,7))-1)(String(x.date));
+    const eAbs = x.dateTo ? (s=>parseInt(s.slice(0,4))*12+parseInt(s.slice(5,7))-1)(String(x.dateTo)) : Infinity;
+    if(isNaN(sAbs) || eAbs < winStart) return null;
+    let f = posOf(x.date); if(f===undefined) f = (sAbs < winStart) ? 0 : undefined;
+    let t = x.dateTo ? posOf(x.dateTo) : lastPos; if(t===undefined) t = lastPos;
+    if(f===undefined) return null;                   // začíná až po konci okna
+    return { ...x, from: Math.floor(f), to: Math.min(win.length-1, Math.floor(t===lastPos ? lastPos-1 : t)) };
+  }).filter(x=>x && x.to>=x.from);
 
-  return { win, events, eras, step, monthsTotal: months.length };
+  return { win, events, notes, eras, step, monthsTotal: months.length, monthsShown: monthsW.length, rozsah: roz[0] };
 }
 
 function _osaZivotaHTML(){
-  let d; try{ d=_osaZivotaData(); }catch(e){ return ''; }
+  const cfg = _osaCfg();
+  let d; try{ d=_osaZivotaData(null, { rozsah: cfg.rozsah }); }catch(e){ return ''; }
   if(!d) return '';
   const P = d;
   const esc = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const escJs = t => String(t==null?'':t).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const W = d.win;
-  const PX = Math.max(14, Math.min(30, Math.round(900/W.length)));   // px na měsíc
-  const padL = 52, padR = 16, padT = 74, padB = 26;
+  const evs = cfg.skryt.udalosti ? [] : d.events;
+  const nts = cfg.skryt.poznamky ? [] : d.notes;
+  const ers = cfg.skryt.etapy ? [] : d.eras;
+
+  //  S26: graf přes celou šířku karty. Šířka se měří z kontejneru Deníku;
+  //  skrytá stránka má clientWidth 0 → náhradní 900 px a po zobrazení se
+  //  dorovná (renderDenik). Pod 16 px na koš se raději posouvá vodorovně.
+  const host = (typeof document!=='undefined') ? document.getElementById('denikContent') : null;
+  const cw = host ? host.clientWidth : 0;
+  const sirkaZdroj = cw > 0 ? 'mereno' : 'nahradni';
+  const avail = Math.max(280, (cw > 0 ? cw : 900) - 40);   // minus vnitřní okraj karty
+  const padL = 54, padR = 18, padT = 84, padB = 30;
+  const PX = Math.max(12, (avail - padL - padR) / W.length);
   const plotW = W.length * PX;
-  const width = padL + plotW + padR, plotH = 150, height = padT + plotH + padB;
-  const x = i => padL + i*PX + PX/2;
+  const width = Math.round(padL + plotW + padR), plotH = 250, height = padT + plotH + padB;
+  const xc = i => padL + i*PX + PX/2;                 // střed koše (křivky)
+  const xp = pos => padL + pos*PX;                    // přesná poloha data
 
   const vals = W.flatMap(p=>[p.incA, p.expA]).concat(W.map(p=>p.cum));
   const maxV = Math.max(1, ...vals), minV = Math.min(0, ...W.map(p=>p.cum));
   const yOf = v => padT + plotH - ((v-minV)/((maxV-minV)||1))*plotH;
-  const line = (get,col,dash) => `<polyline points="${W.map((p,i)=>`${x(i)},${yOf(get(p)).toFixed(1)}`).join(' ')}"
-      fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dash?` stroke-dasharray="${dash}"`:''}/>`;
+  const line = (get,col,dash) => `<polyline points="${W.map((p,i)=>`${xc(i).toFixed(1)},${yOf(get(p)).toFixed(1)}`).join(' ')}"
+      fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"${dash?` stroke-dasharray="${dash}"`:''}/>`;
 
   // ── etapy: vodorovné pruhy pod osou ──
   const eraCols = ['#7a5a30','#4a6b4a','#6b4b6b','#6b5a2a','#3f5f6b'];
-  const eraBands = d.eras.map((e,k)=>{
+  const eraBands = ers.map((e,k)=>{
     const x1 = padL + e.from*PX, x2 = padL + (e.to+1)*PX;
-    const yy = 40 + (k%2)*13;
-    return `<g>
-      <rect x="${x1}" y="${yy}" width="${Math.max(PX,x2-x1)}" height="10" rx="5" fill="${eraCols[k%eraCols.length]}" opacity=".55"/>
-      <text x="${x1+5}" y="${yy+8}" font-size="8.5" fill="#f3ead2" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>
+    const yy = 46 + (k%2)*15;
+    return `<g style="cursor:pointer" onclick="osaDetail('${escJs(e.id)}')">
+      <title>${esc(e.label)}</title>
+      <rect x="${x1.toFixed(1)}" y="${yy}" width="${Math.max(PX,x2-x1).toFixed(1)}" height="12" rx="6" fill="${eraCols[k%eraCols.length]}" opacity=".6"/>
+      <text x="${(x1+6).toFixed(1)}" y="${yy+9.5}" font-size="10" fill="#f3ead2" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>
     </g>`;
   }).join('');
 
-  // ── události: svislice z osy dolů přes celý graf ──
-  const evMarks = d.events.map((e,k)=>{
-    const xx = x(e.i), lift = (k%2)*11;
-    return `<g>
-      <line x1="${xx}" y1="30" x2="${xx}" y2="${padT+plotH}" stroke="#6b8ab0" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>
-      <circle cx="${xx}" cy="30" r="3.4" fill="#6b8ab0"/>
-      <text x="${xx+5}" y="${20-lift}" font-size="9" fill="#c9d6e6" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>
+  // ── události: přerušovaná svislice z osy dolů přes celý graf ──
+  const evMarks = evs.map((e,k)=>{
+    const xx = xp(e.pos).toFixed(1), lift = (k%2)*13;
+    return `<g style="cursor:pointer" onclick="osaDetail('${escJs(e.id)}')">
+      <title>${esc(e.label)} · ${esc(e.date)}</title>
+      <line x1="${xx}" y1="34" x2="${xx}" y2="${padT+plotH}" stroke="#8fb0d8" stroke-width="1.2" stroke-dasharray="3 3" opacity=".6"/>
+      <circle cx="${xx}" cy="34" r="4" fill="#8fb0d8"/>
+      <text x="${(+xx+6).toFixed(1)}" y="${24-lift}" font-size="10.5" fill="#d6e2f0" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>
     </g>`;
   }).join('');
 
-  // ── popisky let ──
-  const yrStep = W.length>40 ? Math.ceil(W.length/40) : 1;   // u dlouhé historie neopakuj rok u každého dílku
-  const yearTicks = W.map((p,i)=> ((p.isYearStart && (i%yrStep===0 || W.length<=40)) || i===0) ? `<g>
-      <line x1="${padL+i*PX}" y1="${padT}" x2="${padL+i*PX}" y2="${padT+plotH+4}" stroke="rgba(138,106,62,.35)" stroke-width="1"/>
-      <text x="${padL+i*PX+3}" y="${padT+plotH+16}" font-size="9" fill="#b09f82" font-family="Georgia,serif">${p.y}</text>
-    </g>` : '').join('');
+  // ── poznámky (S26): tenká plná čára v barvě poznámky přes celou plochu grafu.
+  //    Text svisle podél čáry, ať se víc poznámek blízko sebe nepřekrývá. Pod
+  //    čárou širší průhledný pruh – na telefonu se do 1,5px čáry trefit nedá.
+  const noteMarks = nts.map(n=>{
+    const xx = xp(n.pos).toFixed(1), top = padT - 6, bot = padT + plotH;
+    const vybr = _osaVybrano===n.id;
+    return `<g style="cursor:pointer" onclick="osaDetail('${escJs(n.id)}')" data-osa-poznamka="${esc(n.id)}">
+      <title>${esc(n.label)} · ${esc(n.date)}</title>
+      <rect x="${(+xx-7).toFixed(1)}" y="${top}" width="14" height="${bot-top}" fill="transparent"/>
+      <line x1="${xx}" y1="${top}" x2="${xx}" y2="${bot}" stroke="${n.color}" stroke-width="${vybr?2.6:1.6}" opacity="${vybr?1:.9}"/>
+      <text transform="translate(${(+xx-4).toFixed(1)},${top+4}) rotate(-90)" text-anchor="end" font-size="10.5" fill="${n.color}" font-family="Georgia,serif" font-weight="700" stroke="#2b1e12" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${esc(n.label.length>34?n.label.slice(0,33)+'…':n.label)}</text>
+    </g>`;
+  }).join('');
+
+  // ── popisky os ──
+  //  Krátké okno (do 2 let po měsících): popisek u každého měsíce, který se vejde.
+  //  Dlouhé: jen roky, a u velmi dlouhé historie ne u každého dílku.
+  let xTicks = '';
+  if(P.step==='month' && W.length <= 24){
+    const kazdy = PX >= 34 ? 1 : PX >= 20 ? 2 : 3;
+    let posledniX = -1e9;                              // popisky se nesmí překrývat
+    xTicks = W.map((p,i)=>{
+      const tick = p.isYearStart || i===0
+        ? `<line x1="${(padL+i*PX).toFixed(1)}" y1="${padT}" x2="${(padL+i*PX).toFixed(1)}" y2="${padT+plotH+4}" stroke="rgba(176,141,82,.4)" stroke-width="1"/>` : '';
+      //  Popisek roku má přednost: měsíc těsně před lednem se vynechá.
+      const rokBlizko = !p.isYearStart && W.some((q,j)=>j>i && q.isYearStart && (xc(j)-xc(i)) < 44);
+      const chce = (i%kazdy===0 || p.isYearStart) && !rokBlizko && (xc(i) - posledniX >= (p.isYearStart||i===0 ? 44 : 30));
+      if(chce) posledniX = xc(i);
+      const txt = chce
+        ? `<text x="${xc(i).toFixed(1)}" y="${padT+plotH+17}" font-size="10" fill="#c9b48a" text-anchor="${xc(i)+16 > width ? 'end' : 'middle'}" font-family="Georgia,serif">${OSA_MES[p.m]}${p.isYearStart||i===0 ? ' '+String(p.y).slice(2) : ''}</text>` : '';
+      return tick + txt;
+    }).join('');
+  } else {
+    const yrStep = W.length>40 ? Math.ceil(W.length/40) : 1;   // u dlouhé historie neopakuj rok u každého dílku
+    xTicks = W.map((p,i)=> ((p.isYearStart && (i%yrStep===0 || W.length<=40)) || i===0) ? `<g>
+        <line x1="${(padL+i*PX).toFixed(1)}" y1="${padT}" x2="${(padL+i*PX).toFixed(1)}" y2="${padT+plotH+4}" stroke="rgba(176,141,82,.4)" stroke-width="1"/>
+        <text x="${(padL+i*PX+3).toFixed(1)}" y="${padT+plotH+17}" font-size="10" fill="#c9b48a" font-family="Georgia,serif">${p.y}</text>
+      </g>` : '').join('');
+  }
 
   const axisY = [maxV, (maxV+minV)/2, minV].map(v=>`
-    <text x="${padL-6}" y="${yOf(v)+3}" font-size="8.5" fill="#b09f82" text-anchor="end" font-family="Georgia,serif">${Math.round(czkToBase(v)/1000)}k</text>
-    <line x1="${padL}" y1="${yOf(v)}" x2="${padL+plotW}" y2="${yOf(v)}" stroke="rgba(138,106,62,.22)" stroke-width="1"/>`).join('');
+    <text x="${padL-6}" y="${(yOf(v)+3.5).toFixed(1)}" font-size="10" fill="#c9b48a" text-anchor="end" font-family="Georgia,serif">${Math.round(czkToBase(v)/1000)}k</text>
+    <line x1="${padL}" y1="${yOf(v).toFixed(1)}" x2="${(padL+plotW).toFixed(1)}" y2="${yOf(v).toFixed(1)}" stroke="rgba(138,106,62,.25)" stroke-width="1"/>`).join('');
+  const jednotka = `<text x="${padL-6}" y="${padT-10}" font-size="9" fill="#c9b48a" text-anchor="end" font-family="Georgia,serif">${esc(typeof baseCur==='function'?baseCur():'Kč')}/měs</text>`;
 
   const leg = (c,t,dash)=>`<span style="display:flex;align-items:center;gap:5px;color:${c}"><span style="width:16px;height:0;border-top:2.4px ${dash?'dashed':'solid'} ${c};display:inline-block"></span>${t}</span>`;
 
+  // ── ovládání: rozsah + filtr ──
+  const BTN = 'padding:5px 11px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.76rem;font-weight:700;border:1px solid #8a6a3e';
+  const rozsahBtns = OSA_ROZSAHY.map(([k,lb])=>{
+    const on = cfg.rozsah===k;
+    return `<button onclick="osaRozsah('${k}')" aria-pressed="${on}" style="${BTN};background:${on?'linear-gradient(180deg,#7a5a30,#5e4423)':'transparent'};color:${on?'#f3ead2':'#c9b48a'}">${lb}</button>`;
+  }).join('');
+  const pocet = { udalosti: d.events.length, etapy: d.eras.length, poznamky: d.notes.length };
+  const filtrBtns = [['udalosti','Události','#8fb0d8'],['etapy','Etapy','#b08d52'],['poznamky','Poznámky','#4a90d9']].map(([k,lb,c])=>{
+    const on = !cfg.skryt[k];
+    return `<button onclick="osaFiltr('${k}')" aria-pressed="${on}" style="${BTN};font-weight:400;display:inline-flex;align-items:center;gap:6px;background:${on?'rgba(176,141,82,.18)':'transparent'};color:${on?'#f3ead2':'#9d8c6e'};${on?'':'text-decoration:line-through;'}">
+      <span style="width:9px;height:9px;border-radius:${k==='etapy'?'3px':'50%'};background:${on?c:'transparent'};border:1.5px solid ${c};display:inline-block"></span>${lb} <span style="font-size:.68rem;opacity:.8">${pocet[k]}</span></button>`;
+  }).join('');
+
+  // ── detail vybrané značky ──
+  const vybrany = _osaVybrano ? (S.milestones||[]).find(x=>x.id===_osaVybrano && !x.hidden) : null;
+  const detail = !vybrany ? '' : (()=>{
+    const isN = vybrany.kind==='note', c = isN ? msBarvaPlatna(vybrany.color) : vybrany.kind==='era' ? '#b08d52' : '#8fb0d8';
+    const dt = new Date(vybrany.date);
+    const kdy = (isNaN(dt)?'':dt.toLocaleDateString('cs-CZ')) + (vybrany.kind==='era' ? ' – '+(vybrany.dateTo?new Date(vybrany.dateTo).toLocaleDateString('cs-CZ'):'dosud') : '');
+    return `<div style="margin-top:10px;padding:10px 12px;border-radius:9px;border-left:4px solid ${c};background:rgba(255,255,255,.05)">
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <b class="denik-h" style="font-size:.86rem;color:#f3ead2">${esc(vybrany.icon||'')} ${esc(vybrany.label)}</b>
+        <span style="font-size:.72rem;color:#d9c49a">${kdy}</span>
+        <span style="font-size:.66rem;padding:1px 7px;border-radius:99px;border:1px solid ${c};color:${c}">${isN?'poznámka':vybrany.kind==='era'?'etapa':'událost'}</span>
+        <button onclick="msOpen('${escJs(vybrany.id)}')" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#d9c49a;font-size:.74rem;font-family:Georgia,serif">upravit</button>
+        <button onclick="osaDetail('${escJs(vybrany.id)}')" aria-label="Zavřít" style="background:none;border:0;cursor:pointer;color:#d9c49a;font-size:.9rem">✕</button>
+      </div>
+      ${vybrany.note?`<div style="font-size:.76rem;color:#d9c49a;line-height:1.55;margin-top:4px">${esc(vybrany.note)}</div>`:''}
+    </div>`;
+  })();
+
+  const kratsi = d.rozsah!=='vse' && d.monthsTotal <= d.monthsShown;
   return `
     <div class="denik-book" style="margin-top:14px">
-      <div style="padding:16px 18px">
-        <div class="denik-h" style="font-size:.95rem;color:#f3ead2;margin-bottom:3px">🗺️ Osa života</div>
-        <div style="font-size:.76rem;color:#b09f82;line-height:1.6;margin-bottom:10px">
-          Nahoře tvoje události a etapy, dole peníze. Když někde křivka zlomí, podívej se nad ni —
-          často tam bude důvod.
+      <div style="padding:16px 18px" id="osaZivotaHost" data-sirka="${sirkaZdroj}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+          <div class="denik-h" style="font-size:.95rem;color:#f3ead2">🗺️ Osa života</div>
+          <button onclick="msOpen(null,'note')" style="${BTN};background:rgba(74,144,217,.18);color:#d6e2f0;border-color:#4a90d9">+ Poznámka</button>
+        </div>
+        <div style="font-size:.78rem;color:#d9c49a;line-height:1.6;margin-bottom:10px">
+          Nahoře tvoje události a etapy, barevné čáry jsou poznámky, dole peníze. Když někde křivka zlomí,
+          podívej se nad ni — často tam bude důvod. Klepni na značku pro detail.
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <span style="font-size:.72rem;color:#d9c49a;margin-right:2px">Rozsah</span>${rozsahBtns}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <span style="font-size:.72rem;color:#d9c49a;margin-right:2px">Zobrazit</span>${filtrBtns}
         </div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
-          <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block">
-            <line x1="${padL}" y1="30" x2="${padL+plotW}" y2="30" stroke="#6b8ab0" stroke-width="2" opacity=".8"/>
-            ${axisY}${yearTicks}${eraBands}${evMarks}
-            ${line(p=>p.incA,'#2e6b3f')}
-            ${line(p=>p.expA,'#8c2f2f')}
-            ${line(p=>p.cum,'#6b4b8a','5 3')}
+          <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block;max-width:none">
+            <line x1="${padL}" y1="34" x2="${(padL+plotW).toFixed(1)}" y2="34" stroke="#8fb0d8" stroke-width="2" opacity=".8"/>
+            ${jednotka}${axisY}${xTicks}${eraBands}
+            ${line(p=>p.incA,'#3f9a58')}
+            ${line(p=>p.expA,'#c0453f')}
+            ${line(p=>p.cum,'#9b7bc4','5 3')}
+            ${noteMarks}${evMarks}
           </svg>
         </div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.72rem;margin-top:8px;font-family:Georgia,serif">
-          ${leg('#2e6b3f','Příjmy')}${leg('#8c2f2f','Výdaje')}${leg('#6b4b8a','Kumulovaný tok',1)}
-          <span style="display:flex;align-items:center;gap:5px;color:#6b8ab0"><span style="width:8px;height:8px;border-radius:50%;background:#6b8ab0;display:inline-block"></span>Události</span>
+        ${detail}
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.74rem;margin-top:8px;font-family:Georgia,serif">
+          ${leg('#3f9a58','Příjmy')}${leg('#c0453f','Výdaje')}${leg('#9b7bc4','Kumulovaný tok',1)}
+          ${cfg.skryt.udalosti?'':'<span style="display:flex;align-items:center;gap:5px;color:#8fb0d8"><span style="width:8px;height:8px;border-radius:50%;background:#8fb0d8;display:inline-block"></span>Události</span>'}
+          ${cfg.skryt.poznamky||!d.notes.length?'':'<span style="display:flex;align-items:center;gap:5px;color:#d6e2f0"><span style="width:2px;height:12px;background:#4a90d9;display:inline-block"></span>Poznámky (barva podle tebe)</span>'}
         </div>
-        <div style="font-size:.72rem;color:#b09f82;line-height:1.6;margin-top:9px;padding-top:8px;border-top:1px solid rgba(138,106,62,.35)">
+        <div style="font-size:.74rem;color:#d9c49a;line-height:1.6;margin-top:9px;padding-top:8px;border-top:1px solid rgba(138,106,62,.35)">
           <b>Kumulovaný tok</b> je nasčítaný rozdíl příjmů a výdajů od začátku záznamů — ne čisté jmění.
           Aplikace nezná zpětně stav tvých aktiv a dluhů po měsících, jen dnešní, takže by taková křivka
           byla dokreslená. Tohle je to, co se z transakcí spočítat dá.
+          ${d.rozsah!=='vse' && !kratsi ? `<br>Zobrazeno posledních <b>${d.monthsShown} měsíců</b> do ${OSA_MES_2P[S.curMonth]} ${S.curYear}. Kumulovaný tok i tak počítá od začátku záznamů. Celou historii ukáže <b>Vše</b>.` : ''}
+          ${kratsi ? `<br>Záznamy máš jen za ${d.monthsTotal} měsíců, takže se zobrazuje celá historie.` : ''}
           ${P.step!=='month' ? `<br><b>Zobrazeno po ${P.step==='year'?'letech':'čtvrtletích'}</b>, protože máš ${Math.round(P.monthsTotal/12*10)/10} roku záznamů —
              po měsících by se osa nedala přečíst. Příjmy a výdaje jsou <b>průměry na měsíc</b>, aby byl rok srovnatelný
              s měsícem; kumulovaný tok je skutečný součet. Historie se neořezává.` : ''}
@@ -8097,21 +8317,35 @@ function _zivotniMapaHTML(m,y){
   const esc = t => String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const all=(S.milestones||[]).filter(x=>!x.hidden).slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
   const f=_msForm;
+  const isNoteF = !!(f && f.kind==='note');
   const BTN='padding:5px 12px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.76rem;font-weight:700;border:1px solid #8a6a3e';
   const INP='padding:6px 8px;border-radius:7px;border:1px solid #8a6a3e;background:rgba(255,255,255,.06);color:#f3ead2;font-family:Georgia,serif;font-size:.78rem';
 
   const form = !f ? '' : `
-    <div style="background:rgba(255,255,255,.05);border:1px solid #8a6a3e;border-radius:10px;padding:12px;margin-bottom:12px">
-      <div class="denik-h" style="margin-bottom:8px;color:#f3ead2">${f.id?(f.kind==='era'?'Upravit etapu':'Upravit událost'):(f.kind==='era'?'Nová etapa':'Nová událost')}</div>
+    <div data-rozprac="zivotni-mapa" style="background:rgba(255,255,255,.05);border:1px solid ${isNoteF?'#4a90d9':'#8a6a3e'};border-radius:10px;padding:12px;margin-bottom:12px">
+      <div class="denik-h" style="margin-bottom:8px;color:#f3ead2">${f.id?(f.kind==='era'?'Upravit etapu':isNoteF?'Upravit poznámku':'Upravit událost'):(f.kind==='era'?'Nová etapa':isNoteF?'Nová poznámka':'Nová událost')}</div>
+      ${isNoteF ? `
+      <div style="font-size:.74rem;color:#d9c49a;line-height:1.5;margin-bottom:8px">Poznámka se na Ose života ukáže jako tenká svislá čára ve vybrané barvě – třeba začátek topné sezóny nebo dovolená.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
+        ${MS_NOTES.map(lb=>`<button onclick="msPick('','${lb.replace(/'/g,"\\'")}')" style="padding:4px 9px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.7rem;border:1px solid #8a6a3e;background:${f.label===lb?'linear-gradient(180deg,#7a5a30,#5e4423)':'transparent'};color:${f.label===lb?'#f3ead2':'#c9b48a'}">${lb}</button>`).join('')}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:9px">
+        <span style="font-size:.74rem;color:#d9c49a">Barva čáry</span>
+        ${MS_BARVY.map(([c,nm])=>{ const on=msBarvaPlatna(f.color)===c; return `<button type="button" data-ms-barva="${c}" onclick="msBarva('${c}')" title="${nm}" aria-label="Barva ${nm}" aria-pressed="${on}" style="width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid rgba(0,0,0,.35);background:${c};outline:${on?'2px solid #f3ead2':'none'};outline-offset:2px"></button>`; }).join('')}
+        <label style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:#d9c49a;cursor:pointer">vlastní
+          <input id="msBarvaVlastni" type="color" value="${msBarvaPlatna(f.color)}" oninput="msBarva(this.value)" style="width:30px;height:26px;padding:0;border:1px solid #8a6a3e;border-radius:6px;background:transparent;cursor:pointer">
+        </label>
+        <span id="msBarvaNahled" title="Náhled čáry" style="width:3px;height:26px;border-radius:2px;background:${msBarvaPlatna(f.color)};margin-left:4px"></span>
+      </div>` : `
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
         ${(f.kind==='era'?MS_ERAS:MS_PRESETS).map(([ic,lb])=>`<button onclick="msPick('${ic}','${lb.replace(/'/g,"\\'")}')" style="padding:4px 9px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.7rem;border:1px solid #8a6a3e;background:${f.icon===ic?'linear-gradient(180deg,#7a5a30,#5e4423)':'transparent'};color:${f.icon===ic?'#f3ead2':'#c9b48a'}">${ic} ${lb}</button>`).join('')}
-      </div>
+      </div>`}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px">
         <input id="msDate" type="date" value="${esc(f.date)}" title="${f.kind==='era'?'Začátek etapy':'Datum'}" style="flex:0 0 148px;${INP}">
         ${f.kind==='era'?`<input id="msDateTo" type="date" value="${esc(f.dateTo)}" title="Konec etapy (prázdné = dosud)" style="flex:0 0 148px;${INP}">`:''}
-        <input id="msLabel" type="text" maxlength="120" placeholder="${f.kind==='era'?'Název etapy':'Název události'}" value="${esc(f.label)}" style="flex:1 1 180px;${INP}">
+        <input id="msLabel" type="text" maxlength="120" placeholder="${f.kind==='era'?'Název etapy':isNoteF?'Text poznámky (např. Začala topná sezóna)':'Název události'}" value="${esc(f.label)}" style="flex:1 1 180px;${INP}">
       </div>
-      <textarea id="msNote" maxlength="500" rows="2" placeholder="Poznámka (nepovinné) – co to pro tvoje finance znamenalo" style="width:100%;resize:vertical;${INP}">${esc(f.note)}</textarea>
+      <textarea id="msNote" maxlength="500" rows="2" placeholder="${isNoteF?'Podrobnosti (nepovinné) – ukážou se po klepnutí na čáru':'Poznámka (nepovinné) – co to pro tvoje finance znamenalo'}" style="width:100%;resize:vertical;${INP}">${esc(f.note)}</textarea>
       <div style="display:flex;gap:7px;margin-top:8px">
         <button onclick="msSave()" style="${BTN};background:linear-gradient(180deg,#7a5a30,#5e4423);color:#f3ead2">Uložit</button>
         <button onclick="msCancel()" style="${BTN};font-weight:400;background:transparent;color:#c9b48a">Zrušit</button>
@@ -8124,13 +8358,15 @@ function _zivotniMapaHTML(m,y){
       <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(138,106,62,.45)"></div>
       ${all.map(x=>{
         const d=new Date(x.date); const inThis=(d.getMonth()===m&&d.getFullYear()===y);
+        const isN = x.kind==='note', nc = isN ? msBarvaPlatna(x.color) : '';
         return `<div style="position:relative;margin-bottom:11px">
-          <div style="position:absolute;left:-19px;top:4px;width:12px;height:12px;border-radius:50%;background:${inThis?'#7a5a30':'#5e4423'};border:2px solid ${inThis?'#d9c49a':'#8a6a3e'}"></div>
+          <div style="position:absolute;left:-19px;top:4px;width:12px;height:12px;border-radius:50%;background:${isN?nc:(inThis?'#7a5a30':'#5e4423')};border:2px solid ${isN?'rgba(0,0,0,.35)':(inThis?'#d9c49a':'#8a6a3e')}"></div>
           <div style="display:flex;align-items:baseline;gap:7px;flex-wrap:wrap">
-            <span style="font-size:.95rem">${esc(x.icon)||'\u{1F4CC}'}</span>
+            ${isN ? `<span style="width:3px;height:14px;border-radius:2px;background:${nc};display:inline-block;align-self:center"></span>` : `<span style="font-size:.95rem">${esc(x.icon)||'\u{1F4CC}'}</span>`}
             <span class="denik-h" style="font-size:.84rem;color:#f3ead2">${esc(x.label)}</span>
             <span style="font-size:.7rem;color:#c0ac86">${isNaN(d)?'':d.toLocaleDateString('cs-CZ')}${x.kind==='era'?(' – '+(x.dateTo?new Date(x.dateTo).toLocaleDateString('cs-CZ'):'dosud')):''}</span>
             ${x.kind==='era'?'<span style="font-size:.62rem;padding:1px 6px;border-radius:99px;border:1px solid #b08d52;color:#d9c49a">etapa</span>':''}
+            ${isN?`<span style="font-size:.62rem;padding:1px 6px;border-radius:99px;border:1px solid ${nc};color:${nc}">poznámka</span>`:''}
             ${x.auto==='trackStart'?'<span style="font-size:.62rem;padding:1px 6px;border-radius:99px;background:rgba(122,90,48,.35);color:#d9c49a">automaticky</span>':''}
             <button onclick="msOpen('${x.id}')" style="margin-left:auto;background:none;border:0;cursor:pointer;color:#8a6a3e;font-size:.72rem;font-family:Georgia,serif">upravit</button>
             <button onclick="msDelete('${x.id}')" style="background:none;border:0;cursor:pointer;color:#8c2f2f;font-size:.72rem;font-family:Georgia,serif">smazat</button>
@@ -8169,9 +8405,10 @@ function _zivotniMapaHTML(m,y){
       <div style="padding:16px 18px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
           <div class="denik-h" style="font-size:.95rem;color:#f3ead2">\u{1F5FA}\uFE0F Životní mapa</div>
-          ${f?'':`<span style="display:flex;gap:6px">
+          ${f?'':`<span style="display:flex;gap:6px;flex-wrap:wrap">
             <button onclick="msOpen()" style="${BTN};background:linear-gradient(180deg,#7a5a30,#5e4423);color:#f3ead2">+ Událost</button>
             <button onclick="msOpen(null,'era')" style="${BTN};background:rgba(176,141,82,.15);color:#e8d9b5">+ Etapa</button>
+            <button onclick="msOpen(null,'note')" style="${BTN};background:rgba(74,144,217,.18);color:#d6e2f0;border-color:#4a90d9">+ Poznámka</button>
           </span>`}
         </div>
         ${form}
