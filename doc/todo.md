@@ -11,7 +11,7 @@
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
 > **Doplnění Session 18** (2026-08-03, `patch-session18.md`): TL;DR přepočítáno, nová sekce na konci souboru. TL;DR mezi Session 9 a 18 nebyla průběžně udržovaná — čísla níže odrážejí až stav po S18.
 > **Doplnění Session 23** (2026-09-25): řádky Session 23 v TL;DR a ROADMAP, nová sekce na konci souboru.
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1943,7 +1943,7 @@ Zamítnuto Milanem: rozpad výplaty z Výplatnice na mzdu/přesčas/bonus („ko
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Uzavřené a nové úkoly ze Session 25. Kontext v `Summary_s25.md`. Obsahuje i dodatek v11.28–v11.30 (2026-10-04 až 05), který mezi S24 a S25 nebyl zapsán.
 
@@ -2034,3 +2034,92 @@ Zamítnuto Milanem: rozpad výplaty z Výplatnice na mzdu/přesčas/bonus („ko
 
 ### Stále otevřené z dřívějška
 TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · TODO-321 · TODO-272, 273, 274, 275.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+### Upřesnění
+- **TODO-323 · Ikony** · 🟡 částečně hotovo (v11.58). Vlastní SVG sada ve stylu B (obrys + jemná výplň), Milan vybral B. Ikony jsou na kartě výrobku, v Mapě položek, v Mých výrobcích, ve Zdražování → Podle výrobků a v Za co utrácíš. **Zbývá:** záložky Analýzy účtenek, okno skeneru, Inflace, tištěný report a ikony dalších podkategorií (drogerie a další).
+- **Zamítnuto Milanem:** upozornění „málo dat“ a výpis měsíců u „Tvůj podíl“ v kartě výrobku („nemusíš“). Stačilo vysvětlení, jak se období počítá.
+
+### TODO-333 · Jedna karta výrobku všude **(Session 25)**
+- **Popis:** Mapa položek, 📦 Moje výrobky i okno skeneru dnes ukazují dvě různé karty, které umí různé věci. Cíl je jedna komponenta Karta výrobku, ve které jsou tlačítka vždy na stejném místě:
+  - u EAN: Vyfotit kód / Ze souboru,
+  - u obalu: Vyfotit / Opsat,
+  - u živin: Vyfotit tabulku / Z galerie / Zadat ručně, i když živiny už jsou.
+
+  Výrobek, který ještě není na účtence, má v Mých nákupech „zatím nepřiřazen“ a tlačítko 🔗 Přiřadit. Kartu půjde založit nebo upravit vždy, nejen u kódu, který databáze nezná.
+- **Tok (Milan):** sken EAN → naše databáze a Open Food Facts → nenalezeno → uživatel založí kartu → přiřazení k účtence + alias → admin schválí.
+- **Priorita:** 🟡 P2 · **Stav:** ⏸ Milan si to promyslí
+
+### TODO-334 · Schvalování nových karet adminem **(Session 25)**
+- **Popis:** Admin schvaluje jen založení nové karty a změnu názvu (ADR-206). Ostatní změny (živiny, fotky, značka) jen vidí v přehledu, protože by je nestíhal. Karta je k dispozici hned po založení. Admin dostane záložku „Nové výrobky ke schválení“ s akcemi schválit / opravit / zamítnout a schválená karta štítek „✓ ověřeno“.
+- **Otevřené:** jestli do schválení ostatní uvidí kartu se štítkem „neověřeno“, nebo ji uvidí jen autor.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Navazuje na TODO-333
+
+### TODO-335 · Fotka obalu a živin (AI) i u položky bez kódu **(Session 25)**
+- **Popis:** Od v11.60 jde u položky bez kódu všechno opsat ručně do osobní karty. Fotka s AI ale funguje jen s kódem, protože výsledek ukládá worker ke kódu. Doplnit do workeru režim, který výsledek jen vrátí a appka ho uloží do osobní karty.
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Nápad
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **TODO-333** ✅ **hotovo v11.61:** jedna karta všude, každé políčko upravitelné, štítek zdroje (ADR-207, ADR-208).
+- **TODO-334** ⏳ **stále otevřené:** schvalování NOVÉ karty adminem (ADR-206).
+  - Dnes se nová karta uloží hned pro všechny a loguje se v `community/eanKartyLog`, ale admin nemá frontu ke schválení.
+  - Otevřená otázka: vidí ostatní neschválenou kartu (se štítkem „neověřeno“)?
+- **TODO-336** 🆕 **zápis schválených karet do Open Food Facts** (Milan: „můj záměr byl přidat české výrobky do databáze OFF“).
+  - OFF má rozhraní pro zápis (účet aplikace). Posílat jen admin-schválené karty: český název, značku, gramáž, živiny, fotku obalu.
+  - Podmínky: obsah je veřejný pod otevřenou licencí, u fotek souhlas uživatele (zaškrtávátko), nikdy osobní údaje.
+  - Navazuje na TODO-334.
+- **TODO-337** 🆕 **„Obal – přední strana“ u výrobku s kódem** je dál osobní (nebo z fotky).
+  - Zvážit, zda ruční opis posílat adminovi jako návrh názvu (jako CZ popisek), aby ho viděli i ostatní.
+
+### TODO-338 · Vyzkoušet v provozu v11.58–v11.61 **(Session 25)**
+- **Nasazení:** worker → GitHub. Pravidla DB beze změny.
+- **Vyzkoušet:**
+  - ikony v kartě a seznamech (v11.58),
+  - Měsíční report – body a zarovnání (v11.59),
+  - karta výrobku bez kódu – políčka a živiny (v11.60),
+  - karta s kódem:
+    - oprava značky / Nutri-Score / složení,
+    - štítky 🌍/🇨🇿,
+    - „Open Food Facts uvádí“,
+  - 📦 Moje výrobky → karta (i výrobek bez účtenky),
+  - po skenu „📇 Otevřít celou kartu“,
+  - admin „🔄 Načíst znovu“.
+- **Priorita:** 🔴 P1 · **Stav:** ⬜ Otevřené (Milan)
+
+### TODO-339 · Admin: přehled ručních úprav karet a vrácení změny **(Session 25, návrh)**
+- **Popis:** Úpravy políček platí bez schválení (ADR-206), takže proti chybám a vandalismu chybí pojistka.
+  - Admin → Mapa položek → Čárové kódy: seznam posledních úprav z `community/eanUpravyLog` (políčko, stará → nová, kdy).
+  - Tlačítko „↩ Vrátit“.
+  - Případně limit úprav na uživatele a den.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Návrh
+
+### TODO-340 · Hromadná obnova starých karet **(Session 25, návrh)**
+- **Popis:** Výrobce, původ a obal (FIX-447) se doplní až při další obnově karty, tedy až po 90 dnech a jen při skenu.
+  - Admin tlačítko „Doplnit z Open Food Facts všechny karty“: worker je projde postupně a s ohledem na limity OFF a jen doplní (ADR-207).
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Návrh
+
+### TODO-341 · Úplnost karty v 📦 Moje výrobky **(Session 25, návrh)**
+- **Popis:** Místo štítků „bez živin“ a „bez českého názvu“ ukázat, kolik políček karty je vyplněno (např. 9/14), a filtr „Chybí údaje“ řadit od nejméně úplných. Motivuje doplňovat.
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Návrh
+
+### Plán na další session (stav k v11.61)
+1. **Nejdřív Milan:**
+   - TODO-338 + TODO-332 (vyzkoušet v provozu, nálezy poslat),
+   - TODO-330 (`FIREBASE_SERVICE_ACCOUNT`),
+   - TODO-331 (Google Play).
+2. **Rozhodnout a postavit:**
+   - TODO-334 schvalování nové karty (otázka: vidí ostatní neschválenou kartu se štítkem „neověřeno“?),
+   - pak TODO-336 zápis schválených karet do Open Food Facts.
+3. **Pojistka k úpravám bez schválení:** TODO-339.
+4. **Údržba:** TODO-328 zkrácení MD souborů (Projekt je skoro plný – čeká na schválení).
+5. **Menší:**
+   - TODO-335 AI fotka u položky bez kódu,
+   - TODO-337 přední strana obalu jako návrh adminovi,
+   - TODO-340, TODO-341,
+   - zbytek TODO-323 (ikony mimo kartu).
+6. **Odloženo Milanem:**
+   - TODO-327 zrychlení,
+   - TODO-028 překlad,
+   - TODO-324, 325, 326, 329, 321.

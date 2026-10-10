@@ -3,7 +3,7 @@
 > Abecední přehled termínů, zkratek a interních pojmů používaných v projektu FinanceFlow.
 > Cíl: Claude i autor okamžitě najdou definici bez hledání v kódu nebo jiných .md souborech.
 > Poslední aktualizace: 2026-04-16.
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -183,7 +183,7 @@
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Nové pojmy ze Session 25 (abecedně).
 
@@ -224,3 +224,20 @@ taxonomie, obchodu, kraje, štítku a kategorie.
 **Základ (`_zaklad`, seed)** – poslední stav potvrzený serverem, proti kterému se slučuje. Ukládá se i do offline snímku.
 
 **Zkratka z účtenky** – text řádku z pokladny („Smet.jogurt bílý 1kg KK“). Není to název výrobku a do názvu se nepřebírá (ADR-200).
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+**ffIkona / ffIkonaTax** – vykreslení vlastní SVG ikony; ikona položky podle taxonomie (podkategorie → oblast → Nezařazené).
+
+**Osobní karta výrobku (`S.uiCfg.karty`)** – údaje karty, které má jen uživatel: položka bez kódu, opsaná přední strana obalu, vlastní značka. Klíč `e…` (EAN) nebo `n…` (otisk zkratky).
+
+**„----“** – prázdné políčko karty výrobku; vedle je vždy možnost ho doplnit.
+
+**Neměřený měsíc (skóre)** – pod 50 % měřitelného skóre se číslo ani známka neukazují („–“, „zatím nelze určit“).
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **Zámek políčka (`rucne`)** – políčko karty výrobku, které upravil člověk. Open Food Facts ho při obnově nepřepíše (ADR-207).
+- **Štítek zdroje** – 🌍 Open Food Facts / 🇨🇿 komunita / ✍️ tvůj zápis / 🧾 z účtenky u každého údaje karty.
+- **„Open Food Facts uvádí“** – hodnota z OFF, kterou člověk opravil (`offPuvodni`). Ukazuje se pod opravenou hodnotou.
+- **Syntetická položka** – karta pro výrobek, který ještě není na žádné účtence (`_mapaSynt`, ADR-208).

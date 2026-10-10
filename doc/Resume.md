@@ -1,6 +1,6 @@
 # Resume - FinanceFlow Session 13
 
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 Verze: v8.10 -> v8.24 (15 verzi)
 Datum: 18.-20. 6. 2026
@@ -74,7 +74,7 @@ ukládat jen to, co se nedá dopočítat.
 
 # Resume – FinanceFlow Session 25
 
-Verze: v11.30 → v11.57 (27 verzí) + dodatek v11.28–v11.30
+Verze: v11.30 → v11.61 (31 verzí) + dodatek v11.28–v11.30
 Datum: 5.–9. 10. 2026
 Jazyk: čeština · Stack: Vanilla JS, Firebase RTDB, Cloudflare Workers + R2 + Browser Rendering, Claude API, Resend
 
@@ -110,3 +110,11 @@ SKILL 71–80:
 - testy se změnou UX
 
 ID rozsah Session 25: FIX-405–442, TODO-323–332, ADR-183–202, SKILL 71–80
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+v11.58 vlastní SVG ikony (automaticky přes taxonomii) · v11.59 Měsíční report: neměřené skóre a zarovnání · v11.60 jednotná karta výrobku s osobní kartou pro položky bez kódu. Rozhodnutí: admin schvaluje jen nové karty a změny názvů (ADR-206). ID: FIX-443–446, ADR-203–206, TODO-333–335, SKILL 81–83.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **v11.61:** Open Food Facts jen doplňuje (ADR-207), jedna karta všude s opravou každého políčka a štítkem zdroje (ADR-208). FIX-447 až 450, SKILL 84–85, TODO-336–341. **Celkový rozsah Session 25:** FIX-405–450, TODO-323–341, ADR-183–208, SKILL 71–85.

@@ -1,7 +1,7 @@
 # FinanceFlow – CLAUDE SKILLS (naučené chyby, kterým se vyhnout)
 
 > Pravidla z opakovaných chyb. Claude je dodržuje při KAŽDÉ úpravě FinanceFlow.
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ## SKILL 1 – Text a barvy na tmavém pozadí
 - **NIKDY** nepoužívat `var(--text3)` ani `var(--text2)` pro důležitý/čtený text – jsou špatně čitelné na tmavém pozadí.
@@ -778,3 +778,33 @@ v UI:
 3. V odpovědi napsat, které testy se měnily a proč.
 
 Test se nesmí „opravit“ tak, že přestane kontrolovat chování.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+## SKILL 81 – Sloupec s čísly musí existovat i v řádku, kde nic není (Session 25)
+Měsíční report měl řádky `hodnota | doplněk`. Doplňkový `<span>` se vykreslil jen tam, kde nějaký doplněk byl, takže číslo v řádku bez doplňku uskočilo k pravému okraji („cik cak“, FIX-445). Stejně tak „nezměřeno“ bez sloupce odznaku.
+- **Pravidlo:** pevná šířka sloupce a prázdný `<span>` i bez obsahu.
+- **Kontrola:** v Chromiu změřit `getBoundingClientRect().right` hodnot ve všech řádcích, musí být shodné.
+
+## SKILL 82 – „Nezměřeno“ není nula (Session 25)
+Skóre `null` se zobrazilo jako „0 z 310“. Z nuly se pak odvodilo „+0 bodů“ a „🏆 Nejvyšší pásmo dosaženo“ (FIX-443). U každé hodnoty, která může být `null`:
+- ukázat „–“ a důvod,
+- všechny odvozené texty (změna, do známky, pásmo) potlačit.
+
+Odečítat jde jen čísla na stejné škále.
+
+## SKILL 83 – Karta musí vypadat stejně bez ohledu na zdroj dat (Session 25)
+Políčka karty výrobku se zobrazovala jen tam, kde je dodala databáze podle kódu. Bez kódu karta „zmizela“ a nešla doplnit (FIX-446).
+- **Pevný seznam políček:** prázdné = „----“ + tlačítko doplnit.
+- **Když komunitní úložiště nejde použít,** je potřeba osobní úložiště (`S.uiCfg.karty`). Bez něj uživatel nemá kam data napsat.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### SKILL 84 · Obnova z externího zdroje = sloučení, ne přestavba **(Session 25, v11.61)**
+Když se data periodicky obnovují z cizí databáze, nestavět záznam znovu a nezachraňovat seznam „chráněných“ polí. Seznam se zapomene rozšířit a nové pole se tiše smaže.
+- Základem je uložený záznam.
+- Cizí zdroj má výslovně vyjmenované, co smí aktualizovat a co jen doplnit.
+- Lidská úprava se zamyká.
+
+### SKILL 85 · Pole, které se čte, ale nikdy nežádá **(Session 25, v11.61)**
+Když normalizace čte pole z API (`p.brand_owner`), zkontrolovat, že ho dotaz opravdu žádá (`fields=`). Jinak je výsledek vždy prázdný a vypadá to, že „databáze to nemá“. Test: projít klíče čtené v normalizaci proti seznamu v dotazu.

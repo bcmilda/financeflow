@@ -4,7 +4,7 @@
 > Tento dokument slouží jako **centrální místo** pro vše security-related.
 > Pokud si nejsi jistý, zda něco je bezpečné — podívej se sem dřív, než to uděláš.
 > Poslední aktualizace: 2026-04-16.
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -261,7 +261,7 @@ Pravidla, která má Claude dodržovat při práci s FinanceFlow:
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Bezpečnost a soukromí v Session 25. Kontext v `Summary_s25.md`.
 
@@ -295,3 +295,16 @@ Veřejný postup `smazani-uctu.html` (Google Play: odkaz na smazání bez instal
 - **Bariéra po připojení:** `users/{uid}/syncPing` patří pod kaskádu `users/$uid`, zapisuje jen vlastník.
 - **Kontrola uid:** po připojení appka ověří, že se mezitím nezměnil přihlášený uživatel. Data jednoho účtu se nesmí zapsat do druhého.
 - **Zbytky `sendBeacon`:** uzly `-N…` pod `data` se ignorují. Admin je může smazat.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+- **Osobní karta výrobku** (`S.uiCfg.karty`, v11.60) je v `users/{uid}/data/uiCfg`. Čte ji jen vlastník a admin a partnerovi se nesdílí (uiCfg je v seznamu „záměrně se nesdílí“). Ruční živiny bez kódu nejdou do komunity.
+- **Ikony** (v11.58) jsou statické SVG z kódu appky, žádný uživatelský obsah v SVG. `ffIkona` propustí barvu jen ve tvaru hex / `var(--x)` / slovo a titulek escapuje.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **Ruční úpravy karty výrobku pro všechny** (akce workeru `pole`, ADR-207/208) jdou jen přes worker s ověřeným Firebase tokenem.
+  - Klient do `community/eanProdukty` dál nezapisuje (pravidla beze změny, zapisuje worker nebo admin).
+  - Worker hodnotu ořízne, zkontroluje a přijme jen povolená políčka (`EAN_POLE_RUCNE`). Názvy touto cestou nejdou (návrh adminovi, ADR-206).
+- **Log `community/eanUpravyLog/{ean}/{uid}/{pole}`** obsahuje uid. Zapisuje ho jen worker a klient ho číst nemůže, protože žádné pravidlo čtení nepovoluje. Slouží adminovi k dohledání vandalismu (TODO-339).
+- **Admin „Načíst znovu“** už kartu nemaže (`kdy: 0`), takže nepřijdeme o data komunity.

@@ -11,7 +11,7 @@
 > `**(Session N)**`. Doplnění z Milanova merge jsou označena `**(Merge Session 1-6)**`.
 > Konflikty mezi sessions jsou explicitně vyznačeny.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1814,7 +1814,7 @@ Taxonomie (analýzy): mapa → čárový kód → název (`rpMapaNavrh(name, D, 
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Technické změny ze Session 25. Kontext v `Summary_s25.md`. Včetně dodatku v11.28–v11.30.
 
@@ -1899,3 +1899,53 @@ a vynuluje všechny příznaky.
 
 ## Pravidla DB (verze v11.39)
 Nový uzel `community/ceny` (`.read: auth != null`, `.write: false`). Ostatní beze změny proti v11.24.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+## Nový modul
+- **`js/ikony.js`** (v11.58, načítá se hned za `helpers.js`).
+  - **Data:** `FF_IKONY` (id → [obrys, výplň]), `FF_IKONY_BARVY` (oblast → barva), `FF_IKONY_PODKAT` (podkategorie → ikona).
+  - **Funkce:**
+    - `ffIkona(id, px, {barva, styl, titulek})`,
+    - `ffIkonaTax(tax)` → `{id, barva}`,
+    - `ffIkonaOblasti`, `ffIkonaDlazdice(tax, box, px)`,
+    - `ffIkonaTaxVyrobku(p, nazvy)` (`p.obecnyId` → taxInfo, jinak taxNavrh ze zkratky).
+- **`receipts.js`:** `rpIk`, `rpIkTax`, `rpIkDlazdice` se zálohou na emoji.
+
+## Osobní karta výrobku (v11.60)
+- **Úložiště:** `S.uiCfg.karty[klic]` = `{nazevObal, nazevPopisek, znacka, vyrobce, dovozce, nutrice{…, na, zdroj:'rucne', kdy}, slozeni, zkratka, kdy}`.
+- **Funkce (`receipts.js`):** `mapaKartaKlic(z)`, `mapaKartaLok(z)`, `mapaKartaLokUloz(z, patch)` (prázdná hodnota se smaže), `mapaKartaUprav(i, pole)` / `mapaKartaUlozPole(i, pole)`. Konstanty `MK_POLE`, `MK_PRAZDNE`.
+- **Živiny (`ean-sken.js`):** `eanZivinyLokalni(klic)` pozná klíč `n…`. `eanZivinyForm` / `eanZivinyUloz` pak ukládají do osobní karty místo workeru (`/ean` akce `ziviny`).
+- **COICOP:** `mapaKoicopPanelHTML(code, D, cast)` – `cast` = `'hier'` (v rozbalovacím řádku) | `'srov'` (pod řádkem, vždy vidět). Přepínače období a základu už nenastavují `_mapaKoicopOtevreno`.
+
+## Měsíční report (v11.59)
+`projects.js` → sekce 9 počítá změnu přes `scoreZobrazeni` minulého měsíce (`_pz`), `_nemer` = neměřený měsíc. Sekce 11: řádek `row()` má vždy sloupec doplňku o šířce 92 px.
+
+## Proč worker hledá nejdřív v naší databázi
+`community/eanProdukty` je zároveň mezipaměť Open Food Facts a naše interní databáze. Obsahuje i český název, zařazení do taxonomie (AI), fotky a ruční živiny od uživatelů a karty založené uživateli pro kódy, které OFF nezná.
+
+Postup workeru:
+1. jedno čtení z naší databáze,
+2. když tam výrobek není, nebo je starší než 90 dní (nenalezený 14 dní), dotaz do 4 databází OFF,
+3. výsledek se uloží zpět do naší databáze.
+
+Doplněná data se při obnově zachovají (`EAN_ZACHOVAT`, v11.50).
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### EAN karta: sloučení a ruční úpravy **(Session 25, v11.61)**
+- **Worker:**
+  - `eanSlouc(stary, novy, ted)` nahradil `EAN_ZACHOVAT`.
+  - Skupiny `EAN_OFF_AKTUALIZOVAT` / `EAN_OFF_DOPLNIT`.
+  - Nová akce `/ean {akce:'pole', pole, hodnota}` → `eanAkcePole` (validace `eanPoleHodnota`: Nutri-Score a–e, balení přes `eanMnozstvi`, seznamy podle čárek).
+  - `EAN_POLE` nově chce `brand_owner`, `manufacturing_places`, `origins`, `packaging_tags`.
+- **Nová pole záznamu `community/eanProdukty/{ean}`:**
+  - `rucne {pole: kdy}`: zámek,
+  - `offPuvodni {pole: hodnota}`: co uvádí OFF,
+  - `zOff {pole: 1}`: u ruční karty doplněno z OFF,
+  - `offZdroj`, `offKdy`.
+- **Log:** `community/eanUpravyLog/{ean}/{uid}/{pole}` = `{kdy, stara, nova}`. Zapisuje jen worker, klient nečte, pravidla DB beze změny.
+- **Klient:**
+  - `eanPoleZdroj(p, pole)` → `'off' | 'komunita' | ''`, plus `eanZdrojOff` a `eanMnTxt` (`ean-sken.js`).
+  - V `receipts.js`: `MK_POLE` (13 políček), `MK_POLE_KOMUNITA`, `mapaKartaKomunitni`, `_mapaZ(i)`, `mapaKartaIndex(ean)`, `mapaKartaEan(ean)`, `mapaSyntPolozka`.
+  - `eanOtevriKartu(ean)` v `ean-sken.js`.

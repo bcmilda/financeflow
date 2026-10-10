@@ -9,7 +9,7 @@
 > `**(Session N)**`. Doplnění z Milanova merge jsou označena `**(Merge Session 1-3)**`.
 > Konflikty a superseded rozhodnutí jsou explicitně vyznačeny.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1578,7 +1578,7 @@ fialovou se štítkem. Nadpis grafu = sdělení. Free 2 strany bez AI s upoutáv
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Rozhodnutí ze Session 25. Kontext v `Summary_s25.md`. ADR-183 až ADR-185 jsou dodatek v11.28 (2026-10-04).
 
@@ -1697,3 +1697,58 @@ obal přední strana / obal CZ popisek.“
 3. **Obal – CZ popisek** – `nazevPopisek` z nové fotky „📸 Vyfotit český popisek“; AI přečte i složení a dovozce, popisek jde i opsat ručně
 
 Zobrazovaný název (`eanNazevVyrobku`): tvůj → CZ popisek → český z databáze → AI český → originál.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+### ADR-203 · Vlastní SVG ikony se přiřazují samy přes taxonomii **(Session 25, v11.58, Milan zvolil styl B)**
+- **Modul:** `js/ikony.js`. Mřížka 24×24, tah 1,75, `currentColor` a výplň stejnou barvou na 22 %. Místo emoji, která vypadají na každém telefonu jinak.
+- **Pořadí přiřazení:**
+  1. vlastní ikona podkategorie (`FF_IKONY_PODKAT`),
+  2. jinak ikona a barva oblasti,
+  3. jinak šedá „Nezařazené“.
+- **Zařazení stačí jednou:** po zařazení v Mapě položek se ikona změní sama, i u starých účtenek.
+- **Bez modulu** zůstanou emoji.
+- **Vlastní kategorie rozpočtu** dál používají emoji, které si uživatel vybral.
+
+### ADR-204 · Osobní karta výrobku v `S.uiCfg.karty` **(Session 25, v11.60)**
+Co nejde do komunitní databáze (položka bez kódu, opsaná přední strana obalu, vlastní značka nebo výrobce), se ukládá jen uživateli.
+- **Klíč:** `'e' + EAN`, nebo `'n' + FNV otisk zkratky z účtenky` (jen znaky povolené ve Firebase).
+- **Proč uiCfg:** synchronizuje se mezi zařízeními se slučováním po klíčích a partnerovi se nesdílí. Nebylo potřeba registrovat nový uzel na čtyřech místech v `app.js`.
+- **Pořadí zobrazení:** tvůj zápis má přednost před databází. Živiny bez kódu ukládá `eanZivinyForm('n…')`, které klíč pozná.
+
+### ADR-205 · Neměřené skóre se neukazuje jako číslo **(Session 25, v11.59)**
+Když skóre nejde změřit (`total === null`), nezobrazuje se 0. Nezobrazují se ani odvozené texty („nejvyšší pásmo“, „+0 bodů“), jen „–“, kolik procent jde změřit a co chybí. Změna proti minulému měsíci se počítá jen na stejné škále.
+
+### ADR-206 · Admin schvaluje jen novou kartu a změnu názvu **(Session 25, Milan 2026-10-09)**
+„Admin by nestíhal akceptovat a kontrolovat všechny změny. Proto bych nechal jen založení nové karty + změnu názvu. A uživatel už po založení může čerpat z databáze.“
+- **Ke schválení:** jen nová karta a změna názvu.
+- **Ostatní změny** (živiny s kontrolou a zálohou, fotky, značka) se jen logují.
+- Karta je v databázi použitelná hned po založení.
+- Implementace je TODO-333/334.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### ADR-207 · Open Food Facts jen doplňuje, nikdy nepřepisuje **(Session 25, v11.61, Milan)**
+„Nechci, aby se cokoliv přepisovalo kvůli stažení dat z databáze Open Food Facts. Staré karty, data už zůstanou neměnná. Bude možná ruční úprava, ale ne přepis.“
+- **Obnova po 90 dnech zůstává**, ale záznam se už nestaví znovu. Základ je uložená karta a `eanSlouc(stary, novy)` do ní jen doplňuje.
+- **Tři skupiny políček:**
+  - `EAN_OFF_AKTUALIZOVAT`: Nutri-Score, Eko-skóre, NOVA, alergeny, éčka, štítky, kategorie, vlastní název OFF, fotka, jazyk. Smí se obnovit, pokud je nikdo neopravil.
+  - `EAN_OFF_DOPLNIT`: značka, gramáž, výrobce, původ, země, obal, živiny, složení, typ, obecný název, COICOP. Jen do prázdného.
+  - Vše ostatní Open Food Facts nemění nikdy: české názvy, zařazení, ruční živiny, fotky, dovozce.
+- **Zámek:** co upravil člověk, je zamčené (`p.rucne[pole]`). Hodnota z OFF se pamatuje vedle (`p.offPuvodni`) a karta ji ukáže jako „Open Food Facts uvádí: …“.
+- **Karta založená lidmi** (ručně, z fotky): název zůstává jejich. Políčka doplněná z OFF se značí v `p.zOff` a `offZdroj`/`offKdy` říká odkud a kdy.
+- **OFF kód nezná nebo ho smazal:** karta zůstane, nikdy „nenalezeno“.
+- **AI zařazení** (`eanObohat`) už nepřepíše `obecnyId` a volá se jen, když něco chybí.
+- **Admin „Načíst znovu“** kartu nemaže, nastaví `kdy: 0`.
+- **Odmítnutá varianta:** rozšiřovat seznam chráněných polí (`EAN_ZACHOVAT`). Každé nové políčko by se muselo nezapomenout přidat, jinak by ho obnova smazala (tak se ztrácela ruční značka a gramáž).
+
+### ADR-208 · Jedna karta výrobku všude **(Session 25, v11.61, TODO-333, Milan)**
+„Karta musí vypadat úplně stejně.“
+- 📦 Moje výrobky, K vyřízení i „📇 Otevřít celou kartu“ po skenu otevírají kartu z Mapy položek (`mapaUzivKartaHTML`).
+- **Výrobek bez účtenky** dostane „syntetickou“ položku (`_mapaSynt`, indexy od `MAPA_SYNT` = 100000, přístup přes `_mapaZ(i)`). Indexy se tak nemíchají s `_mapaUziv`, který se přepočítává z účtenek.
+- Taková karta nemá rozpočet ani „Změnit kód“. Místo nákupů nabízí „🔗 Přiřadit k položce z účtenky“.
+- **Každé políčko jde opravit:**
+  - s kódem a kartou: pro všechny přes akci workeru `pole` (bez schválení, ADR-206; zamkne se, loguje do `community/eanUpravyLog/{ean}/{uid}/{pole}`),
+  - bez kódu: osobně (`S.uiCfg.karty`).
+- **Názvy** (přední strana, CZ popisek) touto cestou nejdou: CZ název jde přes návrh adminovi, přední strana zůstává osobní nebo z fotky.
+- **Štítek zdroje u každého políčka:** 🌍 Open Food Facts / 🇨🇿 komunita / ✍️ tvůj zápis / 🧾 z účtenky (`eanPoleZdroj`).

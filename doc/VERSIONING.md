@@ -3,7 +3,7 @@
 > Tento dokument definuje pravidla pro verzování aplikace, souborů a dokumentace.
 > Po schválení Milanem přesunout do `doc/VERSIONING.md`.
 > Vytvořeno: Session 7, 2026-04-23
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -417,7 +417,7 @@ Worker: v11.06 → v11.13 → v11.16 → v11.20 → v11.23 → **v11.24**. Pravi
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 ## Verze
 | Verze | Obsah |
@@ -470,3 +470,34 @@ Worker: v11.06 → v11.13 → v11.16 → v11.20 → v11.23 → **v11.24**. Pravi
 1. `database.rules.json` → Firebase
 2. `worker.js` → Cloudflare
 3. GitHub: soubory z výstupů v11.31–v11.57 (seznam v `Summary_s25.md`) + MD soubory S25
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+| Verze | Obsah |
+|---|---|
+| v11.58 | vlastní SVG ikony (`js/ikony.js`), automatické přiřazení přes taxonomii |
+| v11.59 | Měsíční report: neměřené skóre, změna na stejné škále, zarovnání sekcí 9 a 11 |
+| v11.60 | jednotná karta výrobku, osobní karta (bez kódu), COICOP – srovnání vždy vidět |
+
+Worker ani pravidla DB se v v11.58–v11.60 nemění.
+
+**Nasazení navíc proti v11.57 (GitHub):**
+- `app.html`, `sw.js`
+- `js/ikony.js` (nový), `js/receipts.js`, `js/ean-sken.js`, `js/projects.js`, `js/admin.js`
+- `tools/smoke_ikony.js` a `tools/smoke_karta_jednotna.js` (nové), `smoke_skore_report.js`, `smoke_karta_v2.js`, `smoke_coicop5.js`, `smoke_ziviny_rucne.js`
+
+**Testy:** 145 (144 sad `smoke_*` + `smoke.js`), všechny prochází.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### v11.61 · 2026-10-10 **(Session 25)**
+- **Změny:**
+  - ADR-207: Open Food Facts jen doplňuje.
+  - ADR-208 / TODO-333: jedna karta všude, oprava každého políčka, štítky zdroje.
+  - FIX-447 až 450.
+- **Soubory:** `cloudflare-worker/worker.js`, `js/receipts.js`, `js/ean-sken.js`, `js/ceny-kraje.js`, `js/admin.js`, `app.html`, `sw.js`.
+- **Testy:**
+  - nový `tools/smoke_karta_zdroje.js` (50),
+  - upravené: `smoke_gramaz_nazvy`, `smoke_karta_v2`, `smoke_mapa_karta`, `smoke_moje_vyrobky`, `smoke_uloziste_karta`, `smoke_v1124`, `smoke_ziviny_rucne`.
+  - Celkem 146, vše prošlo.
+- **Nasazení:** worker → GitHub. Pravidla DB beze změny.

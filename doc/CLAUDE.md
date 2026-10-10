@@ -5,7 +5,7 @@
 > **Doplnění Session 7:** nové JS soubory, počet modulů, pravidlo chainování (2026-05-15)
 > **Datum poslední aktualizace:** 2026-08-24 (Session 19, druhá vlna) — viz `patch-session19-FINAL.md` a `OTEVRENE-body-s19.md`
 > **Doplnění Session 23** (2026-09-25): tři nová pravidla v sekci „Pravidla pro AI asistenta" + sekce Session 23 na konci souboru.
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 > **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
 
@@ -489,7 +489,7 @@ TODO-301 (otisk Play) · TODO-316 (MD na GitHub) · TODO-317 (report PDF F2) · 
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 ## Co se změnilo v jádře
 - **Synchronizace (v11.52)** je teď vrstva v `app.js` (blok „S25 (v11.52) – AUDIT“, ADR-195 až ADR-198):
@@ -522,3 +522,16 @@ TODO-301 (otisk Play) · TODO-316 (MD na GitHub) · TODO-317 (report PDF F2) · 
 ## Otevřené P1/P2
 TODO-332 (vyzkoušet v11.31–v11.57) · TODO-323 (ikony) · TODO-328 (zkrácení MD) · TODO-330 (`FIREBASE_SERVICE_ACCOUNT`) ·
 TODO-331 (Google Play) · TODO-316 (MD na GitHub).
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+- **Nový modul `js/ikony.js`.** Ikony v UI přes `ffIkona` / `ffIkonaTax`, ne emoji. Vždy se zálohou pro případ, že modul chybí. Novou ikonu přidáš řádkem v `FF_IKONY` (+ `FF_IKONY_PODKAT`).
+- **Karta výrobku má pevný seznam políček** (ADR-204). Nové políčko musí dostat hodnotu, nebo „----“, a možnost doplnění, s kódem i bez. Osobní údaje patří do `S.uiCfg.karty`.
+- **Řádky s čísly** mají vyhrazený sloupec i tam, kde hodnota chybí (SKILL 81).
+- **Neměřená hodnota není 0** (SKILL 82, ADR-205).
+- **Rozhodnuto Milanem:** admin schvaluje jen novou kartu a změnu názvu (ADR-206). Jednotná karta všude = TODO-333.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **Stav v11.61:** obnova karty výrobku z Open Food Facts jen doplňuje (`eanSlouc`, ADR-207). Nikdy nevracet přestavbu záznamu ani `EAN_ZACHOVAT`.
+- Kartu výrobku otevírat odkudkoli přes `mapaKartaEan(ean)`. Indexy karty číst přes `_mapaZ(i)`, ne `_mapaUziv[i]`.

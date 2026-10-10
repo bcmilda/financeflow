@@ -1,6 +1,6 @@
 # FinanceFlow – Technická vysvětlení a omezení
 
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ## 📖 Proč tento dokument existuje
 
@@ -540,7 +540,7 @@ volitelně i s fotkou.
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Vysvětlení ze Session 25. Kontext v `Summary_s25.md`.
 
@@ -599,3 +599,40 @@ Srovnání s ČR a inflace dál počítají ze 4. úrovně, takže se jejich č�
 ## Proč čekací okno při analýze účtenky nejde zavřít tlačítkem Zpět **(Session 25)**
 Analýza už běží a spotřebovává jednu analýzu z limitu. Zavření okna by ji nezastavilo, jen by uživatel nevěděl, že pořád
 běží, a spustil ji znovu. Po 20 s se nabídne Zrušit, které dotaz opravdu ukončí.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+## Proč se „Tvůj podíl“ liší mezi 6 a 12 měsíci, i když skenuju teprve tento měsíc **(Session 25)**
+Období se počítá podle **data nákupu na účtence**, ne podle data skenování. Okno se měří od dnešního měsíce zpět (6 měsíců = od května 2026, 12 měsíců = od listopadu 2025). Když jsou mezi naskenovanými staré účtenky, nebo AI přečetla starší datum, spadnou do 12 měsíců, ale ne do 6.
+
+Při malém vzorku (např. 16 Kč z 1 753 Kč) jeden nákup za 20 Kč posune podíl z 0,9 % na 1,7 %. Váha ČSÚ je roční průměr tisíců domácností. Milan nechtěl upozornění ani výpis měsíců. Stačí vědět, že srovnání zpřesní až víc měsíců účtenek.
+
+## Proč worker hledá výrobek nejdřív v naší databázi, a ne v Open Food Facts **(Session 25)**
+Naše databáze (`community/eanProdukty`) **obsahuje i všechno, co už jednou přišlo z OFF**, a k tomu:
+- český název,
+- zařazení do taxonomie,
+- fotky a ruční živiny od uživatelů,
+- karty, které uživatelé založili pro kódy, které OFF nezná.
+
+Jedno čtení u nás je rychlé. Dotaz do OFF jde do čtyř databází, je pomalý a má limity. OFF se proto ptáme jen tehdy, když výrobek u nás není, nebo je údaj starší než 90 dní (nenalezený 14 dní). Výsledek se uloží k nám a ručně doplněná data zůstanou.
+
+Je to přesně tok, který Milan chce: naše databáze → OFF → nenalezeno → uživatel založí kartu → uloží se k nám → další uživatel ji najde hned v prvním kroku.
+
+## Proč u známého výrobku nejde „Založit kartu“ **(Session 25)**
+Tlačítko „✍️ Zapsat název / založit kartu“ se dnes ukáže jen u kódu, který nezná naše databáze ani OFF. Známý výrobek kartu už má, takže jde jen doplňovat jednotlivé údaje: název, fotky, živiny. Od v11.60 jdou i značka, výrobce a dovozce pro sebe.
+
+Možnost kartu upravit vždy je součástí TODO-333.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### Proč obnova karty slučuje a nestaví znovu **(Session 25, v11.61)**
+Naše databáze (`community/eanProdukty`) má ke každému kódu jeden záznam, v němž jsou data z Open Food Facts i naše doplňky.
+- **Dřív:** obnova po 90 dnech postavila záznam znovu z OFF a ručně zachránila seznam polí. Co na seznamu chybělo, zmizelo.
+- **Teď:** základ je uložená karta a OFF jen doplňuje. Smí obnovit údaje, které sami neověříme (Nutri-Score, alergeny, éčka), a jen pokud je nikdo neopravil.
+- **Proč 90 dní:** OFF data průběžně zlepšuje. Obnova přinese, co tam mezitím někdo doplnil. U nenalezených kódů se zkouší po 14 dnech.
+- **Jak se pozná odkud je údaj:** z polí `rucne`, `zOff` a z toho, kdo kartu založil (`eanPoleZdroj`).
+
+### Proč výrobek bez účtenky dostane „syntetickou“ položku **(Session 25, v11.61)**
+Karta z Mapy položek se kreslí podle indexu do `_mapaUziv` (položky z účtenek). Naskenovaný výrobek bez účtenky v něm není.
+- Kdyby se do `_mapaUziv` přidal, objevil by se v seznamu Mapy a statistikách a při přepočtu by zmizel.
+- Proto má vlastní seznam `_mapaSynt` s indexy od 100000 a všechna místa karty čtou `_mapaZ(i)`.

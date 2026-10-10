@@ -9,7 +9,7 @@
 > Doplnění z Milanova merge jsou označena `**(Merge Session 1-4)**`.
 > Tento dokument popisuje **aktuální stav** funkcí. Plánované úkoly s detaily jsou v `todo.md`.
 > Poslední aktualizace: 2026-05-15 (Session 7.0 + 7.1 patch).
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -1331,7 +1331,7 @@ zdražuje nejvíc" (po podkategoriích podle dopadu). Statistiky → „🧭 Za 
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Nové a změněné funkce ze Session 25. Kontext v `Summary_s25.md`. Na začátku dodatek v11.28–v11.30.
 
@@ -1474,3 +1474,44 @@ Pro uživatele:
 - **Inflace / Detektor / Pravidelně nakupuješ:** bez obecných názvů oddělení (v11.46).
 - **Finanční obraz:** karty bez dat řeknou, co chybí (v11.46).
 - **Tlačítko Zpět na telefonu** (v11.51, ADR-194).
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+## 🎨 Vlastní ikony **(Session 25, v11.58)**
+SVG sada (13 oblastí, 12 podkategorií, ikony karty výrobku a akcí). Ikona se k položce přiřadí sama podle taxonomie.
+- `cesta: Analýza účtenek → 🗺️ Mapa položek`: dlaždice u položek, filtry oblastí, Podkategorie → rozpočet.
+- Karta výrobku: dlaždice, nadpisy bloků, Oblast/Kategorie, tlačítka.
+- 📦 Moje výrobky: výrobek bez fotky má ikonu podle druhu.
+- 💹 Zdražování → Podle výrobků a 🧭 Za co utrácíš.
+
+## 📄 Měsíční report – skóre a zarovnání **(Session 25, v11.59)**
+`cesta: Měsíční report → 9 · Vývoj finančního skóre`
+- Neměřený měsíc: „–“, „zatím nelze určit“, kolik % skóre jde změřit a co chybí.
+- Měřený měsíc: „ve hře X z 310“, když se část nedá změřit.
+- Patička říká, za který měsíc skóre je.
+
+`→ 11 · Z účtenek`: čísla stojí v jednom sloupci.
+
+## 🗂️ Jednotná karta výrobku **(Session 25, v11.60)**
+`cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek`
+- **Stejná políčka s kódem i bez:**
+  - Název z EAN, Obal – přední strana, Obal – CZ popisek, Značka, Výrobce, Dovozce,
+  - Čisté množství, Typ výrobku, Obal, Země původu, Prodává se v, Nutri-Score, Složení, Alergeny, Nutriční hodnoty.
+  - Prázdné = „----“.
+- **✎ Doplnit ručně** a **✍️ Zadat ručně** (živiny se složením) jdou i bez kódu. Uloží se do osobní karty a název opsaný z obalu se ukáže i v seznamu.
+- **Přední strana obalu** jde vyfotit, nebo opsat.
+- **Zařazení → COICOP:** rozbaluje se jen číselník ČSÚ, Srovnání výdajů je vidět vždy. „Váha ČSÚ – průměrná domácnost“ a „Tvůj podíl“ mají žlutý, větší nadpis.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### Karta výrobku: oprava každého políčka a štítek zdroje **(Session 25, v11.61)**
+**Cesta:** Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Výrobek / Balení a složení.
+- **Upravitelná políčka (✎ Opravit / Doplnit ručně):** značka, výrobce, dovozce, čisté množství, typ výrobku, obal, země původu, prodává se v, Nutri-Score, složení, alergeny.
+- **Kam se oprava uloží:** s kódem pro všechny, bez kódu jen tobě. Prázdná hodnota u kódu = „údaj nevíme“ a Open Food Facts ho nevrátí.
+- **Štítek u každého údaje:** 🌍 Open Food Facts, 🇨🇿 komunita, ✍️ tvůj zápis, 🧾 z účtenky. U opraveného údaje z OFF je pod ním „Open Food Facts uvádí: …“.
+
+### Jedna karta všude **(Session 25, v11.61)**
+**Cesta:** Analýza účtenek → 📦 Moje výrobky (i 📷 K vyřízení) → klepnutí na výrobek.
+- Otevře stejnou kartu jako Mapa položek.
+- Výrobek, který ještě není na účtence, má místo nákupů „🔗 Přiřadit k položce z účtenky“.
+- Po samostatném skenu je tlačítko „📇 Otevřít celou kartu výrobku“.

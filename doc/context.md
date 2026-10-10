@@ -2,7 +2,7 @@
 
 > Tento dokument je aktualizací hlavního `context.md` v Projectu. Datum vytvoření: 2026-05-14
 > Merge dokumentů ´context.md session 1+2+3´ a context_combinate z combinated patche 7 + 7.1
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 Dokument je ze zálohy doc_s4, kde Claude konsolidoval všechny sessions, k tomu bylo přidáno Merge z session 1-3 a -> doplněny informace v souboru CONTEXT_CONSOLIDATED_2026-05-14.md (Claude)
 Tento CONTEXT_CONSOLIDATED_2026-05-14.md byl mergeován s PATCH-session7-COMBINED (s7+7.1) (Claude)
 
@@ -518,7 +518,7 @@ Milan má nasazenou v11.14; v11.15–v11.26 čekají na nasazení a vyzkoušení
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 ## Co se v Session 25 změnilo v jádře
 - **Stabilita dat:** Synchronizace slučuje po záznamech a nepřepisuje rozepsanou práci. Offline nic neztratí. Milan to
@@ -537,3 +537,17 @@ Milan má nasazenou v11.14; v11.15–v11.26 čekají na nasazení a vyzkoušení
 ## Neověřeno v provozu
 Na GitHubu `dev` je v11.30. Verze v11.31–v11.57 čekají na nasazení a vyzkoušení (TODO-332). Pořadí nasazení je
 v `Summary_s25.md`.
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+- **v11.58:** vlastní ikony místo emoji, přiřazují se samy.
+- **v11.59:** Měsíční report už netvrdí nulu u měsíce, který nejde změřit.
+- **v11.60:** karta výrobku je jednotná a doplnit jde i položka bez kódu.
+- **Směr (Milan):** interní databáze vlastních výrobků s jednou kartou všude a schvalováním jen nových karet a názvů (TODO-333/334). Milan si ji ještě promyslí.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **v11.61:** Open Food Facts kartu jen doplňuje, lidské úpravy jsou zamčené (ADR-207).
+- Každé políčko karty jde opravit, u výrobku s kódem pro všechny. U údaje je vidět, odkud je.
+- 📦 Moje výrobky otevírají stejnou kartu jako Mapa položek (ADR-208).
+- Směr: interní databáze je hlavní zdroj pro české výrobky, Open Food Facts doplňuje. Schválené karty jednou posílat i do Open Food Facts (TODO-336).

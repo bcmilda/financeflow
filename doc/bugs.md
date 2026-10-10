@@ -10,7 +10,7 @@
 > Každý záznam je označen zdrojovou session: `**(Session N)**`.
 > Doplnění ze `s5` jsou označena `**(Merge S1-5)**`.
 > Poslední aktualizace: 2026-05-28 (Session 9 patch).
-> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
 
 ---
 
@@ -2527,7 +2527,7 @@ Jen kontrola typů (`never`, `string | RegExp`, `diag` na poli). Doplněny JSDoc
 
 ---
 
-# Session 25 (2026-10-05 až 2026-10-09) · v11.30 → v11.57
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
 
 > Opravy ze Session 25. Kontext v `Summary_s25.md`. Cesty v appce uvedeny u každé opravy.
 > FIX-405 až FIX-410 jsou dodatek v11.28–v11.30 (2026-10-04 až 05), který mezi S24 a S25 nebyl zapsán.
@@ -2714,3 +2714,42 @@ Nově „✓ Přiřazeno k položce z účtenky“. Odkaz „přiřadit i k jin�
 - názvy z účtenek sloučené (VELKÁ/malá písmena, diakritika, gramáž)
 - Zařazení: oblast → kategorie → obecný název → COICOP, panel číselníku rozbalitelný přímo z řádku COICOP (v11.57)
 - Nutri-Score jen jednou
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+### FIX-443 · Měsíční report: neměřený měsíc ukazoval „0 z 310“ a „Nejvyšší pásmo 🏆 dosaženo“ (Milan, v11.59) **(Session 25)**
+`cesta: Měsíční report → 9 · Vývoj finančního skóre (1 měsíc)`
+
+V lednu 2026 nebyly příjmy, takže šlo změřit jen 35 % skóre (pod 50 % se známka nedává). Report přesto ukázal velkou nulu, „vs. prosinec +0 bodů“ a „Nejvyšší pásmo dosaženo“. Milan to porovnával s Dashboardem, kde měl 202 bodů z jiného měsíce.
+
+Nově se ukazuje „–“, „zatím nelze určit“, kolik procent skóre jde změřit a co chybí. Patička říká, za který měsíc skóre je.
+
+### FIX-444 · Měsíční report: změna proti minulému měsíci z jiné škály (v11.59) **(Session 25)**
+Odečítal se `rawTotal` (škála 310) od čísla na zúžené škále (např. 202). Nově jde o `scoreZobrazeni` obou měsíců a změna se počítá, jen když jdou změřit oba.
+
+### FIX-445 · Měsíční report: čísla „cik cak“ (Milan, v11.59) **(Session 25)**
+`cesta: Měsíční report → 11 · Z účtenek` a `→ 9 · Vývoj finančního skóre`. Řádek bez doplňkového údaje neměl vyhrazený sloupec, takže číslo uskočilo k pravému okraji (SKILL 81).
+- V sekci 11 má sloupec doplňků pevnou šířku 92 px vždy.
+- V sekci 9 mají řádky „nezměřeno“ stejný sloupec odznaku jako měřené složky.
+
+### FIX-446 · Karta výrobku nejednotná, u položky bez kódu nešlo nic doplnit (Milan, v11.60) **(Session 25)**
+`cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek`
+
+U položky bez čárového kódu (např. Margot 80g Orion) chyběla políčka značka, výrobce, živiny a složení, a nešla doplnit, protože se brala jen z databáze podle kódu.
+- Nově má každá karta stejná políčka a prázdné ukazuje „----“.
+- Bez kódu jde všechno opsat ručně do osobní karty (ADR-204), živiny se stejnými kontrolami.
+- Přední stranu obalu jde i u kódu opsat ručně, nejen vyfotit.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### FIX-447 · Výrobce, země původu a obal z Open Food Facts vždy prázdné **(Session 25, v11.61)**
+`eanNormalizuj` četl `brand_owner`, `manufacturing_places`, `origins` a `packaging_tags`, ale `EAN_POLE` (seznam polí v dotazu na OFF) je nechtěl, takže OFF je nikdy neposlal. Doplněno. Projeví se při další obnově karty.
+
+### FIX-448 · Obnova po 90 dnech mazala ruční značku a gramáž **(Session 25, v11.61)**
+Obnova stavěla záznam znovu z OFF a zachránila jen pole z `EAN_ZACHOVAT`. Značka a gramáž z ruční karty nebo fotky obalu tam nebyly. Řešení ADR-207 (`eanSlouc`).
+
+### FIX-449 · AI při obnově přepisovala zařazení **(Session 25, v11.61)**
+`eanObohat` se volal při každé obnově a bezpodmínečně přepsal `obecnyId`, i když ho dřív opravil admin. Teď nastaví jen prázdné a volá se jen, když něco chybí.
+
+### FIX-450 · Admin „🔄 Načíst znovu“ smazal celou kartu **(Session 25, v11.61)**
+Spolu s kartou zmizely i české názvy, fotky a ruční živiny. Teď jen `kdy: 0`, takže se při dalším skenu sloučí.

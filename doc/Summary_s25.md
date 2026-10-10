@@ -1,7 +1,7 @@
 # Session 25 · FinanceFlow · shrnutí
 
-> 2026-10-05 až 2026-10-09 · appka **v11.30 → v11.57** (27 verzí) · worker **v11.30 → v11.57** · pravidla DB: verze z v11.39
-> Na GitHubu (`dev`) je **v11.30**. Ve výstupech je kompletní stav v11.31–v11.57.
+> 2026-10-05 až 2026-10-10 · appka **v11.30 → v11.61** (31 verzí) · worker **v11.30 → v11.61** · pravidla DB: verze z v11.39
+> Na GitHubu (`dev`) je **v11.30**. Ve výstupech je kompletní stav v11.31–v11.60 (dodatek v11.58–v11.60 na konci).
 > Dodatek: v11.28–v11.30 (2026-10-04 až 05) vznikly mezi S24 a S25 a v MD nebyly. Jsou zapsané v sekcích Session 25 jako „Dodatek v11.28–v11.30“.
 
 ---
@@ -103,3 +103,31 @@ SKILL 71–80 (`CLAUDE_SKILLS.md`):
 - Ověřit `FIREBASE_SERVICE_ACCOUNT` ve workeru.
 - Rozhodnout o `kategorie.md` (TODO-321).
 - Nahrát MD na GitHub (TODO-316).
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+| Verze | Co |
+|---|---|
+| v11.58 | 🎨 vlastní SVG ikony (styl B), přiřazují se samy přes taxonomii (ADR-203) |
+| v11.59 | 📄 Měsíční report: neměřený měsíc „–“ místo „0 z 310“, čísla v jednom sloupci (FIX-443–445) |
+| v11.60 | 🗂️ jednotná karta výrobku, „----“ u prázdných políček, osobní karta pro položky bez kódu (FIX-446, ADR-204) |
+
+**Rozhodnutí Milana:** admin schvaluje jen založení nové karty a změnu názvu, karta je použitelná hned (ADR-206). Upozornění „málo dat“ u Tvého podílu nedělat.
+
+**Na rozmyšlenou (Milan):** jedna karta výrobku všude a interní databáze s jednoduchým schvalováním (TODO-333, TODO-334).
+
+**Stav:** appka v11.60, worker v11.57, pravidla DB v11.39, testy 145/145.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+- **v11.61 (Milan: „nechci, aby se cokoliv přepisovalo kvůli Open Food Facts“):**
+  - Obnova karty už jen doplňuje, lidské úpravy jsou zamčené.
+  - Každé políčko karty jde opravit (s kódem pro všechny).
+  - U údaje je vidět, odkud je.
+  - 📦 Moje výrobky otevírají stejnou kartu jako Mapa položek.
+  - Opraveny 4 chyby: výrobce, původ a obal z OFF se nestahovaly; obnova mazala ruční značku a gramáž; AI přepisovala zařazení; admin „Načíst znovu“ mazal kartu.
+- **Další krok:** TODO-334 (schvalování nové karty), TODO-336 (zápis schválených karet do Open Food Facts).
+- **Na další session:**
+  - Milan vyzkouší v11.58–v11.61 (TODO-338) a doplní TODO-330/331.
+  - Pak schvalování nových karet (TODO-334) → zápis do Open Food Facts (TODO-336) a přehled úprav pro admina (TODO-339).
+  - Celý plán je na konci `todo.md`.
