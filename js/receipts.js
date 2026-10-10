@@ -1,4 +1,4 @@
-// FinanceFlow · v11.60 · receipts.js · 2026-10-09
+// FinanceFlow · v11.61 · receipts.js · 2026-10-10
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2385,6 +2385,37 @@ function switchUctenkyTab(tab, btn) {
 let _mapaUziv = [];                                 // agregované položky
 let _mapaUzivReceipts = [];                         // účtenky bez duplicit (jako ostatní záložky)
 let _mapaUzivFiltr = { stav:'vse', hledat:'', oblast:'' };
+//  S25 (v11.61, TODO-333, Milan: „karta musí vypadat úplně stejně“): JEDNA karta výrobku všude.
+//  Výrobek, který jen naskenuješ a na účtence ho nemáš (📦 Moje výrobky, skener), dostane stejnou
+//  kartu jako položka z Mapy položek – přes „syntetickou“ položku bez nákupů. Indexy od MAPA_SYNT,
+//  aby se nemíchaly s _mapaUziv (ten se přepočítává z účtenek).
+const MAPA_SYNT = 100000;
+let _mapaSynt = [];
+function _mapaZ(i) { return i >= MAPA_SYNT ? _mapaSynt[i - MAPA_SYNT] : _mapaUziv[i]; }
+function mapaSyntPolozka(ean, D) {
+  const p = typeof _eanProdukty !== 'undefined' ? _eanProdukty[ean] : null;
+  const nazev = (p && p.stav === 'nalezeno' && typeof eanNazevVyrobku === 'function' && eanNazevVyrobku(p, ean)) || ('Kód ' + ean);
+  const mapa = typeof rpMapaNavrh === 'function' ? rpMapaNavrh(nazev, D || getData(), ean) : null;
+  return { klic: 'ean_' + ean, nazev, pocet: 0, datum: '', catId: '', subcat: '', nakupy: [], ean, baleni: null,
+    stav: 'nezarazeno', mapa: mapa || {}, lisiSe: false, maOsobni: false, tax: (mapa && mapa.tax) || null, synt: true };
+}
+//  Index karty pro kód: položka z účtenek, jinak syntetická.
+function mapaKartaIndex(ean, D) {
+  ean = String(ean || '').replace(/\D/g, ''); if (!ean) return -1;
+  if (!_mapaUziv.length) { try { _mapaUziv = mapaUzivData(_mapaUzivReceipts.length ? _mapaUzivReceipts : ((D || getData()).receipts || []), D); } catch (e) {} }
+  const i = _mapaUziv.findIndex(z => z.ean === ean);
+  if (i >= 0) return i;
+  let j = _mapaSynt.findIndex(z => z.ean === ean);
+  if (j < 0) { _mapaSynt.push(mapaSyntPolozka(ean, D)); j = _mapaSynt.length - 1; }
+  else _mapaSynt[j] = mapaSyntPolozka(ean, D);   // název / zařazení se mohly mezitím doplnit
+  return MAPA_SYNT + j;
+}
+async function mapaKartaEan(ean) {
+  if (typeof eanNactiProdukt === 'function') { try { await eanNactiProdukt(ean); } catch (e) {} }
+  const i = mapaKartaIndex(ean);
+  if (i >= 0) mapaUzivDetail(i);
+}
+Object.assign(window, { _mapaZ, mapaKartaIndex, mapaKartaEan, mapaSyntPolozka });
 const MAPA_UZIV_LIMIT = 150;
 
 //  Čistý výpočet (bez DOM) – testuje se zvlášť.
@@ -2828,6 +2859,11 @@ function mkStyl() {
     .mk-cislo .p{font-size:.68rem;color:#a8aec8;line-height:1.45}
     .mk-cislo .t{font-size:.8rem;font-weight:700;color:#fbbf24;margin-bottom:2px}
     .mk-nic{color:#8b93ad;letter-spacing:.1em}
+    .mk-zdroj{display:inline-block;font-size:.62rem;line-height:1.5;border-radius:5px;padding:0 5px;border:1px solid;margin-top:2px;white-space:nowrap}
+    .mk-z-off{color:#93c5fd;border-color:#60a5fa55;background:#60a5fa12}
+    .mk-z-komunita{color:#4ade80;border-color:#4ade8055;background:#4ade8012}
+    .mk-z-ty{color:#fbbf24;border-color:#fbbf2455;background:#fbbf2412}
+    .mk-z-uctenka{color:#c3c8dc;border-color:#8b93ad55}
     .mk-dlazdice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .mk-dlazdice>div{border:1px solid var(--border);border-radius:12px;padding:9px 12px;background:var(--surface2)}
     .mk-dlazdice .p{font-size:.68rem;color:#a8aec8}
@@ -2853,7 +2889,24 @@ const MK_POLE = {
   znacka: ['Značka', 60, 'např. Orion'],
   vyrobce: ['Výrobce', 100, 'kdo výrobek vyrobil'],
   dovozce: ['Dovozce', 120, 'u zahraničního zboží z české nálepky'],
+  //  v11.61 (TODO-333, Milan: „vždy musíme mít možnost přepsat a doplnit“): i balení a složení
+  mnozstvi: ['Čisté množství', 20, 'např. 150 g nebo 0,5 l'],
+  konkretni: ['Typ výrobku', 80, 'např. bílý jogurt'],
+  obal: ['Obal', 120, 'např. plast, sklo (odděl čárkou)'],
+  puvod: ['Země původu', 80, 'např. Česko'],
+  zeme: ['Prodává se v', 160, 'např. Česko, Slovensko (odděl čárkou)'],
+  nutriscore: ['Nutri-Score', 1, 'A až E'],
+  slozeni: ['Složení', 1500, 'opiš složení z obalu'],
+  alergeny: ['Alergeny', 200, 'např. mléko, lepek (odděl čárkou)'],
 };
+//  v11.61 (ADR-206/207): s čárovým kódem se tahle políčka ukládají ke kódu PRO VŠECHNY (worker,
+//  akce 'pole') a zamknou se proti obnově z Open Food Facts. Názvy (přední strana, CZ popisek)
+//  zůstávají osobní / přes návrh adminovi; bez kódu je všechno osobní (S.uiCfg.karty).
+const MK_POLE_KOMUNITA = ['znacka', 'vyrobce', 'dovozce', 'mnozstvi', 'konkretni', 'obal', 'puvod', 'zeme', 'nutriscore', 'slozeni', 'alergeny'];
+function mapaKartaKomunitni(z, pole) {
+  const p = z && z.ean && typeof _eanProdukty !== 'undefined' ? _eanProdukty[z.ean] : null;
+  return !!(p && p.stav === 'nalezeno' && MK_POLE_KOMUNITA.includes(pole));
+}
 function mapaKartaKlic(z) {
   if (!z) return '';
   if (z.ean) return 'e' + String(z.ean).replace(/\D/g, '');
@@ -2875,26 +2928,46 @@ function mapaKartaLokUloz(z, patch) {
   if (typeof save === 'function') save();
   return o;
 }
-//  Ruční úprava jednoho políčka karty (přední strana obalu, CZ popisek bez kódu, značka, výrobce, dovozce).
+//  Ruční úprava jednoho políčka karty. Výchozí text = co karta právě ukazuje (data-hodnota).
 function mapaKartaUprav(i, pole) {
-  const z = _mapaUziv[i]; const el = document.getElementById('mkp_' + pole);
+  const z = _mapaZ(i); const el = document.getElementById('mkp_' + pole);
   if (!z || !el || !MK_POLE[pole]) return;
   const [, max, ph] = MK_POLE[pole];
   const v = mapaKartaLok(z)[pole] || el.getAttribute('data-hodnota') || '';
-  el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap"><input class="fi" id="mkp_${pole}_in" maxlength="${max}" value="${escHtml(v)}" placeholder="${escHtml(ph)}" style="flex:1;min-width:140px;font-size:.8rem" onkeydown="if(event.key==='Enter')mapaKartaUlozPole(${i},'${pole}')">
-    <button class="btn btn-sm btn-primary" onclick="mapaKartaUlozPole(${i},'${pole}')">Uložit</button></div>
-    <span class="mk-sub">Opiš z obalu. Prázdné = smazat tvůj zápis. Uloží se jen tobě.</span>`;
+  const kom = mapaKartaKomunitni(z, pole);
+  const ulozit = `mapaKartaUlozPole(${i},'${pole}')`;
+  const vstup = pole === 'slozeni'
+    ? `<textarea class="fi" id="mkp_${pole}_in" maxlength="${max}" rows="4" placeholder="${escHtml(ph)}" style="flex:1 1 100%;font-size:.8rem">${escHtml(v)}</textarea>`
+    : `<input class="fi" id="mkp_${pole}_in" maxlength="${max}" value="${escHtml(v)}" placeholder="${escHtml(ph)}" style="flex:1;min-width:140px;font-size:.8rem" onkeydown="if(event.key==='Enter')${ulozit}">`;
+  el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap">${vstup}
+    <button class="btn btn-sm btn-primary" id="mkp_${pole}_bt" onclick="${ulozit}">Uložit</button></div>
+    <span class="mk-sub">${kom ? 'Opiš z obalu. Uloží se ke kódu pro všechny a Open Food Facts to už nepřepíše. Prázdné = údaj nevíme.'
+      : 'Opiš z obalu. Prázdné = smazat tvůj zápis. Uloží se jen tobě.'}</span>`;
   const inp = document.getElementById('mkp_' + pole + '_in'); if (inp && inp.focus) inp.focus();
 }
-function mapaKartaUlozPole(i, pole) {
-  const z = _mapaUziv[i]; if (!z || !MK_POLE[pole]) return;
+async function mapaKartaUlozPole(i, pole) {
+  const z = _mapaZ(i); if (!z || !MK_POLE[pole]) return;
   const v = ((document.getElementById('mkp_' + pole + '_in') || {}).value || '').trim().slice(0, MK_POLE[pole][1]);
-  mapaKartaLokUloz(z, { [pole]: v });
-  if (typeof showToast === 'function') showToast(v ? '✅ Uloženo do karty' : 'Tvůj zápis smazán');
+  if (mapaKartaKomunitni(z, pole) && typeof eanDotaz === 'function') {
+    const bt = document.getElementById('mkp_' + pole + '_bt'); if (bt) { bt.disabled = true; bt.textContent = '⏳'; }
+    try {
+      const d = await eanDotaz({ ean: z.ean, akce: 'pole', pole, hodnota: v });
+      if (d && d.produkt) _eanProdukty[z.ean] = d.produkt;
+      if (mapaKartaLok(z)[pole]) mapaKartaLokUloz(z, { [pole]: '' });   // starý osobní zápis už neplatí
+      if (typeof showToast === 'function') showToast(v ? '✅ Uloženo do karty pro všechny' : 'Údaj smazán');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('⚠️ ' + (e.message || 'Uložení selhalo'));
+      if (bt) { bt.disabled = false; bt.textContent = 'Uložit'; }
+      return;
+    }
+  } else {
+    mapaKartaLokUloz(z, { [pole]: v });
+    if (typeof showToast === 'function') showToast(v ? '✅ Uloženo do karty' : 'Tvůj zápis smazán');
+  }
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
   if (typeof mapaUzivDetail === 'function') mapaUzivDetail(i);
 }
-Object.assign(window, { mapaKartaKlic, mapaKartaLok, mapaKartaLokUloz, mapaKartaUprav, mapaKartaUlozPole });
+Object.assign(window, { mapaKartaKlic, mapaKartaLok, mapaKartaLokUloz, mapaKartaUprav, mapaKartaUlozPole, mapaKartaKomunitni });
 
 //  Názvy z účtenek bez opakování: „NEW REMYS ZÁZVOR KOSTKY 100G“ = „New Remys Zázvor kostky 100g“.
 //  Skupina podle normName (bez velikosti písmen, diakritiky a gramáže); ukáže se nejčitelnější
@@ -3008,7 +3081,7 @@ function mapaKoicopRadekHTML(kodC, posl, D) {
 window.mapaKoicopRadekHTML = mapaKoicopRadekHTML;
 
 function mapaUzivKartaHTML(i, produkt) {
-  const z = _mapaUziv[i]; if(!z) return '';
+  const z = _mapaZ(i); if(!z) return '';
   mkStyl();
   const p = produkt && produkt.stav === 'nalezeno' ? produkt : null;
   const D = getData();
@@ -3035,7 +3108,7 @@ function mapaUzivKartaHTML(i, produkt) {
   let vyr = '';
   vyr += z.ean
     ? `<div class="mk-r" style="align-items:center"><span class="l">EAN / GTIN</span><span class="v" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-         <span style="font-family:monospace">${e(z.ean)}</span><button class="btn btn-sm" style="font-size:.7rem" onclick="mapaUzivKartaSken(${i})">${rpIk('skenovat', 15) || '▮▮'} Změnit</button></span></div>`
+         <span style="font-family:monospace">${e(z.ean)}</span>${z.synt ? '' : `<button class="btn btn-sm" style="font-size:.7rem" onclick="mapaUzivKartaSken(${i})">${rpIk('skenovat', 15) || '▮▮'} Změnit</button>`}</span></div>`
     : `<div class="mk-r" style="align-items:center"><span class="l">EAN / GTIN</span><span class="v" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
          <span style="color:#8b93ad;font-size:.74rem;letter-spacing:.04em">— ZATÍM NEPŘIŘAZEN</span><button class="btn btn-sm btn-primary" style="font-size:.72rem" onclick="mapaUzivKartaSken(${i})">${rpIk('skenovat', 16) || '▮▮'} Naskenovat kód</button></span></div>`;
   //  S25 (v11.57, Milan): TŘI NÁZVY – u zahraničních výrobků se liší. Z EAN (databáze),
@@ -3046,11 +3119,34 @@ function mapaUzivKartaHTML(i, produkt) {
   const akce = (...b) => `<span style="display:flex;gap:12px;flex-wrap:wrap;margin-top:3px">${b.filter(Boolean).join('')}</span>`;
   const upr = (pole, ma) => `<button class="mk-btn-link" style="margin:0" onclick="mapaKartaUprav(${i},'${pole}')">${ikTxt(ma ? '✎ Opravit' : '✎ Doplnit ručně', 'upravit')}</button>`;
   //  Políčko s osobní úpravou: hodnota (nebo ----), odkud je, tlačítka
-  const pRadek = (pole, hodnota, sub, ...tl) => `<div class="mk-r"><span class="l">${MK_POLE[pole][0]}</span><span class="v" id="mkp_${pole}" data-hodnota="${e(hodnota || '')}">${hodnota ? e(hodnota) : MK_PRAZDNE}${sub ? `<span class="mk-sub">${sub}</span>` : ''}${akce(...tl, upr(pole, !!hodnota))}</span></div>`;
+  //  v11.61 (TODO-333/ADR-207): u každého políčka je vidět, ODKUD hodnota je – 🌍 Open Food Facts,
+  //  🇨🇿 komunita (zapsali lidé, Open Food Facts ji už nepřepíše), ✍️ tvůj zápis, 🧾 z účtenky.
+  //  Každé jde opravit; s kódem se oprava uloží pro všechny (mapaKartaUlozPole → akce 'pole').
+  const zdrojP = kl => !p ? '' : (typeof eanPoleZdroj === 'function' ? eanPoleZdroj(p, kl) : 'off');
+  const CIP = { off: () => '🌍 ' + (typeof eanZdrojOff === 'function' ? eanZdrojOff(p) : 'Open Food Facts'), komunita: () => '🇨🇿 komunita', ty: () => '✍️ tvůj zápis', uctenka: () => '🧾 z účtenky' };
+  const cip = zd => zd && CIP[zd] ? `<span class="mk-zdroj mk-z-${zd}">${e(CIP[zd]())}</span>` : '';
+  const mnTxt = m => typeof eanMnTxt === 'function' ? eanMnTxt(m) : (m ? m.hodnota + ' ' + m.jednotka : '');
+  const txt = v => v == null ? '' : Array.isArray(v) ? v.join(', ') : (typeof v === 'object' ? mnTxt(v) : String(v));
+  //  Hodnota políčka: tvůj osobní zápis → karta (komunita / Open Food Facts) → účtenka.
+  const hodnotaPole = pole => {
+    const kl = pole === 'slozeni' ? (p && p.slozeniObal ? 'slozeniObal' : 'slozeni') : pole === 'konkretni' && p && !p.konkretni && p.obecny ? 'obecny' : pole;
+    if (lok[pole]) return { t: String(lok[pole]), zd: 'ty', kl };
+    const v = p ? p[kl] : null;
+    if (pole === 'mnozstvi' && !(v && v.hodnota)) return gram ? { t: gram, zd: 'uctenka', kl } : { t: '', kl };
+    return { t: txt(v), zd: txt(v) ? zdrojP(kl) : '', kl };
+  };
+  //  Co Open Food Facts uvádí jinak (políčko opravil člověk) – neztratí se, jen se ukáže.
+  const offJinak = h => { const o = p && p.offPuvodni && p.offPuvodni[h.kl]; const t = txt(o); return t && t !== h.t && h.zd !== 'off' ? `<span class="mk-sub">Open Food Facts uvádí: ${e(t.length > 80 ? t.slice(0, 80) + '…' : t)}</span>` : ''; };
+  const lzeUpravit = !z.ean || !!produkt;   // s kódem až po načtení karty
+  const pRadek = (pole, h, sub, ...tl) => {
+    if (typeof h !== 'object' || h === null) h = { t: h || '' };
+    const telo = h.html || (h.t ? e(h.t) : MK_PRAZDNE);
+    return `<div class="mk-r"><span class="l">${MK_POLE[pole][0]}</span><span class="v" id="mkp_${pole}" data-hodnota="${e(h.t || '')}">${telo}${h.zd ? `<span class="mk-sub">${cip(h.zd)}</span>` : ''}${sub ? `<span class="mk-sub">${sub}</span>` : ''}${offJinak(h)}${lzeUpravit ? akce(...tl, upr(pole, !!h.t)) : ''}</span></div>`;
+  };
   if (z.ean && !produkt) vyr += mkR('Název z EAN', MK_PRAZDNE, '⏳ načítám z databáze…');
   else if (z.ean) {
     const zDb = p && p.nazev && p.zdroj !== 'fotka obalu' ? p.nazev : '';
-    vyr += zDb ? mkR('Název z EAN', e(zDb), (p.jazyk && JAZ[p.jazyk] ? JAZ[p.jazyk] + ' · ' : '') + e(p.zdroj || 'databáze'))
+    vyr += zDb ? mkR('Název z EAN', e(zDb), cip(zdrojP('nazev')) + (p.jazyk && JAZ[p.jazyk] ? ' ' + JAZ[p.jazyk] : ''))
                : mkR('Název z EAN', MK_PRAZDNE, 'databáze kód nezná');
   } else vyr += mkR('Název z EAN', MK_PRAZDNE, 'až po naskenování čárového kódu');
   //  Obal – přední strana: tvůj opis → fotka obalu. U kódu i fotka, vždy i ruční opis (Milan).
@@ -3070,10 +3166,9 @@ function mapaUzivKartaHTML(i, produkt) {
   } else if (z.ean) vyr += mkR('Obal – CZ popisek', MK_PRAZDNE, '⏳ načítám…');
   else vyr += pRadek('nazevPopisek', lok.nazevPopisek || '', lok.nazevPopisek ? '✍️ opsáno ručně' : '');
   if (p && (p.nazvyJine || []).length) vyr += mkR('Jiné názvy', e(p.nazvyJine.join(' · ')));
-  const zdrojDb = (pole, dbV) => lok[pole] ? '✍️ tvůj zápis' : dbV ? (pole === 'dovozce' ? '📸 z českého popisku' : 'databáze') : '';
-  vyr += pRadek('znacka', lok.znacka || (p && p.znacka) || '', zdrojDb('znacka', p && p.znacka));
-  vyr += pRadek('vyrobce', lok.vyrobce || (p && p.vyrobce) || '', zdrojDb('vyrobce', p && p.vyrobce));
-  vyr += pRadek('dovozce', lok.dovozce || (p && p.dovozce) || '', zdrojDb('dovozce', p && p.dovozce));
+  vyr += pRadek('znacka', hodnotaPole('znacka'));
+  vyr += pRadek('vyrobce', hodnotaPole('vyrobce'));
+  vyr += pRadek('dovozce', hodnotaPole('dovozce'));
   if (z.ean && produkt && produkt.stav === 'nenalezeno') vyr += mkR('Databáze', '<span style="color:#fbbf24">výrobek zatím nezná</span>');
   //  CZ název chybí úplně → rovnou pole k opsání (stejné jako ve skeneru)
   const czChybi = z.ean && produkt && !(p && (p.nazevPopisek || p.nazevCs || p.nazevCesky)) && !moje;
@@ -3111,18 +3206,21 @@ function mapaUzivKartaHTML(i, produkt) {
   // ── BALENÍ A SLOŽENÍ ──
   //  v11.60: stejná políčka u každé karty, prázdné „----“. Živiny a složení jdou zadat ručně
   //  i bez čárového kódu (osobní karta); s kódem se ukládají ke kódu pro všechny.
-  const dbJen = z.ean ? 'z databáze podle kódu' : 'jen s čárovým kódem';
   let bal = '';
-  bal += mkR('Čisté množství', gram ? e(gram) : MK_PRAZDNE, gram ? (p && p.mnozstvi ? 'databáze' : 'z účtenky') : '');
-  bal += mkR('Typ výrobku', p && (p.konkretni || p.obecny) ? e(p.konkretni || p.obecny) : MK_PRAZDNE, p && (p.konkretni || p.obecny) ? '' : dbJen);
-  bal += mkR('Obal', p && (p.obal || []).length ? e(p.obal.join(', ')) : MK_PRAZDNE);
-  bal += mkR('Země původu', p && p.puvod ? e(p.puvod) : MK_PRAZDNE);
-  bal += mkR('Prodává se v', p && (p.zeme || []).length ? e(p.zeme.join(', ')) : MK_PRAZDNE);
-  bal += mkR('Nutri-Score', p && p.nutriscore ? `<span style="background:${NB[p.nutriscore]};color:#fff;font-weight:800;border-radius:5px;padding:1px 7px">${p.nutriscore.toUpperCase()}</span>` : MK_PRAZDNE, p && p.nutriscore ? '' : dbJen);
-  const slozT = String((p && (p.slozeniObal || p.slozeni)) || lok.slozeni || '');
-  bal += mkR('Složení', slozT ? `<details class="mk-roz"><summary style="color:#c3c8dc">${e(slozT.slice(0, 70))}${slozT.length > 70 ? '… <span style="color:#60a5fa">celé</span>' : ''}</summary>${slozT.length > 70 ? `<div style="margin-top:4px;color:#c3c8dc">${e(slozT)}</div>` : ''}</details>` : MK_PRAZDNE,
-    slozT ? (!(p && (p.slozeniObal || p.slozeni)) ? '✍️ opsáno ručně' : '') : 'doplníš spolu s živinami');
-  bal += mkR('Alergeny', p && (p.alergeny || []).length ? `<span style="color:#fbbf24">${e(p.alergeny.join(', '))}</span>` : MK_PRAZDNE);
+  bal += pRadek('mnozstvi', hodnotaPole('mnozstvi'));
+  bal += pRadek('konkretni', hodnotaPole('konkretni'));
+  bal += pRadek('obal', hodnotaPole('obal'));
+  bal += pRadek('puvod', hodnotaPole('puvod'));
+  bal += pRadek('zeme', hodnotaPole('zeme'));
+  { const h = hodnotaPole('nutriscore'), ns = String(h.t || '').toLowerCase();
+    if (NB[ns]) h.html = `<span style="background:${NB[ns]};color:#fff;font-weight:800;border-radius:5px;padding:1px 7px">${ns.toUpperCase()}</span>`;
+    bal += pRadek('nutriscore', h); }
+  { const h = hodnotaPole('slozeni'), t = h.t;
+    if (t) h.html = `<details class="mk-roz"><summary style="color:#c3c8dc">${e(t.slice(0, 70))}${t.length > 70 ? '… <span style="color:#60a5fa">celé</span>' : ''}</summary>${t.length > 70 ? `<div style="margin-top:4px;color:#c3c8dc">${e(t)}</div>` : ''}</details>`;
+    bal += pRadek('slozeni', h); }
+  { const h = hodnotaPole('alergeny');
+    if (h.t) h.html = `<span style="color:#fbbf24">${e(h.t)}</span>`;
+    bal += pRadek('alergeny', h); }
   const zivN = (p && (p.nutriceObal || p.nutrice)) || lok.nutrice || null;
   const zivKlic = z.ean || mapaKartaKlic(z);   // bez kódu = osobní karta (eanZivinyForm to pozná podle „n…“)
   const zivZdroj = p && p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + (p.nutriceObal.kdy ? ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : '')
@@ -3143,7 +3241,10 @@ function mapaUzivKartaHTML(i, produkt) {
   const posl = z.nakupy[0]; const jed = mapaUzivCenaZaJednotku(posl);
   const nejl = ob.length > 1 && ob[0].cena && ob[ob.length-1].cena > ob[0].cena
     ? mkR('Nejlevněji', `<span style="color:var(--income)">${e(ob[0].obchodNazev)}, −${Math.round((1 - ob[0].cena / ob[ob.length-1].cena) * 100)} %</span>`) : '';
-  const nak = `<div class="mk-dlazdice">
+  //  v11.61: výrobek jen naskenovaný (bez účtenky) – přiřazení k položce přes okno skeneru
+  const nakSynt = z.synt && typeof eanOtevriNaskenovany === 'function' ? `<div class="mk-box mk-pozn" style="margin-top:8px;font-size:.74rem;color:#a8aec8;line-height:1.5">Výrobek zatím nemáš na žádné účtence.
+      <button class="btn btn-sm btn-primary" style="display:block;margin-top:6px;font-size:.74rem" onclick="mapaUzivKartaZavri();eanOtevriNaskenovany('${e(z.ean)}')">🔗 Přiřadit k položce z účtenky</button></div>` : '';
+  const nak = nakSynt || `<div class="mk-dlazdice">
       <div><div class="p">Poslední cena</div><div class="h">${posl && posl.cena ? _mapaKc(posl.cena) : '—'}</div></div>
       <div><div class="p">Cena za ${jed ? jed.j : 'kg / l'}</div><div class="h">${jed ? _mapaKc(jed.cena) : '—'}</div></div></div>
     ${ob.length ? `<div class="mk-box" style="margin-top:8px">${ob.map(n => `<div class="mk-r"><span class="l" style="color:var(--text)">${e(n.obchodNazev)}${n.mesto ? `<span class="mk-sub">📍 ${e(n.mesto)}${n.kraj ? ', ' + e(n.kraj) : ''}</span>` : ''}</span>
@@ -3175,7 +3276,7 @@ function mapaUzivKartaHTML(i, produkt) {
         : rpIkDlazdice(z.tax, 76, 40, 'width:76px;height:76px;border-radius:14px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2.1rem;flex-shrink:0')}
       <div style="min-width:0;flex:1">
         <div style="font-size:1.15rem;font-weight:800;color:var(--text);overflow-wrap:anywhere;line-height:1.25">${e(titul)}</div>
-        <div style="font-size:.78rem;color:#a8aec8;margin-top:3px">${[p && p.znacka, gram, 'koupeno ' + z.pocet + '×'].filter(Boolean).map(e).join(' · ')}</div>
+        <div style="font-size:.78rem;color:#a8aec8;margin-top:3px">${[hodnotaPole('znacka').t, hodnotaPole('mnozstvi').t, z.synt ? 'zatím není na účtence' : 'koupeno ' + z.pocet + '×'].filter(Boolean).map(e).join(' · ')}</div>
       </div>
     </div>
     ${znacky ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${znacky}</div>` : ''}
@@ -3186,14 +3287,14 @@ function mapaUzivKartaHTML(i, produkt) {
     ${tit('Moje nákupy')}${nak}
     ${typeof cenyDoKarty === 'function' ? tit('Ceny v kraji') + '<div class="mk-box mk-pozn"><div id="mkCeny" style="font-size:.76rem;color:#a8aec8">⏳ Načítám…</div></div>' : ''}
     ${katalog.zdroje ? `<details class="mk-roz" style="margin-top:16px"><summary class="mk-tit" style="margin:0 0 6px;display:flex;justify-content:space-between"><span style="display:inline-flex;align-items:center;gap:7px">${rpIk('ean', 17)}Identifikace a zdroje dat</span> <span class="sip">⌄</span></summary><div class="mk-box">${katalog.zdroje}</div></details>` : ''}
-    <div style="margin-top:14px">${rozp}</div>
-    ${p ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:12px;line-height:1.5">Data o výrobku: Open Food Facts a sesterské databáze (licence ODbL) – zapisují je dobrovolníci, mohou být neúplná. Nesedí složení nebo živiny? <a href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Oprav je na Open Food Facts ↗</a>${p.nazevCs && !p.nazevCesky && !p.nazevPopisek && p.nazevCsZdroj !== 'foto' ? ' · český název doplnila AI' : ''}</div>` : ''}`;
+    ${z.synt ? '' : `<div style="margin-top:14px">${rozp}</div>`}
+    ${p ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:12px;line-height:1.5">Údaje 🌍 jsou z Open Food Facts a sesterských databází (licence ODbL) – zapisují je dobrovolníci, mohou být neúplná. Nesedí? Oprav je přímo tady (✎) – oprava platí pro všechny a je 🇨🇿 komunitní: Open Food Facts ji při obnově už nepřepíše. <a href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Výrobek na Open Food Facts ↗</a>${p.nazevCs && !p.nazevCesky && !p.nazevPopisek && p.nazevCsZdroj !== 'foto' ? ' · český název doplnila AI' : ''}</div>` : ''}`;
 }
 window.mapaUzivKartaHTML = mapaUzivKartaHTML;
 
 let _mapaKartaI = -1;
 async function mapaUzivDetail(i) {
-  const z = _mapaUziv[i]; if(!z) return;
+  const z = _mapaZ(i); if(!z) return;
   _mapaKartaI = i;
   let o = document.getElementById('mapaKarta');
   if(!o) {
@@ -3216,7 +3317,7 @@ function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivD
 window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
 function mapaUzivKartaZavri() { _mapaKartaI = -1; const o = document.getElementById('mapaKarta'); if(o) o.remove(); }
 function mapaUzivKartaSken(i) {
-  const z = _mapaUziv[i]; if(!z || typeof eanSkenujPolozku !== 'function') return;
+  const z = _mapaZ(i); if(!z || typeof eanSkenujPolozku !== 'function') return;
   const n = z.nakupy[0] || { raw: z.nazev, obchod: '' };
   mapaUzivKartaZavri();
   eanSkenujPolozku({ raw: n.raw, obchod: n.obchod, ean: z.ean, hotovo: () => { mapaUzivKresli(); mapaUzivDetail(i); } });

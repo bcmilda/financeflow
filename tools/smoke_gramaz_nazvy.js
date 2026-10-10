@@ -24,6 +24,6 @@ const c3={escHtml:s=>String(s),Set,Math,Date,String,_eanMojeNazvy:{'1':{nazev:'M
 const k=c3.mapaKartaKatalog({ean:'1',nakupy:[],baleni:{m:200,j:'g'}},{nazev:'Lindor Assorted',nazevCesky:false,jazyk:'en',nazevObal:'LINDOR Mléčná čokoláda',nazevCs:'Pralinky mix',nazevCsZdroj:'foto'},{stav:'nalezeno'},(l,v)=>`[${l}:${v}]`,'200 g');
 t('karta: používá se / originál / na obalu / AI překlad / tvůj – každý zvlášť',['Používá se','Originální název','Název na obalu','Překlad AI','Tvůj název'].every(x=>k.nazvy.includes('['+x+':')),k.nazvy);
 t('karta: množství i se zdrojem',k.vyrobek.includes('[Množství:200 g')&&k.vyrobek.includes('z účtenky'));
-t('worker: název na obalu se ukládá a obnova ho nesmaže',wk.includes("p.nazevObal = eanStr(j.nazev_obal, 100)")&&/EAN_ZACHOVAT = \[[^\]]*'nazevObal'/.test(wk));
+t('worker: název na obalu se ukládá a obnova ho nesmaže',wk.includes("p.nazevObal = eanStr(j.nazev_obal, 100)")&&(o=>o!==null&&!o.includes("'nazevObal'"))((()=>{const m=wk.match(/const EAN_OFF_AKTUALIZOVAT = \[([^\]]*)\];\s*const EAN_OFF_DOPLNIT = \[([^\]]*)\]/);return m?m[1]+m[2]:null;})())&&wk.includes('produkt = eanSlouc(_eanStary, produkt)'));   // v11.61 (ADR-207): Open Food Facts mění jen svá políčka
 t('statistika: Ø cena za kg/l z gramáže',sp.includes('zaJed = castka / (q * bal.m / 1000)')&&sp.includes('Ø za kg/l'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

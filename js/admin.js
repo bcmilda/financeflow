@@ -1,4 +1,4 @@
-// FinanceFlow · v11.60 · admin.js · 2026-10-09
+// FinanceFlow · v11.61 · admin.js · 2026-10-10
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.61',
+    datum: '2026-10-10',
+    zmeny: [
+      "🔒 OPEN FOOD FACTS JEN DOPLŇUJE (ADR-207, Milan: „nechci, aby se cokoliv přepisovalo kvůli stažení dat z Open Food Facts“) · worker: obnova po 90 dnech už kartu nestaví znovu – základ je uložená karta. Nutri-Score, alergeny, éčka a jejich vlastní název smí obnovit (pokud je nikdo neopravil), značku, gramáž, výrobce, živiny a složení jen doplnit do prázdného, české názvy, zařazení, ruční živiny a dovozce nikdy. Co zapsal člověk, je zamčené; hodnota z Open Food Facts se pamatuje vedle.",
+      "✎ KAŽDÉ POLÍČKO KARTY JDE OPRAVIT (TODO-333) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Výrobek / Balení a složení: značka, výrobce, dovozce, čisté množství, typ výrobku, obal, země původu, prodává se v, Nutri-Score, složení, alergeny. S čárovým kódem se oprava uloží pro všechny (bez schválení, ADR-206), bez kódu jen tobě.",
+      "🌍/🇨🇿 ODKUD JE ÚDAJ · stejná cesta: u každého políčka štítek 🌍 Open Food Facts, 🇨🇿 komunita (zapsali lidé – Open Food Facts to nepřepíše), ✍️ tvůj zápis nebo 🧾 z účtenky. Když člověk opravil údaj z Open Food Facts, pod ním je „Open Food Facts uvádí: …“.",
+      "📇 JEDNA KARTA VŠUDE · cesta: Analýza účtenek → 📦 Moje výrobky (a K vyřízení) → klepnutí na výrobek otevře stejnou kartu jako Mapa položek, i když výrobek ještě nemáš na účtence (pak s tlačítkem „🔗 Přiřadit k položce z účtenky“). Po skenu: „📇 Otevřít celou kartu výrobku“.",
+      "🔄 Admin → Mapa položek → Čárové kódy → „Načíst znovu“ už kartu nemaže – označí ji k obnově (doplní se, co Open Food Facts mezitím přidal).",
+      "🐛 Výrobce, země původu a obal z Open Food Facts byly na kartě vždy prázdné – worker si o ně neříkal. Doplní se při další obnově karty.",
+      "Nasazení: worker (nová akce „pole“, sloučení karet) → GitHub. Pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.60',
     datum: '2026-10-09',
@@ -8198,7 +8211,7 @@ function mapaAdminEanRadek(ean) {
     </div>
     <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="mapaAdminEanUloz('${e}')">💾 Uložit a zařadit zkratky</button>
-      <button class="btn btn-ghost btn-sm" onclick="mapaAdminEanZnovu('${e}')" title="Smaže uložená data výrobku – při dalším skenu se načtou znovu z databáze (např. po opravě na Open Food Facts)">🔄 Načíst znovu</button>
+      <button class="btn btn-ghost btn-sm" onclick="mapaAdminEanZnovu('${e}')" title="Při dalším skenu doplní, co Open Food Facts mezitím přidal – nic nepřepíše (ADR-207)">🔄 Načíst znovu</button>
       <a class="btn btn-ghost btn-sm" href="https://world.openfoodfacts.org/product/${encodeURIComponent(ean)}" target="_blank" rel="noopener">Open Food Facts ↗</a>
     </div></div>`;
 }
@@ -8233,9 +8246,12 @@ async function mapaAdminEanUloz(ean) {
   mapaAdminEanNacti(); mapaAdminKresli();
 }
 async function mapaAdminEanZnovu(ean) {
-  if (!confirm('Smazat uložená data výrobku ' + ean + '? Při dalším skenu se načtou znovu z databáze (a AI je znovu zařadí).')) return;
+  //  v11.61 (ADR-207): kartu už NEMAŽE – jen ji označí k obnově. Při dalším skenu worker doplní,
+  //  co Open Food Facts mezitím přidal; české názvy, zařazení a ruční úpravy zůstanou.
+  if (!confirm('Načíst výrobek ' + ean + ' znovu z Open Food Facts? Doplní se jen chybějící údaje (a Nutri-Score, alergeny…), české názvy a ruční úpravy zůstanou.')) return;
   const t = await window._currentUser?.getIdToken?.();
-  await fetch(`${MAPA_URL}/community/eanProdukty/${ean}.json?auth=${t}`, { method: 'DELETE' });
+  await fetch(`${MAPA_URL}/community/eanProdukty/${ean}.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kdy: 0 }) });
+  if (typeof showToast === 'function') showToast('🔄 Obnoví se při dalším skenu');
   mapaAdminEanNacti();
 }
 async function mapaSmazTagy() {

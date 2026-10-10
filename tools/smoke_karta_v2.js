@@ -33,7 +33,7 @@ ok('panel: přepínač období 3/6/12 měsíců, rok, vše', /\['3', '3 měs\.'\
 ok('panel: přepínač základu – výdaje za potraviny / všechny výdaje', /mapaVahaZaklad\('potraviny'\)/.test(panel) && /mapaVahaZaklad\('vse'\)/.test(panel));
 ok('panel: ČSÚ i tvůj podíl VŽDY se stejným základem (žádné míchání ‰ a %)', /const csu = _mapaVahaZaklad === 'vse' \? w \/ 10 : \(wOdd \? w \/ wOdd \* 100 : null\);/.test(panel) && /const jm = _mapaVahaZaklad === 'vse' \? vse : potr;/.test(panel));
 ok('všechny výdaje = transakce bez převodů a vyrovnání (expSum)', /expSum\(vyb, D \|\| getData\(\)\)/.test(vyrez(rc, 'mapaVsechnyVydaje')));
-ok('Nutri-Score jen jednou (v Balení a složení)', !/Nutri-Score \$\{p\.nutriscore\.toUpperCase\(\)\}/.test(karta) && /mkR\('Nutri-Score'/.test(karta));
+ok('Nutri-Score jen jednou (v Balení a složení)', !/Nutri-Score \$\{p\.nutriscore\.toUpperCase\(\)\}/.test(karta) && /pRadek\('nutriscore'/.test(karta));   // v11.61: upravitelné políčko
 ok('identifikace a zdroje dat sbalené', /<details class="mk-roz" style="margin-top:16px"><summary class="mk-tit"/.test(karta));
 //  v11.57: tři názvy, COICOP rozbalovaný z řádku, fotka českého popisku
 const w = R('worker.js'), es = R('ean-sken.js');
@@ -41,7 +41,7 @@ ok('tři názvy: Název z EAN / Obal – přední strana / Obal – CZ popisek',
 ok('CZ popisek: fotka popisku → opsaný → česky z přední strany → databáze → návrh AI', /p && p\.nazevPopisek \? \[p\.nazevPopisek, '📸 z českého popisku'\]/.test(karta) && /návrh AI – ověř podle popisku/.test(karta));
 ok('u řádků tlačítka 📸 přední strana / 📸 český popisek', /fotoBtn\('obal'/.test(karta) && /fotoBtn\('popisek', '📸 Vyfotit popisek'\)/.test(karta));
 ok('COICOP: číselník se rozbaluje přímo z řádku', /<summary class="mk-r" style="border-top:none;cursor:pointer"><span class="l">COICOP<\/span>/.test(rc) && /mapaKoicopRadekHTML\(kodC, posl, D\)/.test(karta));
-ok('worker: fotka „popisek“ → nazevPopisek (+ složení, dovozce), zachová se při obnově', /body\.druh === 'popisek' \? 'popisek'/.test(w) && /p\.nazevPopisek = eanStr\(j\.nazev_cs, 100\)/.test(w) && /'nazevPopisek', 'dovozce'\]/.test(w));
+ok('worker: fotka „popisek“ → nazevPopisek (+ složení, dovozce), zachová se při obnově', /body\.druh === 'popisek' \? 'popisek'/.test(w) && /p\.nazevPopisek = eanStr\(j\.nazev_cs, 100\)/.test(w) && (()=>{const m=w.match(/const EAN_OFF_AKTUALIZOVAT = \[([^\]]*)\];\s*const EAN_OFF_DOPLNIT = \[([^\]]*)\]/);return m&&!/'nazevPopisek'|'dovozce'/.test(m[1]+m[2]);})());   // v11.61 (ADR-207)
 ok('zobrazovaný název: český popisek má přednost', /return p \? \(p\.nazevPopisek \|\| /.test(es));
 ok('živiny jen v bloku Balení (žádná dvojí tlačítka)', !/eanFotoTlacitkaHTML\(z\.ean, produkt, 'mapaUzivFotoHotovo', true\)/.test(karta));
 console.log(`\n${pass} OK, ${fail} chyb`);

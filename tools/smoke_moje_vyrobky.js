@@ -26,7 +26,7 @@ vm.runInContext("_eanMoje.f='neprirazene'",sb); h=sb.eanMojeVyrobkyHTML(D);
 t('filtr Nepřiřazené ukáže jen sken bez účtenky',h.includes('Kód 333')&&!h.includes('Mléčná čokoláda'));
 vm.runInContext("_eanMoje.f='vse';_eanMoje.q='mlecna'",sb); h=sb.eanMojeVyrobkyHTML(D);
 t('hledání i podle zkratky z účtenky („mlecna“)',h.includes('Mléčná čokoláda')&&!h.includes('Kód 333'));
-t('klepnutí otevře kartu výrobku',h.includes("eanOtevriNaskenovany('111')"));
+t('klepnutí otevře kartu výrobku',h.includes("eanOtevriKartu('111')"));   // v11.61 (TODO-333): stejná karta jako Mapa položek
 t('čisté skeny se pamatují až 300 (dřív 40)',es.includes('S.uiCfg.eanSken = a.slice(0, 300);'));
 t('Moje výrobky mají vlastní záložku a kreslí se při otevření (v11.55)',rc.includes('<div class="eanMojeBox" data-samostatne="1"></div>')&&/if\(tab==='vyrobky' && typeof eanMojeVyrobkyKresli==='function'\) \{\s*eanMojeVyrobkyKresli\(\);/.test(rc));
 // fotky bez účtenky

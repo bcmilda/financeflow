@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.57 · 2026-10-09  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v11.61 · 2026-10-10  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -608,6 +608,8 @@ const EAN_POLE = [
   'image_front_small_url','image_front_url','nutriscore_grade','nova_group','ecoscore_grade',
   'ingredients_text','ingredients_text_cs','allergens_tags','additives_tags','nutriments',
   'labels_tags','countries_tags',
+  //  v11.61: bez nich zůstávaly výrobce, původ a obal na kartě vždy prázdné (eanNormalizuj je čte)
+  'brand_owner','manufacturing_places','origins','packaging_tags',
 ].join(',');
 
 function eanPlatny(kod) {
@@ -769,11 +771,85 @@ Odpověz POUZE JSON: {"nazev_cs":"...","obecny":"..."}`,
   const o = Object.assign({}, prod, { aiKdy: Date.now() });
   if (!prod.nazevCesky && j.nazev_cs && !prod.nazevCs) { o.nazevCs = eanStr(j.nazev_cs, 100); o.nazevCsZdroj = 'ai'; }
   const k = eanTaxKlic(j.obecny);
-  if (k && tax.nazvy[k]) { o.obecnyId = k; o.obecny = tax.nazvy[k]; }
+  if (k && tax.nazvy[k] && !prod.obecnyId) { o.obecnyId = k; o.obecny = tax.nazvy[k]; }   // v11.61: zařazení se nepřepisuje
   return o;
 }
 
-const EAN_ZACHOVAT = ['nazevCs', 'nazevCsZdroj', 'obecnyId', 'obecny', 'aiKdy', 'nutriceObal', 'slozeniObal', 'nazevObal', 'nutricePredchozi', 'nazevPopisek', 'dovozce'];
+//  S25 (v11.61, ADR-207, Milan: „nechci, aby se cokoliv přepisovalo kvůli stažení dat z Open Food
+//  Facts – stará data zůstanou, bude možná ruční úprava, ale ne přepis“). Obnova po 90 dnech už
+//  záznam NESTAVÍ znovu: základem je uložená karta a Open Food Facts do ní jen doplňuje.
+//   • EAN_OFF_AKTUALIZOVAT – údaje, které sami neověříme (Nutri-Score, alergeny, éčka, jejich
+//     vlastní název…): smí je obnovit, pokud je nikdo neupravil ručně.
+//   • EAN_OFF_DOPLNIT – značka, gramáž, výrobce, živiny, složení…: jen do prázdného políčka.
+//   • všechno ostatní (české názvy, zařazení, ruční živiny, dovozce…) Open Food Facts nemění nikdy.
+//  Co upravil člověk, je zamčené (p.rucne[pole] = kdy); hodnotu z Open Food Facts si karta
+//  pamatuje vedle (p.offPuvodni[pole]), aby šla ukázat „Open Food Facts uvádí: …“.
+//  U karty založené lidmi (ručně / z fotky) se v p.zOff značí políčka doplněná z Open Food Facts.
+const EAN_OFF_AKTUALIZOVAT = ['nazev', 'nazevCesky', 'nazvyJine', 'nutriscore', 'ekoskore', 'nova', 'alergeny', 'aditiva', 'stitky', 'kategorie', 'foto', 'fotoVelka', 'jazyk'];
+const EAN_OFF_DOPLNIT = ['znacka', 'mnozstvi', 'vyrobce', 'puvod', 'zeme', 'obal', 'nutrice', 'slozeni', 'slozeniCesky', 'obecny', 'konkretni', 'coicop'];
+const EAN_LIDSKY_ZDROJ = ['zadáno ručně', 'fotka obalu'];
+const eanPrazdne = v => v == null || v === '' || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length);
+function eanSlouc(stary, novy, ted) {
+  ted = ted || Date.now();
+  if (!stary || stary.stav !== 'nalezeno') return novy;                       // první načtení
+  if (!novy || novy.stav !== 'nalezeno') return Object.assign({}, stary, { kdy: ted });   // Open Food Facts kód nezná / smazal → karta zůstane
+  const o = Object.assign({}, stary, { kdy: ted, kv: Math.max(stary.kv || 0, novy.kv || 0) });
+  const rucne = stary.rucne || {};
+  const lidska = EAN_LIDSKY_ZDROJ.includes(stary.zdroj);
+  const off = Object.assign({}, stary.offPuvodni || {}), zOff = Object.assign({}, stary.zOff || {});
+  const zapis = k => { o[k] = novy[k]; if (lidska) zOff[k] = 1; };
+  EAN_OFF_AKTUALIZOVAT.concat(EAN_OFF_DOPLNIT).forEach(k => {
+    if (eanPrazdne(novy[k])) return;
+    if (rucne[k]) { off[k] = novy[k]; return; }                                // zamčeno člověkem
+    //  Název karty založené lidmi je jejich (ruční karta, fotka obalu) – jen do prázdného.
+    const jenDoplnit = EAN_OFF_DOPLNIT.includes(k) || (lidska && (k === 'nazev' || k === 'nazevCesky'));
+    if (jenDoplnit) { if (eanPrazdne(o[k])) zapis(k); return; }
+    zapis(k);
+  });
+  if (Object.keys(off).length) o.offPuvodni = off;
+  if (Object.keys(zOff).length) o.zOff = zOff;
+  if (lidska) { o.offZdroj = novy.zdroj; o.offKdy = ted; }
+  return o;
+}
+
+//  Ruční úprava jednoho políčka karty pro všechny (ADR-206: bez schválení – admin schvaluje jen
+//  novou kartu a změnu názvu; názvy jdou dál přes akci 'nazev'). Políčko se zamkne proti obnově
+//  z Open Food Facts. Kdo co změnil: community/eanUpravyLog/{ean}/{uid}/{pole} (jen pro admina).
+const EAN_POLE_RUCNE = { znacka: 60, vyrobce: 100, dovozce: 120, mnozstvi: 20, konkretni: 80, puvod: 80,
+  obal: 120, zeme: 160, alergeny: 200, nutriscore: 1, slozeni: 1500 };
+const EAN_POLE_SEZNAM = ['obal', 'zeme', 'alergeny'];
+function eanPoleHodnota(pole, h) {
+  const t = eanStr(h, EAN_POLE_RUCNE[pole]).replace(/\s+/g, ' ').trim();
+  if (!t) return { prazdne: true };
+  if (pole === 'nutriscore') return /^[a-e]$/i.test(t) ? { v: t.toLowerCase() } : { chyba: 'Nutri-Score je písmeno A až E.' };
+  if (pole === 'mnozstvi') { const m = eanMnozstvi({ quantity: t.replace(',', '.') }); return m ? { v: m } : { chyba: 'Napiš balení s jednotkou, např. 150 g nebo 0,5 l.' }; }
+  if (EAN_POLE_SEZNAM.includes(pole)) { const s = t.split(/\s*[,;]\s*/).map(x => x.trim()).filter(Boolean).slice(0, 15); return s.length ? { v: s } : { prazdne: true }; }
+  if (t.length < 2) return { chyba: 'Příliš krátké.' };
+  return { v: t };
+}
+async function eanAkcePole(uid, ean, body, env, cors) {
+  const pole = String(body.pole || '');
+  if (!EAN_POLE_RUCNE[pole]) return json({ error: 'Tohle políčko se takhle upravit nedá.' }, 400, cors);
+  const h = eanPoleHodnota(pole, body.hodnota);
+  if (h.chyba) return json({ error: h.chyba }, 400, cors);
+  const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL, S = env.FIREBASE_DB_SECRET;
+  const url = `${DB}/community/eanProdukty/${ean}.json?auth=${S}`;
+  let p = null; try { p = await (await fetch(url)).json(); } catch (e) {}
+  if (!p || p.stav !== 'nalezeno') return json({ error: 'Výrobek ještě nemá kartu – nejdřív ji založ (název).' }, 400, cors);
+  const kl = pole === 'slozeni' ? 'slozeniObal' : pole;   // složení opsané z obalu má vlastní pole
+  const stara = p[kl] == null ? null : p[kl];
+  //  hodnota z Open Food Facts se neztratí – karta ji ukáže jako „Open Food Facts uvádí“
+  const zOffDosud = !(p.rucne || {})[kl] && EAN_OFF_AKTUALIZOVAT.concat(EAN_OFF_DOPLNIT).includes(kl)
+    && (!EAN_LIDSKY_ZDROJ.includes(p.zdroj) || !!(p.zOff || {})[kl]);
+  if (stara != null && zOffDosud) p.offPuvodni = Object.assign({}, p.offPuvodni || {}, { [kl]: stara });
+  p.rucne = Object.assign({}, p.rucne || {}, { [kl]: Date.now() });
+  if (h.prazdne) delete p[kl]; else p[kl] = h.v;
+  if (p.zOff) { delete p.zOff[kl]; if (!Object.keys(p.zOff).length) delete p.zOff; }
+  await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
+  try { await fetch(`${DB}/community/eanUpravyLog/${ean}/${uid}/${kl}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kdy: Date.now(), stara: stara == null ? '' : stara, nova: h.prazdne ? '' : h.v }) }); } catch (e) {}
+  return json({ ok: true, ean, produkt: p }, 200, cors);
+}
 
 //  Návrh českého názvu od uživatele. Jeho vlastní název (users/{uid}/eanNazvy)
 //  platí hned pro něj; do komunity jde jako anonymní návrh s počtem – admin ho
@@ -875,8 +951,9 @@ ${tax.seznam}`;
       if (m) p.mnozstvi = m;
     } else {
       if (!p.nazevCesky && !p.nazevCs && j.nazev_cs) { p.nazevCs = eanStr(j.nazev_cs, 100); p.nazevCsZdroj = 'foto'; }
-      if (!p.znacka && j.znacka) p.znacka = eanStr(j.znacka, 60);
-      if (!p.mnozstvi && m) p.mnozstvi = m;
+      //  v11.61 (ADR-207): údaj z fotky obalu je od člověka → zamčený proti Open Food Facts
+      if (!p.znacka && j.znacka) { p.znacka = eanStr(j.znacka, 60); p.rucne = Object.assign({}, p.rucne || {}, { znacka: Date.now() }); }
+      if (!p.mnozstvi && m) { p.mnozstvi = m; p.rucne = Object.assign({}, p.rucne || {}, { mnozstvi: Date.now() }); }
     }
     if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
     if (j.nazev_obal) p.nazevObal = eanStr(j.nazev_obal, 100);   // S25: název přesně jak je na obalu – samostatné pole
@@ -963,8 +1040,11 @@ async function eanAkceKarta(uid, ean, body, env, cors) {
     p = Object.assign({}, p && p.stav !== 'nalezeno' ? {} : p, { ean, stav: 'nalezeno', zdroj: 'zadáno ručně', kdy: Date.now(), kv: 2,
       nazev, nazevCesky: true, rucneKdy: Date.now() });
   } else if (!p.nazevCesky && !p.nazevCs) { p.nazevCs = nazev; p.nazevCsZdroj = 'uzivatel'; }
-  if (znacka && !p.znacka) p.znacka = znacka;
-  if (m && !p.mnozstvi) p.mnozstvi = m;
+  //  v11.61 (ADR-207): co zapsal člověk, je zamčené proti obnově z Open Food Facts
+  const zamkni = kl => { p.rucne = Object.assign({}, p.rucne || {}, { [kl]: Date.now() }); };
+  if (p.zdroj === 'zadáno ručně' && p.rucneKdy && !(p.rucne || {}).nazev) zamkni('nazev');
+  if (znacka && !p.znacka) { p.znacka = znacka; zamkni('znacka'); }
+  if (m && !p.mnozstvi) { p.mnozstvi = m; zamkni('mnozstvi'); }
   if (k && tax.nazvy[k] && !p.obecnyId) { p.obecnyId = k; p.obecny = tax.nazvy[k]; }
   await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) });
   try { await fetch(`${DB}/community/eanKartyLog/${ean}/${uid}.json?auth=${S}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kdy: Date.now(), nazev, znacka, mnozstvi: m || null }) }); } catch (e) {}
@@ -998,6 +1078,7 @@ async function handleEan(request, env, cors) {
   if (body.akce === 'odebrat') return eanAkceOdebrat(uid, ean, body, env, cors);   // S25
   if (body.akce === 'ziviny') return eanAkceZiviny(uid, ean, body, env, cors);   // S25 v11.43
   if (body.akce === 'karta') return eanAkceKarta(uid, ean, body, env, cors);   // S25 v11.50
+  if (body.akce === 'pole') return eanAkcePole(uid, ean, body, env, cors);     // S25 v11.61 (ADR-207)
 
   const DB = env.FIREBASE_DB_URL || FIREBASE_DB_URL;
   const S = env.FIREBASE_DB_SECRET;
@@ -1009,7 +1090,7 @@ async function handleEan(request, env, cors) {
     if (ulozeny && ulozeny.kdy) {
       const platnost = ulozeny.stav === 'nalezeno' ? EAN_PLATNOST_OK : EAN_PLATNOST_NIC;
       //  S25: výrobek uložený před rozšířením karty (bez kv ≥ 2) se jednou obnoví – doplní
-      //  výrobce, původ, země, obal a jazyk. Admin/AI/fotka obalu se zachová (EAN_ZACHOVAT).
+      //  výrobce, původ, země, obal a jazyk. Karta se při tom sloučí, nic se nepřepíše (eanSlouc, ADR-207).
       const stareSchema = ulozeny.stav === 'nalezeno' && !(ulozeny.kv >= 2);
       if (Date.now() - ulozeny.kdy < platnost && !stareSchema) produkt = ulozeny;
     }
@@ -1024,14 +1105,16 @@ async function handleEan(request, env, cors) {
   }
   if (!produkt) {
     produkt = await eanZDatabazi(ean);
-    //  S24 (v11.24): obnova po 90 dnech nesmí smazat, co doplnil admin, AI nebo fotka obalu.
-    if (produkt && _eanStary) EAN_ZACHOVAT.forEach(k => { if (_eanStary[k] != null && produkt[k] == null) produkt[k] = _eanStary[k]; });
     if (!produkt && _eanStary && _eanStary.stav === 'nalezeno') produkt = _eanStary;   // S25: obnova selhala → stará data
-    //  S25 (v11.50): výrobek, který databáze nezná, ale doplnil ho uživatel (fotka obalu, ruční
-    //  karta), se po 90 dnech NESMÍ přepsat na „nenalezeno“ – zůstane, jak ho lidé založili.
-    if (produkt && produkt.stav !== 'nalezeno' && _eanStary && _eanStary.stav === 'nalezeno') produkt = Object.assign({}, _eanStary, { kdy: Date.now() });
+    //  S25 (v11.61, ADR-207): uložená karta je základ, Open Food Facts jen doplňuje (eanSlouc).
+    //  Karta, kterou databáze nezná, ale založili ji lidé, zůstane, jak je (nikdy „nenalezeno“).
+    else if (produkt) produkt = eanSlouc(_eanStary, produkt);
     if (!produkt) return json({ error: 'Databáze výrobků teď neodpovídají, zkus to za chvíli.' }, 502, cors);
-    try { produkt = await eanObohat(env, produkt); } catch (e) {}   // S24 (v11.23): český název + obecný název z taxonomie
+    //  S24 (v11.23): český název + obecný název z taxonomie – jen když něco chybí (AI stojí peníze
+    //  a zařazení od admina/AI se už nemění)
+    if (produkt.stav === 'nalezeno' && !(produkt.aiKdy && produkt.obecnyId && (produkt.nazevCs || produkt.nazevCesky))) {
+      try { produkt = await eanObohat(env, produkt); } catch (e) {}
+    }
     try {
       await fetch(`${DB}/community/eanProdukty/${ean}.json?auth=${S}`,
         { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(produkt) });

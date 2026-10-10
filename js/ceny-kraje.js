@@ -1,4 +1,4 @@
-// FinanceFlow · v11.40 · ceny-kraje.js · 2026-10-07
+// FinanceFlow · v11.61 · ceny-kraje.js · 2026-10-10
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan, katalog krok 4): SDÍLENÉ CENY PO KRAJÍCH
 //  Při uložení nové účtenky se u potravin, nápojů, alkoholu, tabáku a drogerie
@@ -105,7 +105,8 @@ function cenySouhrn(data, jeAdmin) {
 //  Doplní sekci „Ceny v kraji“ do otevřené karty výrobku (Mapa položek).
 async function cenyDoKarty(i) {
   const el = document.getElementById('mkCeny'); if (!el) return;
-  const z = (typeof _mapaUziv !== 'undefined') ? _mapaUziv[i] : null; if (!z) return;
+  const z = typeof _mapaZ === 'function' ? _mapaZ(i) : (typeof _mapaUziv !== 'undefined') ? _mapaUziv[i] : null; if (!z) return;
+  if (z.synt) { el.innerHTML = '<span style="color:#a8aec8">Výrobek zatím nemáš na žádné účtence – ceny v kraji se ukážou podle pobočky, kde ho koupíš.</span>'; return; }   // v11.61
   const posl = (z.nakupy || []).find(n => n.kraj);
   if (!posl) { el.innerHTML = '<span style="color:#a8aec8">U účtenek chybí kraj pobočky – doplníš ho v editoru účtenky (📍).</span>'; return; }
   const klic = cenyKlicVyrobku({ name: posl.raw, ean: z.ean, baleni: posl.baleni });
