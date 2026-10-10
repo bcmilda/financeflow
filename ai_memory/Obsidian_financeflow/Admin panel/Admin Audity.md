@@ -1,0 +1,8 @@
+**K výkonu admin auditů — můj pohled:** Souhlasím, že teď je to pohoda, ale chci být transparentní o trajektorii: každý refresh auditu stahuje **kompletní DB včetně všech transakcí všech uživatelů** — při 100 uživatelích s historií to budou desítky MB na jedno kliknutí (pomalé + platíš Firebase egress). Rozsah opravy je naštěstí malý a **čistě admin-side, klientů se nedotkne**:
+
+- _Krok 1 (levný, ~hodina práce):_ `users.json?shallow=true` → seznam UID, pak per-uid stáhnout jen `users/{uid}/data/categories.json` (pár kB). Přepsat 4 loadery (users, adopce, custom cats, subs audit) + Promise.all s limitem souběhu. Žádné změny pravidel ani klientů.
+- _Krok 2 (až bude potřeba):_ `.indexOn` do database_rules.json + agregační uzel `/index/catSummary/{uid}`, který si klient zapíše při save() — admin pak čte jediný malý uzel.
+
+**Krok 1 ⚡ implementován** — nový helper `adminFetchUserCategories()`: shallow seznam UID + per-uid stažení jen `data/categories` (pool 8 souběžně). Přepsány 4 funkce: oba COICOP audity + obě propisovací (`assignCoicop`, `assignSubCoicop`). Z desítek MB na pár kB na uživatele. `loadAdminUsers` a Adopce (potřebují transakce) zůstávají na Krok 2.
+
+**ADR-061** (Krok 2) — agregační uzel `/index/userSummary/{uid}` zapisovaný klientem při `save()`, admin pak čte jediný malý uzel. Včetně varování na pattern FIX-118 a spouštěče implementace (>50 uživatelů / Google Play). Číslování ověřeno grepem — poslední bylo ADR-059, takže **ADR-060** (score engine) a **ADR-061** (admin scale).
