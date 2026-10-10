@@ -47,7 +47,7 @@ t('karta: nejlevnější obchod se slevou',/Nejlevněji/.test(k)&&/−13 %/.test
 t('karta: rozpočet je až v rozbalovacím bloku',k.indexOf('💼 Rozpočet')>k.indexOf('Moje nákupy'));
 const im=d.findIndex(z=>z.ean);
 k=ctx.mapaUzivKartaHTML(im,{stav:'nalezeno',nazev:'Mléko polotučné',znacka:'Madeta',nutriscore:'b',nova:1,aditiva:[],slozeni:'mléko',stitky:['bio'],nutrice:{kcal:46,tuky:1.5,cukry:4.8,sul:0.1},zdroj:'Open Food Facts',foto:'https://x/a.jpg'});
-t('karta s výrobkem: identita a značky',k.includes('Madeta')&&/Nutri-Score<\/span><span class="v"><span[^>]*>B</.test(k)&&k.includes('NOVA 1')&&k.includes('0 éček')&&k.includes('bio'));
+t('karta s výrobkem: identita a značky',k.includes('Madeta')&&/Nutri-Score<\/span><span class="v"[^>]*><span[^>]*>B</.test(k)&&k.includes('NOVA 1')&&k.includes('0 éček')&&k.includes('bio'));
 t('karta s výrobkem: semafor živin',k.includes('Nutriční hodnoty')&&k.includes('nízký'));
 t('karta s výrobkem: ODbL',k.includes('ODbL'));
 t('semafor: hranice FSA',ctx.eanSemaforUroven('cukry',5)==='nizka'&&ctx.eanSemaforUroven('cukry',10)==='stredni'&&ctx.eanSemaforUroven('cukry',23)==='vysoka'&&ctx.eanSemaforUroven('sul',1.6)==='vysoka');

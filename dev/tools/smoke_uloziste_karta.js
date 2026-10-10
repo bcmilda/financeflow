@@ -52,7 +52,7 @@ console.log('── S25 · úložiště a karta výrobku ──');
   t('známý kód → doplní jen chybějící český název, značku ani balení z databáze nepřepíše',p2.nazev==='Lindt Excellence Milk'&&p2.nazevCs==='Mléčná čokoláda'&&p2.znacka==='Lindt'&&p2.mnozstvi.hodnota===100,p2);
   r=await sk.eanAkceKarta('u1','333',{nazev:'x'},{},{});
   t('bez názvu se karta nezaloží',r.st===400&&!db['community/eanProdukty/333']);
-  t('worker: ručně založený nebo z fotky doplněný výrobek se po 90 dnech nepřepíše na „nenalezeno“',w.includes("if (produkt && produkt.stav !== 'nalezeno' && _eanStary && _eanStary.stav === 'nalezeno') produkt = Object.assign({}, _eanStary"));
+  t('worker: ručně založený nebo z fotky doplněný výrobek se po 90 dnech nepřepíše na „nenalezeno“',w.includes("if (!novy || novy.stav !== 'nalezeno') return Object.assign({}, stary, { kdy: ted });")&&w.includes('produkt = eanSlouc(_eanStary, produkt)'));   // v11.61 (ADR-207)
   t('worker: akce „karta“ v routeru',w.includes("if (body.akce === 'karta') return eanAkceKarta(uid, ean, body, env, cors);"));
   // appka
   t('skener: u neznámého kódu tlačítko „Založit celou kartu“ (název řeší pole Český název)',es.includes("onclick=\"eanKartaForm('${escHtml(ean)}')\">✍️ Založit celou kartu (název, značka, balení, druh)"));

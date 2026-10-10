@@ -1,4 +1,4 @@
-// FinanceFlow · v11.46 · projects.js · 2026-10-08
+// FinanceFlow · v11.59 · projects.js · 2026-10-09
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1566,8 +1566,8 @@ function renderReport() {
           const row = (l,v,sub,col)=>`
             <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:.84rem">${l}</span>
-              <span style="margin-left:auto;font-family:Syne,sans-serif;font-weight:800;font-size:.95rem;color:${col||'var(--text)'}">${v}</span>
-              ${sub?`<span style="font-size:.7rem;color:#a8aec8;min-width:74px;text-align:right">${sub}</span>`:''}
+              <span style="margin-left:auto;font-family:Syne,sans-serif;font-weight:800;font-size:.95rem;color:${col||'var(--text)'};text-align:right">${v}</span>
+              <span style="font-size:.7rem;color:#a8aec8;width:92px;flex-shrink:0;text-align:right">${sub||''}</span>
             </div>`;
           recHtml = `
           <div class="report-section-title">🧾 11 · Z účtenek ${nMonths===1?'tohoto měsíce':nMonths+' měsíců'}</div>
@@ -1802,7 +1802,13 @@ function renderReport() {
       const _curFs = (()=>{ try{ return (typeof computeFinancialScore==='function')
         ? computeFinancialScore(D, S.curMonth, S.curYear) : null; }catch(e){ return null; } })();
       const _comps = (_curFs && _curFs.components) ? _curFs.components : [];
-      const _dTotal = _pf ? (mo.score - _pf.rawTotal) : null;
+      //  S25 (v11.59, Milan: „report 0 z 310, Dashboard 202"): změna proti minulému měsíci
+      //  na STEJNÉ škále jako mo.score (dřív se odečítal rawTotal → jiná škála) a jen
+      //  když oba měsíce jdou změřit. Neměřený měsíc nemá „+0 bodů".
+      const _pz = (_pf && _pf.total !== null && typeof scoreZobrazeni === 'function') ? scoreZobrazeni(_pf) : null;
+      const _dTotal = (mo.mereno !== false && _pz && _pz.max === mo.max) ? (mo.score - _pz.tot) : null;
+      const _nemer = mo.mereno === false;
+      const _mesTxt = CZ_M[S.curMonth].toLowerCase() + ' ' + S.curYear;
       let _pm2=S.curMonth-1; if(_pm2<0) _pm2=11;
 
       //  v9.68: velké číslo dostalo prostor, popisky jsou pod sebou jako řádky
@@ -1812,8 +1818,9 @@ function renderReport() {
       cont.innerHTML = `<div style="padding:4px 2px">
         <div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:16px">
           <div style="text-align:center;min-width:118px">
-            <div style="font-family:Syne,sans-serif;font-size:3rem;font-weight:800;color:${col};line-height:1">${mo.score}</div>
-            <div style="font-size:.72rem;color:#a8aec8;margin-top:2px">z ${mo.max} bodů</div>
+            <div style="font-family:Syne,sans-serif;font-size:3rem;font-weight:800;color:${col};line-height:1">${_nemer ? '–' : mo.score}</div>
+            <div style="font-size:.72rem;color:#a8aec8;margin-top:2px">${_nemer ? 'zatím nelze určit' : 'z ' + mo.max + ' bodů'}</div>
+            ${!_nemer && _curFs && mo.max < _curFs.rawMax ? `<div style="font-size:.64rem;color:#8b93ad;margin-top:1px">ve hře ${mo.max} z ${_curFs.rawMax}</div>` : ''}
           </div>
           <div style="flex:1;min-width:210px">
             <div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
@@ -1822,9 +1829,15 @@ function renderReport() {
             ${_dTotal!==null?`<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
               <span style="font-size:.76rem;color:#a8aec8;min-width:120px">vs. ${CZ_M[_pm2].toLowerCase()}</span>
               <b style="font-size:.82rem;color:${_dTotal>=0?'var(--income)':'var(--expense)'}">${_dTotal>=0?'+':''}${_dTotal} ${_bTxt(_dTotal)}</b></div>`:''}
-            <div style="display:flex;gap:10px;padding:5px 0">
+            ${_nemer ? `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:.76rem;color:#a8aec8;min-width:120px">Změřit jde</span>
+              <b style="font-size:.82rem">${_curFs ? _curFs.coverage : 0} % skóre <span style="font-weight:400;color:#a8aec8">(na známku je potřeba aspoň 50 %)</span></b></div>
+            ${_curFs && (_curFs.missingNames || []).length ? `<div style="display:flex;gap:10px;padding:5px 0">
+              <span style="font-size:.76rem;color:#a8aec8;min-width:120px">Chybí</span>
+              <b style="font-size:.82rem">${_curFs.missingNames.join(', ')}</b></div>` : ''}`
+            : `<div style="display:flex;gap:10px;padding:5px 0">
               <span style="font-size:.76rem;color:#a8aec8;min-width:120px">${_next?'Do známky '+_next.l:'Nejvyšší pásmo'}</span>
-              <b style="font-size:.82rem">${_next?`chybí ${_next.need} ${_bTxt(_next.need)}`:'🏆 dosaženo'}</b></div>
+              <b style="font-size:.82rem">${_next?`chybí ${_next.need} ${_bTxt(_next.need)}`:'🏆 dosaženo'}</b></div>`}
           </div>
         </div>
         ${_comps.map(c=>{
@@ -1833,7 +1846,7 @@ function renderReport() {
           if(c.avail===false) return `<div style="margin-bottom:10px;opacity:.6">
             <div style="display:flex;align-items:baseline;gap:8px">
               <span style="font-size:.82rem;flex:1;min-width:0">${c.label}</span>
-              <span style="font-size:.74rem;font-style:italic;color:var(--text3);min-width:74px;text-align:right">nezměřeno</span>
+              <span style="font-size:.74rem;font-style:italic;color:var(--text3);min-width:74px;text-align:right">nezměřeno</span><span style="min-width:56px"></span>
             </div></div>`;
           const pv=_prevComp(c.label), d=(pv===null)?null:(c.score-pv);
           const pct=c.max>0?Math.max(0,Math.min(100,c.score/c.max*100)):0;
@@ -1849,7 +1862,7 @@ function renderReport() {
             </div>
           </div>`; }).join('')}
         <div style="font-size:.7rem;color:#8b93ad;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-          Stejné číslo jako na Dashboardu · odznaky vpravo ukazují změnu v bodech proti minulému měsíci · pro graf v čase zvol 3M / 6M / 12M
+          Stejný výpočet jako skóre na Dashboardu, za ${_mesTxt}${_nemer ? '' : ' · ' + (mo.max < 310 ? 'body se počítají jen z toho, co jde změřit (proto „z ' + mo.max + '“ místo 310)' : 'plná škála 310 bodů')} · Dashboard ukazuje měsíc zvolený nahoře, jiný měsíc má jiné číslo · odznaky vpravo = změna proti minulému měsíci · graf v čase: 3M / 6M / 12M
         </div>
       </div>`;
     } else if (typeof drawHealthScoreLineChart === 'function') {

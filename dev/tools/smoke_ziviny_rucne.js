@@ -29,11 +29,11 @@ o=w.eanZivinyOver({kcal:1500,tuky:1});t('worker: kcal > 900 → odmítne',!!o.ch
 o=w.eanZivinyOver({kcal:300,tuky:30,sacharidy:55,bilkoviny:7});t('worker: nesoulad energie jen poznačí (nesedi)',o.n&&o.nesedi===true);
 o=w.eanZivinyOver({kcal:'<script>',tuky:1});t('worker: text místo čísla → odmítne',!!o.chyba);
 t('worker: akce „ziviny“ v routeru, bez potvrzení nesouladu odmítne, záloha předchozích hodnot + log',wk.includes("if (body.akce === 'ziviny') return eanAkceZiviny(")&&wk.includes("if (o.nesedi && !body.potvrzeno)")&&wk.includes('p.nutricePredchozi = p.nutriceObal')&&wk.includes('community/eanZivinyLog/')&&wk.includes("zdroj: 'rucne'"));
-t('worker: záloha se zachová při obnově z databáze (EAN_ZACHOVAT)',/EAN_ZACHOVAT = \[[^\]]*'nutricePredchozi'/.test(wk));
+t('worker: záloha se zachová při obnově z databáze (v11.61: Open Food Facts mění jen svá políčka)',(()=>{const m=wk.match(/const EAN_OFF_AKTUALIZOVAT = \[([^\]]*)\];\s*const EAN_OFF_DOPLNIT = \[([^\]]*)\]/);return m&&!/'nutricePredchozi'|'nutriceObal'/.test(m[1]+m[2]);})());
 t('worker: i fotka živin zálohuje předchozí hodnoty',(wk.match(/p\.nutricePredchozi = p\.nutriceObal/g)||[]).length===2);
 // UI
 t('tlačítko „✍️ Zadat živiny ručně“ u fotek (skener i karta)',es.includes("onclick=\"eanZivinyForm('${escHtml(ean)}','${poHotovo}')\""));
-t('karta v Mapě: „✍️ Opravit ručně“ i „✍️ Zadat ručně“, když živiny chybí',rc.includes("eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')\">✍️ Opravit ručně")&&rc.includes("eanZivinyForm('${e(z.ean)}','mapaUzivFotoHotovo')\">✍️ Zadat ručně"));
+t('karta v Mapě: „✍️ Opravit ručně“ i „✍️ Zadat ručně“, když živiny chybí',rc.includes("eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')\">✍️ Opravit ručně")&&rc.includes("eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')\">✍️ Zadat ručně"));
 t('formulář: na 100 g / 100 ml, kJ přepočet, složení, okno nad kartou i skenerem',es.includes('name="ezNa" value="ml"')&&es.includes('kj / 4.184')&&es.includes('id="ez_slozeni"')&&es.includes('z-index:10070'));
 t('admin vidí ruční zadání, nesoulad a předchozí hodnoty',ad.includes("p.nutriceObal.zdroj === 'rucne'")&&ad.includes('p.nutricePredchozi'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

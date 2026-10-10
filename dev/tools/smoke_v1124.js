@@ -39,7 +39,7 @@ const odp=r=>JSON.parse(r.body);
  t('fotka se neukládá',!JSON.stringify(db).includes(img));
  t('neplatná fotka = 400',(await w.eanAkceFoto('U1','8590000000005',{druh:'obal',obrazek:'xx'},env,{})).status===400);
  t('limit ean_foto Free 3',/free:\s*\{[^}]*ean_foto: 3/.test(R('worker.js','../cloudflare-worker/worker.js')));
- t('obnova po 90 dnech zachová doplněná data',/EAN_ZACHOVAT\.forEach/.test(R('worker.js','../cloudflare-worker/worker.js')));
+ t('obnova po 90 dnech zachová doplněná data',/produkt = eanSlouc\(_eanStary, produkt\)/.test(R('worker.js','../cloudflare-worker/worker.js')));   // v11.61 (ADR-207)
  // klient
  const c={console,window:{},localStorage:{getItem:()=>null},document:{getElementById:()=>null,createElement:()=>({style:{}}),body:{appendChild(){}}},fetch:async()=>({ok:true,json:async()=>null}),setTimeout,URL,escHtml:s=>String(s).replace(/</g,'&lt;')};
  c.window=c; vm.createContext(c); vm.runInContext(R('ean-sken.js','../js/ean-sken.js'),c);
