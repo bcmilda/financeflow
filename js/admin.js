@@ -1,4 +1,4 @@
-// FinanceFlow · v11.63 · admin.js · 2026-10-11
+// FinanceFlow · v11.64 · admin.js · 2026-10-11
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.64',
+    datum: '2026-10-11',
+    zmeny: [
+      "✅ ZNÁMÉ VÝROBKY SE PŘIŘADÍ SAMY (Milan: „počítal jsem, že aplikace už funguje autonomně a propojuje si data“) · cesta: Analýza účtenek → nová účtenka → editor položek. Když jsi výrobek jednou přiřadil (čárový kód ↔ zkratka v daném obchodě), při dalším nákupu téhož výrobku ve stejném obchodě má položka rovnou ✅ místo 📷 – nic se znovu neskenuje.",
+      "👥 KOMUNITA AUTOMATICKY (rozhodnutí Milana) · když stejnou zkratku ve stejném obchodě přiřadil někdo jiný, položka dostane jeho kód taky. Jen když jeden kód jasně vede; při shodném počtu potvrzení se nepřiřadí nic. Kód, který jsi u zkratky odebral, se už nevrátí (ani když jsi vedoucí kód odebral, nebere se druhý v pořadí).",
+      "🔁 DOPLNĚNÍ STARŠÍCH NÁKUPŮ · cesta: Analýza účtenek (a Inflace) – na pozadí se doplní kód i účtenkám přidaným po přiřazení. Díky tomu sedí 📦 Moje výrobky (počet nákupů, poslední cena), Ceny v kraji (jeden výrobek = jedna řada) i Zdražování podle výrobků.",
+      "📈 INFLACE · cesta: Inflace → seznam položek: u řádku, kde mají všechny nákupy stejný čárový kód, je název výrobku místo zkratky z účtenky. Výpočet se nemění – položka se dál sleduje podle zkratky v čase.",
+      "🔒 Revize nezávislým agentem (2 kola): odebraný kód se nevrací, spojení se po odhlášení nepřenesou na jiný účet, offline se nic nestahuje, 3 000 účtenek doplní zhruba za 0,2 s.",
+      "🧪 tools/smoke_ean_auto.js (42)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62 a v11.63.",
+    ]
+  },
   {
     verze: 'v11.63',
     datum: '2026-10-11',

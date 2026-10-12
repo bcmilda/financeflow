@@ -1,4 +1,4 @@
-// FinanceFlow · v11.61 · ean-sken.js · 2026-10-10
+// FinanceFlow · v11.64 · ean-sken.js · 2026-10-11
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -83,12 +83,14 @@ async function eanNactiProdukt(ean) {
   return _eanProdukty[ean];
 }
 async function eanNactiAliasy(vynutit) {
+  if (typeof _eanHlidejUid === 'function') _eanHlidejUid();   // S26: jiný účet = jiná spojení
   if (_eanAliasy && !vynutit) return _eanAliasy;
   try {
     const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
     if (!uid || !t) return _eanAliasy || {};
     const r = await fetch(`${EAN_DB}/users/${uid}/eanAliasy.json?auth=${t}`);
-    _eanAliasy = (r.ok ? await r.json() : null) || {};
+    const v = (r.ok ? await r.json() : null) || {};
+    if ((window._currentUser && window._currentUser.uid) === uid) _eanAliasy = v;   // S26: mezitím jiný účet = zahodit
   } catch (e) { _eanAliasy = _eanAliasy || {}; }
   return _eanAliasy;
 }
@@ -412,6 +414,7 @@ async function eanPrirad() {
   //  Když se to nepovede (offline), kód u položky zůstane a spojení se
   //  dá doplnit příštím skenem – účtenka se kvůli tomu nezdrží.
   const klic = eanAliasKlic(cil.obchod, cil.raw);
+  if (klic && typeof eanZrusOdmitnuti === 'function') eanZrusOdmitnuti(klic, v.ean);   // S26: vědomé přiřazení ruší odmítnutí
   let hlaska = '✅ Kód přiřazen';
   if (klic) {
     try {
@@ -1198,6 +1201,8 @@ async function eanPriradKPolozce(i) {
   (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => {
     if (it && it.name && eanAliasKlic(t.receiptStore || t.storeName || '', it.name) === x.klic) it.ean = v.ean;
   }));
+  //  S26: když ho dřív odebral a teď vědomě přiřadil, odmítnutí neplatí
+  if (typeof eanZrusOdmitnuti === 'function') eanZrusOdmitnuti(x.klic, v.ean);
   if (typeof save === 'function') save();
   let hl = '🔗 Kód přiřazen k „' + x.raw + '"' + (n > 1 ? ' (' + n + '× v účtenkách)' : '');
   try {
@@ -1223,6 +1228,8 @@ async function eanOdebratZPolozky(i) {
   (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => {
     if (it && it.name && it.ean === v.ean && eanAliasKlic(t.receiptStore || t.storeName || '', it.name) === x.klic) delete it.ean;
   }));
+  //  S26: komunita ani tvoje staré spojení už ten kód k téhle zkratce nevrátí
+  if (typeof eanZapamatujOdmitnuti === 'function') eanZapamatujOdmitnuti(x.klic, v.ean);
   if (typeof save === 'function') save();
   try { await eanDotaz({ ean: v.ean, akce: 'odebrat', klic: x.klic }); } catch (e) {}
   if (_eanAliasy && _eanAliasy[x.klic] && _eanAliasy[x.klic].ean === v.ean) delete _eanAliasy[x.klic];
@@ -1230,3 +1237,210 @@ async function eanOdebratZPolozky(i) {
   eanVyberPolozku(document.getElementById('eanVyberQ')?.value || '');
 }
 Object.assign(window, { eanSkenujVolne, eanVolneObnov, eanVyberPolozku, eanPriradKPolozce, eanOdebratZPolozky });
+
+// ══════════════════════════════════════════════════════════════════════
+//  S26 (v11.64, Milan): AUTOMATICKÉ PŘIŘAZENÍ KÓDU PODLE „OBCHOD + ZKRATKA“
+//  Milan: „počítal jsem, že aplikace už funguje autonomně a propojuje si data.“
+//  Do v11.63 se kód doplnil jen k účtenkám, které existovaly V OKAMŽIKU přiřazení.
+//  Další nákup téhož výrobku ve stejném obchodě měl zase 📷 a Moje výrobky,
+//  Ceny v kraji i Inflace ho počítaly zvlášť (četly jen it.ean).
+//
+//  Pořadí zdrojů pro položku BEZ kódu:
+//   1) tvoje spojení users/{uid}/eanAliasy/{klic}
+//   2) komunitní community/eanPodleNazvu/{klic} = {ean: počet potvrzení}
+//      – AUTOMATICKY (rozhodnutí Milana), ale jen když jeden kód jasně vede
+//        (víc potvrzení než kterýkoli jiný); remíza = nic (SKILL 33)
+//      – když jsi vedoucí kód sám odebral, NEBERE se druhý v pořadí (měl by
+//        méně potvrzení) – položka zůstane bez kódu
+//   Kód, který sis u zkratky odebral (S.uiCfg.eanOdmitnute[klic][ean]), se
+//   nevrátí z žádného zdroje – ani z tvého spojení, kdyby se jeho smazání na
+//   serveru nepovedlo (offline).
+//  Kód, který už u položky je, se NIKDY nepřepisuje.
+//  Revize (S26, nezávislý agent): opraveno vracení odebraného kódu, výkon na
+//  velkých datech, přenos mezipaměti mezi účty po odhlášení a dotazy offline.
+// ══════════════════════════════════════════════════════════════════════
+let _eanKomunita = {};          // klic → {ean: počet} | null (nic) – mezipaměť relace
+let _eanAutoBezi = false, _eanAutoKdy = 0, _eanCacheUid = null;
+const _eanKlicCache = new Map();   // "obchod\u0001zkratka" → klíč (položky se hodně opakují)
+const EAN_PRAZDNE_LS = 'ffEanKomPrazdne', EAN_PRAZDNE_TTL = 7 * 86400000;
+
+function _eanKlic(obchod, raw) {
+  const id = String(obchod || '') + '\u0001' + String(raw || '');
+  let k = _eanKlicCache.get(id);
+  if (k === undefined) { if (_eanKlicCache.size > 20000) _eanKlicCache.clear(); k = eanAliasKlic(obchod, raw); _eanKlicCache.set(id, k); }
+  return k;
+}
+//  Mezipaměti patří přihlášenému uživateli – po odhlášení a přihlášení jiného
+//  účtu na stejném zařízení se nesmí jeho spojení dostat do cizích účtenek.
+function _eanHlidejUid() {
+  const uid = (window._currentUser && window._currentUser.uid) || null;
+  if (uid !== _eanCacheUid) { _eanCacheUid = uid; _eanAliasy = null; _eanKomunita = {}; _eanAutoKdy = 0; }
+  return uid;
+}
+
+//  Odmítnuté kódy: {klic: {ean: kdy}}. Starší tvar {klic: 'ean'} se čte taky.
+function _eanOdmitnutoMa(odmitnute, klic, ean) {
+  const o = odmitnute && odmitnute[klic];
+  if (!o) return false;
+  if (typeof o === 'string') return o === ean;
+  return typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, ean);
+}
+
+//  Čistá funkce (testuje tools/smoke_ean_auto.js).
+function eanKodProKlic(klic, moje, komunita, odmitnute) {
+  if (!klic) return null;
+  const m = moje && moje[klic];
+  if (m && m.ean && eanKontrola(m.ean) && !_eanOdmitnutoMa(odmitnute, klic, String(m.ean))) return { ean: String(m.ean), zdroj: 'moje' };
+  const k = komunita && komunita[klic];
+  if (!k || typeof k !== 'object') return null;
+  const kandidati = Object.keys(k).filter(e => eanKontrola(e) && (+k[e] || 0) >= 1)
+    .map(e => [e, +k[e]]).sort((a, b) => b[1] - a[1]);
+  if (!kandidati.length) return null;
+  if (kandidati.length > 1 && kandidati[1][1] >= kandidati[0][1]) return null;   // remíza
+  if (_eanOdmitnutoMa(odmitnute, klic, kandidati[0][0])) return null;           // vedoucí jsi odebral
+  return { ean: kandidati[0][0], zdroj: 'komunita' };
+}
+
+//  Doplní kód položkám jednoho seznamu (účtenka nebo receiptItems transakce).
+//  Vrací počet doplněných. nazev(ean) volitelně vrátí název výrobku pro eanNazev.
+function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
+  let n = 0;
+  (items || []).forEach(it => {
+    if (!it || !it.name || it.ean) return;
+    const v = eanKodProKlic(_eanKlic(obchod, it.name), moje, komunita, odmitnute);
+    if (!v) return;
+    it.ean = v.ean;
+    const nz = typeof nazev === 'function' ? nazev(v.ean) : '';
+    if (nz && !it.eanNazev) it.eanNazev = String(nz).slice(0, 100);
+    n++;
+  });
+  return n;
+}
+
+function _eanPrazdneLS() {
+  try { const o = JSON.parse(localStorage.getItem(EAN_PRAZDNE_LS) || '{}'); return (o && typeof o === 'object') ? o : {}; } catch (e) { return {}; }
+}
+//  Komunitní spojení pro zadané klíče (jen ty, které ještě neznáme). Max 200 na volání.
+//  Prázdné výsledky se pamatují 7 dní v prohlížeči, offline se nic nestahuje.
+async function eanNactiKomunitu(klice) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 0;
+  const prazdne = _eanPrazdneLS(), ted = Date.now();
+  const nove = [...new Set((klice || []).filter(k => k && _eanKomunita[k] === undefined
+    && !(prazdne[k] && ted - prazdne[k] < EAN_PRAZDNE_TTL)))].slice(0, 200);
+  if (!nove.length) return 0;
+  let t = null; try { t = await window._currentUser?.getIdToken?.(); } catch (e) {}
+  if (!t) return 0;
+  let zmenaLS = false;
+  for (let i = 0; i < nove.length; i += 8) {
+    await Promise.all(nove.slice(i, i + 8).map(async k => {
+      try {
+        const r = await fetch(`${EAN_DB}/community/eanPodleNazvu/${k}.json?auth=${t}`);
+        if (!r.ok) return;                                   // chyba serveru = zkusí se příště
+        const v = await r.json();
+        _eanKomunita[k] = v || null;
+        if (!v) { prazdne[k] = ted; zmenaLS = true; }
+      } catch (e) { /* síť – zkusí se příště */ }
+    }));
+  }
+  if (zmenaLS) {
+    try {
+      const k = Object.keys(prazdne).filter(x => ted - prazdne[x] < EAN_PRAZDNE_TTL).sort((a, b) => prazdne[b] - prazdne[a]).slice(0, 5000);
+      localStorage.setItem(EAN_PRAZDNE_LS, JSON.stringify(Object.fromEntries(k.map(x => [x, prazdne[x]]))));
+    } catch (e) {}
+  }
+  return nove.length;
+}
+
+function _eanOdmitnute() {
+  try { return (S && S.uiCfg && S.uiCfg.eanOdmitnute && typeof S.uiCfg.eanOdmitnute === 'object') ? S.uiCfg.eanOdmitnute : {}; }
+  catch (e) { return {}; }
+}
+function _eanNazevZCache(ean) {
+  const p = _eanProdukty[ean];
+  return (p && p.stav === 'nalezeno') ? eanNazevVyrobku(p, ean) : '';
+}
+//  Klíče položek bez kódu – z účtenek i z transakcí (položky jen v transakci).
+function _eanKliceBezKodu(D) {
+  const k = new Set();
+  ((D || {}).receipts || []).forEach(r => (r && r.items || []).forEach(it => { if (it && it.name && !it.ean) { const x = _eanKlic(r.store, it.name); if (x) k.add(x); } }));
+  ((D || {}).transactions || []).forEach(t => (t && Array.isArray(t.receiptItems) ? t.receiptItems : []).forEach(it => {
+    if (it && it.name && !it.ean) { const x = _eanKlic(t.receiptStore || t.storeName || '', it.name); if (x) k.add(x); }
+  }));
+  return k;
+}
+
+//  Editor nové účtenky: synchronně z toho, co je v paměti (ať je ✅ vidět hned),
+//  pak na pozadí dočte spojení a komunitu a editor překreslí.
+function eanAutoEditor(r) {
+  if (!r || !Array.isArray(r.items)) return;
+  const uid = _eanHlidejUid(); if (!uid) return;
+  eanDoplnSeznam(r.items, r.store, _eanAliasy, _eanKomunita, _eanOdmitnute(), _eanNazevZCache);
+  (async () => {
+    try {
+      await eanNactiAliasy();
+      await eanNactiKomunitu(r.items.filter(it => it && it.name && !it.ean).map(it => _eanKlic(r.store, it.name)));
+      if (window._editReceipt !== r || _eanHlidejUid() !== uid) return;   // editor zavřen / jiný účet
+      const n = eanDoplnSeznam(r.items, r.store, _eanAliasy, _eanKomunita, _eanOdmitnute(), _eanNazevZCache);
+      if (n && typeof rpRender === 'function') rpRender();
+    } catch (e) {}
+  })();
+}
+
+//  Celá data: účtenky i receiptItems transakcí. Jednou za 10 minut, ne při čtení partnera.
+async function eanAutoDoplnVse(vynutit) {
+  if (_eanAutoBezi) return 0;
+  const uid = _eanHlidejUid(); if (!uid) return 0;
+  if (!vynutit && Date.now() - _eanAutoKdy < 600000) return 0;
+  if (typeof viewingUid !== 'undefined' && viewingUid) return 0;
+  if (typeof S === 'undefined' || !Array.isArray(S.receipts) || !S.receipts.length) return 0;
+  _eanAutoBezi = true;
+  try {
+    const klice = _eanKliceBezKodu(S);                     // průchod 1 (klíče v mezipaměti)
+    await eanNactiAliasy(true);
+    await eanNactiKomunitu([...klice]);
+    //  Názvy výrobků (pro eanNazev a Inflaci) – podle klíčů, ne po položkách.
+    const kody = new Set();
+    klice.forEach(k => { const v = eanKodProKlic(k, _eanAliasy, _eanKomunita, _eanOdmitnute()); if (v) kody.add(v.ean); });
+    if (kody.size) { try { await eanNactiVse([...kody]); } catch (e) {} }
+    //  Zápis až TEĎ, synchronně a bez await (S25: sync mohl objekty mezitím nahradit).
+    //  Odmítnutí čteme znovu – uživatel mohl mezitím klepnout na Odebrat.
+    if (_eanHlidejUid() !== uid) return 0;
+    if (typeof viewingUid !== 'undefined' && viewingUid) return 0;
+    const odm = _eanOdmitnute();
+    let n = 0;
+    (S.receipts || []).forEach(r => { if (r) n += eanDoplnSeznam(r.items, r.store, _eanAliasy, _eanKomunita, odm, _eanNazevZCache); });
+    (S.transactions || []).forEach(t => { if (t && Array.isArray(t.receiptItems)) n += eanDoplnSeznam(t.receiptItems, t.receiptStore || t.storeName || '', _eanAliasy, _eanKomunita, odm, null); });
+    _eanAutoKdy = Date.now();
+    if (n) {
+      if (typeof save === 'function') save();
+      if (typeof ffRenderBezpecne === 'function') ffRenderBezpecne('ulozeni');
+    }
+    return n;
+  } catch (e) { return 0; }
+  finally { _eanAutoBezi = false; }
+}
+
+//  Odebraný kód si zapamatovat (všechny, ne jen poslední), aby se u téže zkratky nevrátil.
+function eanZapamatujOdmitnuti(klic, ean) {
+  if (!klic || !ean || typeof S === 'undefined') return;
+  S.uiCfg = S.uiCfg || {};
+  const o = Object.assign({}, S.uiCfg.eanOdmitnute || {});
+  const byl = o[klic];
+  const zaKlic = (byl && typeof byl === 'object') ? Object.assign({}, byl) : (typeof byl === 'string' ? { [byl]: 1 } : {});
+  zaKlic[String(ean)] = Date.now();
+  o[klic] = zaKlic;
+  const k = Object.keys(o); if (k.length > 500) k.slice(0, k.length - 500).forEach(x => delete o[x]);
+  S.uiCfg.eanOdmitnute = o;
+}
+//  Vědomé přiřazení kódu odmítnutí téhož kódu ruší.
+function eanZrusOdmitnuti(klic, ean) {
+  if (!klic || !ean || typeof S === 'undefined' || !S.uiCfg || !S.uiCfg.eanOdmitnute) return;
+  const o = S.uiCfg.eanOdmitnute, byl = o[klic];
+  if (!byl) return;
+  if (typeof byl === 'string') { if (byl === ean) { const n = Object.assign({}, o); delete n[klic]; S.uiCfg.eanOdmitnute = n; } return; }
+  if (!Object.prototype.hasOwnProperty.call(byl, ean)) return;
+  const zaKlic = Object.assign({}, byl); delete zaKlic[ean];
+  const n = Object.assign({}, o); if (Object.keys(zaKlic).length) n[klic] = zaKlic; else delete n[klic];
+  S.uiCfg.eanOdmitnute = n;
+}
+Object.assign(window, { eanKodProKlic, eanDoplnSeznam, eanNactiKomunitu, eanAutoEditor, eanAutoDoplnVse, eanZapamatujOdmitnuti, eanZrusOdmitnuti });

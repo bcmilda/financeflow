@@ -1,4 +1,4 @@
-// FinanceFlow · v11.61 · receipts.js · 2026-10-10
+// FinanceFlow · v11.64 · receipts.js · 2026-10-11
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -466,6 +466,7 @@ function buildScanTab(receipts, totalSpent) {
   setTimeout(uctenkyKvotaObnov, 0);
   setTimeout(() => { if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli(); }, 0);   // S25
   setTimeout(() => { if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli(); }, 0);   // S25 v11.49
+  setTimeout(() => { if (typeof eanAutoDoplnVse === 'function') eanAutoDoplnVse(); }, 300);   // S26 v11.64: známé výrobky dostanou kód
   return `<div id="utab-scan-content">
     <div id="uctenkyKvota"></div>
     <!-- S24 (v11.25, Milan): samostatné skenování čárového kódu výrobku -->
@@ -4178,6 +4179,9 @@ function buildReceiptPreviewHTML(receipt, n) {
   // Session 12.1: předvyplň 🏷️ tagy položek z produktové DB (ČSÚ spotřební koš) – jen kde tag chybí
   if(typeof productGroupPrefill === 'function') productGroupPrefill(window._editReceipt);
   const r = window._editReceipt;
+  //  S26 (v11.64): známé výrobky (tvoje spojení obchod + zkratka, nebo jasná shoda
+  //  komunity) dostanou kód hned – v editoru je ✅ místo 📷 a nic se neskenuje znovu.
+  if(typeof eanAutoEditor === 'function') eanAutoEditor(r);
   //  S22: zapamatuj si, co bylo na účtence NATIŠTĚNO, než to cokoli přepíše.
   //  Bez toho není proti čemu součet položek porovnávat.
   if(r.printedTotal == null && r.total != null) r.printedTotal = r.total;
