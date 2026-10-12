@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · receipts.js · 2026-10-12
+// FinanceFlow · v11.67 · receipts.js · 2026-10-12
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3507,6 +3507,153 @@ async function mapaUzivZrus(i) {
 Object.assign(window, { mapaUzivStav, mapaUzivOblast, mapaUzivHledej, mapaUzivZmen, mapaUzivPouzijMapu, mapaUzivZrus,
   mapaUzivDetail, mapaUzivKartaZavri, mapaUzivKartaSken });
 
+// ══════════════════════════════════════════════════════
+//  S26 (v11.67, Milan): NÁKUPNÍ DNA – ŽIVINY
+//  cesta: Analýza účtenek → 🧠 Učení → 🥗 Živiny v nákupu (pod Nákupní DNA)
+//  Kolik energie, cukru, soli, tuku a bílkovin domácnost za měsíc NAKOUPILA –
+//  z karet výrobků (čárový kód: Open Food Facts / fotka tabulky / ruční zápis,
+//  bez kódu: tvoje osobní karta) a z koupeného množství (gramáž × počet kusů,
+//  vážené zboží podle váhy). Počítá se jen tam, kde známe živiny I množství –
+//  položka bez dat se nepočítá jako nula, jen sníží pokrytí (SKILL 82).
+//  Nic nehodnotíme (filozofie appky): semafor je standardní britský štítek FSA
+//  na 100 g průměrného nákupu, ne známka uživatele.
+// ══════════════════════════════════════════════════════
+const DNA_ZIVINY = [
+  ['kcal', 'Energie', 'kcal'], ['tuky', 'Tuky', 'g'], ['nasycene', 'z toho nasycené', 'g'],
+  ['cukry', 'Cukry', 'g'], ['sul', 'Sůl', 'g'], ['bilkoviny', 'Bílkoviny', 'g'], ['vlaknina', 'Vláknina', 'g'],
+];
+const DNA_NUTRI = { a: '#038141', b: '#85bb2f', c: '#fecb02', d: '#ee8100', e: '#e63e11' };
+
+//  Živiny na 100 g/ml a Nutri-Score položky: karta podle kódu, jinak osobní karta.
+function dnaKartaPolozky(it, produkt, kartaLok) {
+  let n = null, ns = '';
+  const p = it.ean && typeof produkt === 'function' ? produkt(it.ean) : null;
+  if (p && p.stav === 'nalezeno') { n = p.nutriceObal || p.nutrice || null; ns = String(p.nutriscore || '').toLowerCase(); }
+  if (!n && typeof kartaLok === 'function') { const k = kartaLok(it); if (k && k.nutrice) n = k.nutrice; }
+  return { n: (n && typeof n === 'object') ? n : null, ns: /^[a-e]$/.test(ns) ? ns : '' };
+}
+//  Kolik gramů (mililitrů) se koupilo: vážené = váha, balené = gramáž × kusy.
+function dnaMnozstvi(it) {
+  const q = parseFloat(it.qty) || 1;
+  if (typeof rpVazene === 'function' && rpVazene(it)) return q * 1000;
+  const g = (typeof gramazPolozky === 'function') ? gramazPolozky(it) : null;
+  return g && (g.j === 'g' || g.j === 'ml') && g.m > 0 ? g.m * Math.round(q) || g.m : null;
+}
+//  Je položka jídlo / pití? Podle CZ-COICOP 01 a 02 (koš ČSÚ nebo taxonomie), nebo má živiny.
+function dnaJeJidlo(it, maZiviny) {
+  if (maZiviny) return true;
+  const kod = (typeof cenyKodPolozky === 'function') ? cenyKodPolozky(it.name || '') : '';
+  return /^0?[12](\.|$)/.test(String(kod));
+}
+
+//  Čistý výpočet (testuje tools/smoke_dna_ziviny.js).
+function dnaZivinyData(receipts, m, y, produkt, kartaLok) {
+  const sum = {}; DNA_ZIVINY.forEach(([k]) => { sum[k] = 0; });
+  const ns = { a: 0, b: 0, c: 0, d: 0, e: 0 }; let nsUtrata = 0;
+  const prispevek = { cukry: {}, sul: {} };
+  let jidloUtrata = 0, pokrytaUtrata = 0, jidloPolozek = 0, pokrytoPolozek = 0, gramu = 0;
+  const chybi = {};
+  const seen = new Set();
+  (receipts || []).forEach(r => {
+    if (!r || !r.date) return;
+    const d = new Date(String(r.date).slice(0, 10) + 'T12:00:00');
+    if (isNaN(d) || d.getMonth() !== m || d.getFullYear() !== y) return;
+    const sig = `${r.store}|${r.date}|${Math.round((r.total || 0) * 100)}|${(r.items || []).length}`;
+    if (seen.has(sig)) return; seen.add(sig);                       // stejná deduplikace jako Analýza účtenek
+    (r.items || []).forEach(it => {
+      if (!it || !it.name) return;
+      const utrata = (typeof lineAmt === 'function') ? lineAmt(it) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
+      if (!(utrata > 0)) return;
+      const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok);
+      if (!dnaJeJidlo(it, !!n)) return;
+      jidloUtrata += utrata; jidloPolozek++;
+      if (znamka) { ns[znamka] += utrata; nsUtrata += utrata; }
+      const g = n ? dnaMnozstvi(it) : null;
+      if (!n || !g) { const k = it.name; chybi[k] = (chybi[k] || 0) + utrata; return; }
+      pokrytaUtrata += utrata; pokrytoPolozek++; gramu += g;
+      DNA_ZIVINY.forEach(([k]) => { const v = parseFloat(n[k]); if (isFinite(v) && v >= 0) sum[k] += v * g / 100; });
+      ['cukry', 'sul'].forEach(k => {
+        const v = parseFloat(n[k]); if (!(v > 0)) return;
+        const nazev = it.eanNazev || it.name;
+        prispevek[k][nazev] = (prispevek[k][nazev] || 0) + v * g / 100;
+      });
+    });
+  });
+  const top = k => Object.entries(prispevek[k]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nazev, g]) => ({ nazev, g }));
+  const na100 = {}; DNA_ZIVINY.forEach(([k]) => { na100[k] = gramu > 0 ? sum[k] / gramu * 100 : null; });
+  return {
+    sum, na100, gramu, jidloUtrata, pokrytaUtrata, jidloPolozek, pokrytoPolozek,
+    pokryti: jidloUtrata > 0 ? Math.round(pokrytaUtrata / jidloUtrata * 100) : 0,
+    nutri: nsUtrata > 0 ? Object.fromEntries(Object.entries(ns).map(([k, v]) => [k, Math.round(v / nsUtrata * 100)])) : null,
+    topCukry: top('cukry'), topSul: top('sul'),
+    chybi: Object.entries(chybi).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nazev]) => nazev),
+  };
+}
+
+function dnaZivinyHTML(d, m, y) {
+  const mes = (typeof CZ_M !== 'undefined' ? CZ_M[m] : String(m + 1)) + ' ' + y;
+  const fmtG = v => v >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('cs-CZ') + ' kg' : Math.round(v).toLocaleString('cs-CZ') + ' g';
+  //  V tabulce jen čísla, jednotka je u názvu živiny (na telefonu se 4 sloupce s jednotkami nevešly)
+  const fmtV = (v, j) => j === 'kcal' ? Math.round(v).toLocaleString('cs-CZ') : (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('cs-CZ');
+  const hlava = `<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">🥗 Živiny v nákupu</span>
+    <span style="font-size:.68rem;color:#a8aec8">${escHtml(mes)}</span></div><div class="card-body">`;
+  //  Prázdný stav vysvětlí, co chybí a jak to doplnit (SKILL 22)
+  if (!d.jidloPolozek) return hlava + `<div style="font-size:.8rem;color:#c9cede;line-height:1.6">V ${escHtml(mes.toLowerCase())} zatím nemáš žádnou účtenku s jídlem nebo pitím.</div></div></div>`;
+  const chybiTxt = d.chybi.length ? ` Chybí třeba u: <b style="color:#e8eaf2">${d.chybi.map(escHtml).join(', ')}</b>.` : '';
+  const jak = `<div style="font-size:.74rem;color:#a8aec8;line-height:1.55;margin-top:6px">Živiny se berou z karty výrobku. Doplníš je klepnutím na 📷 u položky v editoru účtenky (čárový kód), nebo v 🗺️ Mapě položek → výrobek → Živiny (fotka tabulky nebo ručně).</div>`;
+  if (d.pokryti < 20 || d.gramu <= 0) {
+    return hlava + `<div style="font-size:.8rem;color:#c9cede;line-height:1.6">Živiny zatím známe jen u <b>${d.pokryti} %</b> útraty za jídlo (${d.pokrytoPolozek} z ${d.jidloPolozek} položek) – na souhrn za měsíc je to málo, vycházel by zkreslený.${chybiTxt}</div>${jak}</div></div>`;
+  }
+  const dni = (() => { const t = new Date(); return (t.getMonth() === m && t.getFullYear() === y) ? t.getDate() : new Date(y, m + 1, 0).getDate(); })();
+  const tecka = k => {
+    const u = (typeof eanSemaforUroven === 'function' && d.na100[k] != null) ? eanSemaforUroven(k, d.na100[k]) : null;
+    const c = { nizka: '#34d399', stredni: '#fbbf24', vysoka: '#f87171' }[u];
+    return c ? `<span title="${{ nizka: 'nízký', stredni: 'střední', vysoka: 'vysoký' }[u]} obsah na 100 g (FSA)" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c};margin-left:6px"></span>` : '';
+  };
+  const radky = DNA_ZIVINY.map(([k, nazev, j]) => `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 4px;color:#e8eaf2${k === 'nasycene' ? ';padding-left:12px;color:#c9cede' : ''}">${nazev} <span style="color:#a8aec8;font-size:.68rem">${j}</span></td>
+      <td style="padding:6px 4px;text-align:right;font-weight:700;color:#e8eaf2;white-space:nowrap">${fmtV(d.sum[k], j)}</td>
+      <td style="padding:6px 4px;text-align:right;color:#c9cede;white-space:nowrap">${fmtV(d.sum[k] / dni, j)}</td>
+      <td style="padding:6px 4px;text-align:right;color:#c9cede;white-space:nowrap">${d.na100[k] == null ? '–' : fmtV(d.na100[k], j)}<span style="display:inline-block;width:15px;text-align:right">${tecka(k)}</span></td></tr>`).join('');
+  const nutri = !d.nutri ? '' : `<div style="margin-top:12px">
+      <div style="font-size:.74rem;color:#c9cede;margin-bottom:5px">Nutri-Score nákupu (podle útraty)</div>
+      <div style="display:flex;height:16px;border-radius:8px;overflow:hidden">${['a', 'b', 'c', 'd', 'e'].filter(k => d.nutri[k] > 0).map(k => `<div title="${k.toUpperCase()}: ${d.nutri[k]} %" style="width:${d.nutri[k]}%;background:${DNA_NUTRI[k]}"></div>`).join('')}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.72rem;margin-top:5px">${['a', 'b', 'c', 'd', 'e'].map(k => `<span style="display:flex;align-items:center;gap:4px;color:#c9cede"><span style="width:10px;height:10px;border-radius:2px;background:${DNA_NUTRI[k]}"></span>${k.toUpperCase()} ${d.nutri[k]} %</span>`).join('')}</div></div>`;
+  const topBlok = (t, nadpis) => !t.length ? '' : `<div style="flex:1 1 200px;min-width:0">
+      <div style="font-size:.74rem;color:#c9cede;margin-bottom:3px">${nadpis}</div>
+      ${t.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:.76rem;padding:2px 0"><span style="color:#e8eaf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(x.nazev)}</span><span style="color:#c9cede;white-space:nowrap">${fmtG(x.g)}</span></div>`).join('')}</div>`;
+  return hlava + `
+    <div style="font-size:.76rem;color:#c9cede;line-height:1.55;margin-bottom:8px">Co domácnost za měsíc <b>nakoupila</b> (ne snědla) – ${fmtG(d.gramu)} potravin a nápojů, u kterých známe živiny i množství.
+      Pokrytí <b style="color:${d.pokryti >= 60 ? 'var(--income)' : '#fbbf24'}">${d.pokryti} %</b> útraty za jídlo (${d.pokrytoPolozek} z ${d.jidloPolozek} položek).${d.pokryti < 100 ? chybiTxt : ''}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.76rem">
+      <thead><tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Živina</th><th style="padding:5px 4px;text-align:right">Měsíc</th><th style="padding:5px 4px;text-align:right">Den</th><th style="padding:5px 4px;text-align:right">Na 100 g</th></tr></thead>
+      <tbody>${radky}</tbody></table></div>
+    ${nutri}
+    ${(d.topCukry.length || d.topSul.length) ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">${topBlok(d.topCukry, 'Nejvíc cukru přinesly')}${topBlok(d.topSul, 'Nejvíc soli přinesly')}</div>` : ''}
+    <div style="font-size:.7rem;color:#a8aec8;line-height:1.55;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+      Na den = za ${dni} ${dni === 1 ? 'den' : dni < 5 ? 'dny' : 'dní'} měsíce, za celou domácnost. Tečka u hodnoty na 100 g je britský semafor FSA (nízký / střední / vysoký obsah) – jen orientace, ne hodnocení.
+      Položky bez živin nebo bez gramáže se nepočítají (nejsou nula).</div>
+    ${d.pokryti < 60 ? jak : ''}
+  </div></div>`;
+}
+
+//  Kreslí se do #dnaZiviny až po vykreslení záložky; karty výrobků dotáhne na pozadí.
+async function dnaZivinyKresli() {
+  const el = document.getElementById('dnaZiviny'); if (!el) return;
+  const m = S.curMonth, y = S.curYear;
+  const produkt = e => (typeof eanProduktZCache === 'function') ? eanProduktZCache(e) : null;
+  const kartaLok = it => (it.ean || typeof mapaKartaLok !== 'function' || typeof normName !== 'function') ? null : mapaKartaLok({ klic: normName(it.name || '') });
+  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok), m, y); };
+  kresli();
+  try {
+    const eany = [];
+    (S.receipts || []).forEach(r => { const d = new Date(String(r && r.date || '').slice(0, 10) + 'T12:00:00');
+      if (!isNaN(d) && d.getMonth() === m && d.getFullYear() === y) (r.items || []).forEach(it => { if (it && it.ean) eany.push(it.ean); }); });
+    if (eany.length && typeof eanNactiVse === 'function' && await eanNactiVse(eany)) kresli();
+  } catch (e) {}
+}
+Object.assign(window, { dnaZivinyData, dnaZivinyHTML, dnaZivinyKresli });
+
 function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   if(receipts.length < 3) {
     return '<div id="utab-learn-content" style="display:none"><div class="card"><div class="card-body">'
@@ -3617,6 +3764,10 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
       + '<span>'+cat+' '+pct+'%</span></div>';
   });
   html += '</div></div></div>';
+
+  //  S26 (v11.67): 🥗 Živiny v nákupu – pod Nákupní DNA, kreslí se po vykreslení záložky
+  html += '<div id="dnaZiviny"></div>';
+  setTimeout(() => { if (typeof dnaZivinyKresli === 'function') dnaZivinyKresli(); }, 0);
 
   // ── S12.1d: MĚSÍČNÍ PŘEHLED OBCHODŮ – tabulka (aktuální měsíc) ──
   const CZ_M2 = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
@@ -4742,14 +4893,13 @@ function rpRender() {
           <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>`; })()}
           ${(() => { if (rpVazene(it)) return '';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl
             const g = gramazPolozky(it);
-            const barva = !g ? 'var(--text2)' : g.zdroj === 'rucne' ? 'var(--text)' : g.zdroj === 'zkratka' ? '#a8aec8' : 'var(--income)';
             const tit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
                               : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
-            //  Hodnota je vidět vždy; barva říká, odkud je (zelená = obal, šedá = zkratka, bílá = zapsal jsi).
-            //  Ukládá se jen změna (událost change), takže pouhé zobrazení nic nepřepíše.
+            //  Hodnota je vidět vždy, bez barev (Milan: „nechci to komplikovat“) – odkud je, řekne jen
+            //  nápověda. Ukládá se jen změna (událost change), takže pouhé zobrazení nic nepřepíše.
             return `<input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}"
               placeholder="g / ml" title="${escHtml(tit)}" aria-label="Balení"
-              style="width:76px;background:var(--surface2);border:1px solid ${g && g.zdroj !== 'zkratka' ? 'var(--income)55' : 'var(--border)'};border-radius:7px;padding:6px 4px;color:${barva};font-size:.72rem;text-align:center${g && g.zdroj !== 'rucne' ? ';font-style:italic' : ''}"
+              style="width:76px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.72rem;text-align:center"
               autocomplete="off" inputmode="text">`; })()}
           <input id="rp_tag_${i}" type="text"
             value="${it.tag||''}"

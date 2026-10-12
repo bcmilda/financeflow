@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · admin.js · 2026-10-12
+// FinanceFlow · v11.67 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.67',
+    datum: '2026-10-12',
+    zmeny: [
+      "🥗 ŽIVINY V NÁKUPU (Milan, Nákupní DNA) · cesta: Analýza účtenek → 🧠 Učení → pod 🧬 Nákupní DNA. Za měsíc zvolený nahoře: energie, tuky, nasycené, cukry, sůl, bílkoviny a vláknina, které domácnost nakoupila – za měsíc, na den a průměr na 100 g s tečkou britského semaforu FSA. Nutri-Score nákupu podle útraty a které položky přinesly nejvíc cukru a soli.",
+      "📏 Počítá se z karty výrobku (čárový kód: Open Food Facts, fotka tabulky nebo ruční zápis; bez kódu tvoje osobní karta) a z koupeného množství: gramáž × kusy, vážené zboží podle váhy, multipack celý. Položka bez živin nebo bez gramáže není nula – jen sníží pokrytí, které je vidět nahoře i s tím, u čeho data chybí. Pod 20 % pokrytí se čísla neukazují (byla by zkreslená), jen co doplnit.",
+      "✏️ Pole Balení v editoru účtenky bez barev (Milan: „nechci to komplikovat“) – odkud gramáž je, řekne jen nápověda.",
+      "🧪 tools/smoke_dna_ziviny.js (18)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.66',
     datum: '2026-10-12',
