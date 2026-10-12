@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · ean-sken.js · 2026-10-12
+// FinanceFlow · v11.68 · ean-sken.js · 2026-10-12
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -1260,6 +1260,19 @@ Object.assign(window, { eanSkenujVolne, eanVolneObnov, eanVyberPolozku, eanPrira
 //  velkých datech, přenos mezipaměti mezi účty po odhlášení a dotazy offline.
 // ══════════════════════════════════════════════════════════════════════
 let _eanKomunita = {};          // klic → {ean: počet} | null (nic) – mezipaměť relace
+//  S26 (v11.68): ZÁMKY OD ADMINA – community/eanZamky/{klic} = {ean, obchod, raw, nazev, kdy}.
+//  Admin je dává tam, kde si je spojením „obchod + zkratka → kód“ jistý. Mají přednost
+//  před komunitou (počty potvrzení se nepočítají) a nikdo jiný je nepřepíše (pravidla DB).
+let _eanZamky = null, _eanZamkyKdy = 0;
+async function eanNactiZamky(vynutit) {
+  if (_eanZamky && !vynutit && Date.now() - _eanZamkyKdy < 1800000) return _eanZamky;
+  try {
+    const t = await window._currentUser?.getIdToken?.(); if (!t) return _eanZamky || {};
+    const r = await fetch(`${EAN_DB}/community/eanZamky.json?auth=${t}`);
+    if (r.ok) { _eanZamky = (await r.json()) || {}; _eanZamkyKdy = Date.now(); }
+  } catch (e) {}
+  return _eanZamky || {};
+}
 let _eanAutoBezi = false, _eanAutoKdy = 0, _eanCacheUid = null;
 const _eanKlicCache = new Map();   // "obchod\u0001zkratka" → klíč (položky se hodně opakují)
 const EAN_PRAZDNE_LS = 'ffEanKomPrazdne', EAN_PRAZDNE_TTL = 7 * 86400000;
@@ -1286,11 +1299,17 @@ function _eanOdmitnutoMa(odmitnute, klic, ean) {
   return typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, ean);
 }
 
-//  Čistá funkce (testuje tools/smoke_ean_auto.js).
-function eanKodProKlic(klic, moje, komunita, odmitnute) {
+//  Čistá funkce (testuje tools/smoke_ean_auto.js). Pořadí: tvoje spojení → zámek od admina → komunita.
+function eanKodProKlic(klic, moje, komunita, odmitnute, zamky) {
   if (!klic) return null;
+  if (zamky === undefined) zamky = _eanZamky;
   const m = moje && moje[klic];
   if (m && m.ean && eanKontrola(m.ean) && !_eanOdmitnutoMa(odmitnute, klic, String(m.ean))) return { ean: String(m.ean), zdroj: 'moje' };
+  const z = zamky && zamky[klic];
+  if (z && z.ean && eanKontrola(String(z.ean))) {
+    if (!_eanOdmitnutoMa(odmitnute, klic, String(z.ean))) return { ean: String(z.ean), zdroj: 'zamek' };
+    return null;   // zamčený kód sis odebral → komunita ho nenahradí jiným
+  }
   const k = komunita && komunita[klic];
   if (!k || typeof k !== 'object') return null;
   const kandidati = Object.keys(k).filter(e => eanKontrola(e) && (+k[e] || 0) >= 1)
@@ -1390,6 +1409,7 @@ function eanAutoEditor(r) {
   (async () => {
     try {
       await eanNactiAliasy();
+      await eanNactiZamky();
       await eanNactiKomunitu(r.items.filter(it => it && it.name && !it.ean).map(it => _eanKlic(r.store, it.name)));
       if (window._editReceipt !== r || _eanHlidejUid() !== uid) return;   // editor zavřen / jiný účet
       const n = eanDoplnSeznam(r.items, r.store, _eanAliasy, _eanKomunita, _eanOdmitnute(), _eanNazevZCache);
@@ -1409,6 +1429,7 @@ async function eanAutoDoplnVse(vynutit) {
   try {
     const klice = _eanKliceBezKodu(S);                     // průchod 1 (klíče v mezipaměti)
     await eanNactiAliasy(true);
+    await eanNactiZamky();
     await eanNactiKomunitu([...klice]);
     //  Názvy výrobků (pro eanNazev a Inflaci) – podle klíčů, ne po položkách.
     const kody = new Set();
@@ -1461,4 +1482,4 @@ function eanZrusOdmitnuti(klic, ean) {
   const n = Object.assign({}, o); if (Object.keys(zaKlic).length) n[klic] = zaKlic; else delete n[klic];
   S.uiCfg.eanOdmitnute = n;
 }
-Object.assign(window, { eanGramazZKarty, eanKodProKlic, eanDoplnSeznam, eanNactiKomunitu, eanAutoEditor, eanAutoDoplnVse, eanZapamatujOdmitnuti, eanZrusOdmitnuti });
+Object.assign(window, { eanNactiZamky, eanGramazZKarty, eanKodProKlic, eanDoplnSeznam, eanNactiKomunitu, eanAutoEditor, eanAutoDoplnVse, eanZapamatujOdmitnuti, eanZrusOdmitnuti });

@@ -35,6 +35,14 @@ t('starší tvar odmítnutí (text) se čte taky',ctx.eanKodProKlic(kM,{}, {[kM]
 t('neplatný kód z komunity se ignoruje',ctx.eanKodProKlic(kM,{}, {[kM]:{'123':5}},{})===null);
 t('nula potvrzení = nic',ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:0}},{})===null);
 
+console.log('── S26 v11.68 · zámek od admina ──');
+const zam={[kM]:{ean:EAN_JINY,kdy:1}};
+t('zámek má přednost před komunitou (i proti víc potvrzením)',ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:9}},{},zam).ean===EAN_JINY&&ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:9}},{},zam).zdroj==='zamek');
+t('tvoje vlastní spojení má přednost před zámkem',ctx.eanKodProKlic(kM,{[kM]:{ean:EAN_MLEKO}},{},{},zam).ean===EAN_MLEKO);
+t('zamčený kód, který sis odebral, nedostaneš – a komunita ho nenahradí jiným',ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:9}},{[kM]:{[EAN_JINY]:1}},zam)===null);
+t('zámek s neplatným kódem se ignoruje',ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:2}},{},{[kM]:{ean:'123'}}).ean===EAN_MLEKO);
+t('bez zámků se chová jako dřív',ctx.eanKodProKlic(kM,{}, {[kM]:{[EAN_MLEKO]:2}},{},{}).ean===EAN_MLEKO);
+
 console.log('── doplnění položek ──');
 {
   const it=[{name:'MLEKO POLOT. 1,5% 1L'},{name:'JOGURT BILY',ean:EAN_JINY},{name:'ROHLIK'}];
