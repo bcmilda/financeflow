@@ -1,4 +1,4 @@
-// FinanceFlow · v11.64 · receipts.js · 2026-10-11
+// FinanceFlow · v11.65 · receipts.js · 2026-10-11
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -163,6 +163,11 @@ function renderUctenky() {
     // → flag i osiřelý stav vyčisti, ať render i příští otevření fungují.
     window._receiptEditorOpen = false;
     window._editReceipt = null;
+    //  S26 (v11.65, FIX-451, Milan: „zůstala mi tam včerejší účtenka, která je navíc už uložená“):
+    //  vyčistit i výsledek editoru z Historie. Zůstával viset a při dalším překreslení se ukázal
+    //  v záložce Skenovat – se snímkem účtenky z doby otevření. Uložení by pak účtenku přepsalo
+    //  starým stavem (zmizely by kódy a úpravy přidané mezitím).
+    if (_lastReceiptResult && _lastReceiptResult.historyIndex !== undefined) _lastReceiptResult = null;
   }
   //  S25 (v11.48, Milan: „čárové kódy se nepřiřadily, štítek jsem přepisoval dvakrát“):
   //  ROZPRACOVANÁ NOVÁ ÚČTENKA. Chráněný byl jen editor z Historie. Každé save() (od v11.40
@@ -453,7 +458,10 @@ function renderUctenky() {
 
   // Obnov stav fronty a preview po překreslení
   updateReceiptQueue();
-  if(_lastReceiptResult) {
+  //  S26 (FIX-451): do Skenovat se obnovuje jen ROZPRACOVANÁ NOVÁ účtenka, nikdy editor z Historie
+  if(_lastReceiptResult && _lastReceiptResult.historyIndex !== undefined
+     && !document.querySelector('[id^="rcpt_hist_"] #receiptEditForm, [id^="rcpt_edit_"] #receiptEditForm')) _lastReceiptResult = null;
+  if(_lastReceiptResult && _lastReceiptResult.historyIndex === undefined) {
     const preview = document.getElementById('receiptPreview');
     if(preview) {
       preview.style.display = 'block';
@@ -3715,7 +3723,7 @@ function editReceiptFromHistory(index) {
     document.querySelectorAll('[id^="rcpt_hist_"]').forEach(s => {
       if(s.id !== 'rcpt_hist_'+index) { s.style.display='none'; s.innerHTML=''; }
     });
-    if(isOpen) { slot.style.display = 'none'; slot.innerHTML = ''; window._receiptEditorOpen = false; return; }
+    if(isOpen) { slot.style.display = 'none'; slot.innerHTML = ''; window._receiptEditorOpen = false; _lastReceiptResult = null; window._editReceipt = null; return; }   // S26 (FIX-451)
     _lastReceiptResult = {receipt: JSON.parse(JSON.stringify(r)), n: 1, historyIndex: index};
     slot.innerHTML = buildReceiptPreviewHTML(_lastReceiptResult.receipt, 1);
     if(window._editReceipt) window._editReceipt._historyIdx = index;
@@ -4267,7 +4275,8 @@ function buildReceiptPreviewHTML(receipt, n) {
       <button class="btn btn-accent" style="flex:1" onclick="rpSave()">💾 Uložit změny</button>
       <button class="btn btn-ghost btn-sm" style="min-width:36px;color:#ef4444;border:1.5px solid #ef4444;border-radius:8px" onclick="(function(){
         // FIX: použij _historyIdx z _editReceipt jako zálohu pokud _lastReceiptResult byl vymazán (navigace)
-  const histIdx = window._lastReceiptResult?.historyIndex ?? window._editReceipt?._historyIdx;
+  const histIdx = _lastReceiptResult?.historyIndex ?? window._editReceipt?._historyIdx;   // S26 (FIX-451): let, ne window.*
+        _lastReceiptResult=null; window._editReceipt=null; window._receiptEditorOpen=false;   // S26 (FIX-451): zavřeno = nic nevisí
         if(histIdx !== undefined && histIdx !== null) {
           const slot = document.getElementById('rcpt_hist_'+histIdx);
           if(slot && slot.style.display !== 'none') { slot.style.display='none'; slot.innerHTML=''; return; }
@@ -4278,7 +4287,6 @@ function buildReceiptPreviewHTML(receipt, n) {
         const stat = document.getElementById('receiptStatus');
         if(prev) prev.style.display='none';
         if(stat) stat.style.display='none';
-        window._lastReceiptResult=null;
       })()">✕</button>
     </div>
     <div style="font-size:.7rem;color:var(--text2);text-align:center;margin-top:8px">✕ pro zavření bez uložení</div>

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.64 · admin.js · 2026-10-11
+// FinanceFlow · v11.65 · admin.js · 2026-10-11
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.65',
+    datum: '2026-10-11',
+    zmeny: [
+      "🐛 FIX-451 · VČEREJŠÍ ÚČTENKA VE SKENOVAT (Milan: „zůstala mi tam včerejší účtenka, která je navíc už uložená; nefunguje tlačítko Uložit“) · cesta: Analýza účtenek → 📸 Skenovat. Příčina: když se účtenka otevřela k úpravě v Historii a pak se odešlo jinam (nebo se zavřela ✕), editor si ji dál pamatoval. Při dalším překreslení (synchronizace) se ukázala v Skenovat se stavem z doby otevření a Uložit by ji přepsal starými údaji (zmizely by kódy a úpravy přidané mezitím). Teď se úprava z Historie po zavření nebo odchodu zapomene a do Skenovat se obnovuje jen rozpracovaná NOVÁ účtenka.",
+      "🐛 Tlačítko ✕ v editoru účtenky mazalo jinou proměnnou, než ve které appka účtenku drží – zavření tak nic nezapomnělo.",
+      "Nasazení: jen GitHub. Obsahuje i v11.62–v11.64.",
+    ]
+  },
   {
     verze: 'v11.64',
     datum: '2026-10-11',
