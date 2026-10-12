@@ -1,4 +1,4 @@
-// FinanceFlow · v11.62 · admin.js · 2026-10-10
+// FinanceFlow · v11.63 · admin.js · 2026-10-11
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.63',
+    datum: '2026-10-11',
+    zmeny: [
+      "↔️ OSA ŽIVOTA – POSUVNÍK U DLOUHÉ HISTORIE (Milan: „nemusí být nabacaná na jedné malé stránce“) · cesta: Deník → 🗺️ Osa života → Rozsah Vše. Historie se dál neořezává (ADR-106), ale do okna se vejde jen tolik, aby šla číst: na počítači zhruba 2 roky, na telefonu zhruba rok. Starší období zobrazíš posuvníkem „◀ starší · novější ▶“ pod grafem nebo tažením grafu. Graf se otevírá na nejnovějších měsících.",
+      "📏 Osa Y (Kč/měs) stojí na místě, posouvá se jen graf. Pod grafem jsou i u dlouhé historie měsíce, ne jen roky. Název dlouhé etapy se opakuje, aby byl vidět i po posunu. Po klepnutí na značku graf neodskočí zpátky na konec.",
+      "✍️ Deník → 🗺️ Životní mapa → + Poznámka: nad návrhy je „Rychlý výběr – nebo napiš vlastní text do pole níž“ (Milan: nebylo jasné, že jde napsat vlastní).",
+      "🧪 tools/smoke_osa.js +7 (30)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62.",
+    ]
+  },
   {
     verze: 'v11.62',
     datum: '2026-10-10',
