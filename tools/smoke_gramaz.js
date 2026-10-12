@@ -74,7 +74,7 @@ t('prázdné = zpět na zkratku',!e1.baleniZdroj&&e1.baleni.m===1000,e1);
 ctx.rpBaleniZmen(2,'hodně');
 t('nesmysl se neuloží a ukáže se nápověda',!ctx._editReceipt.items[2].baleni&&toasty.length===1);
 const src=R('receipts.js','../js/receipts.js');
-t('editor má pole Balení (ne u váženého zboží)',/id="rp_bal_\$\{i\}"/.test(src)&&/if \(rpVazene\(it\)\) return '';/.test(src));
+t('editor má pole Balení (ne u váženého zboží – tam jen prázdné místo stejné šířky)',/id="rp_bal_\$\{i\}"/.test(src)&&/if \(rpVazene\(it\)\) return '<span style="width:76px;flex-shrink:0"/.test(src));
 t('odkud gramáž je, se ukládá i do položek transakce',(src.match(/baleniZdroj: it\.baleniZdroj/g)||[]).length===2);
 const inf=R('inflace.js','../js/inflace.js'), stp=R('statistika-polozek.js','../js/statistika-polozek.js');
 t('Inflace i Statistika položek čtou gramáž ze stejného místa',/gramazNaKgL\(it\)/.test(inf)&&/gramazPolozky\(it\)/.test(stp));

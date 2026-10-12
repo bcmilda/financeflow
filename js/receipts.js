@@ -1,4 +1,4 @@
-// FinanceFlow · v11.67 · receipts.js · 2026-10-12
+// FinanceFlow · v11.69 · receipts.js · 2026-10-12
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4868,30 +4868,30 @@ function rpRender() {
             title="${rpIsGenericName(it.name)?'Obecný název (oddělení, ne výrobek) – do sledování cen se nepočítá. Přepiš na konkrétní výrobek s gramáží.':''}"
             style="flex:1;background:var(--surface2);border:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'solid var(--border)'};border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem;min-width:130px"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <div style="position:relative;flex-shrink:0;display:flex;gap:3px">
+          <div style="position:relative;flex-shrink:0;display:flex;gap:3px;align-items:center">
             <select id="rp_cat_${i}"
-              style="background:var(--surface2);border:1px solid ${it.itemCatId?color:'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.68rem;max-width:100px">
+              style="background:var(--surface2);border:1px solid ${it.itemCatId?color:'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.68rem;width:100px">
               ${catOptionsAll.replace(`value="${it.itemCatId||''}"`,`value="${it.itemCatId||''}" selected`)}
             </select>
             <select id="rp_subcat_${i}"
-              style="background:var(--surface2);border:1.5px solid ${it.itemCatId?color+'66':'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.7rem;max-width:90px;font-weight:500${!it.itemCatId?';opacity:.4':''}">
+              style="background:var(--surface2);border:1.5px solid ${it.itemCatId?color+'66':'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.7rem;width:90px;font-weight:500${!it.itemCatId?';opacity:.4':''}">
               ${rpItemSubcatOptions(it.itemCatId||'').replace(`value="${it.itemSubcat||''}"`,`value="${it.itemSubcat||''}" selected`)}
             </select>
-            ${fromMem}
+            <span style="width:14px;flex-shrink:0;text-align:center">${fromMem}</span>
           </div>
           ${(() => { const vaz = rpVazene(it);   // S25: vážené zboží – v poli ČÁSTKA Z ÚČTENKY, ne cena za kg
             return `<input id="rp_qty_${i}" type="number"
             value="${it.qty||1}" min="${vaz ? '0.001' : '1'}" step="${vaz ? 'any' : '1'}"
-            style="width:${vaz ? 54 : 42}px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.78rem;text-align:center"
+            style="width:54px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.78rem;text-align:center"
             inputmode="decimal">
-          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0">${vaz ? escHtml(rpVazJed(it)) : 'ks'}</span>
+          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:20px">${vaz ? escHtml(rpVazJed(it)) : 'ks'}</span>
           <input id="rp_price_${i}" type="number"
             value="${vaz ? (Math.round(lineAmt(it) * 100) / 100) : (it.price||0)}" min="0" step="0.01"
             title="${vaz ? 'Částka za položku, jak je na účtence' : 'Cena za kus'}"
-            style="width:68px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--text);font-size:.82rem;text-align:right;-moz-appearance:textfield"
+            style="width:68px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--text);font-size:.82rem;text-align:right;-moz-appearance:textfield"
             inputmode="decimal">
-          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>`; })()}
-          ${(() => { if (rpVazene(it)) return '';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl
+          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:46px;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>`; })()}
+          ${(() => { if (rpVazene(it)) return '<span style="width:76px;flex-shrink:0" aria-hidden="true"></span>';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl; v11.69: prázdné místo stejné šířky, ať řádek „neodskočí“
             const g = gramazPolozky(it);
             const tit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
                               : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
@@ -4899,19 +4899,19 @@ function rpRender() {
             //  nápověda. Ukládá se jen změna (událost change), takže pouhé zobrazení nic nepřepíše.
             return `<input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}"
               placeholder="g / ml" title="${escHtml(tit)}" aria-label="Balení"
-              style="width:76px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.72rem;text-align:center"
+              style="width:76px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.72rem;text-align:center"
               autocomplete="off" inputmode="text">`; })()}
           <input id="rp_tag_${i}" type="text"
             value="${it.tag||''}"
             placeholder="🏷️ tag"
-            style="width:72px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--income);font-size:.72rem;font-style:italic"
+            style="width:72px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--income);font-size:.72rem;font-style:italic"
             list="rp_tag_suggestions"
             title="Vlastní tag (např. Kafe, Jogurt, Svačina...)"
             onfocus="this.placeholder=''"
             onblur="if(!this.value)this.placeholder='🏷️ tag'">
           ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
           <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
-            style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 6px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
+            style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 0;width:32px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
         </div>`;
     });

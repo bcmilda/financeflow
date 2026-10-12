@@ -1,4 +1,4 @@
-// FinanceFlow · v11.63 · projects.js · 2026-10-11
+// FinanceFlow · v11.69 · projects.js · 2026-10-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1111,7 +1111,8 @@ function renderReport() {
   const el = document.getElementById('reportContent'); if(!el) return;
   //  Free uživatel (např. po skončení triálu) nesmí zůstat na zamčeném období.
   if (_reportPeriod === 'advisor' ? !_reportMaPoradce() : (_reportPeriod !== '1M' && _reportPeriod !== '7D' && !_reportMaPremium())) _reportPeriod = '1M';
-  const _dia = '<span style="font-size:.6rem;margin-left:3px" title="Premium">💎</span>';
+  //  S26 (v11.69, Milan: „mám diamanty, ale mám Premium"): 💎 jen u záložek, které uživatel NEMÁ.
+  const _dia = '<span style="font-size:.6rem;margin-left:3px" title="Premium">💎</span>', _maPrem = _reportMaPremium();
 
   // Záložky period + stepper pro libovolný počet měsíců (1–12) + Poradce
   const quick = ['1M','3M','6M','12M'];
@@ -1125,12 +1126,12 @@ function renderReport() {
       style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod===p?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod===p?'var(--surface)':'transparent'};
         color:${_reportPeriod===p?'var(--text)':'var(--text2)'};
-        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}${p!=='1M'?_dia:''}</button>`).join('')}
+        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}${p!=='1M'&&!_maPrem?_dia:''}</button>`).join('')}
     <button onclick="reportSetPeriod('advisor')"
       style="flex-shrink:0;padding:8px 10px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod==='advisor'?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod==='advisor'?'var(--bank)':'transparent'};
         color:${_reportPeriod==='advisor'?'#fff':'var(--bank)'};
-        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce${_dia}</button>
+        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce${_reportMaPoradce()?'':_dia}</button>
   </div>
   ${_reportPeriod==='advisor' ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:.74rem;color:#a8aec8">
     <span>Vlastní počet měsíců:</span>

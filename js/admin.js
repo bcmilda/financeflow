@@ -1,4 +1,4 @@
-// FinanceFlow · v11.68 · admin.js · 2026-10-12
+// FinanceFlow · v11.69 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,21 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.69',
+    datum: '2026-10-12',
+    zmeny: [
+      "🎨 MĚSÍČNÍ REPORT – NOVÝ VZHLED (Milan) · cesta: Report → 📄 Měsíční report (i PDF a e-mail). Světlý podklad stránky, obsah v bílých kartách; šedé písmo tmavší a větší (dřív bledé #8A94A6 při 7 pt), popisky v grafech větší. Místo modré značky logo FinanceFlow (ikona appky + „Finance“ a zelené „Flow“). Modrá barva zmizela i z postřehů a doporučení: spočítané appkou zeleně, napsané AI fialově (✨).",
+      "📊 KARTY S GRAFEM NA 1. STRANĚ · Příjmy, Výdaje, Bilance a Míra úspor: místo čárového grafu (vypadal jako schod) 6 sloupců za posledních 6 měsíců s popisky měsíců, tento měsíc barevně; vpravo nahoře změna proti minulému měsíci (▲/▼ %), dole průměr 3 měsíců a loňský měsíc. Bilance kreslí i mínus pod nulovou čarou. Premium navíc: karta Finanční skóre s kroužkem a změnou v bodech, karta Dluhy se splaceným podílem a měsíčními splátkami. Free má stejné 4 karty.",
+      "📅 KALENDÁŘ ÚTRATY · místo pruhu 31 políček opravdový kalendář po týdnech (Po–Ne), čím tmavší oranžová, tím víc; nad ním nejdražší den, počet dní bez útraty a denní průměr. Free na 2. straně, Premium na 1. straně vedle „Z čeho je skóre“. Zůstatek den po dni zůstal na straně 2 (Graf 2.3), z 1. strany zmizel (byl dvakrát).",
+      "💎 FIX · Měsíční report: u záložek 3 / 6 / 12 měs. a 📋 Poradce svítily diamanty i Premium uživateli. Diamant je teď jen u záložky, kterou uživatel nemá.",
+      "📥 FIX · Šablona pro import (Import dat → 📋 Šablona → Stáhnout): výdaj v ukázce je záporně (−1250.50), příjem kladně – o typu rozhoduje znaménko a kladný výdaj se dřív naimportoval jako PŘÍJEM. Už vyplněné staré šablony: sloupec Typ (výdaj/příjem) má teď přednost před znaménkem. Bere se i typografické minus „−“ z Wordu/Excelu (dřív se zahodilo). Kategorie beze změny – každý si píše svoje. Bankovní formáty beze změny.",
+      "🧾 FIX · Editor účtenky: řádek s váženým zbožím (kg) „odskočil“ – neměl pole Balení, jednotka a „Kč s cenou za kg“ měly jinou šířku a ikonka 🧠 posunula kategorii. Všechny sloupce mají pevnou šířku, u váženého zboží je místo Balení prázdné místo stejné šířky. Ověřeno v telefonu: všechny sloupce na stejné pozici.",
+      "📱 FIX · Lišta „🔄 Nová verze FinanceFlow je připravena“ na telefonu přetékala přes okraj (tlačítko Aktualizovat bylo uříznuté). Text se teď zalomí.",
+      "🧪 tools/smoke_import_sablona.js (8, na staré verzi 5 chyb), smoke_report_mesicni.js +10 (24), smoke_gramaz.js upraven.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.68',
     datum: '2026-10-12',

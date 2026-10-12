@@ -1,4 +1,4 @@
-// FinanceFlow · v11.28 · import.js · 2026-10-04
+// FinanceFlow · v11.69 · import.js · 2026-10-12
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -293,7 +293,7 @@ function mapImportRows(rows, bank) {
     csob: {date:'datum zaúčtování', amount:'částka v měně účtu', name:'popis', note:''},
     kb: {date:'datum provedeni', amount:'castka', name:'nazev protiuctu', note:'popis pro me'},
     rb: {date:'datum', amount:'částka', name:'název protistrany', note:''},
-    template: {date:'datum', amount:'částka', name:'název', note:'poznámka', cat:'kategorie', subcat:'podkategorie', tags:'tagy'},
+    template: {date:'datum', amount:'částka', name:'název', note:'poznámka', cat:'kategorie', subcat:'podkategorie', tags:'tagy', typ:'typ'},
   };
   const colMap = maps[format] || maps.template;
 
@@ -323,9 +323,17 @@ function mapImportRows(rows, bank) {
     if(!date) return null;
 
     // Parsuj částku
-    const amtStr = rawAmt.toString().replace(/\s/g,'').replace(',','.').replace(/[^0-9.\-]/g,'');
-    const amt = parseFloat(amtStr);
+    //  S26: i typografické minus „−“ (Word/Excel) – dřív se zahodilo a výdaj byl příjem.
+    const amtStr = rawAmt.toString().replace(/\s/g,'').replace(/[\u2212\u2013]/g,'-').replace(',','.').replace(/[^0-9.\-]/g,'');
+    let amt = parseFloat(amtStr);
     if(isNaN(amt) || amt === 0) return null;
+    //  S26: v naší šabloně má přednost sloupec Typ (výdaj/příjem) – staré vyplněné šablony
+    //  měly výdaj kladně. U bankovních formátů rozhoduje dál jen znaménko.
+    if(format === 'template' && idx.typ !== undefined) {
+      const typ = String(row[idx.typ]||'').trim().toLowerCase();
+      if(/^v[ýy]daj/.test(typ)) amt = -Math.abs(amt);
+      else if(/^p[řr][íi]jem/.test(typ)) amt = Math.abs(amt);
+    }
 
     // Detekuj kategorii
     const cat = (D.categories||[]).find(c =>
@@ -982,8 +990,10 @@ async function handlePdfFile(file) {
 
 // ── Šablona pro stažení ──
 function downloadImportTemplate() {
+  //  S26 (v11.69, Milan: „uprav + a −, ať sedí"): výdaj = záporná částka, příjem = kladná.
+  //  Dřív byl výdaj v ukázce kladně a import ho bral jako příjem (o typu rozhoduje znaménko).
   const csv = 'Datum;Typ;Částka;Kategorie;Podkategorie;Název;Poznámka;Tagy\n' +
-    '2026-03-21;výdaj;1250.50;Jídlo & Nákupy;Supermarket;Albert;velký nákup;#rodina\n' +
+    '2026-03-21;výdaj;-1250.50;Jídlo & Nákupy;Supermarket;Albert;velký nákup;#rodina\n' +
     '2026-03-22;příjem;45000;Příjem;Mzda;Výplata;;';
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
