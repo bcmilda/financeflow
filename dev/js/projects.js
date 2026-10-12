@@ -1,4 +1,4 @@
-// FinanceFlow · v11.62 · projects.js · 2026-10-10
+// FinanceFlow · v11.69 · projects.js · 2026-10-12
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -1111,7 +1111,8 @@ function renderReport() {
   const el = document.getElementById('reportContent'); if(!el) return;
   //  Free uživatel (např. po skončení triálu) nesmí zůstat na zamčeném období.
   if (_reportPeriod === 'advisor' ? !_reportMaPoradce() : (_reportPeriod !== '1M' && _reportPeriod !== '7D' && !_reportMaPremium())) _reportPeriod = '1M';
-  const _dia = '<span style="font-size:.6rem;margin-left:3px" title="Premium">💎</span>';
+  //  S26 (v11.69, Milan: „mám diamanty, ale mám Premium"): 💎 jen u záložek, které uživatel NEMÁ.
+  const _dia = '<span style="font-size:.6rem;margin-left:3px" title="Premium">💎</span>', _maPrem = _reportMaPremium();
 
   // Záložky period + stepper pro libovolný počet měsíců (1–12) + Poradce
   const quick = ['1M','3M','6M','12M'];
@@ -1125,12 +1126,12 @@ function renderReport() {
       style="flex:1;padding:8px 4px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod===p?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod===p?'var(--surface)':'transparent'};
         color:${_reportPeriod===p?'var(--text)':'var(--text2)'};
-        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}${p!=='1M'?_dia:''}</button>`).join('')}
+        box-shadow:${_reportPeriod===p?'0 1px 4px rgba(0,0,0,.18)':'none'}">${labels[p]}${p!=='1M'&&!_maPrem?_dia:''}</button>`).join('')}
     <button onclick="reportSetPeriod('advisor')"
       style="flex-shrink:0;padding:8px 10px;border:none;border-radius:9px;font-size:.74rem;font-weight:${_reportPeriod==='advisor'?700:500};cursor:pointer;transition:all .15s;white-space:nowrap;
         background:${_reportPeriod==='advisor'?'var(--bank)':'transparent'};
         color:${_reportPeriod==='advisor'?'#fff':'var(--bank)'};
-        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce${_dia}</button>
+        box-shadow:${_reportPeriod==='advisor'?'0 1px 4px rgba(0,0,0,.18)':'none'}">📋 Poradce${_reportMaPoradce()?'':_dia}</button>
   </div>
   ${_reportPeriod==='advisor' ? '' : `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:.74rem;color:#a8aec8">
     <span>Vlastní počet měsíců:</span>
@@ -7878,6 +7879,7 @@ function renderDenik(){
     ${typeof revPatternsHTML==='function'?revPatternsHTML(m,y):''}`;
   //  S26: Osa života se kreslí na šířku kontejneru. Když byl Deník skrytý
   //  (clientWidth = 0), vzala se náhradní šířka – po zobrazení ji jednou dorovnáme.
+  try{ if(typeof _osaObnovPosun==='function') _osaObnovPosun(); }catch(e){}
   try{
     const host=document.getElementById('osaZivotaHost');
     if(host && host.dataset.sirka==='nahradni' && !window._osaDorovnano){
@@ -7999,7 +8001,7 @@ function _osaUloz(zmena){
   if(typeof save==='function') save();
   renderDenik();
 }
-function osaRozsah(r){ if(OSA_ROZSAHY.some(x=>x[0]===r)) _osaUloz({ rozsah:r }); }
+function osaRozsah(r){ if(OSA_ROZSAHY.some(x=>x[0]===r)){ _osaPosun = null; _osaUloz({ rozsah:r }); } }
 function osaFiltr(co){
   if(!['udalosti','etapy','poznamky'].includes(co)) return;
   const c = _osaCfg();
@@ -8008,6 +8010,26 @@ function osaFiltr(co){
 //  Klepnutí na značku v grafu ukáže pod grafem detail (na telefonu nejde najet myší).
 let _osaVybrano = null;
 function osaDetail(id){ _osaVybrano = (_osaVybrano===id) ? null : id; renderDenik(); }
+//  S26 (v11.63): POSUVNÍK. Poloha se pamatuje jako podíl (0 = nejstarší, 1 = nejnovější),
+//  aby po překreslení (klepnutí na značku, sync) graf neodskočil. null = držet se konce.
+let _osaPosun = null;
+function osaPosun(v){
+  const sc = document.getElementById('osaScroll'); if(!sc) return;
+  const max = sc.scrollWidth - sc.clientWidth; if(max <= 0) return;
+  sc.scrollLeft = Math.round(max * (Math.max(0, Math.min(1000, +v||0)) / 1000));
+}
+function osaPosunuto(sc){
+  const max = sc.scrollWidth - sc.clientWidth;
+  _osaPosun = max > 0 ? (sc.scrollLeft >= max - 3 ? null : sc.scrollLeft / max) : null;
+  const r = document.getElementById('osaPosuvnik');
+  if(r) r.value = String(max > 0 ? Math.round(sc.scrollLeft / max * 1000) : 1000);
+}
+function _osaObnovPosun(){
+  const sc = document.getElementById('osaScroll'); if(!sc) return;
+  const max = sc.scrollWidth - sc.clientWidth; if(max <= 0) return;
+  sc.scrollLeft = _osaPosun == null ? max : Math.round(max * _osaPosun);
+  const r = document.getElementById('osaPosuvnik'); if(r) r.value = String(Math.round(sc.scrollLeft / max * 1000));
+}
 
 function _osaZivotaData(D, opt){
   D = D || getData();
@@ -8145,15 +8167,24 @@ function _osaZivotaHTML(){
 
   //  S26: graf přes celou šířku karty. Šířka se měří z kontejneru Deníku;
   //  skrytá stránka má clientWidth 0 → náhradní 900 px a po zobrazení se
-  //  dorovná (renderDenik). Pod 16 px na koš se raději posouvá vodorovně.
+  //  dorovná (renderDenik).
+  //  S26 (v11.63, Milan): „nemusí být nabacaná na jedné malé stránce". Historie
+  //  se dál neořezává (ADR-106), ale do okna se vejde jen tolik košů, aby šly
+  //  číst: po měsících 12–24 (cca 22 px na měsíc), po čtvrtletích 8–16, po
+  //  letech 6–12. Zbytek se posouvá do strany posuvníkem; výchozí pohled je
+  //  vpravo, na nejnovějších měsících. Osa Y stojí na místě, posouvá se jen graf.
   const host = (typeof document!=='undefined') ? document.getElementById('denikContent') : null;
   const cw = host ? host.clientWidth : 0;
   const sirkaZdroj = cw > 0 ? 'mereno' : 'nahradni';
   const avail = Math.max(280, (cw > 0 ? cw : 900) - 40);   // minus vnitřní okraj karty
   const padL = 54, padR = 18, padT = 84, padB = 30;
-  const PX = Math.max(12, (avail - padL - padR) / W.length);
+  const plotAvail = avail - padL - padR;
+  const [vidMin, vidMax] = P.step==='month' ? [12,24] : P.step==='quarter' ? [8,16] : [6,12];
+  const vidim = Math.max(vidMin, Math.min(vidMax, Math.floor(plotAvail/22)));
+  const PX = Math.max(plotAvail / W.length, plotAvail / vidim);
   const plotW = W.length * PX;
   const width = Math.round(padL + plotW + padR), plotH = 250, height = padT + plotH + padB;
+  const posuv = (plotW + padR) > (avail - padL) + 1;     // graf je širší než okno → posuvník
   const xc = i => padL + i*PX + PX/2;                 // střed koše (křivky)
   const xp = pos => padL + pos*PX;                    // přesná poloha data
 
@@ -8168,10 +8199,17 @@ function _osaZivotaHTML(){
   const eraBands = ers.map((e,k)=>{
     const x1 = padL + e.from*PX, x2 = padL + (e.to+1)*PX;
     const yy = 46 + (k%2)*15;
+    //  Dlouhý pruh: název se opakuje zhruba po šířce okna, aby byl vidět i po posunu grafu.
+    const krokPopisku = Math.max(200, Math.round((avail - padL) * 0.8));
+    const popisky = [];
+    for(let xx=x1+6; xx < x2-60 || popisky.length===0; xx+=krokPopisku){
+      popisky.push(`<text x="${xx.toFixed(1)}" y="${yy+9.5}" font-size="10" fill="#f3ead2" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>`);
+      if(popisky.length>60) break;
+    }
     return `<g style="cursor:pointer" onclick="osaDetail('${escJs(e.id)}')">
       <title>${esc(e.label)}</title>
       <rect x="${x1.toFixed(1)}" y="${yy}" width="${Math.max(PX,x2-x1).toFixed(1)}" height="12" rx="6" fill="${eraCols[k%eraCols.length]}" opacity=".6"/>
-      <text x="${(x1+6).toFixed(1)}" y="${yy+9.5}" font-size="10" fill="#f3ead2" font-family="Georgia,serif">${esc(e.icon||'')} ${esc(e.label)}</text>
+      ${popisky.join('')}
     </g>`;
   }).join('');
 
@@ -8204,7 +8242,9 @@ function _osaZivotaHTML(){
   //  Krátké okno (do 2 let po měsících): popisek u každého měsíce, který se vejde.
   //  Dlouhé: jen roky, a u velmi dlouhé historie ne u každého dílku.
   let xTicks = '';
-  if(P.step==='month' && W.length <= 24){
+  //  S26 (v11.63): rozhoduje šířka měsíce, ne počet – s posuvníkem je měsíc
+  //  široký i u dlouhé historie a jen roky by nestačily.
+  if(P.step==='month' && PX >= 18){
     const kazdy = PX >= 34 ? 1 : PX >= 20 ? 2 : 3;
     let posledniX = -1e9;                              // popisky se nesmí překrývat
     xTicks = W.map((p,i)=>{
@@ -8226,8 +8266,11 @@ function _osaZivotaHTML(){
       </g>` : '').join('');
   }
 
-  const axisY = [maxV, (maxV+minV)/2, minV].map(v=>`
-    <text x="${padL-6}" y="${(yOf(v)+3.5).toFixed(1)}" font-size="10" fill="#c9b48a" text-anchor="end" font-family="Georgia,serif">${Math.round(czkToBase(v)/1000)}k</text>
+  //  Popisky osy Y jsou ve vlastním (pevném) SVG vlevo, mřížka v posuvném grafu.
+  const yHodnoty = [maxV, (maxV+minV)/2, minV];
+  const axisY = yHodnoty.map(v=>`
+    <text x="${padL-6}" y="${(yOf(v)+3.5).toFixed(1)}" font-size="10" fill="#c9b48a" text-anchor="end" font-family="Georgia,serif">${Math.round(czkToBase(v)/1000)}k</text>`).join('');
+  const gridY = yHodnoty.map(v=>`
     <line x1="${padL}" y1="${yOf(v).toFixed(1)}" x2="${(padL+plotW).toFixed(1)}" y2="${yOf(v).toFixed(1)}" stroke="rgba(138,106,62,.25)" stroke-width="1"/>`).join('');
   const jednotka = `<text x="${padL-6}" y="${padT-10}" font-size="9" fill="#c9b48a" text-anchor="end" font-family="Georgia,serif">${esc(typeof baseCur==='function'?baseCur():'Kč')}/měs</text>`;
 
@@ -8282,16 +8325,27 @@ function _osaZivotaHTML(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <span style="font-size:.72rem;color:#d9c49a;margin-right:2px">Zobrazit</span>${filtrBtns}
         </div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px">
-          <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block;max-width:none">
-            <line x1="${padL}" y1="34" x2="${(padL+plotW).toFixed(1)}" y2="34" stroke="#8fb0d8" stroke-width="2" opacity=".8"/>
-            ${jednotka}${axisY}${xTicks}${eraBands}
-            ${line(p=>p.incA,'#3f9a58')}
-            ${line(p=>p.expA,'#c0453f')}
-            ${line(p=>p.cum,'#9b7bc4','5 3')}
-            ${noteMarks}${evMarks}
+        <style>#osaScroll::-webkit-scrollbar{height:9px}#osaScroll::-webkit-scrollbar-track{background:rgba(138,106,62,.18);border-radius:5px}#osaScroll::-webkit-scrollbar-thumb{background:#8a6a3e;border-radius:5px}</style>
+        <div style="display:flex;align-items:flex-start">
+          <svg id="osaOsaY" width="${padL}" height="${height}" viewBox="0 0 ${padL} ${height}" style="display:block;flex:0 0 ${padL}px">
+            ${jednotka}${axisY}
           </svg>
+          <div id="osaScroll" onscroll="osaPosunuto(this)" style="flex:1 1 auto;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-color:#8a6a3e rgba(138,106,62,.18)">
+            <svg id="osaPlot" width="${Math.round(plotW+padR)}" height="${height}" viewBox="${padL} 0 ${Math.round(plotW+padR)} ${height}" style="display:block;max-width:none">
+              <line x1="${padL}" y1="34" x2="${(padL+plotW).toFixed(1)}" y2="34" stroke="#8fb0d8" stroke-width="2" opacity=".8"/>
+              ${gridY}${xTicks}${eraBands}
+              ${line(p=>p.incA,'#3f9a58')}
+              ${line(p=>p.expA,'#c0453f')}
+              ${line(p=>p.cum,'#9b7bc4','5 3')}
+              ${noteMarks}${evMarks}
+            </svg>
+          </div>
         </div>
+        ${posuv ? `<div style="display:flex;align-items:center;gap:8px;margin:4px 0 0 ${padL}px;font-size:.72rem;color:#d9c49a;font-family:Georgia,serif">
+          <span style="white-space:nowrap">◀ starší</span>
+          <input id="osaPosuvnik" type="range" min="0" max="1000" value="1000" oninput="osaPosun(this.value)" aria-label="Posunout Osu života v čase" style="flex:1;min-width:0;accent-color:#b08d52">
+          <span style="white-space:nowrap">novější ▶</span>
+        </div>` : ''}
         ${detail}
         <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.74rem;margin-top:8px;font-family:Georgia,serif">
           ${leg('#3f9a58','Příjmy')}${leg('#c0453f','Výdaje')}${leg('#9b7bc4','Kumulovaný tok',1)}
@@ -8304,6 +8358,7 @@ function _osaZivotaHTML(){
           byla dokreslená. Tohle je to, co se z transakcí spočítat dá.
           ${d.rozsah!=='vse' && !kratsi ? `<br>Zobrazeno posledních <b>${d.monthsShown} měsíců</b> do ${OSA_MES_2P[S.curMonth]} ${S.curYear}. Kumulovaný tok i tak počítá od začátku záznamů. Celou historii ukáže <b>Vše</b>.` : ''}
           ${kratsi ? `<br>Záznamy máš jen za ${d.monthsTotal} měsíců, takže se zobrazuje celá historie.` : ''}
+          ${posuv ? `<br>Graf je delší než okno: starší období zobrazíš posuvníkem pod grafem nebo tažením do strany.` : ''}
           ${P.step!=='month' ? `<br><b>Zobrazeno po ${P.step==='year'?'letech':'čtvrtletích'}</b>, protože máš ${Math.round(P.monthsTotal/12*10)/10} roku záznamů —
              po měsících by se osa nedala přečíst. Příjmy a výdaje jsou <b>průměry na měsíc</b>, aby byl rok srovnatelný
              s měsícem; kumulovaný tok je skutečný součet. Historie se neořezává.` : ''}
@@ -8326,6 +8381,7 @@ function _zivotniMapaHTML(m,y){
       <div class="denik-h" style="margin-bottom:8px;color:#f3ead2">${f.id?(f.kind==='era'?'Upravit etapu':isNoteF?'Upravit poznámku':'Upravit událost'):(f.kind==='era'?'Nová etapa':isNoteF?'Nová poznámka':'Nová událost')}</div>
       ${isNoteF ? `
       <div style="font-size:.74rem;color:#d9c49a;line-height:1.5;margin-bottom:8px">Poznámka se na Ose života ukáže jako tenká svislá čára ve vybrané barvě – třeba začátek topné sezóny nebo dovolená.</div>
+      <div style="font-size:.72rem;color:#d9c49a;margin-bottom:5px">Rychlý výběr <span style="opacity:.8">– nebo napiš vlastní text do pole níž</span></div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px">
         ${MS_NOTES.map(lb=>`<button onclick="msPick('','${lb.replace(/'/g,"\\'")}')" style="padding:4px 9px;border-radius:7px;cursor:pointer;font-family:Georgia,serif;font-size:.7rem;border:1px solid #8a6a3e;background:${f.label===lb?'linear-gradient(180deg,#7a5a30,#5e4423)':'transparent'};color:${f.label===lb?'#f3ead2':'#c9b48a'}">${lb}</button>`).join('')}
       </div>

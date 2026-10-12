@@ -100,7 +100,7 @@ check('HTML se vykreslí bez NaN a má vodorovný posuv',()=>{
   assert(h.indexOf('NaN')<0,'NaN v SVG');
   assert(h.indexOf('undefined')<0,'undefined v SVG');
   assert(/overflow-x:auto/.test(h),'chybí posuv – na mobilu se osa nevejde');
-  assert(/<svg width="\d+" height="\d+"/.test(h),'SVG nemá pixelovou šířku (roztáhlo by se)');
+  assert(/<svg id="osaPlot" width="\d+" height="\d+"/.test(h),'SVG nemá pixelovou šířku (roztáhlo by se)');
 });
 check('nebezpečné znaky v názvu události se escapují',()=>{
   S.milestones=[{id:'m5',label:'<img src=x onerror=alert(1)>',date:'2026-03-01'}];
@@ -181,8 +181,49 @@ check('HTML: poznámka = plná čára v její barvě, filtr ji schová',()=>{
   S.uiCfg={};
 });
 check('graf je vyšší než dřív (Milan: „je malý")',()=>{
-  const h=html(); const m=/<svg width="(\d+)" height="(\d+)"/.exec(h);
-  assert(+m[2]>=330,'výška '+m[2]); assert(+m[1]>=800,'šířka '+m[1]+' (náhradní šířka bez DOM)');
+  const h=html(); const m=/<svg id="osaPlot" width="(\d+)" height="(\d+)"/.exec(h);
+  assert(+m[2]>=330,'výška '+m[2]); assert(+m[1]>=740,'šířka '+m[1]+' (náhradní šířka bez DOM)');
 });
+console.log('── S26 v11.63 · posuvník u dlouhé historie ──');
+const plotW=h=>+/<svg id="osaPlot" width="(\d+)"/.exec(h)[1];
+check('do 2 let se graf vejde do okna – žádný posuvník',()=>{
+  S.uiCfg={};S.milestones=[];DATA={transactions:mk(20)};S.transactions=DATA.transactions;
+  const h=html(); assert(h.indexOf('osaPosuvnik')<0,'posuvník u 20 měsíců');
+  assert(plotW(h)<=860-54,'graf širší než okno: '+plotW(h));
+});
+check('40 měsíců ve Vše: nic se neořeže, graf je širší než okno a má posuvník',()=>{
+  DATA={transactions:mk(40)};S.transactions=DATA.transactions;
+  const d=data(DATA); assert(d.win.length===40,'košů '+d.win.length+' – historie se ořezala');
+  const h=html(); assert(h.indexOf('id="osaPosuvnik"')>=0,'chybí posuvník');
+  assert(plotW(h)>860,'graf se smáčkl do okna: '+plotW(h));
+  assert(/value="1000"/.test(h),'posuvník nezačíná u nejnovějších');
+  assert(h.indexOf('posuvníkem pod grafem')>=0,'chybí vysvětlení');
+});
+check('osa Y je mimo posuvnou část (popisky „k" nejsou v grafu)',()=>{
+  const h=html(); const osaY=/<svg id="osaOsaY"[\s\S]*?<\/svg>/.exec(h)[0], plot=/<svg id="osaPlot"[\s\S]*?<\/svg>/.exec(h)[0];
+  assert(/\d+k<\/text>/.test(osaY),'popisky Y chybí v pevné ose');
+  assert(!/\d+k<\/text>/.test(plot),'popisky Y se posouvají s grafem');
+});
+check('dlouhá historie po čtvrtletích (8 let) má taky posuvník a hustotu nejvýš 16 čtvrtletí na okno',()=>{
+  DATA={transactions:mk(96)};S.transactions=DATA.transactions;
+  const d=data(DATA); assert(d.step==='quarter','krok '+d.step);
+  const h=html(); assert(h.indexOf('id="osaPosuvnik"')>=0,'chybí posuvník');
+  const px=plotW(h)/d.win.length; assert(px>=(860-54-18)/16-0.5,'čtvrtletí jen '+px.toFixed(1)+' px');
+});
+check('s posuvníkem jsou pod grafem i měsíce, ne jen roky',()=>{
+  DATA={transactions:mk(40)};S.transactions=DATA.transactions;S.uiCfg={};
+  const plot=/<svg id="osaPlot"[\s\S]*?<\/svg>/.exec(html())[0];
+  assert(/>(Led|Úno|Bře|Dub|Kvě|Čvn|Čvc|Srp|Zář|Říj|Lis|Pro)</.test(plot),'pod grafem nejsou měsíce');
+});
+check('název dlouhé etapy se opakuje, aby byl vidět i po posunu',()=>{
+  S.milestones=[{id:'r9',label:'Vlastní bydlení',kind:'era',date:'2023-05-01'}];
+  const n=(html().match(/Vlastní bydlení<\/text>/g)||[]).length;
+  assert(n>=2,'název jen '+n+'×'); S.milestones=[];
+});
+check('rozsah Rok u dlouhé historie posuvník nepotřebuje',()=>{
+  S.uiCfg={osa:{rozsah:'1r'}};
+  assert(html().indexOf('osaPosuvnik')<0,'posuvník u roku'); S.uiCfg={};
+});
+
 console.log(fails?`\n❌ SELHALO ${fails}`:'\n✅ OSA ŽIVOTA OVĚŘENA');
 process.exit(fails?1:0);

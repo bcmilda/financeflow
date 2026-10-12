@@ -16,7 +16,8 @@ const stari=vm.runInContext('nakupPriceAge',sb);
 let fails=0;
 const check=(n,f)=>{try{f();console.log('  ✅',n)}catch(e){fails++;console.log('  ❌',n,'→',e.message)}};
 const assert=(c,m)=>{if(!c)throw new Error(m)};
-const pred=d=>{const x=new Date();x.setDate(x.getDate()-d);return x.toISOString().slice(0,10)};
+//  S26: místní datum, ne toISOString – po půlnoci v letním čase by vyšel včerejšek (SKILL 75)
+const pred=d=>{const x=new Date();x.setDate(x.getDate()-d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
 
 console.log('── TODO-229 · platnost slevy ──');
 check('cena z dneška = čerstvá',()=>{

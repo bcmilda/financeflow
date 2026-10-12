@@ -1,4 +1,4 @@
-// FinanceFlow · v11.46 · inflace.js · 2026-10-08
+// FinanceFlow · v11.66 · inflace.js · 2026-10-12
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -119,7 +119,8 @@ function _inflCollect() {
       // (it.unit = kg/l, např. volné banány). U balených položek slouží Kč/kg pouze jako
       // DOPLŇKOVÝ údaj pro odhalení shrinkflace (balení se zmenší, cena zůstane).
       const weighed = (it.unit === 'kg' || it.unit === 'l');
-      const ui = _inflExtractUnit(it.name || '');
+      //  S26 (v11.66): gramáž z pole Balení / karty výrobku / zkratky (gramazNaKgL), ne jen z názvu
+      const ui = (typeof gramazNaKgL === 'function') ? gramazNaKgL(it) : _inflExtractUnit(it.name || '');
       const unit = weighed ? it.unit : 'ks';
       const unitPrice = price;                       // u váženého = Kč/kg, u baleného = Kč/balení
       if (!(unitPrice > 0)) return;
@@ -132,7 +133,9 @@ function _inflCollect() {
       const _t = _tax(it);
       obs.push({
         // klíč obsahuje jednotku – tatáž položka může být jednou vážená a jindy balená
-        key: key + '|' + unit, name: (it.name || '').trim(), store, date, ts, unit,
+        //  S26 (v11.64): klíč zůstává zkratka z účtenky (FIX-268). Název výrobku z kódu
+        //  se ukáže jen u řádku, kde mají VŠECHNY nákupy stejný kód (viz _inflCompute).
+        key: key + '|' + unit, name: (it.name || '').trim(), ean: it.ean || '', nazevVyrobku: (it.eanNazev || '').trim(), store, date, ts, unit,
         unitPrice: Math.round(unitPrice * 100) / 100,
         perKg, perKgUnit,
         spend, discounted: !!(it.discount && it.discount > 0),
@@ -175,7 +178,9 @@ function _inflCompute(obs, nowTs) {
     const pctYoY = (medNew != null && medOld != null && medOld > 0) ? (medNew - medOld) / medOld * 100 : null;
     rows.push({
       single: list.length < 2,
-      key: k, name: list[list.length - 1].name || k, unit: list[0].unit,
+      key: k, name: (() => { const e = new Set(list.map(o => o.ean || ''));
+        const nv = list.map(o => o.nazevVyrobku).filter(Boolean).pop();
+        return (e.size === 1 && list[0].ean && nv) ? nv : (list[list.length - 1].name || k); })(), unit: list[0].unit,
       firstP, lastP, pctFL, medOld, medNew, pctYoY, spend, n: list.length,
       // S17.18: doplňková cena za kg/l – když balení zdraží jinak než cena za kilo, jde o shrinkflaci
       perKgFirst: (list.find(o=>o.perKg!=null)||{}).perKg ?? null,
@@ -343,6 +348,9 @@ function _inflOficialniCard(allObs) {
 
 // ══ RENDER ══
 function renderInflace() {
+  //  S26 (v11.64): nejdřív doplnit kódy známým výrobkům (spojení obchod + zkratka),
+  //  ať se zobrazí název výrobku místo zkratky. Běží jednou za 10 minut na pozadí.
+  if (typeof eanAutoDoplnVse === 'function') setTimeout(() => eanAutoDoplnVse(), 300);
   const el = document.getElementById('inflaceContent'); if (!el) return;
   const all = _inflCollect();
   if (!all.obs.length) {
@@ -504,7 +512,7 @@ function renderInflace() {
         </tr></thead>
         <tbody>${sorted.map(r => `<tr>
           <td style="text-align:left;max-width:210px">
-            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e8eaf2">${r.name}${r.single?' <span style="font-size:.62rem;background:rgba(148,163,184,.2);color:#c9cede;padding:1px 5px;border-radius:4px">jen 1 cena</span>':''}${r.anyDisc ? ' <span style="font-size:.62rem;background:rgba(251,191,36,.18);color:var(--debt);padding:1px 5px;border-radius:4px">slevněno</span>' : ''}</div>
+            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e8eaf2">${String(r.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}${r.single?' <span style="font-size:.62rem;background:rgba(148,163,184,.2);color:#c9cede;padding:1px 5px;border-radius:4px">jen 1 cena</span>':''}${r.anyDisc ? ' <span style="font-size:.62rem;background:rgba(251,191,36,.18);color:var(--debt);padding:1px 5px;border-radius:4px">slevněno</span>' : ''}</div>
             <div style="font-size:.65rem;color:#a8aec8">${r.firstDate} → ${r.lastDate} · ${r.unit==='ks'?'za balení':'za '+r.unit}</div>
           </td>
           <td style="text-align:right;color:#a8aec8">${_iNum(r.firstP)}</td>

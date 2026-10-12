@@ -1,4 +1,4 @@
-// FinanceFlow · v11.53 · helpers.js · 2026-10-09
+// FinanceFlow · v11.66 · helpers.js · 2026-10-12
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -1207,6 +1207,20 @@ function baleniZNazvu(text) {
   const q = normQty(text); if (!q || q.jednotka === 'cm') return null;
   return { m: q.hodnota, j: q.jednotka };   // g / ml / ks / x
 }
+//  S26 (v11.66): gramáž z textu včetně MULTIPACKU. „6x0,5l“ → {m: 3000, j: 'ml', kusy: 6},
+//  „PIVO 4X0,5L“ → 2000 ml. Bez multipacku stejné jako baleniZNazvu. Používá ji
+//  gramazPolozky (receipts.js) i pole Balení v editoru účtenky.
+function gramazZTextu(text) {
+  const s = String(text || '').toLowerCase().replace(/(\d),(\d)/g, '$1.$2');
+  const mp = s.match(/(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(kg|g|mg|l|dl|cl|ml)\b/);
+  if (mp) {
+    const q = normQty(mp[2] + mp[3]), n = parseInt(mp[1], 10);
+    if (q && q.jednotka !== 'cm' && n > 0 && n < 100) return { m: Math.round(q.hodnota * n * 1000) / 1000, j: q.jednotka, kusy: n };
+  }
+  const q = normQty(s); if (!q || q.jednotka === 'cm') return null;
+  return { m: q.hodnota, j: q.jednotka };
+}
+window.gramazZTextu = gramazZTextu;
 //  „42 g“, „1,5 l“, „6 ks“ – pro zobrazení
 function baleniText(b) {
   if (!b || !b.m) return '';
@@ -1216,6 +1230,13 @@ function baleniText(b) {
   if (b.j === 'x') return f(b.m) + '×';
   return f(b.m) + ' ' + b.j;
 }
+//  S26: multipack ukázat i s kusy – „6× 500 ml (3 l)“
+function baleniTextCely(b) {
+  if (!b || !b.m) return '';
+  if (b.kusy > 1 && (b.j === 'g' || b.j === 'ml')) return b.kusy + '× ' + baleniText({ m: b.m / b.kusy, j: b.j }) + ' (' + baleniText(b) + ')';
+  return baleniText(b);
+}
+window.baleniTextCely = baleniTextCely;
 function normName(text) {
   return String(text || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')      // diakritika pryč

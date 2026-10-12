@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v11.39 · 2026-10-07 (S25: novy uzel community/ceny – sdilene ceny po krajich: cte kazdy prihlaseny, zapisuje jen worker.)
+// FinanceFlow · database rules · v11.68 · 2026-10-12 (S26: community/eanKartyLog cte admin; novy uzel community/eanZamky - zamek obchod+zkratka->EAN, zapisuje admin.)
 {
   "rules": {
     "users": {
@@ -270,6 +270,23 @@
       // S24 (v11.24): návrhy českých názvů od uživatelů (anonymně, zapisuje worker, maže admin)
       "eanNavrhyNazvu": { ".read": "auth != null", ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'" },
       "eanPodleNazvu": { ".read": "auth != null", ".write": false },
+      // S26 (v11.68, TODO-334): nove karty od uzivatelu - zapisuje worker, cte jen admin (prehled zajmu)
+      "eanKartyLog":   { ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'", ".write": false },
+      // S26 (v11.68): ZAMEK OD ADMINA "obchod + zkratka -> EAN". Ma prednost pred komunitou,
+      //   nikdo jiny ho neprepise. Cte kazdy prihlaseny, zapisuje jen admin.
+      "eanZamky": {
+        ".read": "auth != null",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$klic": {
+          ".validate": "$klic.matches(/^[a-z0-9_,-]{3,150}$/) && newData.hasChildren(['ean', 'kdy'])",
+          "ean":    { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{8,14}$/)" },
+          "obchod": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "raw":    { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "nazev":  { ".validate": "newData.isString() && newData.val().length <= 100" },
+          "kdy":    { ".validate": "newData.isNumber()" },
+          "$jine":  { ".validate": false }
+        }
+      },
       "itemTagValidation": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"

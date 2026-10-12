@@ -1,4 +1,4 @@
-// FinanceFlow · v11.62 · admin.js · 2026-10-10
+// FinanceFlow · v11.69 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,89 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.69',
+    datum: '2026-10-12',
+    zmeny: [
+      "🎨 MĚSÍČNÍ REPORT – NOVÝ VZHLED (Milan) · cesta: Report → 📄 Měsíční report (i PDF a e-mail). Světlý podklad stránky, obsah v bílých kartách; šedé písmo tmavší a větší (dřív bledé #8A94A6 při 7 pt), popisky v grafech větší. Místo modré značky logo FinanceFlow (ikona appky + „Finance“ a zelené „Flow“). Modrá barva zmizela i z postřehů a doporučení: spočítané appkou zeleně, napsané AI fialově (✨).",
+      "📊 KARTY S GRAFEM NA 1. STRANĚ · Příjmy, Výdaje, Bilance a Míra úspor: místo čárového grafu (vypadal jako schod) 6 sloupců za posledních 6 měsíců s popisky měsíců, tento měsíc barevně; vpravo nahoře změna proti minulému měsíci (▲/▼ %), dole průměr 3 měsíců a loňský měsíc. Bilance kreslí i mínus pod nulovou čarou. Premium navíc: karta Finanční skóre s kroužkem a změnou v bodech, karta Dluhy se splaceným podílem a měsíčními splátkami. Free má stejné 4 karty.",
+      "📅 KALENDÁŘ ÚTRATY · místo pruhu 31 políček opravdový kalendář po týdnech (Po–Ne), čím tmavší oranžová, tím víc; nad ním nejdražší den, počet dní bez útraty a denní průměr. Free na 2. straně, Premium na 1. straně vedle „Z čeho je skóre“. Zůstatek den po dni zůstal na straně 2 (Graf 2.3), z 1. strany zmizel (byl dvakrát).",
+      "💎 FIX · Měsíční report: u záložek 3 / 6 / 12 měs. a 📋 Poradce svítily diamanty i Premium uživateli. Diamant je teď jen u záložky, kterou uživatel nemá.",
+      "📥 FIX · Šablona pro import (Import dat → 📋 Šablona → Stáhnout): výdaj v ukázce je záporně (−1250.50), příjem kladně – o typu rozhoduje znaménko a kladný výdaj se dřív naimportoval jako PŘÍJEM. Už vyplněné staré šablony: sloupec Typ (výdaj/příjem) má teď přednost před znaménkem. Bere se i typografické minus „−“ z Wordu/Excelu (dřív se zahodilo). Kategorie beze změny – každý si píše svoje. Bankovní formáty beze změny.",
+      "🧾 FIX · Editor účtenky: řádek s váženým zbožím (kg) „odskočil“ – neměl pole Balení, jednotka a „Kč s cenou za kg“ měly jinou šířku a ikonka 🧠 posunula kategorii. Všechny sloupce mají pevnou šířku, u váženého zboží je místo Balení prázdné místo stejné šířky. Ověřeno v telefonu: všechny sloupce na stejné pozici.",
+      "📱 FIX · Lišta „🔄 Nová verze FinanceFlow je připravena“ na telefonu přetékala přes okraj (tlačítko Aktualizovat bylo uříznuté). Text se teď zalomí.",
+      "🧪 tools/smoke_import_sablona.js (8, na staré verzi 5 chyb), smoke_report_mesicni.js +10 (24), smoke_gramaz.js upraven.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.68',
+    datum: '2026-10-12',
+    zmeny: [
+      "🆕 NOVÉ KARTY OD UŽIVATELŮ (TODO-334, rozhodnutí Milana) · cesta: Admin → 🗺️ Mapa položek → nad „📷 Čárové kódy od uživatelů“. Karty, které lidé založili sami (databáze výrobek neznala): kolik za 7 a 30 dní, celkem, kolik lidí, a seznam od nejnovější s názvem, značkou, gramáží, kódem a počtem lidí. Nic se neschvaluje – karta platí hned pro všechny, bez štítku ověřeno / neověřeno; přehled ukazuje zájem.",
+      "🔒 ZÁMEK OD ADMINA · cesta: Admin → 🗺️ Mapa položek → 📷 Čárové kódy od uživatelů → u každé zkratky „🔒 Zamknout“. Spojení „obchod + zkratka → kód“, kterým si jsi jistý, pak dostane každý, i když komunita potvrdí jiný kód; nikdo jiný ho nepřepíše. „🔓 Odemknout“ vrátí řízení komunitě. Pořadí pro položku: tvoje vlastní přiřazení → zámek → komunita; kód, který si uživatel sám odebral, nedostane.",
+      "🔐 Pravidla DB v11.68: admin čte community/eanKartyLog, nový uzel community/eanZamky (čte přihlášený, zapisuje jen admin).",
+      "🧪 tools/smoke_admin_karty.js (10), smoke_ean_auto.js +5 (47) – test chytil chybu: zámek s neplatným kódem by zablokoval i komunitu (opraveno před vydáním).",
+      "Nasazení: 1) database.rules.json → Firebase, 2) GitHub. Worker beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.67',
+    datum: '2026-10-12',
+    zmeny: [
+      "🥗 ŽIVINY V NÁKUPU (Milan, Nákupní DNA) · cesta: Analýza účtenek → 🧠 Učení → pod 🧬 Nákupní DNA. Za měsíc zvolený nahoře: energie, tuky, nasycené, cukry, sůl, bílkoviny a vláknina, které domácnost nakoupila – za měsíc, na den a průměr na 100 g s tečkou britského semaforu FSA. Nutri-Score nákupu podle útraty a které položky přinesly nejvíc cukru a soli.",
+      "📏 Počítá se z karty výrobku (čárový kód: Open Food Facts, fotka tabulky nebo ruční zápis; bez kódu tvoje osobní karta) a z koupeného množství: gramáž × kusy, vážené zboží podle váhy, multipack celý. Položka bez živin nebo bez gramáže není nula – jen sníží pokrytí, které je vidět nahoře i s tím, u čeho data chybí. Pod 20 % pokrytí se čísla neukazují (byla by zkreslená), jen co doplnit.",
+      "✏️ Pole Balení v editoru účtenky bez barev (Milan: „nechci to komplikovat“) – odkud gramáž je, řekne jen nápověda.",
+      "🧪 tools/smoke_dna_ziviny.js (18)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.66',
+    datum: '2026-10-12',
+    zmeny: [
+      "⚖️ GRAMÁŽ ZE ZKRATKY I Z OBALU (Milan) · jedno místo, odkud všechny výpočty berou balení: 1) co zapíšeš v editoru, 2) karta výrobku podle čárového kódu (obal), 3) tvoje osobní karta položky bez kódu, 4) zkratka na účtence. Dřív jen zkratka – položka bez gramáže v názvu (např. „Oreo Doub. van.“) z ceny za kg i ze shrinkflace vypadla.",
+      "✏️ POLE BALENÍ · cesta: Analýza účtenek → editor účtenky → řádek položky (za cenou, potáhni do strany). Zelená = z obalu, šedá = ze zkratky, bílá = zapsal jsi. Přepiš, když nesedí (500 g, 1,5 l, 6x0,5 l); vymazáním se vrátí automatika. U váženého zboží se pole neukazuje.",
+      "📦 MULTIPACK · „Voda 6x0,5l“ = 3 l, cena za litr z celého balení.",
+      "📉 Kde se to projeví: Analýza účtenek → 💹 Zdražování (cena za kg/l a shrinkflace podle zkratek i „🧭 Podle výrobků“), Inflace (sloupec Za kg/l), 📐 Statistika položek (Ø za kg/l). Shrinkflace se teď pozná i tam, kde zkratka gramáž nemá – menší balení má podle pravidel GS1 nový čárový kód a jeho karta novou gramáž.",
+      "🔁 Gramáž z karty výrobku se na pozadí uloží i k položkám starších účtenek s čárovým kódem.",
+      "🧪 tools/smoke_gramaz.js (26); smoke_zdrazovani_karta upraven (gramáž přes nové místo); smoke_slevy: datum v testu místně, ne přes UTC (po půlnoci padal).",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62–v11.65.",
+    ]
+  },
+  {
+    verze: 'v11.65',
+    datum: '2026-10-11',
+    zmeny: [
+      "🐛 FIX-451 · VČEREJŠÍ ÚČTENKA VE SKENOVAT (Milan: „zůstala mi tam včerejší účtenka, která je navíc už uložená; nefunguje tlačítko Uložit“) · cesta: Analýza účtenek → 📸 Skenovat. Příčina: když se účtenka otevřela k úpravě v Historii a pak se odešlo jinam (nebo se zavřela ✕), editor si ji dál pamatoval. Při dalším překreslení (synchronizace) se ukázala v Skenovat se stavem z doby otevření a Uložit by ji přepsal starými údaji (zmizely by kódy a úpravy přidané mezitím). Teď se úprava z Historie po zavření nebo odchodu zapomene a do Skenovat se obnovuje jen rozpracovaná NOVÁ účtenka.",
+      "🐛 Tlačítko ✕ v editoru účtenky mazalo jinou proměnnou, než ve které appka účtenku drží – zavření tak nic nezapomnělo.",
+      "Nasazení: jen GitHub. Obsahuje i v11.62–v11.64.",
+    ]
+  },
+  {
+    verze: 'v11.64',
+    datum: '2026-10-11',
+    zmeny: [
+      "✅ ZNÁMÉ VÝROBKY SE PŘIŘADÍ SAMY (Milan: „počítal jsem, že aplikace už funguje autonomně a propojuje si data“) · cesta: Analýza účtenek → nová účtenka → editor položek. Když jsi výrobek jednou přiřadil (čárový kód ↔ zkratka v daném obchodě), při dalším nákupu téhož výrobku ve stejném obchodě má položka rovnou ✅ místo 📷 – nic se znovu neskenuje.",
+      "👥 KOMUNITA AUTOMATICKY (rozhodnutí Milana) · když stejnou zkratku ve stejném obchodě přiřadil někdo jiný, položka dostane jeho kód taky. Jen když jeden kód jasně vede; při shodném počtu potvrzení se nepřiřadí nic. Kód, který jsi u zkratky odebral, se už nevrátí (ani když jsi vedoucí kód odebral, nebere se druhý v pořadí).",
+      "🔁 DOPLNĚNÍ STARŠÍCH NÁKUPŮ · cesta: Analýza účtenek (a Inflace) – na pozadí se doplní kód i účtenkám přidaným po přiřazení. Díky tomu sedí 📦 Moje výrobky (počet nákupů, poslední cena), Ceny v kraji (jeden výrobek = jedna řada) i Zdražování podle výrobků.",
+      "📈 INFLACE · cesta: Inflace → seznam položek: u řádku, kde mají všechny nákupy stejný čárový kód, je název výrobku místo zkratky z účtenky. Výpočet se nemění – položka se dál sleduje podle zkratky v čase.",
+      "🔒 Revize nezávislým agentem (2 kola): odebraný kód se nevrací, spojení se po odhlášení nepřenesou na jiný účet, offline se nic nestahuje, 3 000 účtenek doplní zhruba za 0,2 s.",
+      "🧪 tools/smoke_ean_auto.js (42)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62 a v11.63.",
+    ]
+  },
+  {
+    verze: 'v11.63',
+    datum: '2026-10-11',
+    zmeny: [
+      "↔️ OSA ŽIVOTA – POSUVNÍK U DLOUHÉ HISTORIE (Milan: „nemusí být nabacaná na jedné malé stránce“) · cesta: Deník → 🗺️ Osa života → Rozsah Vše. Historie se dál neořezává (ADR-106), ale do okna se vejde jen tolik, aby šla číst: na počítači zhruba 2 roky, na telefonu zhruba rok. Starší období zobrazíš posuvníkem „◀ starší · novější ▶“ pod grafem nebo tažením grafu. Graf se otevírá na nejnovějších měsících.",
+      "📏 Osa Y (Kč/měs) stojí na místě, posouvá se jen graf. Pod grafem jsou i u dlouhé historie měsíce, ne jen roky. Název dlouhé etapy se opakuje, aby byl vidět i po posunu. Po klepnutí na značku graf neodskočí zpátky na konec.",
+      "✍️ Deník → 🗺️ Životní mapa → + Poznámka: nad návrhy je „Rychlý výběr – nebo napiš vlastní text do pole níž“ (Milan: nebylo jasné, že jde napsat vlastní).",
+      "🧪 tools/smoke_osa.js +7 (30)",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62.",
+    ]
+  },
   {
     verze: 'v11.62',
     datum: '2026-10-10',
@@ -7978,6 +8061,7 @@ async function loadCommunityItemTags() {
       el.innerHTML = '<div class="card-body">' + mapaStatKarta(mapaStatistiky({}, _mapaZaznamy, S.categories))
         + '<div style="color:var(--text2);font-size:.8rem">Zatím žádné položky s tagy – mapa se plní z účtenek uživatelů.</div>'
         + '<datalist id="taxDatalist">' + (typeof taxSeznam === 'function' ? taxSeznam() : []).map(z => `<option value="${_vzEsc(z.nazev)}" label="${_vzEsc(z.podNazev)}"></option>`).join('') + '</datalist>'
+        + '<div id="mapaAdminKarty" style="margin-top:18px"></div>'   // S26 (v11.68, TODO-334)
         + '<div id="mapaAdminEan" style="margin-top:18px"></div></div>';
       if (typeof loadTaxonomie === 'function') await loadTaxonomie();
       mapaAdminEanNacti();   // S24 (v11.23): čárové kódy i bez tagů
@@ -8010,6 +8094,7 @@ async function loadCommunityItemTags() {
         oninput="_mapaAdminFiltr.q=this.value;mapaAdminKresli()" style="font-size:.8rem;margin-bottom:6px">
       <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px">${items.length} položek s tagy · celkem ${items.reduce((a,i)=>a+i.totalCnt,0)} přiřazení</div>
       <div id="mapaAdminSeznam"></div>
+      <div id="mapaAdminKarty" style="margin-top:18px"></div>
       <div id="mapaAdminEan" style="margin-top:18px"></div>
       <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--border);font-size:.74rem;color:var(--text3)">
         Staré tagy od uživatelů (testovací data) můžeš smazat – komunitní mapa a čárové kódy zůstanou.
@@ -8193,8 +8278,9 @@ async function mapaAdminEanNacti() {
   const el = document.getElementById('mapaAdminEan'); if (!el) return;
   try {
     const t = await window._currentUser?.getIdToken?.();
-    const [al, pr, nv] = await Promise.all(['eanAliasy', 'eanProdukty', 'eanNavrhyNazvu'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`).then(r => r.ok ? r.json() : null)));
-    window._mapaEanData = { aliasy: al || {}, produkty: pr || {}, navrhy: nv || {} };
+    const [al, pr, nv, zm] = await Promise.all(['eanAliasy', 'eanProdukty', 'eanNavrhyNazvu', 'eanZamky'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`).then(r => r.ok ? r.json() : null)));
+    window._mapaEanData = { aliasy: al || {}, produkty: pr || {}, navrhy: nv || {}, zamky: zm || {} };
+    if (typeof mapaAdminKartyNacti === 'function') mapaAdminKartyNacti(pr || {});   // S26 (TODO-334)
     const eany = Object.keys(al || {});
     if (!eany.length) { el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů</div><div style="font-size:.76rem;color:var(--text3)">Zatím nikdo nepřiřadil kód k položce účtenky.</div>`; return; }
     el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">📷 Čárové kódy od uživatelů <span style="font-weight:400;font-size:.74rem;color:var(--text3)">${eany.length} výrobků</span></div>
@@ -8216,7 +8302,16 @@ function mapaAdminEanRadek(ean) {
         <div style="font-size:.68rem;color:var(--text3)">${_vzEsc([p.znacka, ean, p.nazevCesky ? '' : (p.nazev && p.nazevCs ? 'obal: ' + p.nazev : '')].filter(Boolean).join(' · '))}</div></div>
       ${info ? `<span style="font-size:.7rem;color:var(--income)">${_vzEsc(info.ikona + ' ' + info.podNazev + ' › ' + info.nazev)}</span>` : '<span style="font-size:.7rem;color:#fbbf24">bez zařazení</span>'}
     </div>
-    <div style="font-size:.68rem;color:var(--text3);margin:4px 0">${Object.values(al).map(a => _vzEsc((a.obchod || '?') + ': ' + (a.raw || '') + (a.pocet > 1 ? ' (' + a.pocet + '×)' : ''))).join(' · ')}</div>
+    <div style="display:flex;flex-direction:column;gap:3px;margin:5px 0">${Object.entries(al).map(([klic, a]) => {
+      //  S26 (v11.68): 🔒 zámek spojení „obchod + zkratka → tento kód“ (má přednost před komunitou)
+      const z = (d.zamky || {})[klic];
+      const tady = z && String(z.ean) === String(ean), jinde = z && !tady;
+      return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.7rem">
+        <span style="color:${tady ? 'var(--income)' : 'var(--text2)'}">${tady ? '🔒 ' : ''}${_vzEsc((a.obchod || '?') + ': ' + (a.raw || ''))}${a.pocet > 1 ? ' <span style="color:var(--text3)">(' + a.pocet + '×)</span>' : ''}</span>
+        ${tady ? `<button class="btn btn-ghost btn-sm" style="font-size:.66rem;padding:1px 7px" onclick="mapaAdminOdemkni('${_onEsc(klic)}')">🔓 Odemknout</button>`
+          : jinde ? `<span style="color:#fbbf24">🔒 zamčeno na jiný kód ${_vzEsc(z.ean)}</span>`
+          : `<button class="btn btn-ghost btn-sm" style="font-size:.66rem;padding:1px 7px" title="Spojení „obchod + zkratka → tento kód“ bude mít přednost před komunitou a nikdo ho nepřepíše" onclick="mapaAdminZamkni('${e}','${_onEsc(klic)}')">🔒 Zamknout</button>`}
+      </div>`; }).join('')}</div>
     ${(() => { const nv = Object.values(((d.navrhy || {})[ean]) || {}).sort((x, y) => (y.pocet || 0) - (x.pocet || 0));
       return nv.length ? `<div style="font-size:.7rem;margin:4px 0">✎ Návrhy názvu od uživatelů: ${nv.map(n => `<button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:1px 6px" onclick="document.getElementById('eanCs_${e}').value=this.dataset.n" data-n="${_vzEsc(n.nazev)}">${_vzEsc(n.nazev)} (${n.pocet}×)</button>`).join(' ')}</div>` : ''; })()}
     ${p.nutriceObal ? `<div style="font-size:.66rem;color:var(--income);margin:2px 0">${p.nutriceObal.zdroj === 'rucne' ? '✍️ živiny zadané ručně' : '📸 živiny podle českého obalu'} (${new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ')})${p.nutriceObal.nesedi ? ' <span style="color:#fbbf24">· energie nesedí s živinami (uživatel potvrdil)</span>' : ''}${p.nutricePredchozi ? ` <span style="color:var(--text3)">· předchozí: ${_vzEsc(Object.entries(p.nutricePredchozi).filter(([k]) => !['kdy', 'zdroj', 'na', 'nesedi'].includes(k)).map(([k, v]) => k + ' ' + v).join(', '))}</span>` : ''}</div>` : ''}
@@ -8269,6 +8364,95 @@ async function mapaAdminEanZnovu(ean) {
   if (typeof showToast === 'function') showToast('🔄 Obnoví se při dalším skenu');
   mapaAdminEanNacti();
 }
+// ══════════════════════════════════════════════════════
+//  S26 (v11.68, Milan): 🔒 ZÁMEK OD ADMINA – spojení „obchod + zkratka → kód“, kterým si je
+//  admin jistý. Appka ho přiřazuje přednostně před komunitou (počty potvrzení se nepočítají),
+//  zapisuje jen admin (pravidla DB v11.68). Uživatel, který si kód sám odebral, ho nedostane.
+// ══════════════════════════════════════════════════════
+async function mapaAdminZamkni(ean, klic) {
+  const d = window._mapaEanData || {}; const a = ((d.aliasy || {})[ean] || {})[klic] || {}; const p = (d.produkty || {})[ean] || {};
+  const nazev = p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || '');
+  if (!confirm(`Zamknout spojení „${a.obchod || '?'}: ${a.raw || ''}“ → ${nazev || ean}?\n\nTahle zkratka v tomhle obchodě pak všem dostane tento kód, i když komunita potvrdí jiný.`)) return;
+  const t = await window._currentUser?.getIdToken?.();
+  const zaz = { ean: String(ean), obchod: String(a.obchod || '').slice(0, 40), raw: String(a.raw || '').slice(0, 80), nazev: String(nazev || '').slice(0, 100), kdy: Date.now() };
+  const r = await fetch(`${MAPA_URL}/community/eanZamky/${encodeURIComponent(klic)}.json?auth=${t}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(zaz) });
+  if (!r.ok) { alert('Zamknutí selhalo: HTTP ' + r.status + (r.status === 401 || r.status === 403 || r.status === 400 ? ' – nasazená pravidla DB v11.68?' : '')); return; }
+  if (typeof showToast === 'function') showToast('🔒 Zamčeno');
+  if (typeof eanNactiZamky === 'function') eanNactiZamky(true);
+  mapaAdminEanNacti();
+}
+async function mapaAdminOdemkni(klic) {
+  if (!confirm('Odemknout? Spojení se pak zase bude řídit potvrzeními komunity.')) return;
+  const t = await window._currentUser?.getIdToken?.();
+  const r = await fetch(`${MAPA_URL}/community/eanZamky/${encodeURIComponent(klic)}.json?auth=${t}`, { method: 'DELETE' });
+  if (!r.ok) { alert('Odemknutí selhalo: HTTP ' + r.status); return; }
+  if (typeof showToast === 'function') showToast('🔓 Odemčeno');
+  if (typeof eanNactiZamky === 'function') eanNactiZamky(true);
+  mapaAdminEanNacti();
+}
+
+// ══════════════════════════════════════════════════════
+//  S26 (v11.68, TODO-334, Milan): 🆕 NOVÉ KARTY OD UŽIVATELŮ
+//  Rozhodnutí Milana: karta je vidět všem hned, bez štítku „ověřeno / neověřeno“
+//  (ověřit výrobek + název + obchod + kód stejně nejde). Admin jen vidí, o co je zájem:
+//  které karty lidé zakládají, kolik lidí a kdy. Zdroj: community/eanKartyLog/{ean}/{uid}
+//  (zapisuje worker při založení karty, čte jen admin).
+// ══════════════════════════════════════════════════════
+let _adminKartyVse = false;
+function adminKartyPrehled(log, produkty, ted) {
+  ted = ted || Date.now();
+  const den = 86400000;
+  const polozky = Object.entries(log || {}).map(([ean, lidi]) => {
+    const z = Object.values(lidi || {}).filter(x => x && typeof x === 'object');
+    if (!z.length) return null;
+    const posl = z.reduce((a, b) => ((b.kdy || 0) > (a.kdy || 0) ? b : a));
+    const p = (produkty || {})[ean] || {};
+    const nazev = p.nazevCesky ? p.nazev : (p.nazevCs || p.nazev || posl.nazev || '');
+    const mn = p.mnozstvi ? (p.mnozstvi.hodnota + ' ' + p.mnozstvi.jednotka) : (posl.mnozstvi && posl.mnozstvi.hodnota ? posl.mnozstvi.hodnota + ' ' + posl.mnozstvi.jednotka : '');
+    return { ean, nazev, znacka: p.znacka || posl.znacka || '', mnozstvi: mn, lidi: z.length,
+      prvni: Math.min(...z.map(x => x.kdy || ted)), posledni: posl.kdy || 0, foto: p.foto || '' };
+  }).filter(Boolean).sort((a, b) => b.posledni - a.posledni);
+  return {
+    celkem: polozky.length,
+    tyden: polozky.filter(x => ted - x.prvni <= 7 * den).length,
+    mesic: polozky.filter(x => ted - x.prvni <= 30 * den).length,
+    lidi: new Set(Object.values(log || {}).flatMap(l => Object.keys(l || {}))).size,
+    polozky,
+  };
+}
+window.adminKartyPrehled = adminKartyPrehled;
+async function mapaAdminKartyNacti(produkty) {
+  const el = document.getElementById('mapaAdminKarty'); if (!el) return;
+  try {
+    const t = await window._currentUser?.getIdToken?.();
+    const r = await fetch(`${MAPA_URL}/community/eanKartyLog.json?auth=${t}`);
+    if (!r.ok) { el.innerHTML = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">🆕 Nové karty od uživatelů</div><div style="font-size:.76rem;color:#fbbf24">Nejde načíst (HTTP ${r.status}) – nasaď pravidla DB v11.68.</div>`; return; }
+    window._adminKartyData = { log: (await r.json()) || {}, produkty: produkty || {} };
+    mapaAdminKartyKresli();
+  } catch (err) { el.innerHTML = `<div style="color:var(--expense);font-size:.78rem">Nové karty: ${_vzEsc(err.message)}</div>`; }
+}
+function mapaAdminKartyKresli() {
+  const el = document.getElementById('mapaAdminKarty'); const d = window._adminKartyData; if (!el || !d) return;
+  const pr = adminKartyPrehled(d.log, d.produkty);
+  const hl = `<div style="font-size:.95rem;font-weight:700;margin-bottom:4px">🆕 Nové karty od uživatelů</div>`;
+  if (!pr.celkem) { el.innerHTML = hl + `<div style="font-size:.76rem;color:var(--text3)">Zatím nikdo nezaložil kartu výrobku, který databáze neznala. Až se to stane, uvidíš tu, o jaké výrobky je zájem.</div>`; return; }
+  const kolik = _adminKartyVse ? pr.polozky : pr.polozky.slice(0, 15);
+  const dat = k => k ? new Date(k).toLocaleDateString('cs-CZ') : '–';
+  el.innerHTML = hl + `
+    <div style="font-size:.72rem;color:var(--text3);margin-bottom:8px">Karty, které lidé založili sami (databáze výrobek neznala). Platí hned pro všechny – nic se neschvaluje, tady jen vidíš zájem.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      ${[['Za 7 dní', pr.tyden], ['Za 30 dní', pr.mesic], ['Celkem', pr.celkem], ['Lidí', pr.lidi]].map(([t, v]) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;min-width:72px"><div style="font-size:.66rem;color:var(--text3)">${t}</div><div style="font-weight:700;font-size:.95rem">${v}</div></div>`).join('')}
+    </div>
+    ${kolik.map(x => `<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+      ${x.foto ? `<img src="${_vzEsc(x.foto)}" alt="" style="width:30px;height:30px;object-fit:contain;background:#fff;border-radius:5px">` : '<span style="width:30px;text-align:center">▮▮</span>'}
+      <div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_vzEsc(x.nazev || 'bez názvu')}</div>
+        <div style="font-size:.66rem;color:var(--text3)">${_vzEsc([x.znacka, x.mnozstvi, x.ean].filter(Boolean).join(' · '))}</div></div>
+      <div style="text-align:right;font-size:.68rem;color:var(--text2);white-space:nowrap">${x.lidi > 1 ? `<b style="color:var(--income)">${x.lidi} lidé</b><br>` : ''}${dat(x.posledni)}</div>
+    </div>`).join('')}
+    ${pr.polozky.length > 15 ? `<button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="_adminKartyVse=!_adminKartyVse;mapaAdminKartyKresli()">${_adminKartyVse ? 'Jen posledních 15' : 'Zobrazit všech ' + pr.polozky.length}</button>` : ''}`;
+}
+Object.assign(window, { mapaAdminZamkni, mapaAdminOdemkni, mapaAdminKartyNacti, mapaAdminKartyKresli });
+
 async function mapaSmazTagy() {
   if (!confirm('Smazat VŠECHNY item tagy od uživatelů (i jejich schválení)? Komunitní mapa položek a čárové kódy zůstanou.')) return;
   const t = await window._currentUser?.getIdToken?.();

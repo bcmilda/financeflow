@@ -1,4 +1,4 @@
-// FinanceFlow · v11.47 · report-mesicni.js · 2026-10-08
+// FinanceFlow · v11.69 · report-mesicni.js · 2026-10-12
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -202,21 +202,46 @@ async function mesReportAIZajisti(rd, generovat, znovu) {
 window.mesReportAIZajisti = mesReportAIZajisti;
 
 // ── SVG helpery ─────────────────────────────────────────────────────
-function _rpSpark(arr, w, h, col) {
-  if (!arr || arr.length < 2) return '';
-  const mn = Math.min(...arr), mx = Math.max(...arr), r = (mx - mn) || 1;
-  const p = arr.map((v, i) => [(i * w / (arr.length - 1)).toFixed(1), (h - 2 - (v - mn) / r * (h - 4)).toFixed(1)]);
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="${col || '#94A3B8'}" stroke-width="1.2" points="${p.map(x => x.join(',')).join(' ')}"/><circle cx="${p.at(-1)[0]}" cy="${p.at(-1)[1]}" r="1.8" fill="#1E293B"/></svg>`;
+//  S26 (v11.69, Milan: „karty s grafem nejsou dobré, šedé písmo je špatně čitelné"):
+//  místo čárového sparklinu MINI SLOUPCE za 6 měsíců s popisky měsíců (HTML, ne SVG –
+//  písmo má pak skutečnou velikost v bodech a nezmenšuje se se šířkou karty).
+//  Tento měsíc barevně, minulost šedě; u bilance sloupce nad i pod nulou.
+function _rpMini(vals, lbls, col, colNeg) {
+  if (!vals || vals.length < 2) return '';
+  const mx = Math.max(0, ...vals), mn = Math.min(0, ...vals), r = (mx - mn) || 1, z = (0 - mn) / r * 100;
+  return `<div class="mini">${vals.map((v, i) => { const last = i === vals.length - 1, h = Math.abs(v) / r * 100, b = v >= 0 ? z : z - h;
+    return `<div class="mc${last ? ' cur' : ''}"><div class="mb">${mn < 0 ? `<i class="z" style="bottom:${z.toFixed(1)}%"></i>` : ''}<i style="bottom:${b.toFixed(1)}%;height:${Math.max(v ? 2 : 0, h).toFixed(1)}%;background:${last ? (v < 0 && colNeg ? colNeg : col) : (v < 0 && colNeg ? '#F1C9B8' : '#CBD5E1')}"></i></div><span>${_rpE(lbls[i] || '')}</span></div>`; }).join('')}</div>`;
 }
+function _rpKruh(tot, max, d) {
+  const p = max ? Math.max(0, Math.min(1, tot / max)) : 0, r = 15.5, o = 2 * Math.PI * r;
+  const col = p >= .66 ? '#16A34A' : p >= .4 ? '#B7791F' : '#C8501E';
+  return `<svg width="${d}mm" height="${d}mm" viewBox="0 0 40 40" style="flex-shrink:0"><circle cx="20" cy="20" r="${r}" fill="none" stroke="#E7ECF2" stroke-width="5"/>`
+    + `<circle cx="20" cy="20" r="${r}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(o * p).toFixed(2)} ${o.toFixed(2)}" transform="rotate(-90 20 20)"/>`
+    + '</svg>';
+}
+//  Kalendář útraty: týdny pod sebou (Po–Ne), čím tmavší, tím víc. kompakt = menší buňky (Premium str. 1).
+function _rpKal(rd, kompakt) {
+  const mx = Math.max(1, ...rd.dV), prvni = (new Date(rd.y, rd.m, 1).getDay() + 6) % 7;
+  const bunky = Array(prvni).fill('<div class="e"></div>').concat(rd.dV.map((v, i) => { const a = v ? Math.min(1, v / mx) : 0;
+    return `<div style="background:${v ? `rgba(234,88,12,${(0.1 + a * 0.78).toFixed(2)})` : '#F7F9FC'};color:${a > .5 ? '#fff' : '#1F2937'}"><b>${i + 1}</b><span>${v ? (v >= 1000 ? (v / 1000).toFixed(1).replace('.', ',') + 'k' : Math.round(v)) : ''}</span></div>`; }));
+  return `<div class="kal${kompakt ? ' k' : ''}">${['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'].map(d => `<div class="h">${d}</div>`).join('')}${bunky.join('')}</div>`;
+}
+function _rpKalSouhrn(rd) {
+  const v = rd.dV, mx = Math.max(...v), dny = v.filter(x => x > 0).length;
+  return mx > 0 ? `Nejvíc ${v.indexOf(mx) + 1}. den (${_rpKc(mx)}) · bez útraty ${v.length - dny} ${v.length - dny === 1 ? 'den' : v.length - dny >= 2 && v.length - dny <= 4 ? 'dny' : 'dní'} · průměr ${_rpKc(rd.vyd / v.length)} na den` : 'Žádná útrata';
+}
+//  Logo jako ikona appky: tmavý čtverec, zelené F a sloupečky.
+const RP_LOGO = '<svg width="6.4mm" height="6.4mm" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="11" fill="#15171C"/><rect x="10" y="10" width="7" height="28" rx="3.5" fill="#4ADE80"/><rect x="10" y="10" width="22" height="7" rx="3.5" fill="#4ADE80"/><rect x="10" y="21.5" width="16" height="6.5" rx="3.2" fill="#4ADE80"/><rect x="21" y="32" width="4.5" height="6" rx="2" fill="#4ADE80"/><rect x="28" y="27.5" width="4.5" height="10.5" rx="2" fill="#4ADE80"/><rect x="35" y="22" width="4.5" height="16" rx="2" fill="#60A5FA"/></svg>';
+const RP_FONTY = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Syne:wght@800&display=swap';
 function _rpTrend(rok) {
-  const t = rok.slice(-6), W = 470, H = 170, P = [34, 8, 22, 24], mx = Math.max(1, ...t.map(x => Math.max(x.p, x.v))) * 1.08, bw = (W - P[0] - P[1]) / t.length;
+  const t = rok.slice(-6), W = 470, H = 170, P = [46, 8, 22, 24], mx = Math.max(1, ...t.map(x => Math.max(x.p, x.v))) * 1.08, bw = (W - P[0] - P[1]) / t.length;
   const Y = v => P[2] + (1 - v / mx) * (H - P[2] - P[3]);
-  let s = [0, mx / 2.16, mx / 1.08].map(v => `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(v)}" y2="${Y(v)}" stroke="#EEF1F5"/><text x="${P[0] - 4}" y="${Y(v) + 3}" font-size="8" text-anchor="end" fill="#8A94A6">${_rpT(v)}</text>`).join('');
+  let s = [0, mx / 2.16, mx / 1.08].map(v => `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(v)}" y2="${Y(v)}" stroke="#EEF1F5"/><text x="${P[0] - 4}" y="${Y(v) + 3}" font-size="9.8" text-anchor="end" fill="#5F6B7A">${_rpT(v)}</text>`).join('');
   t.forEach((x, i) => { const last = i === t.length - 1, x0 = P[0] + i * bw + bw * .18, w = bw * .3, b = x.p - x.v;
     s += `<rect x="${x0}" y="${Y(x.p)}" width="${w}" height="${Y(0) - Y(x.p)}" fill="${last ? '#1E293B' : '#CBD5E1'}"/>`
       + `<rect x="${x0 + w + 2}" y="${Y(x.v)}" width="${w}" height="${Y(0) - Y(x.v)}" fill="${last ? '#1E293B' : '#CBD5E1'}" opacity=".55"/>`
-      + `<text x="${x0 + w + 1}" y="${H - 10}" font-size="8" text-anchor="middle" fill="${last ? '#0F172A' : '#8A94A6'}" font-weight="${last ? 600 : 400}">${x.l}</text>`
-      + (x.p || x.v ? `<text x="${x0 + w + 1}" y="${Y(Math.max(x.p, x.v)) - 5}" font-size="7.5" text-anchor="middle" fill="${b >= 0 ? '#0F8C6E' : '#C8501E'}">${_rpKcz(b).replace(' Kč', '')}</text>` : ''); });
+      + `<text x="${x0 + w + 1}" y="${H - 10}" font-size="9.8" text-anchor="middle" fill="${last ? '#0F172A' : '#5F6B7A'}" font-weight="${last ? 600 : 400}">${x.l}</text>`
+      + (x.p || x.v ? `<text x="${x0 + w + 1}" y="${Y(Math.max(x.p, x.v)) - 5}" font-size="9.2" text-anchor="middle" fill="${b >= 0 ? '#0F8C6E' : '#C8501E'}">${_rpKcz(b).replace(' Kč', '')}</text>` : ''); });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
 function _rpKum(rd) {
@@ -224,37 +249,37 @@ function _rpKum(rd) {
   const X = i => P[0] + i / (n - 1) * (W - P[0] - P[1]), Y = v => P[2] + (mx - v) / (mx - mn) * (H - P[2] - P[3]);
   const iMin = a.indexOf(Math.min(...a));
   let s = `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(0)}" y2="${Y(0)}" stroke="#94A3B8"/>`;
-  s += `<polyline fill="none" stroke="#1F45C8" stroke-width="1.8" points="${a.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>`;
-  s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) - 5}" font-size="7.5" fill="#B7791F">${iMin + 1}. den ${_rpKcz(a[iMin])}</text>`;
-  s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="8" text-anchor="end" font-weight="600">${_rpKcz(a[n - 1])}</text>`;
-  [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="7.6" text-anchor="middle" fill="#8A94A6">${d}.</text>`);
+  s += `<polyline fill="none" stroke="#0F172A" stroke-width="1.8" points="${a.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>`;
+  s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) - 5}" font-size="9.2" fill="#B7791F">${iMin + 1}. den ${_rpKcz(a[iMin])}</text>`;
+  s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="9.8" text-anchor="end" font-weight="600">${_rpKcz(a[n - 1])}</text>`;
+  [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="9.3" text-anchor="middle" fill="#5F6B7A">${d}.</text>`);
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
 //  S25: zůstatek všech peněženek den po dni (absolutní hodnota, ne kumulovaný pohyb)
 function _rpZust(rd, H = 150) {
-  const W = 330, P = [40, 8, 10, 20], a = rd.zust, n = a.length;
+  const W = 330, P = [54, 8, 10, 20], a = rd.zust, n = a.length;
   let mn = Math.min(...a), mx = Math.max(...a); const pad = (mx - mn) * 0.12 || Math.abs(mx) * 0.05 || 1; mn -= pad; mx += pad;
   const X = i => P[0] + i / Math.max(1, n - 1) * (W - P[0] - P[1]), Y = v => P[2] + (mx - v) / (mx - mn) * (H - P[2] - P[3]);
   const iMin = a.indexOf(Math.min(...a));
   let s = mn < 0 && mx > 0 ? `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(0)}" y2="${Y(0)}" stroke="#C8501E" stroke-dasharray="3 2"/>` : '';
-  [mx - pad, mn + pad].forEach(v => s += `<text x="${P[0] - 4}" y="${Y(v) + 3}" font-size="7" text-anchor="end" fill="#8A94A6">${_rpT(v)}</text>`);
+  [mx - pad, mn + pad].forEach(v => s += `<text x="${P[0] - 4}" y="${Y(v) + 3}" font-size="8.5" text-anchor="end" fill="#5F6B7A">${_rpT(v)}</text>`);
   s += `<polyline fill="none" stroke="#0F8C6E" stroke-width="1.8" points="${a.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join(' ')}"/>`;
-  s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) + 10}" font-size="7.5" fill="#B7791F">${iMin + 1}. den ${_rpKc(a[iMin])}</text>`;
-  s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="8" text-anchor="end" font-weight="600">${_rpKc(a[n - 1])}</text>`;
-  [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="7.6" text-anchor="middle" fill="#8A94A6">${d}.</text>`);
+  s += `<circle cx="${X(iMin)}" cy="${Y(a[iMin])}" r="2.6" fill="#B7791F"/><text x="${X(iMin) + 4}" y="${Y(a[iMin]) + 10}" font-size="9.2" fill="#B7791F">${iMin + 1}. den ${_rpKc(a[iMin])}</text>`;
+  s += `<text x="${X(n - 1)}" y="${Y(a[n - 1]) - 6}" font-size="9.8" text-anchor="end" font-weight="600">${_rpKc(a[n - 1])}</text>`;
+  [1, 10, 20, n].forEach(d => s += `<text x="${X(d - 1)}" y="${H - 6}" font-size="9.3" text-anchor="middle" fill="#5F6B7A">${d}.</text>`);
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
 function _rpWaterfall(rd) {
   const W = 700, H = 190, P = [44, 10, 12, 34], s0 = rd.karty.filter(k => k.v > 0).slice().sort((a, b) => b.v - a.v), n = s0.length + 2, bw = (W - P[0] - P[1]) / n;
   const top = Math.max(rd.inc, rd.vyd) * 1.05 || 1, Y = v => P[2] + (1 - v / top) * (H - P[2] - P[3]);
   let s = '', run = rd.inc;
-  s += `<rect x="${P[0] + bw * .15}" y="${Y(rd.inc)}" width="${bw * .7}" height="${Y(0) - Y(rd.inc)}" fill="#1E293B"/><text x="${P[0] + bw * .5}" y="${Y(rd.inc) - 4}" font-size="8" text-anchor="middle" font-weight="600">${_rpT(rd.inc)}</text><text x="${P[0] + bw * .5}" y="${H - 20}" font-size="7.8" text-anchor="middle" fill="#475569">Příjmy</text>`;
+  s += `<rect x="${P[0] + bw * .15}" y="${Y(rd.inc)}" width="${bw * .7}" height="${Y(0) - Y(rd.inc)}" fill="#1E293B"/><text x="${P[0] + bw * .5}" y="${Y(rd.inc) - 4}" font-size="9.8" text-anchor="middle" font-weight="600">${_rpT(rd.inc)}</text><text x="${P[0] + bw * .5}" y="${H - 20}" font-size="9.5" text-anchor="middle" fill="#334155">Příjmy</text>`;
   s0.forEach((x, i) => { const x0 = P[0] + (i + 1) * bw, y1 = Y(run), y2 = Y(run - x.v);
     s += `<line x1="${x0 - bw * .15}" x2="${x0 + bw * .15}" y1="${y1}" y2="${y1}" stroke="#94A3B8"/><rect x="${x0 + bw * .15}" y="${Math.min(y1, y2)}" width="${bw * .7}" height="${Math.abs(y2 - y1)}" fill="${x.c}"/>`
-      + `<text x="${x0 + bw * .5}" y="${Math.max(y1, y2) + 10}" font-size="7.6" text-anchor="middle" fill="#334155">−${(x.v / 1000).toFixed(1).replace('.', ',')}</text>`
-      + `<text x="${x0 + bw * .5}" y="${H - 20}" font-size="7.6" text-anchor="middle" fill="#475569">${_rpE(x.n)}</text><text x="${x0 + bw * .5}" y="${H - 10}" font-size="7" text-anchor="middle" fill="#8A94A6">${rd.inc ? Math.round(x.v / rd.inc * 100) + ' % příjmů' : ''}</text>`; run -= x.v; });
+      + `<text x="${x0 + bw * .5}" y="${Math.max(y1, y2) + 10}" font-size="9.3" text-anchor="middle" fill="#334155">−${(x.v / 1000).toFixed(1).replace('.', ',')}</text>`
+      + `<text x="${x0 + bw * .5}" y="${H - 20}" font-size="9.3" text-anchor="middle" fill="#334155">${_rpE(x.n)}</text><text x="${x0 + bw * .5}" y="${H - 10}" font-size="8.5" text-anchor="middle" fill="#5F6B7A">${rd.inc ? Math.round(x.v / rd.inc * 100) + ' % příjmů' : ''}</text>`; run -= x.v; });
   const xe = P[0] + (n - 1) * bw, col = rd.bil >= 0 ? '#0F8C6E' : '#C8501E';
-  s += `<rect x="${xe + bw * .15}" y="${Math.min(Y(rd.bil), Y(0))}" width="${bw * .7}" height="${Math.abs(Y(0) - Y(rd.bil))}" fill="${col}"/><text x="${xe + bw * .5}" y="${Y(Math.max(rd.bil, 0)) - 4}" font-size="8" text-anchor="middle" font-weight="600" fill="${col}">${_rpT(rd.bil)}</text><text x="${xe + bw * .5}" y="${H - 20}" font-size="7.8" text-anchor="middle" fill="${col}" font-weight="600">${rd.bil >= 0 ? 'Ušetřeno' : 'Schodek'}</text>`;
+  s += `<rect x="${xe + bw * .15}" y="${Math.min(Y(rd.bil), Y(0))}" width="${bw * .7}" height="${Math.abs(Y(0) - Y(rd.bil))}" fill="${col}"/><text x="${xe + bw * .5}" y="${Y(Math.max(rd.bil, 0)) - 4}" font-size="9.8" text-anchor="middle" font-weight="600" fill="${col}">${_rpT(rd.bil)}</text><text x="${xe + bw * .5}" y="${H - 20}" font-size="9.5" text-anchor="middle" fill="${col}" font-weight="600">${rd.bil >= 0 ? 'Ušetřeno' : 'Schodek'}</text>`;
   s += `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(0)}" y2="${Y(0)}" stroke="#1E293B"/>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
@@ -263,8 +288,8 @@ function _rpDev(karty) {
   const mx = Math.max(1, ...s.map(x => Math.abs(x.d))) * 1.1, rh = (H - 10) / Math.max(1, s.length), X = v => L + (W - L - R) / 2 + v / mx * (W - L - R) / 2;
   let g = `<line x1="${X(0)}" x2="${X(0)}" y1="2" y2="${H - 4}" stroke="#1E293B"/>`;
   s.forEach((x, i) => { const y = 6 + i * rh, ok = Math.abs(_rpPct(x.v, x.avg)) < 5 || Math.abs(x.d) < 300;
-    g += `<text x="0" y="${y + rh / 2 + 3}" font-size="8" fill="#0F172A">${_rpE(x.n)}</text><rect x="${Math.min(X(0), X(x.d))}" y="${y + rh * .22}" width="${Math.max(1, Math.abs(X(x.d) - X(0)))}" height="${rh * .56}" fill="${ok ? '#CBD5E1' : x.d > 0 ? '#C8501E' : '#0F8C6E'}"/>`
-      + `<text x="${x.d > 0 ? X(x.d) + 3 : X(x.d) - 3}" y="${y + rh / 2 + 3}" font-size="7.6" text-anchor="${x.d > 0 ? 'start' : 'end'}" fill="${ok ? '#8A94A6' : x.d > 0 ? '#C8501E' : '#0F8C6E'}">${ok ? '≈' : _rpKcz(x.d).replace(' Kč', '')}</text>`; });
+    g += `<text x="0" y="${y + rh / 2 + 3}" font-size="9.8" fill="#0F172A">${_rpE(x.n)}</text><rect x="${Math.min(X(0), X(x.d))}" y="${y + rh * .22}" width="${Math.max(1, Math.abs(X(x.d) - X(0)))}" height="${rh * .56}" fill="${ok ? '#CBD5E1' : x.d > 0 ? '#C8501E' : '#0F8C6E'}"/>`
+      + `<text x="${x.d > 0 ? X(x.d) + 3 : X(x.d) - 3}" y="${y + rh / 2 + 3}" font-size="9.3" text-anchor="${x.d > 0 ? 'start' : 'end'}" fill="${ok ? '#5F6B7A' : x.d > 0 ? '#C8501E' : '#0F8C6E'}">${ok ? '≈' : _rpKcz(x.d).replace(' Kč', '')}</text>`; });
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${g}</svg>`;
 }
 function _rpFc(rd) {
@@ -274,22 +299,38 @@ function _rpFc(rd) {
   let s = `<defs><pattern id="rpH" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#fff"/><line x1="0" y1="0" x2="0" y2="5" stroke="#1E293B" stroke-width="1.4"/></pattern></defs>`;
   s += `<line x1="${P[0]}" x2="${W - P[1]}" y1="${Y(0)}" y2="${Y(0)}" stroke="#94A3B8"/>`;
   r.forEach((x, i) => { const x0 = P[0] + i * bw + bw * .25, last = i === r.length - 1;
-    s += `<rect x="${x0}" y="${Math.min(Y(0), Y(x.b))}" width="${bw * .5}" height="${Math.abs(Y(0) - Y(x.b))}" fill="${last ? '#1E293B' : '#CBD5E1'}"/><text x="${x0 + bw * .25}" y="${H - 8}" font-size="8" text-anchor="middle" fill="#8A94A6">${x.l}</text>`
-      + `<text x="${x0 + bw * .25}" y="${Y(Math.max(0, x.b)) - 4}" font-size="7.4" text-anchor="middle" fill="${x.b >= 0 ? '#0F8C6E' : '#C8501E'}">${_rpKcz(x.b).replace(' Kč', '')}</text>`; });
+    s += `<rect x="${x0}" y="${Math.min(Y(0), Y(x.b))}" width="${bw * .5}" height="${Math.abs(Y(0) - Y(x.b))}" fill="${last ? '#1E293B' : '#CBD5E1'}"/><text x="${x0 + bw * .25}" y="${H - 8}" font-size="9.8" text-anchor="middle" fill="#5F6B7A">${x.l}</text>`
+      + `<text x="${x0 + bw * .25}" y="${Y(Math.max(0, x.b)) - 4}" font-size="9" text-anchor="middle" fill="${x.b >= 0 ? '#0F8C6E' : '#C8501E'}">${_rpKcz(x.b).replace(' Kč', '')}</text>`; });
   const x0 = P[0] + r.length * bw + bw * .25;
   s += `<rect x="${x0}" y="${Math.min(Y(0), Y(f.b))}" width="${bw * .5}" height="${Math.abs(Y(0) - Y(f.b))}" fill="url(#rpH)" stroke="#1E293B" stroke-width="1"/>`
     + `<line x1="${x0 + bw * .25}" x2="${x0 + bw * .25}" y1="${Y(f.b + f.pasmo)}" y2="${Y(f.b - f.pasmo)}" stroke="#1E293B" stroke-width="1.4"/>`
     + `<line x1="${x0 + bw * .12}" x2="${x0 + bw * .38}" y1="${Y(f.b + f.pasmo)}" y2="${Y(f.b + f.pasmo)}" stroke="#1E293B"/><line x1="${x0 + bw * .12}" x2="${x0 + bw * .38}" y1="${Y(f.b - f.pasmo)}" y2="${Y(f.b - f.pasmo)}" stroke="#1E293B"/>`
-    + `<text x="${x0 + bw * .25}" y="${H - 8}" font-size="8" text-anchor="middle" font-weight="600">${RP_MES2[rd.nm]} (odhad)</text>`;
+    + `<text x="${x0 + bw * .25}" y="${H - 8}" font-size="9.8" text-anchor="middle" font-weight="600">${RP_MES2[rd.nm]} (odhad)</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%">${s}</svg>`;
 }
 
 // ── STRANY ──────────────────────────────────────────────────────────
 function _rpTop(rd, pod, pro) {
   const jm = (window._currentUser && window._currentUser.displayName) || '';
-  return `<div class="c12 top"><div class="brand"><i></i>FinanceFlow</div><div class="meta">${pod}${jm ? ' · ' + _rpE(jm) : ''}<br><span class="tier${pro ? ' pro' : ''}">${pro ? 'Premium' : 'Free'}</span></div></div>`;
+  return `<div class="c12 top"><div class="brand">${RP_LOGO}<span>Finance<em>Flow</em></span></div><div class="meta">${pod}${jm ? ' · ' + _rpE(jm) : ''}<br><span class="tier${pro ? ' pro' : ''}">${pro ? 'Premium' : 'Free'}</span></div></div>`;
 }
 function _rpKpi(l, v, d, cls, extra) { return `<div><div class="l">${l}</div><div class="v">${v}</div><div class="d ${cls || ''}">${d}</div>${extra || ''}</div>`; }
+//  S26 (v11.69): karta s grafem – název, změna proti minulému měsíci, hodnota, 6 měsíců, popis.
+function _rpChg(cur, prev, inv) {
+  if (!prev) return '';
+  const p = _rpPct(cur, prev);
+  if (Math.abs(p) < 1) return '<b class="chg faint">≈ beze změny</b>';
+  return `<b class="chg ${(p > 0) !== !!inv ? 'up' : 'down'}">${p > 0 ? '▲' : '▼'} ${_rpP0(p).replace(/^[+−]/, '')}</b>`;
+}
+function _rpKarta(l, v, chg, graf, pod) { return `<div class="kc"><div class="kh"><span>${l}</span>${chg || ''}</div><div class="v">${v}</div>${graf || ''}<div class="d">${pod || ''}</div></div>`; }
+function _rpKarty4(rd) {
+  const mm = rd.pm, b0 = mm.p - mm.v, r6 = rd.rok.slice(-6), L = r6.map(x => x.l), M = RP_MES6[mm.m];
+  return [
+    _rpKarta('Příjmy', _rpKc(rd.inc), _rpChg(rd.inc, mm.p), _rpMini(r6.map(x => x.p), L, '#0F8C6E'), `v ${M} ${_rpKc(mm.p)}`),
+    _rpKarta('Výdaje', _rpKc(rd.vyd), _rpChg(rd.vyd, mm.v, true), _rpMini(r6.map(x => x.v), L, '#C8501E'), `v ${M} ${_rpKc(mm.v)}`),
+    _rpKarta('Bilance', `<span class="${rd.bil >= 0 ? 'up' : 'down'}">${_rpKcz(rd.bil)}</span>`, '', _rpMini(r6.map(x => x.p - x.v), L, '#0F8C6E', '#C8501E'), `v ${M} ${_rpKcz(b0)}`),
+    _rpKarta('Míra úspor', Math.round(rd.mira) + ' %', '', _rpMini(r6.map(x => x.p ? Math.round((x.p - x.v) / x.p * 100) : 0), L, '#16A34A', '#C8501E'), `v ${M} ${mm.p ? Math.round(b0 / mm.p * 100) : 0} %`)];
+}
 function _rpLead(rd) {
   const M = RP_MES[rd.m], Mv = M.charAt(0).toUpperCase() + M.slice(1);
   if (!rd.txN) return `${Mv} zatím nemá žádné transakce.`;
@@ -306,11 +347,7 @@ function _rpFree1(rd) {
   return `<section class="page" aria-label="Strana 1">${_rpTop(rd, `Měsíční report · ${RP_MES[rd.m]} ${rd.y}`, false)}
   <div class="c12 title"><div><h1>${RP_MES[rd.m].charAt(0).toUpperCase() + RP_MES[rd.m].slice(1)} ${rd.y}</h1><p class="lead">${_rpLead(rd)}</p></div>
     <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}"><b>${_rpKcz(rd.bil)} na konci měsíce</b>${b0 || mm.p ? `${rd.bil >= b0 ? 'o ' + _rpKc(rd.bil - b0) + ' víc' : 'o ' + _rpKc(b0 - rd.bil) + ' méně'} než v ${RP_MES6[mm.m]}` : 'první měsíc s daty'}</div></div>
-  <div class="c12 kpis" style="grid-template-columns:repeat(4,1fr)">
-    ${_rpKpi('Příjmy', _rpKc(rd.inc), `${rd.inc >= mm.p ? '▲' : '▼'} ${_rpP1(_rpPct(rd.inc, mm.p))} <span>proti ${RP_MES6[mm.m]}</span>`, rd.inc >= mm.p ? 'up' : 'down')}
-    ${_rpKpi('Výdaje', _rpKc(rd.vyd), `${rd.vyd > mm.v ? '▲' : '▼'} ${_rpP1(_rpPct(rd.vyd, mm.v))} <span>proti ${RP_MES6[mm.m]}</span>`, rd.vyd <= mm.v ? 'up' : 'down')}
-    ${_rpKpi('Bilance', _rpKcz(rd.bil), `${_rpKcz(rd.bil - b0)} <span>proti ${RP_MES6[mm.m]}</span>`, rd.bil >= b0 ? 'up' : 'down')}
-    ${_rpKpi('Míra úspor', Math.round(rd.mira) + ' %', `<span>v ${RP_MES6[mm.m]} ${mm.p ? Math.round(b0 / mm.p * 100) : 0} %</span>`, '')}</div>
+  <div class="c12 kgrid" style="grid-template-columns:repeat(4,1fr)">${_rpKarty4(rd).join('')}</div>
   ${r.length ? `<div class="c12 sec river"><h2>${rd.bil > 0 ? `Z každých 100 Kč příjmu ti zůstalo ${Math.round(rd.bil / rd.inc * 100)} Kč` : 'Kam šly peníze'}</h2><div class="sub">Výdaje podle skupin${rd.bil > 0 ? ' a co zůstalo' : ''}</div>
     <div class="band">${r.map(x => `<div style="flex:${x.v};background:${x.c}">${x.v / tot >= .06 ? Math.round(x.v / (rd.inc || tot) * 100) + ' Kč' : ''}</div>`).join('')}</div>
     <div class="leg" style="grid-template-columns:repeat(${Math.min(8, r.length)},1fr)">${r.slice(0, 8).map(x => `<div style="border-color:${x.c}"><b>${_rpE(x.n)}</b>${_rpKc(x.v)}</div>`).join('')}</div></div>` : ''}
@@ -327,25 +364,22 @@ function _rpFree1(rd) {
 function _rpFree2(rd, pro) {
   const predSum = rd.pravidelne.reduce((a, x) => a + x.mes, 0);
   const over = rd.rozp.filter(r => r.v > r.lim);
-  const mxD = Math.max(1, ...rd.dV);
-  const dny = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
   return `<section class="page" aria-label="Strana 2">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · rozpočty a platby`, pro)}
   <div class="c7 sec"><h2>${rd.rozp.length ? `${over.length} z ${rd.rozp.length} rozpočtů překročeno` : 'Rozpočty'}</h2><div class="sub">Plán obrysem, skutečnost plně · barva jen u překročení</div>
     ${rd.rozp.length ? rd.rozp.map(x => { const mx = Math.max(x.v, x.lim) * 1.12, p = x.v / x.lim * 100, ov = x.v > x.lim, near = !ov && p >= 85;
-      return `<div style="display:grid;grid-template-columns:30mm 1fr 30mm;gap:3mm;align-items:center;padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><span>${_rpE(x.ikona + ' ' + x.n)}</span>
+      return `<div style="display:grid;grid-template-columns:32mm 1fr 40mm;gap:3mm;align-items:center;padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><span>${_rpE(x.ikona + ' ' + x.n)}</span>
        <svg viewBox="0 0 200 18" width="100%" height="18"><rect x=".5" y="2.5" width="${x.lim / mx * 200}" height="13" fill="none" stroke="#1E293B"/><rect x="0" y="5.5" width="${Math.min(x.v, x.lim) / mx * 200}" height="7" fill="#1E293B"/>${ov ? `<rect x="${x.lim / mx * 200}" y="5.5" width="${(x.v - x.lim) / mx * 200}" height="7" fill="#C8501E"/>` : ''}</svg>
-       <span class="num"><b>${Math.round(p)} %</b> <span class="${ov ? 'down' : near ? 'warn' : 'faint'}" style="font-size:7.4pt">${ov ? 'přes o ' + _rpKc(x.v - x.lim) : 'zbývá ' + _rpKc(x.lim - x.v)}</span></span></div>`; }).join('')
+       <span class="num"><b>${Math.round(p)} %</b> <span class="${ov ? 'down' : near ? 'warn' : 'faint'}" style="font-size:7.8pt">${ov ? 'přes o ' + _rpKc(x.v - x.lim) : 'zbývá ' + _rpKc(x.lim - x.v)}</span></span></div>`; }).join('')
       : '<div class="faint" style="font-size:8pt">Zatím žádný rozpočet. Nastavíš ho v Kategoriích (limit finančního zdraví).</div>'}</div>
   <div class="c5 sec"><h2>Pět největších výdajů</h2><div class="sub">Jednotlivé platby</div><table><tr><th class="t">Den</th><th class="t">Za co</th><th>Částka</th></tr>
-    ${rd.nejvetsi.map(r => `<tr><td class="faint">${new Date(r.d).getDate()}. ${rd.m + 1}.</td><td class="t">${_rpE(r.n)}<div class="faint" style="font-size:7pt">${_rpE(r.k)}</div></td><td><b>${_rpKc(r.v)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="faint">Žádné výdaje</td></tr>'}</table></div>
+    ${rd.nejvetsi.map(r => `<tr><td class="faint">${new Date(r.d).getDate()}. ${rd.m + 1}.</td><td class="t">${_rpE(r.n)}<div class="faint" style="font-size:7.6pt">${_rpE(r.k)}</div></td><td><b>${_rpKc(r.v)}</b></td></tr>`).join('') || '<tr><td colspan="3" class="faint">Žádné výdaje</td></tr>'}</table></div>
   <div class="c6 sec"><h2>${rd.pravidelne.length ? `Pravidelné platby: ${_rpKc(predSum)} měsíčně` : 'Pravidelné platby'}</h2><div class="sub">Z opakovaných šablon · přepočet na měsíc a rok</div>
     ${rd.pravidelne.length ? `<table><tr><th class="t">Platba</th><th>Měsíčně</th><th>Ročně</th></tr>${rd.pravidelne.slice(0, 8).map(r => `<tr><td class="t">${_rpE(r.n)}</td><td>${_rpKc(r.mes)}</td><td class="faint">${_rpKc(r.mes * 12)}</td></tr>`).join('')}
       <tr class="sum"><td class="t">Celkem ${rd.pravidelne.length}</td><td>${_rpKc(predSum)}</td><td>${_rpKc(predSum * 12)}</td></tr></table>` : '<div class="faint" style="font-size:8pt">Žádné šablony. Opakované platby si založíš v Opakovaných šablonách.</div>'}</div>
   <div class="c6 sec"><h2>Co tě čeká v ${RP_MES6[rd.nm]}</h2><div class="sub">Měsíční šablony – příjmy a pevné výdaje</div>
     ${rd.pristi.length ? `<table><tr><th class="t">Kdy</th><th class="t">Co</th><th>Částka</th></tr>${rd.pristi.slice(0, 8).map(r => `<tr><td class="faint">${r.d}. ${rd.nm + 1}.</td><td class="t">${_rpE(r.n)}</td><td class="${r.v > 0 ? 'up' : ''}">${_rpKcz(r.v)}</td></tr>`).join('')}
       <tr class="sum"><td></td><td class="t">Pevné výdaje celkem</td><td>${_rpKcz(rd.pristi.filter(r => r.v < 0).reduce((a, r) => a + r.v, 0))}</td></tr></table>` : '<div class="faint" style="font-size:8pt">Bez šablon nevím, co přijde.</div>'}</div>
-  <div class="c12 sec"><h2>Útrata den po dni</h2><div class="sub">Čím tmavší, tím víc · nejvyšší den a denní průměr</div>
-    <div class="cal">${rd.dV.map((v, i) => { const a = Math.min(1, v / mxD); return `<div style="background:rgba(31,69,200,${(0.06 + a * 0.8).toFixed(2)});color:${a > .55 ? '#fff' : '#334155'}"><b>${i + 1}.</b> ${dny[new Date(rd.y, rd.m, i + 1).getDay()]}<br>${v >= 1000 ? (v / 1000).toFixed(1).replace('.', ',') + 'k' : Math.round(v)}</div>`; }).join('')}</div></div>
+  <div class="c12 sec"><h2>Kalendář útraty</h2><div class="sub">Čím tmavší, tím víc · ${_rpKalSouhrn(rd)}</div>${_rpKal(rd, false)}</div>
   ${pro ? '' : `<div class="c12 teaser"><div class="blur"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4mm"><div class="ai"><h3>Rozbor výdajů</h3><p>Vodopád od příjmu k úspoře…</p></div><div class="ai"><h3>Účtenky</h3><p>Tvoje inflace košíku…</p></div><div class="ai"><h3>Výhled</h3><p>Odhad příštího měsíce…</p></div></div></div>
     <div class="over"><b>V Premium reportu je rozbor na 4 strany</b><span>Vodopád od příjmu k úspoře, odchylky od průměru, finanční skóre, výhled příštího měsíce a doporučení.${rd.ucet ? ` Z tvých ${rd.ucet.n} účtenek uvidíš, co ti zdražilo, a svou osobní inflaci.` : ''}</span></div></div>`}
   <div class="foot"><span>Report nenahrazuje finanční poradenství.</span><span>2 / ${rd._stran}</span></div></section>`;
@@ -362,28 +396,33 @@ function _rpPostrehy(rd) {
   return out.slice(0, 3);
 }
 function _rpPro1(rd) {
-  const mm = rd.pm, ly = rd.ly, a = rd.avg, b0 = mm.p - mm.v, bA = a.p - a.v, bL = ly.p - ly.v;
-  const tri = (x, y, z, inv) => { const cl = v => Math.abs(v) < 1 ? 'faint' : ((v > 0) !== !!inv ? 'up' : 'down');
-    return `<div class="d" style="font-size:6.9pt;line-height:1.45"><span class="${cl(x)}">${_rpP0(x)}</span> <span>MM</span> · <span class="${cl(y)}">${_rpP0(y)}</span> <span>Ø3M</span> · <span class="${cl(z)}">${_rpP0(z)}</span> <span>loni</span></div>`; };
-  const dluhSum = rd.dluhy.reduce((s, d) => s + d.zb, 0);
-  const k = [['Příjmy', _rpKc(rd.inc), tri(_rpPct(rd.inc, mm.p), _rpPct(rd.inc, a.p), _rpPct(rd.inc, ly.p)), rd.rok.map(x => x.p)],
-    ['Výdaje', _rpKc(rd.vyd), tri(_rpPct(rd.vyd, mm.v), _rpPct(rd.vyd, a.v), _rpPct(rd.vyd, ly.v), true), rd.rok.map(x => x.v)],
-    ['Bilance', _rpKcz(rd.bil), `<div class="d" style="font-size:6.9pt"><span>MM</span> ${_rpKcz(b0)} · <span>Ø3M</span> ${_rpKcz(bA)}</div>`, rd.rok.map(x => x.p - x.v)],
-    ['Míra úspor', Math.round(rd.mira) + ' %', `<div class="d" style="font-size:6.9pt"><span>Ø3M</span> ${a.p ? Math.round(bA / a.p * 100) : 0} % · <span>loni</span> ${ly.p ? Math.round(bL / ly.p * 100) : 0} %</div>`, rd.rok.map(x => x.p ? (x.p - x.v) / x.p : 0)],
-    ['Skóre', rd.skore ? `${rd.skore.tot} / ${rd.skore.max}` : '—', `<div class="d" style="font-size:6.9pt">${rd.skore && rd.skoreMM != null ? `<span class="${rd.skore.tot >= rd.skoreMM ? 'up' : 'down'}">${rd.skore.tot >= rd.skoreMM ? '▲' : '▼'} ${Math.abs(rd.skore.tot - rd.skoreMM)}</span> <span>proti ${RP_MES6[mm.m]}</span>` : ''}</div>`, null],
-    ['Dluhy', dluhSum ? _rpKc(dluhSum) : 'žádné', `<div class="d" style="font-size:6.9pt"><span>${rd.dluhy.length} ${rd.dluhy.length === 1 ? 'půjčka' : 'půjček'}</span></div>`, null]];
+  const mm = rd.pm, ly = rd.ly, a = rd.avg, bA = a.p - a.v, bL = ly.p - ly.v;
+  const dluhSum = rd.dluhy.reduce((s, d) => s + d.zb, 0), dluhPuv = rd.dluhy.reduce((s, d) => s + (d.puv || d.zb), 0), dluhSpl = rd.dluhy.reduce((s, d) => s + (d.spl || 0), 0);
   const sc = rd.skore;
+  //  S26 (v11.69): stejné karty jako Free + průměr 3 měsíců a loňský měsíc, skóre s kroužkem a dluhy.
+  const k = _rpKarty4(rd);
+  const doplnek = (h, t) => h.replace(/<div class="d">[^]*?<\/div><\/div>$/, `<div class="d">${t}</div></div>`);
+  k[0] = doplnek(k[0], `Ø 3 měs. ${_rpKc(a.p)}${ly.p ? ` · loni ${_rpKc(ly.p)}` : ''}`);
+  k[1] = doplnek(k[1], `Ø 3 měs. ${_rpKc(a.v)}${ly.v ? ` · loni ${_rpKc(ly.v)}` : ''}`);
+  k[2] = doplnek(k[2], `v ${RP_MES6[mm.m]} ${_rpKcz(mm.p - mm.v)} · Ø 3 měs. ${_rpKcz(bA)}`);
+  k[3] = doplnek(k[3], `Ø 3 měs. ${a.p ? Math.round(bA / a.p * 100) : 0} %${ly.p ? ` · loni ${Math.round(bL / ly.p * 100)} %` : ''}`);
+  k.push(_rpKarta('Finanční skóre', sc ? `<span style="display:flex;align-items:center;gap:2.6mm">${_rpKruh(sc.tot, sc.max, 13)}<span>${sc.tot}<small> / ${sc.max}</small></span></span>` : '—',
+    sc && rd.skoreMM != null && rd.skoreMM !== sc.tot ? `<b class="chg ${sc.tot > rd.skoreMM ? 'up' : 'down'}">${sc.tot > rd.skoreMM ? '▲' : '▼'} ${Math.abs(sc.tot - rd.skoreMM)} b.</b>` : '', '',
+    sc ? `${_rpE(sc.grade && sc.grade.label || '')}${rd.skoreMM != null ? ` · v ${RP_MES6[mm.m]} ${rd.skoreMM}` : ''}` : ''));
+  k.push(_rpKarta('Dluhy', dluhSum ? _rpKc(dluhSum) : 'žádné', '',
+    dluhSum ? `<div class="bar" style="height:2.6mm;margin:1.6mm 0 .6mm"><i style="width:${dluhPuv ? Math.round((1 - dluhSum / dluhPuv) * 100) : 0}%;background:#16A34A"></i></div><div class="d">splaceno ${dluhPuv ? Math.round((1 - dluhSum / dluhPuv) * 100) : 0} %</div>` : '',
+    dluhSum ? `${rd.dluhy.length} ${rd.dluhy.length === 1 ? 'půjčka' : rd.dluhy.length < 5 ? 'půjčky' : 'půjček'}${dluhSpl ? ` · splátky ${_rpKc(dluhSpl)} měsíčně` : ''}` : 'Bez půjček 👍'));
   return `<section class="page" aria-label="Premium strana 1">${_rpTop(rd, `Měsíční report · ${RP_MES[rd.m]} ${rd.y}`, true)}
   <div class="c12 title"><div><h1>${RP_MES[rd.m].charAt(0).toUpperCase() + RP_MES[rd.m].slice(1)} ${rd.y}</h1><p class="lead">${rd.ai && rd.ai.shrnuti ? _rpE(rd.ai.shrnuti) : _rpLead(rd)}</p></div>
-    <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}">${rd.ai && rd.ai.hodnoceni ? `<div style="font-size:7.4pt;color:#1F45C8;margin-bottom:1mm">✨ Hodnocení: <b style="display:inline;font-size:inherit;color:inherit">${_rpE(rd.ai.hodnoceni.znamka)} měsíc</b>${rd.ai.hodnoceni.proc ? ` – ${_rpE(rd.ai.hodnoceni.proc)}` : ''}</div>` : ''}<b>Míra úspor ${Math.round(rd.mira)} %</b>proti ${a.p ? Math.round(bA / a.p * 100) : 0} % v průměru 3 měsíců</div></div>
-  <div class="c12 kpis" style="grid-template-columns:repeat(6,1fr)">${k.map(x => `<div><div class="l">${x[0]}</div><div class="v" style="font-size:12pt">${x[1]}</div>${x[2]}${x[3] ? _rpSpark(x[3], 70, 16) : ''}</div>`).join('')}</div>
-  <div class="c5 sec"><h2>Finanční skóre</h2><div class="sub">Stejné jako na Dashboardu</div>
-    ${sc ? `<div style="display:flex;align-items:baseline;gap:2.4mm"><span style="font-size:26pt;font-weight:600;line-height:1">${sc.tot}</span><span class="faint">z ${sc.max}</span><span style="margin-left:auto" class="chip">${_rpE(sc.grade && sc.grade.label || '')}</span></div>
-      ${(sc.comps || []).map(c => `<div style="display:grid;grid-template-columns:24mm 1fr 12mm;gap:2mm;align-items:center;font-size:8pt;margin:1.3mm 0"><span>${_rpE(c.label.replace(/^\S+\s/, ''))}</span>
-        <div class="bar"><i style="width:${c.max ? c.score / c.max * 100 : 0}%;background:${c.avail === false ? '#E2E8F0' : '#1E293B'}"></i></div><span class="num">${c.avail === false ? '–' : c.score + '/' + c.max}</span></div>`).join('')}` : '<div class="faint">Skóre se nepodařilo spočítat.</div>'}</div>
+    <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}">${rd.ai && rd.ai.hodnoceni ? `<div style="font-size:7.8pt;color:#6D4AFF;margin-bottom:1mm">✨ Hodnocení: <b style="display:inline;font-size:inherit;color:inherit">${_rpE(rd.ai.hodnoceni.znamka)} měsíc</b>${rd.ai.hodnoceni.proc ? ` – ${_rpE(rd.ai.hodnoceni.proc)}` : ''}</div>` : ''}<b>Míra úspor ${Math.round(rd.mira)} %</b>proti ${a.p ? Math.round(bA / a.p * 100) : 0} % v průměru 3 měsíců</div></div>
+  <div class="c12 kgrid" style="grid-template-columns:repeat(3,1fr)">${k.join('')}</div>
+  <div class="c5" style="display:flex;flex-direction:column;gap:3.6mm"><div class="sec"><h2>Z čeho je skóre</h2><div class="sub">Stejné jako na Dashboardu</div>
+    ${sc ? (sc.comps || []).map(c => `<div style="display:grid;grid-template-columns:24mm 1fr 12mm;gap:2mm;align-items:center;font-size:8.2pt;margin:1.5mm 0"><span>${_rpE(c.label.replace(/^\S+\s/, ''))}</span>
+        <div class="bar" style="height:2.6mm"><i style="width:${c.max ? c.score / c.max * 100 : 0}%;background:${c.avail === false ? '#E2E8F0' : '#16A34A'}"></i></div><span class="num">${c.avail === false ? '–' : c.score + '/' + c.max}</span></div>`).join('') : '<div class="faint">Skóre se nepodařilo spočítat.</div>'}</div>
+    <div class="sec"><h2>Kalendář útraty</h2><div class="sub">${_rpKalSouhrn(rd)}</div>${_rpKal(rd, true)}</div></div>
   <div class="c7 sec"><h2>Co stojí za pozornost</h2><div class="sub">${rd.ai && rd.ai.postrehy && rd.ai.postrehy.length ? '✨ Napsala AI z tvých čísel · každé číslo ověřené appkou' : 'Spočítané z tvých čísel'}</div>
-    <div style="display:grid;gap:2.4mm">${(rd.ai && rd.ai.postrehy && rd.ai.postrehy.length ? rd.ai.postrehy.map(x => [_rpE(x.titulek), _rpE(x.text), '✨ AI']) : _rpPostrehy(rd)).map(p => `<div class="ai" style="background:#EEF3FF;border-left-color:#1F45C8"><h3>${p[0]}</h3><p style="color:#334155">${p[1]}</p><div class="ft" style="color:#1F45C8"><span>${p[2]}</span></div></div>`).join('')}</div></div>
-  ${rd.zust ? `<div class="c12 sec"><h2>Na účtech na konci měsíce ${_rpKc(rd.zust.at(-1))}, nejméně ${rd.zust.indexOf(Math.min(...rd.zust)) + 1}. den</h2><div class="sub">Zůstatek všech peněženek den po dni (v Kč)</div>${_rpZust(rd, 110)}</div>` : `<div class="c12 sec"><h2>${rd.kumNet.at(-1) >= 0 ? 'Měsíc skončil v plusu' : 'Měsíc skončil v mínusu'}, nejníž ${rd.kumNet.indexOf(Math.min(...rd.kumNet)) + 1}. den</h2><div class="sub">Pohyb peněz v měsíci: příjmy − výdaje den po dni (kumulovaně)</div>${_rpKum(rd).replace('viewBox="0 0 330 150"', 'viewBox="0 0 330 110"')}</div>`}
+    <div style="display:grid;gap:2.4mm">${(rd.ai && rd.ai.postrehy && rd.ai.postrehy.length ? rd.ai.postrehy.map(x => [_rpE(x.titulek), _rpE(x.text), '✨ AI', 1]) : _rpPostrehy(rd)).map(p => `<div class="ai${p[3] ? '' : ' pz'}"><h3>${p[0]}</h3><p>${p[1]}</p><div class="ft"><span>${p[2]}</span></div></div>`).join('')}</div></div>
+  ${/* zůstatek den po dni je na straně 2 (Graf 2.3) */''}
   <div class="foot"><span>Čísla spočítala appka z tvých transakcí. Nejde o investiční doporučení.</span><span>1 / ${rd._stran}</span></div></section>`;
 }
 function _rpPro2(rd) {
@@ -396,7 +435,7 @@ function _rpPro2(rd) {
     <table><tr><th class="t">Skupina</th><th>${RP_MES2[rd.m]}</th><th>vs ${RP_MES2[rd.pm.m]}</th><th>vs Ø3M</th><th class="t">Největší položky</th></tr>
     ${s.map(x => { const d1 = _rpPct(x.v, x.mm), d3 = _rpPct(x.v, x.avg), c = d => Math.abs(d) < 5 ? 'faint' : d > 0 ? 'down' : 'up';
       return `<tr><td class="t"><span class="dot" style="background:${x.c}"></span>${_rpE(x.n)}</td><td><b>${_rpKc(x.v)}</b></td><td class="${c(d1)}">${x.mm ? _rpP0(d1) : '–'}</td><td class="${c(d3)}">${x.avg ? _rpP0(d3) : '–'}</td>
-        <td class="t faint" style="font-size:7.4pt">${x.top.map(([n, v]) => _rpE(n) + ' ' + _rpKc(v)).join(' · ')}</td></tr>`; }).join('')}
+        <td class="t faint" style="font-size:7.8pt">${x.top.map(([n, v]) => _rpE(n) + ' ' + _rpKc(v)).join(' · ')}</td></tr>`; }).join('')}
     <tr class="sum"><td class="t">Celkem</td><td>${_rpKc(rd.vyd)}</td><td>${_rpP0(_rpPct(rd.vyd, rd.pm.v))}</td><td>${_rpP0(_rpPct(rd.vyd, rd.avg.v))}</td><td></td></tr></table></div>
   <div class="foot"><span>Plně = tento měsíc, šedě = minulost, šrafa = odhad.</span><span>2 / ${rd._stran}</span></div></section>`;
 }
@@ -439,67 +478,87 @@ function _rpPro4(rd) {
       <li><span>Příjmy ${rd.pristi.some(x => x.v > 0) ? '(šablony)' : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
       <div><b>Pevné platby v ${RP_MES6[rd.nm]}</b><ul class="list">${rd.pristi.filter(x => x.v < 0).slice(0, 4).map(x => `<li><span>${x.d}. ${_rpE(x.n)}</span><span>${_rpKcz(x.v)}</span></li>`).join('') || '<li><span class="faint">žádné šablony</span><span></span></li>'}</ul></div></div></div>
   <div class="c6 sec"><h2>Cíle</h2><div class="sub">Průběh spoření na cíle</div>
-    ${rd.cile.length ? rd.cile.map(c => `<div style="padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><div style="display:flex;justify-content:space-between"><b>${_rpE(c.n)}</b><span>${_rpKc(c.ma)} / ${_rpKc(c.cil)}</span></div><div class="bar" style="margin-top:1.2mm"><i style="width:${Math.min(100, c.ma / c.cil * 100)}%;background:#1F45C8"></i></div></div>`).join('') : '<div class="faint" style="font-size:8pt">Žádné cíle. Založíš je v Nákupním seznamu / cílech.</div>'}</div>
+    ${rd.cile.length ? rd.cile.map(c => `<div style="padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><div style="display:flex;justify-content:space-between"><b>${_rpE(c.n)}</b><span>${_rpKc(c.ma)} / ${_rpKc(c.cil)}</span></div><div class="bar" style="margin-top:1.2mm"><i style="width:${Math.min(100, c.ma / c.cil * 100)}%;background:#16A34A"></i></div></div>`).join('') : '<div class="faint" style="font-size:8pt">Žádné cíle. Založíš je v Nákupním seznamu / cílech.</div>'}</div>
   <div class="c6 sec"><h2>Dluhy</h2><div class="sub">Zbývá splatit</div>
     ${rd.dluhy.length ? `<table><tr><th class="t">Půjčka</th><th>Zbývá</th><th>Splátka</th><th>Úrok</th></tr>${rd.dluhy.map(d => `<tr><td class="t">${_rpE(d.n)}</td><td><b>${_rpKc(d.zb)}</b></td><td>${d.spl ? _rpKc(d.spl) : '–'}</td><td class="faint">${d.urok ? String(d.urok).replace('.', ',') + ' %' : '–'}</td></tr>`).join('')}</table>` : '<div class="faint" style="font-size:8pt">Žádné půjčky. 👍</div>'}</div>
   ${(() => { if (rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length) { rec.length = 0; rd.ai.doporuceni.forEach(x => rec.push([_rpE(x.titulek), _rpE(x.prinos || ''), _rpE(x.text)])); } return ''; })()}
-  <div class="c12 ai" style="background:#EEF3FF;border-left-color:#1F45C8"><div class="tag" style="color:#1F45C8">Doporučení na ${RP_MES[rd.nm]} <span style="color:#64748B">${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '✨ napsala AI z tvých čísel · čísla ověřená appkou' : 'spočítané z tvých čísel'}</span></div>
-    ${rec.length ? rec.slice(0, 3).map(r => `<div class="rec" style="border-top-color:#D6E0FF"><b>${r[0]}</b><span class="k" style="color:#1F45C8">${r[1]}</span><p style="color:#334155">${r[2]}</p></div>`).join('') : '<p>Tento měsíc nic, co by stálo za změnu. 🎉</p>'}</div>
-  <div class="c12" style="font-size:7pt;color:#8A94A6;line-height:1.5;border-top:1px solid #E2E8F0;padding-top:2mm"><b style="color:#475569">Metodika.</b> Bilance = příjmy − výdaje bez převodů mezi vlastními účty. Skupiny = karty útraty (účtenky rozdělené po položkách podle taxonomie). Skóre stejné jako na Dashboardu. Odhad: příjmy ze šablon nebo průměr, výdaje vážený průměr (tento měsíc + 2× průměr 3 měsíců), pásmo podle výkyvů posledních 6 měsíců. Report je informativní, nejde o investiční doporučení.</div>
+  <div class="c12 ai${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '' : ' pz'}"><div class="tag">Doporučení na ${RP_MES[rd.nm]} <span style="color:#4B5563;font-weight:500">${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '✨ napsala AI z tvých čísel · čísla ověřená appkou' : 'spočítané z tvých čísel'}</span></div>
+    ${rec.length ? rec.slice(0, 3).map(r => `<div class="rec"><b>${r[0]}</b><span class="k">${r[1]}</span><p>${r[2]}</p></div>`).join('') : '<p>Tento měsíc nic, co by stálo za změnu. 🎉</p>'}</div>
+  <div class="c12" style="font-size:7.6pt;color:#4B5563;line-height:1.5;border-top:1px solid #DDE3EA;padding-top:2mm"><b style="color:#1F2937">Metodika.</b> Bilance = příjmy − výdaje bez převodů mezi vlastními účty. Skupiny = karty útraty (účtenky rozdělené po položkách podle taxonomie). Skóre stejné jako na Dashboardu. Odhad: příjmy ze šablon nebo průměr, výdaje vážený průměr (tento měsíc + 2× průměr 3 měsíců), pásmo podle výkyvů posledních 6 měsíců. Report je informativní, nejde o investiční doporučení.</div>
   <div class="foot"><span>FinanceFlow · ${RP_MES[rd.m]} ${rd.y}</span><span>4 / ${rd._stran}</span></div></section>`;
 }
 
 // ── CSS (scoped .rp4, ze schváleného návrhu v4) ──
+//  S26 (v11.69, Milan): světlý podklad stránky a obsah v bílých kartách, tmavší a větší šedé
+//  písmo (dřív #8A94A6 při 7 pt – špatně čitelné), logo FinanceFlow místo modré značky.
 function _rpCss() {
-  return `.rp4{--ink:#0F172A;--rule:#E2E8F0;font:9pt/1.42 'IBM Plex Sans','Segoe UI',Roboto,system-ui,sans-serif;color:#0F172A;font-variant-numeric:lining-nums tabular-nums}
+  return `.rp4{--ink:#0F172A;--rule:#E2E8F0;--mut:#4B5563;--fnt:#5F6B7A;--card:#fff;--line:#E3E8EF;font:9pt/1.42 'IBM Plex Sans','Segoe UI',Roboto,system-ui,sans-serif;color:#0F172A;font-variant-numeric:lining-nums tabular-nums}
 .rp4 *{box-sizing:border-box;margin:0;padding:0}
-.rp4 .page{width:210mm;height:297mm;margin:0 auto 6mm;background:#fff;padding:12mm 14mm 0;position:relative;overflow:hidden;display:grid;grid-template-columns:repeat(12,1fr);column-gap:4mm;row-gap:5mm;align-content:start;box-shadow:0 8px 30px rgba(15,23,42,.18);color:#0F172A}
-.rp4 .dense{row-gap:3.8mm}
+.rp4 .page{width:210mm;height:297mm;margin:0 auto 6mm;background:#F3F6FA;padding:11mm 13mm 0;position:relative;overflow:hidden;display:grid;grid-template-columns:repeat(12,1fr);column-gap:3.4mm;row-gap:3.6mm;align-content:start;box-shadow:0 8px 30px rgba(15,23,42,.18);color:#0F172A}
+.rp4 .dense{row-gap:3.2mm}
 .rp4 .c12{grid-column:span 12}.rp4 .c8{grid-column:span 8}.rp4 .c7{grid-column:span 7}.rp4 .c6{grid-column:span 6}.rp4 .c5{grid-column:span 5}.rp4 .c4{grid-column:span 4}
-.rp4 h1{font-family:'Source Serif 4',Georgia,serif;font-size:30pt;font-weight:700;line-height:1;color:#0F172A}
-.rp4 .sec{border-top:1.4pt solid #0F172A;padding-top:2.4mm}
+.rp4 h1{font-family:'Source Serif 4',Georgia,serif;font-size:28pt;font-weight:700;line-height:1;color:#0F172A}
+.rp4 .sec{background:#fff;border:1px solid #E3E8EF;border-radius:3mm;padding:3mm 3.4mm 3.2mm;box-shadow:0 1px 2px rgba(15,23,42,.04)}
 .rp4 .sec h2{font:600 10.5pt/1.25 'IBM Plex Sans','Segoe UI',sans-serif;margin-bottom:.6mm;color:#0F172A}
-.rp4 .sub{font-size:7.8pt;color:#8A94A6;margin-bottom:2.4mm}
-.rp4 .faint{color:#8A94A6}.rp4 .up{color:#0F8C6E}.rp4 .down{color:#C8501E}.rp4 .warn{color:#B7791F}.rp4 .num{text-align:right;white-space:nowrap}
-.rp4 .top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E2E8F0;padding-bottom:3mm}
-.rp4 .brand{display:flex;align-items:center;gap:2.4mm;font:600 9.5pt 'IBM Plex Sans','Segoe UI',sans-serif}
-.rp4 .brand i{width:6mm;height:6mm;border-radius:1.6mm;background:#1F45C8;display:inline-block;position:relative}
-.rp4 .brand i:after{content:'';position:absolute;left:1.5mm;top:1.4mm;width:3mm;height:3.2mm;border-left:1.1mm solid #fff;border-top:1.1mm solid #fff}
-.rp4 .tier{font:600 7.4pt 'IBM Plex Sans',sans-serif;padding:.7mm 2.2mm;border-radius:10mm;border:1px solid #E2E8F0;color:#475569}
-.rp4 .tier.pro{border-color:#6D4AFF;color:#6D4AFF;background:#F3F0FF}
-.rp4 .meta{font-size:7.8pt;color:#8A94A6;text-align:right}
+.rp4 .sub{font-size:8.2pt;color:#4B5563;margin-bottom:2.4mm}
+.rp4 .faint{color:#5F6B7A}.rp4 .up{color:#0F8C6E}.rp4 .down{color:#C8501E}.rp4 .warn{color:#B7791F}.rp4 .num{text-align:right;white-space:nowrap}
+.rp4 .top{display:flex;justify-content:space-between;align-items:center;padding-bottom:1mm}
+.rp4 .brand{display:flex;align-items:center;gap:2.2mm;font:800 12.5pt/1 'Syne','IBM Plex Sans',sans-serif;letter-spacing:-.03em;color:#0F172A}
+.rp4 .brand em{font-style:normal;color:#16A34A}
+.rp4 .tier{display:inline-block;font:600 7.6pt 'IBM Plex Sans',sans-serif;padding:.5mm 2.2mm;margin-top:.8mm;border-radius:10mm;border:1px solid #D5DBE3;color:#334155;background:#fff}
+.rp4 .tier.pro{border-color:#6D4AFF;color:#5B3AE6;background:#F3F0FF}
+.rp4 .meta{font-size:8.2pt;color:#4B5563;text-align:right}
 .rp4 .title{display:grid;grid-template-columns:1fr 66mm;gap:6mm;align-items:end}
-.rp4 .lead{font-family:'Source Serif 4',Georgia,serif;font-size:12.5pt;line-height:1.38;margin-top:2.4mm;max-width:118mm}
-.rp4 .verdict-box{border-left:2pt solid #0F8C6E;padding:1mm 0 1mm 3mm;font-size:8.2pt;color:#475569}
-.rp4 .verdict-box b{display:block;color:#0F172A;font-size:10pt;margin-bottom:.4mm}
+.rp4 .lead{font-family:'Source Serif 4',Georgia,serif;font-size:12.5pt;line-height:1.38;margin-top:2.4mm;max-width:118mm;color:#1F2937}
+.rp4 .verdict-box{background:#fff;border:1px solid #E3E8EF;border-left:2.2pt solid #0F8C6E;border-radius:0 2.5mm 2.5mm 0;padding:2mm 3mm;font-size:8.4pt;color:#4B5563}
+.rp4 .verdict-box b{display:block;color:#0F172A;font-size:10.5pt;margin-bottom:.4mm}
+.rp4 .kgrid{display:grid;gap:3mm}
+.rp4 .kc{background:#fff;border:1px solid #E3E8EF;border-radius:3mm;padding:2.8mm 3.2mm 2.6mm;display:flex;flex-direction:column;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.rp4 .kc .kh{display:flex;justify-content:space-between;align-items:baseline;gap:2mm;font-size:8.6pt;font-weight:500;color:#334155}
+.rp4 .kc .chg{font-size:8pt;font-weight:600;white-space:nowrap}
+.rp4 .kc .v{font-size:16pt;font-weight:600;line-height:1.15;margin:.8mm 0 1.4mm;white-space:nowrap}.rp4 .kc .v small{font-size:9pt;font-weight:500;color:#5F6B7A}
+.rp4 .kc .d{font-size:7.8pt;color:#4B5563;margin-top:auto;padding-top:1.2mm;line-height:1.35}
+.rp4 .mini{display:flex;gap:1.2mm;align-items:flex-end}
+.rp4 .mini .mc{flex:1;display:flex;flex-direction:column;align-items:center;gap:.6mm;min-width:0}
+.rp4 .mini .mb{position:relative;width:100%;height:11mm}
+.rp4 .mini .mb i{position:absolute;left:12%;right:12%;border-radius:.7mm .7mm .3mm .3mm;display:block}
+.rp4 .mini .mb i.z{left:0;right:0;height:0;border-top:1px solid #94A3B8;border-radius:0}
+.rp4 .mini span{font-size:7pt;color:#5F6B7A;line-height:1}.rp4 .mini .cur span{color:#0F172A;font-weight:600}
 .rp4 .kpis{display:grid;border-top:1px solid #E2E8F0;border-bottom:1px solid #E2E8F0}
 .rp4 .kpis>div{padding:2.8mm 3mm 2.6mm;border-left:1px solid #E2E8F0}.rp4 .kpis>div:first-child{border-left:none;padding-left:0}
-.rp4 .kpis .l{font-size:7.8pt;color:#475569}.rp4 .kpis .v{font-size:17pt;font-weight:600;line-height:1.15;margin:.6mm 0 .4mm;white-space:nowrap}
-.rp4 .kpis .d{font-size:7.5pt}.rp4 .kpis .d span{color:#8A94A6}.rp4 .kpis svg{display:block;margin-top:1mm}
-.rp4 table{width:100%;border-collapse:collapse;font-size:8.1pt}
-.rp4 th{font-weight:500;color:#8A94A6;text-align:right;padding:1.1mm 1mm;border-bottom:1px solid #E2E8F0;font-size:7.3pt;white-space:nowrap}
-.rp4 td{padding:1.25mm 1mm;text-align:right;border-bottom:1px solid #F0F3F7;white-space:nowrap;color:#0F172A}
+.rp4 .kpis .l{font-size:8.2pt;color:#334155}.rp4 .kpis .v{font-size:16pt;font-weight:600;line-height:1.15;margin:.6mm 0 .4mm;white-space:nowrap}
+.rp4 .kpis .d{font-size:7.8pt}.rp4 .kpis .d span{color:#5F6B7A}
+.rp4 .sec .kpis{border:none}
+.rp4 table{width:100%;border-collapse:collapse;font-size:8.3pt}
+.rp4 th{font-weight:500;color:#4B5563;text-align:right;padding:1.1mm 1mm;border-bottom:1px solid #E2E8F0;font-size:7.8pt;white-space:nowrap}
+.rp4 td{padding:1.25mm 1mm;text-align:right;border-bottom:1px solid #EEF1F5;white-space:nowrap;color:#0F172A}
 .rp4 th:first-child,.rp4 td:first-child{text-align:left;padding-left:0}.rp4 td.t,.rp4 th.t{text-align:left;white-space:normal}
 .rp4 tr.sum td{font-weight:600;border-top:1px solid #0F172A;border-bottom:none}
 .rp4 .dot{display:inline-block;width:2.2mm;height:2.2mm;border-radius:50%;margin-right:1.6mm;vertical-align:-.2mm}
-.rp4 .ai{background:#F3F0FF;border-left:1.2mm solid #6D4AFF;padding:2.6mm 3mm;border-radius:0 2mm 2mm 0}
-.rp4 .ai .tag{font:600 7pt 'IBM Plex Sans',sans-serif;margin-bottom:1mm;display:flex;justify-content:space-between}
-.rp4 .ai h3{font:600 9.4pt/1.3 'IBM Plex Sans',sans-serif;margin-bottom:1mm;color:#0F172A}.rp4 .ai p{font-size:8pt;line-height:1.45}
-.rp4 .ai .ft{display:flex;gap:3mm;margin-top:1.4mm;font-size:7.2pt}
-.rp4 .bar{height:2.2mm;background:#F5F7FA;border-radius:1mm;overflow:hidden}.rp4 .bar i{display:block;height:100%}
-.rp4 .list li{list-style:none;display:flex;justify-content:space-between;gap:3mm;padding:1.2mm 0;border-bottom:1px solid #F0F3F7;font-size:8.1pt}
+.rp4 .ai{background:#F5F2FF;border-left:1.2mm solid #6D4AFF;padding:2.6mm 3mm;border-radius:0 2mm 2mm 0}
+.rp4 .ai.pz{background:#F0FAF4;border-left-color:#16A34A}
+.rp4 .ai .tag{font:600 7.8pt 'IBM Plex Sans',sans-serif;margin-bottom:1mm;display:flex;justify-content:space-between;color:#5B3AE6}.rp4 .ai.pz .tag{color:#15803D}
+.rp4 .ai h3{font:600 9.4pt/1.3 'IBM Plex Sans',sans-serif;margin-bottom:1mm;color:#0F172A}.rp4 .ai p{font-size:8.3pt;line-height:1.45;color:#1F2937}
+.rp4 .ai .ft{display:flex;gap:3mm;margin-top:1.4mm;font-size:7.6pt;color:#5B3AE6}.rp4 .ai.pz .ft{color:#15803D}
+.rp4 .bar{height:2.2mm;background:#EEF2F6;border-radius:1mm;overflow:hidden}.rp4 .bar i{display:block;height:100%}
+.rp4 .list li{list-style:none;display:flex;justify-content:space-between;gap:3mm;padding:1.2mm 0;border-bottom:1px solid #EEF1F5;font-size:8.3pt}
 .rp4 .list li>:last-child{white-space:nowrap}
-.rp4 .chip{font-size:7pt;padding:.2mm 1.6mm;border-radius:1mm;background:#F5F7FA;color:#475569}
+.rp4 .chip{font-size:7.6pt;padding:.2mm 1.6mm;border-radius:1mm;background:#EEF2F6;color:#334155}
 .rp4 .river .band{display:flex;height:11mm;border-radius:1.5mm;overflow:hidden}
-.rp4 .river .band div{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:8pt;white-space:nowrap;overflow:hidden}
-.rp4 .river .leg{display:grid;gap:2mm;margin-top:2mm}.rp4 .river .leg div{font-size:7.4pt;line-height:1.3;border-top:2.2pt solid;padding-top:1mm;color:#475569}.rp4 .river .leg b{display:block;color:#0F172A;font-size:8pt}
-.rp4 .cal{display:grid;grid-template-columns:repeat(16,1fr);gap:1mm}.rp4 .cal div{height:9mm;border-radius:1mm;font-size:6.6pt;padding:.6mm 1mm}
-.rp4 .foot{position:absolute;left:14mm;right:14mm;bottom:6mm;display:flex;justify-content:space-between;font-size:6.9pt;color:#8A94A6;border-top:1px solid #E2E8F0;padding-top:1.8mm}
-.rp4 .teaser{position:relative;border:1px dashed #C9C2F2;border-radius:2mm;padding:3mm;overflow:hidden}.rp4 .teaser .blur{filter:blur(2.4px);opacity:.55}
+.rp4 .river .band div{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:8.2pt;white-space:nowrap;overflow:hidden}
+.rp4 .river .leg{display:grid;gap:2mm;margin-top:2mm}.rp4 .river .leg div{font-size:7.8pt;line-height:1.3;border-top:2.2pt solid;padding-top:1mm;color:#334155}.rp4 .river .leg b{display:block;color:#0F172A;font-size:8.2pt}
+.rp4 .kal{display:grid;grid-template-columns:repeat(7,1fr);gap:1mm}
+.rp4 .kal>div{height:10mm;border-radius:1.2mm;padding:.7mm 1.2mm;display:flex;flex-direction:column;justify-content:space-between;font-size:7.6pt;line-height:1.05}
+.rp4 .kal>div b{font-weight:600;font-size:7pt;opacity:.85}.rp4 .kal>div span{text-align:right;font-weight:600}
+.rp4 .kal>.h{height:auto;padding:0 0 .4mm;font-size:7.4pt;color:#4B5563;text-align:center;font-weight:600;display:block}
+.rp4 .kal>.e{background:none}
+.rp4 .kal.k{gap:.8mm}.rp4 .kal.k>div{height:7.6mm;font-size:7pt;padding:.5mm .9mm}.rp4 .kal.k>div b{font-size:6.6pt}.rp4 .kal.k>.h{height:auto;font-size:7pt}
+.rp4 .foot{position:absolute;left:13mm;right:13mm;bottom:6mm;display:flex;justify-content:space-between;font-size:7.4pt;color:#5F6B7A;border-top:1px solid #DDE3EA;padding-top:1.8mm}
+.rp4 .teaser{position:relative;border:1px dashed #C9C2F2;border-radius:3mm;padding:3mm;overflow:hidden;background:#fff}.rp4 .teaser .blur{filter:blur(2.4px);opacity:.55}
 .rp4 .teaser .over{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:4mm;background:rgba(255,255,255,.6)}
-.rp4 .teaser .over b{font-size:9.4pt;margin-bottom:1mm}.rp4 .teaser .over span{font-size:7.8pt;color:#475569;max-width:130mm}
-.rp4 .rec{display:grid;grid-template-columns:1fr auto;gap:1mm 3mm;border-top:1px solid;padding:2.2mm 0}.rp4 .rec:first-of-type{border-top:none}
-.rp4 .rec b{font-size:9pt}.rp4 .rec .k{font-size:7.4pt;text-align:right}.rp4 .rec p{grid-column:1/-1;font-size:7.9pt}`;
+.rp4 .teaser .over b{font-size:9.6pt;margin-bottom:1mm}.rp4 .teaser .over span{font-size:8.2pt;color:#334155;max-width:130mm}
+.rp4 .rec{display:grid;grid-template-columns:1fr auto;gap:1mm 3mm;border-top:1px solid #D9E7DE;padding:2.2mm 0}.rp4 .rec:first-of-type{border-top:none}
+.rp4 .rec b{font-size:9.2pt}.rp4 .rec .k{font-size:7.8pt;text-align:right;color:#15803D;font-weight:600}.rp4 .ai:not(.pz) .rec .k{color:#5B3AE6}.rp4 .rec p{grid-column:1/-1;font-size:8.2pt;color:#1F2937}`;
 }
 
 function mesReportHTML(rd, pro) {
@@ -514,7 +573,7 @@ function renderMesicniReport(el) {
   const pro = typeof hasPremiumAccess !== 'function' || hasPremiumAccess();
   if (!document.getElementById('rp4css')) { const st = document.createElement('style'); st.id = 'rp4css'; st.textContent = _rpCss(); document.head.appendChild(st); }
   if (!document.getElementById('rp4font')) { const l = document.createElement('link'); l.id = 'rp4font'; l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap'; document.head.appendChild(l); }
+    l.href = RP_FONTY; document.head.appendChild(l); }
   let rd;
   try { rd = mesReportData(D, S.curMonth, S.curYear); } catch (e) { el.innerHTML = `<div class="card"><div class="card-body" style="color:var(--expense)">Report se nepodařilo spočítat: ${_rpE(e.message)}</div></div>`; return; }
   //  S25 (F3): AI texty jen v Premium, jen u vlastních dat (ne při prohlížení partnera).
@@ -581,7 +640,7 @@ window.mesReportAINapsat = mesReportAINapsat;
 //  skutečnému Chromu v Cloudflare, takže vzhled zůstane stejný jako při tisku z appky).
 function mesReportSamostatne(obsah, m, y, sTiskem) {
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>FinanceFlow – měsíční report ${RP_MES[m]} ${y}</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+    <link rel="stylesheet" href="${RP_FONTY}">
     <style>${_rpCss()} body{margin:0;background:#E6EAF0}.rp4 .page{margin:8mm auto} @media print{body{background:none}.rp4 .page{margin:0;box-shadow:none;page-break-after:always}@page{size:A4;margin:0}}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body><div class="rp4">${obsah}</div>
     ${sTiskem ? '<script>setTimeout(function(){window.print()},700)<\/script>' : ''}</body></html>`;

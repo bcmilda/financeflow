@@ -31,4 +31,18 @@ t('bez AI komentáře jsou postřehy označené jako spočítané z čísel',p.i
 const RJ=R('report.js','../js/report.js'),PM=R('premium.js','../js/premium.js');
 t('Report2: záložky, matice jen Premium',/rep2Tab\('mesicni'/.test(RJ)||RJ.includes("btn('mesicni'")&&RJ.includes("if (t === 'matice' && !pro)"));
 t('Report2 odemčen pro Free',!/const PREMIUM_PAGES = \[[^\]]*'report2'/.test(PM));
+console.log('── S26 (v11.69): vzhled reportu ──');
+const css=ctx._rpCss();
+t('logo FinanceFlow (Finance + zelené Flow), ne modrá značka',(f+p).includes('Finance<em>Flow</em>')&&!/1F45C8/i.test(f+p+css),'');
+t('světlý podklad stránky a obsah v bílých kartách',/\.rp4 \.page\{[^}]*background:#F3F6FA/.test(css)&&/\.rp4 \.sec\{background:#fff/.test(css));
+t('žádné bledé šedé #8A94A6 a nic pod 7 pt',!/8A94A6/i.test(css+f+p)&&!/font-size:(6(\.\d)?|[0-5](\.\d)?)pt/.test(css.replace(/\.kal[^}]*\}/g,'')+f+p),'');
+const minis=s=>(s.match(/class="mini"/g)||[]).length;
+t('karty s grafem: Free 4, Premium 4 + skóre s kroužkem a dluhy',minis(f)===4&&minis(p)===4&&p.includes('Finanční skóre')&&/stroke-dasharray/.test(ctx._rpKruh(60,100,13))&&p.includes('Dluhy'),[minis(f),minis(p)]);
+t('popisky měsíců pod sloupci (6 měsíců, tento tučně)',(f.match(/class="mc cur"/g)||[]).length===4&&f.includes('<span>srp</span>')&&f.includes('<span>říj</span>'));
+t('kalendář útraty po týdnech (Po–Ne) ve Free i Premium',(f+p).split('class="kal').length-1===2&&f.includes('<div class="h">Po</div>')&&f.includes('Kalendář útraty'));
+const r1=ctx.mesReportData(ctx.S,9,2026), kal=ctx._rpKal(r1,false);
+t('kalendář začíná správným dnem v týdnu (1. 10. 2026 = čtvrtek → 3 prázdná místa)',(kal.match(/class="e"/g)||[]).length===3);
+t('bilance: sloupce i pod nulou se zakreslí s nulovou čarou',ctx._rpMini([100,-50],['a','b'],'#0F8C6E','#C8501E').includes('class="z"'));
+const PJ=R('projects.js','../js/projects.js');
+t('💎 u záložek 3/6/12 měs. a Poradce jen bez Premium (Milan)',/p!=='1M'&&!_maPrem\?_dia:''/.test(PJ)&&/Poradce\$\{_reportMaPoradce\(\)\?'':_dia\}/.test(PJ));
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;
