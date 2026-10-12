@@ -1,4 +1,4 @@
-// FinanceFlow · v11.65 · admin.js · 2026-10-11
+// FinanceFlow · v11.66 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.66',
+    datum: '2026-10-12',
+    zmeny: [
+      "⚖️ GRAMÁŽ ZE ZKRATKY I Z OBALU (Milan) · jedno místo, odkud všechny výpočty berou balení: 1) co zapíšeš v editoru, 2) karta výrobku podle čárového kódu (obal), 3) tvoje osobní karta položky bez kódu, 4) zkratka na účtence. Dřív jen zkratka – položka bez gramáže v názvu (např. „Oreo Doub. van.“) z ceny za kg i ze shrinkflace vypadla.",
+      "✏️ POLE BALENÍ · cesta: Analýza účtenek → editor účtenky → řádek položky (za cenou, potáhni do strany). Zelená = z obalu, šedá = ze zkratky, bílá = zapsal jsi. Přepiš, když nesedí (500 g, 1,5 l, 6x0,5 l); vymazáním se vrátí automatika. U váženého zboží se pole neukazuje.",
+      "📦 MULTIPACK · „Voda 6x0,5l“ = 3 l, cena za litr z celého balení.",
+      "📉 Kde se to projeví: Analýza účtenek → 💹 Zdražování (cena za kg/l a shrinkflace podle zkratek i „🧭 Podle výrobků“), Inflace (sloupec Za kg/l), 📐 Statistika položek (Ø za kg/l). Shrinkflace se teď pozná i tam, kde zkratka gramáž nemá – menší balení má podle pravidel GS1 nový čárový kód a jeho karta novou gramáž.",
+      "🔁 Gramáž z karty výrobku se na pozadí uloží i k položkám starších účtenek s čárovým kódem.",
+      "🧪 tools/smoke_gramaz.js (26); smoke_zdrazovani_karta upraven (gramáž přes nové místo); smoke_slevy: datum v testu místně, ne přes UTC (po půlnoci padal).",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny. Obsahuje i v11.62–v11.65.",
+    ]
+  },
   {
     verze: 'v11.65',
     datum: '2026-10-11',

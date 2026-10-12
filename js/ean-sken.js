@@ -1,4 +1,4 @@
-// FinanceFlow · v11.64 · ean-sken.js · 2026-10-11
+// FinanceFlow · v11.66 · ean-sken.js · 2026-10-12
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -1301,6 +1301,17 @@ function eanKodProKlic(klic, moje, komunita, odmitnute) {
   return { ean: kandidati[0][0], zdroj: 'komunita' };
 }
 
+//  S26 (v11.66): gramáž z karty výrobku (obal) k položce s kódem – uloží se k položce,
+//  aby cena za kg a shrinkflace fungovaly i bez načtené karty. Ruční gramáž se nepřepisuje.
+function eanGramazZKarty(it) {
+  if (!it || !it.ean || it.baleniZdroj === 'rucne') return false;
+  const p = _eanProdukty[it.ean], q = p && p.stav === 'nalezeno' && p.mnozstvi;
+  if (!q || !(q.hodnota > 0) || (q.jednotka !== 'g' && q.jednotka !== 'ml')) return false;
+  if (it.baleniZdroj === 'obal' && it.baleni && it.baleni.m === q.hodnota && it.baleni.j === q.jednotka) return false;
+  it.baleni = { m: q.hodnota, j: q.jednotka }; it.baleniZdroj = 'obal';
+  return true;
+}
+
 //  Doplní kód položkám jednoho seznamu (účtenka nebo receiptItems transakce).
 //  Vrací počet doplněných. nazev(ean) volitelně vrátí název výrobku pro eanNazev.
 function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
@@ -1312,6 +1323,7 @@ function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
     it.ean = v.ean;
     const nz = typeof nazev === 'function' ? nazev(v.ean) : '';
     if (nz && !it.eanNazev) it.eanNazev = String(nz).slice(0, 100);
+    eanGramazZKarty(it);   // S26 (v11.66)
     n++;
   });
   return n;
@@ -1401,6 +1413,9 @@ async function eanAutoDoplnVse(vynutit) {
     //  Názvy výrobků (pro eanNazev a Inflaci) – podle klíčů, ne po položkách.
     const kody = new Set();
     klice.forEach(k => { const v = eanKodProKlic(k, _eanAliasy, _eanKomunita, _eanOdmitnute()); if (v) kody.add(v.ean); });
+    //  S26 (v11.66): i karty kódů, které položky už mají, ale ještě nemají gramáž z obalu
+    const bezGramaze = it => { if (it && it.ean && !it.baleniZdroj) kody.add(String(it.ean)); };
+    (S.receipts || []).forEach(r => (r && r.items || []).forEach(bezGramaze));
     if (kody.size) { try { await eanNactiVse([...kody]); } catch (e) {} }
     //  Zápis až TEĎ, synchronně a bez await (S25: sync mohl objekty mezitím nahradit).
     //  Odmítnutí čteme znovu – uživatel mohl mezitím klepnout na Odebrat.
@@ -1410,6 +1425,9 @@ async function eanAutoDoplnVse(vynutit) {
     let n = 0;
     (S.receipts || []).forEach(r => { if (r) n += eanDoplnSeznam(r.items, r.store, _eanAliasy, _eanKomunita, odm, _eanNazevZCache); });
     (S.transactions || []).forEach(t => { if (t && Array.isArray(t.receiptItems)) n += eanDoplnSeznam(t.receiptItems, t.receiptStore || t.storeName || '', _eanAliasy, _eanKomunita, odm, null); });
+    //  S26 (v11.66): gramáž z obalu i k položkám, které kód měly už dřív
+    (S.receipts || []).forEach(r => (r && r.items || []).forEach(it => { if (eanGramazZKarty(it)) n++; }));
+    (S.transactions || []).forEach(t => (t && Array.isArray(t.receiptItems) ? t.receiptItems : []).forEach(it => { if (eanGramazZKarty(it)) n++; }));
     _eanAutoKdy = Date.now();
     if (n) {
       if (typeof save === 'function') save();
@@ -1443,4 +1461,4 @@ function eanZrusOdmitnuti(klic, ean) {
   const n = Object.assign({}, o); if (Object.keys(zaKlic).length) n[klic] = zaKlic; else delete n[klic];
   S.uiCfg.eanOdmitnute = n;
 }
-Object.assign(window, { eanKodProKlic, eanDoplnSeznam, eanNactiKomunitu, eanAutoEditor, eanAutoDoplnVse, eanZapamatujOdmitnuti, eanZrusOdmitnuti });
+Object.assign(window, { eanGramazZKarty, eanKodProKlic, eanDoplnSeznam, eanNactiKomunitu, eanAutoEditor, eanAutoDoplnVse, eanZapamatujOdmitnuti, eanZrusOdmitnuti });

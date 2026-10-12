@@ -1,4 +1,4 @@
-// FinanceFlow · v11.65 · receipts.js · 2026-10-11
+// FinanceFlow · v11.66 · receipts.js · 2026-10-12
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -247,8 +247,9 @@ function renderUctenky() {
     const unitPrice = parseFloat(rawPrice.toFixed(2));
     if(unitPrice <= 0) return;
 
-    // Extrahuj hmotnost/objem z názvu → spočítej cenu za kg nebo litr
-    const unitInfo = extractUnit(it.name||'');
+    // Hmotnost/objem balení → cena za kg nebo litr.
+    //  S26 (v11.66): z pole Balení / karty výrobku / zkratky (gramazNaKgL), ne jen z názvu.
+    const unitInfo = (typeof gramazNaKgL === 'function') ? gramazNaKgL(it) : extractUnit(it.name||'');
     // Cena za kg/l:
     //  • vážená položka (unit kg/l): price je UŽ cena/kg → bereme přímo
     //  • kusová položka s hmotností v názvu (Rohlík 43g): cena/ks ÷ hmotnost 1 KS (NE × qty!)
@@ -1580,15 +1581,57 @@ window.dokladSmaz = dokladSmaz;
 //  (různé zkratky → jeden výrobek), menší balení za stejnou cenu.
 //  Položky mimo taxonomii zůstávají v původním přehledu „podle zkratek".
 // ══════════════════════════════════════════════════════
-//  Cena za jednotku jedné položky: vážené (kg/l) přímo, jinak z gramáže v názvu.
+// ══════════════════════════════════════════════════════
+//  S26 (v11.66, Milan): GRAMÁŽ POLOŽKY – JEDEN ZDROJ PRO VŠECHNY VÝPOČTY
+//  Dřív se cena za kg/l a shrinkflace počítaly jen z gramáže napsané ve ZKRATCE
+//  („OREO DOUB. VAN.“ bez gramáže z výpočtů vypadlo) a každé místo si ji četlo
+//  po svém. Pořadí zdrojů:
+//   1) 'rucne'   – zapsal jsi ji v editoru účtenky (pole Balení)
+//   2) 'obal'    – karta výrobku podle čárového kódu (Open Food Facts / komunita);
+//                  stejný kód = stejné balení (GS1: jiné množství = nový kód)
+//   3) 'karta'   – tvoje osobní karta položky bez kódu (Mapa položek)
+//   4) 'zkratka' – z názvu na účtence, včetně multipacku „6x0,5l“
+//  Vrací {m, j, kusy?, zdroj} – j: g / ml / ks / x – nebo null.
+// ══════════════════════════════════════════════════════
+const GRAMAZ_ZDROJ = { rucne: 'zapsal jsi', obal: 'z obalu (karta výrobku)', karta: 'z tvé karty výrobku', zkratka: 'ze zkratky na účtence' };
+function _gramazOk(b) { return !!(b && b.m > 0 && isFinite(b.m) && ['g', 'ml', 'ks', 'x'].includes(b.j)); }
+function gramazPolozky(it) {
+  if (!it) return null;
+  const s = (b, zdroj) => Object.assign({ m: b.m, j: b.j }, b.kusy ? { kusy: b.kusy } : {}, { zdroj });
+  if (it.baleniZdroj === 'rucne' && _gramazOk(it.baleni)) return s(it.baleni, 'rucne');
+  if (it.ean) {
+    const p = (typeof eanProduktZCache === 'function') ? eanProduktZCache(it.ean) : null;
+    const q = p && p.stav === 'nalezeno' && p.mnozstvi;
+    if (q && q.hodnota > 0 && (q.jednotka === 'g' || q.jednotka === 'ml')) return s({ m: q.hodnota, j: q.jednotka }, 'obal');
+    if (it.baleniZdroj === 'obal' && _gramazOk(it.baleni)) return s(it.baleni, 'obal');   // uloženo z karty dřív
+  } else if (typeof S !== 'undefined' && S.uiCfg && S.uiCfg.karty && typeof mapaKartaKlic === 'function' && typeof normName === 'function') {
+    const k = S.uiCfg.karty[mapaKartaKlic({ klic: normName(it.name || '') })];
+    const b = k && k.mnozstvi && typeof gramazZTextu === 'function' ? gramazZTextu(k.mnozstvi) : null;
+    if (_gramazOk(b)) return s(b, 'karta');
+  }
+  const zn = (typeof gramazZTextu === 'function') ? gramazZTextu(it.name || '') : null;
+  if (_gramazOk(zn)) return s(zn, 'zkratka');            // multipack z názvu má přednost před starým polem
+  if (_gramazOk(it.baleni)) return s(it.baleni, 'zkratka');
+  return null;
+}
+//  Pro výpočty „za kg / za l“: {value v kg nebo l, unit, displayUnit} nebo null.
+function gramazNaKgL(it) {
+  const g = gramazPolozky(it); if (!g) return null;
+  if (g.j === 'g') return { value: g.m / 1000, unit: 'kg', unitType: 'weight', displayUnit: 'g', zdroj: g.zdroj };
+  if (g.j === 'ml') return { value: g.m / 1000, unit: 'l', unitType: 'volume', displayUnit: 'ml', zdroj: g.zdroj };
+  return null;
+}
+Object.assign(window, { gramazPolozky, gramazNaKgL, GRAMAZ_ZDROJ });
+
+//  Cena za jednotku jedné položky: vážené (kg/l) přímo, jinak z gramáže (gramazPolozky).
 function taxJednotkovaCena(it) {
   const cena = parseFloat(it.price) || 0; if (cena <= 0) return null;
   if (it.unit === 'kg' || it.unit === 'l') return { cena, j: it.unit };
-  const q = (typeof normQty === 'function') ? normQty(it.name) : null;
-  if (!q || !(q.hodnota > 0)) return null;
-  if (q.jednotka === 'g') return { cena: cena / q.hodnota * 1000, j: 'kg', baleni: q.hodnota, bj: 'g' };
-  if (q.jednotka === 'ml') return { cena: cena / q.hodnota * 1000, j: 'l', baleni: q.hodnota, bj: 'ml' };
-  if (q.jednotka === 'ks') return { cena: cena / q.hodnota, j: 'ks', baleni: q.hodnota, bj: 'ks' };
+  const q = gramazPolozky(it);
+  if (!q || !(q.m > 0)) return null;
+  if (q.j === 'g') return { cena: cena / q.m * 1000, j: 'kg', baleni: q.m, bj: 'g', zdroj: q.zdroj };
+  if (q.j === 'ml') return { cena: cena / q.m * 1000, j: 'l', baleni: q.m, bj: 'ml', zdroj: q.zdroj };
+  if (q.j === 'ks') return { cena: cena / q.m, j: 'ks', baleni: q.m, bj: 'ks', zdroj: q.zdroj };
   return null;
 }
 window.taxJednotkovaCena = taxJednotkovaCena;
@@ -4595,6 +4638,23 @@ function rpAutoAssignCategories() {
   });
 }
 
+//  S26 (v11.66): pole Balení v editoru. Prázdné = zpět na automatiku (obal / zkratka),
+//  samotné číslo převezme jednotku z automatiky (jinak g).
+function rpBaleniZmen(i, txt) {
+  const r = window._editReceipt; const it = r && r.items && r.items[i]; if (!it) return;
+  const t = String(txt || '').trim();
+  if (!t) {
+    if (it.baleniZdroj === 'rucne') { delete it.baleniZdroj; const z = gramazZTextu(it.name || ''); if (z) it.baleni = z; else delete it.baleni; }
+  } else {
+    let b = /^\d+(?:[.,]\d+)?$/.test(t) ? null : gramazZTextu(t);
+    if (!b && /^\d+(?:[.,]\d+)?$/.test(t)) { const auto = (delete it.baleniZdroj, gramazPolozky(it)); b = { m: parseFloat(t.replace(',', '.')), j: auto && auto.j !== 'x' ? auto.j : 'g' }; }
+    if (!b || !(b.m > 0)) { if (typeof showToast === 'function') showToast('Napiš balení s jednotkou, např. 500 g, 1,5 l nebo 6x0,5 l'); rpRender(); return; }
+    it.baleni = b; it.baleniZdroj = 'rucne';
+  }
+  rpRender();
+}
+window.rpBaleniZmen = rpBaleniZmen;
+
 function rpRender() {
   const el = document.getElementById('rp_items'); if(!el) return;
   // FIX: Nepřekreslovat pokud je fokusovaný input (způsobuje blikání a ztrátu hodnoty na mobilu)
@@ -4680,6 +4740,17 @@ function rpRender() {
             style="width:68px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--text);font-size:.82rem;text-align:right;-moz-appearance:textfield"
             inputmode="decimal">
           <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>`; })()}
+          ${(() => { if (rpVazene(it)) return '';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl
+            const g = gramazPolozky(it);
+            const barva = !g ? 'var(--text2)' : g.zdroj === 'rucne' ? 'var(--text)' : g.zdroj === 'zkratka' ? '#a8aec8' : 'var(--income)';
+            const tit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
+                              : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
+            //  Hodnota je vidět vždy; barva říká, odkud je (zelená = obal, šedá = zkratka, bílá = zapsal jsi).
+            //  Ukládá se jen změna (událost change), takže pouhé zobrazení nic nepřepíše.
+            return `<input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}"
+              placeholder="g / ml" title="${escHtml(tit)}" aria-label="Balení"
+              style="width:76px;background:var(--surface2);border:1px solid ${g && g.zdroj !== 'zkratka' ? 'var(--income)55' : 'var(--border)'};border-radius:7px;padding:6px 4px;color:${barva};font-size:.72rem;text-align:center${g && g.zdroj !== 'rucne' ? ';font-style:italic' : ''}"
+              autocomplete="off" inputmode="text">`; })()}
           <input id="rp_tag_${i}" type="text"
             value="${it.tag||''}"
             placeholder="🏷️ tag"
@@ -4711,6 +4782,8 @@ function rpRender() {
     const catEl   = document.getElementById('rp_cat_'+i);
     const qtyEl   = document.getElementById('rp_qty_'+i);
     const priceEl = document.getElementById('rp_price_'+i);
+    const balEl   = document.getElementById('rp_bal_'+i);
+    if(balEl) balEl.addEventListener('change', () => rpBaleniZmen(i, balEl.value));   // S26 (v11.66)
 
     if(nameEl) {
       nameEl.addEventListener('input',  () => { r.items[i].name = nameEl.value; });
@@ -5388,6 +5461,7 @@ function addReceiptAsTx(receipt) {
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
+      ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
     })),
     receiptDate: receipt.date || '',
     receiptStore: receipt.store || '',
@@ -5655,6 +5729,7 @@ function syncReceiptToTransactions(r) {
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
+      ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
     }));
     //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
     if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;

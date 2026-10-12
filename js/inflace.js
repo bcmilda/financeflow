@@ -1,4 +1,4 @@
-// FinanceFlow · v11.64 · inflace.js · 2026-10-11
+// FinanceFlow · v11.66 · inflace.js · 2026-10-12
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -119,7 +119,8 @@ function _inflCollect() {
       // (it.unit = kg/l, např. volné banány). U balených položek slouží Kč/kg pouze jako
       // DOPLŇKOVÝ údaj pro odhalení shrinkflace (balení se zmenší, cena zůstane).
       const weighed = (it.unit === 'kg' || it.unit === 'l');
-      const ui = _inflExtractUnit(it.name || '');
+      //  S26 (v11.66): gramáž z pole Balení / karty výrobku / zkratky (gramazNaKgL), ne jen z názvu
+      const ui = (typeof gramazNaKgL === 'function') ? gramazNaKgL(it) : _inflExtractUnit(it.name || '');
       const unit = weighed ? it.unit : 'ks';
       const unitPrice = price;                       // u váženého = Kč/kg, u baleného = Kč/balení
       if (!(unitPrice > 0)) return;

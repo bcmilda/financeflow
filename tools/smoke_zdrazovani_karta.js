@@ -9,7 +9,8 @@ let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':
 console.log('── S25 · Zdražování podle výrobků ──');
 const sb={window:{},getData:()=>({}),Math,Object,Set,String,normQty:n=>{const m=/(\d+)\s*g/i.exec(n);return m?{hodnota:+m[1],jednotka:'g'}:null},normName:s=>s.toLowerCase(),
   rpMapaNavrh:n=>/kofila/i.test(n)?{tax:{id:'oplatky',nazev:'oplatky',podNazev:'Sušenky',ikona:'🛒'}}:null};
-vm.createContext(sb);const i0=rc.indexOf('function taxJednotkovaCena');vm.runInContext(rc.slice(i0,rc.indexOf('window.taxCenyVyvoj',i0)),sb);
+sb.gramazZTextu=n=>{const q=sb.normQty(n);return q?{m:q.hodnota,j:q.jednotka}:null};   // S26: gramáž přes gramazPolozky (v11.66)
+vm.createContext(sb);const i0=rc.indexOf('const GRAMAZ_ZDROJ');vm.runInContext(rc.slice(i0,rc.indexOf('window.taxCenyVyvoj',i0)),sb);
 const v=sb.taxCenyVyvoj([{name:'KOFILA 42G',price:10.9,qty:1,date:'2026-09-02',store:'Penny'},{name:'KOFILA 42G',price:12.9,qty:2,date:'2026-10-02',store:'Lidl'}],{});
 const p=v.polozky[0];
 t('vedle Kč/kg i Kč/ks (první a poslední měsíc)',p&&p.prvniKs===10.9&&p.posledniKs===12.9&&p.j==='kg',p&&[p.prvniKs,p.posledniKs]);

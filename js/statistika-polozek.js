@@ -1,4 +1,4 @@
-// FinanceFlow · v11.41 · statistika-polozek.js · 2026-10-07
+// FinanceFlow · v11.66 · statistika-polozek.js · 2026-10-12
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -33,7 +33,8 @@ function spRadky(receipts, mapa, D) {
     const kod = kodT ? (typeof coicopNorm === 'function' ? coicopNorm(kodT) : kodT) : (pg ? kodCsu(pg.code) : '');
     const kat = kats[(m && m.z.catId) || it.itemCatId || ''];
     //  S25: cena za kg / l – vážené zboží přímo, balené z gramáže (samostatné pole nebo z názvu)
-    const bal = it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null);
+    //  S26 (v11.66): jeden zdroj gramáže pro celou appku (pole Balení → obal → zkratka)
+    const bal = (typeof gramazPolozky === 'function') ? gramazPolozky(it) : (it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null));
     let zaJed = null, jed = '';
     if (vaz(it)) { zaJed = q ? castka / q : null; jed = (it.unit === 'l' ? 'l' : 'kg'); }
     else if (bal && (bal.j === 'g' || bal.j === 'ml') && bal.m > 0) { zaJed = castka / (q * bal.m / 1000); jed = bal.j === 'g' ? 'kg' : 'l'; }
