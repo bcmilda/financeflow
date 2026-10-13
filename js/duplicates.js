@@ -1,4 +1,4 @@
-//  FinanceFlow · v11.73 · duplicates.js · 2026-10-13
+//  FinanceFlow · v11.74 · duplicates.js · 2026-10-13
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -133,12 +133,13 @@ function dupMerge(keepId, deleteId) {
   const keep   = (D.transactions||[]).find(t => t.id == keepId);
   const del    = (D.transactions||[]).find(t => t.id == deleteId);
   if (!keep || !del) return;
+  if (txChranenaHlaska(del)) return;
   const amt = keep.amount || keep.amt || 0;
   const amtD = del.amount || del.amt || 0;
   const u = dupUctenkaPro(del);
   if (!confirm(`Smazat duplikát?\n\n✅ Zachovat: "${keep.name}" · ${fmtP(amt)} Kč · ${keep.date}\n🗑 Smazat:   "${del.name}" · ${fmtP(amtD)} Kč · ${del.date}`
     + (u && u.kopie ? `\n\n📷 Smaže se i kopie naskenované účtenky (${u.r.store || ''} ${u.r.date || ''}) – originál účtenky zůstane.` : ''))) return;
-  txSmazSUctenkou(del, true);
+  if (!txSmazSUctenkou(del)) return;
   delete _dupMap[keepId]; delete _dupMap[deleteId];
   save(); renderTx(); dupVseObnov();
   showToast('✅ Duplikát smazán');
@@ -149,10 +150,11 @@ function dupDelete(txId) {
   const D = getData();
   const t = (D.transactions||[]).find(x => x.id == txId);
   if (!t) return;
+  if (txChranenaHlaska(t)) return;
   const amt = t.amount || t.amt || 0;
   const u = dupUctenkaPro(t);
-  if (!confirm(`Smazat transakci?\n"${t.name}" · ${fmtP(amt)} Kč · ${t.date}` + (u && u.kopie ? `\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).` : ''))) return;
-  txSmazSUctenkou(t, true);
+  if (!confirm(`Smazat transakci?\n"${t.name}" · ${fmtP(amt)} Kč · ${t.date}` + (u ? `\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).` : ''))) return;
+  if (!txSmazSUctenkou(t)) return;
   delete _dupMap[txId];
   save(); renderTx(); dupVseObnov();
   showToast('✅ Transakce smazána');
@@ -192,19 +194,35 @@ function dupUctenkaPro(t) {
   const k = dupUctenkaKlic(R[i]);
   return { i, r: R[i], kopie: R.some((x, j) => j !== i && x && dupUctenkaKlic(x) === k) };
 }
-//  Smaže transakci; účtenku smaže, když je kopie (nebo když to uživatel potvrdí).
-function txSmazSUctenkou(t, potvrzeno) {
-  if (!t) return;
+//  S26 (v11.74, Milan: „nechci, aby první naskenovaná účtenka šla smazat pouhým tlačítkem
+//  v Transakcích – zůstala by účtenka bez transakce“). CHRÁNĚNÁ = transakce patří k účtence, která
+//  zůstává (jediná, nebo ta, kterou si „Smazat duplikáty“ nechá). Ta se maže jen přes účtenku
+//  (✎ Upravit účtenku → Historie → ✕). Smazat jde jen transakce bez účtenky (osiřelá – účtenka
+//  už neexistuje) nebo transakce KOPIE účtenky (s ní zmizí i ta kopie).
+function txChranenaUctenkou(t) {
+  const u = dupUctenkaPro(t); if (!u) return null;
+  if (u.kopie && typeof rcptDuplikatyPlan === 'function' && rcptDuplikatyPlan(S.receipts || []).smaz.includes(u.r)) return null;
+  return u;
+}
+function txChranenaHlaska(t) {
+  const u = txChranenaUctenkou(t); if (!u) return false;
+  if (confirm(`🔒 Tahle transakce patří k naskenované účtence ${u.r.store || ''} ${u.r.date || ''}.\n\nSmaže se jen spolu s účtenkou: ✎ Upravit účtenku → v Historii ✕ (smaže účtenku i transakci).\n\nOtevřít účtenku v Historii?`)
+      && typeof openReceiptInHistory === 'function') openReceiptInHistory(u.r.date || '', u.r.store || '');
+  return true;
+}
+//  Smaže transakci (ne chráněnou); s transakcí KOPIE zmizí i kopie účtenky. Vrací false, když nesmí.
+function txSmazSUctenkou(t) {
+  if (!t || txChranenaUctenkou(t)) return false;
   const u = dupUctenkaPro(t);
   if (typeof reverseGoalDepositForTx === 'function') reverseGoalDepositForTx(t.id);
   S.transactions = S.transactions.filter(x => x !== t && x.id != t.id);
-  if (!u) return;
-  const smazat = u.kopie || (!potvrzeno ? false : confirm(`K transakci patří naskenovaná účtenka ${u.r.store || ''} ${u.r.date || ''}. Smazat i ji?\n\nOK = smazat i účtenku · Zrušit = účtenka zůstane v Analýze účtenek`));
-  if (!smazat) return;
-  if (u.r.photoKey && typeof rpFotky === 'function' && typeof archivSmaz === 'function') rpFotky(u.r).forEach(k => archivSmaz(k));
-  S.receipts = S.receipts.filter(x => x !== u.r);
+  if (u) {   // sem se dostane jen kopie (chráněná vypadla výš)
+    if (u.r.photoKey && typeof rpFotky === 'function' && typeof archivSmaz === 'function') rpFotky(u.r).forEach(k => archivSmaz(k));
+    S.receipts = S.receipts.filter(x => x !== u.r);
+  }
+  return true;
 }
-window.txSmazSUctenkou = txSmazSUctenkou; window.dupUctenkaPro = dupUctenkaPro;
+window.txSmazSUctenkou = txSmazSUctenkou; window.dupUctenkaPro = dupUctenkaPro; window.txChranenaUctenkou = txChranenaUctenkou; window.txChranenaHlaska = txChranenaHlaska;
 
 // ══════════════════════════════════════════════════════
 //  S26 (v11.73, Milan: „podezřelé transakce musím hledat měsíc po měsíci, chci je vidět najednou“)
@@ -242,13 +260,14 @@ function dupVseKresli() {
   const e = typeof escHtml === 'function' ? escHtml : (x => String(x == null ? '' : x));
   const kat = t => { const c = (D.categories || []).find(x => x.id === (t.catId || t.category)); return c ? (c.icon || '') + ' ' + c.name : ''; };
   const kdy = t => { const ms = dupPridano(t); return ms ? new Date(ms).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; };
-  const radek = (t, pozdejsi) => { const u = dupUctenkaPro(t);
+  const radek = (t, pozdejsi) => { const u = dupUctenkaPro(t), chr = txChranenaUctenkou(t);
     return `<div style="display:flex;gap:8px;align-items:center;padding:6px 0">
       <div style="flex:1;min-width:0">
-        <div style="font-size:.82rem;font-weight:600;overflow-wrap:anywhere">${e(t.name || '–')} ${u ? '<span title="Z naskenované účtenky">📷</span>' : ''}</div>
+        <div style="font-size:.82rem;font-weight:600;overflow-wrap:anywhere">${e(t.name || '–')} ${u ? '<span title="Z naskenované účtenky">📷</span>' : (t.receiptAddedAt || String(t.note || '').startsWith('📸')) ? '<span title="Účtenka k této transakci už neexistuje" style="font-size:.66rem;color:var(--debt);font-weight:500">📷 účtenka chybí</span>' : ''}</div>
         <div style="font-size:.7rem;color:var(--text2)">${t.type === 'income' ? '+' : '−'}${fmtP(t.amount || t.amt || 0)} Kč · ${e(t.date)} · ${e(kat(t))}${kdy(t) ? ` · přidáno ${kdy(t)}` : ''}${pozdejsi ? ' · <b style="color:var(--debt)">přidaná později</b>' : ''}</div>
       </div>
-      ${ro ? '' : `<button class="btn btn-sm" style="font-size:.7rem;padding:3px 9px;background:rgba(248,113,113,.15);color:var(--expense);border:1px solid rgba(248,113,113,.3);flex-shrink:0" onclick="dupDelete('${e(String(t.id))}')">🗑 Smazat</button>`}
+      ${ro ? '' : chr ? `<span title="Patří k účtence – smaže se jen s ní (✎ Upravit účtenku → Historie → ✕)" style="font-size:.68rem;color:#a8aec8;flex-shrink:0;text-align:right;line-height:1.3">🔒 patří<br>k účtence</span>`
+        : `<button class="btn btn-sm" style="font-size:.7rem;padding:3px 9px;background:rgba(248,113,113,.15);color:var(--expense);border:1px solid rgba(248,113,113,.3);flex-shrink:0" onclick="dupDelete('${e(String(t.id))}')">🗑 Smazat${u ? '<br><span style=\'font-size:.6rem\'>i kopii účtenky</span>' : ''}</button>`}
     </div>`; };
   let h = '', mesic = '';
   pary.slice(0, 200).forEach(p => {
@@ -258,7 +277,7 @@ function dupVseKresli() {
     h += `<div style="border:1px solid rgba(251,191,36,.28);background:rgba(251,191,36,.04);border-radius:10px;padding:6px 10px;margin-bottom:8px">
       <div style="font-size:.72rem;font-weight:700;color:${tp[2]}">${tp[0]} ${tp[1]} <span style="font-weight:400;color:var(--text3)">· ${e(p.reason)}</span></div>
       ${radek(p.a, false)}<div style="border-top:1px dashed var(--border)"></div>${radek(p.b, dupPridano(p.b) > dupPridano(p.a))}
-      ${obeUct ? '<div style="font-size:.68rem;color:#a8aec8;margin:2px 0 4px">📷 Obě jsou z naskenované účtenky – se smazanou transakcí se smaže i kopie účtenky, originál zůstane.</div>' : ''}
+      ${obeUct ? '<div style="font-size:.68rem;color:#a8aec8;margin:2px 0 4px">📷 Obě jsou z naskenované účtenky – smazat jde jen kopie (s ní zmizí i kopie účtenky), originál je 🔒 chráněný.</div>' : ''}
       ${ro ? '' : `<button class="btn btn-ghost btn-sm" style="font-size:.7rem;padding:3px 9px;margin:2px 0 4px" onclick="dupIgnore('${e(String(p.a.id))}','${e(String(p.b.id))}')">👍 Není duplikát</button>`}
     </div>`;
   });

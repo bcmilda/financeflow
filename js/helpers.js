@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · helpers.js · 2026-10-12
+// FinanceFlow · v11.74 · helpers.js · 2026-10-13
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -777,6 +777,7 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 const _ffZpet = { stack: [], zpetBezi: false, odchodDo: 0, obnovit: false, aktivni: false };
 const FF_ZPET_ZAVRI = { eanKartaOkno: 'eanKartaZavri', eanZiviny: 'eanZivinyZavri', eanOkno: 'eanZavri', mapaKarta: 'mapaUzivKartaZavri', paywallScreen: 'closePaywall' };
 const FF_ZPET_NECHAT = ['bannedOverlay'];
+const FF_ZPET_DVAKRAT = ['mapaKarta', 'dupVseOkno'];   // S26 (v11.74): velké karty – Zpět dvakrát
 function _ffZpetStraz() { try { history.pushState({ ff: 'straz' }, ''); } catch (e) {} }
 //  Všechna otevřená okna (karty, skener, formuláře, modaly, paywall) seřazená od nejvrchnějšího.
 //  S25 (v11.52): vyčleněno, aby to mohla použít i ochrana rozdělané práce (ffRozpracovano).
@@ -866,6 +867,13 @@ function ffZpetZavriVrchni(doc) {
   doc = doc || document;
   const top = ffOtevrenaOkna(doc)[0];
   if (top) {
+    //  S26 (v11.74, Milan: „karta se mi zavřela, a nevím, že bych kliknul“): systémové Zpět
+    //  (i gesto od okraje displeje při držení telefonu) zavře velkou kartu až na DRUHÉ Zpět do 2,5 s.
+    if (FF_ZPET_DVAKRAT.includes(top.id) && !(_ffZpet.oknoId === top.id && Date.now() < _ffZpet.oknoDo)) {
+      _ffZpet.oknoId = top.id; _ffZpet.oknoDo = Date.now() + 2500;
+      if (typeof showToast === 'function') showToast('Zpět ještě jednou kartu zavře');
+      return true;
+    }
     //  S26 (v11.72): neuložené změny → zeptat se, nezavírat
     if (top.id !== 'ffOknoDotaz' && ffOknoJeZmeneno(top)) {
       const fn0 = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
@@ -972,9 +980,10 @@ function ffRenderBezpecne(zdroj) {
   }
   if (!_ffRozprac.timer) {
     _ffRozprac.timer = setInterval(() => {
-      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; return; }
-      if (ffRozpracovano()) return;
+      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffCekaPill(); return; }
+      if (ffRozpracovano()) { _ffCekaPill(); return; }
       clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffRozprac.ceka = false;
+      _ffCekaPill();
       _ffRenderTed();
     }, 800);
   }
@@ -983,7 +992,9 @@ function ffRenderBezpecne(zdroj) {
 //  Psaní do formuláře na stránce = rozpracováno (do překreslení/přepnutí stránky, nejdéle 5 min).
 //  Nepočítají se filtry a vyhledávání (výběry, zaškrtávátka, hledací pole) – ty nic
 //  neuchovávají a jinak by zbytečně zdržely zobrazení novějších dat.
-const FF_ROZPRAC_VYPRSI = 5 * 60 * 1000;
+//  S26 (v11.74, Milan: „když se akce nepropíše hned, vypadá to, že appka nefunguje“): 5 min → 60 s
+//  od posledního úhozu; klepnutí na Uložit/Přidat/Potvrdit rozepsanou práci ukončí hned.
+const FF_ROZPRAC_VYPRSI = 60 * 1000;
 function _ffJeFiltr(t) {
   if (!t || !t.tagName) return true;
   if (t.tagName === 'SELECT') return true;
@@ -998,6 +1009,27 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       _ffRozprac.formular = curPage; _ffRozprac.formularKdy = Date.now();
     }
   }, true);
+  //  Uložit / Přidat / Potvrdit = rozepsané je hotové → čekající překreslení může hned
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (b && /Uložit|Přidat|Potvrdit|💾|✓/.test(b.textContent || '')) { _ffRozprac.formular = null; setTimeout(_ffCekaPill, 900); }
+  }, true);
+}
+//  Když čeká překreslení (rozepsaná práce, otevřené okno), ukáže se dole malé „🔄 Ukázat změny“ –
+//  ať je vidět, že appka změnu má, jen ji nechce kreslit přes rozdělanou práci. Klepnutí = hned.
+function _ffCekaPill() {
+  if (typeof document === 'undefined' || !document.body) return;
+  let p = document.getElementById('ffCekaPill');
+  const a = document.activeElement;
+  const pise = a && a !== document.body && a.matches && a.matches('input, textarea, [contenteditable]');
+  const ukaz = _ffRozprac.ceka && !pise && !ffOtevrenaOkna().length && !_ffEditorUctenky();
+  if (!ukaz) { if (p) p.remove(); return; }
+  if (p) return;
+  p = document.createElement('button'); p.id = 'ffCekaPill'; p.type = 'button';
+  p.textContent = '🔄 Ukázat změny';
+  p.style.cssText = 'position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9000;background:var(--surface2,#232737);color:var(--text,#e8eaf2);border:1px solid var(--income,#4ade80);border-radius:20px;padding:7px 16px;font-size:.8rem;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.4);cursor:pointer';
+  p.onclick = () => { p.remove(); _ffRozprac.formular = null; _ffRozprac.ceka = false; if (_ffRozprac.timer) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; } _ffRenderTed(); };
+  document.body.appendChild(p);
 }
 Object.assign(typeof window !== 'undefined' ? window : {}, { ffRozpracovano, ffRenderBezpecne });
 

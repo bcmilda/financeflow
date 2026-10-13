@@ -12,7 +12,7 @@ const S={transactions:[],receipts:[],uiCfg:{},categories:[{id:'jidlo',name:'Jíd
 const c={S,console,Math,Date,Set,Object,String,Number,JSON,viewingUid:null,getData:()=>S,save(){c.ulozeno=(c.ulozeno||0)+1},renderTx(){},showToast(){},confirm:()=>true,
   fmt:v=>String(Math.round(v)),fmtP:v=>String(v),normalizeStoreName:s=>String(s||'').toUpperCase(),document:{getElementById:()=>null},window:{}};
 vm.createContext(c);
-vm.runInContext(dj.replace(/^\s*\/\/.*$/m,'')+'\n'+pick(rc,'rcptNajdiTx'),c);
+vm.runInContext(dj.replace(/^\s*\/\/.*$/m,'')+'\n'+['rcptNajdiTx','rcptPrace','rcptDuplikatyPlan'].map(n=>pick(rc,n)).join('\n'),c);
 vm.runInContext('showToast=function(){}',c);
 
 console.log('── páry za všechny měsíce ──');
@@ -44,13 +44,20 @@ const rB={store:'Penny',date:'2026-03-10',total:311.41,items:[1,2],addedAt:17600
 S.receipts=[rB,rA];   // novější první (unshift)
 const u=c.dupUctenkaPro(S.transactions.find(x=>x.id===2));
 t('transakce zná svou účtenku a ví, že je to kopie',u&&u.r===rB&&u.kopie===true);
+let otazek=0; c.confirm=()=>{otazek++;return false;};
+c.dupDelete(1);
+t('🔒 transakce PRVNĚ naskenované účtenky (originál) se tlačítkem smazat nedá (Milan)',S.transactions.some(x=>x.id===1)&&S.receipts.includes(rA)&&otazek===1);
+c.confirm=()=>true;
 c.dupDelete(2);
-t('smazání transakce smaže i kopii účtenky, originál zůstane',!S.transactions.some(x=>x.id===2)&&S.receipts.length===1&&S.receipts[0]===rA);
+t('transakce kopie se smaže i s kopií účtenky, originál zůstane',!S.transactions.some(x=>x.id===2)&&S.receipts.length===1&&S.receipts[0]===rA);
 const jedina={store:'Albert',date:'2026-10-10',total:50,items:[1],addedAt:1760100000000};
 S.receipts.push(jedina); S.transactions.push(tx(7,'2026-10-10',50,{receiptAddedAt:1760100000000}));
-c.confirm=()=>false; c.txSmazSUctenkou(S.transactions.find(x=>x.id===7),true);
-t('jediná účtenka (ne kopie): zeptá se, a když ne, účtenka zůstane',!S.transactions.some(x=>x.id===7)&&S.receipts.includes(jedina));
-t('Transakce: smazání jde přes stejnou funkci (i na telefonu v rozbalených položkách)',/function deleteTx\(id\)\{[\s\S]{0,500}txSmazSUctenkou\(_t,true\)/.test(ui)&&ui.includes('🗑 Smazat transakci'));
+c.confirm=()=>false;
+t('🔒 jediná účtenka: transakce se smazat nedá ani přímo',c.txSmazSUctenkou(S.transactions.find(x=>x.id===7))===false&&S.transactions.some(x=>x.id===7)&&S.receipts.includes(jedina));
+S.transactions.push(tx(8,'2026-10-10',50,{receiptAddedAt:1760199999999}));   // účtenka už neexistuje
+c.confirm=()=>true; c.dupDelete(8);
+t('transakce, jejíž účtenka už neexistuje (2 transakce + 1 účtenka), smazat jde',!S.transactions.some(x=>x.id===8)&&S.transactions.some(x=>x.id===7)&&S.receipts.includes(jedina));
+t('Transakce: chráněnou nesmaže ani ✕ (deleteTx), tlačítko je jen u kopie / bez účtenky',/function deleteTx\(id\)\{[\s\S]{0,500}txChranenaHlaska\(_t\)/.test(ui)&&/txChranenaUctenkou\(t\)\) \? '' : `<button[^`]*🗑 Smazat transakci/.test(ui));
 
 console.log('── Smazat duplikáty v Analýze účtenek: která zůstane ──');
 const cr={normalizeStoreName:s=>String(s||'').toUpperCase(),Math};

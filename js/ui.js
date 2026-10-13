@@ -1,4 +1,4 @@
-// FinanceFlow · v11.73 · ui.js · 2026-10-13
+// FinanceFlow · v11.74 · ui.js · 2026-10-13
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2013,7 +2013,8 @@ function buildTxRow(t, D, ro, dupMap={}) {
     }).join('');
     return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
-      <button class="btn btn-sm" style="font-size:.72rem;background:rgba(248,113,113,.12);color:var(--expense);border:1px solid rgba(248,113,113,.3)" onclick="event.stopPropagation();deleteTx('${t.id}')">🗑 Smazat transakci</button></div>`}</div>`;
+      ${(typeof txChranenaUctenkou==='function'&&txChranenaUctenkou(t)) ? '' : `<button class="btn btn-sm" style="font-size:.72rem;background:rgba(248,113,113,.12);color:var(--expense);border:1px solid rgba(248,113,113,.3)" onclick="event.stopPropagation();deleteTx('${t.id}')">🗑 Smazat transakci${typeof dupUctenkaPro==='function'&&dupUctenkaPro(t)?' (kopie účtenky)':''}</button>`}</div>`}</div>`;
+    //  v11.74 (Milan): tlačítko jen u transakce bez účtenky nebo u kopie – originál se maže přes účtenku
     //  S26 (v11.73, Milan: „z Transakcí ji smazat nemůžu“): na telefonu měla účtenková transakce jen „Upravit“
   })() : '';
 
@@ -2128,10 +2129,12 @@ function buildTxRow(t, D, ro, dupMap={}) {
 function deleteTx(id){
   if(viewingUid)return;
   //  S26 (v11.73): transakce z naskenované účtenky – kopie účtenky se smaže s ní, jinak se zeptá
+  //  v11.74 (Milan): transakce účtenky, která zůstává, se maže jen přes účtenku (🔒)
   const _t=(S.transactions||[]).find(t=>t.id==id);
+  if(_t&&typeof txChranenaHlaska==='function'&&txChranenaHlaska(_t)) return;
   const _u=_t&&typeof dupUctenkaPro==='function'?dupUctenkaPro(_t):null;
-  if(!confirm('Smazat transakci?'+(_u&&_u.kopie?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')))return;
-  if(_t&&typeof txSmazSUctenkou==='function'){ txSmazSUctenkou(_t,true); save(); renderPage(); return; }
+  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')))return;
+  if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ save(); renderPage(); } return; }
   // Pokud je to vklad do cíle (transfer s párovým vkladem) → smaž i vklad v cíli
   if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(id);
   S.transactions=S.transactions.filter(t=>t.id!=id);

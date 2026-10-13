@@ -1,4 +1,4 @@
-// FinanceFlow · v11.73 · admin.js · 2026-10-13
+// FinanceFlow · v11.74 · admin.js · 2026-10-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.74',
+    datum: '2026-10-13',
+    zmeny: [
+      "🔒 TRANSAKCE ÚČTENKY JEN PŘES ÚČTENKU (Milan: „nechci, aby první naskenovaná účtenka šla smazat pouhým tlačítkem v Transakcích – zůstala by účtenka bez transakce“). Transakce, jejíž účtenka zůstává (jediná, nebo originál u zdvojeného skenu), se v Transakcích ani v okně podezřelých párů smazat nedá – ✕ jen řekne, že patří k účtence, a nabídne ji otevřít (✎ Upravit účtenku → Historie → ✕ smaže účtenku i transakci). Smazat jde jen: transakce, jejíž účtenka už neexistuje (2 transakce + 1 účtenka), a transakce KOPIE účtenky (zmizí s ní kopie, originál zůstane). V přehledu všech měsíců je u chráněné „🔒 patří k účtence“, u osiřelé „📷 účtenka chybí“.",
+      "📎 DOKLADY – FILTR (Milan) · cesta: Analýza účtenek → 📎 Doklady. Filtr 🛡️ V záruce / ⏰ Končí / ⌛ Po záruce / Bez záruky, řazení podle záruky (končí nejdřív), data nákupu (nejnovější / nejstarší) nebo částky a hledání v obchodě i poznámce. Filtruje se v zobrazeném seznamu – náhledy fotek se znovu nestahují.",
+      "🐛 FIX · Doklady: tlačítka Otevřít / Záruka / Poznámka / 🗑️ mířila na pozici v seznamu BEZ duplikátů – při zdvojené účtence by otevřela nebo smazala JINÝ doklad (stejná chyba jako v Historii, v11.70). Teď vždy na tu správnou.",
+      "⏱️ RYCHLEJŠÍ ODEZVA (Milan: „když se akce nepropíše hned, vypadá to, že appka nefunguje“): ochrana rozepsané práce z S25 brzdila překreslení až 5 minut po posledním psaní do formuláře. Teď nejvýš 60 s a klepnutí na Uložit / Přidat / Potvrdit brzdu uvolní hned. Když appka změnu má, ale čeká (rozepsaný formulář), ukáže dole „🔄 Ukázat změny“ – klepnutí ji ukáže hned. Otevřené okno/karta dál stránku pod sebou nepřekresluje; po zavření se překreslí do 1 s.",
+      "📇 Karta výrobku a okno podezřelých párů: systémové Zpět (i gesto od okraje displeje při držení telefonu) je zavře až na DRUHÉ Zpět do 2,5 s („Zpět ještě jednou kartu zavře“).",
+      "🧪 tools/smoke_doklady_filtr.js (10), smoke_dup_vse.js (17), smoke_zpet_kvyrizeni.js upraven. V prohlížeči ověřeno: filtr, řazení a hledání v Dokladech.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.73',
     datum: '2026-10-13',

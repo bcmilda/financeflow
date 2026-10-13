@@ -1,4 +1,4 @@
-// FinanceFlow · v11.73 · receipts.js · 2026-10-13
+// FinanceFlow · v11.74 · receipts.js · 2026-10-13
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -1348,8 +1348,11 @@ function dokladZaruka(rec, dnes) {
 //  Doklady seřazené tak, aby nahoře bylo, co hoří.
 function dokladySeznam(receipts, dnes) {
   const RADA = { konci: 0, plati: 1, bez: 2, propadla: 3 };
+  //  S26 (v11.74): index vždy do S.receipts – Doklady dostávají seznam BEZ duplikátů, a pozice
+  //  v něm by u duplicit otevřela / smazala jiný doklad (stejná chyba jako v Historii, v11.70)
+  const _R = (typeof S !== 'undefined' && S.receipts) || [];
   return (receipts || [])
-    .map((r, i) => ({ r, i, z: dokladZaruka(r, dnes) }))
+    .map((r, i) => { const j = _R.indexOf(r); return { r, i: j >= 0 ? j : i, z: dokladZaruka(r, dnes) }; })
     .filter(x => x.r && x.r.photoKey)
     .sort((a, b) => (RADA[a.z.stav] - RADA[b.z.stav])
       || (a.z.stav === 'konci' ? a.z.dni - b.z.dni : String(b.r.date || '').localeCompare(String(a.r.date || ''))));
@@ -1400,11 +1403,12 @@ function buildDokladyTab(receipts) {
   html += `<div class="card"><div class="card-header"><span class="card-title">📎 Uschované doklady</span>
       <span style="font-size:.68rem;color:#a8aec8">${list.length} ${list.length === 1 ? 'doklad' : list.length < 5 ? 'doklady' : 'dokladů'} · ${Math.round(bajtu / 1024)} kB</span></div>
     <div class="dokPocitadlo" style="padding:0 14px"></div>
-    <div class="card-body" style="padding:6px 14px">`;
+    ${dokladyFiltrHTML(list)}
+    <div class="card-body" id="dokSeznam" style="padding:6px 14px">`;
   html += list.map(x => {
     const r = x.r, z = x.z;
     const barva = z.stav === 'konci' ? 'var(--debt)' : z.stav === 'propadla' ? 'var(--text3)' : z.stav === 'plati' ? 'var(--income)' : 'var(--text3)';
-    return `<div style="display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);align-items:flex-start">
+    return `<div class="dok-radek" data-stav="${z.stav}" data-datum="${escHtml(r.date || '')}" data-konec="${z.dni != null ? z.dni : ''}" data-castka="${r.total || 0}" data-text="${escHtml(((r.store || '') + ' ' + (r.photoNote || '')).toLowerCase())}" style="display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border);align-items:flex-start">
       <div id="dok-nahled-${x.i}" data-key="${escHtml(r.photoKey)}" onclick="dokladOtevri(${x.i})"
            style="width:54px;height:54px;border-radius:9px;background:var(--surface2);flex-shrink:0;cursor:pointer;
                   display:grid;place-items:center;font-size:1.1rem;overflow:hidden">📄</div>
@@ -1421,11 +1425,53 @@ function buildDokladyTab(receipts) {
         </div>
       </div></div>`;
   }).join('');
+  html += `<div id="dokPrazdno" style="display:none;padding:18px 0;text-align:center;font-size:.8rem;color:var(--text2)">Nic neodpovídá filtru.</div>`;
   html += `</div><div style="font-size:.66rem;color:#8b93ad;padding:0 14px 12px;line-height:1.5">
       Fotky leží mimo appku v úložišti EU, u účtenky je jen odkaz. Smazáním účtenky nebo účtu zmizí i doklad.
     </div></div>${dokladySirotciBlok()}`;
   return html + '</div>';
 }
+
+//  S26 (v11.74, Milan: „u Dokladů bych přidal filtr podle záruky / data, ať se v tom člověk vyzná“)
+//  Filtr podle stavu záruky, řazení (záruka / datum nákupu / částka) a hledání v obchodě a poznámce.
+//  Filtruje se přímo v zobrazeném seznamu – načtené náhledy fotek zůstanou, nic se znovu nestahuje.
+let _dokFiltr = 'vse', _dokRazeni = 'zaruka';
+function dokladyFiltrHTML(list) {
+  const n = { vse: list.length, plati: 0, konci: 0, propadla: 0, bez: 0 };
+  list.forEach(x => { n[x.z.stav] = (n[x.z.stav] || 0) + 1; });
+  const chip = (k, t) => n[k] || k === 'vse' ? `<button class="tx-filt-btn dok-chip${_dokFiltr === k ? ' active' : ''}" data-f="${k}" style="font-size:.72rem" onclick="dokladyFiltr('${k}')">${t} (${n[k] || 0})</button>` : '';
+  return `<div style="padding:4px 14px 2px;display:flex;flex-direction:column;gap:7px">
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${chip('vse', 'Vše')}${chip('plati', '🛡️ V záruce')}${chip('konci', '⏰ Končí')}${chip('propadla', '⌛ Po záruce')}${chip('bez', 'Bez záruky')}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <input id="dokHledat" class="fi" type="search" placeholder="🔎 Obchod nebo poznámka…" style="flex:1 1 150px;min-width:130px;font-size:.78rem" oninput="dokladyFiltruj()">
+      <select id="dokRazeni" class="fi" style="flex:0 1 auto;font-size:.78rem" onchange="_dokRazeni=this.value;dokladyFiltruj()">
+        <option value="zaruka"${_dokRazeni === 'zaruka' ? ' selected' : ''}>Podle záruky (končí nejdřív)</option>
+        <option value="novy"${_dokRazeni === 'novy' ? ' selected' : ''}>Datum nákupu – nejnovější</option>
+        <option value="stary"${_dokRazeni === 'stary' ? ' selected' : ''}>Datum nákupu – nejstarší</option>
+        <option value="castka"${_dokRazeni === 'castka' ? ' selected' : ''}>Nejvyšší částka</option>
+      </select></div></div>`;
+}
+function dokladyFiltr(k) { _dokFiltr = k; dokladyFiltruj(); }
+function dokladyFiltruj() {
+  const box = document.getElementById('dokSeznam'); if (!box) return;
+  const q = ((document.getElementById('dokHledat') || {}).value || '').trim().toLowerCase();
+  document.querySelectorAll('.dok-chip').forEach(b => b.classList.toggle('active', b.dataset.f === _dokFiltr));
+  const rady = Array.from(box.querySelectorAll('.dok-radek'));
+  const RADA = { konci: 0, plati: 1, bez: 2, propadla: 3 };
+  const cislo = (el, k) => { const v = parseFloat(el.dataset[k]); return isNaN(v) ? Infinity : v; };
+  rady.sort((a, b) => {
+    if (_dokRazeni === 'novy') return String(b.dataset.datum).localeCompare(String(a.dataset.datum));
+    if (_dokRazeni === 'stary') return String(a.dataset.datum).localeCompare(String(b.dataset.datum));
+    if (_dokRazeni === 'castka') return cislo(b, 'castka') - cislo(a, 'castka');
+    return (RADA[a.dataset.stav] - RADA[b.dataset.stav]) || (a.dataset.stav === 'propadla' ? cislo(b, 'konec') - cislo(a, 'konec') : cislo(a, 'konec') - cislo(b, 'konec'))
+      || String(b.dataset.datum).localeCompare(String(a.dataset.datum));
+  });
+  let videt = 0;
+  rady.forEach(el => { const ok = (_dokFiltr === 'vse' || el.dataset.stav === _dokFiltr) && (!q || (el.dataset.text || '').includes(q));
+    el.style.display = ok ? 'flex' : 'none'; if (ok) videt++; box.appendChild(el); });
+  const pr = document.getElementById('dokPrazdno'); if (pr) { pr.style.display = videt ? 'none' : 'block'; box.appendChild(pr); }
+}
+window.dokladyFiltr = dokladyFiltr; window.dokladyFiltruj = dokladyFiltruj;
 
 //  S25 (v11.49, Milan: „jak obnovit účtenku, aby se zobrazila v uložených?“): FOTKY BEZ ÚČTENKY.
 //  Do v11.47 se automaticky uschovaná fotka mohla nahrát, ale odkaz se k účtence neuložil.
@@ -2440,7 +2486,7 @@ function switchUctenkyTab(tab, btn) {
   if(content)content.style.display='block';
   //  S23 (TODO-304): náhledy dokladů se stahují z R2 až při otevření záložky,
   //  ne při každém vykreslení Analýzy účtenek.
-  if(tab==='doklady' && typeof dokladyNactiNahledy==='function') dokladyNactiNahledy();
+  if(tab==='doklady' && typeof dokladyNactiNahledy==='function') { dokladyNactiNahledy(); if(typeof dokladyFiltruj==='function') dokladyFiltruj(); }
   if(tab==='doklady' && typeof dokladyPocitadlo==='function') dokladyPocitadlo();   // S25 v11.50
   //  S25 (v11.55): 📦 Moje výrobky – názvy, spojení se zkratkami a karty výrobků se dotáhnou při otevření
   if(tab==='vyrobky' && typeof eanMojeVyrobkyKresli==='function') {
