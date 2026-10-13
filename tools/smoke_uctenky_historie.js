@@ -43,20 +43,33 @@ t('✕ maže podle klíče',/function deleteReceipt\(index, klic\)[\s\S]{0,200}r
 t('po přidání účtenky se Historie přestaví (i když je vidět Skenovat)',/rcptHistorieObnov\(\);\s*return savePromise;/.test(src));
 t('po uložení se editor ze skenu vyprázdní, ne jen skryje',(src.match(/preview\.innerHTML\s*=\s*''/g)||[]).length>=2);
 
-console.log('── zaokrouhlení: zaplaceno je celá koruna ──');
-const o={total:311.41,subtotal:311,printedTotal:311.41};
-t('OXALIS: prohozený součet a celkem se vrátí (zaplaceno 311)',ctx.rcptZaokrouhleniNorm(o)&&o.total===311&&o.subtotal===311.41&&o.printedTotal===311,o);
-const spravne={total:123,subtotal:122.6};
-t('správná účtenka (SOUČET 122,60 · CELKEM 123) se nemění',!ctx.rcptZaokrouhleniNorm(spravne)&&spravne.total===123);
-const karta={total:311.41,subtotal:null};
-t('platba kartou bez zaokrouhlení se nemění',!ctx.rcptZaokrouhleniNorm(karta)&&karta.total===311.41);
-const sleva={total:280,subtotal:311.41};
-t('rozdíl přes 1 Kč (sleva na doklad) se nemění',!ctx.rcptZaokrouhleniNorm(sleva)&&sleva.total===280);
+console.log('── zaokrouhlení: appka nabídne, nemění sama (Milan: „ne všechny obchody zaokrouhlují“) ──');
+t('OXALIS (311,41 a 311) → nabídne „zaplaceno 311 Kč“',ctx.rcptZaokrouhleniNavrh({total:311.41,subtotal:311})===311);
+t('správná účtenka (SOUČET 122,60 · CELKEM 123) → nic',ctx.rcptZaokrouhleniNavrh({total:123,subtotal:122.6})===null);
+t('platba kartou bez zaokrouhlení → nic',ctx.rcptZaokrouhleniNavrh({total:311.41,subtotal:null})===null);
+t('rozdíl přes 1 Kč (sleva na doklad) → nic',ctx.rcptZaokrouhleniNavrh({total:280.5,subtotal:311})===null);
+const o={total:311.41,subtotal:311,printedTotal:311.41,items:[]};
+const nic={total:311.41,subtotal:311};
+ctx.buildReceiptPreviewHTML(nic,1);
+t('samotné otevření editoru částku NEZMĚNÍ',ctx._editReceipt.total===311.41);
+ctx._editReceipt=o; ctx.rpZaplacenoCele();
+t('až klepnutí: zaplaceno 311, součet 311,41, zamčeno proti přepočtu',o.total===311&&o.subtotal===311.41&&o.printedTotal===311&&o._totalLocked===true,o);
 
-console.log('── staré datum u nového skenu ──');
-const dny=n=>{const d=new Date(Date.now()-n*864e5);return d.toISOString().slice(0,10);};
-t('nový sken s datem před půl rokem → upozornění',ctx.rpDatumStare({_novySken:true,date:dny(180)}));
-t('nový sken z minulého týdne → nic',!ctx.rpDatumStare({_novySken:true,date:dny(7)}));
-t('stará účtenka otevřená z Historie → nic',!ctx.rpDatumStare({_novySken:false,date:dny(300)}));
+console.log('── kategorie všem položkám (místo „typu obchodu“) ──');
+S.categories=[{id:'jidlo',name:'Jídlo',type:'expense',icon:'🛒',subs:['Supermarket','Pekárna']},{id:'dum',name:'Domácnost',type:'expense'}];
+ctx.rpRender=()=>{};
+const doc0=ctx.document;
+ctx.document={...doc0,getElementById:id=>({rp_h_cat:{value:'jidlo'},rp_h_sub:{value:'Supermarket'}})[id]||null};
+ctx._editReceipt={items:[{name:'Rohlík',itemCatId:'dum'},{name:'Mléko',itemCatId:'jidlo',itemSubcat:'Pekárna',_fromMemory:true},{name:'Sýr'}]};
+ctx.rpHromadnePouzij();
+const its=ctx._editReceipt.items;
+t('všem položkám Jídlo › Supermarket',its[0].itemCatId==='jidlo'&&its[0].itemSubcat==='Supermarket'&&its[2].itemCat==='Jídlo',its);
+t('položka s 🧠 (pamatovaná volba) zůstane',its[1].itemSubcat==='Pekárna');
+t('hromadná volba se neučí jako rozhodnutí o výrobku',!its[0]._rucne&&its[0]._hromadne===true);
+ctx.document=doc0;
+const src2=R('receipts.js','../js/receipts.js');
+t('pole „typ obchodu“ z editoru pryč',!/id="rp_cat"/.test(src2)&&/id="rp_h_cat"/.test(src2));
+t('Nákupní DNA podle kategorií položek, ne podle typu obchodu',!/catStats\[r\.category\|\|'Jiné'\]=\(catStats/.test(src2));
+t('upozornění na staré datum není (Milan doskenovává staré účtenky)',!/rp_old_warn/.test(src2));
 
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

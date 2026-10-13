@@ -1,4 +1,4 @@
-// FinanceFlow · v11.70 · admin.js · 2026-10-12
+// FinanceFlow · v11.71 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.71',
+    datum: '2026-10-12',
+    zmeny: [
+      "🏷️ KATEGORIE VŠEM POLOŽKÁM (Milan) · cesta: Analýza účtenek → editor účtenky (po skenu i ✎ v Historii) → pod datem „🏷️ Kategorie všem položkám…“ → podkategorie → „✓ Použít na všechny položky“. Nastaví kategorii a podkategorii všem položkám najednou; položky s 🧠 (tvoje dřívější volba, appka si je pamatuje) zůstanou. Hromadná volba se neukládá do paměti jako rozhodnutí o konkrétním výrobku. Nahradila pole „typ obchodu“ (Jídlo & Nákupy…), které nic viditelného neměnilo.",
+      "🧬 Nákupní DNA (Analýza účtenek → 🧠 Učení → 🧬 Nákupní DNA): barevný pruh je teď podle kategorií POLOŽEK (co jsi koupil), ne podle „typu obchodu“ účtenky – ten u skoro všech účtenek ukazoval jen Jídlo & Nákupy.",
+      "💰 Zaokrouhlení (Milan: „ne všechny obchody zaokrouhlují, je třeba si na to dávat pozor“): appka už částku SAMA NEMĚNÍ (v11.70 ji prohazovala). Když je na účtence vedle částky s haléři i celá částka do 1 Kč, ukáže pod Celkem „Na účtence je i 311 Kč · [Zaplaceno bylo 311 Kč]“ – rozhodneš ty. Po klepnutí: zaplaceno 311, součet 311,41, zaokrouhlení −0,41 a úprava položek už částku nepřepíše.",
+      "📅 Upozornění „datum je víc než 2 měsíce staré“ z v11.70 zrušeno – Milan doskenovává staré účtenky a datum sedí (OXALIS 14. 4. 2026 je správně). Zůstává jen zpráva po uložení: s jakým datem se účtenka uložila a pod kterým měsícem ji najdeš v Transakcích.",
+      "🧪 tools/smoke_uctenky_historie.js (22). V prohlížeči ověřeno: hromadná kategorie i tlačítko zaokrouhlení.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.70',
     datum: '2026-10-12',
