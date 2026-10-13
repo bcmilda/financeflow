@@ -1,4 +1,4 @@
-// FinanceFlow · v11.69 · admin.js · 2026-10-12
+// FinanceFlow · v11.70 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.70',
+    datum: '2026-10-12',
+    zmeny: [
+      "🐛 FIX (Milan: „při editaci starších účtenek nevidím položky a cena je mimo“) · cesta: Analýza účtenek → Historie → ✎. Tlačítka ✎ a ✕ si pamatovala POZICI účtenky z doby vykreslení – a to v seznamu bez duplikátů, ne ve skutečném seznamu. Nová účtenka ze skenu se zařadí na začátek, pozice se posunuly a Historie se nepřekreslila: ✎ u Albertu otevřel Kaufland, a ✕ by SMAZAL JINOU účtenku. Teď nese každé tlačítko klíč účtenky (id) a pozice se před otevřením i smazáním ověří; když účtenka mezitím zmizela, seznam se obnoví a nic se neotevře ani nesmaže. Potvrzení smazání jmenuje obchod a datum.",
+      "🐛 FIX · prázdný editor bez položek: editor ze skenu po uložení zůstal skrytý v záložce Skenovat a měl stejná vnitřní id – položky se kreslily do něj, ne do editoru v Historii. Po uložení se teď vyprázdní a v appce je vždy jen jeden editor (rozdělaný neuložený sken se před zavřením zeptá).",
+      "🐛 FIX (Milan: „OXALIS účtenku nikde v historii nevidím“) · po přidání účtenky ze skenu se Historie hned přestaví (dřív v ní nová účtenka nebyla, dokud se stránka nepřeklikla). Zpráva po uložení ukazuje datum a když je jiný měsíc než dnes, řekne kde ji najdeš. Nový sken s datem starším než 2 měsíce ukáže v editoru upozornění „zkontroluj datum“ (OXALIS se uložil s datem 14. 4. 2026).",
+      "🐛 FIX (Milan: „zaplaceno 311 Kč, appka 311,41“) · AI občas prohodí SOUČET a CELKEM. Zaokrouhlení je vždy na celé koruny, takže zaplaceno je to celé číslo – appka čísla vrátí na správné místo (worker beze změny). Platí pro nový sken i pro uloženou účtenku: otevřít ✎ a „Uložit změny“ opraví i částku transakce. Pod částkou je teď „součet 311,41 · zaokrouhlení −0,41“.",
+      "🎨 Editor účtenky (Milan): Celkem je NAD poli, pole (obchod, město, kraj, datum, kategorie, peněženka) mají celou šířku.",
+      "🧪 tools/smoke_uctenky_historie.js (17). V prohlížeči ověřeno na staré verzi chybu přesně podle Milana (Albert → Kaufland, 0 položek, 940,63 Kč, OXALIS v Historii chybí), na nové správně.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.69',
     datum: '2026-10-12',
