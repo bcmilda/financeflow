@@ -1,4 +1,4 @@
-// FinanceFlow · v11.21 · stats.js · 2026-10-02
+// FinanceFlow · v11.72 · stats.js · 2026-10-12
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -818,8 +818,9 @@ function catSubAdd(){
   // Podpora více položek najednou oddělených čárkou
   val.split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>{ if(!_catSubsList.includes(s)) _catSubsList.push(s); });
   inp.value=''; catSubRender();
+  if(typeof ffOknoZmeneno==='function') ffOknoZmeneno('modalCat');   // S26 (v11.72): změna podkategorií = neuloženo
 }
-function catSubRemove(i){ _catSubsList.splice(i,1); catSubRender(); }
+function catSubRemove(i){ _catSubsList.splice(i,1); catSubRender(); if(typeof ffOknoZmeneno==='function') ffOknoZmeneno('modalCat'); }
 function catSubInputKey(e){ if(e.key==='Enter'||e.key===','){ e.preventDefault(); catSubAdd(); } }
 
 // ── VIDITELNOST POLÍ DLE TYPU ──
@@ -999,6 +1000,8 @@ function editCat(id){
 }
 
 function saveCat(){
+  //  S26 (v11.72, Milan): podkategorie napsaná v poli, ale nepřidaná „+ Přidat“, se uloží taky
+  if((document.getElementById('catSubInput')||{}).value) catSubAdd();
   if(viewingUid)return;
   const eid=document.getElementById('editCatId').value;
   const name=document.getElementById('catName').value.trim();

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.68 · ean-sken.js · 2026-10-12
+// FinanceFlow · v11.72 · ean-sken.js · 2026-10-12
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -173,6 +173,8 @@ function eanOkno() {
       <div id="eanZprava" style="font-size:.8rem;color:var(--text);margin:10px 0;line-height:1.5"></div>
       <div id="eanTlacitka" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm" id="eanSvetlo" style="display:none" onclick="eanSvetlo()">🔦 Světlo</button>
+        <button class="btn btn-sm" id="eanZoom" style="display:none" onclick="eanZoom()">🔍 Přiblížit</button>
+        <button class="btn btn-sm" id="eanJas" style="display:none" onclick="eanJas()">🔅 Ztmavit</button>
         <label class="btn btn-sm" style="cursor:pointer">📸 Vyfotit kód
           <input type="file" accept="image/*" capture="environment" style="display:none" onchange="eanZFotky(this.files[0]);this.value=''">
         </label>
@@ -233,7 +235,18 @@ async function eanStartKamery() {
   try { await v.play(); } catch (e) {}
   try {
     const t = _eanStav.stream.getVideoTracks()[0];
-    if (t.getCapabilities && t.getCapabilities().torch) document.getElementById('eanSvetlo').style.display = '';
+    const c = t.getCapabilities ? t.getCapabilities() : {};
+    if (c.torch) document.getElementById('eanSvetlo').style.display = '';
+    //  S26 (v11.72, Milan: „kód nebyl vidět“ – lesklá etiketa se přepálila do bíla): průběžné ostření
+    //  a expozice, a když to telefon umí, tlačítka Přiblížit (kód z dálky = bez odlesku a ostře)
+    //  a Ztmavit (přepálená bílá etiketa).
+    const adv = [];
+    if ((c.focusMode || []).includes('continuous')) adv.push({ focusMode: 'continuous' });
+    if ((c.exposureMode || []).includes('continuous')) adv.push({ exposureMode: 'continuous' });
+    if (adv.length) t.applyConstraints({ advanced: adv }).catch(() => {});
+    _eanStav.zoomKrok = 0; _eanStav.jasKrok = 0;
+    if (c.zoom && c.zoom.max > 1) document.getElementById('eanZoom').style.display = '';
+    if (c.exposureCompensation && c.exposureCompensation.min < 0) document.getElementById('eanJas').style.display = '';
   } catch (e) {}
   //  2) čtečka až po kameře – když se nenačte, zbývá fotka
   eanZprava('⏳ Připravuji čtečku…');
@@ -290,20 +303,47 @@ async function eanZFotky(soubor) {
   eanZprava('⏳ Čtu kód z fotky…');
   const ok = await eanPripravCtecku();
   if (!ok) { eanZprava('Čtečku se nepodařilo načíst (jsi online?).', true); return; }
-  const url = URL.createObjectURL(soubor);
+  //  S26 (v11.72, Milan: „kód z fotky se nepřečetl a na druhý pokus spadla celá aplikace“):
+  //  fotka z telefonu (12–50 Mpx) se dřív dekódovala CELÁ (desítky MB) a obraz se neuvolnil →
+  //  druhý pokus vyčerpal paměť prohlížeče. Teď se čte zmenšená (1600, pak 2600 px) a hned se uvolní.
+  let kod = null;
   try {
-    let kod = null;
-    if (_eanStav.detektor) {
-      const img = await window.createImageBitmap(soubor);
-      const kody = await _eanStav.detektor.detect(img);
-      kod = (kody.find(x => eanKontrola(x.rawValue)) || {}).rawValue || null;
-    } else {
-      try { const res = await _eanStav.zxing.decodeFromImageUrl(url); kod = res && res.getText(); } catch (e) {}
-    }
-    if (kod && eanKontrola(kod)) eanNalezen(kod);
-    else eanZprava('Na fotce jsem kód nenašel. Vyfoť ho zblízka, ostře a celý (i s čísly pod čarami).', true);
-  } finally { URL.revokeObjectURL(url); }
+    for (const max of [1600, 2600]) { kod = await eanKodZObrazku(soubor, max); if (kod) break; }
+  } catch (e) { kod = null; }
+  if (kod && eanKontrola(kod)) eanNalezen(kod);
+  else eanZprava('Na fotce jsem kód nenašel. Vyfoť ho zblízka, ostře, bez odlesku a celý (i s čísly pod čarami).', true);
 }
+async function eanKodZObrazku(soubor, max) {
+  let bmp = null, cv = null, url = null;
+  try {
+    if (window.createImageBitmap) {
+      try {
+        const b0 = await window.createImageBitmap(soubor, { resizeWidth: max, resizeQuality: 'high' });
+        //  na výšku je delší strana výška → podruhé podle výšky, ať se nezvětšuje ani nemrzačí
+        if (b0.height > b0.width * 1.05 && b0.height > max) { b0.close && b0.close(); bmp = await window.createImageBitmap(soubor, { resizeHeight: max, resizeQuality: 'high' }); }
+        else bmp = b0;
+      } catch (e) { bmp = null; }
+    }
+    if (!bmp) {
+      url = URL.createObjectURL(soubor);
+      bmp = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    }
+    const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, k = Math.min(1, max / Math.max(w0, h0));
+    cv = document.createElement('canvas'); cv.width = Math.round(w0 * k); cv.height = Math.round(h0 * k);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    if (bmp.close) { bmp.close(); } bmp = null;
+    if (_eanStav.detektor) {
+      const kody = await _eanStav.detektor.detect(cv);
+      return (kody.find(x => eanKontrola(x.rawValue)) || {}).rawValue || null;
+    }
+    try { const res = _eanStav.zxing.decodeFromCanvas(cv); const t = res && res.getText(); return t && eanKontrola(t) ? t : null; } catch (e) { return null; }
+  } finally {
+    if (bmp && bmp.close) bmp.close();
+    if (cv) { cv.width = 0; cv.height = 0; }
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+window.eanKodZObrazku = eanKodZObrazku; window.eanZoom = eanZoom; window.eanJas = eanJas;
 
 function eanStopKamery() {
   _eanStav.bezi = false;
@@ -311,6 +351,25 @@ function eanStopKamery() {
   if (_eanStav.stream) { _eanStav.stream.getTracks().forEach(t => t.stop()); _eanStav.stream = null; }
   const k = document.getElementById('eanKamera'); if (k) k.style.display = 'none';
   const s = document.getElementById('eanSvetlo'); if (s) s.style.display = 'none';
+  ['eanZoom', 'eanJas'].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+}
+async function eanZoom() {
+  const t = _eanStav.stream && _eanStav.stream.getVideoTracks()[0]; if (!t || !t.getCapabilities) return;
+  const c = t.getCapabilities().zoom; if (!c) return;
+  const kroky = [c.min || 1, Math.min(c.max, 2), Math.min(c.max, 3)].filter((v, i, a) => a.indexOf(v) === i);
+  _eanStav.zoomKrok = ((_eanStav.zoomKrok || 0) + 1) % kroky.length;
+  const z = kroky[_eanStav.zoomKrok];
+  try { await t.applyConstraints({ advanced: [{ zoom: z }] }); } catch (e) {}
+  const b = document.getElementById('eanZoom'); if (b) b.textContent = z > (c.min || 1) ? `🔍 ${Math.round(z * 10) / 10}×` : '🔍 Přiblížit';
+}
+async function eanJas() {
+  const t = _eanStav.stream && _eanStav.stream.getVideoTracks()[0]; if (!t || !t.getCapabilities) return;
+  const c = t.getCapabilities().exposureCompensation; if (!c) return;
+  const kroky = [0, Math.max(c.min, -1), Math.max(c.min, -2)].filter((v, i, a) => a.indexOf(v) === i);
+  _eanStav.jasKrok = ((_eanStav.jasKrok || 0) + 1) % kroky.length;
+  const v = kroky[_eanStav.jasKrok];
+  try { await t.applyConstraints({ advanced: [{ exposureMode: 'continuous', exposureCompensation: v }] }); } catch (e) {}
+  const b = document.getElementById('eanJas'); if (b) b.textContent = v < 0 ? `🔅 ${v}` : '🔅 Ztmavit';
 }
 
 async function eanSvetlo() {
@@ -534,6 +593,9 @@ async function eanNazevUloz(ean, id) {
   } catch (e) { eanHlas('⚠️ ' + e.message, true); }
   const el = document.getElementById(id); if (el) el.outerHTML = eanNazvyHTML(_eanProdukty[ean] || null, ean, id.split('_')[0]);
   if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
+  //  S26 (v11.72, Milan: „klobásu jsem vyplnil, a v K vyřízení visela ještě pár minut“): seznamy hned překreslit
+  if (typeof eanNaskenovaneKresli === 'function') eanNaskenovaneKresli();
+  if (typeof eanMojeVyrobkyKresli === 'function') eanMojeVyrobkyKresli();
   //  S25 (v11.56): otevřená karta výrobku se překreslí celá (nový vzhled, název v řádku Český název)
   if (typeof _mapaKartaI !== 'undefined' && _mapaKartaI >= 0 && typeof mapaUzivDetail === 'function' && document.getElementById('mapaKarta')) mapaUzivDetail(_mapaKartaI);
 }
@@ -804,9 +866,13 @@ function eanKVyrizeni(D) {
     const p = eanProduktZCache(x.ean), nalez = !!(p && p.stav === 'nalezeno');
     const nazev = eanNazevVyrobku(nalez ? p : null, x.ean) || (nalez ? p.nazev : '');
     const zUct = (typeof eanNazvyZUctenek === 'function') ? eanNazvyZUctenek(x.ean, D) : [];
-    const nacteno = typeof _eanProdukty === 'undefined' || _eanProdukty[x.ean] !== undefined;
+    //  S26 (v11.72): „chybí název“ až když jsou načtené i TVOJE názvy – dřív se seznam kreslil dřív,
+    //  než se načetly (načítaly se až s otevřením skeneru), a vyplněný výrobek visel v K vyřízení.
+    const nacteno = (typeof _eanProdukty === 'undefined' || _eanProdukty[x.ean] !== undefined)
+      && (typeof _eanMojeNazvy === 'undefined' || _eanMojeNazvy !== null
+          || !(typeof window !== 'undefined' && window._currentUser && window._currentUser.uid && window._currentUser.uid !== 'local'));
     return Object.assign(x, { p, nazev, zUct, nacteno, bezNazvu: nacteno && !nazev });
-  }).filter(x => !x.prirazeno || x.bezNazvu);
+  }).filter(x => !x.prirazeno || x.bezNazvu || !x.nacteno);   // S26: během načítání zůstane s „načítám…“ (seznam neposkakuje)
 }
 function eanNaskenovaneHTML(D) {
   const vse = eanNaskenovane(D); if (!vse.length) return '';
@@ -840,7 +906,9 @@ async function eanNaskenovaneKresli() {
   const boxy = document.querySelectorAll('.eanNaskBox'); if (!boxy.length || typeof S === 'undefined') return;
   const kresli = () => { const h = eanNaskenovaneHTML(S); boxy.forEach(b => { b.innerHTML = h; }); };
   kresli();
-  try { const n = await eanNactiVse(eanNaskenovane(S).map(x => x.ean)); if (n) kresli(); } catch (e) {}
+  const bezNazvu = typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy === null;
+  try { const [n] = await Promise.all([eanNactiVse(eanNaskenovane(S).map(x => x.ean)), bezNazvu && typeof eanNactiMojeNazvy === 'function' ? eanNactiMojeNazvy() : null]);
+    if (n || bezNazvu) kresli(); } catch (e) {}
 }
 //  Otevře uložený výrobek v okně skeneru (bez kamery) – karta, živiny, složení, přiřazení.
 async function eanOtevriNaskenovany(ean) {

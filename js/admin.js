@@ -1,4 +1,4 @@
-// FinanceFlow · v11.71 · admin.js · 2026-10-12
+// FinanceFlow · v11.72 · admin.js · 2026-10-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,20 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.72',
+    datum: '2026-10-12',
+    zmeny: [
+      "💾 ULOŽIT ZMĚNY? (Milan: „založil jsem podkategorii, zapomněl uložit a okno se bez varování zavřelo“) · platí pro všechna okna s tlačítkem Uložit (např. Kategorie → ✎ Upravit kategorii, karta výrobku, živiny). Když v okně něco změníš a zkusíš ho zavřít klepnutím vedle, křížkem ✕ nebo tlačítkem Zpět, zeptá se: 💾 Uložit / Zahodit změny / Pokračovat v úpravách. Tlačítko „Zrušit“ zavírá bez ptaní (výslovná volba), okna bez Uložit (kalkulačky, přehledy) se neptají.",
+      "🏷️ Kategorie → ✎ → Podkategorie: napsaná podkategorie, kterou jsi nepřidal tlačítkem „+ Přidat“, se při Uložit uloží taky.",
+      "📇 Karta výrobku (Analýza účtenek → 📦 Moje výrobky / 🗺️ Mapa položek → výrobek) se už nezavře klepnutím vedle karty (dlaň u okraje displeje při držení telefonu). Zavírá ji jen ✕ nebo Zpět. Úpravy se dál ukládají hned.",
+      "📷 K vyřízení (Analýza účtenek → 📸 Skenovat): výrobek, kterému jsi napsal název, zmizí hned (dřív visel, dokud se stránka sama nepřekreslila – i pár minut). Seznam si tvoje názvy načte sám (dřív až s otevřením skeneru) a do té doby ukáže „načítám…“ místo falešného „chybí název“.",
+      "📸 Čárový kód z fotky (skener → 📸 Vyfotit kód / 🖼️ Ze souboru): fotka z telefonu (12–50 Mpx) se dřív četla celá (desítky MB v paměti) a neuvolnila se – druhý pokus mohl shodit appku. Teď se čte zmenšená (1600, pak 2600 px) a hned se uvolní. Ověřeno: kód z fotky 4000×3000 přečten třikrát po sobě.",
+      "🎥 Skener: průběžné ostření a expozice; když to telefon umí, tlačítka 🔍 Přiblížit (kód z dálky = ostře a bez odlesku) a 🔅 Ztmavit (přepálená lesklá etiketa).",
+      "🧪 tools/smoke_okna_zmeny.js (21). V prohlížeči ověřeno okno kategorie: klepnutí vedle / ✕ / Zpět se zeptá, Zahodit zahodí, Uložit uloží i nepřidanou podkategorii.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.71',
     datum: '2026-10-12',

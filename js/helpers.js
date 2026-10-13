@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · helpers.js · 2026-10-12
+// FinanceFlow · v11.72 · helpers.js · 2026-10-12
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -794,11 +794,84 @@ function ffOtevrenaOkna(doc) {
   const z = el => { try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (e) { return 0; } };
   return kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a));
 }
+// ══════════════════════════════════════════════════════════════════════
+//  S26 (v11.72, Milan: „založil jsem podkategorii, zapomněl uložit a okno se bez varování
+//  zavřelo – chybí ‚Uložit změny?‘“). NEULOŽENÉ ZMĚNY V OKNECH: okno s tlačítkem Uložit, ve kterém
+//  se něco změnilo, se klepnutím vedle okna, křížkem ✕ ani tlačítkem Zpět nezavře potichu –
+//  zeptá se: 💾 Uložit / Zahodit / Pokračovat v úpravách. „Zrušit“ zavírá bez ptaní (výslovná volba).
+//  Okna bez Uložit (kalkulačky, přehledy) se neptají nikdy.
+// ══════════════════════════════════════════════════════════════════════
+const FF_OKNA_SEL = '.overlay, #eanKartaOkno, #eanZiviny';
+function ffOknoZ(el) { return el && el.closest ? el.closest(FF_OKNA_SEL) : null; }
+function ffOknoZmeneno(okno) { if (typeof okno === 'string' && typeof document !== 'undefined') okno = document.getElementById(okno); if (okno && okno.dataset) okno.dataset.zmeneno = '1'; }
+function ffOknoCiste(okno) { if (okno && okno.dataset) delete okno.dataset.zmeneno; }
+function ffOknoUlozTlacitko(okno) {
+  if (!okno || !okno.querySelectorAll) return null;
+  const b = Array.from(okno.querySelectorAll('button')).filter(x => /Uložit|Přidat transakci|Vytvořit/i.test(x.textContent || '') && !/✕/.test(x.textContent || ''));
+  return b.find(x => /btn-(accent|primary)/.test(x.className || '')) || b[b.length - 1] || null;
+}
+function ffOknoJeZmeneno(okno) { return !!(okno && okno.dataset && okno.dataset.zmeneno === '1' && ffOknoUlozTlacitko(okno)); }
+function ffOknoDotaz(okno, zavrit) {
+  if (typeof document === 'undefined') return;
+  let d = document.getElementById('ffOknoDotaz'); if (d) d.remove();
+  d = document.createElement('div'); d.id = 'ffOknoDotaz';
+  d.style.cssText = 'position:fixed;inset:0;z-index:10200;background:rgba(8,10,20,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  d.innerHTML = `<div style="width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.5)">
+    <div style="font-weight:700;font-size:.95rem;margin-bottom:4px">💾 Uložit změny?</div>
+    <div style="font-size:.8rem;color:var(--text2);line-height:1.5;margin-bottom:12px">V okně jsou neuložené změny. Bez uložení se ztratí.</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <button class="btn btn-accent" data-a="ulozit" style="justify-content:center">💾 Uložit</button>
+      <button class="btn btn-ghost" data-a="zahodit" style="justify-content:center;color:var(--expense)">Zahodit změny</button>
+      <button class="btn btn-ghost" data-a="zpet" style="justify-content:center">Pokračovat v úpravách</button></div></div>`;
+  d.addEventListener('click', e => {
+    const a = e.target && e.target.closest ? (e.target.closest('[data-a]') || {}).dataset : null;
+    if (e.target === d || (a && a.a === 'zpet')) { d.remove(); return; }
+    if (!a) return;
+    d.remove();
+    if (a.a === 'zahodit') { ffOknoCiste(okno); zavrit(); }
+    else if (a.a === 'ulozit') { const b = ffOknoUlozTlacitko(okno); if (b) b.click(); }
+  });
+  document.body.appendChild(d);
+}
+//  true = okno má neuložené změny, místo zavření se zeptalo (volající nic dalšího nedělá)
+function ffOknoHlidej(okno, zavrit) {
+  if (!ffOknoJeZmeneno(okno)) return false;
+  ffOknoDotaz(okno, zavrit); return true;
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  const zmena = e => { const o = ffOknoZ(e.target); if (o && !(e.target.closest && e.target.closest('[data-bez-hlidani]'))) ffOknoZmeneno(o); };
+  document.addEventListener('input', zmena, true);
+  document.addEventListener('change', zmena, true);
+  //  ✕ v hlavičce okna (closeModal / …Zavri) → při neuložených změnách se nejdřív zeptá
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null; if (!b) return;
+    const oc = b.getAttribute('onclick') || '';
+    if ((b.textContent || '').trim() !== '✕' || !/closeModal|Zavri\(/.test(oc)) return;
+    const o = ffOknoZ(b); if (!o || !ffOknoJeZmeneno(o)) return;
+    e.stopPropagation(); e.preventDefault();
+    ffOknoDotaz(o, () => { try { (new Function(oc))(); } catch (x) { if (o.classList.contains('overlay')) o.classList.remove('open'); else o.remove(); } });
+  }, true);
+  //  otevření / zavření okna (class „open“) = čistý stav
+  const sleduj = () => {
+    if (typeof MutationObserver === 'undefined') return;
+    const mo = new MutationObserver(m => m.forEach(x => { if (x.attributeName === 'class') ffOknoCiste(x.target); }));
+    document.querySelectorAll('.overlay').forEach(o => mo.observe(o, { attributes: true, attributeFilter: ['class'] }));
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sleduj); else sleduj();
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffOknoZmeneno, ffOknoCiste, ffOknoJeZmeneno, ffOknoHlidej, ffOknoDotaz, ffOknoUlozTlacitko });
+
 //  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
 function ffZpetZavriVrchni(doc) {
   doc = doc || document;
   const top = ffOtevrenaOkna(doc)[0];
   if (top) {
+    //  S26 (v11.72): neuložené změny → zeptat se, nezavírat
+    if (top.id !== 'ffOknoDotaz' && ffOknoJeZmeneno(top)) {
+      const fn0 = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
+      ffOknoDotaz(top, () => { if (typeof fn0 === 'function') fn0(); else if (top.classList.contains('open')) top.classList.remove('open'); else top.remove(); });
+      return true;
+    }
     const fn = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
     if (typeof fn === 'function') fn();
     else if (top.classList.contains('open')) { top.classList.remove('open'); if (top.classList.contains('paywall-screen')) doc.body.style.overflow = ''; }

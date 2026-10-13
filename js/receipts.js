@@ -1,4 +1,4 @@
-// FinanceFlow · v11.71 · receipts.js · 2026-10-12
+// FinanceFlow · v11.72 · receipts.js · 2026-10-12
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3388,7 +3388,8 @@ async function mapaUzivDetail(i) {
   if(!o) {
     o = document.createElement('div'); o.id = 'mapaKarta';
     o.style.cssText = 'position:fixed;inset:0;z-index:10040;background:rgba(8,10,20,.8);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px calc(16px + env(safe-area-inset-bottom))';
-    o.addEventListener('click', e => { if(e.target === o) mapaUzivKartaZavri(); });
+    //  S26 (v11.72, Milan: „karta se mi samovolně zavřela při pohybu s telefonem“): klepnutí vedle
+    //  karty ji už nezavírá (dlaň u okraje displeje) – jen ✕ nebo tlačítko Zpět.
     document.body.appendChild(o);
   }
   const kresli = (prod) => { o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:520px;position:relative">
