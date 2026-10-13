@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · admin.js · 2026-10-12
+// FinanceFlow · v11.73 · admin.js · 2026-10-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.73',
+    datum: '2026-10-13',
+    zmeny: [
+      "🔎 PODEZŘELÉ PÁRY ZA VŠECHNY MĚSÍCE (Milan: „musím je hledat měsíc po měsíci“) · cesta: Transakce → ⚠️ lišta podezřelých párů → „🔎 Všechny měsíce (N)“. Jedno okno se všemi páry ze všech měsíců, seskupené po měsících, přesné duplikáty první, filtr 🔴 Přesné / 🟡 Možné / 🟠 Podobné. U každé transakce „🗑 Smazat“, u páru „👍 Není duplikát“; vidět je i kdy byla která transakce přidaná a která „přidaná později“. Lišta se ukáže, i když aktuální měsíc je čistý („v ostatních měsících N párů“).",
+      "👍 „Není duplikát“ si appka pamatuje natrvalo (dřív jen do dalšího překreslení – pár se pak vracel). Detekce porovnává jen transakce se stejnou částkou: 3 000 transakcí za ~15 ms.",
+      "📷 DUPLICITNÍ ÚČTENKA (Milan: „naskenoval jsem 2 stejné účtenky, z transakcí ji smazat nemůžu“): smazání transakce z naskenované účtenky smaže i KOPII účtenky (stejný obchod, datum, částka a počet položek) – originál zůstane. Když to kopie není, appka se zeptá, jestli smazat i účtenku. Na telefonu má rozbalená účtenková transakce (klepnutí → položky) nově tlačítka ✎ Upravit účtenku a 🗑 Smazat transakci (dřív šlo jen Upravit).",
+      "🧾 Analýza účtenek → ⚠️ Nalezeny duplicitní účtenky → „Smazat duplikáty“: dřív zůstala POZDĚJI naskenovaná kopie a smazal se originál i s úpravami. Teď zůstane ta, na které je víc práce (čárové kódy, opravy, fotka dokladu), při shodě ta naskenovaná dřív. Před smazáním appka vypíše, které kopie (obchod, datum, částka, čas skenu) smaže.",
+      "🧪 tools/smoke_dup_vse.js (15), smoke_uctenky_duplikaty.js upraven. V prohlížeči ověřeno: okno všech měsíců, smazání pozdější kopie smaže i kopii účtenky.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.72',
     datum: '2026-10-12',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · receipts.js · 2026-10-12
+// FinanceFlow · v11.73 · receipts.js · 2026-10-13
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2027,24 +2027,42 @@ function rcptNajdiTx(r, D, vynech) {
 }
 window.rcptNajdiTx = rcptNajdiTx;
 
-function removeDuplicateReceipts() {
-  if(!confirm('Smazat duplikátní účtenky i jejich transakce? Originál zůstane. Akce je nevratná.')) return;
-  const seen = new Set(), odstr = [];
-  const before = (S.receipts||[]).length;
-  S.receipts = (S.receipts||[]).filter(r => {
-    const key = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`;
-    if(seen.has(key)) { odstr.push(r); return false; }
-    seen.add(key); return true;
+//  S26 (v11.73, Milan: „která se smaže – později naskenovaná?“): dřív zůstala NEJNOVĚJŠÍ kopie
+//  (účtenky se řadí od nejnovější) a smazal se originál i s úpravami. Teď zůstane ta, na které je
+//  víc práce (čárové kódy, úpravy, fotka dokladu); při shodě ta naskenovaná DŘÍV. Před smazáním
+//  appka vypíše, co přesně smaže.
+function rcptPrace(r) {
+  return (r.items || []).filter(i => i && i.ean).length * 2 + (r.updatedAt ? 3 : 0) + ((r.photoKey || (r.photoKeys || []).length) ? 2 : 0);
+}
+function rcptDuplikatyPlan(receipts) {
+  const sk = {};
+  (receipts || []).forEach(r => { if (!r) return; const k = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`; (sk[k] = sk[k] || []).push(r); });
+  const nech = [], smaz = [];
+  Object.values(sk).forEach(g => {
+    if (g.length < 2) { nech.push(g[0]); return; }
+    const s0 = g.slice().sort((a, b) => rcptPrace(b) - rcptPrace(a) || (a.addedAt || 0) - (b.addedAt || 0));
+    nech.push(s0[0]); smaz.push(...s0.slice(1));
   });
+  return { nech, smaz };
+}
+window.rcptDuplikatyPlan = rcptDuplikatyPlan;
+function removeDuplicateReceipts() {
+  const { smaz } = rcptDuplikatyPlan(S.receipts || []);
+  if (!smaz.length) return;
+  const kdy = r => r.addedAt ? ' · naskenováno ' + new Date(r.addedAt).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  if(!confirm(`Smazat ${smaz.length} ${smaz.length === 1 ? 'kopii účtenky' : 'kopie účtenek'} i ${smaz.length === 1 ? 'její transakci' : 'jejich transakce'}?\n\n`
+    + smaz.slice(0, 8).map(r => `🗑 ${r.store || ''} ${r.date || ''} · ${fmtP(r.total || 0)} Kč${kdy(r)}`).join('\n') + (smaz.length > 8 ? `\n… a ${smaz.length - 8} dalších` : '')
+    + `\n\nZůstane vždy jedna – ta s víc úpravami (kódy, opravy, fotka), jinak ta naskenovaná dřív. Akce je nevratná.`)) return;
+  const pryc = new Set(smaz);
+  S.receipts = (S.receipts || []).filter(r => !pryc.has(r));
   //  Transakce ponechaných účtenek si „rezervujeme“, smaže se jen ta navíc.
   const drz = new Set(); S.receipts.forEach(r => { const t = rcptNajdiTx(r, S, drz); if (t) drz.add(t); });
   let txN = 0;
-  odstr.forEach(r => { const t = rcptNajdiTx(r, S, drz); if (t) { S.transactions = S.transactions.filter(x => x !== t); drz.add(t); txN++; }
+  smaz.forEach(r => { const t = rcptNajdiTx(r, S, drz); if (t) { S.transactions = S.transactions.filter(x => x !== t); drz.add(t); txN++; }
     if (r.photoKey && typeof archivSmaz === 'function') rpFotky(r).forEach(k => archivSmaz(k)); });
-  const removed = before - S.receipts.length;
   save();
   renderUctenky();
-  alert(`✅ Odstraněno ${removed} duplikátů${txN ? ` a ${txN} ${txN === 1 ? 'transakce' : 'transakcí'}` : ''}. Zbývá ${S.receipts.length} účtenek.`);
+  alert(`✅ Odstraněno ${smaz.length} ${smaz.length === 1 ? 'kopie' : 'kopií'}${txN ? ` a ${txN} ${txN === 1 ? 'transakce' : 'transakcí'}` : ''}. Zbývá ${S.receipts.length} účtenek.`);
 }
 
 function buildStoresTab(storeStats, totalSpent, receipts) {

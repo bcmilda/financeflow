@@ -1,4 +1,4 @@
-// FinanceFlow · v11.52 · ui.js · 2026-10-09
+// FinanceFlow · v11.73 · ui.js · 2026-10-13
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2011,7 +2011,10 @@ function buildTxRow(t, D, ro, dupMap={}) {
       const qtyStr = (it.qty&&it.qty!==1) ? `${it.qty}\u00a0${it.unit||'ks'}` : '';
       return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${it.name||'–'}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
     }).join('');
-    return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}</div>`;
+    return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
+      <button class="btn btn-sm" style="font-size:.72rem;background:rgba(248,113,113,.12);color:var(--expense);border:1px solid rgba(248,113,113,.3)" onclick="event.stopPropagation();deleteTx('${t.id}')">🗑 Smazat transakci</button></div>`}</div>`;
+    //  S26 (v11.73, Milan: „z Transakcí ji smazat nemůžu“): na telefonu měla účtenková transakce jen „Upravit“
   })() : '';
 
   const rcptExpandAttr = hasReceiptItems && !isSplitParent ? `onclick="event.stopPropagation();const el=document.getElementById('rcpt-items-${t.id}');if(el)el.style.display=el.style.display==='none'?'block':'none'" style="cursor:pointer"` : '';
@@ -2124,7 +2127,11 @@ function buildTxRow(t, D, ro, dupMap={}) {
 }
 function deleteTx(id){
   if(viewingUid)return;
-  if(!confirm('Smazat transakci?'))return;
+  //  S26 (v11.73): transakce z naskenované účtenky – kopie účtenky se smaže s ní, jinak se zeptá
+  const _t=(S.transactions||[]).find(t=>t.id==id);
+  const _u=_t&&typeof dupUctenkaPro==='function'?dupUctenkaPro(_t):null;
+  if(!confirm('Smazat transakci?'+(_u&&_u.kopie?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')))return;
+  if(_t&&typeof txSmazSUctenkou==='function'){ txSmazSUctenkou(_t,true); save(); renderPage(); return; }
   // Pokud je to vklad do cíle (transfer s párovým vkladem) → smaž i vklad v cíli
   if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(id);
   S.transactions=S.transactions.filter(t=>t.id!=id);
