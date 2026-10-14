@@ -10,7 +10,7 @@ vm.runInContext(['_workCfg','_workSave','_workSalary','_workVacH','workCopyClick
 console.log('── S25 · pracovní kalendář ──');
 const c=sb._workCfg();
 t('dovolená v hodinách: staré nastavení 20 dní × 12 h = 240 h',c.vacQuotaH===240,c.vacQuotaH);
-t('den dovolené = hodin/směna, nebo zadané hodiny',sb._workVacH({type:'dovolena'},c)===12&&sb._workVacH({type:'dovolena',hours:8},c)===8);
+t('den dovolené = směna − neplacená přestávka (v11.75, Milan: 12 h − 1 h = 11 h), nebo zadané hodiny',sb._workVacH({type:'dovolena'},Object.assign({},c,{hpd:12,breakMin:60}))===11&&sb._workVacH({type:'dovolena',hours:8},c)===8);
 // vzor: 1.–2. 11. směna, 3. volno
 sb.S.workCal.days={'2026-11-01':{type:'smena',hours:12},'2026-11-02':{type:'smena',hours:12}};
 sb._workCopy={on:true,start:{y:2026,m:10,d:1},end:{y:2026,m:10,d:3},opak:'rok'};
@@ -29,5 +29,5 @@ t('měsíc bez zadání = poslední zadaná dřív',sb._workSalary(cf,2026,9).ca
 t('před první zadanou = výchozí',sb._workSalary(cf,2026,5).castka===30000);
 t('ukládání drží salaryM i vacQuotaH (zapisovač nic nemaže)',(sb._workSave({hpd:12}),sb.S.workCal.salaryM['2026-11']===33500&&sb.S.workCal.vacQuotaH===240));
 t('text 3. kroku srozumitelný, bez „CÍLOVÝ den“',!src.includes('CÍLOVÝ den')&&src.includes('od kterého se má úsek vložit'));
-t('mzdová karta bere výplatu měsíce',pick('_workWageCard').includes('_workSalary(cfg, y, m).castka'));
+t('mzdová karta bere výplatu měsíce (sazby jen ze zadané výplaty)',pick('_workWageCard').includes('_workSalary(cfg, y, m)')&&pick('_workWageCard').includes('salInfo.zadana'));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

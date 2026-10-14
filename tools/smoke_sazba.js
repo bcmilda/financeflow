@@ -44,7 +44,7 @@ ok('FIX-326 · přepočítává se při psaní', /oninput="workPreviewSazba\(\)"
 ok('FIX-326 · a jednou po vykreslení stránky',
    /typeof workPreviewSazba === 'function'\) workPreviewSazba\(\)/.test(k));
 ok('FIX-326 · bez výplaty vyzve k zadání, nespadne', /Zadej čistou výplatu/.test(k));
-ok('FIX-326 · nulový fond hodin nedělí nulou', /if \(!f\.hodin\)/.test(k));
+ok('FIX-326 · nulový fond hodin nedělí nulou', /if \(!(f\.hodin|hod)\)/.test(k));
 ok('FIX-326 · ukazuje i přesčasovou hodinu s příplatkem',
    /sazba \* \(1 \+ cfg\.bonusOT \/ 100\)/.test(k));
 ok('FIX-326 · vysvětlí, z čeho sazba vyšla (dny × hodiny)',

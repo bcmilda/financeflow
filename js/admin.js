@@ -1,4 +1,4 @@
-// FinanceFlow · v11.74 · admin.js · 2026-10-13
+// FinanceFlow · v11.75 · admin.js · 2026-10-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.75',
+    datum: '2026-10-13',
+    zmeny: [
+      "🗓️ PRACOVNÍ KALENDÁŘ – SMĚNA BEZ PŘESTÁVKY (Milan: „12h směna + 1 h přestávky = odpracováno 11 h, den dovolené = 11 h“) · cesta: Kalendář → režim Práce. Den dovolené = hodin/směna − neplacená přestávka (12 − 1 = 11 h, dřív 12 h); zůstatek dovolené se podle toho přepočítá. Sumář „Odpracováno“ i karta Hodinová mzda ukazují hodiny BEZ přestávek (165 h, s poznámkou „180 h včetně přestávek“) – jako výplatnice. Směny: „14+1 směn + přesč.“ (dřív Sumář 14 a Hodinová mzda „15 směn“).",
+      "📈 ODHAD VÝPLATY (Milan) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Odhad čisté výplaty za zobrazený měsíc = základní sazba z posledních (až 3) měsíců se zadanou výplatou × vážené hodiny tohoto měsíce (příplatky víkend / svátek / noční / přesčas, dovolená). Když je výplata měsíce zadaná, ukáže i rozdíl skutečnost − odhad. Bez výplaty v předchozích měsících se odhad neukáže (žádné vymyšlené číslo).",
+      "🐛 FIX · Hodinová mzda: sazby se počítaly i z výplaty MINULÉHO měsíce, když za zobrazený nebyla zadaná – vypadaly jako skutečné. Teď jen ze zadané výplaty měsíce (jinak „až zadáš výplatu“). Dovolená se počítá do placených hodin (platí se průměrným výdělkem). Náhled sazby v Nastavení úvazku počítá ze skutečných směn měsíce, ne z pracovních dní Po–Pá.",
+      "📝 doc/todo.md: TODO-342 chytré překreslování („C-lite“, morphdom) – místo brzdy překreslování.",
+      "🧪 tools/smoke_odhad_vyplaty.js (9), smoke_kalendar_prace.js upraven. V prohlížeči ověřeno na Milanově rozpisu října.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.74',
     datum: '2026-10-13',

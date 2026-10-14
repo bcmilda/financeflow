@@ -1,4 +1,4 @@
-// FinanceFlow · v11.33 · kalendar.js · 2026-10-06
+// FinanceFlow · v11.75 · kalendar.js · 2026-10-13
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -416,11 +416,17 @@ function workPreviewSazba() {
     breakMin: parseFloat(document.getElementById('workBreakMin')?.value) || 0,
   });
   const f = workFondHodin(S.curYear, S.curMonth, cfg);
-  if (!f.hodin) { el.innerHTML = 'Nastav hodiny na směnu a pracovní dny.'; return; }
-  const sazba = vyplata / f.hodin;
+  //  S26 (v11.75): když jsou v měsíci zadané směny, počítá se ze SKUTEČNÝCH hodin (směny bez přestávek
+  //  + dovolená), ne z pracovních dní Po–Pá – u směnového provozu by fond nesedl.
+  const hm = typeof _workHodiny === 'function' ? _workHodiny(cfg, S.curYear, S.curMonth) : null;
+  const zeSmen = hm && (hm.payH + hm.vacH) > 0;
+  const hod = zeSmen ? hm.payH + hm.vacH : f.hodin;
+  if (!hod) { el.innerHTML = 'Nastav hodiny na směnu a pracovní dny.'; return; }
+  const sazba = vyplata / hod;
+  const h1 = v => String(Math.round(v * 10) / 10).replace('.', ',');
   el.innerHTML = `Hodinová sazba <strong style="color:#7dd34f">${fmt(Math.round(sazba))} Kč/h</strong>`
-    + ` <span style="color:#a8aec8">· ${CZ_M[S.curMonth]} má ${f.dni} pracovních dní `
-    + `× ${String(Math.round(f.hodinDen * 10) / 10).replace('.', ',')} h = ${Math.round(f.hodin)} h</span>`
+    + (zeSmen ? ` <span style="color:#a8aec8">· ${CZ_M[S.curMonth]}: ${h1(hm.payH)} h ve směnách${hm.vacH ? ` + ${h1(hm.vacH)} h dovolené` : ''} = ${h1(hod)} h</span>`
+      : ` <span style="color:#a8aec8">· ${CZ_M[S.curMonth]} má ${f.dni} pracovních dní × ${h1(f.hodinDen)} h = ${Math.round(f.hodin)} h</span>`)
     + `<br><span style="color:#a8aec8">Přesčasová hodina s příplatkem ${cfg.bonusOT} %: `
     + `<strong style="color:#c9cede">${fmt(Math.round(sazba * (1 + cfg.bonusOT / 100)))} Kč</strong></span>`;
 }
@@ -451,8 +457,49 @@ function _workSalary(cfg, y, m) {
   return { castka: drivejsi ? M[drivejsi] : (cfg.salary || 0), zadana: false, odkud: drivejsi || '' };
 }
 window._workSalary = _workSalary;
-//  S25: hodiny dovolené dne – zadané u dne, jinak hodin/směna
-function _workVacH(wd, cfg) { return (wd && wd.hours > 0) ? wd.hours : (cfg.hpd || 8); }
+//  S25: hodiny dovolené dne – zadané u dne, jinak délka směny.
+//  S26 (v11.75, Milan: „12h směna + 1 h přestávky = odpracováno 11 h, den dovolené = 11 h“): přestávka se
+//  do pracovní doby nepočítá (§ 88 ZP), proto den dovolené = hodin/směna − neplacená přestávka. Sedí i
+//  na výplatnici (nepřítomnost 11 h za den dovolené).
+function _workVacH(wd, cfg) { return (wd && wd.hours > 0) ? wd.hours : Math.max(0, (cfg.hpd || 8) - (cfg.breakMin || 0) / 60); }
+//  S26 (v11.75): hodiny měsíce – jedno místo pro Sumář, Hodinovou mzdu i odhad výplaty
+function _workHodiny(cfg, y, m) {
+  const hol = _czHolidays(y), dnu = new Date(y, m + 1, 0).getDate();
+  const r = { grossH: 0, payH: 0, otH: 0, weH: 0, holH: 0, nightH: 0, smen: 0, prescasDni: 0, vacH: 0, nemoc: 0 };
+  for (let d = 1; d <= dnu; d++) {
+    const wd = _workDay(y, m, d); if (!wd) continue;
+    if (wd.type === 'dovolena') { r.vacH += _workVacH(wd, cfg); continue; }
+    if (wd.type === 'nemoc') { r.nemoc++; continue; }
+    if (wd.type !== 'smena' && wd.type !== 'prescas') continue;
+    if (wd.type === 'smena') r.smen++; else r.prescasDni++;
+    const h = wd.hours || 0, p = Math.max(0, h - (cfg.breakMin || 0) / 60);
+    r.grossH += h; r.payH += p;
+    r.otH += (wd.type === 'prescas') ? h : Math.max(0, h - cfg.hpd);   // S17.7: celý přesčasový den je přesčas
+    const dow = new Date(y, m, d).getDay();
+    if (hol.has(`${m + 1}-${d}`)) r.holH += p;
+    else if (dow === 0 || dow === 6) r.weH += p;                        // svátek má přednost, nepočítat 2×
+    if (wd.shift === 'nocni') r.nightH += p;
+  }
+  //  Vážené hodiny: příplatková hodina váží (1 + %). Dovolená se platí průměrným výdělkem → váží 1.
+  r.weightedH = r.payH + r.vacH + r.weH * cfg.bonusWe / 100 + r.holH * cfg.bonusHol / 100 + r.nightH * cfg.bonusNight / 100 + Math.min(r.otH, r.payH) * cfg.bonusOT / 100;
+  return r;
+}
+//  S26 (v11.75, Milan: „můžeme přidat odhad výplaty pro daný měsíc?“): základní sazba z posledních
+//  (až 3) měsíců se ZADANOU výplatou × vážené hodiny tohoto měsíce. Čistá výplata s hodinami neroste
+//  úplně lineárně (daň, prémie, srážky), proto je to odhad ± pár procent.
+function workOdhadVyplaty(cfg, y, m) {
+  const ted = _workHodiny(cfg, y, m); if (!ted.weightedH) return null;
+  const k = (yy, mm) => `${yy}-${String(mm + 1).padStart(2, '0')}`, M = cfg.salaryM || {}, zdroj = [];
+  for (let i = 1; i <= 12 && zdroj.length < 3; i++) {
+    let mm = m - i, yy = y; while (mm < 0) { mm += 12; yy--; }
+    const castka = M[k(yy, mm)]; if (!castka) continue;
+    const h = _workHodiny(cfg, yy, mm); if (h.weightedH > 0) zdroj.push({ y: yy, m: mm, castka, sazba: castka / h.weightedH });
+  }
+  if (!zdroj.length) return null;
+  const sazba = zdroj.reduce((a, z) => a + z.sazba, 0) / zdroj.length;
+  return { castka: Math.round(sazba * ted.weightedH / 100) * 100, sazba, weightedH: ted.weightedH, zdroj };
+}
+window.workOdhadVyplaty = workOdhadVyplaty; window._workHodiny = _workHodiny;
 // S17.5: jednotný zapisovač S.workCal – zachovává VŠECHNA pole konfigurace (nové mzdové
 // položky by jinak starší zapisovače tiše smazaly – stejná třída chyby jako Firebase schema).
 function _workSave(patch) {
@@ -481,15 +528,9 @@ function _renderKalWork(D, m, y) {
   const todayD = today.getFullYear() === y && today.getMonth() === m ? today.getDate() : -1;
   const dayNames = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 
-  // Sumář za měsíc
-  let shifts = 0, hours = 0, vac = 0, sick = 0, overtime = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const wd = _workDay(y, m, d); if (!wd) continue;
-    if (wd.type === 'smena') { shifts++; hours += (wd.hours || 0); overtime += Math.max(0, (wd.hours || 0) - cfg.hpd); }
-    else if (wd.type === 'prescas') { hours += (wd.hours || 0); overtime += (wd.hours || 0); }  // S17.7: práce mimo směny = celé přesčas
-    else if (wd.type === 'dovolena') vac += _workVacH(wd, cfg);
-    else if (wd.type === 'nemoc') sick++;
-  }
+  // Sumář za měsíc – S26 (v11.75): odpracováno BEZ přestávek (jako na výplatnici)
+  const _hm = _workHodiny(cfg, y, m);
+  const shifts = _hm.smen, hours = _hm.payH, vac = _hm.vacH, sick = _hm.nemoc, overtime = _hm.otH;
   // Zůstatek dovolené za CELÝ ROK – v hodinách
   let vacYear = 0;
   Object.keys(cfg.days).forEach(k => { if (k.startsWith(`${y}-`) && cfg.days[k].type === 'dovolena') vacYear += _workVacH(cfg.days[k], cfg); });
@@ -568,14 +609,14 @@ function _renderKalWork(D, m, y) {
       <div class="card-header"><span class="card-title">📋 Sumář – ${CZ_M[m]} ${y}</span></div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-          ${sc('Směny', shifts, 'směn', '#4ade80')}
+          ${sc('Směny', shifts + (_hm.prescasDni ? '+' + _hm.prescasDni : ''), _hm.prescasDni ? 'směn + přesč.' : 'směn', '#4ade80')}
           ${sc('Odpracováno', hours.toFixed(hours % 1 ? 1 : 0), 'h', '#4ade80')}
           ${sc('Přesčasy', overtime.toFixed(overtime % 1 ? 1 : 0), 'h', overtime > 0 ? '#fbbf24' : 'var(--text3)')}
           ${sc('Dovolená', fmtH(vac), 'h', '#60a5fa')}
           ${sc('Nemoc', sick, 'dní', sick > 0 ? '#fbbf24' : 'var(--text3)')}
           ${sc('Zůstatek dov.', fmtH(vacLeft), 'h', vacLeft < 0 ? '#f87171' : vacLeft <= 3 * (cfg.hpd || 8) ? '#fbbf24' : '#4ade80')}
         </div>
-        <div style="font-size:.72rem;color:var(--text3);margin-top:10px">Zůstatek dovolené = ${fmtH(cfg.vacQuotaH)} h/rok − ${fmtH(vacYear)} h vyčerpaných v roce ${y} (den dovolené = ${fmtH(cfg.hpd)} h, pokud u dne nezadáš jinak).</div>
+        <div style="font-size:.72rem;color:#a8aec8;margin-top:10px;line-height:1.5">Odpracováno = hodiny směn bez neplacené přestávky (${fmtH(_hm.grossH)} h včetně přestávek). Zůstatek dovolené = ${fmtH(cfg.vacQuotaH)} h/rok − ${fmtH(vacYear)} h vyčerpaných v roce ${y} (den dovolené = ${fmtH(_workVacH(null, cfg))} h = směna ${fmtH(cfg.hpd)} h − přestávka, pokud u dne nezadáš jinak).</div>
       </div>
     </div>`;
 
@@ -646,29 +687,15 @@ function _renderKalWork(D, m, y) {
 //  za normální hodinu, když příplatky vysvětlují část výplaty.
 // ══════════════════════════════════════════════════════
 function _workWageCard(cfg, y, m, daysInMonth) {
-  const hol = _czHolidays(y);
-  let grossH = 0, payH = 0, otH = 0, weH = 0, holH = 0, nightH = 0, shiftDays = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const wd = _workDay(y, m, d);
-    if (!wd || (wd.type !== 'smena' && wd.type !== 'prescas')) continue;
-    shiftDays++;
-    const h = wd.hours || 0;
-    const p = Math.max(0, h - cfg.breakMin / 60);
-    grossH += h; payH += p;
-    // S17.7: celý přesčasový den je přesčas; u směny jen hodiny nad limit
-    otH += (wd.type === 'prescas') ? h : Math.max(0, h - cfg.hpd);
-    const dow = new Date(y, m, d).getDay();
-    const isHol = hol.has(`${m + 1}-${d}`);
-    if (isHol) holH += p;
-    else if (dow === 0 || dow === 6) weH += p;   // svátek má přednost, nepočítat 2×
-    if (wd.shift === 'nocni') nightH += p;
-  }
-  if (!shiftDays) return '';
+  const hm = _workHodiny(cfg, y, m);
+  const { grossH, payH, otH, weH, holH, nightH, vacH, weightedH } = hm, shiftDays = hm.smen + hm.prescasDni;
+  const odhad = workOdhadVyplaty(cfg, y, m);
+  if (!shiftDays && !vacH) return '';
   const breakH = grossH - payH;
-  // vážené hodiny: každá příplatková hodina váží (1 + %), přesčas se přičítá jako extra váha
-  const weightedH = payH + weH * cfg.bonusWe / 100 + holH * cfg.bonusHol / 100 + nightH * cfg.bonusNight / 100 + Math.min(otH, payH) * cfg.bonusOT / 100;
-  const sal = _workSalary(cfg, y, m).castka || 0;   // S25: výplata zadaná pro tento měsíc
-  const effRate = payH > 0 ? sal / payH : 0;
+  const salInfo = _workSalary(cfg, y, m);
+  //  S26 (v11.75): sazby jen z výplaty ZADANÉ pro tento měsíc (dřív se tiše brala minulá → sazba nesměla)
+  const sal = (salInfo.zadana || !Object.keys(cfg.salaryM || {}).length) ? (salInfo.castka || 0) : 0;
+  const effRate = (payH + vacH) > 0 ? sal / (payH + vacH) : 0;
   const baseRate = weightedH > 0 ? sal / weightedH : 0;
   const fmt1 = v => (Math.round(v * 10) / 10).toLocaleString('cs-CZ');
   const chip = (ico, lbl, hrs, pct) => hrs > 0 ? `<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:8px;background:var(--surface3);font-size:.72rem;color:#c9cede">${ico} ${lbl}: <strong style="color:#e8eaf2">${fmt1(hrs)} h</strong> <span style="color:#fbbf24">+${pct} %</span></span>` : '';
@@ -676,19 +703,19 @@ function _workWageCard(cfg, y, m, daysInMonth) {
     <div class="card" style="margin-top:14px">
       <div class="card-header">
         <span class="card-title">💰 Hodinová mzda – ${CZ_M[m]} ${y}</span>
-        <span style="font-size:.7rem;color:#a8aec8">${shiftDays} směn</span>
+        <span style="font-size:.7rem;color:#a8aec8">${hm.smen} směn${hm.prescasDni ? ` + ${hm.prescasDni} přesčas` : ''}${vacH ? ` · dovolená ${fmt1(vacH)} h` : ''}</span>
       </div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
           <div style="background:var(--surface2);border-radius:10px;padding:10px 12px">
             <div style="font-size:.68rem;color:#a8aec8">Odpracováno</div>
-            <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:#e8eaf2">${fmt1(grossH)} h</div>
-            <div style="font-size:.66rem;color:#a8aec8">− přestávky ${fmt1(breakH)} h = <strong style="color:#c9cede">${fmt1(payH)} h placených</strong></div>
+            <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:#e8eaf2">${fmt1(payH)} h</div>
+            <div style="font-size:.66rem;color:#a8aec8">ve směnách ${fmt1(grossH)} h − přestávky ${fmt1(breakH)} h${vacH ? ` · + dovolená ${fmt1(vacH)} h = <strong style="color:#c9cede">${fmt1(payH + vacH)} h placených</strong>` : ''}</div>
           </div>
           <div style="background:var(--surface2);border-radius:10px;padding:10px 12px">
             <div style="font-size:.68rem;color:#a8aec8">Efektivní hodinovka</div>
             <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:${sal?'var(--income)':'var(--text3)'}">${sal ? fmt(Math.round(effRate)) + ' Kč/h' : '–'}</div>
-            <div style="font-size:.66rem;color:#a8aec8">${sal ? 'výplata ÷ placené hodiny' : 'zadej výplatu v Nastavení úvazku'}</div>
+            <div style="font-size:.66rem;color:#a8aec8">${sal ? 'výplata ÷ placené hodiny' + (vacH ? ' (vč. dovolené)' : '') : 'až zadáš výplatu za ' + CZ_M[m].toLowerCase()}</div>
           </div>
           <div style="background:var(--surface2);border-radius:10px;padding:10px 12px">
             <div style="font-size:.68rem;color:#a8aec8">Základní sazba (bez příplatků)</div>
@@ -696,6 +723,14 @@ function _workWageCard(cfg, y, m, daysInMonth) {
             <div style="font-size:.66rem;color:#a8aec8">výplata ÷ vážené hodiny (${fmt1(weightedH)} h)</div>
           </div>
         </div>
+        ${odhad ? `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+          <div style="font-size:.7rem;color:#a8aec8">📈 Odhad čisté výplaty za ${CZ_M[m].toLowerCase()}</div>
+          <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+            <span style="font-family:Syne;font-size:1.25rem;font-weight:800;color:var(--income)">≈ ${fmt(odhad.castka)} Kč</span>
+            ${sal ? `<span style="font-size:.74rem;color:#c9cede">skutečnost ${fmt(sal)} Kč <b style="color:${sal >= odhad.castka ? 'var(--income)' : 'var(--expense)'}">${sal >= odhad.castka ? '+' : '−'}${fmt(Math.abs(sal - odhad.castka))} Kč</b></span>` : ''}
+          </div>
+          <div style="font-size:.66rem;color:#a8aec8;line-height:1.5;margin-top:3px">základní sazba ${fmt(Math.round(odhad.sazba))} Kč/h (průměr z ${odhad.zdroj.map(z => CZ_M[z.m].toLowerCase()).join(', ')}) × ${fmt1(odhad.weightedH)} vážených h tohoto měsíce. Prémie, daň a srážky se mění, ber ± pár procent.</div>
+        </div>` : (!sal ? `<div style="font-size:.7rem;color:#a8aec8;margin-bottom:10px">📈 Odhad výplaty se ukáže, až bude zadaná výplata aspoň za jeden z předchozích měsíců.</div>` : '')}
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${chip('⏱','Přesčas',otH,cfg.bonusOT)}
           ${chip('🌤','Víkend',weH,cfg.bonusWe)}
