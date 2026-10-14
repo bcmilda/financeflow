@@ -1,4 +1,4 @@
-// FinanceFlow · v11.74 · receipts.js · 2026-10-13
+// FinanceFlow · v11.76 · receipts.js · 2026-10-13
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4822,6 +4822,41 @@ function rpZaplacenoCele() {
 }
 window.rcptZaokrouhleniNavrh = rcptZaokrouhleniNavrh; window.rpZaplacenoCele = rpZaplacenoCele;
 
+//  S26 (v11.76): VRATNÉ LAHVE / ZÁLOHY. Na účtence jsou se znaménkem mínus („Láhev pivo 0,5l
+//  4 × 3,00 −12,00“). Když je AI přečte kladně, součet položek přesáhne účtenku přesně o DVOJNÁSOBEK
+//  vratek. Najde se skupina položek s názvem lahve/zálohy, jejichž dvojnásobek rozdíl vysvětlí – jen
+//  tehdy se otočí znaménko (nic se nehádá; když to nesedí do 50 haléřů, nemění se nic).
+const RCPT_VRATKA_RE = /(l[áa]hev|lahv|lah\.|\bpet\b|vratn|z[áa]loh|obal\b|vr[áa]cen|p[řr]epravk|pfand|kel[íi]mek)/i;
+function rcptVratkyNavrh(r) {
+  if (!r || !Array.isArray(r.items)) return [];
+  const proti = parseFloat(r.subtotal != null ? r.subtotal : (r.printedTotal != null ? r.printedTotal : r.total)) || 0;
+  if (!proti) return [];
+  const sum = r.items.reduce((a, it) => a + lineAmt(it), 0), diff = Math.round((sum - proti) * 100) / 100;
+  if (diff <= 0.05) return [];
+  const kand = r.items.map((it, i) => ({ i, a: lineAmt(it) })).filter(x => x.a > 0 && RCPT_VRATKA_RE.test(r.items[x.i].name || '')).slice(0, 10);
+  //  Tolerance 0,50 Kč = zaokrouhlení placené částky na koruny; vybere se nejbližší shoda.
+  let best = [], bestOdch = 0.5 + 1e-9;
+  for (let mask = 1; mask < (1 << kand.length); mask++) {
+    let s2 = 0; const vyb = [];
+    kand.forEach((x, k) => { if (mask & (1 << k)) { s2 += x.a; vyb.push(x.i); } });
+    const odch = Math.abs(diff - 2 * s2);
+    if (odch < bestOdch) { bestOdch = odch; best = vyb; }
+  }
+  return best;
+}
+function rcptVratkyOprav(r, idx) {
+  const vyb = idx || rcptVratkyNavrh(r);
+  vyb.forEach(i => { const it = r.items[i]; if (!it) return; const a = lineAmt(it);
+    it.price = -Math.abs(parseFloat(it.price) || a / (parseFloat(it.qty) || 1)); it.lineTotal = -Math.abs(a); it._vratka = true; });
+  return vyb.length;
+}
+function rpVratkyOdecti() {
+  const r = window._editReceipt; if (!r) return;
+  const n = rcptVratkyOprav(r);
+  if (n) { rpRender(); rpUpdateTotal(); if (typeof showToast === 'function') showToast(`♻️ ${n} ${n === 1 ? 'vratná láhev odečtena' : 'vratné lahve odečteny'}`); }
+}
+window.rcptVratkyNavrh = rcptVratkyNavrh; window.rcptVratkyOprav = rcptVratkyOprav; window.rpVratkyOdecti = rpVratkyOdecti;
+
 function validateReceiptJSON(r) {
   if(!r || typeof r !== 'object') throw new Error('Odpověď není objekt');
   // store – fallback na 'Neznámý obchod'
@@ -4838,17 +4873,33 @@ function validateReceiptJSON(r) {
   // items – musí být pole
   if(!Array.isArray(r.items)) r.items = [];
   // Validace a normalizace každé položky
+  //  S26 (v11.76, Milan: „vrácené lahve jsou na účtence s mínusem, ale analyzér je sečetl“):
+  //  dřív se tu bralo Math.abs(cena) a zahazoval se lineTotal i sleva. Záporná položka (vratná
+  //  láhev, záloha) se tím změnila na nákup a součet přesáhl účtenku o dvojnásobek vratky.
+  //  Teď zůstává znaménko (záporná = vratka) i řádková částka a sleva, jak je AI přečetla.
   r.items = r.items
     .filter(it => it && typeof it === 'object' && it.name)
-    .map(it => ({
-      name: String(it.name||'').trim().slice(0,80),
-      price: Math.abs(parseFloat(it.price)||0),
-      qty: parseFloat(it.qty)||1,
-      ...(/^(kg|l)$/i.test(String(it.unit||'')) ? { unit: String(it.unit).toLowerCase() } : {}),   // S25: vážené zboží
-      itemCat: it.itemCat || '',
-      itemCatId: it.itemCatId || '',
-    }))
-    .filter(it => it.price > 0); // přeskočit položky bez ceny (záhlaví, daňové řádky)
+    .map(it => {
+      const price = parseFloat(it.price) || 0, lt = parseFloat(it.lineTotal), disc = Math.abs(parseFloat(it.discount) || 0);
+      const o = {
+        name: String(it.name||'').trim().slice(0,80),
+        price,
+        qty: Math.abs(parseFloat(it.qty)||1),
+        ...(/^(kg|l)$/i.test(String(it.unit||'')) ? { unit: String(it.unit).toLowerCase() } : {}),   // S25: vážené zboží
+        itemCat: it.itemCat || '',
+        itemCatId: it.itemCatId || '',
+      };
+      if (isFinite(lt) && lt !== 0) o.lineTotal = Math.round(lt * 100) / 100;
+      if (disc) o.discount = disc;
+      if (price < 0 || (o.lineTotal != null && o.lineTotal < 0)) {
+        o.price = -Math.abs(price || (o.lineTotal || 0) / o.qty);
+        if (o.lineTotal != null) o.lineTotal = -Math.abs(o.lineTotal);
+        o._vratka = true;
+      }
+      return o;
+    })
+    .filter(it => it.price !== 0 || (it.lineTotal || 0) !== 0); // přeskočit položky bez ceny (záhlaví, daňové řádky)
+  if (typeof rcptVratkyOprav === 'function') rcptVratkyOprav(r);   // S26: kladně přečtené vratné lahve, když přesně vysvětlují rozdíl
   // Dopočítej total pokud chybí
   if(!r.total && r.items.length) {
     r.total = Math.round(r.items.reduce((a,it)=>a+lineAmt(it),0)*100)/100;
@@ -5039,11 +5090,13 @@ function rpRender() {
             inputmode="decimal">
           <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:20px">${vaz ? escHtml(rpVazJed(it)) : 'ks'}</span>
           <input id="rp_price_${i}" type="number"
-            value="${vaz ? (Math.round(lineAmt(it) * 100) / 100) : (it.price||0)}" min="0" step="0.01"
+            value="${vaz ? (Math.round(lineAmt(it) * 100) / 100) : (it.price||0)}" step="0.01"
             title="${vaz ? 'Částka za položku, jak je na účtence' : 'Cena za kus'}"
             style="width:68px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--text);font-size:.82rem;text-align:right;-moz-appearance:textfield"
             inputmode="decimal">
-          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:46px;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>`; })()}
+          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:46px;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>
+          ${/* S26 (v11.76, Milan): sloupec s celkovou cenou položky (po slevě; vratka zeleně se mínusem) */''}
+          <span id="rp_sum_${i}" title="Celkem za položku${it.discount > 0 ? ' (po slevě ' + fmtP(it.discount) + ' Kč)' : ''}" style="width:70px;flex-shrink:0;text-align:right;font-size:.8rem;font-weight:700;white-space:nowrap;color:${lineAmt(it) < 0 ? 'var(--income)' : 'var(--text)'}">${lineAmt(it) < 0 ? '♻️ ' : ''}${fmtP(lineAmt(it))}</span>`; })()}
           ${(() => { if (rpVazene(it)) return '<span style="width:76px;flex-shrink:0" aria-hidden="true"></span>';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl; v11.69: prázdné místo stejné šířky, ať řádek „neodskočí“
             const g = gramazPolozky(it);
             const tit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
@@ -5077,7 +5130,7 @@ function rpRender() {
     '<div style="display:flex;gap:8px;align-items:flex-start;background:#60a5fa14;border:1px solid #60a5fa44;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:.74rem;line-height:1.45;color:var(--text);max-width:600px">'
     + '<span>📷</span><span style="flex:1"><b>Tip:</b> klepni na 📷 u položky a vyfoť čárový kód z obalu. Appka zjistí přesný název, značku, složení a Nutri-Score a pozná stejný výrobek i v jiných obchodech.</span>'
     + '<button onclick="try{localStorage.setItem(\'ff_eanTipSkryt\',\'1\')}catch(e){};this.parentNode.remove()" style="background:none;border:1px solid var(--border);border-radius:6px;color:#a8aec8;font-size:.68rem;padding:2px 7px;cursor:pointer">Rozumím</button></div>'; } catch(e) {}
-  el.innerHTML = _eanTip + '<div style="min-width:600px">' + html + '</div>';
+  el.innerHTML = _eanTip + '<div style="min-width:680px">' + html + '</div>';
 
   // Event listenery
   r.items.forEach((it, i) => {
@@ -5152,13 +5205,16 @@ function rpRender() {
         const q = parseFloat(r.items[i].qty) || 1; r.items[i].lineTotal = Math.round(v * 100) / 100; r.items[i].price = Math.round(v / q * 100) / 100; pkg(); rpUpdateTotal(); };
       priceEl.addEventListener('input', p); priceEl.addEventListener('change', p);
     }
+    //  S26 (v11.76): když položka nese řádkovou částku z účtenky (lineTotal), změna počtu/ceny ji přepočítá
+    //  (cena × počet − sleva) – dřív se změna do součtu vůbec nepromítla.
+    const prepocti = () => { const x = r.items[i]; if (x.lineTotal != null) x.lineTotal = Math.round(((parseFloat(x.price) || 0) * (parseFloat(x.qty) || 1) - (parseFloat(x.discount) || 0)) * 100) / 100; rpUpdateTotal(); };
     if(qtyEl && !vaz) {
-      qtyEl.addEventListener('input',  () => { r.items[i].qty = parseFloat(qtyEl.value)||1; rpUpdateTotal(); });
-      qtyEl.addEventListener('change', () => { r.items[i].qty = parseFloat(qtyEl.value)||1; rpUpdateTotal(); });
+      qtyEl.addEventListener('input',  () => { r.items[i].qty = parseFloat(qtyEl.value)||1; prepocti(); });
+      qtyEl.addEventListener('change', () => { r.items[i].qty = parseFloat(qtyEl.value)||1; prepocti(); });
     }
     if(priceEl && !vaz) {
-      priceEl.addEventListener('input',  () => { r.items[i].price = parseFloat(priceEl.value)||0; rpUpdateTotal(); });
-      priceEl.addEventListener('change', () => { r.items[i].price = parseFloat(priceEl.value)||0; rpUpdateTotal(); });
+      priceEl.addEventListener('input',  () => { r.items[i].price = parseFloat(priceEl.value)||0; prepocti(); });
+      priceEl.addEventListener('change', () => { r.items[i].price = parseFloat(priceEl.value)||0; prepocti(); });
     }
   });
 
@@ -5262,6 +5318,8 @@ function rpUpdateTotal() {
   const r = window._editReceipt; if(!r) return;
   const sum = Math.round((r.items||[]).reduce((a,it)=>a+lineAmt(it),0)*100)/100;
   if(!r._totalLocked) r.total = sum;
+  (r.items || []).forEach((it, i) => { const e = document.getElementById('rp_sum_' + i); if (!e) return; const a = lineAmt(it);
+    e.textContent = (a < 0 ? '♻️ ' : '') + fmtP(a); e.style.color = a < 0 ? 'var(--income)' : 'var(--text)'; });
   const el = document.getElementById('rp_total_display');
   if(el) el.textContent = '−' + fmtP(r.total||0) + ' Kč';
   if(typeof rpRenderCheck==='function') rpRenderCheck();
@@ -6155,13 +6213,18 @@ function rpRenderCheck(){
           //  aby seděl součet. „Doplnit rozdíl jako položku" součet srovná, ale
           //  do „Ušetřeno slevami" ani do ceny položky se nic nedostane.
           if(chybi) return '';
+          const vr = rcptVratkyNavrh(r);
+          if(vr.length) return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3)">
+            <div style="font-size:.74rem;color:#e8eaf2;line-height:1.5;margin-bottom:6px">♻️ Rozdíl přesně odpovídá <b>vráceným lahvím</b>, které jsou na účtence s mínusem, ale přečetly se jako nákup:
+              <b>${vr.map(i => (r.items[i].name||'').replace(/</g,'&lt;') + ' ' + fmtP(lineAmt(r.items[i])) + ' Kč').join(', ')}</b>.</div>
+            <button class="btn btn-accent btn-sm" style="font-size:.72rem" onclick="rpVratkyOdecti()">♻️ Odečíst vrácené lahve</button></div>`;
           const kand = rpDiscountCandidates(r, rozdil);
           if(!kand.length) return '';
           const silny = kand[0].silny;
           return `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3)">
             <div style="font-size:.72rem;color:#e8eaf2;line-height:1.5;margin-bottom:6px">
               ${silny ? `💡 Rozdíl <b>${fmtP(rozdil)} Kč</b> odpovídá ceně jednoho kusu u „<b>${kand[0].name}</b>" — vypadá to na slevu typu „Tvoje cena" / 1+1.`
-                      : `💡 Je rozdíl <b>${fmtP(rozdil)} Kč</b> sleva? Vyber položku, ke které patří:`}
+                      : `💡 Je rozdíl <b>${fmtP(rozdil)} Kč</b> sleva? Vyber položku, ke které patří <span style="color:#a8aec8">(nabízím jen položky dražší než rozdíl – větší sleva být nemůže)</span>:`}
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <select id="rp_disc_item" class="fi" style="font-size:.74rem;flex:1 1 170px;min-width:150px;padding:6px 8px">

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.75 · admin.js · 2026-10-13
+// FinanceFlow · v11.76 · admin.js · 2026-10-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.76',
+    datum: '2026-10-13',
+    zmeny: [
+      "♻️ FIX: VRATNÉ LAHVE NA ÚČTENCE (Milan, Kaufland: „odečet za vrácené lahve je na účtence s mínusem, ale analyzér ho sečetl“, rozdíl ~38 Kč) · cesta: Účtenky → Skenovat / Historie → ✎. Příčina: kontrola odpovědi AI brala u ceny absolutní hodnotu (Math.abs) a zahazovala řádkovou částku i slevu – záporná vratka (−12, −7) se změnila na nákup (+12, +7) a součet přesáhl účtenku o dvojnásobek. Teď znaménko, řádková částka i sleva zůstávají. Když AI lahve přečte kladně, appka znaménko otočí sama – ale JEN když dvojnásobek položek s názvem láhev / záloha / vratný obal přesně vysvětlí přesah (do 50 haléřů kvůli zaokrouhlení na koruny).",
+      "♻️ UŽ NASKENOVANÉ ÚČTENKY: v editoru (✎) se u přesahu nejdřív nabídne „♻️ Odečíst vrácené lahve“ (před výběrem slevy) → Uložit změny. Cenu jde zadat i zápornou ručně (vratka, která se nepřečetla). U výběru slevy je vysvětleno, proč seznam není úplný: nabízí jen položky dražší než rozdíl.",
+      "🧮 EDITOR ÚČTENKY – SLOUPEC CELKEM (Milan) · za ks, cenou/jednotku a balením je částka za celý řádek (po slevě; vratka ♻️ zeleně se mínusem). Přepočítá se při psaní; změna ks / ceny přepočítá i uloženou řádkovou částku.",
+      "🧪 tools/smoke_vratky.js – 20 testů (Milanův Kaufland: lahve se mínusem i kladně, zaokrouhlení, obyčejné pivo se neotočí, oprava v editoru, sloupec Celkem, negativní kontrola proti starému kódu).",
+    ],
+  },
   {
     verze: 'v11.75',
     datum: '2026-10-13',
