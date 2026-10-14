@@ -1,4 +1,4 @@
-// FinanceFlow · v11.76 · admin.js · 2026-10-13
+// FinanceFlow · v11.77 · admin.js · 2026-10-14
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,23 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.77',
+    datum: '2026-10-14',
+    zmeny: [
+      "🤖 VÝPLATNICE PŘES AI – BOD 1 (Milan: „jak si může kdokoli zadat svou výplatnici?“) · cesta: Kalendář → 🧾 Výplatnice → 📥 Import / 🤖 AI. Čtyři kroky: vyfoť / stáhni pásku → „📋 Zkopírovat pokyn“ (pokyn obsahuje TVOU šablonu – klíče, kódy, složky) → vlož do ChatGPT / Claude / Gemini s páskou → odpověď vlož nebo nahraj jako soubor. Položky, které šablona nezná, AI popíše a appka je do šablony přidá (šablona vznikne z první pásky). ZP, SP a daň AI opisuje z pásky, takže kontrola funguje i u jiné firmy. Nová skupina „Nezdaněné připočty“ (stravenkový paušál, cestovné) – přičítá se k dobírce. Kontrola součtů zůstává: co nesedí na hrubou / čistou / dobírku, se nenaimportuje (šablona se pak nezmění).",
+      "📂 IMPORT ZE SOUBORU (Milan: „nejde vložit celý dokument JSON, jen zkopírovat text“) · tlačítko „📂 Nahrát soubor“ (.json / .txt, i víc souborů najednou). Import přečte i odpověď AI tak, jak přijde: blok ```json, text okolo, jeden měsíc místo pole, čárku navíc, čísla „25 500,00“.",
+      "🛡️ PODÍL PEVNÉ SLOŽKY – NOVÝ GRAF (Milan: „chybí stupnice, popis, průměrná čára; dokud nenajedu myší, nic nevidím“) · stupnice 60–90 % (rozšíří se, když data vybočí) s vodorovnou mřížkou, čárkovaný průměr, hodnoty u maxima, minima a posledního měsíce, popisky měsíců na ose. Klepnutím na sloupec (i na mobilu) se pod grafem vypíše měsíc: podíl, pevná část z hrubé a rozdíl od průměru.",
+      "📊 Z ČEHO SE SKLÁDÁ HRUBÁ MZDA (Milan) · osa v Kč s mřížkou, průměr, FILTR SLOŽEK (Vše / Pevná / Příplatky / Prémie / Odměny – jedna i víc najednou, stupnice se přizpůsobí, barva zůstává složce) a TABULKA HODNOT pod grafem (po měsících + průměr a součet). „Za čas“ přejmenováno na „Příplatky a přesčasy“ (noční, So+Ne, svátek, přesčas), „Za výkon“ rozděleno na měsíční PRÉMIE a MIMOŘÁDNÉ ODMĚNY (roční, pololetní, vánoční, náborová).",
+      "📈 PRÉMIE A PŘÍPLATKY – ČÁROVÝ GRAF (Milan: „porovnat výkon + čas“) · dvě čáry na jedné ose, průměry obou a podíl pohyblivé části na hrubé.",
+      "🧾 KARTA MĚSÍCE – CELÁ PÁSKA (Milan: „v tabulce je jen pár hodnot, proč tam není všechno?“) · hlavička (fond, odpracováno, nepřítomnost, tarif, PPÚ), KAŽDÁ položka příjmů s kódem a barvou složky, průchozí PENZ/DPS zvlášť, ZP a SP s %, daň před slevami, sleva na poplatníka a na děti, daň zálohová, odvody celkem v % z hrubé, každá srážka (stravování, el. peněženka), dobírka a srovnání s předchozím měsícem.",
+      "🏛️ DANĚ A ODVODY – NOVÁ KARTA (Milan: „čím větší výplata, tím větší daně, ale nikde nevidím data ani graf“) · odvedeno za 12 měsíců (ZP / SP / daň), kolik % z hrubé odešlo (rozpětí), kolik z 1 000 Kč hrubého navíc zůstane (z tvé poslední pásky, ≈ 734 Kč), skládaný graf ZP / SP / daň po měsících s průměrem, vysvětlení, proč s vyšší výplatou roste i procento, a tabulka po měsících.",
+      "🎁 MIMOŘÁDNÉ ODMĚNY – NOVÁ KARTA (Milan: „prémie roční, půlroční nejsou zanesené“) · po letech: roční prémie, vánoční a náborový příspěvek, nově i pole „Pololetní prémie“ v šabloně. V grafu složení mají vlastní barvu.",
+      "✂️ SRÁŽKY PO MĚSÍCÍCH · celkem, průměr, u každé srážky počet měsíců a průměr, graf po měsících a tabulka (dřív jen součet).",
+      "🎨 Barvy grafů ověřené validátorem pro tmavé pozadí (rozlišitelné i pro barvoslepé). Grafy dál bez canvasu – na mobilu i počítači stejné.",
+      "🧪 tools/smoke_vyplatnice_ai.js – 30 testů (pokyn pro AI, čtení odpovědi AI, 19 skutečných pásek, cizí páska s novými položkami a stravenkovým paušálem, nesedící páska se odmítne, celá karta, grafy, filtr, daně, odměny, srážky, negativní kontrola); smoke_vyplatnice.js upraven na nové názvy složek.",
+    ],
+  },
   {
     verze: 'v11.76',
     datum: '2026-10-13',
