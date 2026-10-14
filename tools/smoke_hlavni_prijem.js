@@ -1,0 +1,30 @@
+// FinanceFlow · smoke test · S24 · v11.15 ⭐ Hlavní zdroj příjmů + limit u příjmové kategorie
+const vm=require('vm'),fs=require('fs'),path=require('path');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+const R=(...c)=>fs.readFileSync(najdi(...c),'utf8');
+let ok=0,bad=0;const t=(n,c,i)=>{c?ok++:(bad++,console.log('❌',n,i===undefined?'':JSON.stringify(i)));};
+const P=R('projects.js','../js/projects.js'), PR=R('pristi.js','../js/pristi.js'), ST=R('stats.js','../js/stats.js'), H=R('app.html','../app.html');
+const cut=(src,n)=>{const a=src.indexOf('function '+n+'(');let i=src.indexOf('{',a),d=0;for(;i<src.length;i++){if(src[i]==='{')d++;else if(src[i]==='}'){d--;if(!d)break;}}return src.slice(a,i+1);};
+const now=new Date(); const y=now.getFullYear(), m=now.getMonth();
+const iso=(d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const D={categories:[{id:'cat7',name:'Výplata',type:'income'},{id:'cat8',name:'Ostatní',type:'income'}],
+ transactions:[{id:1,type:'income',catId:'cat7',amount:30000,date:iso(12)},{id:2,type:'income',catId:'cat8',amount:90000,date:iso(20)}]};
+const ctx={console,window:{},txCZK:t=>t.amount,isTransferTx:()=>false,getTx:(mm,yy,DD)=>(DD.transactions||[]).filter(t=>{const d=new Date(t.date);return d.getMonth()===mm&&d.getFullYear()===yy;})};
+ctx.window=ctx; vm.createContext(ctx);
+['hlavniPrijmyKat','jenHlavniPrijmy','radarDetectPaydayDay'].forEach(n=>vm.runInContext(cut(P,n),ctx));
+t('bez označení: největší příjem (dosavadní chování)',ctx.radarDetectPaydayDay(D)===20);
+D.categories[0].hlavniPrijem=true;
+t('s označením: den z hlavního zdroje',ctx.radarDetectPaydayDay(D)===12);
+t('výdajová kategorie s příznakem se nepočítá',ctx.hlavniPrijmyKat({categories:[{id:'x',type:'expense',hlavniPrijem:true}]}).size===0);
+t('když z hlavního zdroje nic nepřišlo, platí všechny příjmy',ctx.jenHlavniPrijmy([{catId:'cat8'}],D).length===1);
+vm.runInContext(cut(PR,'pristiPaydayAnchor'),ctx);
+const rows=[{level:1,amount:90000,date:new Date(y,m,20),name:'Prodej',hlavni:false},{level:2,amount:30000,date:new Date(y,m,12),name:'Výplata',hlavni:true}];
+t('Příští měsíc: kotva z hlavního zdroje',ctx.pristiPaydayAnchor(rows,D).day===12);
+t('Příští měsíc: bez označení největší',ctx.pristiPaydayAnchor(rows.map(r=>({...r,hlavni:false})),D).day===20);
+t('Radar měsíc: incomeDay z hlavního zdroje',/_hlTx\.length\)\{ let _b=_hlTx\[0\]/.test(P));
+t('Do výplaty (nepravidelný i týdenní): filtr hlavního zdroje',(P.match(/const incomes=jenHlavniPrijmy\(/g)||[]).length===2);
+t('formulář: přepínač ⭐ a obal limitu',H.includes('id="catHlavni"')&&H.includes('id="catHealthBox"'));
+t('limit se u příjmu skrývá',/hbox\.style\.display=\(type==='income'\)\?'none':'block'/.test(ST));
+t('limit se u příjmu neukládá',/healthPct!==null && type!=='income'/.test(ST));
+t('příznak se ukládá jen u příjmu',/obj\.hlavniPrijem = \(isIncomeType && document\.getElementById\('catHlavni'\)\?\.checked\) \? true : null/.test(ST));
+console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

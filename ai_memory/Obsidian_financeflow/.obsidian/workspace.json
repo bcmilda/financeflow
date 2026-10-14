@@ -1,0 +1,312 @@
+{
+  "main": {
+    "id": "7431506f5cad1383",
+    "type": "split",
+    "children": [
+      {
+        "id": "b95a1c90b8e56d54",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "44f30eddff32145e",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graf"
+            }
+          },
+          {
+            "id": "771cfbf484af8045",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "context.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "context"
+            }
+          },
+          {
+            "id": "6ab891bddef6823e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "ToDo.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "ToDo"
+            }
+          },
+          {
+            "id": "887217997ec6f326",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Přání a cíle/Narozeniny a přání Plány a cíle.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Narozeniny a přání Plány a cíle"
+            }
+          },
+          {
+            "id": "dcc415989e47114e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Nezapomenout.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Nezapomenout"
+            }
+          },
+          {
+            "id": "5addc8d7602390ba",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Nezapomenout.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Nezapomenout"
+            }
+          },
+          {
+            "id": "084d8fd464a67408",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Diff write.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Diff write"
+            }
+          },
+          {
+            "id": "65997e05b3af400d",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "PROXY, DNS, Financeflow.cz.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "PROXY, DNS, Financeflow.cz"
+            }
+          }
+        ],
+        "currentTab": 7
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "7a12541cb2c64d24",
+    "type": "split",
+    "children": [
+      {
+        "id": "1713cc072b50b47e",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "1714be8a540c8620",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": true
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Průzkumník souborů"
+            }
+          },
+          {
+            "id": "8cfc93bbc043deb5",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Hledat"
+            }
+          },
+          {
+            "id": "0ad09a977d359559",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Záložky"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "95a786d2ac1d039c",
+    "type": "split",
+    "children": [
+      {
+        "id": "ce42d171fb8757de",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d64326404f5706c2",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "decisions.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Zpětné odkazy pro decisions"
+            }
+          },
+          {
+            "id": "e3d96ba1c8f0b97c",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "decisions.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Odchozí odkazy z decisions"
+            }
+          },
+          {
+            "id": "13ed003b60a99507",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Štítky"
+            }
+          },
+          {
+            "id": "7561c4b8a4c41848",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Všechny vlastnosti"
+            }
+          },
+          {
+            "id": "f5baa64f6bffc177",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "decisions.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Přehled decisions"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Otevřít rychlé přepínání": false,
+      "graph:Otevřít graf": false,
+      "canvas:Vytvořit nový canvas": false,
+      "daily-notes:Otevřít dnešní poznámku": false,
+      "templates:Vložit šablonu": false,
+      "command-palette:Otevřít paletu příkazů": false,
+      "bases:Vytvořit novou základnu": false
+    }
+  },
+  "active": "65997e05b3af400d",
+  "lastOpenFiles": [
+    "Pasted image 20260712221455.png",
+    "Pasted image 20260712221414.png",
+    "Diff write.md",
+    "PROXY, DNS, Financeflow.cz.md",
+    "Bugs.md",
+    "Půjčky/DTI a DSTI.md",
+    "Půjčky.md",
+    "Půjčky",
+    "Nezapomenout.md",
+    "Verze 8.34 informace.md",
+    "Přání a cíle/Narozeniny a přání Plány a cíle.md",
+    "Admin panel/Admin Audity.md",
+    "Přání a cíle/Bez názvu.base",
+    "Bez názvu 1.md",
+    "Přání a cíle",
+    "Radar/Kam směřuju.md",
+    "Radar/Runway.md",
+    "AI Rate Limiting/Bez názvu.md",
+    "Admin panel/Nákupní DNA.md",
+    "AI Rate Limiting",
+    "Admin panel",
+    "architecture.md",
+    "Radar",
+    "decisions.md",
+    "features.md",
+    "ToDo.md",
+    "Vítejte.md",
+    "vytvořtef odkaz.md"
+  ]
+}
