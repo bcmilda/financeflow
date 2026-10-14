@@ -152,9 +152,10 @@ ok('příplatek za svátek je v šabloně (nalezen v 05\/25)',
      !/getContext\('2d'\)/.test(g) && /display:flex;gap:2px;align-items:flex-end/.test(g));
   ok('grafy · při jednom měsíci se nekreslí nic', /if \(zaznamy\.length < 2\) return ''/.test(g));
   ok('grafy · zobrazí se posledních 24 měsíců', /\.slice\(-24\)/.test(g));
-  ok('grafy · legenda vysvětluje všechny tři skupiny',
-     /Za výkon/.test(g) && /Za čas/.test(g) && /Pevná/.test(g));
-  ok('grafy · srážky vylučují průchozí položky', /pruchoziSr\.has\(k\)/.test(g));
+  //  S26 (v11.77): „za čas“ → „Příplatky a přesčasy“, „za výkon“ → Prémie + Mimořádné odměny (Milan).
+  ok('grafy · legenda vysvětluje všechny skupiny',
+     /Příplatky a přesčasy/.test(g) && /Prémie \(měsíční\)/.test(g) && /Mimořádné odměny/.test(g) && /Pevná mzda/.test(g));
+  ok('grafy · srážky vylučují průchozí položky', /!pruchozi\.has\(k\) && !klice\.includes\(k\)/.test(g));
   ok('grafy · appka NEHODNOTÍ, který podíl je správný',
      /Appka neříká, který podíl je správný/.test(g));
   ok('grafy · dělení nulou při prázdné pásce ošetřeno', /r\.celkem \? r\.pevna \/ r\.celkem/.test(g));

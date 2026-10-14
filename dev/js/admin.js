@@ -1,4 +1,4 @@
-// FinanceFlow · v11.69 · admin.js · 2026-10-12
+// FinanceFlow · v11.77 · admin.js · 2026-10-14
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,109 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.77',
+    datum: '2026-10-14',
+    zmeny: [
+      "🤖 VÝPLATNICE PŘES AI – BOD 1 (Milan: „jak si může kdokoli zadat svou výplatnici?“) · cesta: Kalendář → 🧾 Výplatnice → 📥 Import / 🤖 AI. Čtyři kroky: vyfoť / stáhni pásku → „📋 Zkopírovat pokyn“ (pokyn obsahuje TVOU šablonu – klíče, kódy, složky) → vlož do ChatGPT / Claude / Gemini s páskou → odpověď vlož nebo nahraj jako soubor. Položky, které šablona nezná, AI popíše a appka je do šablony přidá (šablona vznikne z první pásky). ZP, SP a daň AI opisuje z pásky, takže kontrola funguje i u jiné firmy. Nová skupina „Nezdaněné připočty“ (stravenkový paušál, cestovné) – přičítá se k dobírce. Kontrola součtů zůstává: co nesedí na hrubou / čistou / dobírku, se nenaimportuje (šablona se pak nezmění).",
+      "📂 IMPORT ZE SOUBORU (Milan: „nejde vložit celý dokument JSON, jen zkopírovat text“) · tlačítko „📂 Nahrát soubor“ (.json / .txt, i víc souborů najednou). Import přečte i odpověď AI tak, jak přijde: blok ```json, text okolo, jeden měsíc místo pole, čárku navíc, čísla „25 500,00“.",
+      "🛡️ PODÍL PEVNÉ SLOŽKY – NOVÝ GRAF (Milan: „chybí stupnice, popis, průměrná čára; dokud nenajedu myší, nic nevidím“) · stupnice 60–90 % (rozšíří se, když data vybočí) s vodorovnou mřížkou, čárkovaný průměr, hodnoty u maxima, minima a posledního měsíce, popisky měsíců na ose. Klepnutím na sloupec (i na mobilu) se pod grafem vypíše měsíc: podíl, pevná část z hrubé a rozdíl od průměru.",
+      "📊 Z ČEHO SE SKLÁDÁ HRUBÁ MZDA (Milan) · osa v Kč s mřížkou, průměr, FILTR SLOŽEK (Vše / Pevná / Příplatky / Prémie / Odměny – jedna i víc najednou, stupnice se přizpůsobí, barva zůstává složce) a TABULKA HODNOT pod grafem (po měsících + průměr a součet). „Za čas“ přejmenováno na „Příplatky a přesčasy“ (noční, So+Ne, svátek, přesčas), „Za výkon“ rozděleno na měsíční PRÉMIE a MIMOŘÁDNÉ ODMĚNY (roční, pololetní, vánoční, náborová).",
+      "📈 PRÉMIE A PŘÍPLATKY – ČÁROVÝ GRAF (Milan: „porovnat výkon + čas“) · dvě čáry na jedné ose, průměry obou a podíl pohyblivé části na hrubé.",
+      "🧾 KARTA MĚSÍCE – CELÁ PÁSKA (Milan: „v tabulce je jen pár hodnot, proč tam není všechno?“) · hlavička (fond, odpracováno, nepřítomnost, tarif, PPÚ), KAŽDÁ položka příjmů s kódem a barvou složky, průchozí PENZ/DPS zvlášť, ZP a SP s %, daň před slevami, sleva na poplatníka a na děti, daň zálohová, odvody celkem v % z hrubé, každá srážka (stravování, el. peněženka), dobírka a srovnání s předchozím měsícem.",
+      "🏛️ DANĚ A ODVODY – NOVÁ KARTA (Milan: „čím větší výplata, tím větší daně, ale nikde nevidím data ani graf“) · odvedeno za 12 měsíců (ZP / SP / daň), kolik % z hrubé odešlo (rozpětí), kolik z 1 000 Kč hrubého navíc zůstane (z tvé poslední pásky, ≈ 734 Kč), skládaný graf ZP / SP / daň po měsících s průměrem, vysvětlení, proč s vyšší výplatou roste i procento, a tabulka po měsících.",
+      "🎁 MIMOŘÁDNÉ ODMĚNY – NOVÁ KARTA (Milan: „prémie roční, půlroční nejsou zanesené“) · po letech: roční prémie, vánoční a náborový příspěvek, nově i pole „Pololetní prémie“ v šabloně. V grafu složení mají vlastní barvu.",
+      "✂️ SRÁŽKY PO MĚSÍCÍCH · celkem, průměr, u každé srážky počet měsíců a průměr, graf po měsících a tabulka (dřív jen součet).",
+      "🎨 Barvy grafů ověřené validátorem pro tmavé pozadí (rozlišitelné i pro barvoslepé). Grafy dál bez canvasu – na mobilu i počítači stejné.",
+      "🧪 tools/smoke_vyplatnice_ai.js – 30 testů (pokyn pro AI, čtení odpovědi AI, 19 skutečných pásek, cizí páska s novými položkami a stravenkovým paušálem, nesedící páska se odmítne, celá karta, grafy, filtr, daně, odměny, srážky, negativní kontrola); smoke_vyplatnice.js upraven na nové názvy složek.",
+    ],
+  },
+  {
+    verze: 'v11.76',
+    datum: '2026-10-13',
+    zmeny: [
+      "♻️ FIX: VRATNÉ LAHVE NA ÚČTENCE (Milan, Kaufland: „odečet za vrácené lahve je na účtence s mínusem, ale analyzér ho sečetl“, rozdíl ~38 Kč) · cesta: Účtenky → Skenovat / Historie → ✎. Příčina: kontrola odpovědi AI brala u ceny absolutní hodnotu (Math.abs) a zahazovala řádkovou částku i slevu – záporná vratka (−12, −7) se změnila na nákup (+12, +7) a součet přesáhl účtenku o dvojnásobek. Teď znaménko, řádková částka i sleva zůstávají. Když AI lahve přečte kladně, appka znaménko otočí sama – ale JEN když dvojnásobek položek s názvem láhev / záloha / vratný obal přesně vysvětlí přesah (do 50 haléřů kvůli zaokrouhlení na koruny).",
+      "♻️ UŽ NASKENOVANÉ ÚČTENKY: v editoru (✎) se u přesahu nejdřív nabídne „♻️ Odečíst vrácené lahve“ (před výběrem slevy) → Uložit změny. Cenu jde zadat i zápornou ručně (vratka, která se nepřečetla). U výběru slevy je vysvětleno, proč seznam není úplný: nabízí jen položky dražší než rozdíl.",
+      "🧮 EDITOR ÚČTENKY – SLOUPEC CELKEM (Milan) · za ks, cenou/jednotku a balením je částka za celý řádek (po slevě; vratka ♻️ zeleně se mínusem). Přepočítá se při psaní; změna ks / ceny přepočítá i uloženou řádkovou částku.",
+      "🧪 tools/smoke_vratky.js – 20 testů (Milanův Kaufland: lahve se mínusem i kladně, zaokrouhlení, obyčejné pivo se neotočí, oprava v editoru, sloupec Celkem, negativní kontrola proti starému kódu).",
+    ],
+  },
+  {
+    verze: 'v11.75',
+    datum: '2026-10-13',
+    zmeny: [
+      "🗓️ PRACOVNÍ KALENDÁŘ – SMĚNA BEZ PŘESTÁVKY (Milan: „12h směna + 1 h přestávky = odpracováno 11 h, den dovolené = 11 h“) · cesta: Kalendář → režim Práce. Den dovolené = hodin/směna − neplacená přestávka (12 − 1 = 11 h, dřív 12 h); zůstatek dovolené se podle toho přepočítá. Sumář „Odpracováno“ i karta Hodinová mzda ukazují hodiny BEZ přestávek (165 h, s poznámkou „180 h včetně přestávek“) – jako výplatnice. Směny: „14+1 směn + přesč.“ (dřív Sumář 14 a Hodinová mzda „15 směn“).",
+      "📈 ODHAD VÝPLATY (Milan) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Odhad čisté výplaty za zobrazený měsíc = základní sazba z posledních (až 3) měsíců se zadanou výplatou × vážené hodiny tohoto měsíce (příplatky víkend / svátek / noční / přesčas, dovolená). Když je výplata měsíce zadaná, ukáže i rozdíl skutečnost − odhad. Bez výplaty v předchozích měsících se odhad neukáže (žádné vymyšlené číslo).",
+      "🐛 FIX · Hodinová mzda: sazby se počítaly i z výplaty MINULÉHO měsíce, když za zobrazený nebyla zadaná – vypadaly jako skutečné. Teď jen ze zadané výplaty měsíce (jinak „až zadáš výplatu“). Dovolená se počítá do placených hodin (platí se průměrným výdělkem). Náhled sazby v Nastavení úvazku počítá ze skutečných směn měsíce, ne z pracovních dní Po–Pá.",
+      "📝 doc/todo.md: TODO-342 chytré překreslování („C-lite“, morphdom) – místo brzdy překreslování.",
+      "🧪 tools/smoke_odhad_vyplaty.js (9), smoke_kalendar_prace.js upraven. V prohlížeči ověřeno na Milanově rozpisu října.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.74',
+    datum: '2026-10-13',
+    zmeny: [
+      "🔒 TRANSAKCE ÚČTENKY JEN PŘES ÚČTENKU (Milan: „nechci, aby první naskenovaná účtenka šla smazat pouhým tlačítkem v Transakcích – zůstala by účtenka bez transakce“). Transakce, jejíž účtenka zůstává (jediná, nebo originál u zdvojeného skenu), se v Transakcích ani v okně podezřelých párů smazat nedá – ✕ jen řekne, že patří k účtence, a nabídne ji otevřít (✎ Upravit účtenku → Historie → ✕ smaže účtenku i transakci). Smazat jde jen: transakce, jejíž účtenka už neexistuje (2 transakce + 1 účtenka), a transakce KOPIE účtenky (zmizí s ní kopie, originál zůstane). V přehledu všech měsíců je u chráněné „🔒 patří k účtence“, u osiřelé „📷 účtenka chybí“.",
+      "📎 DOKLADY – FILTR (Milan) · cesta: Analýza účtenek → 📎 Doklady. Filtr 🛡️ V záruce / ⏰ Končí / ⌛ Po záruce / Bez záruky, řazení podle záruky (končí nejdřív), data nákupu (nejnovější / nejstarší) nebo částky a hledání v obchodě i poznámce. Filtruje se v zobrazeném seznamu – náhledy fotek se znovu nestahují.",
+      "🐛 FIX · Doklady: tlačítka Otevřít / Záruka / Poznámka / 🗑️ mířila na pozici v seznamu BEZ duplikátů – při zdvojené účtence by otevřela nebo smazala JINÝ doklad (stejná chyba jako v Historii, v11.70). Teď vždy na tu správnou.",
+      "⏱️ RYCHLEJŠÍ ODEZVA (Milan: „když se akce nepropíše hned, vypadá to, že appka nefunguje“): ochrana rozepsané práce z S25 brzdila překreslení až 5 minut po posledním psaní do formuláře. Teď nejvýš 60 s a klepnutí na Uložit / Přidat / Potvrdit brzdu uvolní hned. Když appka změnu má, ale čeká (rozepsaný formulář), ukáže dole „🔄 Ukázat změny“ – klepnutí ji ukáže hned. Otevřené okno/karta dál stránku pod sebou nepřekresluje; po zavření se překreslí do 1 s.",
+      "📇 Karta výrobku a okno podezřelých párů: systémové Zpět (i gesto od okraje displeje při držení telefonu) je zavře až na DRUHÉ Zpět do 2,5 s („Zpět ještě jednou kartu zavře“).",
+      "🧪 tools/smoke_doklady_filtr.js (10), smoke_dup_vse.js (17), smoke_zpet_kvyrizeni.js upraven. V prohlížeči ověřeno: filtr, řazení a hledání v Dokladech.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.73',
+    datum: '2026-10-13',
+    zmeny: [
+      "🔎 PODEZŘELÉ PÁRY ZA VŠECHNY MĚSÍCE (Milan: „musím je hledat měsíc po měsíci“) · cesta: Transakce → ⚠️ lišta podezřelých párů → „🔎 Všechny měsíce (N)“. Jedno okno se všemi páry ze všech měsíců, seskupené po měsících, přesné duplikáty první, filtr 🔴 Přesné / 🟡 Možné / 🟠 Podobné. U každé transakce „🗑 Smazat“, u páru „👍 Není duplikát“; vidět je i kdy byla která transakce přidaná a která „přidaná později“. Lišta se ukáže, i když aktuální měsíc je čistý („v ostatních měsících N párů“).",
+      "👍 „Není duplikát“ si appka pamatuje natrvalo (dřív jen do dalšího překreslení – pár se pak vracel). Detekce porovnává jen transakce se stejnou částkou: 3 000 transakcí za ~15 ms.",
+      "📷 DUPLICITNÍ ÚČTENKA (Milan: „naskenoval jsem 2 stejné účtenky, z transakcí ji smazat nemůžu“): smazání transakce z naskenované účtenky smaže i KOPII účtenky (stejný obchod, datum, částka a počet položek) – originál zůstane. Když to kopie není, appka se zeptá, jestli smazat i účtenku. Na telefonu má rozbalená účtenková transakce (klepnutí → položky) nově tlačítka ✎ Upravit účtenku a 🗑 Smazat transakci (dřív šlo jen Upravit).",
+      "🧾 Analýza účtenek → ⚠️ Nalezeny duplicitní účtenky → „Smazat duplikáty“: dřív zůstala POZDĚJI naskenovaná kopie a smazal se originál i s úpravami. Teď zůstane ta, na které je víc práce (čárové kódy, opravy, fotka dokladu), při shodě ta naskenovaná dřív. Před smazáním appka vypíše, které kopie (obchod, datum, částka, čas skenu) smaže.",
+      "🧪 tools/smoke_dup_vse.js (15), smoke_uctenky_duplikaty.js upraven. V prohlížeči ověřeno: okno všech měsíců, smazání pozdější kopie smaže i kopii účtenky.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.72',
+    datum: '2026-10-12',
+    zmeny: [
+      "💾 ULOŽIT ZMĚNY? (Milan: „založil jsem podkategorii, zapomněl uložit a okno se bez varování zavřelo“) · platí pro všechna okna s tlačítkem Uložit (např. Kategorie → ✎ Upravit kategorii, karta výrobku, živiny). Když v okně něco změníš a zkusíš ho zavřít klepnutím vedle, křížkem ✕ nebo tlačítkem Zpět, zeptá se: 💾 Uložit / Zahodit změny / Pokračovat v úpravách. Tlačítko „Zrušit“ zavírá bez ptaní (výslovná volba), okna bez Uložit (kalkulačky, přehledy) se neptají.",
+      "🏷️ Kategorie → ✎ → Podkategorie: napsaná podkategorie, kterou jsi nepřidal tlačítkem „+ Přidat“, se při Uložit uloží taky.",
+      "📇 Karta výrobku (Analýza účtenek → 📦 Moje výrobky / 🗺️ Mapa položek → výrobek) se už nezavře klepnutím vedle karty (dlaň u okraje displeje při držení telefonu). Zavírá ji jen ✕ nebo Zpět. Úpravy se dál ukládají hned.",
+      "📷 K vyřízení (Analýza účtenek → 📸 Skenovat): výrobek, kterému jsi napsal název, zmizí hned (dřív visel, dokud se stránka sama nepřekreslila – i pár minut). Seznam si tvoje názvy načte sám (dřív až s otevřením skeneru) a do té doby ukáže „načítám…“ místo falešného „chybí název“.",
+      "📸 Čárový kód z fotky (skener → 📸 Vyfotit kód / 🖼️ Ze souboru): fotka z telefonu (12–50 Mpx) se dřív četla celá (desítky MB v paměti) a neuvolnila se – druhý pokus mohl shodit appku. Teď se čte zmenšená (1600, pak 2600 px) a hned se uvolní. Ověřeno: kód z fotky 4000×3000 přečten třikrát po sobě.",
+      "🎥 Skener: průběžné ostření a expozice; když to telefon umí, tlačítka 🔍 Přiblížit (kód z dálky = ostře a bez odlesku) a 🔅 Ztmavit (přepálená lesklá etiketa).",
+      "🧪 tools/smoke_okna_zmeny.js (21). V prohlížeči ověřeno okno kategorie: klepnutí vedle / ✕ / Zpět se zeptá, Zahodit zahodí, Uložit uloží i nepřidanou podkategorii.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.71',
+    datum: '2026-10-12',
+    zmeny: [
+      "🏷️ KATEGORIE VŠEM POLOŽKÁM (Milan) · cesta: Analýza účtenek → editor účtenky (po skenu i ✎ v Historii) → pod datem „🏷️ Kategorie všem položkám…“ → podkategorie → „✓ Použít na všechny položky“. Nastaví kategorii a podkategorii všem položkám najednou; položky s 🧠 (tvoje dřívější volba, appka si je pamatuje) zůstanou. Hromadná volba se neukládá do paměti jako rozhodnutí o konkrétním výrobku. Nahradila pole „typ obchodu“ (Jídlo & Nákupy…), které nic viditelného neměnilo.",
+      "🧬 Nákupní DNA (Analýza účtenek → 🧠 Učení → 🧬 Nákupní DNA): barevný pruh je teď podle kategorií POLOŽEK (co jsi koupil), ne podle „typu obchodu“ účtenky – ten u skoro všech účtenek ukazoval jen Jídlo & Nákupy.",
+      "💰 Zaokrouhlení (Milan: „ne všechny obchody zaokrouhlují, je třeba si na to dávat pozor“): appka už částku SAMA NEMĚNÍ (v11.70 ji prohazovala). Když je na účtence vedle částky s haléři i celá částka do 1 Kč, ukáže pod Celkem „Na účtence je i 311 Kč · [Zaplaceno bylo 311 Kč]“ – rozhodneš ty. Po klepnutí: zaplaceno 311, součet 311,41, zaokrouhlení −0,41 a úprava položek už částku nepřepíše.",
+      "📅 Upozornění „datum je víc než 2 měsíce staré“ z v11.70 zrušeno – Milan doskenovává staré účtenky a datum sedí (OXALIS 14. 4. 2026 je správně). Zůstává jen zpráva po uložení: s jakým datem se účtenka uložila a pod kterým měsícem ji najdeš v Transakcích.",
+      "🧪 tools/smoke_uctenky_historie.js (22). V prohlížeči ověřeno: hromadná kategorie i tlačítko zaokrouhlení.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
+  {
+    verze: 'v11.70',
+    datum: '2026-10-12',
+    zmeny: [
+      "🐛 FIX (Milan: „při editaci starších účtenek nevidím položky a cena je mimo“) · cesta: Analýza účtenek → Historie → ✎. Tlačítka ✎ a ✕ si pamatovala POZICI účtenky z doby vykreslení – a to v seznamu bez duplikátů, ne ve skutečném seznamu. Nová účtenka ze skenu se zařadí na začátek, pozice se posunuly a Historie se nepřekreslila: ✎ u Albertu otevřel Kaufland, a ✕ by SMAZAL JINOU účtenku. Teď nese každé tlačítko klíč účtenky (id) a pozice se před otevřením i smazáním ověří; když účtenka mezitím zmizela, seznam se obnoví a nic se neotevře ani nesmaže. Potvrzení smazání jmenuje obchod a datum.",
+      "🐛 FIX · prázdný editor bez položek: editor ze skenu po uložení zůstal skrytý v záložce Skenovat a měl stejná vnitřní id – položky se kreslily do něj, ne do editoru v Historii. Po uložení se teď vyprázdní a v appce je vždy jen jeden editor (rozdělaný neuložený sken se před zavřením zeptá).",
+      "🐛 FIX (Milan: „OXALIS účtenku nikde v historii nevidím“) · po přidání účtenky ze skenu se Historie hned přestaví (dřív v ní nová účtenka nebyla, dokud se stránka nepřeklikla). Zpráva po uložení ukazuje datum a když je jiný měsíc než dnes, řekne kde ji najdeš. Nový sken s datem starším než 2 měsíce ukáže v editoru upozornění „zkontroluj datum“ (OXALIS se uložil s datem 14. 4. 2026).",
+      "🐛 FIX (Milan: „zaplaceno 311 Kč, appka 311,41“) · AI občas prohodí SOUČET a CELKEM. Zaokrouhlení je vždy na celé koruny, takže zaplaceno je to celé číslo – appka čísla vrátí na správné místo (worker beze změny). Platí pro nový sken i pro uloženou účtenku: otevřít ✎ a „Uložit změny“ opraví i částku transakce. Pod částkou je teď „součet 311,41 · zaokrouhlení −0,41“.",
+      "🎨 Editor účtenky (Milan): Celkem je NAD poli, pole (obchod, město, kraj, datum, kategorie, peněženka) mají celou šířku.",
+      "🧪 tools/smoke_uctenky_historie.js (17). V prohlížeči ověřeno na staré verzi chybu přesně podle Milana (Albert → Kaufland, 0 položek, 940,63 Kč, OXALIS v Historii chybí), na nové správně.",
+      "Nasazení: jen GitHub. Worker ani pravidla DB beze změny.",
+    ]
+  },
   {
     verze: 'v11.69',
     datum: '2026-10-12',

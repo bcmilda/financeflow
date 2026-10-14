@@ -1,4 +1,4 @@
-// FinanceFlow · v11.69 · import.js · 2026-10-12
+// FinanceFlow · v11.72 · import.js · 2026-10-12
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -1013,7 +1013,8 @@ function exportData(){
 //  MISC
 // ══════════════════════════════════════════════════════
 function closeModal(id){document.getElementById(id).classList.remove('open');}
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='modalSplit')o.classList.remove('open');}));
+//  S26 (v11.72): klepnutí vedle okna s neuloženými změnami se zeptá (ffOknoHlidej v helpers.js)
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&o.id!=='modalSplit'){ if(typeof ffOknoHlidej==='function'&&ffOknoHlidej(o,()=>o.classList.remove('open'))) return; o.classList.remove('open'); }}));
 // S25 (v11.28): překreslit jen při změně ŠÍŘKY. Na mobilu se výška mění při každém schování
 //   adresního řádku (scroll) – dřív to překreslilo celou stránku pod otevřeným oknem.
 let _ffLastW = window.innerWidth;

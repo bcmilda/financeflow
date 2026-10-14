@@ -10,8 +10,8 @@ const r1={store:'LIDL',date:'2026-10-06',total:46.8,items:[1,2,3]}, r2={...r1}, 
 const tx=[{id:1,type:'expense',receiptStore:'LIDL',receiptDate:'2026-10-06',amount:46.8,note:'📸 Naskenováno'},
           {id:2,type:'expense',receiptStore:'LIDL',receiptDate:'2026-10-06',amount:46.8,note:'📸 Naskenováno'},
           {id:3,type:'expense',receiptAddedAt:777,amount:100,receiptStore:'PENNY'},{id:4,type:'expense',name:'Jiný',amount:46.8,date:'2026-10-06'}];
-const c={S:{receipts:[r1,r2,r3],transactions:tx.slice()},confirm:()=>true,alert(m){c.msg=m},save(){},renderUctenky(){},normalizeStoreName:s=>String(s||'').toUpperCase(),Math,Set,String};
-vm.createContext(c); vm.runInContext(pick('rcptNajdiTx')+'\n'+pick('removeDuplicateReceipts'),c);
+const c={S:{receipts:[r1,r2,r3],transactions:tx.slice()},confirm:()=>true,alert(m){c.msg=m},save(){},renderUctenky(){},normalizeStoreName:s=>String(s||'').toUpperCase(),fmtP:v=>String(v),Math,Set,String,Date,window:{}};
+vm.createContext(c); vm.runInContext(['rcptNajdiTx','rcptPrace','rcptDuplikatyPlan','removeDuplicateReceipts'].map(pick).join('\n'),c);
 t('transakce účtenky: nová podle vazby receiptAddedAt',c.rcptNajdiTx(r3,c.S).id===3);
 t('transakce účtenky: starší podle obchodu, data a částky (ne cizí transakce)',c.rcptNajdiTx(r1,c.S).id===1);
 c.removeDuplicateReceipts();

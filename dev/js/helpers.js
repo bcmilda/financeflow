@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · helpers.js · 2026-10-12
+// FinanceFlow · v11.74 · helpers.js · 2026-10-13
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -777,6 +777,7 @@ function toggleSidebar(){document.getElementById('sidebar').classList.toggle('op
 const _ffZpet = { stack: [], zpetBezi: false, odchodDo: 0, obnovit: false, aktivni: false };
 const FF_ZPET_ZAVRI = { eanKartaOkno: 'eanKartaZavri', eanZiviny: 'eanZivinyZavri', eanOkno: 'eanZavri', mapaKarta: 'mapaUzivKartaZavri', paywallScreen: 'closePaywall' };
 const FF_ZPET_NECHAT = ['bannedOverlay'];
+const FF_ZPET_DVAKRAT = ['mapaKarta', 'dupVseOkno'];   // S26 (v11.74): velké karty – Zpět dvakrát
 function _ffZpetStraz() { try { history.pushState({ ff: 'straz' }, ''); } catch (e) {} }
 //  Všechna otevřená okna (karty, skener, formuláře, modaly, paywall) seřazená od nejvrchnějšího.
 //  S25 (v11.52): vyčleněno, aby to mohla použít i ochrana rozdělané práce (ffRozpracovano).
@@ -794,11 +795,91 @@ function ffOtevrenaOkna(doc) {
   const z = el => { try { return parseInt(getComputedStyle(el).zIndex, 10) || 0; } catch (e) { return 0; } };
   return kand.filter(el => !FF_ZPET_NECHAT.includes(el.id) && vidi(el)).sort((a, b) => z(b) - z(a));
 }
+// ══════════════════════════════════════════════════════════════════════
+//  S26 (v11.72, Milan: „založil jsem podkategorii, zapomněl uložit a okno se bez varování
+//  zavřelo – chybí ‚Uložit změny?‘“). NEULOŽENÉ ZMĚNY V OKNECH: okno s tlačítkem Uložit, ve kterém
+//  se něco změnilo, se klepnutím vedle okna, křížkem ✕ ani tlačítkem Zpět nezavře potichu –
+//  zeptá se: 💾 Uložit / Zahodit / Pokračovat v úpravách. „Zrušit“ zavírá bez ptaní (výslovná volba).
+//  Okna bez Uložit (kalkulačky, přehledy) se neptají nikdy.
+// ══════════════════════════════════════════════════════════════════════
+const FF_OKNA_SEL = '.overlay, #eanKartaOkno, #eanZiviny';
+function ffOknoZ(el) { return el && el.closest ? el.closest(FF_OKNA_SEL) : null; }
+function ffOknoZmeneno(okno) { if (typeof okno === 'string' && typeof document !== 'undefined') okno = document.getElementById(okno); if (okno && okno.dataset) okno.dataset.zmeneno = '1'; }
+function ffOknoCiste(okno) { if (okno && okno.dataset) delete okno.dataset.zmeneno; }
+function ffOknoUlozTlacitko(okno) {
+  if (!okno || !okno.querySelectorAll) return null;
+  const b = Array.from(okno.querySelectorAll('button')).filter(x => /Uložit|Přidat transakci|Vytvořit/i.test(x.textContent || '') && !/✕/.test(x.textContent || ''));
+  return b.find(x => /btn-(accent|primary)/.test(x.className || '')) || b[b.length - 1] || null;
+}
+function ffOknoJeZmeneno(okno) { return !!(okno && okno.dataset && okno.dataset.zmeneno === '1' && ffOknoUlozTlacitko(okno)); }
+function ffOknoDotaz(okno, zavrit) {
+  if (typeof document === 'undefined') return;
+  let d = document.getElementById('ffOknoDotaz'); if (d) d.remove();
+  d = document.createElement('div'); d.id = 'ffOknoDotaz';
+  d.style.cssText = 'position:fixed;inset:0;z-index:10200;background:rgba(8,10,20,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  d.innerHTML = `<div style="width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.5)">
+    <div style="font-weight:700;font-size:.95rem;margin-bottom:4px">💾 Uložit změny?</div>
+    <div style="font-size:.8rem;color:var(--text2);line-height:1.5;margin-bottom:12px">V okně jsou neuložené změny. Bez uložení se ztratí.</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <button class="btn btn-accent" data-a="ulozit" style="justify-content:center">💾 Uložit</button>
+      <button class="btn btn-ghost" data-a="zahodit" style="justify-content:center;color:var(--expense)">Zahodit změny</button>
+      <button class="btn btn-ghost" data-a="zpet" style="justify-content:center">Pokračovat v úpravách</button></div></div>`;
+  d.addEventListener('click', e => {
+    const a = e.target && e.target.closest ? (e.target.closest('[data-a]') || {}).dataset : null;
+    if (e.target === d || (a && a.a === 'zpet')) { d.remove(); return; }
+    if (!a) return;
+    d.remove();
+    if (a.a === 'zahodit') { ffOknoCiste(okno); zavrit(); }
+    else if (a.a === 'ulozit') { const b = ffOknoUlozTlacitko(okno); if (b) b.click(); }
+  });
+  document.body.appendChild(d);
+}
+//  true = okno má neuložené změny, místo zavření se zeptalo (volající nic dalšího nedělá)
+function ffOknoHlidej(okno, zavrit) {
+  if (!ffOknoJeZmeneno(okno)) return false;
+  ffOknoDotaz(okno, zavrit); return true;
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  const zmena = e => { const o = ffOknoZ(e.target); if (o && !(e.target.closest && e.target.closest('[data-bez-hlidani]'))) ffOknoZmeneno(o); };
+  document.addEventListener('input', zmena, true);
+  document.addEventListener('change', zmena, true);
+  //  ✕ v hlavičce okna (closeModal / …Zavri) → při neuložených změnách se nejdřív zeptá
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null; if (!b) return;
+    const oc = b.getAttribute('onclick') || '';
+    if ((b.textContent || '').trim() !== '✕' || !/closeModal|Zavri\(/.test(oc)) return;
+    const o = ffOknoZ(b); if (!o || !ffOknoJeZmeneno(o)) return;
+    e.stopPropagation(); e.preventDefault();
+    ffOknoDotaz(o, () => { try { (new Function(oc))(); } catch (x) { if (o.classList.contains('overlay')) o.classList.remove('open'); else o.remove(); } });
+  }, true);
+  //  otevření / zavření okna (class „open“) = čistý stav
+  const sleduj = () => {
+    if (typeof MutationObserver === 'undefined') return;
+    const mo = new MutationObserver(m => m.forEach(x => { if (x.attributeName === 'class') ffOknoCiste(x.target); }));
+    document.querySelectorAll('.overlay').forEach(o => mo.observe(o, { attributes: true, attributeFilter: ['class'] }));
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sleduj); else sleduj();
+}
+Object.assign(typeof window !== 'undefined' ? window : {}, { ffOknoZmeneno, ffOknoCiste, ffOknoJeZmeneno, ffOknoHlidej, ffOknoDotaz, ffOknoUlozTlacitko });
+
 //  Najde nejvrchnější otevřené okno (podle z-indexu) a zavře ho. Vrací true, když něco zavřel.
 function ffZpetZavriVrchni(doc) {
   doc = doc || document;
   const top = ffOtevrenaOkna(doc)[0];
   if (top) {
+    //  S26 (v11.74, Milan: „karta se mi zavřela, a nevím, že bych kliknul“): systémové Zpět
+    //  (i gesto od okraje displeje při držení telefonu) zavře velkou kartu až na DRUHÉ Zpět do 2,5 s.
+    if (FF_ZPET_DVAKRAT.includes(top.id) && !(_ffZpet.oknoId === top.id && Date.now() < _ffZpet.oknoDo)) {
+      _ffZpet.oknoId = top.id; _ffZpet.oknoDo = Date.now() + 2500;
+      if (typeof showToast === 'function') showToast('Zpět ještě jednou kartu zavře');
+      return true;
+    }
+    //  S26 (v11.72): neuložené změny → zeptat se, nezavírat
+    if (top.id !== 'ffOknoDotaz' && ffOknoJeZmeneno(top)) {
+      const fn0 = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
+      ffOknoDotaz(top, () => { if (typeof fn0 === 'function') fn0(); else if (top.classList.contains('open')) top.classList.remove('open'); else top.remove(); });
+      return true;
+    }
     const fn = FF_ZPET_ZAVRI[top.id] && window[FF_ZPET_ZAVRI[top.id]];
     if (typeof fn === 'function') fn();
     else if (top.classList.contains('open')) { top.classList.remove('open'); if (top.classList.contains('paywall-screen')) doc.body.style.overflow = ''; }
@@ -899,9 +980,10 @@ function ffRenderBezpecne(zdroj) {
   }
   if (!_ffRozprac.timer) {
     _ffRozprac.timer = setInterval(() => {
-      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; return; }
-      if (ffRozpracovano()) return;
+      if (!_ffRozprac.ceka) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffCekaPill(); return; }
+      if (ffRozpracovano()) { _ffCekaPill(); return; }
       clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; _ffRozprac.ceka = false;
+      _ffCekaPill();
       _ffRenderTed();
     }, 800);
   }
@@ -910,7 +992,9 @@ function ffRenderBezpecne(zdroj) {
 //  Psaní do formuláře na stránce = rozpracováno (do překreslení/přepnutí stránky, nejdéle 5 min).
 //  Nepočítají se filtry a vyhledávání (výběry, zaškrtávátka, hledací pole) – ty nic
 //  neuchovávají a jinak by zbytečně zdržely zobrazení novějších dat.
-const FF_ROZPRAC_VYPRSI = 5 * 60 * 1000;
+//  S26 (v11.74, Milan: „když se akce nepropíše hned, vypadá to, že appka nefunguje“): 5 min → 60 s
+//  od posledního úhozu; klepnutí na Uložit/Přidat/Potvrdit rozepsanou práci ukončí hned.
+const FF_ROZPRAC_VYPRSI = 60 * 1000;
 function _ffJeFiltr(t) {
   if (!t || !t.tagName) return true;
   if (t.tagName === 'SELECT') return true;
@@ -925,6 +1009,27 @@ if (typeof document !== 'undefined' && document.addEventListener) {
       _ffRozprac.formular = curPage; _ffRozprac.formularKdy = Date.now();
     }
   }, true);
+  //  Uložit / Přidat / Potvrdit = rozepsané je hotové → čekající překreslení může hned
+  document.addEventListener('click', e => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (b && /Uložit|Přidat|Potvrdit|💾|✓/.test(b.textContent || '')) { _ffRozprac.formular = null; setTimeout(_ffCekaPill, 900); }
+  }, true);
+}
+//  Když čeká překreslení (rozepsaná práce, otevřené okno), ukáže se dole malé „🔄 Ukázat změny“ –
+//  ať je vidět, že appka změnu má, jen ji nechce kreslit přes rozdělanou práci. Klepnutí = hned.
+function _ffCekaPill() {
+  if (typeof document === 'undefined' || !document.body) return;
+  let p = document.getElementById('ffCekaPill');
+  const a = document.activeElement;
+  const pise = a && a !== document.body && a.matches && a.matches('input, textarea, [contenteditable]');
+  const ukaz = _ffRozprac.ceka && !pise && !ffOtevrenaOkna().length && !_ffEditorUctenky();
+  if (!ukaz) { if (p) p.remove(); return; }
+  if (p) return;
+  p = document.createElement('button'); p.id = 'ffCekaPill'; p.type = 'button';
+  p.textContent = '🔄 Ukázat změny';
+  p.style.cssText = 'position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9000;background:var(--surface2,#232737);color:var(--text,#e8eaf2);border:1px solid var(--income,#4ade80);border-radius:20px;padding:7px 16px;font-size:.8rem;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.4);cursor:pointer';
+  p.onclick = () => { p.remove(); _ffRozprac.formular = null; _ffRozprac.ceka = false; if (_ffRozprac.timer) { clearInterval(_ffRozprac.timer); _ffRozprac.timer = null; } _ffRenderTed(); };
+  document.body.appendChild(p);
 }
 Object.assign(typeof window !== 'undefined' ? window : {}, { ffRozpracovano, ffRenderBezpecne });
 
