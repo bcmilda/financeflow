@@ -1,4 +1,4 @@
-// FinanceFlow · v11.81 · admin.js · 2026-10-15
+// FinanceFlow · v11.82 · admin.js · 2026-10-15
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,20 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.82',
+    datum: '2026-10-15',
+    zmeny: [
+      "🥗 ŽIVINY – PRUH U VŠEHO (Milan: „proč není bar u energie, bílkovin a sacharidů?“) · cesta: Účtenky → Moje výrobky → karta výrobku → Nutriční hodnoty. Semafor (zelená / oranžová / červená) existuje jen pro tuky, nasycené, cukry a sůl. Energie, bílkoviny, sacharidy a vláknina mají teď NEUTRÁLNÍ modrý pruh: kolik % referenčního denního příjmu dá 100 g (2 000 kcal, 50 g bílkovin, 260 g sacharidů, 25 g vlákniny), s vysvětlivkou.",
+      "🅴 NUTRI-SCORE JEN Z OPEN FOOD FACTS (Milan: „nemohu ho ručně upravovat, a ty jsi tam ruční úpravu nechal“) · omluva – minule zůstalo „Opravit“. Teď ho ručně upravit ani uložit nejde (ani starý osobní zápis se nepoužije); u řádku „počítá Open Food Facts – ručně se neupravuje“, když chybí, odkaz na Open Food Facts.",
+      "🌍 PRÁZDNÁ POLE → OPEN FOOD FACTS (Milan: „data neznám, radši bych je nafotil – není to součástí Open Food Facts?“) · u výrobku s čárovým kódem mají prázdná pole Složení, Alergeny, Obal, Země původu, Prodává se v, Značka a Výrobce místo „Doplnit ručně“ odkaz „🌍 Doplnit na Open Food Facts ↗“ – v jejich aplikaci se obal vyfotí a složení přečtou zdarma, k nám se dostane při obnově karty. Vyplněný údaj jde dál opravit; u výrobků bez kódu zůstává ruční opis.",
+      "🏭 DOVOZCE jen když je známý (z fotky českého popisku / dřívějšího zápisu), jinak se řádek nezobrazuje (Milan: „pole je zbytečné“).",
+      "🏪 PRODEJNY BEZ DUPLICIT (Milan: „proč je 2× Penny Market Frýdek-Místek?“) · v Názvech z účtenek i v Mých nákupech je „Frydek Mistek“ = „Frýdek Místek“ jedna prodejna, ukáže se podoba s diakritikou.",
+      "✎ NÁZEV KARTY Z EAN (Milan: „přeskočila mi písmenka a už to nejde změnit“) · admin má v řádku Název z EAN „✎ Opravit název karty (admin)“ – zapíše do karty pro všechny a zamkne proti přepsání z Open Food Facts – a „🔄 Načíst znovu z Open Food Facts“ (hned, ne až po 90 dnech). Ostatní si název opraví v řádku Obal – CZ popisek (ten se v appce používá).",
+      "🔄 OBNOVA Z OPEN FOOD FACTS · worker obnovuje kartu po 90 dnech; dosud jen při skenu kódu. Nově se stará karta obnoví i při otevření (na pozadí, ruční úpravy zůstanou).",
+      "🧪 tools/smoke_karta_off.js – 11 testů (pruhy % denní dávky, Nutri-Score bez ruční úpravy, odkaz na Open Food Facts, Dovozce, obnova po 90 dnech, oprava názvu jen admin, prodejny s diakritikou).",
+    ],
+  },
   {
     verze: 'v11.81',
     datum: '2026-10-15',

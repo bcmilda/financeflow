@@ -1,4 +1,4 @@
-// FinanceFlow · v11.76 · receipts.js · 2026-10-13
+// FinanceFlow · v11.82 · receipts.js · 2026-10-15
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2813,6 +2813,10 @@ function mapaUzivObchody(z) {
     const o = ((typeof normalizeStoreName==='function') ? normalizeStoreName(n.obchod) : n.obchod) || 'Neznámý obchod';
     if(!po[o] || (n.datum||'') > (po[o].datum||'')) po[o] = { ...n, obchodNazev: o, jednotka: mapaUzivCenaZaJednotku(n) };
   });
+  //  v11.82: „Frydek Mistek“ z jedné účtenky = „Frýdek Místek“ z druhé – ukázat podobu s diakritikou.
+  const bez = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const mesta = {}; (z.nakupy || []).forEach(n => { if (!n.mesto) return; const k = bez(n.mesto); if (!mesta[k] || /[^\x00-\x7f]/.test(n.mesto)) mesta[k] = n.mesto; });
+  Object.values(po).forEach(n => { if (n.mesto && mesta[bez(n.mesto)]) n.mesto = mesta[bez(n.mesto)]; });
   const s = Object.values(po).sort((a,b) => (a.cena||1e9) - (b.cena||1e9));
   return s;
 }
@@ -3054,7 +3058,9 @@ const MK_POLE = {
 //  v11.61 (ADR-206/207): s čárovým kódem se tahle políčka ukládají ke kódu PRO VŠECHNY (worker,
 //  akce 'pole') a zamknou se proti obnově z Open Food Facts. Názvy (přední strana, CZ popisek)
 //  zůstávají osobní / přes návrh adminovi; bez kódu je všechno osobní (S.uiCfg.karty).
-const MK_POLE_KOMUNITA = ['znacka', 'vyrobce', 'dovozce', 'mnozstvi', 'konkretni', 'obal', 'puvod', 'zeme', 'nutriscore', 'slozeni', 'alergeny'];
+//  v11.82 (Milan): Nutri-Score jen z Open Food Facts – ručně ho upravit nejde (dřív tu omylem zůstalo).
+const MK_POLE_KOMUNITA = ['znacka', 'vyrobce', 'dovozce', 'mnozstvi', 'konkretni', 'obal', 'puvod', 'zeme', 'slozeni', 'alergeny'];
+const MK_POLE_OFF = ['znacka', 'vyrobce', 'obal', 'puvod', 'zeme', 'slozeni', 'alergeny'];   // prázdné → doplnit na Open Food Facts
 function mapaKartaKomunitni(z, pole) {
   const p = z && z.ean && typeof _eanProdukty !== 'undefined' ? _eanProdukty[z.ean] : null;
   return !!(p && p.stav === 'nalezeno' && MK_POLE_KOMUNITA.includes(pole));
@@ -3083,7 +3089,7 @@ function mapaKartaLokUloz(z, patch) {
 //  Ruční úprava jednoho políčka karty. Výchozí text = co karta právě ukazuje (data-hodnota).
 function mapaKartaUprav(i, pole) {
   const z = _mapaZ(i); const el = document.getElementById('mkp_' + pole);
-  if (!z || !el || !MK_POLE[pole]) return;
+  if (!z || !el || !MK_POLE[pole] || pole === 'nutriscore') return;
   const [, max, ph] = MK_POLE[pole];
   const v = mapaKartaLok(z)[pole] || el.getAttribute('data-hodnota') || '';
   const kom = mapaKartaKomunitni(z, pole);
@@ -3098,7 +3104,7 @@ function mapaKartaUprav(i, pole) {
   const inp = document.getElementById('mkp_' + pole + '_in'); if (inp && inp.focus) inp.focus();
 }
 async function mapaKartaUlozPole(i, pole) {
-  const z = _mapaZ(i); if (!z || !MK_POLE[pole]) return;
+  const z = _mapaZ(i); if (!z || !MK_POLE[pole] || pole === 'nutriscore') return;
   const v = ((document.getElementById('mkp_' + pole + '_in') || {}).value || '').trim().slice(0, MK_POLE[pole][1]);
   if (mapaKartaKomunitni(z, pole) && typeof eanDotaz === 'function') {
     const bt = document.getElementById('mkp_' + pole + '_bt'); if (bt) { bt.disabled = true; bt.textContent = '⏳'; }
@@ -3121,23 +3127,72 @@ async function mapaKartaUlozPole(i, pole) {
 }
 Object.assign(window, { mapaKartaKlic, mapaKartaLok, mapaKartaLokUloz, mapaKartaUprav, mapaKartaUlozPole, mapaKartaKomunitni });
 
+//  v11.82: ADMIN opraví název karty výrobku (překlep při zakládání). Zapisuje přímo do community/eanProdukty
+//  (pravidla DB: zápis jen admin) a zamkne ho proti přepsání z Open Food Facts (rucne.nazev).
+function mapaKartaNazevEan(i) {
+  const z = _mapaZ(i), el = z && document.getElementById('mkn_' + z.ean);
+  const p = z && typeof _eanProdukty !== 'undefined' ? _eanProdukty[z.ean] : null;
+  if (!el || !p || !(typeof isAdmin === 'function' && isAdmin())) return;
+  el.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap"><input class="fi" id="mkn_in" maxlength="100" value="${escHtml(p.nazev || '')}" style="flex:1;min-width:160px;font-size:.8rem" onkeydown="if(event.key==='Enter')mapaKartaNazevEanUloz(${i})">
+    <button class="btn btn-sm btn-primary" id="mkn_bt" onclick="mapaKartaNazevEanUloz(${i})">Uložit</button></div>
+    <span class="mk-sub">Název karty pro všechny. Open Food Facts ho pak nepřepíše.</span>`;
+  const inp = document.getElementById('mkn_in'); if (inp && inp.focus) inp.focus();
+}
+async function mapaKartaNazevEanUloz(i) {
+  const z = _mapaZ(i); if (!z || !(typeof isAdmin === 'function' && isAdmin())) return;
+  const v = ((document.getElementById('mkn_in') || {}).value || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+  if (v.length < 2) { if (typeof showToast === 'function') showToast('Název je příliš krátký'); return; }
+  const bt = document.getElementById('mkn_bt'); if (bt) { bt.disabled = true; bt.textContent = '⏳'; }
+  try {
+    const t = await window._currentUser.getIdToken();
+    const p = _eanProdukty[z.ean] || {}, rucne = Object.assign({}, p.rucne || {}, { nazev: Date.now() });
+    const r = await fetch(`${EAN_DB}/community/eanProdukty/${z.ean}.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nazev: v, rucne }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _eanProdukty[z.ean] = Object.assign({}, p, { nazev: v, rucne });
+    if (typeof showToast === 'function') showToast('✅ Název karty opraven');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('⚠️ Uložení selhalo: ' + (e.message || e));
+    if (bt) { bt.disabled = false; bt.textContent = 'Uložit'; }
+    return;
+  }
+  if (typeof mapaUzivDetail === 'function') mapaUzivDetail(i);
+}
+//  v11.82: ADMIN načte kartu hned znovu z Open Food Facts (jinak worker obnovuje po 90 dnech).
+//  Worker kartu sloučí – české názvy, zařazení a ruční úpravy zůstanou (ADR-207).
+async function mapaKartaObnovOff(i) {
+  const z = _mapaZ(i); if (!z || !z.ean || !(typeof isAdmin === 'function' && isAdmin())) return;
+  try {
+    const t = await window._currentUser.getIdToken();
+    await fetch(`${EAN_DB}/community/eanProdukty/${z.ean}.json?auth=${t}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kdy: 0 }) });
+    const d = await eanDotaz({ ean: z.ean });
+    if (d && d.produkt) _eanProdukty[z.ean] = d.produkt;
+    if (typeof showToast === 'function') showToast('🔄 Načteno z Open Food Facts');
+  } catch (e) { if (typeof showToast === 'function') showToast('⚠️ ' + (e.message || 'Obnova selhala')); }
+  if (typeof mapaUzivDetail === 'function') mapaUzivDetail(i);
+}
+Object.assign(window, { mapaKartaNazevEan, mapaKartaNazevEanUloz, mapaKartaObnovOff });
+
 //  Názvy z účtenek bez opakování: „NEW REMYS ZÁZVOR KOSTKY 100G“ = „New Remys Zázvor kostky 100g“.
 //  Skupina podle normName (bez velikosti písmen, diakritiky a gramáže); ukáže se nejčitelnější
 //  podoba (malá písmena a diakritika mají přednost před VERZÁLKAMI).
 function mapaAliasySkupiny(z) {
   const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
   const sk = {};
+  const citelnost = t => (/[a-zá-ž]/.test(t) ? 2 : 0) + (/[áčďéěíňóřšťúůýž]/i.test(t) ? 1 : 0);
   (z.nakupy || []).forEach(n => {
     const raw = String(n.raw || '').trim(); if (!raw) return;
     const k = nn(raw) || raw.toLowerCase();
-    const g = sk[k] || (sk[k] = { varianty: {}, obchody: new Set(), pocet: 0 });
+    const g = sk[k] || (sk[k] = { varianty: {}, obchody: new Map(), pocet: 0 });
     g.pocet++; g.varianty[raw] = (g.varianty[raw] || 0) + 1;
-    if (n.obchodNazev || n.obchod) g.obchody.add((n.obchodNazev || n.obchod) + (n.mesto ? ' · ' + n.mesto : ''));
+    //  v11.82 (Milan: „proč je 2× Penny Market Frýdek-Místek?“): „Frydek Mistek“ = „Frýdek Místek“ – jedna prodejna,
+    //  ukáže se podoba s diakritikou.
+    if (n.obchodNazev || n.obchod) { const o = (n.obchodNazev || n.obchod) + (n.mesto ? ' · ' + n.mesto : '');
+      const ko = o.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const st = g.obchody.get(ko); if (!st || citelnost(o) > citelnost(st)) g.obchody.set(ko, o); }
   });
-  const citelnost = t => (/[a-zá-ž]/.test(t) ? 2 : 0) + (/[áčďéěíňóřšťúůýž]/i.test(t) ? 1 : 0);
   return Object.values(sk).map(g => {
     const v = Object.keys(g.varianty).sort((a, b) => citelnost(b) - citelnost(a) || g.varianty[b] - g.varianty[a] || a.length - b.length);
-    return { nazev: v[0], variant: v.length, obchody: [...g.obchody], pocet: g.pocet };
+    return { nazev: v[0], variant: v.length, obchody: [...g.obchody.values()], pocet: g.pocet };
   }).sort((a, b) => b.pocet - a.pocet);
 }
 window.mapaAliasySkupiny = mapaAliasySkupiny;
@@ -3282,7 +3337,7 @@ function mapaUzivKartaHTML(i, produkt) {
   //  Hodnota políčka: tvůj osobní zápis → karta (komunita / Open Food Facts) → účtenka.
   const hodnotaPole = pole => {
     const kl = pole === 'slozeni' ? (p && p.slozeniObal ? 'slozeniObal' : 'slozeni') : pole === 'konkretni' && p && !p.konkretni && p.obecny ? 'obecny' : pole;
-    if (lok[pole]) return { t: String(lok[pole]), zd: 'ty', kl };
+    if (lok[pole] && pole !== 'nutriscore') return { t: String(lok[pole]), zd: 'ty', kl };   // v11.82: Nutri-Score jen z Open Food Facts
     const v = p ? p[kl] : null;
     if (pole === 'mnozstvi' && !(v && v.hodnota)) return gram ? { t: gram, zd: 'uctenka', kl } : { t: '', kl };
     return { t: txt(v), zd: txt(v) ? zdrojP(kl) : '', kl };
@@ -3290,16 +3345,28 @@ function mapaUzivKartaHTML(i, produkt) {
   //  Co Open Food Facts uvádí jinak (políčko opravil člověk) – neztratí se, jen se ukáže.
   const offJinak = h => { const o = p && p.offPuvodni && p.offPuvodni[h.kl]; const t = txt(o); return t && t !== h.t && h.zd !== 'off' ? `<span class="mk-sub">Open Food Facts uvádí: ${e(t.length > 80 ? t.slice(0, 80) + '…' : t)}</span>` : ''; };
   const lzeUpravit = !z.ean || !!produkt;   // s kódem až po načtení karty
+  //  v11.82 (Milan: „ta data neznám, radši bych je nafotil než psal; není to součástí Open Food Facts?“):
+  //  prázdné políčko, které Open Food Facts umí (složení, alergeny, obal, původ…), se u výrobku s kódem
+  //  doplní TAM – v jejich aplikaci se vyfotí obal a složení přečtou sami a zdarma; k nám se pak dostane
+  //  při obnově karty. Ruční opis zůstává jen u výrobků bez kódu a jako oprava vyplněného údaje.
+  const offOdkaz = z.ean ? `<a class="mk-btn-link" style="margin:0;text-decoration:none" href="https://world.openfoodfacts.org/product/${encodeURIComponent(z.ean)}" target="_blank" rel="noopener">🌍 Doplnit na Open Food Facts ↗</a>` : '';
   const pRadek = (pole, h, sub, ...tl) => {
     if (typeof h !== 'object' || h === null) h = { t: h || '' };
     const telo = h.html || (h.t ? e(h.t) : MK_PRAZDNE);
-    return `<div class="mk-r"><span class="l">${MK_POLE[pole][0]}</span><span class="v" id="mkp_${pole}" data-hodnota="${e(h.t || '')}">${telo}${h.zd ? `<span class="mk-sub">${cip(h.zd)}</span>` : ''}${sub ? `<span class="mk-sub">${sub}</span>` : ''}${offJinak(h)}${lzeUpravit ? akce(...tl, upr(pole, !!h.t)) : ''}</span></div>`;
+    const tlacitka = pole === 'nutriscore' ? (h.t ? '' : offOdkaz)
+      : (!h.t && z.ean && MK_POLE_OFF.includes(pole)) ? offOdkaz : upr(pole, !!h.t);
+    return `<div class="mk-r"><span class="l">${MK_POLE[pole][0]}</span><span class="v" id="mkp_${pole}" data-hodnota="${e(h.t || '')}">${telo}${h.zd ? `<span class="mk-sub">${cip(h.zd)}</span>` : ''}${sub ? `<span class="mk-sub">${sub}</span>` : ''}${offJinak(h)}${lzeUpravit ? akce(...tl, tlacitka) : ''}</span></div>`;
   };
   if (z.ean && !produkt) vyr += mkR('Název z EAN', MK_PRAZDNE, '⏳ načítám z databáze…');
   else if (z.ean) {
     const zDb = p && p.nazev && p.zdroj !== 'fotka obalu' ? p.nazev : '';
-    vyr += zDb ? mkR('Název z EAN', e(zDb), cip(zdrojP('nazev')) + (p.jazyk && JAZ[p.jazyk] ? ' ' + JAZ[p.jazyk] : ''))
-               : mkR('Název z EAN', MK_PRAZDNE, 'databáze kód nezná');
+    //  v11.82 (Milan: „při psaní mi přeskočila písmenka a už to nejde změnit“): název karty opraví admin
+    //  přímo tady (pravidla DB: eanProdukty zapisuje admin); ostatní opraví svůj název v řádku CZ popisek.
+    const adm = typeof isAdmin === 'function' && isAdmin();
+    const admBt = adm && produkt ? akce(`<button class="mk-btn-link" style="margin:0" onclick="mapaKartaNazevEan(${i})">${ikTxt('✎ Opravit název karty (admin)', 'upravit')}</button>`,
+      `<button class="mk-btn-link" style="margin:0" onclick="mapaKartaObnovOff(${i})">🔄 Načíst znovu z Open Food Facts</button>`) : '';
+    vyr += zDb ? `<div class="mk-r"><span class="l">Název z EAN</span><span class="v" id="mkn_${e(z.ean)}">${e(zDb)}<span class="mk-sub">${cip(zdrojP('nazev'))}${p.jazyk && JAZ[p.jazyk] ? ' ' + JAZ[p.jazyk] : ''}</span>${admBt}</span></div>`
+               : mkR('Název z EAN', MK_PRAZDNE, 'databáze kód nezná') + (adm && produkt ? `<div class="mk-r"><span class="l"></span><span class="v">${admBt}</span></div>` : '');
   } else vyr += mkR('Název z EAN', MK_PRAZDNE, 'až po naskenování čárového kódu');
   //  Obal – přední strana: tvůj opis → fotka obalu. U kódu i fotka, vždy i ruční opis (Milan).
   const obal = lok.nazevObal || (p && p.nazevObal) || '';
@@ -3320,7 +3387,9 @@ function mapaUzivKartaHTML(i, produkt) {
   if (p && (p.nazvyJine || []).length) vyr += mkR('Jiné názvy', e(p.nazvyJine.join(' · ')));
   vyr += pRadek('znacka', hodnotaPole('znacka'));
   vyr += pRadek('vyrobce', hodnotaPole('vyrobce'));
-  vyr += pRadek('dovozce', hodnotaPole('dovozce'));
+  //  v11.82 (Milan: „dovozce neznáme, a když ho nezná ani Open Food Facts, je pole zbytečné“): jen když je známý
+  //  (z fotky českého popisku nebo dřívějšího zápisu).
+  { const h = hodnotaPole('dovozce'); if (h.t) vyr += pRadek('dovozce', h); }
   if (z.ean && produkt && produkt.stav === 'nenalezeno') vyr += mkR('Databáze', '<span style="color:#fbbf24">výrobek zatím nezná</span>');
   //  CZ název chybí úplně → rovnou pole k opsání (stejné jako ve skeneru)
   const czChybi = z.ean && produkt && !(p && (p.nazevPopisek || p.nazevCs || p.nazevCesky)) && !moje;
@@ -3366,7 +3435,7 @@ function mapaUzivKartaHTML(i, produkt) {
   bal += pRadek('zeme', hodnotaPole('zeme'));
   { const h = hodnotaPole('nutriscore'), ns = String(h.t || '').toLowerCase();
     if (NB[ns]) h.html = `<span style="background:${NB[ns]};color:#fff;font-weight:800;border-radius:5px;padding:1px 7px">${ns.toUpperCase()}</span>`;
-    bal += pRadek('nutriscore', h); }
+    bal += pRadek('nutriscore', h, h.t ? 'počítá Open Food Facts – ručně se neupravuje' : (z.ean ? 'Open Food Facts ho zatím nemá' : 'jen u výrobků s čárovým kódem')); }
   { const h = hodnotaPole('slozeni'), t = h.t;
     if (t) h.html = `<details class="mk-roz"><summary style="color:#c3c8dc">${e(t.slice(0, 70))}${t.length > 70 ? '… <span style="color:#60a5fa">celé</span>' : ''}</summary>${t.length > 70 ? `<div style="margin-top:4px;color:#c3c8dc">${e(t)}</div>` : ''}</details>`;
     bal += pRadek('slozeni', h); }
