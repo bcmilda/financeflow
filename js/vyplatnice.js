@@ -1,4 +1,4 @@
-// FinanceFlow · v11.78 · vyplatnice.js · 2026-10-14
+// FinanceFlow · v11.79 · vyplatnice.js · 2026-10-14
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -1307,7 +1307,8 @@ function _vyplOdvodyKarta(rada, vyp) {
 //  Vzorce ověřené na 19 skutečných páskách (na korunu):
 //    tarifní sazba = tarif ÷ fond · fond = plánované směny + nepřítomnost v plánu
 //    základ   = tarifní × plánované odpracované hodiny     (= tarif × (fond − nepřítomnost) ÷ fond)
-//    dovolená = PPÚ × hodiny dovolené, paragraf stejně (náhrada průměrem)
+//    dovolená = PPÚ × hodiny dovolené
+//    paragraf = zaměstnavatel neplatí (v11.79, Milan) – zkrátí základ i hodinové položky, dávku vyplácí ČSSZ
 //    přesčas  = tarifní × h + PPÚ × příplatek % × h
 //    noční / So+Ne / svátek = PPÚ × příplatek % × h
 //    ostatní (mobilita, prémie) = Kč na odpracovanou hodinu z posledních 3 pásek × odpracované hodiny
@@ -1327,7 +1328,6 @@ function vyplOdhadVypocet(zaklad, hod) {
   const dej = (key, label, hodin, sazba, kc) => { kc = Math.round(kc); if (!kc) return; prijmy[key] = (prijmy[key] || 0) + kc; pol.push({ key, label, hodin, sazba, kc }); };
   dej('zaklad', 'Základní mzda', hod.planH, ts, ts * hod.planH);
   dej('dovolena', 'Dovolená', hod.vacH, ppu, ppu * (hod.vacH || 0));
-  dej('_paragraf', 'Paragraf (náhrada)', hod.parH, ppu, ppu * (hod.parH || 0));
   dej('prescas', 'Přesčas – mzda', hod.otH, ts, ts * (hod.otH || 0));
   dej('prescasPr', `Příplatek přesčas ${b.ot} %`, hod.otH, ppu * b.ot / 100, ppu * b.ot / 100 * (hod.otH || 0));
   dej('nocni', `Příplatek noční ${b.night} %`, hod.nightH, ppu * b.night / 100, ppu * b.night / 100 * (hod.nightH || 0));
@@ -1349,7 +1349,10 @@ function vyplOdhadVypocet(zaklad, hod) {
     const s = zaklad.slice(-3).reduce((a, z) => a + (+(z.srazky || {})[x.key] || 0), 0); if (s) srazky[x.key] = Math.round(s / Math.min(3, zaklad.length)); });
   const z = { m: '', prijmy, odvody, srazky };
   const v = vyplDopocet(z);
+  //  Paragraf: o kolik je mzda nižší – tarifní sazba + hodinové položky (mobilita, prémie) za neodpracované hodiny.
+  const parH = hod.parH || 0, naHod = [...ostatni].reduce((a, k) => a + (sh ? vz.reduce((x, z) => x + (+(z.prijmy || {})[k] || 0), 0) / sh : 0), 0);
   return { z, v, pol, fond, odpr, ts, ppu, tarif, zdroj: posl.m, zdrojeHodin: vz.map(x => x.m), nemocH: hod.nemocH || 0,
+           parH, parZtrata: Math.round(parH * (ts + naHod)),
            dobirka: Math.round(v.dobirka / 100) * 100, cisty: Math.round(v.cisty / 100) * 100, hruba: Math.round(v.hruba / 100) * 100 };
 }
 window.vyplOdhadVypocet = vyplOdhadVypocet;

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.78 · admin.js · 2026-10-14
+// FinanceFlow · v11.79 · admin.js · 2026-10-14
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.79',
+    datum: '2026-10-14',
+    zmeny: [
+      "🩺 PARAGRAF V KALENDÁŘI (Milan: „přidej do nabídky paragraf a kartičku – paragraf snižuje mzdu, peníze přijdou od státu“) · cesta: Kalendář → Práce → klepnout na den → typ dne 🩺 Paragraf (je i v legendě). V Sumáři nová dlaždice Paragraf: dny, hodiny a poznámka „snižuje mzdu, dávku vyplácí ČSSZ“. V odhadu výplaty se paragraf už NEPLATÍ průměrem (v11.78 ho bral jako dovolenou): zkrátí základ i hodinové položky (mobilita, prémie) a appka napíše, o kolik je mzda nižší; dávku (např. ošetřovné) vyplácí ČSSZ zvlášť, na výplatnici není.",
+      "⏱ PŘESČAS BEZ PŘESTÁVKY (Milan: „proč máme u přesčasu 12 h?“) · přesčasová směna 12 h = 11 h přesčasu (neplacená přestávka se nepočítá), stejně jako Odpracováno (14 × 11 + 11 = 165 h) a jako na výplatnici. Dlaždice Přesčasy ukáže „12 h ve směně − přestávka“, Odpracováno „z toho přesčas 11 h“; stejně se počítají vážené hodiny a odhad výplaty.",
+      "📋 SUMÁŘ – SROZUMITELNÉ SMĚNY (Milan: „proč je v kartě zkratka směn + přesč.?“) · místo „14+1 směn + přesč.“ je „14 směn“ a pod tím „+ 1 přesčasová směna“. U Nemoci poznámka „náhrada od 4. dne, pak ČSSZ“.",
+      "🧪 smoke_vyplatnice_mega.js – +2 testy (paragraf neplacený, přesčas 12 h = 11 h, Sumář bez zkratky, dlaždice Paragraf).",
+    ],
+  },
   {
     verze: 'v11.78',
     datum: '2026-10-14',

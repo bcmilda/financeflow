@@ -1,4 +1,4 @@
-// FinanceFlow · v11.78 · kalendar.js · 2026-10-14
+// FinanceFlow · v11.79 · kalendar.js · 2026-10-14
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -381,7 +381,8 @@ const _WORK_TYPES = {
   prescas:  { label: 'Přesčas',  icon: '⏱️', bg: 'rgba(251,191,36,.14)',  border: 'rgba(251,191,36,.45)',  color: '#fbbf24' },  // S17.7: práce navíc mimo směny (osobní volno)
   dovolena: { label: 'Dovolená', icon: '🏖️', bg: 'rgba(59,130,246,.14)', border: 'rgba(59,130,246,.4)',   color: '#60a5fa' },
   nemoc:    { label: 'Nemoc',    icon: '🤒', bg: 'rgba(251,191,36,.12)',  border: 'rgba(251,191,36,.35)',  color: '#fbbf24' },
-  //  S26 (v11.78, Milan: „kdy jsem měl dovolenou či paragraf“): placená překážka (lékař…) – platí se průměrem jako dovolená.
+  //  S26 (v11.78, Milan: „kdy jsem měl dovolenou či paragraf“).
+  //  v11.79 (Milan: „paragraf snižuje mzdu, peníze přijdou od státu“): zaměstnavatel ho neplatí, dávku vyplácí ČSSZ.
   paragraf: { label: 'Paragraf', icon: '🩺', bg: 'rgba(244,114,182,.12)', border: 'rgba(244,114,182,.38)', color: '#f472b6' },
   volno:    { label: 'Volno',    icon: '⛱️', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.12)', color: 'var(--text3)' },
 };
@@ -488,6 +489,9 @@ function _workHodiny(cfg, y, m) {
     else if (dow === 0 || dow === 6) r.weH += p;                        // svátek má přednost, nepočítat 2×
     if (wd.shift === 'nocni') r.nightH += p;
   }
+  //  S26 (v11.79, Milan: „proč máme u přesčasu 12 h?“): přesčas BEZ neplacené přestávky, stejně jako Odpracováno
+  //  (směna 14+1 = 154 + 11 = 165 h) a jako na výplatnici (přesčas po 11 h). Hrubé hodiny zůstávají v otGrossH.
+  r.otGrossH = r.otH; r.otH = r.otNetH;
   //  Vážené hodiny: příplatková hodina váží (1 + %). Dovolená se platí průměrným výdělkem → váží 1.
   r.weightedH = r.payH + r.vacH + r.weH * cfg.bonusWe / 100 + r.holH * cfg.bonusHol / 100 + r.nightH * cfg.bonusNight / 100 + Math.min(r.otH, r.payH) * cfg.bonusOT / 100;
   return r;
@@ -607,21 +611,24 @@ function _renderKalWork(D, m, y) {
     </div>`;
 
   // Sumář
-  const sc = (label, val, unit, color) => `
+  const sc = (label, val, unit, color, pod) => `
     <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:11px;text-align:center">
       <div style="font-size:.7rem;color:var(--text3);margin-bottom:3px">${label}</div>
       <div style="font-size:1.15rem;font-weight:800;color:${color}">${val}<span style="font-size:.7rem;font-weight:600;color:var(--text3)"> ${unit}</span></div>
+      ${pod ? `<div style="font-size:.62rem;color:#a8aec8;margin-top:2px;line-height:1.35">${pod}</div>` : ''}
     </div>`;
+  const _pd = n => n === 1 ? 'přesčasová směna' : n < 5 ? 'přesčasové směny' : 'přesčasových směn';
   const summary = `
     <div class="card" style="margin-top:16px">
       <div class="card-header"><span class="card-title">📋 Sumář – ${CZ_M[m]} ${y}</span></div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-          ${sc('Směny', shifts + (_hm.prescasDni ? '+' + _hm.prescasDni : ''), _hm.prescasDni ? 'směn + přesč.' : 'směn', '#4ade80')}
-          ${sc('Odpracováno', hours.toFixed(hours % 1 ? 1 : 0), 'h', '#4ade80')}
-          ${sc('Přesčasy', overtime.toFixed(overtime % 1 ? 1 : 0), 'h', overtime > 0 ? '#fbbf24' : 'var(--text3)')}
+          ${sc('Směny', shifts, shifts === 1 ? 'směna' : shifts < 5 && shifts > 0 ? 'směny' : 'směn', '#4ade80', _hm.prescasDni ? `+ ${_hm.prescasDni} ${_pd(_hm.prescasDni)}` : '')}
+          ${sc('Odpracováno', fmtH(hours), 'h', '#4ade80', overtime ? `z toho přesčas ${fmtH(overtime)} h` : '')}
+          ${sc('Přesčasy', fmtH(overtime), 'h', overtime > 0 ? '#fbbf24' : 'var(--text3)', _hm.otGrossH > overtime ? `${fmtH(_hm.otGrossH)} h ve směně − přestávka` : '')}
           ${sc('Dovolená', fmtH(vac), 'h', '#60a5fa')}
-          ${sc('Nemoc', sick, 'dní', sick > 0 ? '#fbbf24' : 'var(--text3)')}
+          ${sc('Nemoc', sick, 'dní', sick > 0 ? '#fbbf24' : 'var(--text3)', sick ? 'náhrada od 4. dne, pak ČSSZ' : '')}
+          ${sc('Paragraf', _hm.paragraf, 'dní', _hm.paragraf ? '#f472b6' : 'var(--text3)', _hm.paragraf ? `${fmtH(_hm.parH)} h · snižuje mzdu, dávku vyplácí ČSSZ` : 'snižuje mzdu · dávka od ČSSZ')}
           ${sc('Zůstatek dov.', fmtH(vacLeft), 'h', vacLeft < 0 ? '#f87171' : vacLeft <= 3 * (cfg.hpd || 8) ? '#fbbf24' : '#4ade80')}
         </div>
         <div style="font-size:.72rem;color:#a8aec8;margin-top:10px;line-height:1.5">Odpracováno = hodiny směn bez neplacené přestávky (${fmtH(_hm.grossH)} h včetně přestávek). Zůstatek dovolené = ${fmtH(cfg.vacQuotaH)} h/rok − ${fmtH(vacYear)} h vyčerpaných v roce ${y} (den dovolené = ${fmtH(_workVacH(null, cfg))} h = směna ${fmtH(cfg.hpd)} h − přestávka, pokud u dne nezadáš jinak).</div>
@@ -769,7 +776,8 @@ function _workOdhadZPaskyHTML(o, m, y, fmt1) {
     </div>
     <div style="font-size:.66rem;color:#a8aec8;line-height:1.5;margin-top:3px">Z výplatnice za ${zdroj} (tarif ${fmt(o.tarif)} Kč, PPÚ ${(Math.round(o.ppu * 100) / 100).toLocaleString('cs-CZ')} Kč/h, slevy na dani) a z hodin v tomto kalendáři:
       fond ${fmt1(o.fond)} h, odpracováno ${fmt1(o.odpr)} h${o.hm.otNetH ? `, z toho přesčas ${fmt1(o.hm.otNetH)} h` : ', bez přesčasu'}. Prémie a mobilita podle Kč na odpracovanou hodinu z posledních pásek – ber ± pár set korun.
-      ${o.nemocH ? `<br>🤒 Nemoc ${fmt1(o.nemocH)} h: náhrada mzdy se neodhaduje (od 4. dne, z redukovaného průměru) – skutečnost bude o ni vyšší.` : ''}</div>
+      ${o.nemocH ? `<br>🤒 Nemoc ${fmt1(o.nemocH)} h: náhrada mzdy se neodhaduje (od 4. dne, z redukovaného průměru) – skutečnost bude o ni vyšší.` : ''}
+      ${o.parH ? `<br>🩺 Paragraf ${fmt1(o.parH)} h: zaměstnavatel ho neplatí – mzda je nižší asi o ${fmt(o.parZtrata)} Kč hrubého. Dávku (např. ošetřovné) vyplácí ČSSZ zvlášť, na výplatnici ani v tomto odhadu není.` : ''}</div>
     <details style="margin-top:6px"><summary style="font-size:.7rem;color:#c9cede;cursor:pointer">Rozpis odhadu</summary>
       <div class="vg-tab" style="margin-top:6px"><table><thead><tr><th>Položka</th><th>h</th><th>Kč/h</th><th>Kč</th></tr></thead><tbody>${radky}
         <tr class="vg-souhrn"><td>Hrubá mzda</td><td></td><td></td><td>${fmt(o.v.hruba)}</td></tr>

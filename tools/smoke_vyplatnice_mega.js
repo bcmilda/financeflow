@@ -52,6 +52,10 @@ const den=(d,o)=>{c.S.workCal.days[`2026-11-${String(d).padStart(2,'0')}`]=o;};
 [2,3,6,7,10,11,14,15,17,18,21,22,25,26,29,30].forEach((d,i)=>den(d,{type:'smena',hours:12,shift:i%2?'nocni':'ranni'}));
 const hm=c._workHodiny(c._workCfg(),2026,10);
 t('kalendář: plánované hodiny bez přesčasu 176 h, přesčas 0 h',hm.planH===176&&hm.otNetH===0,hm);
+{ const o={...c.S.workCal.days}; c.S.workCal.days['2026-11-09']={type:'prescas',hours:12};
+  const hp=c._workHodiny(c._workCfg(),2026,10);
+  t('přesčasová směna 12 h = 11 h přesčasu (přestávka se nepočítá), Odpracováno 176 + 11',hp.otH===11&&hp.otGrossH===12&&hp.payH===187,hp);
+  c.S.workCal.days=o; }
 const nov=c.vyplOdhadMesice(2026,10);
 t('odhad za listopad bez přesčasu < 33 500 Kč (dřív sazba z října s přesčasy)',nov&&nov.dobirka<33500&&nov.dobirka>28000,nov&&nov.dobirka);
 t('rozpis: základ = tarif (žádná nepřítomnost), žádná položka přesčasu',nov.pol.some(p=>p.key==='zaklad'&&Math.abs(p.kc-26140)<=1)&&!nov.pol.some(p=>/prescas/.test(p.key)),nov.pol.map(p=>p.key+':'+p.kc));
@@ -61,7 +65,9 @@ const nov2=c.vyplOdhadMesice(2026,10);
 t('2 přesčasové směny (22 h) → odhad vyšší a v rozpisu je přesčas',nov2.dobirka>nov.dobirka+3000&&nov2.pol.some(p=>p.key==='prescas'&&p.hodin===22),nov2.dobirka-nov.dobirka);
 den(9,{type:'paragraf'}); delete c.S.workCal.days['2026-11-23'];
 const nov3=c.vyplOdhadMesice(2026,10);
-t('🩺 paragraf: placený průměrem (PPÚ × 11 h), základ se o něj zkrátí',nov3.pol.some(p=>p.key==='_paragraf'&&p.hodin===11)&&nov3.fond===187,nov3.pol.map(p=>p.key+':'+p.hodin));
+//  v11.79 (Milan): „paragraf snižuje mzdu, peníze přijdou od státu“ – zaměstnavatel ho neplatí.
+t('🩺 paragraf: zaměstnavatel neplatí – základ se zkrátí, žádná náhrada, appka řekne o kolik',!nov3.pol.some(p=>p.key==='_paragraf')&&nov3.fond===187&&nov3.parH===11&&nov3.parZtrata>1500&&nov3.z.prijmy.zaklad<26140&&nov3.dobirka<nov.dobirka,{pol:nov3.pol.map(p=>p.key+':'+p.kc),z:nov3.parZtrata});
+t('Sumář: přesčas bez přestávky (11 h, ne 12 h), směny bez „směn + přesč.“, dlaždice Paragraf',/r\.otGrossH = r\.otH; r\.otH = r\.otNetH;/.test(kal)&&!/směn \+ přesč\./.test(kal)&&/sc\('Paragraf'/.test(kal)&&/dávku vyplácí ČSSZ/.test(kal));
 c.S.workCal.salaryM['2026-10']=33000; [1,4,5,8,9,12,13,16,19,20,23,24,27,28,31].forEach(d=>c.S.workCal.days[`2026-10-${String(d).padStart(2,'0')}`]={type:'smena',hours:12});
 c.S.workCal.days['2026-10-30']={type:'prescas',hours:12};
 delete c.S.workCal.days['2026-11-09'];
