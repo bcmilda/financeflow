@@ -1,4 +1,4 @@
-// FinanceFlow · smoke test · S27 (v11.84) · měřidla: karta místo oken, VT/NT, úprava a mazání odečtů, odhad podle loňska
+// FinanceFlow · smoke test · S27 (v11.84, v11.85) · měřidla: karta místo oken, VT/NT, úprava a mazání odečtů, odhad podle loňska
 //  Milan: „chtěl jsem zapsat odečet pro elektřinu, ale nemám VT a NT" · „udělej stabilnější kartu místo vyskakovacího okna"
 //         „data navíc nejdou smazat, upravit" · srovnání s aplikací dodavatele (období, spotřebováno VT/NT, odhad)
 const vm=require('vm'),fs=require('fs'),path=require('path');
@@ -110,7 +110,26 @@ ctx.merOtevri('e','odecet'); t('druhé klepnutí panel zavře',!/id="merPanel"/.
   t('karta: aktuální období, spotřebováno, VT/NT, odhad za celé období, zbývá podle průměru',/Aktuální období/.test(h)&&/30\. 5\. 2026 – 29\. 5\. 2027/.test(h)&&/Spotřebováno do 1\. 10\. 2026/.test(h)&&/Odhad za celé období/.test(h)&&/VT 369/.test(h)&&/NT 142/.test(h)&&/podle průměru/.test(h));
   t('karta: odhad vyúčtování „k 29. 5. 2027“, štítek VT + NT u názvu, graf VT/NT',/Odhad vyúčtování k 29\. 5\. 2027/.test(h)&&/☀️ VT \+ 🌙 NT<\/span>/.test(h)&&/■<\/span> NT · po měsících/.test(h));
   ctx.merOtevri('e','nastaveni'); h=els.energieContent.innerHTML;
-  t('⚙️ nastavení v kartě: fakturační období a dvoutarif VT (T1) / NT (T2)',/id="merObdobiOd"/.test(h)&&/value="2026-05-30"/.test(h)&&/vysoký tarif VT \(T1\)/.test(h));
+  t('⚙️ nastavení v kartě: fakturační období a Tarif nahoře (rozbalovací, dvoutarif vybraný)',/id="merObdobiOd"/.test(h)&&/value="2026-05-30"/.test(h)&&/<option value="2" selected>dvoutarif – ☀️ VT \(T1\) \+ 🌙 NT \(T2\)/.test(h)&&h.indexOf('id="merTarif"')<h.indexOf('id="merNazev"'));
+  //  v11.85 (Milan): zaškrtávátko nepoutalo pozornost; dvoutarif i u vody a plynu; rozbalovací Druh, který nejde změnit
+  t('v11.85: žádné zaškrtávátko dvoutarifu, u uloženého měřidla Druh jako text (ne rozbalovací)',!/id="merDvou"/.test(src)&&!/id="merDruh"/.test(h)&&/⚡ Elektřina<\/div>/.test(h)&&/druh nejde změnit/.test(h));
+  nastav({p:{id:'p',druh:'plyn',nazev:'Plyn',jednotka:'m³',obdobi:'rok',dvoutarif:true,odecty:{}}});
+  ctx.merOtevri('p','nastaveni'); h=els.energieContent.innerHTML;
+  t('v11.85: u plynu je řádek Tarif skrytý',/id="merTarifRadek" style="display:none"/.test(h));
+  Object.assign(els,{merNazev:{value:'Plyn'},merJed:{value:'m³'},merObdobi:{value:'rok'},merCat:{value:''},merSub:{value:''},merObdobiOd:{value:''},merTarif:{value:'2'},merCena:{value:''},merZaloha:{value:''}});
+  await ctx.merUlozMeridlo('p');
+  t('v11.85: plyn se uloží bez dvoutarifu (i ze starších dat)',meridlo('p').dvoutarif===undefined);
+  ctx.merOtevri('p','odecet'); h=els.energieContent.innerHTML;
+  t('v11.85: odečet plynu bez volby tarifu',!/merDvoutarif/.test(h)&&/Stav měřidla \(m³\)/.test(h));
+  ctx.merFormMeridlo(); h=els.energieContent.innerHTML;
+  t('v11.85: nové měřidlo – výběr druhu, Tarif u elektřiny viditelný; plyn má výchozí jednotku m³',/id="merDruh"/.test(h)&&/id="merTarifRadek" style="display:block"/.test(h)&&/plyn: +\{ n: 'Plyn', +ikona: '🔥', jed: 'm³'/.test(src));
+  //  plyn: letos jen léto, loni jen zima → zima podle loňska (× 1), ne letním průměrem
+  const plyn={id:'g',druh:'plyn',jednotka:'m³',obdobi:'rok',obdobiOd:'2026-03-30',odecty:{a:{datum:'2025-11-01',stav:0},b:{datum:'2026-03-30',stav:450},c:{datum:'2026-10-01',stav:540}}};
+  o=ctx.merOdhad(plyn,S,'2026-10-16');
+  t('v11.85: plyn – zima podle loňských odečtů i bez poměru letos/loni (90 změřeno + 450 z loňska + říjen průměrem ≈ 555 m³, letním průměrem by vyšlo ≈ 270)',o.sezonni===null&&o.dnyOdhadLoni>140&&o.spotrebaObdobi>520&&o.spotrebaObdobi<580,{obd:o.spotrebaObdobi,loni:o.dnyOdhadLoni,pr:o.dnyOdhadPrumer});
+  nastav({g:Object.assign({},plyn,{odecty:{b:{datum:'2026-03-30',stav:450},c:{datum:'2026-10-01',stav:540}}})}); vm.runInContext('_merPanel=null',ctx); h=stranka();
+  t('v11.85: plyn bez loňské zimy → varování „zima vyjde moc nízko“',/zima vyjde moc nízko/.test(h));
+  nastav({e:m}); vm.runInContext('_merPanel=null',ctx);
   ctx.merDetail('e'); h=els.energieContent.innerHTML;
   t('📊 detail v kartě s ✎ u každého odečtu',/📊 Detail spotřeby/.test(h)&&/merOtevri\('e','odecet','[abc]','detail'\)/.test(h));
   ctx.merFormMeridlo(); h=els.energieContent.innerHTML;

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.84 · admin.js · 2026-10-16
+// FinanceFlow · v11.85 · admin.js · 2026-10-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.85',
+    datum: '2026-10-16',
+    zmeny: [
+      "⚙️ TARIF NAHOŘE, JEN U ELEKTŘINY (Milan: „zaškrtávací políčko vůbec nepoutalo pozornost, údaj měl být nahoře s rozbalovacím tlačítkem“, „dvoutarif zůstal i u vody a plynu – nesmysl“) · cesta: Měřidla → 📟 Energie a voda → karta → ⚙️. Hned pod Druhem rozbalovací Tarif: jeden tarif / dvoutarif – ☀️ VT (T1) + 🌙 NT (T2); u plynu, vody, tepla se neukazuje a dvoutarif se u nich neuloží. Zaškrtávátko zrušeno.",
+      "🔒 DRUH JAKO TEXT (Milan: „druh nejde změnit – v pořádku, ale proč je tam rozbalovací lišta?“) · u uloženého měřidla jen „⚡ Elektřina“ s poznámkou, že pro jiný druh se zakládá nové měřidlo. Výběr druhu zůstává u nového měřidla.",
+      "🔥 PLYN V m³ · nový plynoměr má výchozí jednotku m³ (plynoměr i aplikace dodavatele ukazují m³; dřív kWh). U vyúčtování plynu nápověda: opiš spotřebu v m³, stejně jako odečty.",
+      "📈 ZIMA PLYNU PODLE LOŇSKA · loňský den se použije i tehdy, když se nedá spočítat poměr letos / loni (letos zatím jen léto, loni jen zima). Dřív by se zima počítala letním průměrem: z odečtů z aplikace innogy (prosinec 2025 – říjen 2026) vycházelo období 30. 3. 2026 – 29. 3. 2027 ≈ 210 m³, teď ≈ 403 m³ (s listopadem 2025 ≈ 480 m³). Bez loňské zimy karta varuje „zima vyjde moc nízko – zapiš historii odečtů“.",
+      "🧪 smoke_meridla_karta.js rozšířen na 40 testů (tarif jen u elektřiny, druh jako text, plyn m³, zima podle loňska, varování).",
+    ],
+  },
   {
     verze: 'v11.84',
     datum: '2026-10-16',

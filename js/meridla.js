@@ -1,4 +1,4 @@
-// FinanceFlow · v11.84 · meridla.js · 2026-10-16
+// FinanceFlow · v11.85 · meridla.js · 2026-10-16
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -21,7 +21,7 @@
 
 const MER_DRUHY = {
   elektrina: { n: 'Elektřina', ikona: '⚡', jed: 'kWh', sub: ['Elektřina', 'Energie'] },
-  plyn:      { n: 'Plyn',      ikona: '🔥', jed: 'kWh', sub: ['Plyn'] },
+  plyn:      { n: 'Plyn',      ikona: '🔥', jed: 'm³',  sub: ['Plyn'] },   // v11.85: plynoměr ukazuje m³ (dřív kWh)
   voda:      { n: 'Voda',      ikona: '💧', jed: 'm³',  sub: ['Voda'] },
   teplo:     { n: 'Teplo',     ikona: '♨️', jed: 'GJ',  sub: ['Teplo', 'Energie'] },
   jine:      { n: 'Jiné',      ikona: '📟', jed: '',    sub: [] },
@@ -162,9 +162,12 @@ function merSezonniFaktor(den) {
   return b > 0 ? Math.min(2, Math.max(0.5, a / b)) : null;
 }
 //  Vrací funkci den → odhad spotřeby (s vlastnostmi prumer a faktor).
+//  v11.85 (Milan, plyn): loňský den se použije i bez poměru (× 1), když se poměr nedá spočítat
+//  (letos jen léto, loni jen zima) – jinak by se zima plynu počítala letním průměrem.
 function _merOdhadovac(den) {
   const prumer = merPrumerDenni(den), f = merSezonniFaktor(den);
-  const fn = d => { if (f != null) { const l = den[_merRokZpet(d)]; if (l != null) return l * f; } return prumer; };
+  const fn = d => { const l = den[_merRokZpet(d)]; return l != null ? l * (f != null ? f : 1) : prumer; };
+  fn.zLoni = d => den[_merRokZpet(d)] != null;
   fn.prumer = prumer; fn.faktor = f;
   return fn;
 }
@@ -183,7 +186,7 @@ function merOdhad(m, D, dnes) {
   const odh = _merOdhadovac(den), prumer = odh.prumer;
   const tar = m.dvoutarif ? merDenneTarif(m) : null;
   //  Změřeno od začátku období do posledního pokrytého dne, zbytek odhadem.
-  let zmereno = 0, dnyZm = 0, vtZm = 0, ntZm = 0, loni = 0, loniOk = true, dosud = 0, obdobi = 0;
+  let zmereno = 0, dnyZm = 0, vtZm = 0, ntZm = 0, loni = 0, loniOk = true, dosud = 0, obdobi = 0, dnyLoni = 0, dnyPrumer = 0, dnyPrumerZima = 0;
   for (let t = _merD(start); t < _merD(konec); t += 86400000) {
     const d = _merS(t);
     if (d < dnes && den[d] != null) {
@@ -193,6 +196,7 @@ function merOdhad(m, D, dnes) {
       continue;
     }
     const e = prumer != null ? odh(d) : 0;
+    if (prumer != null) { if (odh.zLoni(d)) dnyLoni++; else { dnyPrumer++; const mm = +d.slice(5, 7); if (mm >= 10 || mm <= 4) dnyPrumerZima++; } }
     if (d < dnes) dosud += e;
     obdobi += e;
   }
@@ -212,7 +216,7 @@ function merOdhad(m, D, dnes) {
     spotrebaDosud: odhadDosud, spotrebaObdobi: odhadObdobi, cena: c,
     //  v11.84: co je opravdu změřené v období (jako „dle posledního zadaného stavu" u dodavatele)
     spotrebaZmerena: zmereno, vtZmereno: tar ? vtZm : null, ntZmereno: tar ? ntZm : null,
-    loniZmereno: dnyZm && loniOk ? loni : null, sezonni: odh.faktor,
+    loniZmereno: dnyZm && loniOk ? loni : null, sezonni: odh.faktor, dnyOdhadLoni: dnyLoni, dnyOdhadPrumer: dnyPrumer, dnyPrumerZima,
     posledniOdecet: od.length ? od[od.length - 1].datum : null,
     zalohyDosud: zal.soucet, zalohyPocet: zal.pocet, mesicniZaloha: mz, zalohyObdobi,
     kcDosud, kcObdobi,
@@ -292,7 +296,8 @@ function _merObdobiHTML(m, o, J) {
     <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;background:rgba(148,163,184,.28);margin:7px 0 6px">${dvou ? seg(o.vtZmereno, '#fbbf24') + seg(o.ntZmereno, '#818cf8') : seg(zm, '#fbbf24')}</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:.68rem;color:#c3c8dc">
       ${dvou ? lg('#fbbf24', 'VT ' + _merDes(o.vtZmereno, 0)) + lg('#818cf8', 'NT ' + _merDes(o.ntZmereno, 0)) : lg('#fbbf24', 'změřeno ' + _merDes(zm, 0))}
-      ${lg('rgba(148,163,184,.55)', 'zbývá ≈ ' + _merDes(zbyva, 0) + (o.sezonni != null ? ' (podle loňska)' : ' (podle průměru)'))}</div>
+      ${lg('rgba(148,163,184,.55)', 'zbývá ≈ ' + _merDes(zbyva, 0) + (o.dnyOdhadLoni && o.dnyOdhadPrumer ? ' (podle loňska a průměru)' : o.dnyOdhadLoni ? ' (podle loňska)' : ' (podle průměru)'))}</div>
+    ${(m.druh === 'plyn' || m.druh === 'teplo') && o.dnyPrumerZima > 30 ? `<div style="font-size:.7rem;margin-top:6px;color:#fbbf24;line-height:1.45">⚠️ Na ${_merDes(o.dnyPrumerZima, 0)} dní topné sezóny nemám loňské odečty – počítám je průměrem posledních měsíců, takže zima vyjde moc nízko. Zapiš historii odečtů aspoň za loňskou zimu (📟 Zapsat odečet → 📋 Víc odečtů najednou).</div>` : ''}
     ${loni != null ? `<div style="font-size:.7rem;margin-top:6px;color:${loni > 0 ? '#fbbf24' : 'var(--income)'}">Loni za stejné dny ${_merDes(o.loniZmereno, 0)} ${J} → letos o ${_merDes(Math.abs(loni), 0)} % ${loni > 0 ? 'víc' : 'míň'}</div>` : ''}
   </div>`;
 }
@@ -323,7 +328,7 @@ function merKartaHTML(m, D) {
       <div style="font-size:.74rem;color:#c3c8dc;line-height:1.5">Spotřeba ≈ ${_merDes(o.spotrebaObdobi, 0)} ${J} × ${_merDes(o.cena.cena, 2)} Kč = ${_merKc(o.kcObdobi)} · zálohy ${_merKc(o.zalohyObdobi)}
         ${o.zalohyPocet ? `<span style="color:#8b93ad">(zaplaceno ${_merKc(o.zalohyDosud)} + zbývající)</span>` : ''}</div>
       ${!plus && o.doporucenaZaloha ? `<div style="font-size:.72rem;color:#fbbf24;margin-top:4px">💡 Aby období vyšlo nula, záloha by měla být asi ${_merKc(o.doporucenaZaloha)} měsíčně.</div>` : ''}
-      ${o.zmerenoDni < o.dnyDosud ? `<div style="font-size:.66rem;color:#8b93ad;margin-top:4px">Od posledního odečtu odhaduji ${o.sezonni != null ? 'podle loňského průběhu ve stejné dny' : 'podle průměru ' + _merDes(o.prumerDenni, 2) + ' ' + J + '/den'} – přesnější bude nový odečet.</div>` : ''}`;
+      ${o.zmerenoDni < o.dnyDosud ? `<div style="font-size:.66rem;color:#8b93ad;margin-top:4px">Od posledního odečtu odhaduji ${o.dnyOdhadLoni ? 'podle loňského průběhu ve stejné dny' : 'podle průměru ' + _merDes(o.prumerDenni, 2) + ' ' + J + '/den'} – přesnější bude nový odečet.</div>` : ''}`;
   }
   const cat = (D.categories || []).find(c => c.id === m.catId);
   const p = _merPanel && _merPanel.id === m.id ? _merPanel : null;
@@ -383,15 +388,20 @@ function _merNastaveniHTML(m) {
   const vych = m ? { catId: m.catId, subcat: m.subcat } : merVychoziKategorie(druh, D);
   const cats = (D.categories || []).filter(c => c.type === 'expense' || c.type === 'both' || !c.type);
   const cat = cats.find(c => c.id === vych.catId);
-  return `${_merPole('Druh', `<select class="fi" id="merDruh" data-mer onchange="merZmenDruh()" ${m ? 'disabled' : ''}>${Object.entries(MER_DRUHY).map(([k, v]) => `<option value="${k}"${k === druh ? ' selected' : ''}>${v.ikona} ${v.n}</option>`).join('')}</select>`)}
+  //  v11.85 (Milan): „druh nejde změnit (v pořádku), ale proč tam je rozbalovací lišta?“ → u uloženého
+  //  měřidla jen text; „zaškrtávací políčko nepoutalo pozornost, údaj má být nahoře s rozbalovacím
+  //  tlačítkem“ a „dvoutarif zůstal i u vody a plynu“ → Tarif hned pod Druhem, jen u elektřiny.
+  const dr = MER_DRUHY[druh] || MER_DRUHY.jine;
+  return `${m ? _merPole('Druh', `<div style="font-size:.9rem;font-weight:700;color:var(--text);padding:4px 0">${dr.ikona} ${dr.n}</div>`, 'druh nejde změnit – pro jiný založ nové měřidlo')
+      : _merPole('Druh', `<select class="fi" id="merDruh" data-mer onchange="merZmenDruh()">${Object.entries(MER_DRUHY).map(([k, v]) => `<option value="${k}"${k === druh ? ' selected' : ''}>${v.ikona} ${v.n}</option>`).join('')}</select>`)}
+    <div id="merTarifRadek" style="display:${druh === 'elektrina' ? 'block' : 'none'}">
+      ${_merPole('Tarif', `<select class="fi" id="merTarif" data-mer><option value="1"${m && m.dvoutarif ? '' : ' selected'}>jeden tarif (jeden stav)</option><option value="2"${m && m.dvoutarif ? ' selected' : ''}>dvoutarif – ☀️ VT (T1) + 🌙 NT (T2)</option></select>`, 'na elektroměru a ve vyúčtování: vysoký a nízký tarif (T1 / T2)')}</div>
     ${_merPole('Název', `<input class="fi" id="merNazev" data-mer maxlength="40" value="${_merEsc(m ? m.nazev : MER_DRUHY[druh].n)}">`, 'např. Elektřina – byt, Voda – chata')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       ${_merPole('Jednotka', `<select class="fi" id="merJed" data-mer>${MER_JEDNOTKY.map(j => `<option${j === (m ? m.jednotka : MER_DRUHY[druh].jed) ? ' selected' : ''}>${j}</option>`).join('')}</select>`)}
       ${_merPole('Vyúčtování', `<select class="fi" id="merObdobi" data-mer>${Object.entries(MER_OBDOBI).map(([k, v]) => `<option value="${k}"${k === (m ? m.obdobi : 'rok') ? ' selected' : ''}>${v[0]}</option>`).join('')}</select>`)}
     </div>
     ${_merPole('Fakturační období začíná', `<input class="fi" id="merObdobiOd" data-mer type="date" value="${m && m.obdobiOd ? _merEsc(m.obdobiOd) : ''}">`, 'první den období z vyúčtování nebo z aplikace dodavatele (např. 30. 5.) – nepovinné; jinak od konce posledního zapsaného vyúčtování')}
-    <label style="display:flex;align-items:flex-start;gap:6px;font-size:.76rem;color:#a8aec8;margin-top:10px;cursor:pointer">
-      <input type="checkbox" id="merDvou" data-mer ${m && m.dvoutarif ? 'checked' : ''} style="margin-top:2px"> Dvoutarif – elektroměr má vysoký tarif VT (T1) a nízký tarif NT (T2)</label>
     ${_merPole('Zálohy platím z kategorie', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <select class="fi" id="merCat" data-mer onchange="merZmenKat()"><option value="">— nenapojovat —</option>${cats.map(c => `<option value="${_merEsc(c.id)}"${c.id === vych.catId ? ' selected' : ''}>${_merEsc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</select>
         <select class="fi" id="merSub" data-mer><option value="">všechny podkategorie</option>${(cat?.subs || []).map(s => `<option${s === vych.subcat ? ' selected' : ''}>${_merEsc(s)}</option>`).join('')}</select></div>`,
@@ -407,6 +417,7 @@ function merZmenDruh() {
   const d = document.getElementById('merDruh').value;
   document.getElementById('merNazev').value = MER_DRUHY[d].n;
   document.getElementById('merJed').value = MER_DRUHY[d].jed || 'kWh';
+  const tr = document.getElementById('merTarifRadek'); if (tr) tr.style.display = d === 'elektrina' ? 'block' : 'none';
   const v = merVychoziKategorie(d);
   document.getElementById('merCat').value = v.catId; merZmenKat(); document.getElementById('merSub').value = v.subcat;
 }
@@ -424,7 +435,7 @@ async function merUlozMeridlo(id) {
   m.subcat = document.getElementById('merSub').value || '';
   const obOd = document.getElementById('merObdobiOd')?.value || '';
   if (obOd) m.obdobiOd = obOd; else delete m.obdobiOd;
-  if (document.getElementById('merDvou')?.checked) m.dvoutarif = true; else delete m.dvoutarif;
+  if (m.druh === 'elektrina' && document.getElementById('merTarif')?.value === '2') m.dvoutarif = true; else delete m.dvoutarif;   // dvoutarif jen u elektřiny
   const c = _merCislo(document.getElementById('merCena').value), z = _merCislo(document.getElementById('merZaloha').value);
   if (c > 0) m.cena = c; else delete m.cena;
   if (z > 0) m.zaloha = z; else delete m.zaloha;
@@ -610,7 +621,7 @@ function _merVyuctovaniHTML(m, zid) {
       ${_merPole('Období od', `<input class="fi" id="merVyOd" data-mer type="date" value="${_merEsc(od)}">`)}
       ${_merPole('do', `<input class="fi" id="merVyDo" data-mer type="date" value="${_merEsc(doo)}">`)}
     </div>
-    ${_merPole('Spotřeba za období (' + J + ')', `<input class="fi" id="merVySpot" data-mer inputmode="decimal" value="${z ? v(z.spotreba) : ''}" placeholder="${m.dvoutarif ? 'VT + NT dohromady' : 'např. 620'}">`)}
+    ${_merPole('Spotřeba za období (' + J + ')', `<input class="fi" id="merVySpot" data-mer inputmode="decimal" value="${z ? v(z.spotreba) : ''}" placeholder="${m.dvoutarif ? 'VT + NT dohromady' : 'např. 620'}">`, m.druh === 'plyn' && _merJed(m) === 'm³' ? 'na vyúčtování plynu je spotřeba v m³ i v kWh – opiš m³, stejně jako odečty' : '')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       ${_merPole('Celková cena (Kč)', `<input class="fi" id="merVyCena" data-mer inputmode="decimal" value="${z ? v(z.castka) : ''}" placeholder="vč. DPH" oninput="merVySaldo()">`, 'za období, vč. stálých plateb')}
       ${_merPole('Zaplacené zálohy (Kč)', `<input class="fi" id="merVyZal" data-mer inputmode="decimal" value="${z ? v(z.zalohy) : ''}" placeholder="z vyúčtování" oninput="merVySaldo()">`)}
