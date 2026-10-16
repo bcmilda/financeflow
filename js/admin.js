@@ -1,4 +1,4 @@
-// FinanceFlow · v11.82 · admin.js · 2026-10-15
+// FinanceFlow · v11.83 · admin.js · 2026-10-15
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,14 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.83',
+    datum: '2026-10-15',
+    zmeny: [
+      "🧾 ROČNÍ ZÚČTOVÁNÍ DANĚ – NOVÁ KARTA (Milan: „roční zúčtování zní zajímavě“) · cesta: Kalendář → 🧾 Výplatnice → za kartou Daně a odvody. Z pásek za rok: příjmy, základ daně (roční zaokrouhlení dolů na stovky), daň 15 % (a 23 % nad 36násobek průměrné mzdy), sleva na poplatníka za CELÝ rok, zvýhodnění na děti, zaplacené zálohy → PŘEPLATEK / nedoplatek a odkud je (sleva za měsíce bez výplaty, zaokrouhlení). Výběr roku; běžící rok se dopočítá průměrem známých měsíců. Doplnit jde jiný zaměstnavatel (příjem + zálohy), odpočty (hypotéka, dary, penzijko…) a zvýhodnění na děti za celý rok (uloží se k účtu). Termíny: žádost u zaměstnavatele do 15. 2., přeplatek ve výplatě za březen; když termín minul, upozorní na daňové přiznání. Částky zákona pro 2024–2026 (sleva 30 840 Kč, děti 15 204 / 22 320 / 27 840 Kč, průměrná mzda 2026 48 967 Kč). U Milana: 2025 přeplatek ≈ 2 800 Kč (sleva na poplatníka za leden – pásky od února).",
+      "🧪 tools/smoke_rocni_zuctovani.js – 13 testů (celý rok bez přeplatku, nástup v březnu = 2 × 2 570, odpočty, jiný zaměstnavatel, 23 % nad hranicí, Milanovy pásky 2025 a běžící 2026, karta).",
+    ],
+  },
   {
     verze: 'v11.82',
     datum: '2026-10-15',

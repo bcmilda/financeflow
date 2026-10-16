@@ -1,4 +1,4 @@
-// FinanceFlow · v11.80 · vyplatnice.js · 2026-10-15
+// FinanceFlow · v11.83 · vyplatnice.js · 2026-10-15
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -733,6 +733,8 @@ function _vyplGrafy(zaznamy) {
     </div></div>`;
 
   html += _vyplOdvodyKarta(rada, vyp);
+  //  S26 (v11.83): roční zúčtování daně z pásek.
+  html += _vyplRzKarta(zaznamy);
   html += _vyplOdmenyKarta(zaznamy);
   html += _vyplSrazkyKarta(rada);
   return html;
@@ -1333,6 +1335,137 @@ function _vyplOdvodyObsah() {
       + (zp[i].kc ? `<br><span style="color:#a8aec8">⏱ přesčas ${fmt(zp[i].kc)} Kč hrubého → odvody z něj ${fmt(zp[i].odvody)} Kč, zůstalo ${fmt(zp[i].kc - zp[i].odvody)} Kč</span>` : '') });
   return chipy + _vyplLegenda(sl.map(o => ({ label: o.label, barva: o.barva })).concat(cr.map(c => ({ label: c.label + ' (čára)', barva: c.barva })))) + graf;
 }
+
+
+// ══════════════════════════════════════════════════════════════════════
+//  S26 (v11.83) · ROČNÍ ZÚČTOVÁNÍ DANĚ (Milan: „roční zúčtování zní zajímavě“)
+//  Z pásek za rok: příjmy, zaplacené zálohy, slevy → roční daň podle zákona → přeplatek / nedoplatek.
+//  Měsíční záloha se počítá z hrubé zaokrouhlené NAHORU na stovky a sleva na poplatníka jen za měsíce,
+//  kdy pracuješ; roční daň ze základu zaokrouhleného DOLŮ a sleva na poplatníka za CELÝ rok.
+//  Odtud bývá přeplatek (nástup v průběhu roku, rozdíly v zaokrouhlení, děti uplatněné jen část roku).
+//  Částky podle zákona o daních z příjmů pro daný rok – při změně zákona přidat rok sem.
+// ══════════════════════════════════════════════════════════════════════
+const VYPL_RZ_PARAM = {
+  2024: { slevaPoplatnik: 30840, prumMzda: 43967, deti: [15204, 22320, 27840] },
+  2025: { slevaPoplatnik: 30840, prumMzda: 46557, deti: [15204, 22320, 27840] },
+  2026: { slevaPoplatnik: 30840, prumMzda: 48967, deti: [15204, 22320, 27840] },
+};
+function _vyplRzParam(rok) {
+  if (VYPL_RZ_PARAM[rok]) return Object.assign({ odhadParam: false }, VYPL_RZ_PARAM[rok]);
+  const ks = Object.keys(VYPL_RZ_PARAM).map(Number).sort((a, b) => a - b);
+  return Object.assign({ odhadParam: true }, VYPL_RZ_PARAM[ks[ks.length - 1]]);   // budoucí rok – poslední známé částky
+}
+//  Vstupy, které na pásce nejsou (jiný zaměstnavatel, odpočty, děti za víc měsíců) – S.uiCfg.rz[rok].
+function _vyplRzVstupy(rok) { return ((typeof S !== 'undefined' && S.uiCfg && S.uiCfg.rz) || {})[rok] || {}; }
+function vyplRzNastav(rok, klic, el) {
+  if (typeof viewingUid !== 'undefined' && viewingUid) return;
+  const v = Math.max(0, parseFloat(String(el && el.value != null ? el.value : el).replace(/\s/g, '').replace(',', '.')) || 0);
+  S.uiCfg = S.uiCfg || {}; S.uiCfg.rz = S.uiCfg.rz || {}; S.uiCfg.rz[rok] = Object.assign({}, S.uiCfg.rz[rok] || {}, { [klic]: v });
+  if (typeof save === 'function') save();
+  _vyplPrekresli('rz');
+}
+window.vyplRzNastav = vyplRzNastav;
+
+//  Výpočet. ted = Date (kvůli rozpoznání běžícího roku); běžný rok se dopočítá průměrem známých měsíců.
+function vyplRocniZuctovani(rok, zaznamy, ted) {
+  ted = ted || new Date();
+  rok = Number(rok);
+  const pasky = (zaznamy || vyplZaznamy()).filter(z => String(z.m).startsWith(rok + '-')).sort((a, b) => a.m.localeCompare(b.m));
+  if (!pasky.length) return null;
+  const P = _vyplRzParam(rok), vst = _vyplRzVstupy(rok);
+  const mes = pasky.map(z => { const v = vyplDopocet(z), o = z.odvody || {};
+    const slevaZak = Math.min(+o.slevaZak || 0, v.danPred), det = +o.slevaDet || 0;
+    const bonus = Math.max(0, det - Math.max(0, v.danPred - slevaZak));   // část zvýhodnění, která se vyplatila jako bonus
+    return { m: z.m, hruba: v.hruba, dan: v.dan, danPred: v.danPred, slevaZak, det, bonus, opsane: _vyplOdvodyOpsane(z) }; });
+  //  Běžný rok: chybějící měsíce do prosince = průměr známých (odhad).
+  const posl = +pasky[pasky.length - 1].m.slice(5), bezi = rok === ted.getFullYear() && posl < 12;
+  const doplnit = bezi ? 12 - posl : 0;
+  const avg = k => mes.reduce((a, x) => a + x[k], 0) / mes.length;
+  const sum = k => mes.reduce((a, x) => a + x[k], 0) + (doplnit ? avg(k) * doplnit : 0);
+  const prijmy = sum('hruba') + (vst.jinyPrijem || 0);
+  const zalohy = sum('dan') + (vst.jineZalohy || 0);
+  const bonusy = sum('bonus');
+  const odpocty = vst.odpocty || 0;
+  const zaklad = Math.max(0, Math.floor((prijmy - odpocty) / 100) * 100);
+  const hranice = 36 * P.prumMzda;
+  const dan15 = Math.min(zaklad, hranice) * 0.15, dan23 = Math.max(0, zaklad - hranice) * 0.23;
+  const dan = Math.round(dan15 + dan23);
+  const slevaPoplatnik = Math.min(P.slevaPoplatnik, dan);
+  const detiPasky = sum('det');
+  const deti = vst.deti != null && vst.deti > 0 ? vst.deti : detiPasky;
+  const poSlevach = dan - slevaPoplatnik - deti;                  // záporné = daňový bonus
+  const vysledek = Math.round(zalohy - bonusy - poSlevach);       // + přeplatek (vrátí se), − nedoplatek
+  //  Odkud rozdíl: sleva na poplatníka za měsíce bez pásky, zaokrouhlení a ostatní.
+  const slevaMesicne = sum('slevaZak');
+  const zSlevy = Math.max(0, Math.min(P.slevaPoplatnik, dan) - slevaMesicne);
+  return { rok, pasky: mes.length, mesice: mes.map(x => x.m), bezi, doplnit, posl, param: P,
+    prijmy: Math.round(prijmy), odpocty, zaklad, hranice, dan15: Math.round(dan15), dan23: Math.round(dan23), dan,
+    slevaPoplatnik, deti: Math.round(deti), detiPasky: Math.round(detiPasky), poSlevach: Math.round(poSlevach),
+    zalohy: Math.round(zalohy), bonusy: Math.round(bonusy), vysledek, zSlevy: Math.round(zSlevy), zOstatni: Math.round(vysledek - zSlevy),
+    opsane: mes.some(x => x.opsane), vstupy: vst };
+}
+window.vyplRocniZuctovani = vyplRocniZuctovani;
+
+function vyplRzRok(r) { window._vyplStav.rzRok = r; _vyplStavUloz(); _vyplPrekresli('rz'); }
+window.vyplRzRok = vyplRzRok;
+function _vyplRzObsah() {
+  const vse = window._vyplRadaVse || [];
+  const roky = [...new Set(vse.map(z => z.m.slice(0, 4)))].sort();
+  if (!roky.length) return '';
+  const ted = new Date();
+  let rok = window._vyplStav.rzRok;
+  if (!roky.includes(rok)) { const ukonc = roky.filter(r => +r < ted.getFullYear()); rok = ukonc.length ? ukonc[ukonc.length - 1] : roky[roky.length - 1]; }
+  const r = vyplRocniZuctovani(rok, vse, ted);
+  if (!r) return '';
+  const kc = v => `${fmt(Math.round(v))} Kč`;
+  const ra = (l, v, o) => { o = o || {}; return `<div class="vk-r${o.sum ? ' vk-sum' : ''}"><span class="vk-l">${l}${o.pozn ? ` <span class="vk-pozn">${o.pozn}</span>` : ''}</span><span class="vk-v" style="color:${o.barva || VYPL_HODNOTA}">${v}</span></div>`; };
+  const prepl = r.vysledek >= 0;
+  const MESN = ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+  const vstup = (klic, l, ph) => `<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.74rem;color:#a8aec8;padding:4px 0">${l}
+      <input type="text" inputmode="decimal" value="${r.vstupy[klic] != null && r.vstupy[klic] !== 0 ? r.vstupy[klic] : ''}" placeholder="${ph}" onchange="vyplRzNastav('${rok}','${klic}',this)"
+        style="width:110px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 7px;color:var(--text);text-align:right"></label>`;
+  return `<div class="vg-chipy">${roky.map(x => `<button class="vg-chip${x === rok ? ' on' : ''}" onclick="vyplRzRok('${x}')">${x}${+x === ted.getFullYear() ? ' (běží)' : ''}</button>`).join('')}</div>
+    <div style="padding:12px 14px;border-radius:12px;background:${prepl ? 'rgba(74,222,128,.08)' : 'rgba(248,113,113,.08)'};border:1px solid ${prepl ? 'rgba(74,222,128,.3)' : 'rgba(248,113,113,.3)'};margin-bottom:10px">
+      <div style="font-size:.74rem;color:#a8aec8">${r.bezi ? `Odhad za rok ${rok} (zatím ${r.pasky} ${r.pasky === 1 ? 'páska' : r.pasky < 5 ? 'pásky' : 'pásek'}, zbytek roku průměrem)` : `Roční zúčtování za rok ${rok}`}</div>
+      <div style="font-family:Syne,sans-serif;font-size:1.5rem;font-weight:800;color:${prepl ? 'var(--income)' : 'var(--expense)'}">${prepl ? 'přeplatek ' : 'nedoplatek '}${r.bezi ? '≈ ' : ''}${kc(Math.abs(r.vysledek))}</div>
+      <div style="font-size:.72rem;color:#c9cede;line-height:1.5">${prepl ? 'tolik ti zaměstnavatel vrátí' : 'tolik bys doplácel'}${r.zSlevy ? ` · z toho ${kc(r.zSlevy)} je sleva na poplatníka za měsíce bez výplaty` : ''}${Math.abs(r.zOstatni) >= 1 ? ` · ${r.zSlevy ? 'zbytek' : 'rozdíl'} ${kc(r.zOstatni)} ze zaokrouhlení a slev na děti` : ''}</div>
+    </div>
+    ${ra('Příjmy ze zaměstnání (hrubá mzda)', kc(r.prijmy), { pozn: `${r.pasky} ${r.pasky === 1 ? 'páska' : r.pasky < 5 ? 'pásky' : 'pásek'}${r.doplnit ? ` + ${r.doplnit} měs. odhadem` : ''}${r.vstupy.jinyPrijem ? ' + jiný zaměstnavatel' : ''}` })}
+    ${r.odpocty ? ra('− Odpočty (nezdanitelné části)', '−' + kc(r.odpocty)) : ''}
+    ${ra('Základ daně (zaokrouhlený dolů na stovky)', kc(r.zaklad), { sum: true })}
+    ${ra('Daň 15 %', kc(r.dan15))}
+    ${r.dan23 ? ra('Daň 23 % (nad 36násobek průměrné mzdy)', kc(r.dan23), { pozn: `nad ${kc(r.hranice)}` }) : ''}
+    ${ra('− Sleva na poplatníka (za celý rok)', '−' + kc(r.slevaPoplatnik), { barva: 'var(--income)' })}
+    ${r.deti ? ra('− Zvýhodnění na děti', '−' + kc(r.deti), { barva: 'var(--income)', pozn: r.vstupy.deti ? 'zadáno ručně' : 'jako na páskách' }) : ''}
+    ${ra(r.poSlevach >= 0 ? 'Daň za rok' : 'Daňový bonus za rok', kc(Math.abs(r.poSlevach)), { sum: true })}
+    ${ra('Zaplacené zálohy (strženo na páskách)', kc(r.zalohy), { pozn: r.bonusy ? `− vyplacené bonusy ${kc(r.bonusy)}` : '' })}
+    <details style="margin-top:8px"><summary style="font-size:.74rem;color:#c9cede;cursor:pointer">Co na páskách není (jiný zaměstnavatel, odpočty, děti)</summary>
+      ${vstup('jinyPrijem', 'Hrubý příjem od jiného zaměstnavatele v roce', '0')}
+      ${vstup('jineZalohy', 'Zálohy na daň u něj', '0')}
+      ${vstup('odpocty', 'Odpočty: úroky z hypotéky, dary, penzijko a životko nad limit…', '0')}
+      ${vstup('deti', `Zvýhodnění na děti za celý rok (Kč; z pásek ${fmt(r.detiPasky)})`, String(r.detiPasky || 0))}
+      <div style="font-size:.66rem;color:#8b93ad;line-height:1.5;margin-top:4px">Zvýhodnění na 1. / 2. / 3. dítě v roce ${rok}: ${r.param.deti.map(v => fmt(v)).join(' / ')} Kč ročně (${r.param.deti.map(v => fmt(v / 12)).join(' / ')} Kč za měsíc, kdy dítě žije ve společné domácnosti).</div>
+    </details>
+    <div class="vg-pozn">
+      ${ted > new Date(+rok + 1, 1, 16) ? `⏰ <strong>Termín u zaměstnavatele (15. 2. ${+rok + 1}) už minul.</strong> ${prepl ? 'Přeplatek se dá ještě získat daňovým přiznáním (lhůta 3 roky) – zaměstnavatel ti vystaví potvrzení o zdanitelných příjmech. Pokud jsi o zúčtování požádal, přeplatek už máš ve výplatě za březen.' : ''}<br>` : ''}
+      <strong>Jak na to:</strong> o roční zúčtování požádej zaměstnavatele do <strong>15. února ${+rok + 1}</strong> (podepsané Prohlášení poplatníka a doklady k odpočtům). Zaměstnavatel ho udělá do poloviny března a přeplatek
+      vrátí ve výplatě za březen (přijde v dubnu). Jde to, jen když jsi v roce měl příjmy jen od zaměstnavatelů, u kterých jsi podepsal prohlášení, a žádné jiné zdanitelné příjmy (podnikání, nájem) – jinak se podává daňové přiznání.
+      ${r.bezi ? `<br>Rok ${rok} ještě běží – chybějící měsíce (od ${MESN[r.posl] || ''}) appka dopočítala průměrem tvých pásek.` : ''}
+      ${r.mesice.length < 12 && !r.bezi ? `<br>Za rok ${rok} je ${r.pasky} ${r.pasky < 5 ? 'pásky' : 'pásek'} (${r.mesice.map(m => CZ_M[+m.slice(5) - 1].slice(0, 3).toLowerCase()).join(', ')}). Měl-li jsi v ostatních měsících příjem od jiného zaměstnavatele, doplň ho výše.` : ''}
+      ${r.param.odhadParam ? `<br>⚠️ Pro rok ${rok} appka ještě nezná zákonné částky – počítá s posledními známými.` : ''}
+      ${r.opsane ? '<br>Část pásek má odvody opsané z jiné mzdové účtárny – výsledek ber orientačně.' : ''}
+      Je to odhad podle pásek, ne daňové poradenství.
+    </div>`;
+}
+function _vyplRzKarta(zaznamy) {
+  if (!zaznamy.length) return '';
+  window._vyplRadaVse = zaznamy.slice().sort((a, b) => (a.m || '').localeCompare(b.m || ''));
+  window._vyplKarty.rz = _vyplRzObsah;
+  return `<div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">🧾 Roční zúčtování daně</span></div>
+    <div class="card-body"><div id="vyplBox_rz">${_vyplRzObsah()}</div></div></div>`;
+}
+window._vyplRzKarta = _vyplRzKarta;
 
 function _vyplOdvodyKarta(rada, vyp) {
   if (!rada.length) return '';
