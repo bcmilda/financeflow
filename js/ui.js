@@ -1,4 +1,4 @@
-// FinanceFlow · v11.74 · ui.js · 2026-10-13
+// FinanceFlow · v11.86 · ui.js · 2026-10-16
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1773,6 +1773,44 @@ function renderTxPage(){
   renderTx();
 }
 
+//  S27 (v11.86, Milan): „v Transakcích jsou starší transakce a proklikávač ukazuje prosinec 2026“.
+//  Filtry z ⚙️ Filtr (a „Hledat ve všech měsících“, které zapíná i klik na tag) zůstaly aktivní
+//  i po zavření panelu a nic to neukazovalo – nadpis dál psal zvolený měsíc. Teď: aktivní filtry
+//  jsou vidět jako štítky pod nadpisem (každý s ✕, „Zrušit filtry“), ⚙️ Filtr ukáže jejich počet
+//  a při „všech měsících“ nadpis místo měsíce napíše „všechny měsíce“.
+function _txFiltryUkaz(D, f){
+  const box = document.getElementById('txFiltrChipy');
+  const opt = (id, v) => { const o = [...(document.getElementById(id)?.options || [])].find(x => x.value === v); return o ? o.textContent.replace(/^\S+\s/, '') : v; };
+  const ch = [];
+  if(f.searchAllMonths) ch.push(['🗓️ všechny měsíce', "txFiltrZrus('all')"]);
+  if(f.catFilter) ch.push(['📂 ' + opt('txCatFilter', f.catFilter), "txFiltrZrus('txCatFilter')"]);
+  if(f.subFilter) ch.push(['📁 ' + f.subFilter, "txFiltrZrus('txSubFilter')"]);
+  if(f.projectFilter) ch.push(['📋 ' + opt('txProjectFilter', f.projectFilter), "txFiltrZrus('txProjectFilter')"]);
+  if(f.walletFilter) ch.push(['👛 ' + opt('txWalletFilter', f.walletFilter), "txFiltrZrus('txWalletFilter')"]);
+  if(f.payTypeFilter) ch.push(['💳 ' + opt('txPayTypeFilter', f.payTypeFilter), "txFiltrZrus('txPayTypeFilter')"]);
+  if(f.curFilter) ch.push(['💱 ' + f.curFilter, "txFiltrZrus('txCurFilter')"]);
+  if(f.tagFilter) ch.push(['🏷️ ' + f.tagFilter, "txFiltrZrus('txTagFilter')"]);
+  if(f.searchFilter) ch.push(['🔍 „' + f.searchFilter + '“', "txFiltrZrus('txSearchFilter')"]);
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  if(box){
+    box.style.display = ch.length ? 'flex' : 'none';
+    box.innerHTML = ch.length ? '<span style="font-size:.72rem;color:var(--text3);align-self:center">Filtr:</span>' + ch.map(([t, a]) =>
+      `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(96,165,250,.15);color:#93c5fd;padding:3px 10px;border-radius:12px;font-size:.74rem;font-weight:600">${esc(t)} <span onclick="${a}" style="cursor:pointer;font-weight:800" title="Zrušit">✕</span></span>`).join('')
+      + (ch.length > 1 ? '<button class="btn btn-ghost btn-sm" style="font-size:.7rem;padding:2px 8px" onclick="clearTxFilters()">✕ Zrušit filtry</button>' : '') : '';
+  }
+  const btn = document.getElementById('filt-adv');
+  if(btn){ btn.textContent = '⚙️ Filtr' + (ch.length ? ' (' + ch.length + ')' : ''); btn.classList.toggle('active', !!ch.length); }
+  //  nadpis: při „všech měsících“ neplatí zvolený měsíc
+  const lbl = document.getElementById('txMonthLabel');
+  if(lbl && !(_txDateFilter && _txDateFilter.active)) lbl.textContent = f.searchAllMonths ? 'všechny měsíce' : `${CZ_M[S.curMonth]} ${S.curYear}`;
+}
+function txFiltrZrus(co){
+  if(co === 'all'){ const a = document.getElementById('txSearchAllMonths'); if(a) a.checked = false; }
+  else { const e = document.getElementById(co); if(e) e.value = ''; if(co === 'txCatFilter'){ const s2 = document.getElementById('txSubFilter'); if(s2) s2.value = ''; } }
+  renderTx();
+}
+window.txFiltrZrus = txFiltrZrus;
+
 // v9.86 (TODO-214): měna transakce. Uložená v t.currency má přednost; u starších
 //   záznamů se odvodí z peněženky – stejně jako to dělal zbytek aplikace před v9.86,
 //   takže se nic nemigruje.
@@ -1835,6 +1873,7 @@ function renderTx(){
   if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
     txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
   }
+  _txFiltryUkaz(D, { catFilter, subFilter, projectFilter, walletFilter, payTypeFilter, curFilter, tagFilter, searchFilter, searchAllMonths });
 
   // Sort
   txs.sort((a,b) => {

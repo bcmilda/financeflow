@@ -1,4 +1,4 @@
-// FinanceFlow · v11.85 · admin.js · 2026-10-16
+// FinanceFlow · v11.86 · admin.js · 2026-10-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.86',
+    datum: '2026-10-16',
+    zmeny: [
+      "🔎 TRANSAKCE: AKTIVNÍ FILTRY JSOU VIDĚT (Milan: „v Transakcích jsou starší transakce ve výběru a proklikávač ukazuje prosinec 2026“) · cesta: Transakce. Příčina: filtry z ⚙️ Filtr – hlavně „Hledat ve všech měsících“, které zapne i klik na tag – zůstaly aktivní i po zavření panelu a nadpis dál psal zvolený měsíc. Teď: pod nadpisem štítky aktivních filtrů (každý s ✕, „Zrušit filtry“), „⚙️ Filtr (N)“ zvýrazněný, při všech měsících nadpis „Transakce – všechny měsíce“. „✕ Vymazat“ ruší i všechny měsíce, šipka měsíce je vypne.",
+      "🔄 ZÁLOHY Z MĚŘIDLA DO TRANSAKCÍ (Milan: „zálohy z měřidla do budoucích plateb, ty do transakcí a ty do ročního zúčtování“; transakce zapisuje ručně) · cesta: Měřidla → 📟 Energie a voda → karta → ⚙️ → 🔄 Měsíční záloha: částka, den platby, peněženka a „Zapisovat do transakcí: ano – každý měsíc automaticky“. Vznikne opakovaná platba (🔄 Šablony, Budoucí platby, Příští měsíc) a z ní každý měsíc transakce zálohy s podkategorií a vazbou na měřidlo – odhad i vyúčtování v měřidle ji započítají. Změna částky upraví stejnou šablonu, vypnutí nebo smazání měřidla ji zruší (zapsané transakce zůstanou). Úprava šablony v Šablonách vazbu nesmaže.",
+      "💸 DOPLATEK / PŘEPLATEK HNED Z VYÚČTOVÁNÍ · po uložení vyúčtování s doplatkem nebo přeplatkem se v kartě rovnou otevře „Doplatek zaplacen / Přeplatek přišel“ s částkou – jedním klepnutím transakce s vazbou na vyúčtování (dřív jen přes Detail spotřeby).",
+      "🧪 tools/smoke_tx_filtry_zalohy.js – 22 testů (štítky filtrů, nadpis, ✕, Vymazat, šipka měsíce; šablona zálohy, transakce s vazbou, idempotence, změna, zrušení, nastavení, karta, doplatek z vyúčtování, smazání měřidla).",
+    ],
+  },
   {
     verze: 'v11.85',
     datum: '2026-10-16',
@@ -9589,6 +9599,8 @@ function clearTxFilters() {
   ['txTagFilter','txSearchFilter'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
+  //  S27 (v11.86): „Vymazat“ ruší i „Hledat ve všech měsících“ (dřív zůstalo zaškrtnuté)
+  const allM = document.getElementById('txSearchAllMonths'); if(allM) allM.checked = false;
   renderTx();
 }
 
