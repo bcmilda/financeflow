@@ -1,4 +1,4 @@
-// FinanceFlow · v11.79 · vyplatnice.js · 2026-10-14
+// FinanceFlow · v11.80 · vyplatnice.js · 2026-10-15
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -186,6 +186,7 @@ window._vyplPolozky = _vyplPolozky;
 
 function _vyplMesicNazev(mKlic) { const [y, mm] = String(mKlic || '').split('-'); return `${CZ_M[(+mm || 1) - 1]} ${y}`; }
 function _vyplPct(cast, z) { return z ? Math.round(cast / z * 1000) / 10 : 0; }
+const _vyplPctS = (cast, z) => String(_vyplPct(cast, z)).replace('.', ',');   // v11.80: česká desetinná čárka
 const _vyplCs = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(Math.round(v)));
 
 function _vyplKartaMesice(z, pred, mKlic) {
@@ -217,8 +218,8 @@ function _vyplKartaMesice(z, pred, mKlic) {
 
   // Odvody – i se slevami, aby bylo vidět, z čeho se daň vzala
   html += sekce('Odvody a daň');
-  html += rada('Zdravotní pojištění', '−' + kc(v.zp), { barva: 'var(--expense)', pozn: `${_vyplPct(v.zp, v.hruba)} %` });
-  html += rada('Sociální pojištění', '−' + kc(v.sp), { barva: 'var(--expense)', pozn: `${_vyplPct(v.sp, v.hruba)} %` });
+  html += rada('Zdravotní pojištění', '−' + kc(v.zp), { barva: 'var(--expense)', pozn: `${_vyplPctS(v.zp, v.hruba)} %` });
+  html += rada('Sociální pojištění', '−' + kc(v.sp), { barva: 'var(--expense)', pozn: `${_vyplPctS(v.sp, v.hruba)} %` });
   const o = z.odvody || {};
   const danZModelu = o.dan == null || Math.abs(Math.max(0, v.danPred - v.slevy) - v.dan) < 1;
   if (danZModelu && v.slevy) {
@@ -226,8 +227,8 @@ function _vyplKartaMesice(z, pred, mKlic) {
     if (+o.slevaZak) html += rada('Sleva na poplatníka', '+' + kc(+o.slevaZak), { barva: 'var(--income)' });
     if (+o.slevaDet) html += rada('Daňové zvýhodnění na děti', '+' + kc(+o.slevaDet), { barva: 'var(--income)' });
   }
-  html += rada('Daň zálohová', '−' + kc(v.dan), { barva: 'var(--expense)', pozn: `${_vyplPct(v.dan, v.hruba)} %` });
-  html += rada('Odvody celkem', '−' + kc(v.odvody), { sum: true, barva: 'var(--expense)', pozn: `${_vyplPct(v.odvody, v.hruba)} % z hrubé` });
+  html += rada('Daň zálohová', '−' + kc(v.dan), { barva: 'var(--expense)', pozn: `${_vyplPctS(v.dan, v.hruba)} %` });
+  html += rada('Odvody celkem', '−' + kc(v.odvody), { sum: true, barva: 'var(--expense)', pozn: `${_vyplPctS(v.odvody, v.hruba)} % z hrubé` });
   html += rada('Čistý příjem', kc(v.cisty), { sum: true, barva: 'var(--income)' });
 
   // Srážky a připočty – každá zvlášť
@@ -255,7 +256,7 @@ function _vyplKartaMesice(z, pred, mKlic) {
   }
   html += `<div style="font-size:.74rem;color:${VYPL_POPISEK};margin-top:8px;line-height:1.55">
     ${pevne != null ? `Pevná složka tvoří <strong style="color:${VYPL_HODNOTA}">${pevne} %</strong> hrubé mzdy. ` : ''}
-    Z hrubé mzdy odešlo na odvodech <strong style="color:${VYPL_HODNOTA}">${_vyplPct(v.odvody, v.hruba)} %</strong>.</div>${srov}`;
+    Z hrubé mzdy odešlo na odvodech <strong style="color:${VYPL_HODNOTA}">${_vyplPctS(v.odvody, v.hruba)} %</strong>.</div>${srov}`;
 
   html += `<div style="display:flex;gap:7px;margin-top:12px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="vyplOtevritForm('${mKlic}')">✎ Upravit</button>
@@ -303,7 +304,7 @@ function _renderKalVyplatnice(D, m, y) {
       html += `<div onclick="vyplOtevritForm('${z.m}')" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer">
         <div style="min-width:78px;font-size:.8rem;color:${VYPL_HODNOTA}">${CZ_M[(+rm || 1) - 1]} ${ry}</div>
         <div style="flex:1;min-width:0;font-size:.72rem;color:${VYPL_POPISEK}">
-          hrubá ${fmt(v.hruba)} · pevná ${pevne != null ? pevne + ' %' : '—'} · odvody ${_vyplPct(v.odvody, v.hruba)} %</div>
+          hrubá ${fmt(v.hruba)} · pevná ${pevne != null ? pevne + ' %' : '—'} · odvody ${_vyplPctS(v.odvody, v.hruba)} %</div>
         <div style="font-size:.84rem;font-weight:700;color:var(--income)">${fmt(v.dobirka)} Kč</div>
       </div>`;
     });
@@ -661,7 +662,7 @@ function _vyplSlozeniObsah(rada) {
     prumer: { v: prumer, label: '⌀ ' + _vyplKcOsa(Math.round(prumer)) }, popisky: vid.length < pritomne.length ? [mx, mn] : [],
     fmtHodnota: v => _vyplKcOsa(Math.round(v)),
     cteni: i => `<b>${_vyplMesicNazev(rada[i].m)}</b> · ${vse ? 'hrubá' : 'vybrané složky'} <b>${fmt(Math.round(souc[i]))} Kč</b><br>`
-      + vid.filter(s => rozk[i][s.k] > 0).map(s => `<span style="white-space:nowrap;margin-right:10px"><span class="vg-dot" style="background:${VYPL_BARVY[s.k]}"></span>${s.kratce} ${fmt(Math.round(rozk[i][s.k]))} Kč <span style="color:#8b93ad">(${_vyplPct(rozk[i][s.k], rozk[i].celkem)} %)</span></span>`).join(''),
+      + vid.filter(s => rozk[i][s.k] > 0).map(s => `<span style="white-space:nowrap;margin-right:10px"><span class="vg-dot" style="background:${VYPL_BARVY[s.k]}"></span>${s.kratce} ${fmt(Math.round(rozk[i][s.k]))} Kč <span style="color:#8b93ad">(${_vyplPctS(rozk[i][s.k], rozk[i].celkem)} %)</span></span>`).join(''),
   });
   const sl = vse ? pritomne : vid;
   const jedna = !vse && sl.length === 1;   // jedna složka – sloupec Součet by ji jen opakoval
@@ -698,6 +699,8 @@ function _vyplGrafy(zaznamy) {
 
   // ── B · Prémie (sloupce), příplatky So+Ne/noční a přesčas (čáry) – S26 (v11.78) ──
   html += _vyplPremieKarta(rada, rozk);
+  //  S26 (v11.80): kumulativní přivýdělek nad rámec (přesčas, svátky, noci, víkendy, odměny).
+  html += _vyplNavicKarta(zaznamy);
 
   // ── C · Podíl pevné složky: stupnice 60–90 %, mřížka, průměrná čára ──
   const podily = rozk.map(r => r.celkem ? r.pevna / r.celkem * 100 : null);
@@ -1190,6 +1193,80 @@ function vyplOdpoved(id, rada) {
 }
 window.vyplOdpoved = vyplOdpoved;
 
+
+// ══════════════════════════════════════════════════════════════════════
+//  S26 (v11.80) · PŘIVÝDĚLEK NAD RÁMEC (Milan: „sledujeme, kolik Kč jsem si přivydělal nad rámec běžné
+//  výplaty? Kumulativní sumář pro přesčasy, svátky, další příplatky zatím nemáme.“)
+//  Nad rámec = přesčas, příplatky za svátek, noc a So+Ne a mimořádné odměny. Čistá část se počítá
+//  přesně: páska se přepočítá BEZ těchto položek a rozdíl dobírky je to, co ti z nich opravdu zůstalo.
+// ══════════════════════════════════════════════════════════════════════
+const VYPL_NAVIC = [
+  { k: 'prescas', label: 'Přesčas', barva: '#e11d48', klice: z => Object.keys(z.prijmy || {}).filter(k => _vyplSlozka(k) === 'prescas') },
+  { k: 'svatek',  label: 'Svátek',  barva: '#a16207', klice: () => ['svatek'] },
+  { k: 'nocni',   label: 'Noční',   barva: '#3b82f6', klice: () => ['nocni'] },
+  { k: 'vikend',  label: 'So + Ne', barva: '#0d9488', klice: () => ['vikend'] },
+  { k: 'odmeny',  label: 'Odměny',  barva: '#8b5cf6', klice: z => Object.keys(z.prijmy || {}).filter(k => _vyplSlozka(k) === 'odmeny') },
+];
+function vyplNavicMesic(z) {
+  const p = z.prijmy || {}, r = { celkem: 0 };
+  const vse = new Set();
+  VYPL_NAVIC.forEach(n => { const ks = n.klice(z); r[n.k] = ks.reduce((a, k) => a + (+p[k] || 0), 0); r.celkem += r[n.k]; ks.forEach(k => vse.add(k)); });
+  r.prescasH = vyplHodinyZPasky(z).prescasH;
+  //  Čistá část: dobírka s položkami − dobírka bez nich (u opsaných odvodů odhad mezní sazbou).
+  if (!r.celkem) { r.cisty = 0; return r; }
+  if (_vyplOdvodyOpsane(z)) { r.cisty = Math.round(r.celkem * (1 - (vyplMeznaSazba([z]) || 0.266))); return r; }
+  const bez = Object.assign({}, z, { prijmy: {} });
+  Object.keys(p).forEach(k => { if (!vse.has(k)) bez.prijmy[k] = p[k]; });
+  r.cisty = Math.round(vyplDopocet(z).cisty - vyplDopocet(bez).cisty);
+  return r;
+}
+window.vyplNavicMesic = vyplNavicMesic;
+function vyplNavicRok(r) { window._vyplStav.navicRok = r; _vyplStavUloz(); _vyplPrekresli('navic'); }
+window.vyplNavicRok = vyplNavicRok;
+
+function _vyplNavicObsah() {
+  const vse = window._vyplRadaVse || [];
+  if (!vse.length) return '';
+  const roky = [...new Set(vse.map(z => z.m.slice(0, 4)))].sort();
+  let rok = window._vyplStav.navicRok; if (rok !== 'vse' && !roky.includes(rok)) rok = roky[roky.length - 1];
+  const rada = rok === 'vse' ? vse : vse.filter(z => z.m.startsWith(rok));
+  const nv = rada.map(z => vyplNavicMesic(z));
+  const suma = k => nv.reduce((a, x) => a + (x[k] || 0), 0);
+  let kum = 0; const kumul = nv.map(x => (kum += x.cisty));
+  const osa = _vyplOsaJed(Math.max(...nv.map(x => x.celkem), 1), 'Kč'), osaP = _vyplOsaJed(Math.max(kum, 1), 'Kč');
+  const roky_ = `<div class="vg-chipy">${roky.map(r => `<button class="vg-chip${rok === r ? ' on' : ''}" onclick="vyplNavicRok('${r}')">${r}</button>`).join('')}<button class="vg-chip${rok === 'vse' ? ' on' : ''}" onclick="vyplNavicRok('vse')">Vše</button></div>`;
+  const kpi = `<div class="vg-kpi">
+      <div><div class="l">Nad rámec ${rok === 'vse' ? 'celkem' : 'v roce ' + rok}</div><div class="v" style="color:var(--income)">${fmt(suma('cisty'))} Kč čistého</div>
+        <div class="p">${fmt(suma('celkem'))} Kč hrubého · ${rada.length} ${rada.length === 1 ? 'měsíc' : rada.length < 5 ? 'měsíce' : 'měsíců'} · ⌀ ${fmt(suma('cisty') / (rada.length || 1))} Kč/měs.</div></div>
+      ${VYPL_NAVIC.filter(n => suma(n.k)).map(n => `<div><div class="l"><span class="vg-dot" style="background:${n.barva}"></span>${n.label}</div><div class="v">${fmt(suma(n.k))} Kč</div>
+        <div class="p">${n.k === 'prescas' ? `${_vyplH(suma('prescasH'))} h · ${nv.filter(x => x.prescas).length}× ` : ''}${_vyplPctS(suma(n.k), suma('celkem'))} % přivýdělku</div></div>`).join('')}
+    </div>`;
+  const ser = VYPL_NAVIC.filter(n => suma(n.k));
+  const graf = _vyplKombi({ id: 'vgNavic', mesice: rada.map(z => z.m), vyska: 170, osaL: osa, osaP, rezim: 'sklad',
+    sloupce: ser.map(n => ({ label: n.label, barva: n.barva, hodnoty: nv.map(x => x[n.k]) })),
+    cary: [{ label: 'Kumulativně čistého', barva: '#e2e8f0', hodnoty: kumul, osa: 'P' }],
+    udalosti: _vyplUdalosti(rada).filter(u => u.ikona === '⏱'),
+    cteni: i => `<b>${_vyplMesicNazev(rada[i].m)}</b> · nad rámec <b>${fmt(nv[i].celkem)} Kč</b> hrubého → <b>${fmt(nv[i].cisty)} Kč</b> čistého · od začátku ${rok === 'vse' ? 'sledování' : 'roku'} <b>${fmt(kumul[i])} Kč</b><br>`
+      + ser.filter(n => nv[i][n.k]).map(n => `<span style="white-space:nowrap;margin-right:10px"><span class="vg-dot" style="background:${n.barva}"></span>${n.label} ${fmt(nv[i][n.k])} Kč${n.k === 'prescas' && nv[i].prescasH ? ` (${_vyplH(nv[i].prescasH)} h)` : ''}</span>`).join('') });
+  const hl = ['Měsíc', 'Přesčas h'].concat(ser.map(n => n.label)).concat(['Hrubého', 'Čistého', 'Kumulativně']);
+  const radky = rada.map((z, i) => [_vyplMes(z.m), nv[i].prescasH ? _vyplH(nv[i].prescasH) : '–'].concat(ser.map(n => nv[i][n.k] ? fmt(nv[i][n.k]) : '–'))
+    .concat([fmt(nv[i].celkem), `<b>${fmt(nv[i].cisty)}</b>`, fmt(kumul[i])])).reverse();
+  const souhrn = [['Celkem', _vyplH(suma('prescasH'))].concat(ser.map(n => fmt(suma(n.k)))).concat([fmt(suma('celkem')), fmt(suma('cisty')), ''])];
+  return roky_ + kpi + _vyplLegenda(ser.map(n => ({ label: n.label, barva: n.barva })).concat([{ label: 'Kumulativně čistého (vedlejší osa, čárkovaně)', barva: '#e2e8f0' }])) + graf + _vyplTabulka(hl, radky, souhrn);
+}
+function _vyplNavicKarta(zaznamy) {
+  if (!zaznamy.length) return '';
+  window._vyplRadaVse = zaznamy.slice().sort((a, b) => (a.m || '').localeCompare(b.m || ''));
+  window._vyplKarty.navic = _vyplNavicObsah;
+  return `<div class="card" style="margin-bottom:12px">
+    <div class="card-header"><span class="card-title">💪 Přivýdělek nad rámec</span></div>
+    <div class="card-body"><div id="vyplBox_navic">${_vyplNavicObsah()}</div>
+      <div class="vg-pozn">Nad rámec běžné výplaty = přesčas, příplatky za svátek, noc a So+Ne a mimořádné odměny. Čistá částka je přesně to,
+        o co by byla dobírka nižší bez nich (páska přepočtená bez těchto položek). Čárkovaná čára sčítá čistý přivýdělek od začátku roku.</div>
+    </div></div>`;
+}
+window._vyplNavicKarta = _vyplNavicKarta;
+
 // ── Karta Prémie a příplatky (Milan: příplatky So+Ne+noční zvlášť od přesčasu, prémie jako sloupce) ──
 function _vyplPremieKarta(rada, rozk) {
   const prem = rozk.map(r => r.premie), pri = rozk.map(r => r.priplatky), pre = rozk.map(r => r.prescas);
@@ -1281,8 +1358,8 @@ function _vyplOdvodyKarta(rada, vyp) {
       <div class="vg-kpi">
         <div><div class="l">Odvedeno za ${mesicu(n12)}</div><div class="v">${fmt(S12('odvody'))} Kč</div>
           <div class="p">ZP ${fmt(S12('zp'))} · SP ${fmt(S12('sp'))} · daň ${fmt(S12('dan'))}</div></div>
-        <div><div class="l">Z hrubé mzdy odešlo</div><div class="v">${_vyplPct(S12('odvody'), S12('hruba'))} %</div>
-          <div class="p">od ${Math.min(...sazby.slice(-12)).toFixed(1).replace('.', ',')} do ${Math.max(...sazby.slice(-12)).toFixed(1).replace('.', ',')} % · čistá ${_vyplPct(S12('cisty'), S12('hruba'))} %</div></div>
+        <div><div class="l">Z hrubé mzdy odešlo</div><div class="v">${_vyplPctS(S12('odvody'), S12('hruba'))} %</div>
+          <div class="p">od ${Math.min(...sazby.slice(-12)).toFixed(1).replace('.', ',')} do ${Math.max(...sazby.slice(-12)).toFixed(1).replace('.', ',')} % · čistá ${_vyplPctS(S12('cisty'), S12('hruba'))} %</div></div>
         ${mezni ? `<div><div class="l">Z 1 000 Kč hrubého navíc ti zůstane</div><div class="v" style="color:var(--income)">≈ ${fmt(Math.round((1 - mezni) * 1000))} Kč</div>
           <div class="p">${platnych > 1 ? (stejnych === platnych ? `stejně ve všech ${platnych} měsících – je to konstanta` : `stejně v ${stejnych} z ${platnych} měsíců (viz tabulka)`) : `zbytek (${fmt(Math.round(mezni * 1000))} Kč) jsou odvody`}</div></div>` : ''}
         ${prKc ? `<div><div class="l">Přesčas za ${mesicu(n12)}</div><div class="v" style="color:${VYPL_BARVY.prescas}">${_vyplH(prH)} h · ${fmt(prKc)} Kč</div>

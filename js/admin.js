@@ -1,4 +1,4 @@
-// FinanceFlow · v11.79 · admin.js · 2026-10-14
+// FinanceFlow · v11.80 · admin.js · 2026-10-15
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.80',
+    datum: '2026-10-15',
+    zmeny: [
+      "🧪 SIMULACE PŘESČASŮ V KALENDÁŘI (Milan: „kdybych v kalendáři nasimuloval 2 přesčasy a viděl, o kolik si finančně polepším“) · cesta: Kalendář → Práce → „🧪 Simulovat přesčasy“. Klepnutí na volný den: 1× denní přesčas, 2× noční, 3× zrušit (simulovaný den je čárkovaně s 🧪). Nahoře hned výsledek: +N směn (h, z toho noční / víkend / svátek) → na účet +X Kč, hrubého +, odvody z toho, čistého za hodinu a výplata místo. Nic se neukládá – „Ukončit simulaci“ vše smaže. Počítá se z výplatnice a hodin kalendáře (bez výplatnic ze starší sazby).",
+      "💪 PŘIVÝDĚLEK NAD RÁMEC – NOVÁ KARTA (Milan: „kolik jsem si přivydělal nad rámec běžné výplaty? Kumulativní sumář přesčasů, svátků, příplatků“) · cesta: Kalendář → 🧾 Výplatnice. Přesčas, svátek, noční, So+Ne a mimořádné odměny po rocích (2025 / 2026 / vše): čistý přivýdělek v roce (přesně – páska přepočtená bez těchto položek), hrubého, průměr na měsíc, rozpad po druzích (přesčas i hodiny a kolikrát), skládané sloupce po měsících + kumulativní čistý od začátku roku (vedlejší osa) a tabulka.",
+      "📥 VÝPLATA V MĚSÍCI vs. ZA MĚSÍC (Milan: „myslel jsem, že řešíme výplatu V listopadu“) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Nahoře řádek „Listopad: na účet přijde výplata za říjen ≈ X Kč“ (z výplatnice, když už je, jinak odhad z říjnového kalendáře), pod tím „Odhad výplaty ZA listopad (práce v tomto měsíci) – přijde v prosinci“.",
+      "🏖 DOVOLENÁ (Milan: „sledujeme i vyčerpanou dovolenou?“) · cesta: Kalendář → Práce → Sumář → Zůstatek dov. Vyčerpaná dovolená se teď za měsíce s VÝPLATNICÍ bere z pásky, za ostatní z kalendáře (dřív jen z kalendáře – bez zapsaných starších měsíců byl zůstatek moc vysoký: u Milana 229 h místo ~141 h). Dlaždice ukazuje „vyčerpáno X z Y h · z pásek … + kalendář …“.",
+      "🔤 Procenta ve výplatnici s desetinnou čárkou (17,3 % místo 17.3 %).",
+      "🧪 tools/smoke_simulace_navic.js – 19 testů (simulace: jen volný den, denní/noční, 22 h, +3–4 tis. na účet, nic se neuloží; přivýdělek: srpen přesně, čistá část ~73,4 %, odměny, karta s roky a kumulací; výplata V měsíci; dovolená z pásek 88 h).",
+    ],
+  },
   {
     verze: 'v11.79',
     datum: '2026-10-14',
