@@ -1,4 +1,4 @@
-// FinanceFlow · v11.83 · admin.js · 2026-10-15
+// FinanceFlow · v11.84 · admin.js · 2026-10-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.84',
+    datum: '2026-10-16',
+    zmeny: [
+      "📟 MĚŘIDLA: KARTA MÍSTO VYSKAKOVACÍCH OKEN (Milan: „udělej stabilnější kartu místo vyskakovacího okna“) · cesta: Měřidla → 📟 Energie a voda → karta měřidla. Zapsat odečet, Zapsat vyúčtování, 📋 Odečty a vyúčtování, 📊 Detail spotřeby i ⚙️ nastavení se otevírají přímo v kartě (jeden panel, druhé klepnutí zavře). Rozepsané hodnoty přežijí synchronizaci z jiného zařízení.",
+      "☀️🌙 VT A NT PŘÍMO V ODEČTU (Milan: „chtěl jsem zapsat odečet, mám VT a NT“) · cesta: … → 📟 Zapsat odečet → „Elektroměr má: jeden tarif / ☀️ VT + 🌙 NT“. Dvoutarif byl v appce od v11.14, ale jen jako zaškrtávátko v ⚙️ nastavení (výchozí vypnuto) – v odečtu o něm nic nebylo. Popisky VT – vysoký tarif (T1), NT – nízký tarif (T2) jako u dodavatele. Pryč je vzorové „12480“ v poli stavu, které vypadalo jako zapsaná hodnota.",
+      "✎ ÚPRAVA A 🗑 MAZÁNÍ ODEČTŮ (Milan: „data nejdou smazat, upravit“) · cesta: … → 📋 Odečty a vyúčtování: každý odečet se stavem VT / NT a pod ním přírůstkem (+83) jako v aplikaci dodavatele, ✎ upravit (předvyplněné, „Uložit změny“, „Smazat“), 🗑 smazat; stejně u vyúčtování. ✎ i v tabulce Detailu spotřeby. Odečet na den, kde už jeden je, se zeptá na přepsání; pokles VT nebo NT se zeptá „nejsou VT a NT prohozené?“.",
+      "📋 VÍC ODEČTŮ NAJEDNOU · cesta: … → 📟 Zapsat odečet → 📋 Víc odečtů najednou: řádky „1.10.2026; 30895; 52650“ (i s mezerami v tisících), 🤖 pokyn pro AI ke screenshotu historie z aplikace dodavatele. Stejné datum jen jednou (dodavatel ukazuje fakturační odečet dvakrát), už zapsané dny se přeskočí.",
+      "📅 AKTUÁLNÍ OBDOBÍ JAKO U DODAVATELE · karta ukazuje období (30. 5. 2026 – 29. 5. 2027), spotřebováno do posledního odečtu (VT / NT), odhad za celé období s pruhem a srovnání „loni za stejné dny“. ⚙️ nové pole Fakturační období začíná. Nové měřidlo má výchozí vyúčtování ročně.",
+      "📈 PŘESNĚJŠÍ ODHAD · dny bez odečtu se odhadují podle LOŇSKÉHO průběhu ve stejné dny × poměr letos / loni (posledních 90 dní), bez loňských dat podle průměru – zimní měsíce už nepočítá letním průměrem. Na odečtech z aplikace innogy (prosinec 2025 – říjen 2026) vychází odhad období 1 484 kWh proti 1 508 kWh u dodavatele. Odečty s jedním stavem a s VT/NT se při výpočtu spotřeby nemíchají.",
+      "🧪 tools/smoke_meridla_karta.js – 33 testů (hromadný zápis, období, odhad podle loňska, karta, VT/NT, úprava, mazání, prohozené tarify, rozepsané hodnoty); smoke_meridla.js upraven na detail v kartě.",
+    ],
+  },
   {
     verze: 'v11.83',
     datum: '2026-10-15',
