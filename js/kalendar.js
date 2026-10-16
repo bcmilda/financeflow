@@ -1,4 +1,4 @@
-// FinanceFlow · v11.75 · kalendar.js · 2026-10-13
+// FinanceFlow · v11.78 · kalendar.js · 2026-10-14
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -381,6 +381,8 @@ const _WORK_TYPES = {
   prescas:  { label: 'Přesčas',  icon: '⏱️', bg: 'rgba(251,191,36,.14)',  border: 'rgba(251,191,36,.45)',  color: '#fbbf24' },  // S17.7: práce navíc mimo směny (osobní volno)
   dovolena: { label: 'Dovolená', icon: '🏖️', bg: 'rgba(59,130,246,.14)', border: 'rgba(59,130,246,.4)',   color: '#60a5fa' },
   nemoc:    { label: 'Nemoc',    icon: '🤒', bg: 'rgba(251,191,36,.12)',  border: 'rgba(251,191,36,.35)',  color: '#fbbf24' },
+  //  S26 (v11.78, Milan: „kdy jsem měl dovolenou či paragraf“): placená překážka (lékař…) – platí se průměrem jako dovolená.
+  paragraf: { label: 'Paragraf', icon: '🩺', bg: 'rgba(244,114,182,.12)', border: 'rgba(244,114,182,.38)', color: '#f472b6' },
   volno:    { label: 'Volno',    icon: '⛱️', bg: 'rgba(255,255,255,.05)', border: 'rgba(255,255,255,.12)', color: 'var(--text3)' },
 };
 
@@ -465,16 +467,22 @@ function _workVacH(wd, cfg) { return (wd && wd.hours > 0) ? wd.hours : Math.max(
 //  S26 (v11.75): hodiny měsíce – jedno místo pro Sumář, Hodinovou mzdu i odhad výplaty
 function _workHodiny(cfg, y, m) {
   const hol = _czHolidays(y), dnu = new Date(y, m + 1, 0).getDate();
-  const r = { grossH: 0, payH: 0, otH: 0, weH: 0, holH: 0, nightH: 0, smen: 0, prescasDni: 0, vacH: 0, nemoc: 0 };
+  //  S26 (v11.78): + planH (plánované směny bez přesčasu, čistě), otNetH (přesčas bez přestávek), parH, nemocH –
+  //  pro odhad výplaty z pásky (fond = plánované směny + nepřítomnost v plánu, sedí na výplatnici).
+  const r = { grossH: 0, payH: 0, otH: 0, weH: 0, holH: 0, nightH: 0, smen: 0, prescasDni: 0, vacH: 0, nemoc: 0,
+              planH: 0, otNetH: 0, parH: 0, nemocH: 0, paragraf: 0 };
   for (let d = 1; d <= dnu; d++) {
     const wd = _workDay(y, m, d); if (!wd) continue;
     if (wd.type === 'dovolena') { r.vacH += _workVacH(wd, cfg); continue; }
-    if (wd.type === 'nemoc') { r.nemoc++; continue; }
+    if (wd.type === 'paragraf') { r.paragraf++; r.parH += _workVacH(wd, cfg); continue; }
+    if (wd.type === 'nemoc') { r.nemoc++; r.nemocH += _workVacH(wd, cfg); continue; }
     if (wd.type !== 'smena' && wd.type !== 'prescas') continue;
     if (wd.type === 'smena') r.smen++; else r.prescasDni++;
     const h = wd.hours || 0, p = Math.max(0, h - (cfg.breakMin || 0) / 60);
     r.grossH += h; r.payH += p;
     r.otH += (wd.type === 'prescas') ? h : Math.max(0, h - cfg.hpd);   // S17.7: celý přesčasový den je přesčas
+    const navic = wd.type === 'prescas' ? p : Math.max(0, h - cfg.hpd);
+    r.otNetH += navic; if (wd.type === 'smena') r.planH += p - navic;
     const dow = new Date(y, m, d).getDay();
     if (hol.has(`${m + 1}-${d}`)) r.holH += p;
     else if (dow === 0 || dow === 6) r.weH += p;                        // svátek má přednost, nepočítat 2×
@@ -690,6 +698,9 @@ function _workWageCard(cfg, y, m, daysInMonth) {
   const hm = _workHodiny(cfg, y, m);
   const { grossH, payH, otH, weH, holH, nightH, vacH, weightedH } = hm, shiftDays = hm.smen + hm.prescasDni;
   const odhad = workOdhadVyplaty(cfg, y, m);
+  //  S26 (v11.78): když jsou výplatnice, odhad se skládá z PÁSKY (tarif, PPÚ, příplatky) a hodin tohoto
+  //  měsíce – ne ze sazby minulé výplaty, která v sobě nesla přesčasy (Milan: „33 500 mít rozhodně nebudu“).
+  const odhadP = (typeof vyplOdhadMesice === 'function') ? vyplOdhadMesice(y, m) : null;
   if (!shiftDays && !vacH) return '';
   const breakH = grossH - payH;
   const salInfo = _workSalary(cfg, y, m);
@@ -720,10 +731,10 @@ function _workWageCard(cfg, y, m, daysInMonth) {
           <div style="background:var(--surface2);border-radius:10px;padding:10px 12px">
             <div style="font-size:.68rem;color:#a8aec8">Základní sazba (bez příplatků)</div>
             <div style="font-family:Syne;font-size:1.1rem;font-weight:800;color:${sal?'#60a5fa':'var(--text3)'}">${sal ? fmt(Math.round(baseRate)) + ' Kč/h' : '–'}</div>
-            <div style="font-size:.66rem;color:#a8aec8">výplata ÷ vážené hodiny (${fmt1(weightedH)} h)</div>
+            <div style="font-size:.66rem;color:#a8aec8">výplata ÷ vážené hodiny (${fmt1(weightedH)} h = ${fmt1(payH + vacH)} h${weH ? ` + víkend ${fmt1(weH)} × ${cfg.bonusWe} %` : ''}${holH ? ` + svátek ${fmt1(holH)} × ${cfg.bonusHol} %` : ''}${nightH ? ` + noční ${fmt1(nightH)} × ${cfg.bonusNight} %` : ''}${otH ? ` + přesčas ${fmt1(Math.min(otH, payH))} × ${cfg.bonusOT} %` : ''})</div>
           </div>
         </div>
-        ${odhad ? `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+        ${odhadP ? _workOdhadZPaskyHTML(odhadP, m, y, fmt1) : odhad ? `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:.7rem;color:#a8aec8">📈 Odhad čisté výplaty za ${CZ_M[m].toLowerCase()}</div>
           <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
             <span style="font-family:Syne;font-size:1.25rem;font-weight:800;color:var(--income)">≈ ${fmt(odhad.castka)} Kč</span>
@@ -740,6 +751,32 @@ function _workWageCard(cfg, y, m, daysInMonth) {
         <div style="font-size:.7rem;color:#a8aec8;margin-top:10px;line-height:1.5">Svátky (vč. Velikonoc) se detekují automaticky – sváteční hodiny se nepočítají zároveň jako víkendové. Noční = směny označené 🌙. Příplatky uprav v Nastavení úvazku podle své smlouvy.</div>
       </div>
     </div>`;
+}
+
+//  S26 (v11.78): odhad výplaty z poslední výplatnice + hodin z kalendáře, s rozpisem po položkách.
+function _workOdhadZPaskyHTML(o, m, y, fmt1) {
+  const sk = o.skutecnost, mes = CZ_M[m].toLowerCase();
+  const rozdil = sk ? sk.dobirka - o.v.dobirka : 0;
+  const zdroj = o.zdroj ? CZ_M[(+o.zdroj.slice(5) || 1) - 1].toLowerCase() + ' ' + o.zdroj.slice(0, 4) : '';
+  const radky = o.pol.map(p => `<tr><td style="white-space:normal">${p.label}</td><td>${p.hodin ? fmt1(p.hodin) : ''}</td><td>${p.sazba ? (Math.round(p.sazba * 100) / 100).toLocaleString('cs-CZ') : ''}</td><td><b>${fmt(p.kc)}</b></td></tr>`).join('');
+  //  Styl tabulky je ve výplatnicovém CSS – v režimu Práce se jinak nenačte.
+  return (typeof VYPL_CSS !== 'undefined' ? VYPL_CSS : '') + `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+    <div style="font-size:.7rem;color:#a8aec8">📈 Odhad výplaty za ${mes} – přijde ${o.vyplaceno}</div>
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+      <span style="font-family:Syne;font-size:1.25rem;font-weight:800;color:var(--income)">≈ ${fmt(o.dobirka)} Kč</span>
+      <span style="font-size:.74rem;color:#c9cede">na účet · čistá ≈ ${fmt(o.cisty)} · hrubá ≈ ${fmt(o.hruba)} Kč</span>
+      ${sk ? `<span style="font-size:.74rem;color:#c9cede">výplatnice ${fmt(sk.dobirka)} Kč <b style="color:${rozdil >= 0 ? 'var(--income)' : 'var(--expense)'}">${rozdil >= 0 ? '+' : '−'}${fmt(Math.abs(Math.round(rozdil)))} Kč</b></span>` : ''}
+    </div>
+    <div style="font-size:.66rem;color:#a8aec8;line-height:1.5;margin-top:3px">Z výplatnice za ${zdroj} (tarif ${fmt(o.tarif)} Kč, PPÚ ${(Math.round(o.ppu * 100) / 100).toLocaleString('cs-CZ')} Kč/h, slevy na dani) a z hodin v tomto kalendáři:
+      fond ${fmt1(o.fond)} h, odpracováno ${fmt1(o.odpr)} h${o.hm.otNetH ? `, z toho přesčas ${fmt1(o.hm.otNetH)} h` : ', bez přesčasu'}. Prémie a mobilita podle Kč na odpracovanou hodinu z posledních pásek – ber ± pár set korun.
+      ${o.nemocH ? `<br>🤒 Nemoc ${fmt1(o.nemocH)} h: náhrada mzdy se neodhaduje (od 4. dne, z redukovaného průměru) – skutečnost bude o ni vyšší.` : ''}</div>
+    <details style="margin-top:6px"><summary style="font-size:.7rem;color:#c9cede;cursor:pointer">Rozpis odhadu</summary>
+      <div class="vg-tab" style="margin-top:6px"><table><thead><tr><th>Položka</th><th>h</th><th>Kč/h</th><th>Kč</th></tr></thead><tbody>${radky}
+        <tr class="vg-souhrn"><td>Hrubá mzda</td><td></td><td></td><td>${fmt(o.v.hruba)}</td></tr>
+        <tr><td style="white-space:normal">− zdravotní, sociální, daň</td><td></td><td></td><td>−${fmt(o.v.odvody)}</td></tr>
+        <tr><td>− srážky (průměr)</td><td></td><td></td><td>−${fmt(o.v.srazky)}</td></tr>
+        <tr class="vg-souhrn"><td>Na účet</td><td></td><td></td><td>${fmt(o.v.dobirka)}</td></tr></tbody></table></div></details>
+  </div>`;
 }
 
 // ── S16 (TODO-165): Kopírování úseku směn ──

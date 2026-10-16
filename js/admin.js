@@ -1,4 +1,4 @@
-// FinanceFlow · v11.77 · admin.js · 2026-10-14
+// FinanceFlow · v11.78 · admin.js · 2026-10-14
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,20 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.78',
+    datum: '2026-10-14',
+    zmeny: [
+      "🔭 MEGAGRAF VÝPLAT – NOVÁ KARTA (Milan: „jeden velký megagraf přes celou šířku se všemi daty, filtr, hlavní a vedlejší osa, interaktivní, s tabulkou“) · cesta: Kalendář → 🧾 Výplatnice → hned pod kartou měsíce. 30 řad v šesti skupinách (mzda, složky, odvody a srážky, hodiny, poměry, sazby) – mimo jiné přesčas v hodinách i Kč, odvody z přesčasu, co z přesčasu zůstalo, dovolená, paragraf / nemoc, noční, víkend, svátek, odvody %, čistého na hodinu, z 1 000 Kč zůstane. Klepnutí na řadu: H = hlavní osa vlevo → V = vedlejší osa vpravo (čárkovaně) → vypnout, nejvýš 6 najednou; barva zůstává řadě. Sloupce / skládané / čáry, období 12 m / 24 m / vše, šest rychlých pohledů. Pod grafem pás událostí (⏱ přesčas, 🏖 dovolená, 🩺 paragraf / nemoc, 🎁 odměna – velikost tečky = hodiny), výpis měsíce klepnutím a tabulka s průměrem a součtem. Na mobilu přes celou šířku.",
+      "❓ ZEPTEJ SE SVÝCH VÝPLAT (Milan: „otázky v bublině, po kliknutí odpověď, graf, tabulka“) · 7 otázek nad megagrafem: kolik mi z přesčasu sebere stát · kolikrát jsem byl na přesčasu · kolik čistého za hodinu přesčasu · kdy jsem měl dovolenou nebo paragraf · je 734 Kč z tisícovky konstanta · který měsíc byl nejlepší a proč · kolik mi dají víkendy a noci. Odpověď (text + tabulka) spočítá appka z pásek hned a přepne megagraf na odpovídající pohled. Nic se neodesílá; skutečné AI by potřebovalo nový endpoint ve workeru.",
+      "⏱ ODVODY Z PŘESČASU (Milan: „o kolik Kč / % mám větší odvody, když pracuji přesčas“) · páska se přepočítá BEZ přesčasu a rozdíl je přesně to, co z něj odešlo: u Milana 26,6 % (stejně jako z koruny základu), procento odvodů z celé hrubé stoupne jen o ~1 bod. V kartě Daně a odvody, v tabulce i v megagrafu.",
+      "🏛️ DANĚ A ODVODY (Milan: „filtr sloupců, chci vidět hrubou, čistou a přesčas; je 734 Kč konstanta?“) · filtr ZP / SP / daň / hrubá / čistá / přesčas; sloupce odvodů + čáry hrubé, čisté a přesčasu na jedné ose, pás přesčasů pod grafem. KPI „Přesčas za 12 měsíců: hodiny, Kč, odvody z něj, co zůstalo“. U „Z 1 000 Kč zůstane“ appka řekne, jestli je to konstanta (u Milana 734 Kč v 18 z 19 měsíců; jinak jen při nulové dani, zaokrouhlení nebo nad hranicí 23% daně). Tabulka má sloupce Přesčas / odvody z něj a Z 1 000 zůstane.",
+      "📈 PRÉMIE, PŘÍPLATKY A PŘESČAS (Milan: „rozložit na příplatky So+Ne+noční a přesčas, prémie sloupcový graf“) · prémie jako sloupce s průměrem, příplatky So+Ne / noční / svátek a přesčas jako dvě čáry, pás přesčasů. Složení hrubé mzdy má teď šest složek: pevná, příplatky, PŘESČAS, prémie, odměny, ostatní (barvy znovu ověřené validátorem; odměny jsou fialové).",
+      "💰 ODHAD VÝPLATY Z PÁSKY (Milan: „198 vážených hodin je kde?! V listopadu nemám přesčas, 33 500 mít nebudu. Výplatu za listopad dostanu v prosinci.“) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Když jsou výplatnice, odhad se skládá z POSLEDNÍ PÁSKY (tarif, PPÚ, slevy na dani) a HODIN tohoto měsíce v kalendáři: základ = tarif/fond × plánované hodiny, dovolená a paragraf = PPÚ × h, přesčas = tarif/fond × h + PPÚ × 25 % × h, noční / So+Ne / svátek = PPÚ × % × h, mobilita a prémie podle Kč na odpracovanou hodinu z posledních 3 pásek, pak pojistné, daň a průměrné srážky. Ukazuje na účet / čistou / hrubou, kdy výplata přijde, rozpis po položkách a srovnání s výplatnicí, když už je. Ověřeno zpětně na páskách březen–srpen 2026 (hrubá ± 1 000 Kč, základ, dovolená a přesčas na korunu). Dřívější „vážené hodiny“ jsou teď rozepsané (176 h + víkend × 10 % + svátek × 100 % + noční × 10 %).",
+      "🩺 KALENDÁŘ: NOVÝ TYP DNE PARAGRAF · placená překážka (lékař…), počítá se jako náhrada průměrem; v odhadu výplaty zkrátí základ a přidá náhradu.",
+      "🧪 tools/smoke_vyplatnice_mega.js – 38 testů (hodiny zpětně z pásky, odvody z přesčasu přesně, 734 Kč konstanta, backtest odhadu na skutečných páskách, listopad bez přesčasu < 33 500, přesčas a paragraf v odhadu, negativní kontrola starého odhadu, megagraf: řady, osy H/V, barvy, limit 6, pohledy, období, pás událostí, 7 otázek, karty Prémie a Daně, filtr); smoke_vyplatnice_ai.js upraven na nové složky.",
+    ],
+  },
   {
     verze: 'v11.77',
     datum: '2026-10-14',
