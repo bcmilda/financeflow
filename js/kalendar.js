@@ -1,4 +1,4 @@
-// FinanceFlow · v11.80 · kalendar.js · 2026-10-15
+// FinanceFlow · v11.81 · kalendar.js · 2026-10-15
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -731,15 +731,6 @@ function _workWageCard(cfg, y, m, daysInMonth) {
   //  S26 (v11.78): když jsou výplatnice, odhad se skládá z PÁSKY (tarif, PPÚ, příplatky) a hodin tohoto
   //  měsíce – ne ze sazby minulé výplaty, která v sobě nesla přesčasy (Milan: „33 500 mít rozhodně nebudu“).
   const odhadP = (typeof vyplOdhadMesice === 'function') ? vyplOdhadMesice(y, m) : null;
-  //  S26 (v11.80, Milan: „myslel jsem, že řešíme výplatu V listopadu“): co přijde na účet V TOMTO měsíci = výplata
-  //  za předchozí měsíc – z výplatnice, když už je, jinak odhad z kalendáře předchozího měsíce.
-  const prijde = (() => { try {
-    const pm = m === 0 ? 11 : m - 1, py = m === 0 ? y - 1 : y, pk = `${py}-${String(pm + 1).padStart(2, '0')}`;
-    const pz = (typeof vyplZaznamy === 'function') ? vyplZaznamy().find(z => z.m === pk) : null;
-    if (pz) return { castka: vyplDopocet(pz).dobirka, pasky: true, m: pm };
-    const o = (typeof vyplOdhadMesice === 'function') ? vyplOdhadMesice(py, pm) : null;
-    return o ? { castka: o.dobirka, pasky: false, m: pm } : null;
-  } catch (e) { return null; } })();
   if (!shiftDays && !vacH) return '';
   const breakH = grossH - payH;
   const salInfo = _workSalary(cfg, y, m);
@@ -773,10 +764,6 @@ function _workWageCard(cfg, y, m, daysInMonth) {
             <div style="font-size:.66rem;color:#a8aec8">výplata ÷ vážené hodiny (${fmt1(weightedH)} h = ${fmt1(payH + vacH)} h${weH ? ` + víkend ${fmt1(weH)} × ${cfg.bonusWe} %` : ''}${holH ? ` + svátek ${fmt1(holH)} × ${cfg.bonusHol} %` : ''}${nightH ? ` + noční ${fmt1(nightH)} × ${cfg.bonusNight} %` : ''}${otH ? ` + přesčas ${fmt1(Math.min(otH, payH))} × ${cfg.bonusOT} %` : ''})</div>
           </div>
         </div>
-        ${prijde ? `<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:9px 12px;border-radius:10px;background:var(--surface2);margin-bottom:10px">
-            <span style="font-size:.72rem;color:#a8aec8">📥 ${CZ_M[m]}: na účet přijde výplata za ${CZ_M[prijde.m].toLowerCase()}</span>
-            <span style="font-family:Syne;font-size:1.05rem;font-weight:800;color:#e8eaf2">${prijde.pasky ? '' : '≈ '}${fmt(Math.round(prijde.castka))} Kč</span>
-            <span style="font-size:.66rem;color:#a8aec8">${prijde.pasky ? 'podle výplatnice' : 'odhad z kalendáře'}</span></div>` : ''}
         ${odhadP ? _workOdhadZPaskyHTML(odhadP, m, y, fmt1) : odhad ? `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
           <div style="font-size:.7rem;color:#a8aec8">📈 Odhad čisté výplaty za ${CZ_M[m].toLowerCase()}</div>
           <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
@@ -868,7 +855,7 @@ function _workOdhadZPaskyHTML(o, m, y, fmt1) {
   const radky = o.pol.map(p => `<tr><td style="white-space:normal">${p.label}</td><td>${p.hodin ? fmt1(p.hodin) : ''}</td><td>${p.sazba ? (Math.round(p.sazba * 100) / 100).toLocaleString('cs-CZ') : ''}</td><td><b>${fmt(p.kc)}</b></td></tr>`).join('');
   //  Styl tabulky je ve výplatnicovém CSS – v režimu Práce se jinak nenačte.
   return (typeof VYPL_CSS !== 'undefined' ? VYPL_CSS : '') + `<div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.28);border-radius:10px;padding:10px 12px;margin-bottom:12px">
-    <div style="font-size:.7rem;color:#a8aec8">📈 Odhad výplaty ZA ${mes} (práce v tomto měsíci) – přijde ${o.vyplaceno}</div>
+    <div style="font-size:.7rem;color:#a8aec8">📈 Odhad výplaty za ${mes} – přijde ${o.vyplaceno}</div>
     <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
       <span style="font-family:Syne;font-size:1.25rem;font-weight:800;color:var(--income)">≈ ${fmt(o.dobirka)} Kč</span>
       <span style="font-size:.74rem;color:#c9cede">na účet · čistá ≈ ${fmt(o.cisty)} · hrubá ≈ ${fmt(o.hruba)} Kč</span>

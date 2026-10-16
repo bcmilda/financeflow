@@ -51,8 +51,8 @@ t('KPI čistý přivýdělek v roce, rozpad přesčas / svátek / noční / So+N
 t('graf: skládané sloupce po měsících + kumulativní čára na vedlejší ose, tabulka s kumulací',/id="vgNavic"/.test(h)&&/stroke-dasharray="6 4"/.test(h)&&/<th>Kumulativně<\/th>/.test(h));
 
 console.log('── výplata V měsíci, dovolená ──');
-t('Hodinová mzda: „V listopadu přijde výplata za říjen“ (výplatnice nebo odhad z kalendáře)',/na účet přijde výplata za \$\{CZ_M\[prijde\.m\]\.toLowerCase\(\)\}/.test(kal)&&/const pm = m === 0 \? 11 : m - 1/.test(kal));
-t('odhad je jasně „ZA měsíc (práce v tomto měsíci)“',/Odhad výplaty ZA \$\{mes\} \(práce v tomto měsíci\)/.test(kal));
+//  v11.81 (Milan): „Listopad: na účet přijde výplata za říjen“ nedává smysl – jeden měsíc = jedna výplata = jedno číslo.
+t('Hodinová mzda: jen odhad ZA zobrazený měsíc, žádný řádek „v měsíci přijde výplata za předchozí“',!/na účet přijde výplata za/.test(kal)&&!/const prijde =/.test(kal)&&/📈 Odhad výplaty za \$\{mes\} – přijde \$\{o\.vyplaceno\}/.test(kal));
 t('Zůstatek dovolené: za měsíce s výplatnicí z pásky, za ostatní z kalendáře (dřív jen kalendář → moc vysoký)',/vyčerpáno \$\{fmtH\(vacYear\)\} z \$\{fmtH\(cfg\.vacQuotaH\)\} h/.test(kal)&&/z pásek \$\{fmtH\(vacPasky\.h\)\} h/.test(kal)&&/!_mesPasky\.has\(k\.slice\(0, 7\)\)/.test(kal)&&/vacYear \+= vyplHodinyZPasky\(z\)\.dovolenaH/.test(kal));
 const dov26=data.filter(z=>z.m.startsWith('2026-')).reduce((a,z)=>a+c.vyplHodinyZPasky(z).dovolenaH,0);
 t('dovolená 2026 podle pásek: 88 h (leden 22, červen 11, červenec 33, srpen 22)',dov26===88,dov26);
