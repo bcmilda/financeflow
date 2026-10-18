@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · v11.68 · 2026-10-12 (S26: community/eanKartyLog cte admin; novy uzel community/eanZamky - zamek obchod+zkratka->EAN, zapisuje admin.)
+// FinanceFlow · database rules · v11.89 · 2026-10-17 (S27: FinanceFlow Inbox - users/$uid/inbox zapisuje sparovany telefon, inboxPairing, inboxLinks.)
 {
   "rules": {
     "users": {
@@ -116,7 +116,35 @@
               ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || newData.val() >= data.val()"
             }
           }
+        },
+        // S27 (v11.89): notifikace z banky z telefonu (FinanceFlow Inbox). Sparovany telefon smi jen PRIDAT
+        // novou polozku (nebo prepsat svou nezpracovanou pri opakovanem odeslani); cist ani mazat nesmi.
+        "inbox": {
+          "$id": {
+            ".write": "auth != null && root.child('inboxLinks').child(auth.uid).child('uid').val() === $uid && (!data.exists() || (data.child('dev').val() === auth.uid && !data.child('stav').exists()))",
+            ".validate": "newData.hasChildren(['text','postedAt']) && (auth.uid === $uid || newData.child('dev').val() === auth.uid)",
+            "text": { ".validate": "newData.isString() && newData.val().length <= 1000" },
+            "title": { ".validate": "newData.isString() && newData.val().length <= 300" },
+            "app": { ".validate": "newData.isString() && newData.val().length <= 100" }
+          }
         }
+      }
+    },
+    // S27 (v11.89): parovani telefonu. Telefon (anonymni prihlaseni) zalozi kod, uzivatel ho opise ve webu.
+    "inboxPairing": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.child('devUid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['devUid','created']) && newData.child('devUid').val() === auth.uid && $code.length >= 8"
+      }
+    },
+    // Propojeni telefon -> ucet. Zalozit smi jen ucet, ktery zna platny kod (max 15 minut stary);
+    // zrusit smi telefon i ucet.
+    "inboxLinks": {
+      "$dev": {
+        ".read": "auth != null && (auth.uid === $dev || data.child('uid').val() === auth.uid)",
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && !newData.exists() && (auth.uid === $dev || data.child('uid').val() === auth.uid)))",
+        ".validate": "newData.hasChildren(['uid','code']) && root.child('inboxPairing').child(newData.child('code').val()).child('devUid').val() === $dev && root.child('inboxPairing').child(newData.child('code').val()).child('created').val() > now - 900000"
       }
     },
     "leads": {

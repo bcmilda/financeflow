@@ -1,4 +1,4 @@
-// FinanceFlow · v11.77 · admin.js · 2026-10-14
+// FinanceFlow · v11.89 · admin.js · 2026-10-17
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,138 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.89',
+    datum: '2026-10-17',
+    zmeny: [
+      "📲 NOTIFIKACE Z BANKY Z TELEFONU (Milan: „nativní část pro parser notifikací, data převést do webového rozhraní“) · cesta: Import z banky (BETA) → 📲 Notifikace z telefonu. Nová Android appka FinanceFlow Inbox (samostatný projekt financeflow-native) čte notifikace jen z vybraných bankovních aplikací a posílá jejich text sem. Rozpozná je stávající parser webu. Propojení telefonu jednorázovým kódem (8 znaků, 15 minut), seznam propojených telefonů s Odpojit. 📥 Doručené: každou platbu ✅ přidáš do Transakcí (kategorie, název, peněženka), ✕ zahodíš, nerozpoznanou ✎ zapíšeš ručně. Nic se nezapíše samo.",
+      "🧾 SKEN PŘEVEZME PLATBU (Milan: „připojit k notifikacím i naskenovanou účtenku – sken ji převezme, protože je detailnější“) · když k platbě z notifikace existuje naskenovaná účtenka se stejnou částkou (± 1 Kč) a datem (± 2 dny), nabídne se „🧾 Spojit s účtenkou“ – nová transakce nevznikne, účtenka dostane vazbu a peněženku. Když účtenku naskenuješ až PO přidání platby, karta „Účtenka převezme platbu z notifikace“ transakci z notifikace nahradí účtenkou.",
+      "🔒 PRAVIDLA DATABÁZE v11.89 · users/$uid/inbox: propojený telefon smí jen PŘIDAT návrh (číst ani mazat nesmí); inboxPairing (kód zakládá telefon) a inboxLinks (propojení jen s platným kódem max 15 minut a jen na vlastní účet). Smazání účtu odpojí i telefony.",
+      "🧪 tools/smoke_inbox.js – 14 testů (rozpoznání z notifikace, datum z času notifikace, spojení s účtenkou, převzetí účtenkou, přidání do Transakcí, stav položky, napojení, pravidla).",
+    ],
+  },
+  {
+    verze: 'v11.88',
+    datum: '2026-10-17',
+    zmeny: [
+      "⛽ TANKOVÁNÍ Z NASKENOVANÉ ÚČTENKY (Milan: „transakci jsem musel zapsat ručně, jinak by se nezobrazila v tankování – ze skenu účtenky se data nepropsala, a na účtence je vidět i sleva za kupony“) · cesta: Měřidla → 🚗 Vozidla → karta „📷 Účtenky z benzínky → tankování“. Z položky paliva (EVO 95 · 22,27 l · 988,40 Kč · sleva) appka vezme litry, Kč jen za palivo (káva se nepočítá) a cenu u stojanu tak, aby „ušetřeno na kuponech“ = sleva z účtenky. Doplníš vozidlo a tachometr a „⛽ Zapsat“ – tankování se uloží k transakci účtenky, ruční transakce není potřeba. Při úpravě transakce účtenky má blok ⛽ tlačítko „📷 Doplnit z účtenky“.",
+      "🔭 MEGAGRAF NA SAMOSTATNÉ STRÁNCE (Milan: „megagraf jsem chtěl na samostatnou stránku u Výplatnice“) · cesta: Kalendář → 🧾 Výplatnice → přepínač 🧾 Výplatnice | 🔭 Megagraf. Stránka Megagraf má graf přes celou šířku a větší výšku, otázky a tabulku; v přehledu Výplatnice zůstal jen odkaz. Překryv „celá obrazovka“ z v11.87 zrušen. Volba stránky se pamatuje.",
+      "↕️ ŘAZENÍ V MEGAGRAFU (Milan: „seřaď mi graf hrubé mzdy od největší po nejmenší – řazení nám chybí“) · Podle času | ↓ Od největší | ↑ Od nejmenší – podle první řady na hlavní ose; graf i tabulka s pořadím 1., 2., …; při řazení se vypne kumulace.",
+      "❓ NOVÉ OTÁZKY · „Kolik dní a hodin dovolené mi zbývá?“ (stejný výpočet jako Zůstatek dovolené v pracovním kalendáři: nárok − pásky − kalendář, i naplánovaná; přepne graf na dovolenou od ledna kumulativně) a „Seřaď hrubou mzdu od největší po nejmenší“ (nejlepší a nejhorší měsíce, tabulka s pořadím).",
+      "🧪 tools/smoke_tank_uctenka.js (13 testů), smoke_vyplatnice_mega.js rozšířen (stránky, řazení, otázky).",
+    ],
+  },
+  {
+    verze: 'v11.87',
+    datum: '2026-10-16',
+    zmeny: [
+      "🔭 MEGAGRAF NA CELOU OBRAZOVKU, OSY TLAČÍTKY, OD LEDNA, KUMULATIVNĚ (Milan: „megagraf jsem si představoval na celou stránku“, „nevím, jak se mění hlavní a vedlejší osa“, „chci tracking od začátku roku – i kvůli dovolené“) · cesta: Kalendář → 🧾 Výplatnice → 🔭 Megagraf. ⛶ Celá obrazovka (graf přes výšku displeje, ✕ Zavřít). Nad grafem „Zobrazené řady a jejich osa“: u každé řady ◀ Hlavní | Vedlejší ▶ a ✕ – klepnutí na řadu v nabídce ji jen zapne / vypne (dřív skrytý cyklus H → V → vypnuto). Období „Od ledna RRRR“ a přepínač Po měsících / Kumulativně (průběžný součet dovolené, odpracovaných hodin, Kč).",
+      "🧾 PODEZŘELÉ: POLOŽKA ÚČTENKY = JINÁ TRANSAKCE (Milan: „naskenoval jsem účtenku z benzínky a přidal stejnou transakci – Podezřelé to neodhalily“) · Účtenka 1 022,40 Kč (benzín 988,40 + káva 34) a ruční 988,40 Kč se lišily v částce, žádné pravidlo je nevidělo. Nové pravidlo 🧾: transakce bez účtenky, jejíž částka se rovná položce účtenky ze stejného nebo vedlejšího dne; v přehledu všech měsíců filtr „🧾 Z účtenky“.",
+      "⛽ ÚPRAVA TRANSAKCE NESMAŽE TANKOVÁNÍ (Milan: „pozměnil jsem částku a zahodila se zapsaná data natankovaného paliva“, tankování zmizelo z Vozidel) · Uložení úpravy mazalo t.tank vždy, když formulář neměl podkategorii Palivo – a tu smazalo i klepnutí na už vybranou kategorii Auto. Teď: klepnutí na vybranou kategorii podkategorii nechá; když kategorie zůstane stejná, tankování (i podkategorie) zůstane. Smaže se jen při přesunu do jiné kategorie.",
+      "📅 DATUM ÚČTENKY: DEN A MĚSÍC PROHOZENÉ (Milan: „na účtence 1/10/2026, AI zapsalo 10. ledna 2026“) · cesta: Analýza účtenek → editor → pod datem. Když je přečtené datum v budoucnu nebo víc než 45 dní zpět a po prohození dne a měsíce vyjde nedávné datum, appka nabídne „↔ Prohodit na 1. 10. 2026“. Nemění samo.",
+      "🚗 VOZIDLA: GRAF CENY A KUPONY (Milan: „čára zasahuje do osy“, „kde jsem ušetřil 3 Kč na kuponech?“) · cesta: Měřidla → 🚗 Vozidla → detail. Popisky osy mají vlastní pruh, větší písmo. Dlaždice Ušetřeno na kuponech vysvětluje výpočet (cena u stojanu × litry − zaplaceno) a tabulka má sloupec Ušetřeno s litry × cenou u stojanu.",
+      "🧪 tools/smoke_s27_opravy.js (14 testů), smoke_vyplatnice_mega.js upraven (osy tlačítky, od ledna, kumulativně, celá obrazovka).",
+    ],
+  },
+  {
+    verze: 'v11.86',
+    datum: '2026-10-16',
+    zmeny: [
+      "🔎 TRANSAKCE: AKTIVNÍ FILTRY JSOU VIDĚT (Milan: „v Transakcích jsou starší transakce ve výběru a proklikávač ukazuje prosinec 2026“) · cesta: Transakce. Příčina: filtry z ⚙️ Filtr – hlavně „Hledat ve všech měsících“, které zapne i klik na tag – zůstaly aktivní i po zavření panelu a nadpis dál psal zvolený měsíc. Teď: pod nadpisem štítky aktivních filtrů (každý s ✕, „Zrušit filtry“), „⚙️ Filtr (N)“ zvýrazněný, při všech měsících nadpis „Transakce – všechny měsíce“. „✕ Vymazat“ ruší i všechny měsíce, šipka měsíce je vypne.",
+      "🔄 ZÁLOHY Z MĚŘIDLA DO TRANSAKCÍ (Milan: „zálohy z měřidla do budoucích plateb, ty do transakcí a ty do ročního zúčtování“; transakce zapisuje ručně) · cesta: Měřidla → 📟 Energie a voda → karta → ⚙️ → 🔄 Měsíční záloha: částka, den platby, peněženka a „Zapisovat do transakcí: ano – každý měsíc automaticky“. Vznikne opakovaná platba (🔄 Šablony, Budoucí platby, Příští měsíc) a z ní každý měsíc transakce zálohy s podkategorií a vazbou na měřidlo – odhad i vyúčtování v měřidle ji započítají. Změna částky upraví stejnou šablonu, vypnutí nebo smazání měřidla ji zruší (zapsané transakce zůstanou). Úprava šablony v Šablonách vazbu nesmaže.",
+      "💸 DOPLATEK / PŘEPLATEK HNED Z VYÚČTOVÁNÍ · po uložení vyúčtování s doplatkem nebo přeplatkem se v kartě rovnou otevře „Doplatek zaplacen / Přeplatek přišel“ s částkou – jedním klepnutím transakce s vazbou na vyúčtování (dřív jen přes Detail spotřeby).",
+      "🧪 tools/smoke_tx_filtry_zalohy.js – 22 testů (štítky filtrů, nadpis, ✕, Vymazat, šipka měsíce; šablona zálohy, transakce s vazbou, idempotence, změna, zrušení, nastavení, karta, doplatek z vyúčtování, smazání měřidla).",
+    ],
+  },
+  {
+    verze: 'v11.85',
+    datum: '2026-10-16',
+    zmeny: [
+      "⚙️ TARIF NAHOŘE, JEN U ELEKTŘINY (Milan: „zaškrtávací políčko vůbec nepoutalo pozornost, údaj měl být nahoře s rozbalovacím tlačítkem“, „dvoutarif zůstal i u vody a plynu – nesmysl“) · cesta: Měřidla → 📟 Energie a voda → karta → ⚙️. Hned pod Druhem rozbalovací Tarif: jeden tarif / dvoutarif – ☀️ VT (T1) + 🌙 NT (T2); u plynu, vody, tepla se neukazuje a dvoutarif se u nich neuloží. Zaškrtávátko zrušeno.",
+      "🔒 DRUH JAKO TEXT (Milan: „druh nejde změnit – v pořádku, ale proč je tam rozbalovací lišta?“) · u uloženého měřidla jen „⚡ Elektřina“ s poznámkou, že pro jiný druh se zakládá nové měřidlo. Výběr druhu zůstává u nového měřidla.",
+      "🔥 PLYN V m³ · nový plynoměr má výchozí jednotku m³ (plynoměr i aplikace dodavatele ukazují m³; dřív kWh). U vyúčtování plynu nápověda: opiš spotřebu v m³, stejně jako odečty.",
+      "📈 ZIMA PLYNU PODLE LOŇSKA · loňský den se použije i tehdy, když se nedá spočítat poměr letos / loni (letos zatím jen léto, loni jen zima). Dřív by se zima počítala letním průměrem: z odečtů z aplikace innogy (prosinec 2025 – říjen 2026) vycházelo období 30. 3. 2026 – 29. 3. 2027 ≈ 210 m³, teď ≈ 403 m³ (s listopadem 2025 ≈ 480 m³). Bez loňské zimy karta varuje „zima vyjde moc nízko – zapiš historii odečtů“.",
+      "🧪 smoke_meridla_karta.js rozšířen na 40 testů (tarif jen u elektřiny, druh jako text, plyn m³, zima podle loňska, varování).",
+    ],
+  },
+  {
+    verze: 'v11.84',
+    datum: '2026-10-16',
+    zmeny: [
+      "📟 MĚŘIDLA: KARTA MÍSTO VYSKAKOVACÍCH OKEN (Milan: „udělej stabilnější kartu místo vyskakovacího okna“) · cesta: Měřidla → 📟 Energie a voda → karta měřidla. Zapsat odečet, Zapsat vyúčtování, 📋 Odečty a vyúčtování, 📊 Detail spotřeby i ⚙️ nastavení se otevírají přímo v kartě (jeden panel, druhé klepnutí zavře). Rozepsané hodnoty přežijí synchronizaci z jiného zařízení.",
+      "☀️🌙 VT A NT PŘÍMO V ODEČTU (Milan: „chtěl jsem zapsat odečet, mám VT a NT“) · cesta: … → 📟 Zapsat odečet → „Elektroměr má: jeden tarif / ☀️ VT + 🌙 NT“. Dvoutarif byl v appce od v11.14, ale jen jako zaškrtávátko v ⚙️ nastavení (výchozí vypnuto) – v odečtu o něm nic nebylo. Popisky VT – vysoký tarif (T1), NT – nízký tarif (T2) jako u dodavatele. Pryč je vzorové „12480“ v poli stavu, které vypadalo jako zapsaná hodnota.",
+      "✎ ÚPRAVA A 🗑 MAZÁNÍ ODEČTŮ (Milan: „data nejdou smazat, upravit“) · cesta: … → 📋 Odečty a vyúčtování: každý odečet se stavem VT / NT a pod ním přírůstkem (+83) jako v aplikaci dodavatele, ✎ upravit (předvyplněné, „Uložit změny“, „Smazat“), 🗑 smazat; stejně u vyúčtování. ✎ i v tabulce Detailu spotřeby. Odečet na den, kde už jeden je, se zeptá na přepsání; pokles VT nebo NT se zeptá „nejsou VT a NT prohozené?“.",
+      "📋 VÍC ODEČTŮ NAJEDNOU · cesta: … → 📟 Zapsat odečet → 📋 Víc odečtů najednou: řádky „1.10.2026; 30895; 52650“ (i s mezerami v tisících), 🤖 pokyn pro AI ke screenshotu historie z aplikace dodavatele. Stejné datum jen jednou (dodavatel ukazuje fakturační odečet dvakrát), už zapsané dny se přeskočí.",
+      "📅 AKTUÁLNÍ OBDOBÍ JAKO U DODAVATELE · karta ukazuje období (30. 5. 2026 – 29. 5. 2027), spotřebováno do posledního odečtu (VT / NT), odhad za celé období s pruhem a srovnání „loni za stejné dny“. ⚙️ nové pole Fakturační období začíná. Nové měřidlo má výchozí vyúčtování ročně.",
+      "📈 PŘESNĚJŠÍ ODHAD · dny bez odečtu se odhadují podle LOŇSKÉHO průběhu ve stejné dny × poměr letos / loni (posledních 90 dní), bez loňských dat podle průměru – zimní měsíce už nepočítá letním průměrem. Na odečtech z aplikace innogy (prosinec 2025 – říjen 2026) vychází odhad období 1 484 kWh proti 1 508 kWh u dodavatele. Odečty s jedním stavem a s VT/NT se při výpočtu spotřeby nemíchají.",
+      "🧪 tools/smoke_meridla_karta.js – 33 testů (hromadný zápis, období, odhad podle loňska, karta, VT/NT, úprava, mazání, prohozené tarify, rozepsané hodnoty); smoke_meridla.js upraven na detail v kartě.",
+    ],
+  },
+  {
+    verze: 'v11.83',
+    datum: '2026-10-15',
+    zmeny: [
+      "🧾 ROČNÍ ZÚČTOVÁNÍ DANĚ – NOVÁ KARTA (Milan: „roční zúčtování zní zajímavě“) · cesta: Kalendář → 🧾 Výplatnice → za kartou Daně a odvody. Z pásek za rok: příjmy, základ daně (roční zaokrouhlení dolů na stovky), daň 15 % (a 23 % nad 36násobek průměrné mzdy), sleva na poplatníka za CELÝ rok, zvýhodnění na děti, zaplacené zálohy → PŘEPLATEK / nedoplatek a odkud je (sleva za měsíce bez výplaty, zaokrouhlení). Výběr roku; běžící rok se dopočítá průměrem známých měsíců. Doplnit jde jiný zaměstnavatel (příjem + zálohy), odpočty (hypotéka, dary, penzijko…) a zvýhodnění na děti za celý rok (uloží se k účtu). Termíny: žádost u zaměstnavatele do 15. 2., přeplatek ve výplatě za březen; když termín minul, upozorní na daňové přiznání. Částky zákona pro 2024–2026 (sleva 30 840 Kč, děti 15 204 / 22 320 / 27 840 Kč, průměrná mzda 2026 48 967 Kč). U Milana: 2025 přeplatek ≈ 2 800 Kč (sleva na poplatníka za leden – pásky od února).",
+      "🧪 tools/smoke_rocni_zuctovani.js – 13 testů (celý rok bez přeplatku, nástup v březnu = 2 × 2 570, odpočty, jiný zaměstnavatel, 23 % nad hranicí, Milanovy pásky 2025 a běžící 2026, karta).",
+    ],
+  },
+  {
+    verze: 'v11.82',
+    datum: '2026-10-15',
+    zmeny: [
+      "🥗 ŽIVINY – PRUH U VŠEHO (Milan: „proč není bar u energie, bílkovin a sacharidů?“) · cesta: Účtenky → Moje výrobky → karta výrobku → Nutriční hodnoty. Semafor (zelená / oranžová / červená) existuje jen pro tuky, nasycené, cukry a sůl. Energie, bílkoviny, sacharidy a vláknina mají teď NEUTRÁLNÍ modrý pruh: kolik % referenčního denního příjmu dá 100 g (2 000 kcal, 50 g bílkovin, 260 g sacharidů, 25 g vlákniny), s vysvětlivkou.",
+      "🅴 NUTRI-SCORE JEN Z OPEN FOOD FACTS (Milan: „nemohu ho ručně upravovat, a ty jsi tam ruční úpravu nechal“) · omluva – minule zůstalo „Opravit“. Teď ho ručně upravit ani uložit nejde (ani starý osobní zápis se nepoužije); u řádku „počítá Open Food Facts – ručně se neupravuje“, když chybí, odkaz na Open Food Facts.",
+      "🌍 PRÁZDNÁ POLE → OPEN FOOD FACTS (Milan: „data neznám, radši bych je nafotil – není to součástí Open Food Facts?“) · u výrobku s čárovým kódem mají prázdná pole Složení, Alergeny, Obal, Země původu, Prodává se v, Značka a Výrobce místo „Doplnit ručně“ odkaz „🌍 Doplnit na Open Food Facts ↗“ – v jejich aplikaci se obal vyfotí a složení přečtou zdarma, k nám se dostane při obnově karty. Vyplněný údaj jde dál opravit; u výrobků bez kódu zůstává ruční opis.",
+      "🏭 DOVOZCE jen když je známý (z fotky českého popisku / dřívějšího zápisu), jinak se řádek nezobrazuje (Milan: „pole je zbytečné“).",
+      "🏪 PRODEJNY BEZ DUPLICIT (Milan: „proč je 2× Penny Market Frýdek-Místek?“) · v Názvech z účtenek i v Mých nákupech je „Frydek Mistek“ = „Frýdek Místek“ jedna prodejna, ukáže se podoba s diakritikou.",
+      "✎ NÁZEV KARTY Z EAN (Milan: „přeskočila mi písmenka a už to nejde změnit“) · admin má v řádku Název z EAN „✎ Opravit název karty (admin)“ – zapíše do karty pro všechny a zamkne proti přepsání z Open Food Facts – a „🔄 Načíst znovu z Open Food Facts“ (hned, ne až po 90 dnech). Ostatní si název opraví v řádku Obal – CZ popisek (ten se v appce používá).",
+      "🔄 OBNOVA Z OPEN FOOD FACTS · worker obnovuje kartu po 90 dnech; dosud jen při skenu kódu. Nově se stará karta obnoví i při otevření (na pozadí, ruční úpravy zůstanou).",
+      "🧪 tools/smoke_karta_off.js – 11 testů (pruhy % denní dávky, Nutri-Score bez ruční úpravy, odkaz na Open Food Facts, Dovozce, obnova po 90 dnech, oprava názvu jen admin, prodejny s diakritikou).",
+    ],
+  },
+  {
+    verze: 'v11.81',
+    datum: '2026-10-15',
+    zmeny: [
+      "↩️ ZPĚT: řádek „Listopad: na účet přijde výplata za říjen“ odstraněn (Milan: „nedává to smysl – když chci vědět, kolik přijde za říjen, překliknu si měsíc. Jeden měsíc = jedna výplata = jedno číslo.“) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Zůstává jediné číslo: Odhad výplaty za zobrazený měsíc – přijde v následujícím.",
+    ],
+  },
+  {
+    verze: 'v11.80',
+    datum: '2026-10-15',
+    zmeny: [
+      "🧪 SIMULACE PŘESČASŮ V KALENDÁŘI (Milan: „kdybych v kalendáři nasimuloval 2 přesčasy a viděl, o kolik si finančně polepším“) · cesta: Kalendář → Práce → „🧪 Simulovat přesčasy“. Klepnutí na volný den: 1× denní přesčas, 2× noční, 3× zrušit (simulovaný den je čárkovaně s 🧪). Nahoře hned výsledek: +N směn (h, z toho noční / víkend / svátek) → na účet +X Kč, hrubého +, odvody z toho, čistého za hodinu a výplata místo. Nic se neukládá – „Ukončit simulaci“ vše smaže. Počítá se z výplatnice a hodin kalendáře (bez výplatnic ze starší sazby).",
+      "💪 PŘIVÝDĚLEK NAD RÁMEC – NOVÁ KARTA (Milan: „kolik jsem si přivydělal nad rámec běžné výplaty? Kumulativní sumář přesčasů, svátků, příplatků“) · cesta: Kalendář → 🧾 Výplatnice. Přesčas, svátek, noční, So+Ne a mimořádné odměny po rocích (2025 / 2026 / vše): čistý přivýdělek v roce (přesně – páska přepočtená bez těchto položek), hrubého, průměr na měsíc, rozpad po druzích (přesčas i hodiny a kolikrát), skládané sloupce po měsících + kumulativní čistý od začátku roku (vedlejší osa) a tabulka.",
+      "📥 VÝPLATA V MĚSÍCI vs. ZA MĚSÍC (Milan: „myslel jsem, že řešíme výplatu V listopadu“) · řádek „na účet přijde výplata za předchozí měsíc“ – v v11.81 zase odstraněn.",
+      "🏖 DOVOLENÁ (Milan: „sledujeme i vyčerpanou dovolenou?“) · cesta: Kalendář → Práce → Sumář → Zůstatek dov. Vyčerpaná dovolená se teď za měsíce s VÝPLATNICÍ bere z pásky, za ostatní z kalendáře (dřív jen z kalendáře – bez zapsaných starších měsíců byl zůstatek moc vysoký: u Milana 229 h místo ~141 h). Dlaždice ukazuje „vyčerpáno X z Y h · z pásek … + kalendář …“.",
+      "🔤 Procenta ve výplatnici s desetinnou čárkou (17,3 % místo 17.3 %).",
+      "🧪 tools/smoke_simulace_navic.js – 19 testů (simulace: jen volný den, denní/noční, 22 h, +3–4 tis. na účet, nic se neuloží; přivýdělek: srpen přesně, čistá část ~73,4 %, odměny, karta s roky a kumulací; výplata V měsíci; dovolená z pásek 88 h).",
+    ],
+  },
+  {
+    verze: 'v11.79',
+    datum: '2026-10-14',
+    zmeny: [
+      "🩺 PARAGRAF V KALENDÁŘI (Milan: „přidej do nabídky paragraf a kartičku – paragraf snižuje mzdu, peníze přijdou od státu“) · cesta: Kalendář → Práce → klepnout na den → typ dne 🩺 Paragraf (je i v legendě). V Sumáři nová dlaždice Paragraf: dny, hodiny a poznámka „snižuje mzdu, dávku vyplácí ČSSZ“. V odhadu výplaty se paragraf už NEPLATÍ průměrem (v11.78 ho bral jako dovolenou): zkrátí základ i hodinové položky (mobilita, prémie) a appka napíše, o kolik je mzda nižší; dávku (např. ošetřovné) vyplácí ČSSZ zvlášť, na výplatnici není.",
+      "⏱ PŘESČAS BEZ PŘESTÁVKY (Milan: „proč máme u přesčasu 12 h?“) · přesčasová směna 12 h = 11 h přesčasu (neplacená přestávka se nepočítá), stejně jako Odpracováno (14 × 11 + 11 = 165 h) a jako na výplatnici. Dlaždice Přesčasy ukáže „12 h ve směně − přestávka“, Odpracováno „z toho přesčas 11 h“; stejně se počítají vážené hodiny a odhad výplaty.",
+      "📋 SUMÁŘ – SROZUMITELNÉ SMĚNY (Milan: „proč je v kartě zkratka směn + přesč.?“) · místo „14+1 směn + přesč.“ je „14 směn“ a pod tím „+ 1 přesčasová směna“. U Nemoci poznámka „náhrada od 4. dne, pak ČSSZ“.",
+      "🧪 smoke_vyplatnice_mega.js – +2 testy (paragraf neplacený, přesčas 12 h = 11 h, Sumář bez zkratky, dlaždice Paragraf).",
+    ],
+  },
+  {
+    verze: 'v11.78',
+    datum: '2026-10-14',
+    zmeny: [
+      "🔭 MEGAGRAF VÝPLAT – NOVÁ KARTA (Milan: „jeden velký megagraf přes celou šířku se všemi daty, filtr, hlavní a vedlejší osa, interaktivní, s tabulkou“) · cesta: Kalendář → 🧾 Výplatnice → hned pod kartou měsíce. 30 řad v šesti skupinách (mzda, složky, odvody a srážky, hodiny, poměry, sazby) – mimo jiné přesčas v hodinách i Kč, odvody z přesčasu, co z přesčasu zůstalo, dovolená, paragraf / nemoc, noční, víkend, svátek, odvody %, čistého na hodinu, z 1 000 Kč zůstane. Klepnutí na řadu: H = hlavní osa vlevo → V = vedlejší osa vpravo (čárkovaně) → vypnout, nejvýš 6 najednou; barva zůstává řadě. Sloupce / skládané / čáry, období 12 m / 24 m / vše, šest rychlých pohledů. Pod grafem pás událostí (⏱ přesčas, 🏖 dovolená, 🩺 paragraf / nemoc, 🎁 odměna – velikost tečky = hodiny), výpis měsíce klepnutím a tabulka s průměrem a součtem. Na mobilu přes celou šířku.",
+      "❓ ZEPTEJ SE SVÝCH VÝPLAT (Milan: „otázky v bublině, po kliknutí odpověď, graf, tabulka“) · 7 otázek nad megagrafem: kolik mi z přesčasu sebere stát · kolikrát jsem byl na přesčasu · kolik čistého za hodinu přesčasu · kdy jsem měl dovolenou nebo paragraf · je 734 Kč z tisícovky konstanta · který měsíc byl nejlepší a proč · kolik mi dají víkendy a noci. Odpověď (text + tabulka) spočítá appka z pásek hned a přepne megagraf na odpovídající pohled. Nic se neodesílá; skutečné AI by potřebovalo nový endpoint ve workeru.",
+      "⏱ ODVODY Z PŘESČASU (Milan: „o kolik Kč / % mám větší odvody, když pracuji přesčas“) · páska se přepočítá BEZ přesčasu a rozdíl je přesně to, co z něj odešlo: u Milana 26,6 % (stejně jako z koruny základu), procento odvodů z celé hrubé stoupne jen o ~1 bod. V kartě Daně a odvody, v tabulce i v megagrafu.",
+      "🏛️ DANĚ A ODVODY (Milan: „filtr sloupců, chci vidět hrubou, čistou a přesčas; je 734 Kč konstanta?“) · filtr ZP / SP / daň / hrubá / čistá / přesčas; sloupce odvodů + čáry hrubé, čisté a přesčasu na jedné ose, pás přesčasů pod grafem. KPI „Přesčas za 12 měsíců: hodiny, Kč, odvody z něj, co zůstalo“. U „Z 1 000 Kč zůstane“ appka řekne, jestli je to konstanta (u Milana 734 Kč v 18 z 19 měsíců; jinak jen při nulové dani, zaokrouhlení nebo nad hranicí 23% daně). Tabulka má sloupce Přesčas / odvody z něj a Z 1 000 zůstane.",
+      "📈 PRÉMIE, PŘÍPLATKY A PŘESČAS (Milan: „rozložit na příplatky So+Ne+noční a přesčas, prémie sloupcový graf“) · prémie jako sloupce s průměrem, příplatky So+Ne / noční / svátek a přesčas jako dvě čáry, pás přesčasů. Složení hrubé mzdy má teď šest složek: pevná, příplatky, PŘESČAS, prémie, odměny, ostatní (barvy znovu ověřené validátorem; odměny jsou fialové).",
+      "💰 ODHAD VÝPLATY Z PÁSKY (Milan: „198 vážených hodin je kde?! V listopadu nemám přesčas, 33 500 mít nebudu. Výplatu za listopad dostanu v prosinci.“) · cesta: Kalendář → Práce → 💰 Hodinová mzda. Když jsou výplatnice, odhad se skládá z POSLEDNÍ PÁSKY (tarif, PPÚ, slevy na dani) a HODIN tohoto měsíce v kalendáři: základ = tarif/fond × plánované hodiny, dovolená a paragraf = PPÚ × h, přesčas = tarif/fond × h + PPÚ × 25 % × h, noční / So+Ne / svátek = PPÚ × % × h, mobilita a prémie podle Kč na odpracovanou hodinu z posledních 3 pásek, pak pojistné, daň a průměrné srážky. Ukazuje na účet / čistou / hrubou, kdy výplata přijde, rozpis po položkách a srovnání s výplatnicí, když už je. Ověřeno zpětně na páskách březen–srpen 2026 (hrubá ± 1 000 Kč, základ, dovolená a přesčas na korunu). Dřívější „vážené hodiny“ jsou teď rozepsané (176 h + víkend × 10 % + svátek × 100 % + noční × 10 %).",
+      "🩺 KALENDÁŘ: NOVÝ TYP DNE PARAGRAF · placená překážka (lékař…), počítá se jako náhrada průměrem; v odhadu výplaty zkrátí základ a přidá náhradu.",
+      "🧪 tools/smoke_vyplatnice_mega.js – 38 testů (hodiny zpětně z pásky, odvody z přesčasu přesně, 734 Kč konstanta, backtest odhadu na skutečných páskách, listopad bez přesčasu < 33 500, přesčas a paragraf v odhadu, negativní kontrola starého odhadu, megagraf: řady, osy H/V, barvy, limit 6, pohledy, období, pás událostí, 7 otázek, karty Prémie a Daně, filtr); smoke_vyplatnice_ai.js upraven na nové složky.",
+    ],
+  },
   {
     verze: 'v11.77',
     datum: '2026-10-14',
@@ -9500,6 +9632,8 @@ function clearTxFilters() {
   ['txTagFilter','txSearchFilter'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
+  //  S27 (v11.86): „Vymazat“ ruší i „Hledat ve všech měsících“ (dřív zůstalo zaškrtnuté)
+  const allM = document.getElementById('txSearchAllMonths'); if(allM) allM.checked = false;
   renderTx();
 }
 

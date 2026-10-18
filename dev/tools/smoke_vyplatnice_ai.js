@@ -55,10 +55,10 @@ el.vyplImportText={value:JSON.stringify([pk])}; el.vyplImportVysledek={innerHTML
 cizi.vyplImportSpustit();
 const sab=cizi.S.payslipTemplate;
 t('cizí páska prošla kontrolou (daň a pojistné opsané z pásky, ne z českého vzorce)',cizi.S.payslips.length===1,el.vyplImportVysledek.innerHTML);
-t('nové položky jsou v šabloně i se složkou',sab&&sab.prijmy.find(x=>x.key==='priplatekOdpoledni').slozka==='zaCas'&&sab.srazky.some(x=>x.key==='stravenky')&&sab.pripocty.some(x=>x.key==='stravenkovyPausal'));
+t('nové položky jsou v šabloně i se složkou',sab&&sab.prijmy.find(x=>x.key==='priplatekOdpoledni').slozka==='priplatky'&&sab.srazky.some(x=>x.key==='stravenky')&&sab.pripocty.some(x=>x.key==='stravenkovyPausal'));
 const v=cizi.vyplDopocet(cizi.S.payslips[0]), r=cizi.vyplRozklad(cizi.S.payslips[0]);
 t('stravenkový paušál se k dobírce přičte',v.pripocty===2200&&v.dobirka===38056,v);
-t('rozklad podle šablony: pevná / příplatky / odměny',r.pevna===40000&&r.zaCas===1200&&r.odmeny===5000&&r.premie===0,r);
+t('rozklad podle šablony: pevná / příplatky / odměny',r.pevna===40000&&r.priplatky===1200&&r.zaCas===1200&&r.odmeny===5000&&r.premie===0,r);
 const spatne=mk(src.replace(/^const VYPL_POVAHY/m,'var S=this.S;\nconst VYPL_POVAHY'));
 el.vyplImportText={value:JSON.stringify([{...pk,ocekavano:{hruba:47000}}])}; el.vyplImportVysledek={innerHTML:''};
 spatne.vyplImportSpustit();
@@ -80,14 +80,14 @@ if(c.S.payslips.length>=19){
   t('karta měsíce: daň před slevami, slevy, odvody v % a srovnání s minulým měsícem',kar.includes('Daň před slevami')&&kar.includes('Sleva na poplatníka')&&kar.includes('Daňové zvýhodnění na děti')&&/Odvody celkem/.test(kar)&&/Oproti červenec 2026/.test(kar));
   t('karta měsíce: hlavička pásky (fond, odpracováno, tarif, PPÚ)',/Fond <b>/.test(kar)&&/Tarif <b>/.test(kar)&&/Průměr PPÚ <b>/.test(kar));
   t('podíl pevné: stupnice od 60 do 90 %, mřížka, průměrná čára a hodnoty u min/max/posledního',/>60 %<\/div>/.test(html)&&/>90 %<\/div>/.test(html)&&/class="vg-avg"[^>]*><span>⌀ 7\d %/.test(html)&&(html.match(/class="vg-hl"/g)||[]).length>=3);
-  t('složení: filtr složek, osa v Kč, popisky měsíců, tabulka s průměrem a součtem',/onclick="vyplFiltr\('zaCas'\)"/.test(html)&&/>40 tis\.<\/div>/.test(html)&&/class="vg-x"/.test(html)&&/<td>Průměr<\/td>/.test(html)&&/<td>Součet<\/td>/.test(html));
+  t('složení: filtr složek, osa v Kč, popisky měsíců, tabulka s průměrem a součtem',/onclick="vyplFiltr\('priplatky'\)"/.test(html)&&/>40 tis\.<\/div>/.test(html)&&/class="vg-x"/.test(html)&&/<td>Průměr<\/td>/.test(html)&&/<td>Součet<\/td>/.test(html));
   t('čárový graf prémie × příplatky (jedna osa, dvě čáry)',/id="vgPremie"/.test(html)&&(html.slice(html.indexOf('id="vgPremie"')).match(/<polyline/g)||[]).length>=2);
   t('karta Daně a odvody: ZP / SP / daň po měsících, sazba, tabulka',/🏛️ Daně a odvody/.test(html)&&/id="vgOdvody"/.test(html)&&/Z 1 000 Kč hrubého navíc ti zůstane/.test(html)&&/<th>Sazba<\/th>/.test(html));
   t('karta Mimořádné odměny: roční prémie i vánoční příspěvek podle roků',/🎁 Mimořádné odměny/.test(html)&&/Roční prémie/.test(html)&&/Vánoční příspěvek/.test(html));
   t('srážky po měsících: stravování i el. peněženka, ⌀ a tabulka',/id="vgSrazky"/.test(html)&&/Elektronická peněženka <span class="vk-pozn">\d+× · ⌀/.test(html));
   t('klepnutí = výpis měsíce pod grafem (funguje i na mobilu)',/onclick="vyplVyber\('vgPevna',\d+\)"/.test(html)&&/id="vgPevna_ct"/.test(html));
   c._vyplFiltrAkt=null; c.window._vyplFiltrAkt=['zaCas'];
-  vm.runInContext('window._vyplFiltrAkt=["zaCas"]',c);
+  vm.runInContext('window._vyplFiltrAkt=["priplatky"]',c);
   const fil=vm.runInContext('_vyplSlozeniObsah(window._vyplRada)',c);
   t('filtr „Příplatky“: jen ta složka, stupnice se přizpůsobí, barva zůstane',!/background:#16a34a"><\/div>/.test(fil.slice(fil.indexOf('vg-bars')))&&/background:#3b82f6/.test(fil)&&!/>40 tis\./.test(fil));
 }

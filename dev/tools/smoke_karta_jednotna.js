@@ -33,13 +33,14 @@ t('klíč stabilní pro stejnou položku',ctx.mapaKartaKlic({klic:zN.klic,nazev:
 t('klíč s kódem: „e“ + číslice',kE==='e8590000000017',kE);
 t('živiny poznají osobní kartu podle klíče',ctx.eanZivinyLokalni(kN)&&!ctx.eanZivinyLokalni('8590000000017'));
 // stejná políčka
-const POLE=['EAN / GTIN','Název z EAN','Obal – přední strana','Obal – CZ popisek','Značka','Výrobce','Dovozce','Čisté množství','Typ výrobku','>Obal<','Země původu','Prodává se v','Nutri-Score','Složení','Alergeny','Nutriční hodnoty'];
+//  v11.82 (Milan): Dovozce jen když je známý – mezi povinnými políčky už není.
+const POLE=['EAN / GTIN','Název z EAN','Obal – přední strana','Obal – CZ popisek','Značka','Výrobce','Čisté množství','Typ výrobku','>Obal<','Země původu','Prodává se v','Nutri-Score','Složení','Alergeny','Nutriční hodnoty'];
 const kartaN=ctx.mapaUzivKartaHTML(iN,null);
 const kartaE=ctx.mapaUzivKartaHTML(iE,{stav:'nalezeno',nazev:'Jogurt bílý',zdroj:'Open Food Facts'});
 t('karta BEZ kódu má všechna políčka',POLE.every(x=>kartaN.includes(x)),POLE.filter(x=>!kartaN.includes(x)));
 t('karta S kódem má stejná políčka',POLE.every(x=>kartaE.includes(x)),POLE.filter(x=>!kartaE.includes(x)));
 t('prázdná políčka = „----“',(kartaN.match(/class="mk-nic">----</g)||[]).length>=10);
-t('bez kódu: ručně doplnit přední stranu, CZ popisek, značku, výrobce, dovozce',['nazevObal','nazevPopisek','znacka','vyrobce','dovozce'].every(p=>kartaN.includes(`mapaKartaUprav(${iN},'${p}')`)));
+t('bez kódu: ručně doplnit přední stranu, CZ popisek, značku, výrobce (Dovozce jen když je známý)',!kartaN.includes('Dovozce')&&['nazevObal','nazevPopisek','znacka','vyrobce'].every(p=>kartaN.includes(`mapaKartaUprav(${iN},'${p}')`)));
 t('s kódem: přední strana i vyfotit, i opsat ručně (Milan)',kartaE.includes("eanFoto('8590000000017','obal',mapaUzivFotoHotovo)")&&kartaE.includes(`mapaKartaUprav(${iE},'nazevObal')`));
 t('s kódem: CZ popisek opravit + vyfotit',kartaE.includes("eanNazevUprav('8590000000017','mk_8590000000017')")&&kartaE.includes("eanFoto('8590000000017','popisek',mapaUzivFotoHotovo)"));
 t('bez kódu: živiny zadat ručně do osobní karty, bez fotky',kartaN.includes(`eanZivinyForm('${kN}','mapaUzivFotoHotovo')">✍️ Zadat ručně`)&&!kartaN.includes("'ziviny',mapaUzivFotoHotovo"));

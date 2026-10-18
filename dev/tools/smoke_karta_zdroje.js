@@ -119,22 +119,25 @@ function konec() {
   t('karta: čip 🌍 Open Food Facts u převzatých údajů', /id="mkp_znacka"[^]*?mk-z-off[^>]*>🌍 Open Food Facts/.test(k));
   t('karta: čip 🇨🇿 komunita u ručně opravených + „Open Food Facts uvádí“', /id="mkp_puvod"[^]*?mk-z-komunita[^>]*>🇨🇿 komunita[^]*?Open Food Facts uvádí: Slovensko/.test(k));
   t('karta: balení z databáze česky (1 kg)', /id="mkp_mnozstvi" data-hodnota="1 kg"/.test(k));
-  const POLE = ['znacka', 'vyrobce', 'dovozce', 'mnozstvi', 'konkretni', 'obal', 'puvod', 'zeme', 'nutriscore', 'slozeni', 'alergeny'];
-  t('karta s kódem: KAŽDÉ políčko jde opravit/doplnit', POLE.every(p => k.includes(`mapaKartaUprav(${iE},'${p}')`)), POLE.filter(p => !k.includes(`mapaKartaUprav(${iE},'${p}')`)));
+  //  v11.82 (Milan): Nutri-Score jen z Open Food Facts (ručně ne); prázdné pole, které Open Food Facts umí, se u výrobku
+  //  s kódem doplní tam („🌍 Doplnit na Open Food Facts“); vyplněné jde opravit; Dovozce jen když je známý.
+  const POLE = ['znacka', 'vyrobce', 'mnozstvi', 'konkretni', 'obal', 'puvod', 'zeme', 'slozeni', 'alergeny'];
+  const jde = (html, i, p) => html.includes(`mapaKartaUprav(${i},'${p}')`) || new RegExp(`id="mkp_${p}" data-hodnota=""[^]*?Doplnit na Open Food Facts`).test(html);
+  t('karta s kódem: každé políčko jde opravit, prázdné doplnit na Open Food Facts; Nutri-Score ručně ne', POLE.every(p => jde(k, iE, p)) && !k.includes(`mapaKartaUprav(${iE},'nutriscore')`), POLE.filter(p => !jde(k, iE, p)));
   const kn = c.mapaUzivKartaHTML(iN, null);
-  t('karta bez kódu: stejná políčka, také upravitelná', POLE.every(p => kn.includes(`mapaKartaUprav(${iN},'${p}')`)));
+  t('karta bez kódu: stejná políčka, ručně upravitelná (Nutri-Score ne)', POLE.every(p => kn.includes(`mapaKartaUprav(${iN},'${p}')`)) && !kn.includes(`mapaKartaUprav(${iN},'nutriscore')`));
   t('s kódem a kartou → oprava pro všechny; bez kódu → osobní', c.mapaKartaKomunitni(d[iE], 'znacka') && !c.mapaKartaKomunitni(d[iN], 'znacka') && !c.mapaKartaKomunitni(d[iE], 'nazevObal'));
   t('s kódem, karta se načítá → zatím bez tlačítek', !c.mapaUzivKartaHTML(iE, null).includes(`mapaKartaUprav(${iE},'znacka')`));
   c.mapaKartaLokUloz(d[iN], { mnozstvi: '80 g', nutriscore: 'd' });
   const kn2 = c.mapaUzivKartaHTML(iN, null);
-  t('osobní zápis: ✍️ tvůj zápis + Nutri-Score jako štítek', /id="mkp_mnozstvi" data-hodnota="80 g"[^]*?mk-z-ty/.test(kn2) && /id="mkp_nutriscore"[^>]*><span style="background:#ee8100[^>]*>D</.test(kn2));
+  t('osobní zápis: ✍️ tvůj zápis; starý ruční Nutri-Score se nepoužije (jen z Open Food Facts)', /id="mkp_mnozstvi" data-hodnota="80 g"[^]*?mk-z-ty/.test(kn2) && /id="mkp_nutriscore" data-hodnota=""/.test(kn2));
   // jedna karta všude: naskenovaný výrobek bez účtenky
   vm.runInContext('_eanProdukty["4000000000006"] = ' + JSON.stringify({ stav: 'nalezeno', zdroj: 'Open Food Facts', nazev: 'Schokolade', nazevCs: 'Čokoláda', znacka: 'Milka' }), c);
   const iS = c.mapaKartaIndex('4000000000006');
   t('výrobek bez účtenky dostane kartu (syntetická položka)', iS >= 100000 && c._mapaZ(iS).synt && c._mapaZ(iS).ean === '4000000000006');
   t('stejný kód → stejná karta, položka z účtenky má přednost', c.mapaKartaIndex('4000000000006') === iS && c.mapaKartaIndex('8590000000017') === iE);
   const ks = c.mapaUzivKartaHTML(iS, vm.runInContext('_eanProdukty["4000000000006"]', c));
-  t('karta bez účtenky: stejná políčka + přiřazení, bez rozpočtu a „Změnit“', POLE.every(p => ks.includes(`mapaKartaUprav(${iS},'${p}')`)) && ks.includes("eanOtevriNaskenovany('4000000000006')") && !ks.includes('💼 Rozpočet') && !ks.includes('mapaUzivKartaSken(') && ks.includes('zatím není na účtence'));
+  t('karta bez účtenky: stejná políčka + přiřazení, bez rozpočtu a „Změnit“', POLE.every(p => jde(ks, iS, p)) && ks.includes("eanOtevriNaskenovany('4000000000006')") && !ks.includes('💼 Rozpočet') && !ks.includes('mapaUzivKartaSken(') && ks.includes('zatím není na účtence'));
   t('přepočet Mapy syntetickou kartu nesmaže', (() => { vm.runInContext('_mapaUziv = mapaUzivData(_mapaUzivReceipts)', c); return !!c._mapaZ(iS); })());
   t('ceny v kraji u karty bez účtenky nepadají', R('ceny-kraje.js', '../js/ceny-kraje.js').includes("if (z.synt) {"));
   console.log(`\nsmoke_karta_zdroje: ${ok} ✅  ${bad} ❌`);

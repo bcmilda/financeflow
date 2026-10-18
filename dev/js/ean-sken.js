@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · ean-sken.js · 2026-10-12
+// FinanceFlow · v11.82 · ean-sken.js · 2026-10-15
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -77,6 +77,12 @@ async function eanNactiProdukt(ean) {
   //  skenu. Karta ho četla přímo z databáze, takže zůstal bez českého názvu.
   //  Teď ho karta jednou pošle přes worker, ten AI zavolá a výsledek uloží.
   const p = _eanProdukty[ean];
+  //  S26 (v11.82, Milan: „za jak dlouho se spárují nová data z Open Food Facts?“): karta se čte přímo
+  //  z databáze a worker ji obnovuje jen při skenu po 90 dnech. Starší karta se teď obnoví i při
+  //  otevření (na pozadí, worker sloučí – ruční úpravy zůstanou).
+  if (p && p.kdy && Date.now() - p.kdy > 90 * 86400000) {
+    eanDotaz({ ean }).then(d => { if (d && d.produkt) _eanProdukty[ean] = d.produkt; }).catch(() => {});
+  }
   if (p && p.stav === 'nalezeno' && !p.aiKdy && !p.nazevCesky) {
     try { const d = await eanDotaz({ ean }); if (d && d.produkt) _eanProdukty[ean] = d.produkt; } catch (e) {}
   }
@@ -142,10 +148,20 @@ function eanNutriceHTML(n) {
         <div style="width:${sirka}%;height:100%;background:${barva[u]}"></div></div>
     </div>`;
   }).join('');
-  const ostatni = [['kcal', 'Energie', ' kcal'], ['bilkoviny', 'Bílkoviny', ' g'], ['sacharidy', 'Sacharidy', ' g'], ['vlaknina', 'Vláknina', ' g']]
+  //  S26 (v11.82, Milan: „proč není bar u energie, bílkovin a sacharidů?“): semafor (zelená/oranžová/červená)
+  //  existuje jen pro tuky, nasycené, cukry a sůl. U ostatních je pruh NEUTRÁLNÍ – kolik % referenčního
+  //  denního příjmu dospělého dá 100 g (EU 1169/2011: 2 000 kcal, 50 g bílkovin, 260 g sacharidů;
+  //  vláknina 25 g podle EFSA). Hodnotí se jen to, pro co je pravidlo; zbytek je informace.
+  const ri = [['kcal', 'Energie', ' kcal', 2000], ['bilkoviny', 'Bílkoviny', ' g', 50], ['sacharidy', 'Sacharidy', ' g', 260], ['vlaknina', 'Vláknina', ' g', 25]]
     .filter(([k]) => n[k] != null)
-    .map(([k, l, j]) => `<div style="display:flex;justify-content:space-between;font-size:.74rem"><span style="color:#a8aec8">${l}</span><span>${fmt(n[k])}${j}</span></div>`).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 16px">${ostatni}</div>${pasky}`;
+    .map(([k, l, j, ref]) => { const pct = Math.round(n[k] / ref * 100);
+      return `<div style="margin:5px 0">
+      <div style="display:flex;justify-content:space-between;font-size:.74rem"><span style="color:#a8aec8">${l}</span>
+        <span style="color:var(--text)">${fmt(n[k])}${j} <span style="color:#93c5fd;font-size:.66rem">· ${pct} % denní dávky</span></span></div>
+      <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px">
+        <div style="width:${Math.max(3, Math.min(100, pct))}%;height:100%;background:#60a5fa"></div></div>
+    </div>`; }).join('');
+  return `${ri}${pasky}<div style="font-size:.62rem;color:#8b93ad;margin-top:4px;line-height:1.45">Modrý pruh = % referenčního denního příjmu ve 100 g (2 000 kcal, 50 g bílkovin, 260 g sacharidů, 25 g vlákniny). Semafor jen u tuků, cukrů a soli, kde je pravidlo.</div>`;
 }
 Object.assign(window, { eanNactiProdukt, eanNactiAliasy, eanAliasPro, eanNutriceHTML, eanSemaforUroven });
 

@@ -1,4 +1,4 @@
-// FinanceFlow · v10.18 · sms-import.js · 2026-08-28
+// FinanceFlow · v11.89 · sms-import.js · 2026-10-17
 // ══════════════════════════════════════════════════════
 //  SMS / NOTIFIKACE IMPORT – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -438,7 +438,8 @@ let _smsSelected = new Set();
 
 function renderSmsImport() {
   const el = document.getElementById('smsContent'); if (!el) return;
-  el.innerHTML = `
+  //  S27 (v11.89): 📲 notifikace z telefonu (appka FinanceFlow Inbox) – inbox.js
+  el.innerHTML = `<div id="inboxBox"></div>
     <div class="card" style="margin-bottom:12px">
       <div style="font-weight:600;font-size:.88rem;margin-bottom:6px;display:flex;align-items:center;gap:8px">📱 Vložit notifikaci z banky
         <span style="font-size:.6rem;background:rgba(251,191,36,.2);color:var(--debt);padding:1px 6px;border-radius:4px;font-weight:700;letter-spacing:.03em">BETA</span>
@@ -485,6 +486,7 @@ KB Alert: Platba 180 Kč McDONALD S"
     <!-- Výsledky -->
     <div id="smsResults"></div>
   `;
+  if (typeof inboxRender === 'function') inboxRender();
 }
 
 function smsParseInput() {

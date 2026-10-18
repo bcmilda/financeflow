@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · premium.js · 2026-10-08
+// FinanceFlow · v11.86 · premium.js · 2026-10-16
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1082,6 +1082,8 @@ function saveSablona() {
   }
   if(!S.sablony)S.sablony=[];
   if(_freq==='once'){ s.onceDate=_onceDate; s.auto=true; s.den=parseInt(_onceDate.slice(8,10))||1; }
+  //  S27 (v11.86): šablona zálohy z měřidla si drží podkategorii a vazbu na měřidlo i po úpravě tady
+  if(eid){const _o=S.sablony.find(x=>x.id===eid); if(_o&&_o.energie){ s.energie=_o.energie; if(_o.subcat&&s.catId===_o.catId) s.subcat=_o.subcat; }}
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
   else S.sablony.push(s);
   save(); closeModal('modalSablona'); renderSablonaList();
@@ -1104,7 +1106,9 @@ function useSablonaId(id) {
       {id:uid(),name:txName,amount:s.amount,amt:s.amount,type:'income', date:_dateStr,wallet:s.walletTo||null,note:s.note||'Z šablony: '+s.name,transferId,category:'transfer',catId:'transfer'}
     );
   } else {
-    S.transactions.push({id:uid(),name:s.name,amount:s.amount,type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null});
+    const _t={id:uid(),name:s.name,amount:s.amount,type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
+    if(s.subcat) _t.subcat=s.subcat; if(s.energie) _t.energie=Object.assign({},s.energie);   // S27 (v11.86)
+    S.transactions.push(_t);
   }
   save();
   showPageByName('transakce');
@@ -1149,6 +1153,8 @@ function processAutoSablony() {
       if(S.transactions.some(t=>t.date===s.onceDate && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.done=true; return; }
       const tx1={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) tx1.debtId=s.debtId;
+      if(s.subcat) tx1.subcat=s.subcat;
+      if(s.energie) tx1.energie=Object.assign({},s.energie);
       if(s.type==='transfer'){
         const trid=uid();
         S.transactions.push(
@@ -1180,6 +1186,9 @@ function processAutoSablony() {
     } else {
       const tx={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) tx.debtId=s.debtId;
+      //  S27 (v11.86): záloha z měřidla – podkategorie a vazba na měřidlo (📟 Energie a voda ji čte)
+      if(s.subcat) tx.subcat=s.subcat;
+      if(s.energie) tx.energie=Object.assign({},s.energie);
       S.transactions.push(tx);
     }
     added++;

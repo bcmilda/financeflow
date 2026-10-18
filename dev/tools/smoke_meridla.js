@@ -76,10 +76,9 @@ t('Q3 má VT/NT',q[1].vt>0&&q[1].nt>0&&Math.abs(q[1].vt+q[1].nt-500)<1e-6,q[1]);
 t('rok',ctx.merObdobiSouhrn(mt,S,12,'2026-09-15')[0].popis==='2026');
 t('pololetí',ctx.merObdobiSouhrn(mt,S,6,'2026-09-15').map(x=>x.popis).join()==='1. pololetí 2026,2. pololetí 2026');
 vm.runInContext('_meridla={d:'+JSON.stringify(mt)+'}',ctx);
-let w=null; ctx.document.createElement=()=>{w={style:{},innerHTML:'',addEventListener(){},remove(){}};return w;};
-ctx.document.getElementById=id=>id==='merDetailOkno'?w:(els[id]||(els[id]=el()));
-ctx.merDetail('d');
-t('detail: statistika, graf, tabulka VT/NT, zálohy, vyhodnocení',w.innerHTML.includes('Poslední odečet')&&w.innerHTML.includes('Stav VT')&&w.innerHTML.includes('Zálohy počítat od')&&w.innerHTML.includes('Vyhodnocení')&&w.innerHTML.includes('■ NT'));
+//  v11.84: detail je panel v kartě měřidla (dřív vyskakovací okno)
+ctx.merDetail('d'); const w=els.energieContent;
+t('detail: statistika, graf, tabulka VT/NT, zálohy, vyhodnocení',w.innerHTML.includes('Poslední odečet')&&w.innerHTML.includes('Stav VT')&&w.innerHTML.includes('Zálohy počítat od')&&w.innerHTML.includes('Vyhodnocení')&&w.innerHTML.includes('■ NT')&&w.innerHTML.includes('id="merPanel"'));
 // v11.17: doplatky / přeplatky oboustranně
 S.transactions.push({id:'dp',type:'expense',catId:'cat3',subcat:'Energie',amount:600,date:'2026-08-20',energie:{meridloId:'m1',typ:'doplatek'}});
 t('doplatek se nepočítá jako záloha',ctx.merZalohy(S,m,'2026-07-01','2026-09-29').soucet===2000);

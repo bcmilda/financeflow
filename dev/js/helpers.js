@@ -1,4 +1,4 @@
-// FinanceFlow · v11.74 · helpers.js · 2026-10-13
+// FinanceFlow · v11.86 · helpers.js · 2026-10-16
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -757,7 +757,8 @@ function showPageByName(name){
   document.querySelectorAll('.nav-item').forEach(n=>{if(n.getAttribute('onclick')?.includes(`'${name}'`))n.classList.add('active');else n.classList.remove('active');});
   _rp_force();
 }
-function changeMonth(d){if(typeof _txDateFilter!=='undefined'&&_txDateFilter.active){_txDateFilter.active=false;}S.curMonth+=d;if(S.curMonth<0){S.curMonth=11;S.curYear--;}if(S.curMonth>11){S.curMonth=0;S.curYear++;}updateMLabel();_rp_force();}
+//  S27 (v11.86): přepnutí měsíce = chci vidět ten měsíc → vypne i „Hledat ve všech měsících“ v Transakcích.
+function changeMonth(d){if(typeof _txDateFilter!=='undefined'&&_txDateFilter.active){_txDateFilter.active=false;}{const _am=typeof document!=='undefined'&&document.getElementById('txSearchAllMonths');if(_am)_am.checked=false;}S.curMonth+=d;if(S.curMonth<0){S.curMonth=11;S.curYear--;}if(S.curMonth>11){S.curMonth=0;S.curYear++;}updateMLabel();_rp_force();}
 // Session 10: alias – vynutí render i přes anti-flicker guard (uživatelská akce).
 function _rp_force(){ if(typeof forceRender==='function') forceRender(); else renderPage(); }
 function updateMLabel(){document.getElementById('mlabel').textContent=`${CZ_M[S.curMonth]} ${S.curYear}`;}
