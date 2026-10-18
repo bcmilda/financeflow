@@ -118,3 +118,7 @@ v11.58 vlastní SVG ikony (automaticky přes taxonomii) · v11.59 Měsíční re
 ## Dodatek v11.61 (2026-10-10) **(Session 25)**
 
 - **v11.61:** Open Food Facts jen doplňuje (ADR-207), jedna karta všude s opravou každého políčka a štítkem zdroje (ADR-208). FIX-447 až 450, SKILL 84–85, TODO-336–341. **Celkový rozsah Session 25:** FIX-405–450, TODO-323–341, ADR-183–208, SKILL 71–85.
+
+## Dodatek v11.62–v11.89 (2026-10-10 až 2026-10-18) **(Session 26)**
+
+- **v11.62–v11.83:** výplatnice a kalendář (odhad výplaty, roční zúčtování), účtenky, Nutri-Score z OFF. **v11.84–v11.89:** Měřidla (VT/NT, karta s panely, plyn, voda, zálohy jako šablona), viditelné filtry Transakcí, megagraf jako samostatná stránka, tankování z účtenky, 📲 Notifikace z telefonu (pozastaveno, TODO-357). **Celkový rozsah Session 26:** FIX-451–483, ADR-209–231, SKILL 86–97, TODO-342–357. Plán další: `PLAN-SESSION-27.md`.

@@ -2753,3 +2753,115 @@ Obnova stavěla záznam znovu z OFF a zachránila jen pole z `EAN_ZACHOVAT`. Zna
 
 ### FIX-450 · Admin „🔄 Načíst znovu“ smazal celou kartu **(Session 25, v11.61)**
 Spolu s kartou zmizely i české názvy, fotky a ruční živiny. Teď jen `kdy: 0`, takže se při dalším skenu sloučí.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+### FIX-451 · Skenovat: včerejší uložená účtenka zůstala v editoru, Uložit nefungoval (Milan, v11.65) **(Session 26)**
+Editor si pamatoval účtenku otevřenou v Historii i po odchodu; ✕ mazal jinou proměnnou, než ve které appka účtenku drží. Při synchronizaci se ukázala ve Skenovat.
+
+### FIX-452 · Historie: ✎ otevřel jinou účtenku bez položek (Milan, v11.70) **(Session 26)**
+Tlačítka si pamatovala **pozici v seznamu bez duplikátů** z doby vykreslení. Nová účtenka se zařadí na začátek `S.receipts` (unshift), pozice se posunuly → ✎ u Albertu otevřel Kaufland. Teď `rcptKlic` + `rcptNajdiPos`. 🔗 SKILL 89, FIX-457.
+
+### FIX-453 · Prázdný editor bez položek (v11.70) **(Session 26)**
+Editor ze skenu po uložení zůstal skrytý v záložce Skenovat se stejnými id – položky se kreslily do něj. Po uložení se vyprázdní, v appce je vždy jen jeden editor.
+
+### FIX-454 · Nová účtenka ze skenu chyběla v Historii (Milan: OXALIS, v11.70) **(Session 26)**
+Historie se po přidání nepřestavila. Teď ano; zpráva po uložení řekne datum a měsíc v Transakcích.
+
+### FIX-455 · Součet a Celkem prohozené (311,41 vs 311 Kč, v11.70 → v11.71) **(Session 26)**
+AI občas prohodí součet a zaplacenou částku. v11.70 je prohazovala automaticky – Milan: „ne všechny obchody zaokrouhlují“ → v11.71 jen tlačítko „Zaplaceno bylo 311 Kč“ (ADR-212).
+
+### FIX-456 · Editor účtenky: řádek váženého zboží „odskočil“ (Milan, v11.69) **(Session 26)**
+Bez pole Balení a s jinou šířkou jednotky. Všechny sloupce mají pevnou šířku.
+
+### FIX-457 · Doklady: tlačítka mířila na jiný doklad (v11.74) **(Session 26)**
+Stejná příčina jako FIX-452 (index v seznamu bez duplikátů). Teď index do `S.receipts`.
+
+### FIX-458 · Čárový kód z fotky shodil appku (Milan, v11.72) **(Session 26)**
+Fotka 12–50 Mpx se dekódovala celá a neuvolnila; druhý pokus došel s pamětí. Teď zmenšená (1600, pak 2600 px), bitmapa i plátno se uvolní.
+
+### FIX-459 · K vyřízení: vyplněný výrobek visel minuty (Milan, v11.72) **(Session 26)**
+Seznam neměl načtené vlastní názvy (načítaly se až se skenerem) a po uložení se nepřekreslil.
+
+### FIX-460 · Okno kategorie se zavřelo bez uložení a bez varování (Milan, v11.72) **(Session 26)**
+Obecná ochrana „💾 Uložit změny?“ pro okna s tlačítkem Uložit (klepnutí vedle, ✕, Zpět). Nepřidaná podkategorie se při Uložit uloží. 🔗 ADR-214.
+
+### FIX-461 · Měsíční report: diamanty 💎 i u Premium (Milan, v11.69) **(Session 26)**
+
+### FIX-462 · Šablona importu: kladný výdaj se naimportoval jako příjem (Milan, v11.69) **(Session 26)**
+Ukázka měla výdaj kladně, o typu rozhoduje znaménko. Ukázka −1250.50, sloupec Typ má přednost, bere se i typografické „−“.
+
+### FIX-463 · „Není duplikát“ se nepamatoval (v11.73) **(Session 26)**
+Ignorovaný pár se po překreslení vracel – detekce ho vůbec nekontrolovala. Teď `S.uiCfg.dupNeni`.
+
+### FIX-464 · „Smazat duplikáty“ mazal originál s úpravami (v11.73) **(Session 26)**
+Zůstala později naskenovaná kopie. Teď zůstane ta s víc prací (kódy, opravy, fotka), při shodě dřívější; před smazáním výpis.
+
+### FIX-465 · Vratné lahve se na účtence přičetly (Milan: Kaufland, rozdíl ~38 Kč, v11.76) **(Session 26)**
+`validateReceiptJSON` brala `Math.abs(price)` a zahazovala `lineTotal` i slevu → −12 a −7 se změnily na +12 a +7 (přesah = 2 × vratky). Znaménko zůstává; kladně přečtené lahve se otočí, jen když dvojnásobek přesně vysvětlí přesah; v editoru „♻️ Odečíst vrácené lahve“. 🔗 SKILL 88.
+
+### FIX-466 · Hodinová mzda: sazby z výplaty minulého měsíce, den dovolené 12 h (Milan, v11.75) **(Session 26)**
+Sazby vypadaly jako skutečné i bez zadané výplaty měsíce. Den dovolené = směna − neplacená přestávka (11 h).
+
+### FIX-467 · Osa života: budoucí událost v posledním měsíci, předvolba mazala datum (v11.62) **(Session 26)**
+Plus výchozí datum místně (v noci vycházel včerejšek).
+
+### FIX-468 · Nutri-Score šel dál ručně upravit (Milan, v11.82) **(Session 26)**
+Milan řekl, že je jen z Open Food Facts; v kartě zůstalo „Opravit“ a ukládání. Teď neupravitelný, starý osobní zápis se nepoužije. 🔗 SKILL 87, ADR-220.
+
+### FIX-469 · Odhad výplaty přenášel přesčas do měsíce bez přesčasu (Milan: „198 vážených hodin je kde?!“, v11.78) **(Session 26)**
+Sazba = říjnová výplata (s přesčasy) ÷ vážené hodiny, × hodiny listopadu → 33 500 Kč bez přesčasu. Nový odhad z pásky a hodin kalendáře (ADR-216); vážené hodiny jsou rozepsané. 🔗 SKILL 90.
+
+### FIX-470 · Paragraf se v odhadu platil průměrem (Milan, v11.79) **(Session 26)**
+Zaměstnavatel ho neplatí, dávku vyplácí ČSSZ (ADR-218).
+
+### FIX-471 · Přesčas 12 h včetně přestávky (Milan: „proč máme u přesčasu 12 h?“, v11.79) **(Session 26)**
+Odpracováno bylo bez přestávky, přesčas s ní. Teď oboje bez (11 h), jako na pásce.
+
+### FIX-472 · Zůstatek dovolené jen z kalendáře (v11.80) **(Session 26)**
+Bez zapsaných starších měsíců 229 h místo ~141 h. Za měsíce s výplatnicí se bere dovolená z pásky.
+
+### FIX-473 · Karta výrobku: prodejna dvakrát (Milan: Penny Frýdek Místek, v11.82) **(Session 26)**
+„Frydek Mistek“ a „Frýdek Místek“ z různých účtenek. Sloučeno bez diakritiky, ukáže se podoba s diakritikou.
+
+### FIX-474 · Nákupní DNA: koláč podle typu obchodu (Milan, v11.71) **(Session 26)**
+U skoro všech účtenek „Jídlo & Nákupy“. Teď podle kategorií položek.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+### FIX-475 · Odečet elektřiny bez VT a NT **(Session 26, v11.84, Milan)**
+- **Symptom:** „Chtěl jsem zapsat odečet pro elektřinu, ale nemám VT a NT.“ Okno odečtu mělo jen jedno pole a vzorové „12480“, které vypadalo jako zapsaná hodnota.
+- **Příčina:** dvoutarif existoval od v11.14, ale jen jako zaškrtávátko v ⚙️ nastavení měřidla (výchozí vypnuto) – žádná regrese, funkce byla schovaná tam, kam uživatel nejde.
+- **Oprava:** volba „Elektroměr má: jeden tarif / ☀️ VT + 🌙 NT“ přímo v odečtu, popisky T1 / T2 jako u dodavatele, placeholder „stav v kWh“. Test `smoke_meridla_karta.js`.
+
+### FIX-476 · Odečty nešly upravit a smazat **(Session 26, v11.84, Milan)**
+- **Symptom:** „Data navíc nejdou smazat, upravit.“
+- **Příčina:** úprava nebyla vůbec, mazání jen ✕ u posledních 8 záznamů ve sbalené „Historii“.
+- **Oprava:** 📋 Odečty a vyúčtování v kartě – všechny záznamy, ✎ upravit (stejný klíč, žádný duplikát), 🗑 smazat; ✎ i v detailu.
+
+### FIX-477 · Dvoutarif u plynu a vody, nenápadné zaškrtávátko, rozbalovací Druh, který nejde změnit **(Session 26, v11.85, Milan)**
+- **Oprava:** Tarif jako rozbalovací pole hned pod Druhem, jen u elektřiny (u jiných druhů se dvoutarif neuloží); Druh uloženého měřidla jako text. Test `smoke_meridla_karta.js`.
+
+### FIX-478 · Zima plynu odhadovaná letním průměrem **(Session 26, v11.85)**
+- **Příčina:** loňský průběh se použil jen s poměrem letos / loni; ten vyžaduje loňská data pro posledních 90 dní. Když letos je jen léto a loni jen zima, poměr nejde spočítat → celá zima průměrem léta (odečty innogy: ≈ 210 m³ místo ≈ 400–480 m³).
+- **Oprava:** loňský den × 1, když poměr chybí; varování, když na topnou sezónu chybí loňské odečty. Plyn má výchozí jednotku m³.
+
+### FIX-479 · Transakce: starší transakce pod „Prosinec 2026“ **(Session 26, v11.86, Milan)**
+- **Příčina:** aktivní filtry z ⚙️ Filtr (hlavně „Hledat ve všech měsících“, zapíná ho i klik na tag) zůstaly po zavření panelu neviditelné; nadpis dál psal zvolený měsíc; „Vymazat“ všechny měsíce nerušil.
+- **Oprava:** štítky aktivních filtrů s ✕, „⚙️ Filtr (N)“, nadpis „všechny měsíce“, Vymazat i šipka měsíce ruší všechny měsíce. Test `smoke_tx_filtry_zalohy.js`.
+
+### FIX-480 · Úprava transakce smazala tankování **(Session 26, v11.87, Milan)**
+- **Příčina:** `saveTx` ukládal `tank = tankZFormulare(...) || null` – bez podkategorie Palivo ve formuláři se tankování smazalo; podkategorii mazalo i klepnutí na už vybranou kategorii (`selCatBtn`).
+- **Oprava:** stejná kategorie → tankování i podkategorie zůstanou; klepnutí na vybranou kategorii nic nemaže. Test `smoke_s27_opravy.js`.
+
+### FIX-481 · Podezřelé nepoznaly ruční transakci = položku účtenky **(Session 26, v11.87, Milan)**
+- **Oprava:** pravidlo 🧾 `polozka` (částka = položka účtenky, ± 1 den).
+
+### FIX-482 · Datum účtenky s prohozeným dnem a měsícem **(Session 26, v11.87, Milan)**
+- **Oprava:** návrh „↔ Prohodit“ pod datem, když prohozené datum je nedávné a přečtené v budoucnu / > 45 dní zpět (worker beze změny).
+
+### FIX-483 · Graf ceny za litr: čára přes popisky osy **(Session 26, v11.87, Milan)**

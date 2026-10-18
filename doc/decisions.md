@@ -1752,3 +1752,80 @@ Když skóre nejde změřit (`total === null`), nezobrazuje se 0. Nezobrazují s
   - bez kódu: osobně (`S.uiCfg.karty`).
 - **Názvy** (přední strana, CZ popisek) touto cestou nejdou: CZ název jde přes návrh adminovi, přední strana zůstává osobní nebo z fotky.
 - **Štítek zdroje u každého políčka:** 🌍 Open Food Facts / 🇨🇿 komunita / ✍️ tvůj zápis / 🧾 z účtenky (`eanPoleZdroj`).
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+### ADR-209 · Kód se přiřazuje sám – vlastní, pak komunita jen při jasném vedení **(Session 26, v11.64, Milan)**
+Pořadí pro položku: tvoje přiřazení → 🔒 zámek admina (ADR-210) → komunita, ale jen když jeden kód jasně vede (při shodě se nepřiřadí nic). Kód, který si uživatel u zkratky odebral, se už nevrátí – ani další v pořadí.
+
+### ADR-210 · Nové karty výrobků bez schvalování, admin má přehled a zámek **(Session 26, v11.68, TODO-334, Milan)**
+⚠️ Mění ADR-206 v části „nová karta“: karta založená uživatelem platí hned pro všechny, bez štítku „neověřeno“ (ověřit výrobek + název + kód stejně nejde). Admin vidí zájem (`community/eanKartyLog`) a může 🔒 zamknout spojení „obchod + zkratka → kód“ (`community/eanZamky`, zapisuje jen admin, pravidla DB v11.68).
+
+### ADR-211 · Gramáž z jednoho místa **(Session 26, v11.66)**
+`gramazNaKgL(it)`: 1) zápis v editoru, 2) karta výrobku (obal), 3) osobní karta, 4) zkratka z účtenky. Multipack se násobí. Platí pro cenu za kg/l, shrinkflaci, inflaci i živiny v nákupu.
+
+### ADR-212 · Zaokrouhlení účtenky appka nabízí, nemění **(Session 26, v11.71, Milan)**
+„Ne všechny obchody zaokrouhlují.“ Když je na účtence i celá částka do 1 Kč, appka ukáže tlačítko „Zaplaceno bylo X Kč“; rozhodne uživatel. (v11.70 prohazovala automaticky – vráceno.)
+
+### ADR-213 · Transakce účtenky se maže jen přes účtenku **(Session 26, v11.74, Milan)**
+„Nechci, aby první naskenovaná účtenka šla smazat pouhým tlačítkem v Transakcích.“ Chráněná je transakce účtenky, která zůstává (jediná, nebo originál zdvojeného skenu). Transakce KOPIE se smaže i s kopií účtenky; transakce, jejíž účtenka už neexistuje, jde smazat normálně.
+
+### ADR-214 · Rozepsaná práce: ptát se při zavření, brzda nejvýš 60 s, cílem C-lite **(Session 26, v11.72 / v11.74, TODO-342)**
+Okno s tlačítkem Uložit se při zavření se změnami zeptá (Uložit / Zahodit / Pokračovat). Brzda překreslování (S25) nejvýš 60 s, Uložit ji uvolní hned, čekající změna = „🔄 Ukázat změny“. Trvalé řešení je rozdílové překreslení (morphdom, „C-lite“); varianta „zapamatovat a vrátit text“ zamítnuta (Milan: „jen pokud si jsi jistý“), přepis na komponenty zamítnut (rozsah).
+
+### ADR-215 · Výplatnice přes AI: odvody z pásky, kontrola součtů, šablona z první pásky **(Session 26, v11.77, Milan)**
+Universální postup pro kohokoli: pokyn pro AI obsahuje uživatelovu šablonu, AI opíše i ZP / SP / daň (kontrola tak funguje u jiné firmy a sazeb), neznámé položky popíše v `nove` (skupina, kód, složka) a appka je do šablony přidá. Měsíc, který nesedí na hrubou / čistou / dobírku z pásky, se nenaimportuje a šablona se pak nezmění. Nová skupina `pripocty` (nezdaněné připočty k výplatě).
+
+### ADR-216 · Odhad výplaty z pásky + hodin kalendáře **(Session 26, v11.78, Milan)**
+Když jsou výplatnice: tarif, PPÚ a slevy z poslední pásky, hodiny z kalendáře. Základ = tarif/fond × plánované hodiny, dovolená = PPÚ × h, přesčas = tarif/fond × h + PPÚ × 25 % × h, noční / So+Ne / svátek = PPÚ × % × h, ostatní (mobilita, prémie) Kč na odpracovanou hodinu z posledních 3 pásek. Fond = plánované směny + nepřítomnost v plánu. Ověřeno zpětně (březen–srpen 2026: hrubá ± 1 000 Kč, základ / dovolená / přesčas na korunu). Bez výplatnic zůstává starý odhad z vážených hodin.
+
+### ADR-217 · Jeden měsíc = jedna výplata **(Session 26, v11.81, Milan)**
+Karta měsíce ukazuje jen odhad výplaty ZA ten měsíc (a kdy přijde). Řádek „v listopadu přijde výplata za říjen“ zrušen: „když chci vědět, kolik přijde za říjen, překliknu si měsíc“.
+
+### ADR-218 · Paragraf je neplacený zaměstnavatelem **(Session 26, v11.79, Milan)**
+„Paragraf snižuje mzdu, peníze přijdou od státu.“ Typ dne 🩺 Paragraf zkrátí základ i hodinové položky; dávku (např. ošetřovné) vyplácí ČSSZ zvlášť a v odhadu ani na pásce není. (v11.78 ho bral jako placenou překážku – opraveno, FIX-470.)
+
+### ADR-219 · Otázky k výplatám počítá appka, ne AI **(Session 26, v11.78)**
+Worker se teď nemění. Bubliny mají pevné otázky s odpovědí z pásek (okamžitě, nic se neodesílá) a přepnou megagraf na odpovídající pohled. Volné AI = TODO-349.
+
+### ADR-220 · Nutri-Score jen z Open Food Facts, prázdná pole se doplňují tam **(Session 26, v11.82, Milan)**
+⚠️ Upravuje ADR-208 („každé políčko jde opravit“): Nutri-Score ručně nejde (počítá ho OFF). U výrobku s kódem mají prázdná pole, která OFF umí (složení, alergeny, obal, původ, prodává se v, značka, výrobce), odkaz „🌍 Doplnit na Open Food Facts“ – v jejich aplikaci se obal vyfotí a přečte zdarma (místo placeného čtení fotky ve workeru). Vyplněný údaj jde opravit. Dovozce jen když je známý. Admin opraví název karty a může ji načíst znovu hned.
+
+### ADR-221 · Data letáků jen se souhlasem provozovatele **(Session 26, návrh, TODO-348)**
+Kupi.cz a podobné portály veřejné API nemají a letáky jsou jejich databáze → žádné stahování bez souhlasu. Cesta: dotaz na spolupráci / API, souběžně Open Prices (otevřená data).
+
+### ADR-222 · Roční zúčtování: zákonné částky v tabulce po rocích **(Session 26, v11.83)**
+`VYPL_RZ_PARAM[rok]` = sleva na poplatníka, průměrná mzda (hranice 23 % = 36×), zvýhodnění na děti. Roční základ se zaokrouhluje dolů na stovky, sleva na poplatníka za celý rok; běžný rok se dopočítá průměrem známých měsíců. Pro rok bez záznamu se použijí poslední známé částky s upozorněním. Nový rok = přidat řádek (ověřit na webu).
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+### ADR-223 · Měřidla: panely v kartě místo vyskakovacích oken **(Session 26, v11.84, Milan)**
+„Udělej stabilnější kartu místo vyskakovacího okna.“ Odečet, vyúčtování, seznam, detail, nastavení i doplatek se otevírají jako jeden panel v kartě měřidla (`_merPanel`), druhé klepnutí zavře. Pole s `data-mer` si `renderEnergiePage` při překreslení zapamatuje a vrátí. Vzor pro další moduly s okny (C-lite, TODO-342).
+
+### ADR-224 · Odhad spotřeby podle loňska **(Session 26, v11.84)**
+Dny bez odečtu = loňská spotřeba ve stejný den × poměr letos / loni z posledních 90 změřených dní (omezeno 0,5–2); bez loňských dat průměr posledních 90 dní. Odečty s jedním stavem a s VT/NT se při výpočtu spotřeby nemíchají. Začátek období = pozdější z „Fakturační období začíná“ a konce posledního vyúčtování.
+
+### ADR-225 · Tarif jen u elektřiny, nahoře v nastavení **(Session 26, v11.85, Milan)**
+Volba, kterou uživatel potřebuje vidět, patří nahoru jako rozbalovací pole (ne zaškrtávátko dole); u druhů, kde nedává smysl (plyn, voda, teplo), se nezobrazuje ani neukládá. Neměnné údaje (Druh uloženého měřidla) jako text, ne zakázané rozbalovací pole.
+
+### ADR-226 · Zálohy z měřidla jako opakovaná platba **(Session 26, v11.86, Milan)**
+Milan zapisuje transakce ručně, import z banky pozná duplicitu. Měřidlo proto může založit šablonu `S.sablony['mer-<id>']` s `energie: {meridloId, typ: 'zaloha'}` a `subcat`; `processAutoSablony` z ní každý měsíc zapíše transakci s vazbou. Peníze zůstávají jen v transakcích (ADR z S24 platí), měřidlo je čte. Vypnutí / smazání měřidla šablonu zruší, transakce zůstanou. Doplatek / přeplatek se nabídne zapsat hned po uložení vyúčtování.
+
+### ADR-227 · Aktivní filtr musí být vidět i se zavřeným panelem **(Session 26, v11.86)**
+Každý filtr, který mění seznam, má viditelný štítek s ✕ mimo sbalený panel; přepnutí měsíce ruší „všechny měsíce“.
+
+### ADR-228 · Osy megagrafu výslovně, ne cyklem klepnutí **(Session 26, v11.87, Milan)**
+Klepnutí na řadu = zapnout / vypnout; osa se mění tlačítky ◀ Hlavní | Vedlejší ▶ u zobrazené řady. Megagraf má celou obrazovku, období „Od ledna“ a kumulativní režim.
+
+### ADR-229 · Tankování z účtenky patří k transakci účtenky **(Session 26, v11.88, Milan)**
+Položka paliva z účtenky se zapíše jako `t.tank` na transakci účtenky (žádná druhá transakce): `kc` = Kč jen za palivo (Vozidla ho berou místo částky transakce), `cenaStojan` = (kc + sleva) ÷ litry, `zUctenky: true`. Vozidlo a tachometr doplní uživatel. Megagraf je samostatná stránka Výplatnice (`window._vyplStranka`, `localStorage ffVyplStranka`), ne překryv.
+
+### ADR-230 · Notifikace z telefonu: appka posílá TEXT, rozpoznává web **(Session 26, v11.89, Milan)**
+Android appka FinanceFlow Inbox (repo financeflow-native) jen zachytí text notifikace vybraných bankovních aplikací (s částkou, bez kódů) a zapíše ho do `users/{uid}/inbox`. Parser zůstává jeden – `parseBankNotification` ve webu – oprava nevyžaduje novou verzi appky. Telefon se přihlašuje anonymně a s účtem se propojí kódem (`inboxPairing` → `inboxLinks`); smí jen přidávat. Nic se nezapíše samo: platba se potvrdí, spojí s účtenkou (sken převezme, je podrobnější), nebo zahodí.
+
+### ADR-231 · FinanceFlow Inbox je pozastavený, nativní appka je n0.2 **(Session 26, 18. 10.)**
+Rozhodnutí N1 (N-005, N-008) mají přednost. Web v11.89 (sekce 📲, `inbox.js`, pravidla `inbox*`) zůstává nasazený, ale bez appky se nepoužije; o zrušení nebo ponechání jako alternativy rozhodne Milan (TODO-357). Přenositelné do n0.2: „sken převezme platbu“ (± 1 Kč, ± 2 dny) a filtr citlivých oznámení.

@@ -241,3 +241,20 @@ taxonomie, obchodu, kraje, štítku a kategorie.
 - **Štítek zdroje** – 🌍 Open Food Facts / 🇨🇿 komunita / ✍️ tvůj zápis / 🧾 z účtenky u každého údaje karty.
 - **„Open Food Facts uvádí“** – hodnota z OFF, kterou člověk opravil (`offPuvodni`). Ukazuje se pod opravenou hodnotou.
 - **Syntetická položka** – karta pro výrobek, který ještě není na žádné účtence (`_mapaSynt`, ADR-208).
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89
+
+- **Panel v kartě (měřidla)** – formulář / seznam / detail otevřený přímo v kartě měřidla místo vyskakovacího okna (`_merPanel`, ADR-223).
+- **VT / NT (T1 / T2)** – vysoký a nízký tarif elektřiny; u měřidla volba Tarif (jen elektřina).
+- **Fakturační období** – období vyúčtování od dodavatele (`m.obdobiOd`); karta ukazuje spotřebováno, odhad za celé období a srovnání s loňskem.
+- **Odhad podle loňska** – dny bez odečtu = loňská spotřeba ve stejný den × poměr letos / loni (ADR-224).
+- **Záloha jako opakovaná platba** – šablona `mer-<id>` s vazbou `energie`, z níž vznikají transakce zálohy (ADR-226).
+- **Štítky filtrů (Transakce)** – aktivní filtry jako štítky s ✕ pod nadpisem (ADR-227).
+- **🧾 Položka účtenky (Podezřelé)** – transakce, jejíž částka se rovná položce účtenky ze stejného / vedlejšího dne.
+- **Tankování z účtenky** – položka paliva z účtenky jako `t.tank` s `kc` (jen palivo) a `zUctenky` (ADR-229).
+- **Stránka Megagraf** – druhá stránka Výplatnice (🧾 Výplatnice | 🔭 Megagraf), řazení ↓ / ↑, Od ledna, Kumulativně.
+- **📲 Notifikace z telefonu / 📥 Doručené / FinanceFlow Inbox** – návrhy plateb z Android appky (`users/{uid}/inbox`), pozastaveno (ADR-231).
+- **`zNotifikace`** – vazba transakce na notifikaci z telefonu; „Účtenka převezme platbu“ ji přenese na transakci účtenky.
+- **Kalkulačky** – plánovaná jedna stránka s kartami a pásmy Monte Carlo (TODO-356).

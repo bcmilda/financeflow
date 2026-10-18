@@ -535,3 +535,63 @@ TODO-331 (Google Play) · TODO-316 (MD na GitHub).
 
 - **Stav v11.61:** obnova karty výrobku z Open Food Facts jen doplňuje (`eanSlouc`, ADR-207). Nikdy nevracet přestavbu záznamu ani `EAN_ZACHOVAT`.
 - Kartu výrobku otevírat odkudkoli přes `mapaKartaEan(ean)`. Indexy karty číst přes `_mapaZ(i)`, ne `_mapaUziv[i]`.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83
+
+## Stav
+- **Verze v11.83**, 48 JS modulů, 161 sad `tools/smoke_*` + `smoke.js` (vše prochází). Worker beze změny (v11.61), pravidla DB v11.68.
+- **Na GitHubu je v11.61** – 22 commitů čeká na PAT (TODO-343). Při pushi smazat z repa `vyplatnice-import.json` (skutečné výplatnice, repo čitelné anonymně) – po souhlasu Milana.
+- Přehled session: `doc/Summary_s26.md`.
+
+## Co se změnilo v jádře
+- **Výplatnice je velký modul** (`vyplatnice.js`): složky `pevna / priplatky / prescas / premie / odmeny / jine` přes `_vyplSlozka` (šablona `slozka`, fallback podle klíče), `vyplDopocet` vrací i `odvody`, `slevy`, `pripocty`. Grafy přes `_vyplSloupce`, `_vyplCary`, `_vyplKombi` (dvě osy). Stav filtrů v `localStorage` `ffVyplStav`. Roční zúčtování `vyplRocniZuctovani`, parametry `VYPL_RZ_PARAM` (nový rok = nový řádek).
+- **Kalendář:** `_workHodiny` vrací i `planH`, `otNetH`, `parH`, `nemocH`, `otGrossH`; `otH` je od v11.79 BEZ přestávky. Odhad výplaty z pásky `vyplOdhadMesice(y, m)`. Simulace `window._workSim` (jen paměť).
+- **Karta výrobku:** `MK_POLE_OFF`, Nutri-Score needitovatelný, admin zápis do `community/eanProdukty` (název, `kdy: 0`).
+
+## Pravidla pro práci (S26)
+- **Odhad z dat ověřit zpětně na skutečných datech** (SKILL 86) a „opraveno“ hlásit jen s testem (SKILL 87).
+- **Tlačítka v seznamu nesou klíč, ne pozici** (SKILL 89).
+- **V UI nikdy jméno konkrétního uživatele** (SKILL 91).
+- **Mzdové / právní pojmy ověřit u Milana** (SKILL 92). Jeden měsíc = jedna výplata (ADR-217).
+- **Grafy:** barvy ověřit validátorem (dataviz skill, tmavé pozadí), osa, mřížka, průměr, výpis klepnutím (funguje na mobilu), tabulka pod grafem.
+- **Lokální server pro Playwright** spouštět přímo (`python3 -m http.server 8765 &`) – `pgrep` hlásí zbytky a server pak neběží.
+
+## Nasazuje se zvlášť
+- `database.rules.json` → Firebase (v11.68). Worker se v S26 neměnil.
+
+## Otevřené P1/P2
+TODO-343 (push, pravidla, výplatnice z repa) · TODO-344 (vyzkoušet) · TODO-345 (predikce výplaty) · TODO-346 (kontrola pásky proti kalendáři) · TODO-342 (C-lite).
+
+## Dodatek Session 26 (2026-10-17)
+- **Doručování (Milan):** posílat jen soubory změněné v dané verzi, ne kompletní sady.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89
+
+## Stav
+- **Verze v11.89**, **49 JS modulů** (nový `inbox.js`), 166 sad `tools/smoke_*` + `smoke.js` (vše prochází). Worker beze změny (v11.61).
+- **Pravidla DB v11.89** (`users/$uid/inbox`, `inboxPairing`, `inboxLinks`) – Milan nasadil 18. 10.
+- **GitHub `dev`:** kód v11.62–v11.89 nahrál Milan vlastními commity; dokumentaci Session 26 doplnil Claude. Lokální historie Claude se od GitHubu liší jen v commitech – obsah kódu je shodný (ověřeno `git diff`).
+- `vyplatnice-import.json` (skutečné výplatnice) je v repu pořád – smazat jen se souhlasem Milana.
+- Přehled: `doc/Summary_s26.md` (část „Pokračování“). Plán další session: `doc/PLAN-SESSION-27.md`.
+
+## Co se změnilo v jádře
+- **Měřidla** (`meridla.js`): panely v kartě (`_merPanel`, `merOtevri`), rozepsané hodnoty `data-mer` přežijí překreslení, VT/NT jen u elektřiny, `obdobiOd`, odhad podle loňska (`_merOdhadovac`, `merSezonniFaktor`), hromadný zápis odečtů (`merParseOdecty`), záloha jako šablona (`merZalohaSablona`).
+- **Transakce:** štítky filtrů (`_txFiltryUkaz`), úprava neztratí tankování (`saveTx` v `debts.js`), klepnutí na vybranou kategorii nemaže podkategorii.
+- **Duplicity:** pravidlo `polozka` (`dupParyPolozka`).
+- **Vozidla:** `tankZUctenky`, `tank.kc`, karta „Účtenky z benzínky → tankování“.
+- **Výplatnice:** stránky `vyplStranka('prehled'|'mega')`, řazení `razeni`, `kum`, otázky `dovolenaZbyva`, `serazeni`; kalendář `workDovolenaZbyva`.
+- **Účtenky:** návrh prohození dne a měsíce (`rcptDatumProhozene`).
+- **Inbox:** `inbox.js` (pozastaveno, ADR-231).
+
+## Pravidla pro práci (doplněk)
+- **Posílat jen soubory změněné v dané verzi** (Milan).
+- **Funkce, kterou uživatel potřebuje při úkonu, patří do úkonu, ne do nastavení** (SKILL 94). **Skrytý stav musí být vidět** (SKILL 95). **Úprava nesmí tiše mazat připojená data** (SKILL 96).
+- **Před stavbou nového projektu / appky zkontrolovat Projekt a paměť** – souběžná session mohla rozhodnout jinak (SKILL 97).
+- Nativní appka má vlastní repo a pravidla (`financeflow-native`, session N1/N2…); web je pro ni jen mapa obrazovek a výpočtů.
+
+## Otevřené P1
+TODO-356 (🧮 Kalkulačky) · TODO-357 (Inbox vs. n0.2) · TODO-345 (predikce výplaty do Příštího měsíce) · TODO-346 (kontrola pásky proti kalendáři) · TODO-350 (měřidla – historie z innogy).

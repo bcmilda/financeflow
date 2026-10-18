@@ -1949,3 +1949,48 @@ Doplněná data se při obnově zachovají (`EAN_ZACHOVAT`, v11.50).
   - `eanPoleZdroj(p, pole)` → `'off' | 'komunita' | ''`, plus `eanZdrojOff` a `eanMnTxt` (`ean-sken.js`).
   - V `receipts.js`: `MK_POLE` (13 políček), `MK_POLE_KOMUNITA`, `mapaKartaKomunitni`, `_mapaZ(i)`, `mapaKartaIndex(ean)`, `mapaKartaEan(ean)`, `mapaSyntPolozka`.
   - `eanOtevriKartu(ean)` v `ean-sken.js`.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+## Nová data
+| Kde | Co | Od |
+|---|---|---|
+| `S.payslipTemplate.prijmy[].slozka` | `pevna / priplatky / prescas / premie / odmeny / jine` (starší `zaCas` se rozdělí podle klíče) | v11.77 / v11.78 |
+| `S.payslipTemplate.pripocty[]`, `S.payslips[].pripocty` | nezdaněné připočty k dobírce | v11.77 |
+| `S.uiCfg.rz[rok]` | roční zúčtování: `jinyPrijem`, `jineZalohy`, `odpocty`, `deti` | v11.83 |
+| `S.uiCfg.dupNeni` | páry „Není duplikát“ natrvalo | v11.73 |
+| `S.workCal.days[k].type = 'paragraf'` | nový typ dne | v11.78 |
+| `community/eanZamky/{klic}` | 🔒 zámek admina obchod + zkratka → EAN (zápis admin) | v11.68 |
+| `community/eanKartyLog/{ean}/{uid}` | nové karty od uživatelů (zapisuje worker, čte admin) | v11.68 |
+| `community/eanProdukty/{ean}.rucne.nazev` | zámek názvu po opravě adminem z karty | v11.82 |
+| `localStorage` `ffVyplStav`, `ffVyplSlozky` | filtry a osy grafů výplatnice (per prohlížeč) | v11.77 / v11.78 |
+| `window._workSim` | simulované přesčasy (jen paměť, nikdy uloženo) | v11.80 |
+
+## `vyplatnice.js` – struktura
+- **Výpočty:** `vyplDopocet` (Czech model, ZP/SP nahoru, základ daně nahoru na stovky), `vyplRozklad` (6 složek, `zaCas` / `zaVykon` jako součty pro kompatibilitu), `vyplHodinyZPasky` (hodiny zpětně z Kč), `vyplOdvodyZeSlozky` (přepočet pásky bez složky), `vyplMezniMesic` / `vyplMeznaSazba`, `vyplNavicMesic`, `vyplOdhadVypocet` / `vyplOdhadMesice`, `vyplRocniZuctovani`.
+- **Import:** `vyplAiPokyn`, `vyplImportParse` (```json blok, text okolo, objekt i pole, čísla „1 234,50“, čárka navíc), `vyplSablonaDoplnit`, `vyplImportSpustit` (kontrola ±0,5 Kč).
+- **Grafy (bez canvasu):** `_vyplSloupce`, `_vyplCary`, `_vyplKombi` (sloupce vedle sebe / skládané, čáry, osa L i P, pás událostí), `vyplVyber` (výpis klepnutím), `_vyplTabulka`. Překreslení jedné karty: `window._vyplKarty[karta]` + `_vyplPrekresli(karta)`, box `vyplBox_{karta}`.
+- **Karty (pořadí):** měsíc → Megagraf (+ otázky) → detektor → složení → prémie → přivýdělek → podíl pevné → daně → roční zúčtování → odměny → srážky → historie.
+
+## `kalendar.js`
+- `_workDay` vrací při `window._workSimAktivni` i simulované dny. `workSimVysledek(y, m)` počítá odhad bez / se simulací.
+- `_workWageCard` použije `vyplOdhadMesice` (když existují pásky), jinak `workOdhadVyplaty` (vážené hodiny).
+- Zůstatek dovolené: měsíce s páskou z pásky (`vyplHodinyZPasky().dovolenaH`), ostatní z kalendáře.
+
+## Karta výrobku (`receipts.js`, `ean-sken.js`)
+- `MK_POLE_OFF` – prázdné pole s kódem → odkaz na `world.openfoodfacts.org/product/{ean}`. Nutri-Score mimo `MK_POLE_KOMUNITA`.
+- `mapaKartaNazevEan` / `mapaKartaObnovOff` – admin zápis přímo do `community/eanProdukty` (pravidla DB: zápis admin).
+- `eanNactiProdukt`: karta starší 90 dnů se na pozadí obnoví přes worker (`eanSlouc` – ruční úpravy zůstanou).
+- `eanNutriceHTML`: semafor FSA (tuky, nasycené, cukry, sůl) + neutrální pruh % RI (energie 2 000 kcal, bílkoviny 50 g, sacharidy 260 g, vláknina 25 g).
+
+## Session 26 · v11.89 · FinanceFlow Inbox
+| Kde | Co |
+|---|---|
+| `users/{uid}/inbox/{id}` | `{dev, app, pkg, title, text, postedAt, v, stav?, txId?, zpracovano?}` – zapisuje propojený telefon (jen přidat), stav mění web |
+| `users/{uid}/inboxZarizeni/{devUid}` | `{name, kdy}` – seznam propojených telefonů (zapisuje web) |
+| `inboxPairing/{kod}` | `{devUid, name, created}` – párovací kód, zakládá telefon (anonymní auth) |
+| `inboxLinks/{devUid}` | `{uid, code, kdy}` – propojení, zakládá web s platným kódem (≤ 15 min), ruší web i telefon; při smazání účtu `inboxOdpojVse()` |
+| `t.zNotifikace` | `{id, bank, postedAt, prevzato?}` – transakce vznikla z notifikace / účtenka převzala platbu |
+Modul `js/inbox.js` (za `sms-import.js`). Android appka: repo `financeflow-native/inbox-android` (Kotlin, bez knihoven, REST na Firebase).

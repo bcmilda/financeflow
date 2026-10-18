@@ -501,3 +501,56 @@ Worker ani pravidla DB se v v11.58–v11.60 nemění.
   - upravené: `smoke_gramaz_nazvy`, `smoke_karta_v2`, `smoke_mapa_karta`, `smoke_moje_vyrobky`, `smoke_uloziste_karta`, `smoke_v1124`, `smoke_ziviny_rucne`.
   - Celkem 146, vše prošlo.
 - **Nasazení:** worker → GitHub. Pravidla DB beze změny.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.62 | 10. 10. | Osa života: poznámky s barvou, rozsah, filtr |
+| v11.63 | 11. 10. | Osa života: posuvník u dlouhé historie |
+| v11.64 | 11. 10. | Automatické přiřazení kódů (vlastní, komunita), doplnění starších nákupů |
+| v11.65 | 11. 10. | FIX-451 Skenovat: včerejší účtenka |
+| v11.66 | 12. 10. | Gramáž z jednoho místa, pole Balení, multipack |
+| v11.67 | 12. 10. | Živiny v nákupu |
+| v11.68 | 12. 10. | Nové karty od uživatelů, 🔒 zámek admina – **pravidla DB** |
+| v11.69 | 12. 10. | Měsíční report nový vzhled, šablona importu, diamanty |
+| v11.70 | 12. 10. | Historie účtenek (index), prázdný editor, OXALIS |
+| v11.71 | 12. 10. | Hromadná kategorie, zaokrouhlení jako nabídka, Nákupní DNA |
+| v11.72 | 12. 10. | Uložit změny?, kód z fotky, K vyřízení |
+| v11.73 | 13. 10. | Podezřelé páry za všechny měsíce, duplicitní účtenky |
+| v11.74 | 13. 10. | Ochrana transakcí účtenky, Doklady filtr, brzda 60 s |
+| v11.75 | 13. 10. | Kalendář: 11 h, odhad výplaty (starý) |
+| v11.76 | 13. 10. | Vratné lahve, sloupec Celkem |
+| v11.77 | 14. 10. | Výplatnice: AI import, soubor, celá páska, grafy, daně, odměny, srážky |
+| v11.78 | 14. 10. | Megagraf, otázky, odvody z přesčasu, odhad výplaty z pásky, paragraf |
+| v11.79 | 14. 10. | Paragraf neplacený, přesčas bez přestávky, Sumář |
+| v11.80 | 15. 10. | Simulace přesčasů, přivýdělek nad rámec, dovolená z pásek |
+| v11.81 | 15. 10. | Zrušen řádek „v měsíci přijde výplata za předchozí“ |
+| v11.82 | 15. 10. | Karta výrobku: živiny, Nutri-Score, Open Food Facts, prodejny, název z EAN |
+| v11.83 | 15. 10. | Roční zúčtování daně |
+
+**Worker:** beze změny celou session (v11.61). **Pravidla DB:** jen v11.68.
+**Nové soubory:** žádný nový modul (48 JS). Nové testy `tools/smoke_*` – celkem 161 sad + `smoke.js` = 162, vše prochází.
+**Nasazení:** 1) `database.rules.json` (v11.68) → Firebase, 2) GitHub (22 commitů). Vždy celé poslední verze souborů z `verze/v11.83` (a starších složek pro soubory, které se později neměnily).
+**Pravidlo potvrzené v S26:** jeden bump na odpověď; drobná oprava ve stejné odpovědi se přidá do téhož commitu (`--amend`) a stejnojmenné soubory se pošlou znovu.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.84 | 16. 10. | Měřidla: karta místo oken, VT/NT v odečtu, úprava a mazání odečtů, víc odečtů najednou, aktuální období, odhad podle loňska |
+| v11.85 | 16. 10. | Měřidla: Tarif nahoře jen u elektřiny, Druh jako text, plyn m³, zima plynu podle loňska |
+| v11.86 | 16. 10. | Transakce: viditelné filtry; Měřidla: zálohy jako opakovaná platba, doplatek z vyúčtování |
+| v11.87 | 16. 10. | Megagraf celá obrazovka / osy / od ledna / kumulativně; podezřelé z účtenky; tankování při úpravě; datum účtenky; graf Vozidel |
+| v11.88 | 17. 10. | Tankování z účtenky; megagraf na samostatné stránce; řazení; otázky dovolená a řazení |
+| v11.89 | 17. 10. | 📲 Notifikace z telefonu (FinanceFlow Inbox), sken převezme platbu – **pravidla DB v11.89**, nový modul `inbox.js` (49 modulů) |
+
+**Testy:** 166 sad `tools/smoke_*` + `smoke.js` = 167, vše prochází. Worker beze změny (v11.61).
+**Pravidla DB:** v11.68 a v11.89 (`users/$uid/inbox`, `inboxPairing`, `inboxLinks`).
+**Nasazení:** Milan nasadil v11.89 i pravidla DB v11.89 (18. 10.) a nahrál kód na GitHub (`dev`, vlastní commity v11.62–v11.89).
+**Doručování (Milan, 17. 10.):** posílat **jen soubory změněné v dané verzi**, ne kompletní sady.
+**Pozn.:** komentáře v kódu a hlavičky testů z verzí v11.84–v11.89 jsou označené „S27“ – patří k Session 26 (číslo se zjistilo až na konci session).
