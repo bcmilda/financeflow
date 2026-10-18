@@ -1,4 +1,4 @@
-// FinanceFlow · v11.88 · admin.js · 2026-10-17
+// FinanceFlow · v11.89 · admin.js · 2026-10-17
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.89',
+    datum: '2026-10-17',
+    zmeny: [
+      "📲 NOTIFIKACE Z BANKY Z TELEFONU (Milan: „nativní část pro parser notifikací, data převést do webového rozhraní“) · cesta: Import z banky (BETA) → 📲 Notifikace z telefonu. Nová Android appka FinanceFlow Inbox (samostatný projekt financeflow-native) čte notifikace jen z vybraných bankovních aplikací a posílá jejich text sem. Rozpozná je stávající parser webu. Propojení telefonu jednorázovým kódem (8 znaků, 15 minut), seznam propojených telefonů s Odpojit. 📥 Doručené: každou platbu ✅ přidáš do Transakcí (kategorie, název, peněženka), ✕ zahodíš, nerozpoznanou ✎ zapíšeš ručně. Nic se nezapíše samo.",
+      "🧾 SKEN PŘEVEZME PLATBU (Milan: „připojit k notifikacím i naskenovanou účtenku – sken ji převezme, protože je detailnější“) · když k platbě z notifikace existuje naskenovaná účtenka se stejnou částkou (± 1 Kč) a datem (± 2 dny), nabídne se „🧾 Spojit s účtenkou“ – nová transakce nevznikne, účtenka dostane vazbu a peněženku. Když účtenku naskenuješ až PO přidání platby, karta „Účtenka převezme platbu z notifikace“ transakci z notifikace nahradí účtenkou.",
+      "🔒 PRAVIDLA DATABÁZE v11.89 · users/$uid/inbox: propojený telefon smí jen PŘIDAT návrh (číst ani mazat nesmí); inboxPairing (kód zakládá telefon) a inboxLinks (propojení jen s platným kódem max 15 minut a jen na vlastní účet). Smazání účtu odpojí i telefony.",
+      "🧪 tools/smoke_inbox.js – 14 testů (rozpoznání z notifikace, datum z času notifikace, spojení s účtenkou, převzetí účtenkou, přidání do Transakcí, stav položky, napojení, pravidla).",
+    ],
+  },
   {
     verze: 'v11.88',
     datum: '2026-10-17',

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.45 · ucet.js · 2026-10-08
+// FinanceFlow · v11.89 · ucet.js · 2026-10-17
 // ══════════════════════════════════════════════════════════════════════
 //  MŮJ ÚČET (TODO-233, S21 – Milan)
 //  Nahrazuje modal „Upravit profil“. Spouštěčem je jméno a ikona úplně
@@ -254,6 +254,9 @@ async function ucetSmazatUcet() {
         stripeZrusen: stripeZrusen,
       });
     } catch (e) { console.warn('[smazání] náhrobek:', e && e.message); }
+
+    //  S27 (v11.89): propojené telefony (FinanceFlow Inbox) – inboxLinks leží mimo users/, uklidit zvlášť.
+    try { if (typeof inboxOdpojVse === 'function') await inboxOdpojVse(); } catch (e) { console.warn('[smazání] telefony:', e?.message); }
 
     // Teprve teď vlastní data
     await _set(_ref(_db, `users/${me.uid}`), null);
