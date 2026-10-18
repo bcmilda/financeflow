@@ -11,9 +11,9 @@
 ## 1 · Rozhodnutí od Milana (zeptat se hned na začátku)
 | # | Otázka | Doporučení |
 |---|---|---|
-| 1 | **TODO-357:** FinanceFlow Inbox **a)** zrušit (📲 schovat), nebo **b)** nechat jako lehkou alternativu k n0.2? | a) – do n0.2 převzít „sken převezme platbu“ a filtr citlivých oznámení |
+| 1 | ~~TODO-357~~ ✅ rozhodnuto 18. 10.: **b)** Inbox pokračuje (ADR-232). Zkontrolovat stav APK v `bcmilda/financeflow-inbox` (TODO-354) | – |
 | 2 | Smazat `vyplatnice-import.json` (skutečné výplatnice) z veřejného repa? | Ano, i z historie |
-| 3 | Push: PAT vyžádat před každou operací push | – |
+| 3 | Push: PAT není potřeba (GitHub připojení session), před pushem se zeptat | – |
 
 ## 2 · Milan vyzkouší (v11.84–v11.89)
 - **Měřidla:** odečet elektřiny s VT/NT, úprava a smazání odečtu, hromadný import z innogy, plyn a voda, zálohy jako opakovaná platba, doplatek po vyúčtování.
@@ -34,8 +34,8 @@
 - Backlog karet: FIRE, hypotéka vs. nájem, auto vlastní vs. leasing, penzijko + DIP, inflace úspor.
 - **Hotovo, když:** tři karty na skutečných datech, smoke test (`smoke_kalkulacky.js`), kontrola na šířce telefonu.
 
-### 3.2 · Podle rozhodnutí TODO-357
-- a) v11.9x: sekci 📲 Notifikace z telefonu schovat, `inboxOdpojVse` ponechat pro úklid; pravidla `inbox*` odebrat po dohodě.
+### 3.2 · 📲 Inbox (TODO-354, ADR-232)
+- Podle Milanova testu na telefonu opravit appku (`financeflow-inbox`) nebo web (`js/inbox.js`, parser). Odkaz na stažení APK do sekce 📲.
 
 ### 3.3 · Výplata – TODO-345, TODO-346
 - Predikce výplaty v Příštím měsíci a Do výplaty (navazuje na kartu 3).

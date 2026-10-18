@@ -100,3 +100,5 @@ TODO-357 rozhodnutí Inbox vs. n0.2 · TODO-356 🧮 Kalkulačky (jedna stránka
 Plán další session: `PLAN-SESSION-27.md`.
 
 ---
+
+> **Dodatek 18. 10. večer:** Milan rozhodl TODO-357 = **b)** – Inbox pokračuje jako nadstavba webu (ADR-232), repo `bcmilda/financeflow-inbox`. Push do repa jde přes GitHub připojení session, PAT není potřeba.

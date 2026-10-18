@@ -322,3 +322,5 @@ Plán v `PLAN-SESSION-N2.md` (repo `doc/` i Projekt): nejdřív appka na telefon
   - **a)** Inbox zrušit; web v11.89 zůstane bez funkce (pravidla neškodí) a v další verzi se sekce 📲 schová / odstraní;
   - **b)** Inbox nechat jako **lehkou alternativu** pro lidi, kteří nechtějí celou nativní appku (jen čtení oznámení → Doručené na webu).
 - **Co ze Session 26 se hodí i pro n0.2:** pravidlo „sken převezme platbu“ (účtenka se stejnou částkou ± 1 Kč a datem ± 2 dny nahradí transakci z oznámení, `inboxPrevzetiUctenkou`) – n0.2 má párování účtenky s platbou v `core`, sjednotit tolerance. Filtr citlivých oznámení (kódy, PIN, hesla) a „jen zprávy s částkou“ z `BankListener.kt` stojí za porovnání s Java službou n0.2.
+
+**Aktualizace 18. 10. večer (ADR-232):** Milan rozhodl variantu **b)**. Rozhodnutí N1 se týkají jen nativní appky n0.2; web má Inbox jako vlastní nadstavbu (repo `bcmilda/financeflow-inbox`, Doručené → Transakce). Přenos „sken převezme platbu“ a filtru citlivých oznámení do n0.2 platí dál jako doporučení.
