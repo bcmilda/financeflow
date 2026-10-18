@@ -78,8 +78,11 @@ t('kalendář: nový typ dne 🩺 Paragraf',/paragraf: \{ label: 'Paragraf', ico
 
 console.log('── megagraf ──');
 c.S.payslips=data;
+const htmlPrehled=c._renderKalVyplatnice({},7,2026);
+t('v11.88: v přehledu Výplatnice je pod kartou měsíce odkaz na stránku Megagraf (graf samotný ne)',htmlPrehled.indexOf('Megagraf výplat a otázky')>htmlPrehled.indexOf('id="vyplFormBox"')&&htmlPrehled.indexOf('Megagraf výplat a otázky')<htmlPrehled.indexOf('📊 Z čeho se skládá')&&!/id="vgMega"/.test(htmlPrehled));
+c.window._vyplStranka='mega';
 const html=c._renderKalVyplatnice({},7,2026);
-t('karta Megagraf je hned pod kartou měsíce',html.indexOf('🔭 Megagraf výplat')>html.indexOf('id="vyplFormBox"')&&html.indexOf('🔭 Megagraf výplat')<html.indexOf('📊 Z čeho se skládá'));
+t('v11.88: stránka 🔭 Megagraf – jen megagraf s otázkami, bez karty měsíce',/id="vgMega"/.test(html)&&/Zeptej se svých výplat/.test(html)&&!/id="vyplFormBox"/.test(html));
 const kat=c.vyplMegaRady(data);
 t('katalog řad: Kč, hodiny, poměry i sazby (přesčas h, dovolená h, paragraf / nemoc h, odvody z přesčasu…)',['hruba','cisty','dobirka','prescasKc','odvodyPrescas','prescasCisty','prescasH','dovolenaH','jinaH','nocniH','sazbaOdvodu','podilPevne','hodinovka','zustane1000'].every(k=>kat.some(r=>r.k===k))&&kat.length>=28,kat.length);
 t('výchozí pohled Hrubá × čistá: sloupce na hlavní ose, odvody % čárkovaně na vedlejší (pravá stupnice)',/id="vgMega"/.test(html)&&/class="vg-tk vg-tkp"/.test(html)&&/stroke-dasharray="6 4"/.test(html));
@@ -89,10 +92,12 @@ vm.runInContext('window._vyplStav={}',c);
 c.vyplMegaPohled('hrubaCista');
 c.vyplMegaRada('prescasH');
 let st=c.window._vyplStav.mega;
-t('klepnutí přidá řadu na hlavní osu, další klepnutí → vedlejší, další → vypnout',st.rady.find(r=>r.k==='prescasH').osa==='L');
-c.vyplMegaRada('prescasH'); st=c.window._vyplStav.mega; const osaV=st.rady.find(r=>r.k==='prescasH').osa;
+t('klepnutí přidá řadu na hlavní osu',st.rady.find(r=>r.k==='prescasH').osa==='L');
+//  v11.87 (Milan: „nevím, jak se mění hlavní a vedlejší osa“): osa tlačítky ◀ Hlavní | Vedlejší ▶, klepnutí na řadu = zapnout / vypnout
+c.vyplMegaOsa('prescasH','P'); st=c.window._vyplStav.mega; const osaV=st.rady.find(r=>r.k==='prescasH').osa;
+const mgOsa=vm.runInContext('_vyplMegaObsah()',c);
 c.vyplMegaRada('prescasH'); st=c.window._vyplStav.mega;
-t('…cyklus H → V → vypnuto',osaV==='P'&&!st.rady.some(r=>r.k==='prescasH'));
+t('v11.87: osa tlačítky „◀ Hlavní / Vedlejší ▶“ u každé zobrazené řady, další klepnutí na řadu ji vypne',osaV==='P'&&!st.rady.some(r=>r.k==='prescasH')&&/vyplMegaOsa\('prescasH','L'\)">◀ Hlavní/.test(mgOsa)&&/class="on" onclick="vyplMegaOsa\('prescasH','P'\)">Vedlejší ▶/.test(mgOsa));
 const slotCista=st.rady.find(r=>r.k==='cisty').slot; c.vyplMegaRada('hruba'); c.vyplMegaRada('hruba'); c.vyplMegaRada('hruba'); c.vyplMegaRada('dobirka');
 st=c.window._vyplStav.mega;
 t('barva (slot) zůstává řadě – přidání / odebrání jiné řady ji nepřebarví',st.rady.find(r=>r.k==='cisty').slot===slotCista);
@@ -101,6 +106,35 @@ t(`nejvýš 6 řad najednou (pak upozornění)`,c.window._vyplStav.mega.rady.len
 c.vyplMegaPohled('nepritomnost');
 const mg=vm.runInContext('_vyplMegaObsah()',c);
 t('pohled Dovolená a nepřítomnost: skládané hodiny + dobírka na vedlejší ose',/Odpracováno · hlavní osa/.test(mg)&&/Dovolená · hlavní osa/.test(mg)&&/Dobírka \(na účet\) · vedlejší osa/.test(mg));
+c.vyplMegaNastav('obdobi','rok');
+{ const mr=vm.runInContext('_vyplMegaObsah()',c); const rok=(c.window._vyplRadaVse.slice(-1)[0].m||'').slice(0,4);
+  const n=c.window._vyplRadaVse.filter(z=>z.m.startsWith(rok)).length;
+  t('v11.87: období „Od ledna“ = jen pásky roku poslední pásky',/Od ledna \d{4}/.test(mr)&&(mr.match(/<tr><td>[A-ZÚČŘŽ][a-zěščřžýáíéůú]{2} \d\d<\/td>/g)||[]).length===n,n);
+  c.vyplMegaNastav('kum',1); const mk=vm.runInContext('_vyplMegaObsah()',c);
+  t('v11.87: kumulativně – průběžný součet (dovolená, odpracováno), bez řádků průměr / součet',/\(kumulativně\)/.test(mk)&&!/<td>Průměr<\/td>/.test(mk.slice(mk.indexOf('id="vgMega"'))));
+  c.vyplMegaNastav('kum',0); }
+//  v11.88 (Milan: „megagraf jsem chtěl na samostatnou stránku u Výplatnice“) – místo překryvu přepínač stránek
+t('v11.88: Výplatnice má stránky 🧾 Výplatnice / 🔭 Megagraf; na stránce megagrafu větší graf, v přehledu jen odkaz',/zal\('prehled', '🧾 Výplatnice'\)\}\$\{zal\('mega', '🔭 Megagraf'\)\}/.test(src)&&/if \(st === 'mega'\) \{/.test(src)&&/const vyska = cela \? Math\.max\(300/.test(src)&&/Megagraf výplat a otázky/.test(src)&&!/vyplMegaCelaOkno/.test(src));
+//  řazení (Milan: „seřaď mi graf hrubé mzdy od největší po nejmenší“)
+vm.runInContext('window._vyplStav={}',c);
+c.vyplMegaNastav('rady',[{k:'hruba',osa:'L',slot:0}]); c.vyplMegaNastav('obdobi',0); c.vyplMegaNastav('razeni','desc');
+{ const ms=vm.runInContext('_vyplMegaObsah()',c);
+  const hr=data.map(z=>c.vyplDopocet(z).hruba).sort((a,b)=>b-a);
+  const radky=[...ms.slice(ms.indexOf('id="vgMega"')).matchAll(/<tr><td>(\d+)\. [^<]+<\/td><td>([\d\s ]+)<\/td>/g)].map(m=>+m[2].replace(/\D/g,''));
+  t('v11.88: řazení ↓ od největší – tabulka i graf v pořadí podle hrubé, s pořadím 1., 2., …',radky.length===data.length&&radky[0]===Math.round(hr[0])&&radky.every((v,i)=>!i||v<=radky[i-1])&&/↓ Od největší/.test(ms)&&/Seřazeno podle řady <b>Hrubá/.test(ms),radky.slice(0,4));
+  c.vyplMegaNastav('razeni','asc'); const ma=vm.runInContext('_vyplMegaObsah()',c);
+  const ra=[...ma.slice(ma.indexOf('id="vgMega"')).matchAll(/<tr><td>(\d+)\. [^<]+<\/td><td>([\d\s ]+)<\/td>/g)].map(m=>+m[2].replace(/\D/g,''));
+  t('v11.88: řazení ↑ od nejmenší',ra.length&&ra.every((v,i)=>!i||v>=ra[i-1]));
+  c.vyplMegaNastav('kum',1); const mk=vm.runInContext('_vyplMegaObsah()',c);
+  t('v11.88: při řazení se kumulace vypne (s poznámkou)',!/\(kumulativně\)/.test(mk)&&/kumulace je při řazení vypnutá/.test(mk));
+  c.vyplMegaNastav('kum',0); c.vyplMegaNastav('razeni',''); }
+//  nové otázky
+{ const o=c.vyplOdpoved('serazeni',data);
+  t('v11.88: otázka „Seřaď hrubou mzdu“ → nejvyšší a nejnižší měsíce, tabulka s pořadím, graf přepnut na řazení',/Nejvyšší hrubá/.test(o.html)&&o.tab[1].length===data.length&&o.tab[1][0][0]==='1.'&&o.nastav.razeni==='desc');
+  c.workDovolenaZbyva=()=>({narokH:220,vycerpanoH:88,zPasekH:88,zKalH:0,planH:0,zbyvaH:132,denH:11,paskyDo:'srpen 2026'});
+  const d=c.vyplOdpoved('dovolenaZbyva',data);
+  t('v11.88: otázka „Kolik dní a hodin dovolené mi zbývá?“ → 132 h = 12 dní (den = 11 h), nárok / vyčerpáno, od ledna kumulativně',/zbývá <b>132 h<\/b> = <b>12 dní<\/b>/.test(d.html)&&/z pásek 88 h \(do srpen 2026\)/.test(d.html)&&d.nastav.obdobi==='rok'&&d.nastav.kum===1);
+  t('v11.88: kalendář má workDovolenaZbyva (stejný výpočet jako Sumář)',/function workDovolenaZbyva\(y, dnes\)/.test(kal)); }
 c.vyplMegaNastav('obdobi',12);
 t('období 12 m: v tabulce 12 měsíců',(vm.runInContext('_vyplMegaObsah()',c).match(/<tr><td>[A-ZÚČŘŽ][a-zěščřžýáíéůú]{2} \d\d<\/td>/g)||[]).length===12);
 
@@ -116,13 +150,13 @@ el.vyplOdpoved={innerHTML:''}; c.vyplOtazka('prescasOdvody');
 t('klepnutí na bublinu: odpověď + tabulka + megagraf přepnut na pohled Přesčas',/vg-odp/.test(el.vyplOdpoved.innerHTML)&&/<table>/.test(el.vyplOdpoved.innerHTML)&&c.window._vyplStav.mega.pohled==='prescas');
 
 console.log('── karty Prémie a Daně ──');
-const pr=html.slice(html.indexOf('📈 Prémie, příplatky a přesčas'));
+const pr=htmlPrehled.slice(htmlPrehled.indexOf('📈 Prémie, příplatky a přesčas'));
 t('Prémie: sloupce prémií, čáry příplatků So+Ne/noční a přesčasu zvlášť',/id="vgPremie"/.test(pr)&&(pr.slice(0,pr.indexOf('</svg>')).match(/<polyline/g)||[]).length===2&&/Příplatky So\+Ne, noční, svátek/.test(pr));
-const dn=html.slice(html.indexOf('🏛️ Daně a odvody'));
+const dn=htmlPrehled.slice(htmlPrehled.indexOf('🏛️ Daně a odvody'));
 t('Daně: filtr ZP / SP / daň + čáry hrubá, čistá, přesčas',['vyplOdvFiltr(\'zp\')','vyplOdvFiltr(\'hruba\')','vyplOdvFiltr(\'cisty\')','vyplOdvFiltr(\'prescas\')'].every(x=>dn.includes(x)));
 t('Daně: KPI přesčas → odvody z něj a „je to konstanta“',/Přesčas za 12 měsíců/.test(dn)&&/odvody z něj/.test(dn)&&/je to konstanta|stejně v \d+ z \d+/.test(dn));
 t('Daně: tabulka má sloupce přesčas / odvody z něj a Z 1 000 zůstane',/<th>Přesčas \/ odvody z něj<\/th>/.test(dn)&&/<th>Z 1 000 zůstane<\/th>/.test(dn));
 vm.runInContext('window._vyplStav.odv=null',c); c.vyplOdvFiltr('hruba');
 t('filtr: vypnutá hrubá zmizí z grafu, ostatní zůstanou',!c.window._vyplStav.odv.includes('hruba')&&c.window._vyplStav.odv.includes('zp'));
-t('složení mzdy: šest složek včetně Přesčasu zvlášť',/vyplFiltr\('prescas'\)/.test(html)&&/vyplFiltr\('priplatky'\)/.test(html));
+t('složení mzdy: šest složek včetně Přesčasu zvlášť',/vyplFiltr\('prescas'\)/.test(htmlPrehled)&&/vyplFiltr\('priplatky'\)/.test(htmlPrehled));
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

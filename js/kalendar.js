@@ -1,4 +1,4 @@
-// FinanceFlow · v11.81 · kalendar.js · 2026-10-15
+// FinanceFlow · v11.88 · kalendar.js · 2026-10-17
 // ══════════════════════════════════════════════════════
 //  KALENDÁŘ – FinanceFlow
 //  Režimy (window._calMode): 'finance' (transakce) | 'work' (pracovní kalendář).
@@ -469,6 +469,23 @@ window._workSalary = _workSalary;
 //  S26 (v11.75, Milan: „12h směna + 1 h přestávky = odpracováno 11 h, den dovolené = 11 h“): přestávka se
 //  do pracovní doby nepočítá (§ 88 ZP), proto den dovolené = hodin/směna − neplacená přestávka. Sedí i
 //  na výplatnici (nepřítomnost 11 h za den dovolené).
+//  v11.88 (Milan: otázka megagrafu „kolik dní / hodin dovolené mi zbývá?“): stejný výpočet jako
+//  dlaždice Zůstatek dovolené v Sumáři – za měsíce s výplatnicí z pásky, za ostatní z kalendáře.
+function workDovolenaZbyva(y, dnes) {
+  const cfg = _workCfg();
+  const ted = dnes ? new Date(dnes) : new Date();
+  const dnesK = `${ted.getFullYear()}-${String(ted.getMonth() + 1).padStart(2, '0')}-${String(ted.getDate()).padStart(2, '0')}`;
+  const pasky = (typeof vyplZaznamy === 'function' ? vyplZaznamy() : []).filter(z => String(z.m).startsWith(y + '-')).sort((a, b) => a.m.localeCompare(b.m));
+  const mesP = new Set(pasky.map(z => z.m));
+  let zKal = 0, plan = 0, zPasek = 0;
+  Object.keys(cfg.days || {}).forEach(k => { const d = cfg.days[k];
+    if (k.startsWith(`${y}-`) && d && d.type === 'dovolena' && !mesP.has(k.slice(0, 7))) { const h = _workVacH(d, cfg); zKal += h; if (k > dnesK) plan += h; } });
+  if (typeof vyplHodinyZPasky === 'function') pasky.forEach(z => { zPasek += vyplHodinyZPasky(z).dovolenaH; });
+  const vycerpano = zKal + zPasek;
+  return { rok: y, narokH: cfg.vacQuotaH, vycerpanoH: vycerpano, zPasekH: zPasek, zKalH: zKal, planH: plan, zbyvaH: cfg.vacQuotaH - vycerpano,
+    denH: _workVacH(null, cfg) || 8, paskyDo: pasky.length ? `${CZ_M[+pasky[pasky.length - 1].m.slice(5, 7) - 1].toLowerCase()} ${y}` : '' };
+}
+window.workDovolenaZbyva = workDovolenaZbyva;
 function _workVacH(wd, cfg) { return (wd && wd.hours > 0) ? wd.hours : Math.max(0, (cfg.hpd || 8) - (cfg.breakMin || 0) / 60); }
 //  S26 (v11.75): hodiny měsíce – jedno místo pro Sumář, Hodinovou mzdu i odhad výplaty
 function _workHodiny(cfg, y, m) {

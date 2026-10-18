@@ -1,4 +1,4 @@
-// FinanceFlow · v11.87 · admin.js · 2026-10-16
+// FinanceFlow · v11.88 · admin.js · 2026-10-17
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.88',
+    datum: '2026-10-17',
+    zmeny: [
+      "⛽ TANKOVÁNÍ Z NASKENOVANÉ ÚČTENKY (Milan: „transakci jsem musel zapsat ručně, jinak by se nezobrazila v tankování – ze skenu účtenky se data nepropsala, a na účtence je vidět i sleva za kupony“) · cesta: Měřidla → 🚗 Vozidla → karta „📷 Účtenky z benzínky → tankování“. Z položky paliva (EVO 95 · 22,27 l · 988,40 Kč · sleva) appka vezme litry, Kč jen za palivo (káva se nepočítá) a cenu u stojanu tak, aby „ušetřeno na kuponech“ = sleva z účtenky. Doplníš vozidlo a tachometr a „⛽ Zapsat“ – tankování se uloží k transakci účtenky, ruční transakce není potřeba. Při úpravě transakce účtenky má blok ⛽ tlačítko „📷 Doplnit z účtenky“.",
+      "🔭 MEGAGRAF NA SAMOSTATNÉ STRÁNCE (Milan: „megagraf jsem chtěl na samostatnou stránku u Výplatnice“) · cesta: Kalendář → 🧾 Výplatnice → přepínač 🧾 Výplatnice | 🔭 Megagraf. Stránka Megagraf má graf přes celou šířku a větší výšku, otázky a tabulku; v přehledu Výplatnice zůstal jen odkaz. Překryv „celá obrazovka“ z v11.87 zrušen. Volba stránky se pamatuje.",
+      "↕️ ŘAZENÍ V MEGAGRAFU (Milan: „seřaď mi graf hrubé mzdy od největší po nejmenší – řazení nám chybí“) · Podle času | ↓ Od největší | ↑ Od nejmenší – podle první řady na hlavní ose; graf i tabulka s pořadím 1., 2., …; při řazení se vypne kumulace.",
+      "❓ NOVÉ OTÁZKY · „Kolik dní a hodin dovolené mi zbývá?“ (stejný výpočet jako Zůstatek dovolené v pracovním kalendáři: nárok − pásky − kalendář, i naplánovaná; přepne graf na dovolenou od ledna kumulativně) a „Seřaď hrubou mzdu od největší po nejmenší“ (nejlepší a nejhorší měsíce, tabulka s pořadím).",
+      "🧪 tools/smoke_tank_uctenka.js (13 testů), smoke_vyplatnice_mega.js rozšířen (stránky, řazení, otázky).",
+    ],
+  },
   {
     verze: 'v11.87',
     datum: '2026-10-16',
