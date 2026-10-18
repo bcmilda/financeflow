@@ -1,4 +1,4 @@
-//  FinanceFlow · v11.74 · duplicates.js · 2026-10-13
+//  FinanceFlow · v11.87 · duplicates.js · 2026-10-16
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -106,6 +106,33 @@ function dupPary(transactions) {
       out.push(Object.assign({ a, b }, r));
     }
   }
+  //  S27 (v11.87, Milan): „naskenoval jsem účtenku z benzínky a pak přidal stejnou transakci –
+  //  Podezřelé to neodhalily“. Účtenka 1 022,40 Kč (benzín 988,40 + káva 34) a ručně 988,40 Kč:
+  //  částky se liší, proto to žádné pravidlo nevidělo. Nové pravidlo: POLOŽKA účtenky = jiná transakce.
+  dupParyPolozka(transactions).forEach(p => out.push(p));
+  return out;
+}
+//  Transakce bez účtenky, jejíž částka (± 0,50 Kč) se rovná položce účtenky jiné transakce téhož
+//  typu ze stejného nebo vedlejšího dne. Celé účtenky řeší pravidla výš (stejná částka).
+function dupParyPolozka(transactions) {
+  const R = (typeof S !== 'undefined' && S.receipts) || [];
+  if (!R.length || typeof dupUctenkaPro !== 'function') return [];
+  const txs = (transactions || []).filter(t => t && t.type === 'expense' && !t.splitParent && !DUP_CONFIG.IGNORE_CATS.includes(t.catId || t.category));
+  const sUct = [], bez = [];
+  txs.forEach(t => { const u = dupUctenkaPro(t); if (u && (u.r.items || []).length > 1) sUct.push({ t, r: u.r }); else if (!u) bez.push(t); });
+  const out = [];
+  const kc = it => (it && it.lineTotal != null) ? (parseFloat(it.lineTotal) || 0) : (parseFloat(it && it.price) || 0) * (parseFloat(it && it.qty) || 1);
+  sUct.forEach(({ t: a, r }) => {
+    const celkem = dupCastka(a);
+    bez.forEach(b => {
+      if (b === a || dupJeNeni(a.id, b.id)) return;
+      const dd = Math.abs((new Date(a.date) - new Date(b.date)) / 86400000); if (dd > 1) return;
+      const amtB = dupCastka(b); if (!(amtB > 0) || Math.abs(amtB - celkem) <= 1) return;
+      const it = (r.items || []).find(x => Math.abs(kc(x) - amtB) <= 0.5);
+      if (!it) return;
+      out.push({ a, b, type: 'polozka', score: 0.75, reason: `Položka účtenky „${it.name || it.raw || '?'}“ ${fmt(kc(it))} Kč = tato transakce (${a.date === b.date ? 'stejný den' : 'vedlejší den'})` });
+    });
+  });
   return out;
 }
 //  Kdy byla transakce přidaná: účtenka (receiptAddedAt) nebo čas zakódovaný v id (genTxId = čas × 16)
@@ -253,9 +280,9 @@ function dupVseFiltr(f) { _dupVseFiltr = f; dupVseKresli(); }
 function dupVseKresli() {
   const o = document.getElementById('dupVseOkno'); if (!o) return;
   const vse = dupParyVse(), D = getData(), ro = typeof viewingUid !== 'undefined' && !!viewingUid;
-  const pocet = { vse: vse.length, exact: 0, delayed: 0, fuzzy_name: 0 }; vse.forEach(p => pocet[p.type]++);
+  const pocet = { vse: vse.length, exact: 0, delayed: 0, fuzzy_name: 0, polozka: 0 }; vse.forEach(p => pocet[p.type]++);
   const pary = _dupVseFiltr === 'vse' ? vse : vse.filter(p => p.type === _dupVseFiltr);
-  const typ = { exact: ['🔴', 'Přesný duplikát', 'var(--expense)'], delayed: ['🟡', 'Možný duplikát', 'var(--debt)'], fuzzy_name: ['🟠', 'Podobná transakce', 'var(--debt)'] };
+  const typ = { exact: ['🔴', 'Přesný duplikát', 'var(--expense)'], delayed: ['🟡', 'Možný duplikát', 'var(--debt)'], fuzzy_name: ['🟠', 'Podobná transakce', 'var(--debt)'], polozka: ['🧾', 'Položka účtenky', 'var(--debt)'] };
   const M = typeof CZ_M !== 'undefined' ? CZ_M : [];
   const e = typeof escHtml === 'function' ? escHtml : (x => String(x == null ? '' : x));
   const kat = t => { const c = (D.categories || []).find(x => x.id === (t.catId || t.category)); return c ? (c.icon || '') + ' ' + c.name : ''; };
@@ -286,7 +313,7 @@ function dupVseKresli() {
     <div style="display:flex;align-items:center;gap:8px"><div style="font-weight:800;font-size:1rem;flex:1">⚠️ Podezřelé páry – všechny měsíce</div>
       <button onclick="dupVseZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
     <div style="font-size:.74rem;color:#a8aec8;margin:4px 0 8px;line-height:1.5">Stejná částka a stejný den, do 5 dní, nebo velmi podobný název do měsíce. U každého páru smaž tu navíc, nebo potvrď „Není duplikát“ – appka si to zapamatuje a pár už neukáže.</div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${chip('vse', 'Vše')}${chip('exact', '🔴 Přesné')}${chip('delayed', '🟡 Možné')}${chip('fuzzy_name', '🟠 Podobné')}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${chip('vse', 'Vše')}${chip('exact', '🔴 Přesné')}${chip('delayed', '🟡 Možné')}${chip('fuzzy_name', '🟠 Podobné')}${pocet.polozka ? chip('polozka', '🧾 Z účtenky') : ''}</div>
     ${h || '<div style="padding:24px 0;text-align:center;color:var(--text2);font-size:.84rem">✅ Žádné podezřelé páry</div>'}
     ${pary.length > 200 ? `<div style="font-size:.72rem;color:var(--text3);text-align:center;margin-top:6px">Zobrazeno prvních 200 z ${pary.length}.</div>` : ''}
   </div>`;
@@ -364,6 +391,7 @@ function buildDupBadge(t, dupMap) {
     exact:       { icon: '🔴', label: 'Přesný duplikát',    color: 'var(--expense)' },
     delayed:     { icon: '🟡', label: 'Možný duplikát',     color: 'var(--debt)'    },
     fuzzy_name:  { icon: '🟠', label: 'Podobná transakce',  color: 'var(--debt)'    },
+    polozka:     { icon: '🧾', label: 'Položka účtenky',    color: 'var(--debt)'    },
   };
   const lbl = typeLabels[best.type] || typeLabels.delayed;
 
@@ -423,7 +451,7 @@ function openDupDetail(txId) {
       const other = (D.transactions||[]).find(x => x.id == dup.otherId);
       if (!other) return '';
       const oAmt = other.amount || other.amt || 0;
-      const typeColors = { exact:'var(--expense)', delayed:'var(--debt)', fuzzy_name:'var(--debt)' };
+      const typeColors = { exact:'var(--expense)', delayed:'var(--debt)', fuzzy_name:'var(--debt)', polozka:'var(--debt)' };
       return `<div style="padding:10px 12px;border:1px solid rgba(251,191,36,.25);border-radius:10px;margin-bottom:8px;background:rgba(251,191,36,.04)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
           <div>

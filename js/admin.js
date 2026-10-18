@@ -1,4 +1,4 @@
-// FinanceFlow · v11.86 · admin.js · 2026-10-16
+// FinanceFlow · v11.87 · admin.js · 2026-10-16
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.87',
+    datum: '2026-10-16',
+    zmeny: [
+      "🔭 MEGAGRAF NA CELOU OBRAZOVKU, OSY TLAČÍTKY, OD LEDNA, KUMULATIVNĚ (Milan: „megagraf jsem si představoval na celou stránku“, „nevím, jak se mění hlavní a vedlejší osa“, „chci tracking od začátku roku – i kvůli dovolené“) · cesta: Kalendář → 🧾 Výplatnice → 🔭 Megagraf. ⛶ Celá obrazovka (graf přes výšku displeje, ✕ Zavřít). Nad grafem „Zobrazené řady a jejich osa“: u každé řady ◀ Hlavní | Vedlejší ▶ a ✕ – klepnutí na řadu v nabídce ji jen zapne / vypne (dřív skrytý cyklus H → V → vypnuto). Období „Od ledna RRRR“ a přepínač Po měsících / Kumulativně (průběžný součet dovolené, odpracovaných hodin, Kč).",
+      "🧾 PODEZŘELÉ: POLOŽKA ÚČTENKY = JINÁ TRANSAKCE (Milan: „naskenoval jsem účtenku z benzínky a přidal stejnou transakci – Podezřelé to neodhalily“) · Účtenka 1 022,40 Kč (benzín 988,40 + káva 34) a ruční 988,40 Kč se lišily v částce, žádné pravidlo je nevidělo. Nové pravidlo 🧾: transakce bez účtenky, jejíž částka se rovná položce účtenky ze stejného nebo vedlejšího dne; v přehledu všech měsíců filtr „🧾 Z účtenky“.",
+      "⛽ ÚPRAVA TRANSAKCE NESMAŽE TANKOVÁNÍ (Milan: „pozměnil jsem částku a zahodila se zapsaná data natankovaného paliva“, tankování zmizelo z Vozidel) · Uložení úpravy mazalo t.tank vždy, když formulář neměl podkategorii Palivo – a tu smazalo i klepnutí na už vybranou kategorii Auto. Teď: klepnutí na vybranou kategorii podkategorii nechá; když kategorie zůstane stejná, tankování (i podkategorie) zůstane. Smaže se jen při přesunu do jiné kategorie.",
+      "📅 DATUM ÚČTENKY: DEN A MĚSÍC PROHOZENÉ (Milan: „na účtence 1/10/2026, AI zapsalo 10. ledna 2026“) · cesta: Analýza účtenek → editor → pod datem. Když je přečtené datum v budoucnu nebo víc než 45 dní zpět a po prohození dne a měsíce vyjde nedávné datum, appka nabídne „↔ Prohodit na 1. 10. 2026“. Nemění samo.",
+      "🚗 VOZIDLA: GRAF CENY A KUPONY (Milan: „čára zasahuje do osy“, „kde jsem ušetřil 3 Kč na kuponech?“) · cesta: Měřidla → 🚗 Vozidla → detail. Popisky osy mají vlastní pruh, větší písmo. Dlaždice Ušetřeno na kuponech vysvětluje výpočet (cena u stojanu × litry − zaplaceno) a tabulka má sloupec Ušetřeno s litry × cenou u stojanu.",
+      "🧪 tools/smoke_s27_opravy.js (14 testů), smoke_vyplatnice_mega.js upraven (osy tlačítky, od ledna, kumulativně, celá obrazovka).",
+    ],
+  },
   {
     verze: 'v11.86',
     datum: '2026-10-16',

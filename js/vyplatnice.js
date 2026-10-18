@@ -1,4 +1,4 @@
-// FinanceFlow · v11.83 · vyplatnice.js · 2026-10-15
+// FinanceFlow · v11.87 · vyplatnice.js · 2026-10-16
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -990,6 +990,8 @@ window._vyplKarty = window._vyplKarty || {};
 function _vyplPrekresli(karta) {
   const box = typeof document !== 'undefined' && document.getElementById('vyplBox_' + karta), f = window._vyplKarty[karta];
   if (box && f) box.innerHTML = f();
+  //  v11.87: megagraf na celé obrazovce se překreslí spolu s kartou
+  if (karta === 'mega') { const c = typeof document !== 'undefined' && document.getElementById('vyplBox_megaCela'); if (c) c.innerHTML = _vyplMegaObsah({ cela: true }); }
 }
 
 // ── Megagraf ──────────────────────────────────────────────────────────
@@ -1013,8 +1015,9 @@ function _vyplMegaZPohledu(p) {
   return { pohled: p, typ: P.typ, obdobi: (window._vyplStav.mega || {}).obdobi || 0, rady: P.rady.map(([k, osa], i) => ({ k, osa, slot: i })) };
 }
 function vyplMegaPohled(p) { window._vyplStav.mega = _vyplMegaZPohledu(p); _vyplStavUloz(); _vyplPrekresli('mega'); }
-//  Klepnutí na řadu: vypnuto → hlavní osa → vedlejší osa → vypnuto. Barva (slot) zůstává řadě,
-//  dokud ji nevypneš – přidání další řady ostatní nepřebarví.
+//  v11.87 (Milan: „nevím, jak se mění hlavní a vedlejší osa“): klepnutí na řadu ji jen ZAPNE (hlavní osa)
+//  nebo VYPNE. Osu měníš u zapnuté řady tlačítky „◀ Hlavní | Vedlejší ▶“ nad grafem (dřív skrytý
+//  cyklus H → V → vypnuto). Barva (slot) zůstává řadě, dokud ji nevypneš.
 function vyplMegaRada(k) {
   const s = JSON.parse(JSON.stringify(_vyplMegaStav())); s.pohled = '';
   const i = s.rady.findIndex(r => r.k === k);
@@ -1022,23 +1025,49 @@ function vyplMegaRada(k) {
     if (s.rady.length >= VYPL_MEGA_MAX) { if (typeof showToast === 'function') showToast(`Najednou nejvýš ${VYPL_MEGA_MAX} řad – nejdřív nějakou vypni`); return; }
     const vol = [0, 1, 2, 3, 4, 5].find(x => !s.rady.some(r => r.slot === x));
     s.rady.push({ k, osa: 'L', slot: vol });
-  } else if (s.rady[i].osa === 'L') s.rady[i].osa = 'P';
-  else s.rady.splice(i, 1);
+  } else s.rady.splice(i, 1);
   window._vyplStav.mega = s; _vyplStavUloz(); _vyplPrekresli('mega');
 }
+function vyplMegaOsa(k, osa) {
+  const s = JSON.parse(JSON.stringify(_vyplMegaStav())); s.pohled = '';
+  const r = s.rady.find(x => x.k === k); if (!r || r.osa === osa) return;
+  r.osa = osa; window._vyplStav.mega = s; _vyplStavUloz(); _vyplPrekresli('mega');
+}
+//  v11.87 (Milan: „megagraf jsem si představoval na celou stránku“): celá obrazovka, větší graf.
+function vyplMegaCela(zapnout) {
+  if (typeof document === 'undefined') return;
+  let o = document.getElementById('vyplMegaCelaOkno');
+  if (!zapnout) { if (o) o.remove(); document.body.style.overflow = ''; return; }
+  if (!o) { o = document.createElement('div'); o.id = 'vyplMegaCelaOkno'; document.body.appendChild(o); }
+  o.style.cssText = 'position:fixed;inset:0;z-index:10080;background:var(--bg,#0d0f17);overflow:auto;padding:10px 10px calc(14px + env(safe-area-inset-bottom))';
+  o.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;position:sticky;top:-10px;background:var(--bg,#0d0f17);padding:6px 0;z-index:2">
+      <div style="font-weight:800;font-size:1.05rem;color:var(--text)">🔭 Megagraf výplat</div>
+      <button class="btn btn-sm" onclick="vyplMegaCela(false)">✕ Zavřít</button></div>
+    <div id="vyplBox_megaCela">${_vyplMegaObsah({ cela: true })}</div>
+    <div class="vg-pozn">Tip: otoč telefon na šířku – graf se roztáhne.</div>`;
+  document.body.style.overflow = 'hidden';
+}
+window.vyplMegaOsa = vyplMegaOsa; window.vyplMegaCela = vyplMegaCela;
 function vyplMegaNastav(klic, hodnota) {
   const s = JSON.parse(JSON.stringify(_vyplMegaStav())); s[klic] = hodnota;
   window._vyplStav.mega = s; _vyplStavUloz(); _vyplPrekresli('mega');
 }
 window.vyplMegaPohled = vyplMegaPohled; window.vyplMegaRada = vyplMegaRada; window.vyplMegaNastav = vyplMegaNastav;
 
-function _vyplMegaObsah() {
+function _vyplMegaObsah(opt) {
   const vse = (window._vyplRadaVse || []);
   if (vse.length < 2) return '';
   const s = _vyplMegaStav();
-  const rada = s.obdobi ? vse.slice(-s.obdobi) : vse;
+  //  v11.87 (Milan: „tracking od začátku roku – i kvůli dovolené“): období „Od ledna“ = rok poslední pásky.
+  const rokPosl = (vse[vse.length - 1].m || '').slice(0, 4);
+  const rada = s.obdobi === 'rok' ? vse.filter(z => (z.m || '').startsWith(rokPosl)) : s.obdobi ? vse.slice(-s.obdobi) : vse;
+  if (!rada.length) return '<div class="vg-pozn">V tomto období nejsou pásky.</div>';
   const kat = vyplMegaRady(rada), dle = k => kat.find(r => r.k === k);
-  const aktivni = s.rady.map(r => Object.assign({}, dle(r.k) || {}, r, { barva: VYPL_MEGA_SLOTY[r.slot % 6] })).filter(r => r.hodnoty);
+  //  Kumulativně = průběžný součet od začátku zobrazeného období (jen řady, které se sčítají – Kč, hodiny).
+  const kum = !!s.kum;
+  const aktivni = s.rady.map(r => { const d = dle(r.k) || {}; const o = Object.assign({}, d, r, { barva: VYPL_MEGA_SLOTY[r.slot % 6] });
+      if (kum && d.suma && d.hodnoty) { let a = 0; o.hodnoty = d.hodnoty.map(v => (a += (+v || 0))); o.kumul = true; }
+      return o; }).filter(r => r.hodnoty);
   const L = aktivni.filter(r => r.osa === 'L'), P = aktivni.filter(r => r.osa === 'P');
   const typ = s.typ || 'vedle';
   const jedL = L[0] ? L[0].jed : (P[0] ? P[0].jed : 'Kč'), jedP = P[0] ? P[0].jed : '';
@@ -1049,7 +1078,9 @@ function _vyplMegaObsah() {
   const chip = r => { const a = aktivni.find(x => x.k === r.k);
     return `<button class="vg-chip${a ? ' on' : ''}" onclick="vyplMegaRada('${r.k}')" title="${r.label} (${r.jed})">${a ? `<span class="vg-dot" style="background:${a.barva};margin:0"></span>` : ''}${r.kratce}${a ? `<b class="vg-osaz">${a.osa === 'L' ? 'H' : 'V'}</b>` : ''}</button>`; };
   const seg = (klic, akt, moz) => `<div class="vg-seg2">${moz.map(([v, l]) => `<button class="${String(akt) === String(v) ? 'on' : ''}" onclick="vyplMegaNastav('${klic}',${typeof v === 'number' ? v : `'${v}'`})">${l}</button>`).join('')}</div>`;
-  const graf = aktivni.length ? _vyplKombi({ id: 'vgMega', mesice: rada.map(z => z.m), vyska: 230, osaL, osaP,
+  const cela = !!(opt && opt.cela);
+  const vyska = cela ? Math.max(300, Math.min(620, Math.round(((typeof window !== 'undefined' && window.innerHeight) || 800) * 0.55))) : 230;
+  const graf = aktivni.length ? _vyplKombi({ id: cela ? 'vgMegaCela' : 'vgMega', mesice: rada.map(z => z.m), vyska, osaL, osaP,
       sloupce: typ === 'cary' ? [] : L.map(r => ({ label: r.label, barva: r.barva, hodnoty: r.hodnoty })), rezim: typ,
       cary: (typ === 'cary' ? L : []).map(r => ({ label: r.label, barva: r.barva, hodnoty: r.hodnoty })).concat(P.map(r => ({ label: r.label, barva: r.barva, hodnoty: r.hodnoty, osa: 'P' }))),
       udalosti: udal,
@@ -1058,22 +1089,30 @@ function _vyplMegaObsah() {
   const hl = ['Měsíc'].concat(aktivni.map(r => `${r.kratce}${r.osa === 'P' ? ' (V)' : ''}`));
   const radky = rada.map((z, i) => [_vyplMes(z.m)].concat(aktivni.map(r => _vyplFmtJed(r.hodnoty[i] || 0, r.jed).replace(/ (Kč|h|%|Kč\/h)$/, '')))).reverse();
   const nn = rada.length || 1;
-  const souhrn = aktivni.length ? [
+  const souhrn = aktivni.length && kum ? [] : aktivni.length ? [
     ['Průměr'].concat(aktivni.map(r => _vyplFmtJed(r.hodnoty.reduce((a, b) => a + (b || 0), 0) / nn, r.jed).replace(/ (Kč|h|%|Kč\/h)$/, ''))),
     ['Součet'].concat(aktivni.map(r => r.suma ? _vyplFmtJed(r.hodnoty.reduce((a, b) => a + (b || 0), 0), r.jed).replace(/ (Kč|h|%|Kč\/h)$/, '') : '')),
   ] : [];
   return `
     <div class="vg-sek2">Rychlé pohledy</div>
     <div class="vg-chipy">${Object.keys(VYPL_POHLEDY).map(k => `<button class="vg-chip${s.pohled === k ? ' on' : ''}" onclick="vyplMegaPohled('${k}')">${VYPL_POHLEDY[k].label}</button>`).join('')}</div>
-    <details class="vg-det"${s.pohled ? '' : ' open'}><summary>Řady a osy <span style="color:#8b93ad">· klepnutí: H = hlavní osa vlevo → V = vedlejší vpravo (čárkovaně) → vypnout · nejvýš ${VYPL_MEGA_MAX}</span></summary>
+    <details class="vg-det"${s.pohled ? '' : ' open'}><summary>➕ Přidat / odebrat řady <span style="color:#8b93ad">· klepnutí zapne nebo vypne · nejvýš ${VYPL_MEGA_MAX}</span></summary>
       ${VYPL_MEGA_SKUPINY.map(([g, gl]) => `<div class="vg-sek2">${gl}</div><div class="vg-chipy">${kat.filter(r => r.skup === g).map(chip).join('')}</div>`).join('')}
     </details>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0">
       ${seg('typ', typ, [['vedle', 'Sloupce'], ['sklad', 'Skládané'], ['cary', 'Čáry']])}
-      ${seg('obdobi', s.obdobi || 0, [[12, '12 m'], [24, '24 m'], [0, 'Vše']])}
+      ${seg('obdobi', s.obdobi || 0, [['rok', 'Od ledna ' + rokPosl], [12, '12 m'], [24, '24 m'], [0, 'Vše']])}
+      ${seg('kum', kum ? 1 : 0, [[0, 'Po měsících'], [1, 'Kumulativně']])}
+      ${cela ? '' : '<button class="btn btn-sm" onclick="vyplMegaCela(true)">⛶ Celá obrazovka</button>'}
     </div>
+    ${aktivni.length ? `<div class="vg-sek2">Zobrazené řady a jejich osa</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">${aktivni.map(r => `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.78rem">
+      <span class="vg-dot" style="background:${r.barva};margin:0"></span><span style="flex:1 1 120px;min-width:0">${r.label}${r.kumul ? ' <span style="color:#8b93ad">(kumulativně)</span>' : ''}</span>
+      <div class="vg-seg2"><button class="${r.osa === 'L' ? 'on' : ''}" onclick="vyplMegaOsa('${r.k}','L')">◀ Hlavní</button><button class="${r.osa === 'P' ? 'on' : ''}" onclick="vyplMegaOsa('${r.k}','P')">Vedlejší ▶</button></div>
+      <button class="vg-chip" style="padding:2px 8px" onclick="vyplMegaRada('${r.k}')" aria-label="Odebrat">✕</button></div>`).join('')}</div>
+    <div class="vg-pozn" style="margin:-4px 0 6px">Hlavní osa = stupnice vlevo (sloupce / plné čáry), vedlejší = stupnice vpravo (čárkovaně). Na vedlejší dej řadu s jinou jednotkou, např. hodiny k Kč.</div>` : ''}
     ${_vyplLegenda(aktivni.map(r => ({ label: `${r.label} · ${r.osa === 'L' ? 'hlavní' : 'vedlejší'} osa`, barva: r.barva })))}
-    ${smes ? `<div class="vg-pozn" style="color:#fbbf24;margin:0 0 6px">⚠️ Na jedné ose jsou různé jednotky – dej jednu z řad na vedlejší osu (klepni na ni).</div>` : ''}
+    ${smes ? `<div class="vg-pozn" style="color:#fbbf24;margin:0 0 6px">⚠️ Na jedné ose jsou různé jednotky – u jedné z řad nahoře klepni na „Vedlejší ▶“.</div>` : ''}
     ${graf}
     ${aktivni.length ? _vyplTabulka(hl, radky, souhrn) : ''}`;
 }
@@ -1083,7 +1122,7 @@ function _vyplMegaKarta(zaznamy) {
   window._vyplRadaVse = zaznamy.slice().sort((a, b) => (a.m || '').localeCompare(b.m || ''));
   window._vyplKarty.mega = _vyplMegaObsah;
   return `<div class="card vg-wide" style="margin-bottom:12px">
-    <div class="card-header"><span class="card-title">🔭 Megagraf výplat</span></div>
+    <div class="card-header"><span class="card-title">🔭 Megagraf výplat</span><button class="btn btn-sm" onclick="vyplMegaCela(true)">⛶ Celá obrazovka</button></div>
     <div class="card-body">
       ${_vyplOtazkyHTML()}
       <div id="vyplBox_mega">${_vyplMegaObsah()}</div>

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.82 · receipts.js · 2026-10-15
+// FinanceFlow · v11.87 · receipts.js · 2026-10-16
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4612,6 +4612,7 @@ function buildReceiptPreviewHTML(receipt, n) {
             style="font-size:.8rem;flex:1 1 140px;min-width:140px"
             oninput="window._editReceipt.date=this.value; rpCheckFutureDate()">
         </div>
+        <div id="rp_swap_warn">${rcptDatumNavrhHTML(r)}</div>
         <!--  S26 (v11.70, Milan): místo „typu obchodu“ (nic viditelného neměnil) KATEGORIE PRO VŠECHNY
               POLOŽKY najednou – kromě těch, které si appka pamatuje z dřívějška (🧠). -->
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
@@ -5367,7 +5368,39 @@ function rpHromadnePouzij() {
 }
 window.rpHromadneKat = rpHromadneKat; window.rpHromadnePouzij = rpHromadnePouzij;
 
+//  S27 (v11.87, Milan): „na účtence bylo 1/10/2026 a AI zapsalo 10. ledna 2026“. Zápis d/m/rrrr
+//  vs. m/d/rrrr si AI občas splete. Když prohozený den a měsíc dává datum blízko skenu (a původní je
+//  v budoucnu nebo víc než 45 dní zpět), appka NABÍDNE prohození – nemění samo (jako u zaokrouhlení).
+function rcptDatumProhozene(datum, ted) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(datum || '')); if (!m) return null;
+  const y = +m[1], mes = +m[2], den = +m[3];
+  if (den > 12 || den === mes) return null;
+  const nove = `${y}-${String(den).padStart(2, '0')}-${String(mes).padStart(2, '0')}`;
+  const t = ted instanceof Date ? ted : new Date(ted || Date.now());
+  const dnes = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  const odDni = d => (Date.parse(dnes + 'T00:00:00Z') - Date.parse(d + 'T00:00:00Z')) / 864e5;
+  const puv = odDni(datum), nov = odDni(nove);
+  if (!(nov >= 0 && nov <= 45)) return null;            // prohozené musí být nedávno (ne v budoucnu)
+  return (puv < 0 || puv > 45) ? nove : null;            // původní je v budoucnu nebo moc staré
+}
+function rcptDatumNavrhHTML(r) {
+  const n = r ? rcptDatumProhozene(r.date, r.addedAt || Date.now()) : null;
+  if (!n) return '';
+  const cz = d => { const [y, mm, dd] = d.split('-'); return `${+dd}. ${+mm}. ${y}`; };
+  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;padding:8px 10px;border-radius:10px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);font-size:.76rem;color:#fbbf24">
+    📅 Přečteno ${cz(r.date)} – nebylo to <b>${cz(n)}</b>? (den a měsíc se na účtenkách píšou různě)
+    <button class="btn btn-sm" style="font-size:.72rem" onclick="rcptDatumProhod()">↔ Prohodit na ${cz(n)}</button></div>`;
+}
+function rcptDatumProhod() {
+  const r = window._editReceipt; if (!r) return;
+  const n = rcptDatumProhozene(r.date, r.addedAt || Date.now()); if (!n) return;
+  r.date = n; const i = document.getElementById('rp_date'); if (i) i.value = n;
+  rpCheckFutureDate();
+  if (typeof showToast === 'function') showToast('📅 Datum opraveno');
+}
+window.rcptDatumProhozene = rcptDatumProhozene; window.rcptDatumProhod = rcptDatumProhod;
 function rpCheckFutureDate(){
+  { const sw=document.getElementById('rp_swap_warn'); if(sw) sw.innerHTML=rcptDatumNavrhHTML(window._editReceipt); }
   const warn=document.getElementById('rp_future_warn'); if(!warn) return;
   const v=window._editReceipt?.date;
   const isFuture = v && new Date(v) > new Date(new Date().setHours(23,59,59,999));

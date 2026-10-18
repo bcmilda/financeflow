@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · debts.js · 2026-10-08
+// FinanceFlow · v11.87 · debts.js · 2026-10-16
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -614,6 +614,16 @@ function saveTx(){
   //  S24 (E1): litry, tachometr, palivo… jako VLASTNOST téže transakce (žádná
   //  druhá položka → nic se nezapočítá dvakrát). null smaže, když už nejde o palivo.
   if(typeof tankZFormulare==='function' && type==='expense') txObj.tank = tankZFormulare(selCatId, finalSub) || null;
+  //  S27 (v11.87, Milan: „pozměnil jsem částku a zahodila se zapsaná data natankovaného paliva“).
+  //  Úprava transakce, která tankování měla, ho nesmí tiše smazat: když kategorie zůstala stejná a
+  //  formulář nic jiného nedal (zmizela podkategorie Palivo, blok ⛽ se neukázal…), tankování
+  //  i podkategorie zůstanou. Smaže se jen, když se transakce opravdu přesune jinam.
+  { const _eid=document.getElementById('editTxId')?.value||'';
+    const _old=_eid?(S.transactions||[]).find(t=>t.id==_eid):null;
+    if(_old && _old.tank && !txObj.tank && type==='expense' && (_old.catId||_old.category)===selCatId){
+      txObj.tank=_old.tank;
+      if(!finalSub && _old.subcat){ txObj.subcat=_old.subcat; if(txObj.name===cat.name) txObj.name=autoName.replace(cat.name, cat.name+' – '+_old.subcat); }
+    } }
   //  S24 (v11.17): oboustranné vazby – příspěvek na cestu ↔ Vozidla, doplatek/přeplatek ↔ Energie a voda.
   if(typeof prispZFormulare==='function') txObj.vozPrispevek = (type==='income' ? prispZFormulare(selCatId, finalSub) : null) || null;
   if(typeof merPlatbaZFormulare==='function') txObj.energie = merPlatbaZFormulare(type, selCatId, finalSub) || null;
@@ -809,7 +819,8 @@ function renderCatPicker(){
   </div>`;
   renderSubPicker();
 }
-function selCatBtn(id){selCatId=id;_catPickSel=id;selSub='';customSub='';document.getElementById('customSubInput').value='';renderCatPicker();}
+//  S27 (v11.87): klepnutí na UŽ VYBRANOU kategorii podkategorii nesmaže (při úpravě tankování tím mizela Palivo i data ⛽).
+function selCatBtn(id){if(id===selCatId){renderCatPicker();return;}selCatId=id;_catPickSel=id;selSub='';customSub='';document.getElementById('customSubInput').value='';renderCatPicker();}
 function renderSubPicker(){
   const wrap=document.getElementById('subPicker');const inner=document.getElementById('subPickerInner');
   const cat=S.categories.find(c=>c.id===selCatId);
