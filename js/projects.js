@@ -1,4 +1,4 @@
-// FinanceFlow · v11.69 · projects.js · 2026-10-12
+// FinanceFlow · v11.90 · projects.js · 2026-10-19
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -6322,6 +6322,12 @@ function renderSimulace() {
   const currentSavings = savWallets.reduce((a,w)=>a+(w.balance||0),0);
 
   el.innerHTML = `
+    <div onclick="showPageByName('kalkulacky')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:14px;border-radius:14px;background:var(--surface2);border:1px solid var(--border2)">
+      <div style="font-size:1.5rem">🧮</div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;color:#e8eaf2;font-size:.9rem">Nové: Kalkulačky</div>
+        <div style="font-size:.76rem;color:#a8aec8;line-height:1.45">Rezerva, cena zlozvyku a do výplaty – předvyplněné z tvých dat, výsledek jako pásmo pravděpodobnosti.</div></div>
+      <div style="color:#e8eaf2;font-weight:700">→</div>
+    </div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-header"><span class="card-title">🔮 Finanční simulace života</span></div>
       <div class="card-body">

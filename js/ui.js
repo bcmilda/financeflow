@@ -1,4 +1,4 @@
-// FinanceFlow · v11.86 · ui.js · 2026-10-16
+// FinanceFlow · v11.90 · ui.js · 2026-10-19
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -53,6 +53,7 @@ function renderPage(){
   if(curPage==='obraz')renderObraz();
   if(curPage==='detektor')renderDetektor();
   if(curPage==='simulace')renderSimulace();
+  if(curPage==='kalkulacky'&&typeof renderKalkulacky==='function')renderKalkulacky();  // S27 (v11.90): 🧮 Kalkulačky
   if(curPage==='uctenky')renderUctenky();
   if(curPage==='nakup')renderNakup();
   if(curPage==='budouci')renderBudouci();
@@ -1820,6 +1821,40 @@ function txCurOf(t, D){
   return (w&&w.currency)?w.currency:'CZK';
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  S27 (v11.90, FIX-484, Milan: „co znamená zelené číslo v závorce a proč nesedí výpočty?")
+//  Zůstatek v závorce = stav peněženky po transakci. Dvě chyby:
+//   1. Uvnitř dne se seznam řadil v pořadí uložení, zůstatek podle id → shora dolů „skákal".
+//      Teď obojí používá _txChronoCmp (datum, pak čas vzniku, pak id).
+//   2. Výpočet neznal „zůstatek ke dni" (v11.30) a vynechával rozdělené platby – poslední
+//      číslo v závorce se lišilo od zůstatku v Peněženkách. Teď stejná pravidla jako
+//      computeWalletBalance (_walletTxPoStavu, _walletTxZnak v premium.js): poslední
+//      zůstatek v závorce = zůstatek peněženky.
+// ══════════════════════════════════════════════════════════════════════
+function _txChronoCmp(a, b) {
+  const da = String((a && a.date) || '').slice(0, 10), db = String((b && b.date) || '').slice(0, 10);
+  if (da !== db) return da < db ? -1 : 1;
+  const ms = t => (typeof _txVytvorenoMs === 'function' ? _txVytvorenoMs(t) : null) || 0;
+  const ca = ms(a), cb = ms(b);
+  if (ca !== cb) return ca - cb;
+  return String(a && a.id).localeCompare(String(b && b.id));
+}
+function txZustatkyPoTransakci(D) {
+  D = D || getData();
+  const mapa = {};
+  const znak = t => typeof _walletTxZnak === 'function' ? _walletTxZnak(t)
+    : t.type === 'income' ? (t.amount || 0) : t.type === 'expense' ? -(t.amount || 0) : 0;
+  (D.wallets || []).forEach(w => {
+    const poStavu = t => typeof _walletTxPoStavu === 'function' ? _walletTxPoStavu(t, w) : true;
+    const txW = (D.transactions || []).filter(t => t.wallet === w.id).sort(_txChronoCmp);
+    //  Transakce, které už v zadaném zůstatku jsou (před dnem zůstatku), se od něj nejdřív odečtou.
+    let bal = (w.balance || 0) - txW.reduce((a, t) => a + (poStavu(t) ? 0 : znak(t)), 0);
+    txW.forEach(t => { bal += znak(t); mapa[t.id] = Math.round(bal * 100) / 100; });
+  });
+  return mapa;
+}
+window.txZustatkyPoTransakci = txZustatkyPoTransakci;
+
 function renderTx(){
   const D = getData();
   const el = document.getElementById('txList'); if(!el) return;
@@ -1878,7 +1913,9 @@ function renderTx(){
   // Sort
   txs.sort((a,b) => {
     let va, vb;
-    if(_txSort==='date'){ va=a.date; vb=b.date; }
+    //  S27 (v11.90, FIX-484): uvnitř dne stejné pořadí, ve kterém se počítá zůstatek v závorce –
+    //  dřív zůstalo pořadí uložení a zůstatek shora dolů „skákal“ (34 329 → 37 357 → 36 334).
+    if(_txSort==='date'){ const c=_txChronoCmp(a,b); return _txSortDir==='desc' ? -c : c; }
     else if(_txSort==='cat'){ const ca=getCat(a.catId||a.category,D.categories); const cb=getCat(b.catId||b.category,D.categories); va=ca.name; vb=cb.name; }
     else if(_txSort==='sub'){ va=a.subcat||''; vb=b.subcat||''; }
     else if(_txSort==='name'){ va=a.name||''; vb=b.name||''; }
@@ -1914,17 +1951,7 @@ function renderTx(){
 
   // S12.1j: průběžný zůstatek peněženky po každé transakci (Wallet styl „(644 035 Kč)")
   // Počítá se chronologicky pro KAŽDOU peněženku zvlášť; tx bez peněženky zůstatek nemají.
-  window._txBalMap = {};
-  (D.wallets||[]).forEach(w=>{
-    let bal = w.balance||0;
-    (D.transactions||[]).filter(t=>t.wallet===w.id && !t.splitParent)
-      .sort((a,b)=> a.date===b.date ? String(a.id).localeCompare(String(b.id)) : new Date(a.date)-new Date(b.date))
-      .forEach(t=>{
-        const a=(t.amount||t.amt||0);
-        if(t.type==='income') bal+=a; else if(t.type==='expense') bal-=a;
-        window._txBalMap[t.id]=Math.round(bal*100)/100;
-      });
-  });
+  window._txBalMap = txZustatkyPoTransakci(D);
 
   // When sorting by date – group by day; otherwise show flat table
   const groupByDate = _txSort === 'date';

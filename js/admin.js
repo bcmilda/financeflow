@@ -1,4 +1,4 @@
-// FinanceFlow · v11.89 · admin.js · 2026-10-17
+// FinanceFlow · v11.90 · admin.js · 2026-10-19
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.90',
+    datum: '2026-10-19',
+    zmeny: [
+      "🧮 NOVÁ STRÁNKA KALKULAČKY (TODO-356 + TODO-355, Milan: „jedna stránka, která se bude rozvíjet“, „rozklikávací karty jako u jiných tvůrců“) · cesta: menu → Nástroje → 🧮 Kalkulačky (odkaz i ze 🧭 Simulace života). Každá kalkulačka je karta s ikonou, názvem a popiskem; sbalená ukazuje hlavní výsledek z tvých dat, „Otevřít kalkulačku →“ ji rozbalí přímo v kartě (otevřená je vždy jen jedna). Uvnitř políčka předvyplněná z dat (prázdné = z dat, ručně zadané má ↺), vějíř možných výsledků, tabulka hodnot a „Jak to počítám“. Počítá se k dnešku, šipky měsíce jsou tu skryté.",
+      "🎲 MONTE CARLO · výsledek není jedno číslo, ale pásmo: 2 000 simulací s tím, jak se tvoje výdaje skutečně měnily (náhodně vybrané skutečné měsíce / dny). Graf: medián, polovina případů, 9 z 10 případů, osy s jednotkami, klepnutím hodnoty v bodě. Pevný seed – stejná data dají vždy stejná čísla.",
+      "🛟 REZERVA · cesta: 🧮 Kalkulačky → 🛟 Rezerva. Na kolik měsíců vystačí úspory bez příjmu (peněženky hotovost, běžný, spořicí, jiné – stejné zůstatky jako v Peněženkách) a s jakou pravděpodobností vydrží 3 a 6 měsíců. Volby: omezení výdajů v krizi, příjem během výpadku.",
+      "🚬 CENA ZLOZVYKU · cesta: 🧮 Kalkulačky → 🚬 Cena zlozvyku. Útrata za vybrané kategorie a podkategorie (automaticky podle názvu: pivo, alkohol, cigarety, tabák, sázky, energy drinky – výběr jde změnit) za rok a od začátku dat, přepočet na hodiny práce (čistá hodinovka z výplatnic, bez nich odhad příjem ÷ 160 h) a „kdyby se investovalo“ – vějíř po letech proti vloženým penězům.",
+      "📅 DO VÝPLATY S PRAVDĚPODOBNOSTÍ · cesta: 🧮 Kalkulačky → 📅 Do výplaty. Volné peníze stejně jako Finanční radar → 💸 Do výplaty (příjmy od výplaty − výdaje − známé platby), každý zbývající den náhodný skutečný den nefixních výdajů za posledních 90 dní → „s X % vyjdeš, v nejhorších 10 % chybí / zbude Y Kč“, s nedotknutelnou rezervou z Nastavení.",
+      "🐛 FIX-484 · ZŮSTATEK V ZÁVORCE V TRANSAKCÍCH „NESEDĚL“ (Milan: „co znamená zelené číslo v závorce a proč nesedí výpočty?“) · cesta: Transakce → seznam, číslo v závorce = zůstatek peněženky po transakci. Uvnitř dne se řádky řadily v pořadí uložení, zůstatek podle id – shora dolů proto skákal (34 329 → 37 357 → 36 334). Teď stejné pořadí pro seznam i výpočet (datum, čas zápisu). Navíc výpočet neznal „zůstatek ke dni“ peněženky a vynechával rozdělené platby – poslední číslo v závorce se teď rovná zůstatku v Peněženkách.",
+      "🧪 tools/smoke_kalkulacky.js (52 testů: Monte Carlo, tři karty na datech, vykreslení, rozklikávání, napojení) a tools/smoke_tx_zustatek.js (10 testů: čísla ze screenshotu, zůstatek ke dni, rozdělené platby).",
+    ],
+  },
   {
     verze: 'v11.89',
     datum: '2026-10-17',
