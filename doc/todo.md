@@ -2123,3 +2123,108 @@ TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · T
    - TODO-327 zrychlení,
    - TODO-028 překlad,
    - TODO-324, 325, 326, 329, 321.
+
+## Session 26 – průběžně (2026-10-13) **(Session 26)**
+
+### TODO-342 · Chytré překreslování stránek („C-lite“) **(Session 26)**
+- **Popis:** Appka dnes při každé změně dat překreslí celou stránku (`innerHTML`). Rozepsané políčko tím zmizí, a proto S25 zavedla brzdu překreslování (`ffRenderBezpecne`). Brzda způsobuje prodlevu: změna se ukáže až po dopsání (od v11.74 nejvýš 60 s, s tlačítkem „🔄 Ukázat změny“).
+- **Řešení:** knihovna pro rozdílové překreslení DOM (morphdom, ~700 řádků). Stránka dostane nový obsah, knihovna změní jen to, co je jinak. Políčko, do kterého se píše, zůstane včetně textu, kurzoru a otevřené klávesnice.
+  - Vyměnit kreslení na hlavních místech stránek, ne na všech 650 místech `innerHTML =` (43 souborů). Odhad pár desítek míst, ~300–600 řádků, 2–3 verze.
+  - Postupně po obrazovkách, nejdřív Transakce a Analýza účtenek. Každou ověřit v Chromiu na šířce telefonu.
+  - Pak zrušit brzdu, kromě editoru účtenky (vlastní koncept `_editReceipt`).
+- **Proč ne varianta A** (zapamatovat a vrátit text po překreslení): u seznamů se změněným pořadím by se text mohl vrátit do jiného řádku, u zmizelého políčka by nebylo kam. Milan: „jen pokud si jsi jistý“ → nejistý, zamítnuto.
+- **Proč ne varianta C** (přepis na komponenty): ~62 000 řádků JS, dotkl by se 30–40 tisíc řádků, desítky verzí, vysoké riziko.
+- **Doplněk B (koncept v telefonu):** rozepsaná účtenka / kategorie / karta přežije i pád appky („Máš rozepsanou účtenku z 16:20 – obnovit?“). Navazuje.
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Otevřené (Milan: „zapiš jako todo“)
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+> Přehled session v `doc/Summary_s26.md`. Sekce „Session 26 – průběžně“ výše (TODO-342) platí dál.
+
+### ✅ Uzavřeno v Session 26
+| ID | Co bylo hotovo |
+|---|---|
+| TODO-334 | Nové karty od uživatelů – **bez schvalování** (rozhodnutí Milana), admin vidí přehled zájmu a může 🔒 zamknout spojení zkratka → kód (v11.68, ADR-210) |
+| TODO-333 | ⚠️ Upraveno (v11.82, ADR-220): Nutri-Score už ručně upravit nejde, prázdná pole s kódem se doplňují na Open Food Facts, Dovozce jen když je známý |
+| TODO-267 | Složka „za čas“ z pásky – rozdělena na Příplatky (So+Ne, noční, svátek) a Přesčas (v11.78) |
+
+### TODO-343 · Push v11.62–v11.83, nasazení pravidel a smazání výplatnic z repa **(Session 26)**
+- **Popis:** 22 commitů na `dev` je jen lokálně. Push potřebuje Milanův PAT (CLAUDE.md „vždy vyžádat“).
+  - Firebase: nasadit `database.rules.json` z **v11.68** (`community/eanZamky`, admin čte `eanKartyLog`) – jinak zámek od admina hlásí 401/403.
+  - Z repa smazat `vyplatnice-import.json` (skutečné výplatnice, repo je čitelné anonymně) – čeká na Milanův souhlas.
+- **Priorita:** 🔴 P1 · **Stav:** ⬜ Čeká na Milana
+
+### TODO-344 · Vyzkoušet v provozu v11.62–v11.83 **(Session 26)**
+- **Popis:** Osa života (poznámky, rozsah), automatické přiřazení kódů, gramáž a živiny v nákupu, zámek admina, report v novém vzhledu, editor účtenky (Historie, zaokrouhlení, hromadná kategorie, vratné lahve, sloupec Celkem), okna „Uložit změny?“, podezřelé páry za všechny měsíce, Doklady filtr, Výplatnice (import přes AI, megagraf, otázky, daně, přivýdělek, roční zúčtování), Kalendář (odhad z pásky, simulace, paragraf, dovolená), karta výrobku (živiny, Open Food Facts, oprava názvu).
+- **Priorita:** 🔴 P1 · **Stav:** ⬜ Otevřené (Milan)
+
+### TODO-345 · Predikce výplaty v Příštím měsíci a Do výplaty **(Session 26, Milanův nápad)**
+- **Popis:** Příští měsíc odhaduje výplatu mediánem příjmů za 6 měsíců – nezná přesčasy, dovolenou ani svátky. Místo něj odhad z pásky + kalendáře (`vyplOdhadMesice`, ADR-216) za předchozí měsíc, štítek „🧾 z výplatnice + kalendáře“; Do výplaty před výplatou „čeká se ≈ X Kč“.
+  - Hlídat dvojí započtení se skutečnou transakcí (⭐ Hlavní zdroj příjmů).
+- **Odhad:** ~1 verze · **Priorita:** 🟡 P2 · **Stav:** ⬜ Návrh (Milan: „co myslíš?“ – čeká na „ano“)
+- **🔗 Cross-reference:** `decisions.md` ADR-216, ADR-217
+
+### TODO-346 · Kontrola výplatnice proti kalendáři **(Session 26, návrh)**
+- **Popis:** Po importu pásky porovnat zaplacené hodiny přesčasu, nocí, víkendů a svátků (zpětně z Kč ÷ sazba, `vyplHodinyZPasky`) s Pracovním kalendářem toho měsíce a upozornit na rozdíl („v kalendáři 3 noční směny, na pásce zaplacené 2“).
+- **Priorita:** 🟡 P2 · **Stav:** ⬜ Návrh
+
+### TODO-347 · Kalibrace odhadu výplaty podle skutečnosti **(Session 26, návrh)**
+- **Popis:** Když přijde páska za odhadnutý měsíc, porovnat odhad se skutečností po položkách a upravit sazby prémií a mobility (Kč na odpracovanou hodinu). Milan čeká za listopad ~27 000 Kč, model ~31 800 Kč – první skutečná páska ukáže, kde se model mýlí.
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Návrh · **🔗** TODO-345
+
+### TODO-348 · Hlídání slev z letáků **(Session 26)**
+- **Popis:** Nákupní seznam už hlídá cenu a % slevy, ale jen nad komunitními cenami z účtenek (sleva se ukáže, až ji někdo koupí). Lepší zdroj:
+  - **Kupi.cz** (od 2014 ve skupině Seznam) – veřejné API nemá, data letáků jsou jejich → jen se souhlasem (ADR-221). Kontakt přes web kupi.cz / Seznam. Kdyby API dali: párování přes EAN, jinak normalizovaný název + obecný název z taxonomie + značka + gramáž, cena za kg/l, potvrzení uživatelem (jako zámek / aliasy).
+  - **Open Prices** (Open Food Facts) – otevřená databáze cen s API, v ČR zatím málo dat; naše účtenky by mohly přispívat.
+- **Priorita:** 🟢 P3 · **Stav:** ⬜ Čeká na kontakt s Kupi
+
+### TODO-349 · Skutečné AI na otázky k výplatám **(Session 26, odloženo)**
+- **Popis:** Bubliny „❓ Zeptej se svých výplat“ dnes počítá appka (ADR-219). Volná otázka na AI by potřebovala nový endpoint ve workeru (souhrn pásek bez osobních údajů, kontrola čísel jako u `/report-ai`).
+- **Priorita:** 🔵 Nice-to-have · **Stav:** ⬜ Odloženo (worker se teď nemění)
+
+### Plán na další session (stav k v11.83)
+1. **Milan:** TODO-343 (PAT, pravidla v11.68, smazání výplatnic), TODO-344 (vyzkoušet), první páska za listopad → TODO-347.
+2. **Postavit:** TODO-345 predikce výplaty, TODO-346 kontrola pásky proti kalendáři.
+3. **Větší:** TODO-342 C-lite překreslování.
+4. **Čeká:** TODO-348 Kupi, TODO-349 AI, TODO-328 zkrácení MD.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+- ✅ FIX-475 / FIX-476 – VT a NT v odečtu, úprava a mazání odečtů (v11.84).
+### TODO-350 · Měřidla: zapsat historii a vyúčtování, porovnat s dodavatelem · P2 · Milan
+- **Popis:** 📋 Víc odečtů najednou (historie z innogy), ⚙️ Fakturační období začíná 30. 5., zapsat poslední vyúčtování (spotřeba + celková cena), zkontrolovat napojení záloh. Pak porovnat odhad s aplikací dodavatele (1 508 kWh, nedoplatek 368 Kč).
+### TODO-351 · Panely v kartě i u dalších oken (vzor ADR-223) · P3
+- **Popis:** Vozidla / tankování a další moduly s vyskakovacími okny převést na panel v kartě se zapamatováním rozepsaných polí. Navazuje na TODO-342.
+### TODO-352 · Měřidla ↔ opakované platby ↔ transakce · P2 · Milan (návrh)
+- **Popis:** záloha nastavená v měřidle vytvoří opakovanou platbu (šablonu) s vazbou `energie: {meridloId, typ: 'zaloha'}`; z ní vznikají transakce s vazbou (auto, nebo jen připomenutí při importu z banky), měřidlo je čte. Doplatek / přeplatek z vyúčtování v měřidle nabídnout zapsat rovnou do transakcí (z detailu už jde). Pravidlo: jediný zdroj peněz = transakce; při importu z banky se platba páruje, nevzniká druhá. Čeká na odpověď Milana (zálohy z banky, nebo ručně / automaticky?).
+- ✅ TODO-352 – zálohy z měřidla jako opakovaná platba (v11.86).
+### TODO-353 · Účtenka z benzínky → tankování ve Vozidlech · P3 · Milan (návrh, „nechci to komplikovat“)
+- **Popis:** položka účtenky s litry (EVO 95 · 22,27 l · 988,40 Kč) by mohla nabídnout „⛽ Zapsat jako tankování“ (vozidlo, tachometr) na transakci účtenky – pak ruční transakce není potřeba. Zatím jen detekce duplicity (FIX-481).
+- ✅ TODO-353 – tankování z účtenky z benzínky (v11.88).
+### TODO-354 · FinanceFlow Inbox: první sestavení a test na telefonu · P1 · Milan
+- **Popis:** vytvořit GitHub repo `bcmilda/financeflow-native` (nebo dodat PAT), nechat GitHub Actions sestavit APK, nainstalovat, propojit, vyzkoušet s reálnou platbou. Nasadit pravidla DB v11.89 a web v11.89 dřív. Pak doplnit parsery podle skutečných textů notifikací tvých bank.
+### TODO-355 · Monte Carlo v simulacích · P2 · návrh
+- **Popis:** rezerva (pravděpodobnost, že vystačí N měsíců), FIRE / investice (rozptyl výnosů), vyúčtování energií (interval nedoplatku), Do výplaty (pravděpodobnost, že peníze vystačí). Výsledek jako pásmo 10–90 %, ne jedno číslo.
+
+### TODO-354 · ⏸ pozastaveno (18. 10.) – viz TODO-357
+- APK FinanceFlow Inbox se nestaví a repo `financeflow-native` se pro Inbox nezakládá: jméno i úloha patří nativní appce n0.2 (Session N1). Rozhodne TODO-357.
+
+### TODO-356 · 🧮 Kalkulačky – jedna stránka, která se bude rozvíjet · P1 · Milan (18. 10.: „ano, jedna stránka“)
+- **Cesta:** menu → 🧮 Kalkulačky (nová stránka; 🔮 Finanční simulace života na ni odkáže).
+- **Princip:** karty pod sebou. Každá se předvyplní z tvých dat (výdaje, příjmy, výplatnice, Vozidla, Měřidla, kategorie). Hodnoty jde ručně změnit. Výsledek je pásmo (Monte Carlo, TODO-355) – vějíř 50 % / 90 % kolem mediánu – a jedna věta „co to znamená“.
+- **První tři karty:**
+  1. **🛟 Rezerva:** na kolik měsíců vystačí úspory bez příjmu (rozptyl skutečných měsíčních výdajů) + pravděpodobnost, že vydrží 3 / 6 měsíců.
+  2. **🚬 Cena zlozvyku:** výdaje za vybrané kategorie / položky účtenek (alkohol, tabák, sázky, energy drinky…) za rok a od začátku dat, přepočet na dny práce (čistá hodinovka z výplatnic) a „kdyby se investovalo“ (pásmo).
+  3. **📅 Do výplaty s pravděpodobností:** zbývající peníze ÷ dny do výplaty, rozptyl denní útraty → „s 85 % vyjdeš, v nejhorších 10 % chybí X Kč“.
+- **Další karty (backlog):** FIRE / kdy budu finančně nezávislý, hypotéka vs. nájem, auto vlastní vs. leasing (Kč/km z Vozidel), penzijko + DIP (státní příspěvek, odpočet), inflace úspor, finanční replay (samostatně).
+- **Technicky:** nový modul `js/kalkulacky.js`; Monte Carlo jako čistá funkce (`mcSimuluj(n, krok)` → percentily) s pevným seedem v testech; graf vějíře (SVG, pravidla grafů – osa, mřížka, tabulka pod grafem).
+- **Hotovo, když:** tři karty fungují na skutečných datech, výsledky jsou testované a stránka je zkontrolovaná na šířce telefonu.
+
+### TODO-357 · FinanceFlow Inbox vs. nativní appka n0.2 – rozhodnutí · P1 · Milan
+- Session 26 (web) postavila Inbox (companion appka + 📥 Doručené), Session N1 zároveň rozhodla, že nativní appka zapisuje oznámení **rovnou do Transakcí** a bez kategorie (N-005, N-008). Dvě cesty ke stejné věci.
+- **a)** Inbox zrušit – v další verzi webu sekci 📲 schovat, pravidla `inbox*` nechat nebo odebrat. **b)** Inbox nechat jako lehkou alternativu bez celé nativní appky.
+- Doporučení: **a)**, převzít do n0.2 jen pravidlo „sken převezme platbu“ a filtr citlivých oznámení.

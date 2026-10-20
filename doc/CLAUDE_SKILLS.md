@@ -808,3 +808,47 @@ Když se data periodicky obnovují z cizí databáze, nestavět záznam znovu a 
 
 ### SKILL 85 · Pole, které se čte, ale nikdy nežádá **(Session 25, v11.61)**
 Když normalizace čte pole z API (`p.brand_owner`), zkontrolovat, že ho dotaz opravdu žádá (`fields=`). Jinak je výsledek vždy prázdný a vypadá to, že „databáze to nemá“. Test: projít klíče čtené v normalizaci proti seznamu v dotazu.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+### SKILL 86 · Odhad z dat ověřit zpětně na skutečných datech **(Session 26)**
+Odhad výplaty se postavil jako model a hned se spustil na minulých páskách (vstup = hodiny z pásky, výstup proti skutečné hrubé). Ukázal, kde sedí na korunu a kde ne (prémie, změna tarifu). Bez zpětného testu by „rozumně vypadající“ číslo bylo jen odhad odhadu (FIX-469).
+
+### SKILL 87 · „Změnil jsem to“ hlásit jen s testem, který to hlídá **(Session 26)**
+Milan: „tvrdil jsi, že Nutri-Score nejde upravit, a ruční úprava zůstala“ (FIX-468). Každé „už to nejde / už se to neděje“ musí mít test, který na původním chování selže.
+
+### SKILL 88 · Znaménko z AI neabsolutizovat **(Session 26)**
+`Math.abs(price)` „pro jistotu“ z vratné lahve −12 udělal nákup +12 (FIX-465). Záporná položka nese informaci; když AI znaménko splete, oprava musí mít přesný důkaz (dvojnásobek vratek = přesah), ne odhad.
+
+### SKILL 89 · Pozice v zobrazeném seznamu ≠ index v datech **(Session 26)**
+Seznam bez duplikátů, filtrovaný nebo seřazený seznam má jiné pozice než `S.receipts` – a `unshift` je posune všechny. Tlačítka v řádku nesou stálý klíč (id / otisk), ne číslo pozice (FIX-452, FIX-457).
+
+### SKILL 90 · Sazba z minulého období nesmí nést jednorázové složky **(Session 26)**
+Výplata ÷ hodiny z měsíce s přesčasem dá sazbu, která přesčas „přenese“ do měsíce bez něj (FIX-469). Sazby počítat ze složek (tarif, PPÚ), ne z výsledku.
+
+### SKILL 91 · V textu appky nikdy jméno konkrétního uživatele **(Session 26)**
+V megagrafu se objevilo „u Milanových pásek“. Appku používají i jiní; v kódu a komentářích jméno klidně, v UI nikdy.
+
+### SKILL 92 · Právní a mzdové pojmy ověřit u uživatele **(Session 26)**
+„Paragraf“ jsem bral jako placenou překážku; Milan: „snižuje mzdu, peníze přijdou od státu“ (FIX-470). Pojmy, které se v řeči liší od zákona, si nechat potvrdit dřív, než se z nich počítá.
+
+### SKILL 93 · Jedna obrazovka = jedno číslo **(Session 26)**
+Řádek „v tomto měsíci přijde výplata za minulý“ vedle „odhad za tento měsíc“ Milana zmátl (ADR-217). Když se mezi měsíci dá přepnout, každý měsíc ukazuje jen svou hodnotu.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+### SKILL 94 · Funkce schovaná v nastavení pro uživatele neexistuje **(Session 26)**
+Dvoutarif byl hotový od v11.14, ale jen jako zaškrtávátko v ⚙️ – Milan v odečtu VT a NT nenašel a myslel si, že úprava chybí. Volbu, kterou uživatel potřebuje při úkonu, dát přímo do úkonu (odečet), ne jen do nastavení; a ověřit ji cestou, kterou uživatel opravdu jde.
+
+### SKILL 95 · Skrytý stav, který mění výsledek, musí být vidět **(Session 26)**
+Filtr „všechny měsíce“ zůstal zapnutý v zavřeném panelu a nadpis tvrdil „Prosinec 2026“ – Milan to hlásil jako chybu Transakcí. Každý stav, který mění data na obrazovce, ukázat tam, kde se data čtou (štítek s ✕), ne jen v panelu, kde se nastavuje.
+
+### SKILL 96 · Úprava záznamu nesmí tiše mazat připojená data **(Session 26)**
+`x = zFormulare() || null` při ÚPRAVĚ smaže data, kdykoli formulář dočasně nevidí svůj blok (tankování bez podkategorie Palivo). Při úpravě: když formulář nic nedal a záznam se nepřesouvá jinam, původní data ponechat.
+
+### SKILL 97 · Před stavbou nové velké části zkontrolovat Projekt a paměť **(Session 26)**
+Inbox (companion appka + Doručené) vznikl ve web session ve stejný den, kdy souběžná session N1 rozhodla opak (zápis rovnou do Transakcí). Před stavbou něčeho, co sahá mimo běžnou práci session (nový projekt, nová appka, nový uzel DB), projít dokumenty Projektu a paměť – mohla to mezitím rozhodnout jiná session.

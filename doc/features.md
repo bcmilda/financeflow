@@ -1515,3 +1515,73 @@ SVG sada (13 oblastí, 12 podkategorií, ikony karty výrobku a akcí). Ikona se
 - Otevře stejnou kartu jako Mapa položek.
 - Výrobek, který ještě není na účtence, má místo nákupů „🔗 Přiřadit k položce z účtenky“.
 - Po samostatném skenu je tlačítko „📇 Otevřít celou kartu výrobku“.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+> ⚠️ **(Session 26 update) k „Karta výrobku: oprava každého políčka“ (v11.61):** od v11.82 Nutri-Score ručně upravit nejde, prázdná pole s kódem mají „🌍 Doplnit na Open Food Facts“ a Dovozce se ukáže jen, když je známý (ADR-220).
+
+## 🧾 Výplatnice **(Session 26, v11.77–v11.83)**
+`cesta: Kalendář → 🧾 Výplatnice`
+- **📥 Import / 🤖 AI:** 4 kroky (vyfotit pásku → „📋 Zkopírovat pokyn“ → ChatGPT / Claude / Gemini → vložit odpověď nebo 📂 nahrát soubor .json / .txt, i víc najednou). Neznámé položky se přidají do šablony, odvody se opisují z pásky, nesedící měsíc se nenaimportuje. Nezdaněné připočty (stravenkový paušál).
+- **Karta měsíce = celá páska:** hlavička (fond, odpracováno, tarif, PPÚ), každá položka s kódem a barvou složky, ZP / SP v %, daň před slevami, slevy, odvody v % z hrubé, každá srážka, dobírka, srovnání s minulým měsícem.
+- **🔭 Megagraf** (hned pod kartou měsíce, na mobilu přes celou šířku): 30 řad (Kč, hodiny, %, Kč/h), klepnutí H → V → vypnout (nejvýš 6), sloupce / skládané / čáry, období 12 m / 24 m / vše, 6 rychlých pohledů, pás událostí ⏱ 🏖 🩺 🎁, výpis měsíce klepnutím, tabulka.
+- **❓ Zeptej se svých výplat:** 7 otázek (přesčas a odvody, kolikrát přesčas, čistého za hodinu přesčasu, dovolená a paragraf, je 734 Kč konstanta, nejlepší měsíc, víkendy a noci) – text + tabulka + přepnutí megagrafu.
+- **📊 Z čeho se skládá hrubá mzda:** osa v Kč, průměr, filtr šesti složek (pevná, příplatky, přesčas, prémie, odměny, ostatní), tabulka s průměrem a součtem.
+- **📈 Prémie, příplatky a přesčas:** prémie sloupce, příplatky So+Ne / noční / svátek a přesčas čáry.
+- **💪 Přivýdělek nad rámec:** přesčas, svátek, noční, So+Ne, odměny po rocích; čistá část přesně, kumulativně od začátku roku.
+- **🛡️ Podíl pevné složky:** stupnice 60–90 %, mřížka, průměr, hodnoty u min / max / posledního.
+- **🏛️ Daně a odvody:** filtr ZP / SP / daň / hrubá / čistá / přesčas, přesčas → odvody z něj, „Z 1 000 Kč zůstane“ (+ je to konstanta?), tabulka.
+- **🧾 Roční zúčtování daně:** výběr roku, přeplatek / nedoplatek a odkud je, rozpis, jiný zaměstnavatel / odpočty / děti, termíny (15. 2., výplata za březen), upozornění na daňové přiznání po termínu.
+- **🎁 Mimořádné odměny** po letech, **✂️ Srážky** po měsících (graf + tabulka).
+
+## 🗓️ Pracovní kalendář **(Session 26, v11.75–v11.81)**
+`cesta: Kalendář → Práce`
+- Směna 12 h − 1 h přestávka = 11 h (Odpracováno, dovolená, **přesčas**).
+- **Sumář:** „14 směn + 1 přesčasová směna“, dlaždice **🩺 Paragraf** (snižuje mzdu, dávka od ČSSZ), Zůstatek dovolené z pásek + kalendáře.
+- **💰 Hodinová mzda → 📈 Odhad výplaty za měsíc** z výplatnice + hodin kalendáře s rozpisem, srovnání s páskou, kdy přijde.
+- **🧪 Simulovat přesčasy:** klepnutí na volný den (denní / noční / zrušit) → o kolik víc na účet, nic se neukládá.
+- Typ dne 🩺 Paragraf.
+
+## 🧾 Účtenky a doklady **(Session 26)**
+`cesta: Analýza účtenek`
+- Editor: Celkem nad poli, pevné sloupce, **sloupec Celkem za položku**, hromadná kategorie, zaokrouhlení jako nabídka, **♻️ vratné lahve**, záporná cena povolena.
+- Historie a Doklady vždy na správnou účtenku; 📎 Doklady filtr záruky, řazení, hledání.
+- Nákupní DNA podle kategorií položek, 🥗 živiny v nákupu.
+
+## 📷 Čárové kódy a karta výrobku **(Session 26)**
+- Automatické přiřazení známých výrobků a komunity (jasně vedoucí kód), doplnění starších nákupů, Inflace s názvem výrobku.
+- Admin: 🆕 nové karty od uživatelů, 🔒 zámek zkratka → kód, ✎ oprava názvu karty z EAN, 🔄 načíst znovu z Open Food Facts (i v kartě).
+- Karta: pruhy % denní dávky u energie / bílkovin / sacharidů / vlákniny, Nutri-Score jen z OFF, prázdná pole → Open Food Facts, Dovozce jen známý, prodejny bez duplicit, obnova po 90 dnech i při otevření.
+- Skener: kód z fotky bez pádu, ostření, 🔍 Přiblížit, 🔅 Ztmavit.
+
+## Další **(Session 26)**
+- **⚠️ Podezřelé páry za všechny měsíce** (`Transakce → lišta → 🔎 Všechny měsíce`), „Není duplikát“ natrvalo, ochrana transakcí účtenky.
+- **💾 Uložit změny?** u všech oken s Uložit; „🔄 Ukázat změny“.
+- **Měsíční report** v novém vzhledu (karty se sloupci, kalendář útraty, logo).
+- **Osa života:** barevné poznámky, rozsah, filtr, posuvník.
+- **Import:** šablona se znaménkem.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+## 📟 Energie a voda – karta měřidla **(Session 26, v11.84)**
+`cesta: Měřidla → 📟 Energie a voda → karta měřidla`
+- Vše v kartě (žádné okno): 📟 Zapsat odečet, 🧾 Zapsat vyúčtování, 📋 Odečty a vyúčtování, 📊 Detail spotřeby, ⚙️.
+- **Odečet:** „Elektroměr má: jeden tarif / ☀️ VT + 🌙 NT“, VT – vysoký tarif (T1), NT – nízký tarif (T2); dotaz při přepsání dne a při poklesu („nejsou VT a NT prohozené?“).
+- **📋 Víc odečtů najednou:** řádky „datum; VT; NT“, 🤖 pokyn pro AI ke screenshotu z aplikace dodavatele.
+- **📋 Odečty a vyúčtování:** stav + přírůstek, ✎ upravit, 🗑 smazat.
+- **Aktuální období:** spotřebováno do posledního odečtu (VT / NT), odhad za celé období s pruhem, „loni za stejné dny“; ⚙️ Fakturační období začíná.
+- Odhad zbytku období podle loňska (jinak průměru).
+
+- **(v11.85)** ⚙️ Tarif (jeden / VT + NT) hned pod Druhem, jen u elektřiny; Druh uloženého měřidla jako text; plyn v m³; zima plynu podle loňských odečtů, varování bez nich.
+
+- **(v11.86)** Transakce: štítky aktivních filtrů s ✕, „⚙️ Filtr (N)“, nadpis „všechny měsíce“ (`cesta: Transakce`). Měřidla: ⚙️ → 🔄 Měsíční záloha → „Zapisovat do transakcí: ano“ = opakovaná platba a každý měsíc transakce s vazbou; doplatek / přeplatek hned po uložení vyúčtování.
+
+- **(v11.87)** Megagraf: ⛶ Celá obrazovka, osy tlačítky, Od ledna, Kumulativně. Podezřelé: 🧾 položka účtenky = transakce. Účtenky: návrh prohození dne a měsíce. Vozidla: sloupec Ušetřeno, graf ceny bez překryvu.
+
+- **(v11.88)** Vozidla: „📷 Účtenky z benzínky → tankování“ (litry, Kč za palivo, sleva z účtenky; doplnit vozidlo + tachometr), v úpravě transakce „📷 Doplnit z účtenky“. Výplatnice: stránky 🧾 Výplatnice | 🔭 Megagraf, řazení ↓ / ↑, otázky „Kolik dovolené mi zbývá?“ a „Seřaď hrubou mzdu“.
+
+- **(v11.89)** 📲 Notifikace z telefonu (`cesta: Import z banky (BETA) → 📲`): propojení telefonu kódem, 📥 Doručené (přidat / spojit s účtenkou / zahodit / zapsat ručně), „Účtenka převezme platbu z notifikace“. Android appka FinanceFlow Inbox v repu financeflow-native.
