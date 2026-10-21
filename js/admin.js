@@ -1,4 +1,4 @@
-// FinanceFlow · v11.94 · admin.js · 2026-10-21
+// FinanceFlow · v11.95 · admin.js · 2026-10-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.95',
+    datum: '2026-10-21',
+    zmeny: [
+      "🐛 FIX-486 · ROZPRACOVANÁ ÚČTENKA SE ZTRATILA, EDITOR ZŮSTAL (Milan, účtenka z OBI: „Použít na všechny položky – nic se nestalo; přepsal jsem název, položka zmizela a objevila se chyba … reading 'items'“) · cesta: Analýza účtenek → 📸 Skenovat → editor naskenované účtenky. Příčina (zopakováno v Chromiu na v11.94): klepnutí na záložku nahoře – i na už otevřenou 📸 Skenovat, nebo Historie a zpět – vymazalo rozpracovanou účtenku z paměti, ale editor nechalo na obrazovce. Tlačítka pak tiše nic nedělala, překreslení ukázalo „Žádné položky“ a ➕ Přidat spadlo. Teď přepínač záložek novou účtenku ze skenu nemaže (editor z Historie se zavírá jako dřív); kdyby přesto chyběla, editor si ji vezme zpět i s úpravami; ➕ Přidat, ✕, Použít na všechny a Uložit bez účtenky nespadnou ani tiše neselžou (hláška).",
+      "🐛 Stejné místo: překreslení po synchronizaci (např. s visícím příznakem editoru z Historie) stavělo editor nové účtenky znovu z PŮVODNÍHO výsledku skenu – zmizely změněné kategorie, názvy i kódy. Výsledek skenu teď ukazuje na upravovanou kopii, takže se editor obnoví s úpravami.",
+      "🧪 tools/smoke_editor_stav.js – 10 testů (na v11.94 selže).",
+    ],
+  },
   {
     verze: 'v11.94',
     datum: '2026-10-21',

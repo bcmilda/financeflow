@@ -1,4 +1,4 @@
-// FinanceFlow · v11.94 · receipts.js · 2026-10-21
+// FinanceFlow · v11.95 · receipts.js · 2026-10-21
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -162,7 +162,8 @@ function renderUctenky() {
     // FIX (S12.1m): žádný otevřený slot (např. po přepnutí stránky/záložky slot zmizel z DOM)
     // → flag i osiřelý stav vyčisti, ať render i příští otevření fungují.
     window._receiptEditorOpen = false;
-    window._editReceipt = null;
+    //  v11.95 (FIX-486): visící příznak z Historie nesmí smazat rozpracovanou NOVOU účtenku ze skenu
+    if (!_rpNovaUctenkaOtevrena()) window._editReceipt = null;
     //  S26 (v11.65, FIX-451, Milan: „zůstala mi tam včerejší účtenka, která je navíc už uložená“):
     //  vyčistit i výsledek editoru z Historie. Zůstával viset a při dalším překreslení se ukázal
     //  v záložce Skenovat – se snímkem účtenky z doby otevření. Uložení by pak účtenku přepsalo
@@ -2477,8 +2478,10 @@ function switchUctenkyTab(tab, btn) {
   }
   _activeUctenkyTab = tab;
   // FIX (S12.1m): opouštíme záložku → zavři editor účtenky a vyčisti stav
+  //  v11.95 (FIX-486): rozpracovaná NOVÁ účtenka ze skenu zůstává (editor zůstal v záložce Skenovat;
+  //  dřív se po klepnutí na záložku tváří funkčně, ale účtenka v paměti chyběla). Editor z Historie se zavírá jako dřív.
   window._receiptEditorOpen = false;
-  window._editReceipt = null;
+  if (!_rpNovaUctenkaOtevrena()) window._editReceipt = null;
   ['scan','learn','mapa','vyrobky','polstat','stats','compare','trend','prices','discounts','doklady','stores','history'].forEach(t=>{
     const c=document.getElementById('utab-'+t+'-content');
     const b=document.getElementById('utab-'+t);
@@ -4588,6 +4591,11 @@ function buildReceiptPreviewHTML(receipt, n) {
   }
   if(typeof rpApplyNegativeLines==='function') rpApplyNegativeLines(receipt);   // S23
   window._editReceipt = JSON.parse(JSON.stringify(receipt));
+  //  S27 (v11.95, FIX-486): rozpracovaná NOVÁ účtenka – výsledek skenu ukazuje na živou (upravovanou)
+  //  kopii. Každé obnovení editoru (překreslení po synchronizaci, návrat na záložku) ji tak postaví
+  //  s úpravami, ne z původního skenu (dřív zmizely kategorie, názvy i kódy).
+  if (typeof _lastReceiptResult !== 'undefined' && _lastReceiptResult && _lastReceiptResult.historyIndex === undefined && _lastReceiptResult.receipt === receipt)
+    _lastReceiptResult.receipt = window._editReceipt;
   // Session 12.1: předvyplň 🏷️ tagy položek z produktové DB (ČSÚ spotřební koš) – jen kde tag chybí
   if(typeof productGroupPrefill === 'function') productGroupPrefill(window._editReceipt);
   const r = window._editReceipt;
@@ -4616,7 +4624,7 @@ function buildReceiptPreviewHTML(receipt, n) {
       <div>
         <input id="rp_store" class="fi" value="${(r.store||'').replace(/"/g,'&quot;')}" placeholder="Název obchodu"
           style="font-weight:700;font-size:.95rem;margin-bottom:6px"
-          oninput="window._editReceipt.store=this.value;rpUpdateTotal()">
+          oninput="rpHlavicka('store',this.value)">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
           <input id="rp_city" class="fi" value="${escHtml(r.storeCity||'')}" placeholder="📍 Město pobočky" title="${escHtml(r.storeAddress||'')}"
             style="font-size:.78rem;flex:1 1 130px;min-width:120px" oninput="rpPobocka('storeCity',this.value)">
@@ -4629,7 +4637,7 @@ function buildReceiptPreviewHTML(receipt, n) {
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <input id="rp_date" class="fi" type="date" value="${r.date||''}"
             style="font-size:.8rem;flex:1 1 140px;min-width:140px"
-            oninput="window._editReceipt.date=this.value; rpCheckFutureDate()">
+            oninput="rpHlavicka('date',this.value)">
         </div>
         <div id="rp_swap_warn">${rcptDatumNavrhHTML(r)}</div>
         <!--  S26 (v11.70, Milan): místo „typu obchodu“ (nic viditelného neměnil) KATEGORIE PRO VŠECHNY
@@ -5080,6 +5088,38 @@ async function updateItemStats(items, date) {
 //  na telefonu nevidět). Když kód se zkratkou nesedí (jiná gramáž, žádné společné slovo),
 //  řádek je žlutý s důvodem – omyl při skenu je vidět hned (bod C, jen upozornění, nic se nemění).
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+//  S27 (v11.95, FIX-486, Milan: „chtěl jsem změnit kategorii tlačítkem Použít na všechny položky,
+//  nic se nestalo; přepsal jsem název, položka zmizela a objevila se chyba … reading 'items'“)
+//  Editor nové účtenky zůstal na obrazovce, ale rozpracovaná účtenka (window._editReceipt) byla
+//  pryč – vynuloval ji přepínač záložek (i klepnutí na už otevřenou 📸 Skenovat) nebo ochrana
+//  editoru z Historie s visícím příznakem. Tlačítka pak tiše nic nedělala, překreslení ukázalo
+//  „Žádné položky“ a ➕ Přidat spadlo. Teď: (1) přepínač ani ochrana rozpracovanou novou účtenku
+//  nemažou, (2) když přesto chybí a editor ze skenu je na obrazovce, vezme se zpět z výsledku skenu
+//  (ten ukazuje na upravovanou kopii), (3) tlačítka editoru bez účtenky nespadnou.
+// ══════════════════════════════════════════════════════
+//  Je otevřený editor NOVÉ účtenky ze skenu (ne z Historie)?
+function _rpNovaUctenkaOtevrena() {
+  return typeof _lastReceiptResult !== 'undefined' && !!_lastReceiptResult && _lastReceiptResult.historyIndex === undefined && _rpNovyEditorVDom();
+}
+function _rpNovyEditorVDom() {
+  const pv = typeof document !== 'undefined' ? document.getElementById('receiptPreview') : null;
+  return !!(pv && pv.querySelector && pv.querySelector('#receiptEditForm'));
+}
+function rpEditor() {
+  if (!window._editReceipt && typeof _lastReceiptResult !== 'undefined' && _lastReceiptResult
+      && _lastReceiptResult.historyIndex === undefined && _lastReceiptResult.receipt && _rpNovyEditorVDom()) {
+    window._editReceipt = _lastReceiptResult.receipt;
+  }
+  return window._editReceipt || null;
+}
+function rpHlavicka(pole, v) {
+  const r = rpEditor(); if (!r) return;
+  r[pole] = v;
+  if (pole === 'store') rpUpdateTotal(); else if (pole === 'date' && typeof rpCheckFutureDate === 'function') rpCheckFutureDate();
+}
+Object.assign(window, { rpEditor, rpHlavicka });
+
 function rpKodNazev(it) {
   if (!it || !it.ean) return '';
   const p = typeof eanProduktZCache === 'function' ? eanProduktZCache(it.ean) : null;
@@ -5309,7 +5349,7 @@ function rpRender() {
   // SELECT a ostatní prvky NEVYLUČUJ – jinak se nevykreslí subkat po změně kategorie.
   const isTextInput = focused && (focused.tagName==='INPUT' && focused.type!=='number') && focused.closest('#rp_items');
   if(isTextInput) return;
-  const r = window._editReceipt;
+  const r = rpEditor();   // v11.95 (FIX-486): rozpracovaná účtenka se nesmí ztratit
   if(!r?.items?.length) {
     el.innerHTML = '<div style="font-size:.78rem;color:var(--text2);padding:8px 0">Žádné položky · klikněte Přidat</div>';
     return;
@@ -5579,7 +5619,7 @@ function rpHromadneKat(catId) {
   if(btn) btn.style.display = catId ? '' : 'none';
 }
 function rpHromadnePouzij() {
-  const r = window._editReceipt; if(!r || !Array.isArray(r.items)) return;
+  const r = rpEditor(); if(!r || !Array.isArray(r.items)) { if(typeof showToast === 'function') showToast('⚠️ Rozpracovaná účtenka se nenašla – naskenuj ji prosím znovu'); return; }   // v11.95
   const catId = (document.getElementById('rp_h_cat') || {}).value || '';
   const sub = (document.getElementById('rp_h_sub') || {}).value || '';
   const cat = (getData().categories || []).find(c => c.id === catId); if(!cat) return;
@@ -5654,6 +5694,7 @@ function rpUpdateTotal() {
 }
 
 function rpAddItem() {
+  if(!rpEditor()) { if(typeof showToast === 'function') showToast('⚠️ Rozpracovaná účtenka se nenašla – naskenuj ji prosím znovu'); return; }   // v11.95
   if(!window._editReceipt.items) window._editReceipt.items = [];
   const _nk = rpNakupCat();
   window._editReceipt.items.push({name:'', price:0, qty:1, itemCatId:_nk?.id||'', itemCat:_nk?.name||'Nákup'});
@@ -5666,6 +5707,7 @@ function rpAddItem() {
 }
 
 function rpRemoveItem(i) {
+  if(!rpEditor()) return;   // v11.95
   window._editReceipt.items.splice(i,1);
   rpRender();
 }
@@ -5869,7 +5911,8 @@ async function rpArchivOdstran() {
 window.rpArchivOdstran = rpArchivOdstran;
 
 function rpSave() {
-  const r = window._editReceipt; if(!r) return;
+  const r = rpEditor();   // v11.95 (FIX-486)
+  if(!r) { if(typeof showToast === 'function') showToast('⚠️ Rozpracovaná účtenka se nenašla – nic se neuložilo. Naskenuj ji prosím znovu.'); return; }
   publishToCatalog(r.items||[]);
   // Aktualizuj i cenový katalog pro hlídač
   if(r.items?.length && typeof publishPricesToCatalog === 'function') {
