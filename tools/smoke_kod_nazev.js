@@ -23,7 +23,7 @@ c.window=c; vm.createContext(c);
 //  helpers: fmtP, normQty, baleniZNazvu, gramazZTextu
 const h=['normQty','baleniZNazvu','gramazZTextu'].map(n=>{try{return pick(hel,n)}catch(e){return ''}}).join('\n');
 vm.runInContext(hel.match(/const fmtP=n=>\{[\s\S]*?\n\};/)[0]+'\n'+hel.match(/const NORM_JEDNOTKY_RE = [^\n]*/)[0]+'\n'+h,c);
-vm.runInContext(['rpKodNazev','_rpSlova','_rpGramaz','rpKodSedi','rpKodRadekHTML','rpKodNazvyNacti','rpPridatSkenem','rpPoSkenu'].map(n=>pick(rc,n)).join('\n')
+vm.runInContext(['rpKodNazev','_rpSlova','_rpGramaz','rpKodSedi','_rpDruhKlic','rpKodRadekHTML','rpKodNazvyNacti','rpPridatSkenem','rpPoSkenu'].map(n=>pick(rc,n)).join('\n')
   +'\nlet _rpKodNacitam=false; const _rpKodZkuseno=new Set();',c);
 
 console.log('── kontrola kódu proti zkratce ──');

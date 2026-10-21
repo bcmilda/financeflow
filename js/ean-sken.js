@@ -1,4 +1,4 @@
-// FinanceFlow · v11.82 · ean-sken.js · 2026-10-15
+// FinanceFlow · v11.94 · ean-sken.js · 2026-10-21
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -120,6 +120,7 @@ Object.assign(window, { eanProduktZCache, eanNactiVse, eanNazevVyrobku });
 
 function eanAliasPro(obchod, raw) {
   const k = eanAliasKlic(obchod, raw);
+  if (k && typeof eanJeViceDruhu === 'function' && eanJeViceDruhu(k)) return '';   // v11.94: víc druhů = nevíme který
   return (k && _eanAliasy && _eanAliasy[k] && _eanAliasy[k].ean) || '';
 }
 
@@ -480,6 +481,11 @@ async function eanPrirad() {
   const p = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
   //  V editoru se kód zapíše i k položce účtenky (uloží se s účtenkou).
   const r = window._editReceipt; const it = (cil.i >= 0) ? r?.items?.[cil.i] : null;
+  //  v11.94: kód, který zkratka měla dosud (u položky nebo tvé spojení) – jiný kód = další druh
+  const klic0 = eanAliasKlic(cil.obchod, cil.raw);
+  const predtim = [];
+  if (it && it.ean && String(it.ean) !== v.ean) predtim.push({ ean: it.ean, n: it.eanNazev || '' });
+  if (klic0 && _eanAliasy && _eanAliasy[klic0] && _eanAliasy[klic0].ean && String(_eanAliasy[klic0].ean) !== v.ean) predtim.push(String(_eanAliasy[klic0].ean));
   if (it) {
     it.ean = v.ean;
     if (p && eanNazevVyrobku(p)) it.eanNazev = eanNazevVyrobku(p).slice(0, 100); else delete it.eanNazev;
@@ -491,7 +497,12 @@ async function eanPrirad() {
   const klic = eanAliasKlic(cil.obchod, cil.raw);
   if (klic && typeof eanZrusOdmitnuti === 'function') eanZrusOdmitnuti(klic, v.ean);   // S26: vědomé přiřazení ruší odmítnutí
   let hlaska = '✅ Kód přiřazen';
-  if (klic) {
+  const druh = klic ? eanDruhPridej(klic, v.ean, p ? eanNazevVyrobku(p, v.ean) : '', predtim) : { viceDruhu: false };
+  if (druh.viceDruhu) {
+    //  další druh: komunitě se neposílá (worker by ho bral jako opravu a prvnímu kódu ubral hlas)
+    hlaska = druh.novy ? '🔀 Přidán další druh – tahle zkratka vede k ' + eanDruhyKody(klic).length + ' výrobkům' : '✅ Druh vybrán';
+    if (typeof save === 'function') save();
+  } else if (klic) {
     try {
       const d = await eanDotaz({ ean: v.ean, potvrdit: true, klic, obchod: cil.obchod || '', raw: cil.raw || '' });
       if (d.alias && d.alias.pocet > 1) hlaska += ' · potvrzeno už ' + d.alias.pocet + '×';
@@ -1273,10 +1284,27 @@ function eanVyberPolozku(hledat) {
 async function eanPriradKPolozce(i) {
   const x = (window._eanKandidati || [])[i]; const v = _eanStav.vysledek;
   if (!x || !v) return;
-  if (x.stav === 'jiny' && typeof confirm === 'function' && !confirm(`„${x.raw}“ už má jiný kód${x.kodNazev ? ' (' + x.kodNazev + ')' : ''}. Přepsat ho tímto výrobkem?`)) return;
   const p = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
   const nazev = p ? eanNazevVyrobku(p, v.ean) : '';
+  //  v11.94: zkratka už má jiný kód → je to další druh. Přidá se, nic se nepřepíše (ani zpětně).
+  {
+    const D0 = (typeof S !== 'undefined') ? S : getData();
+    const jine = new Set();
+    (D0.receipts || []).forEach(r => (r.items || []).forEach(it => { if (it && it.name && it.ean && String(it.ean) !== v.ean && eanAliasKlic(r.store, it.name) === x.klic) jine.add(String(it.ean)); }));
+    if (_eanAliasy && _eanAliasy[x.klic] && _eanAliasy[x.klic].ean && String(_eanAliasy[x.klic].ean) !== v.ean) jine.add(String(_eanAliasy[x.klic].ean));
+    eanDruhyKody(x.klic).forEach(e => { if (e !== v.ean) jine.add(e); });
+    if (jine.size) {
+      if (typeof confirm === 'function' && !confirm(`„${x.raw}“ už vede k jinému výrobku${x.kodNazev ? ' (' + x.kodNazev + ')' : ''}.\n\nPřidat „${nazev || v.ean}“ jako další druh téže zkratky? Starší účtenky zůstanou, jak jsou; u dalších nákupů vybereš druh v editoru účtenky.`)) return;
+      eanDruhPridej(x.klic, v.ean, nazev, [...jine]);
+      if (typeof save === 'function') save();
+      if (typeof showToast === 'function') showToast('🔀 „' + x.raw + '“ vede teď k ' + eanDruhyKody(x.klic).length + ' výrobkům – druh vybereš v editoru účtenky');
+      eanZavri();
+      if (typeof mapaUzivKresli === 'function' && document.getElementById('mapaUzivSeznam')) mapaUzivKresli();
+      return;
+    }
+  }
   //  Kód ke všem položkám se stejnou zkratkou ve stejném obchodě (uloží se s daty).
+  eanDruhPridej(x.klic, v.ean, nazev, []);   // v11.94: první druh zkratky
   const D = (typeof S !== 'undefined') ? S : getData();
   let n = 0;
   (D.receipts || []).forEach(r => (r.items || []).forEach(it => {
@@ -1314,6 +1342,7 @@ async function eanOdebratZPolozky(i) {
   }));
   //  S26: komunita ani tvoje staré spojení už ten kód k téhle zkratce nevrátí
   if (typeof eanZapamatujOdmitnuti === 'function') eanZapamatujOdmitnuti(x.klic, v.ean);
+  { const d = Object.assign({}, eanDruhy(x.klic)); if (d[v.ean]) { delete d[v.ean]; _eanDruhyUloz(x.klic, d); } }   // v11.94
   if (typeof save === 'function') save();
   try { await eanDotaz({ ean: v.ean, akce: 'odebrat', klic: x.klic }); } catch (e) {}
   if (_eanAliasy && _eanAliasy[x.klic] && _eanAliasy[x.klic].ean === v.ean) delete _eanAliasy[x.klic];
@@ -1383,9 +1412,74 @@ function _eanOdmitnutoMa(odmitnute, klic, ean) {
   return typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, ean);
 }
 
+// ══════════════════════════════════════════════════════════════════════
+//  S27 (v11.94, Milan): JEDNA ZKRATKA → VÍC VÝROBKŮ („víc druhů“)
+//  „BL Luštěninové chipsy 65g“ v Bille jsou tři různé výrobky (cizrnové, čočkové…), každý se svým
+//  kódem a svou kartou. Zkratka z účtenky není karta, jen odkaz na ni – nově může vést k víc kartám.
+//  • Zkratka s 1 kódem: jako dřív – paměť kód doplní sama (zelený řádek pod položkou, v11.93).
+//  • Jiný kód naskenovaný u položky se stejnou zkratkou se PŘIDÁ jako další druh (nepřepíše první).
+//    Změní se jen ta položka, starší účtenky zůstanou (Milan: „zpětně to nemá smysl“).
+//  • Zkratka s 2+ druhy: kód se sám nedoplní; v editoru účtenky výběr „Který druh?“ s plnými názvy.
+//  • „✕ Odebrat ze zkratky“ (omyl): kód zmizí ze seznamu i z tvých položek té zkratky; zbude-li
+//    jeden druh, zkratka se vrátí k automatice.
+//  Úložiště: S.uiCfg.eanDruhy[klic] = { [ean]: {n: název, kdy} } – jen tvoje (lokálně + synchronizace).
+//  Komunitě se přidání druhu neposílá jako „oprava“ (prvnímu kódu neubere hlas). Worker beze změny.
+// ══════════════════════════════════════════════════════════════════════
+function eanDruhy(klic) {
+  try {
+    const d = typeof S !== 'undefined' && S && S.uiCfg && S.uiCfg.eanDruhy && S.uiCfg.eanDruhy[klic];
+    return (d && typeof d === 'object') ? d : {};
+  } catch (e) { return {}; }
+}
+function eanDruhyKody(klic) { return Object.keys(eanDruhy(klic)).filter(e => eanKontrola(e)); }
+function eanJeViceDruhu(klic) { return !!klic && eanDruhyKody(klic).length >= 2; }
+function _eanDruhyUloz(klic, d) {
+  if (typeof S === 'undefined' || !klic) return;
+  S.uiCfg = S.uiCfg || {};
+  const o = Object.assign({}, S.uiCfg.eanDruhy || {});
+  if (d && Object.keys(d).length) o[klic] = d; else delete o[klic];
+  S.uiCfg.eanDruhy = o;
+}
+//  Zapíše kód ke zkratce. Vrací {novy: kód tu ještě nebyl, viceDruhu: zkratka má teď 2+ druhy}.
+//  `predtim` = kód, který zkratka měla dosud (tvé spojení / kód u položky) – u zkratek z doby
+//  před v11.94 se tak první druh doplní zpětně.
+function eanDruhPridej(klic, ean, nazev, predtim) {
+  ean = String(ean || ''); if (!klic || !eanKontrola(ean)) return { novy: false, viceDruhu: false };
+  const d = Object.assign({}, eanDruhy(klic));
+  (predtim || []).forEach(x => { const e = String((x && x.ean) || x || ''); if (eanKontrola(e) && !d[e]) d[e] = { n: String((x && x.n) || _eanNazevZCache(e) || '').slice(0, 100), kdy: Date.now() - 1 }; });
+  const novy = !d[ean];
+  d[ean] = { n: String(nazev || (d[ean] && d[ean].n) || _eanNazevZCache(ean) || '').slice(0, 100), kdy: (d[ean] && d[ean].kdy) || Date.now() };
+  _eanDruhyUloz(klic, d);
+  return { novy, viceDruhu: Object.keys(d).length >= 2 };
+}
+//  Odebere druh ze zkratky (omyl). Kód zmizí i z tvých položek té zkratky a nevrátí se ze žádného
+//  zdroje (odmítnutí). Vrací počet druhů, které zůstaly.
+function eanDruhOdeber(klic, ean, D) {
+  ean = String(ean || ''); if (!klic || !ean) return eanDruhyKody(klic).length;
+  const d = Object.assign({}, eanDruhy(klic)); delete d[ean]; _eanDruhyUloz(klic, d);
+  D = D || ((typeof S !== 'undefined') ? S : getData());
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => {
+    if (it && it.name && String(it.ean || '') === ean && eanAliasKlic(r.store, it.name) === klic) { delete it.ean; delete it.eanNazev; }
+  }));
+  (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => {
+    if (it && it.name && String(it.ean || '') === ean && eanAliasKlic(t.receiptStore || t.storeName || '', it.name) === klic) { delete it.ean; delete it.eanNazev; }
+  }));
+  if (typeof eanZapamatujOdmitnuti === 'function') eanZapamatujOdmitnuti(klic, ean);
+  return Object.keys(d).length;
+}
+//  Kolikrát sis který druh koupil (tvé účtenky, stejná zkratka).
+function eanDruhNakupu(klic, ean, D) {
+  D = D || ((typeof S !== 'undefined') ? S : getData()); let n = 0;
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => { if (it && it.name && String(it.ean || '') === String(ean) && eanAliasKlic(r.store, it.name) === klic) n++; }));
+  return n;
+}
+Object.assign(window, { eanDruhy, eanDruhyKody, eanJeViceDruhu, eanDruhPridej, eanDruhOdeber, eanDruhNakupu });
+
 //  Čistá funkce (testuje tools/smoke_ean_auto.js). Pořadí: tvoje spojení → zámek od admina → komunita.
+//  v11.94: zkratka s víc druhy se nedoplňuje vůbec (vybírá se v editoru).
 function eanKodProKlic(klic, moje, komunita, odmitnute, zamky) {
   if (!klic) return null;
+  if (eanJeViceDruhu(klic)) return null;
   if (zamky === undefined) zamky = _eanZamky;
   const m = moje && moje[klic];
   if (m && m.ean && eanKontrola(m.ean) && !_eanOdmitnutoMa(odmitnute, klic, String(m.ean))) return { ean: String(m.ean), zdroj: 'moje' };

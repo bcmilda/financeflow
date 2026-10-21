@@ -1,4 +1,4 @@
-// FinanceFlow · v11.93 · admin.js · 2026-10-21
+// FinanceFlow · v11.94 · admin.js · 2026-10-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.94',
+    datum: '2026-10-21',
+    zmeny: [
+      "🔀 JEDNA ZKRATKA → VÍC VÝROBKŮ (Milan: „BL Luštěninové chipsy 65g – kupoval jsem 3 různé druhy a název zůstal stejný“, „kde ten výběr bude dostupný, viditelný a spravovatelný“) · cesta: Analýza účtenek → editor účtenky → položka. Karty výrobků zůstávají po jedné na kód; zkratka z účtenky je jen odkaz a nově může vést k víc kartám. Když u položky naskenuješ jiný kód, než zkratka dosud měla, PŘIDÁ se jako další druh – změní se jen ta položka, starší účtenky zůstanou. Zkratka s jedním kódem se doplňuje sama jako dřív.",
+      "🔀 VÝBĚR DRUHU NA ŘÁDKU POLOŽKY · zkratka se 2+ druhy se sama nedoplní (ani z komunity); pod řádkem položky je „Který druh?“ s plnými názvy výrobků z karet, ▾ ukáže kód, gramáž, kolikrát sis ho koupil a „✕ Odebrat ze zkratky“ (omyl – kód zmizí i z tvých účtenek s touto zkratkou a appka ho už nenabídne). Zbude-li jeden druh, zkratka se vrátí k automatice. 📷 Jiný přidá další druh, Nevím nechá položku bez kódu. Stejně funguje i „Přiřadit k položce z účtenky“ ze samostatného skenu (zeptá se, zda přidat jako další druh; nic nepřepíše).",
+      "🌍 Seznam druhů je jen tvůj (S.uiCfg, synchronizuje se mezi zařízeními). Přidání druhu se komunitě neposílá jako oprava – prvnímu kódu neubere hlas. Worker beze změny. Mapa položek u zkratky s víc druhy nepřiřadí kartu naslepo.",
+      "🧪 tools/smoke_ean_druhy.js – 27 testů (přidání druhu, žádná automatika, výběr, Nevím, odebrání omylu, návrat k automatice, samostatný sken, první kód jako dřív).",
+    ],
+  },
   {
     verze: 'v11.93',
     datum: '2026-10-21',

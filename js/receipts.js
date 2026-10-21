@@ -1,4 +1,4 @@
-// FinanceFlow · v11.93 · receipts.js · 2026-10-21
+// FinanceFlow · v11.94 · receipts.js · 2026-10-21
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -5116,6 +5116,14 @@ function rpKodSedi(raw, nazev, produkt) {
   return { ok: true };
 }
 function rpKodRadekHTML(it, i) {
+  //  v11.94: zkratka vede k víc výrobkům → místo jednoho řádku výběr druhu
+  const r = window._editReceipt;
+  const klic = it && it.name && r && typeof eanAliasKlic === 'function' ? eanAliasKlic(r.store || '', it.name) : '';
+  if (_rpDruhKlic(it)) {
+    //  výběr je pod celým řádkem (rpDruhyPodRadkem) – v úzkém sloupci názvu jen krátká poznámka
+    const vyb = it.ean ? _rpDruhNazev(String(it.ean), eanDruhy(klic)) : '';
+    return `<div id="rp_kn_${i}" style="font-size:.66rem;line-height:1.3;padding-left:2px;color:${vyb ? 'var(--income)' : '#fbbf24'}">${vyb ? '▮▮ ' + escHtml(vyb) : '🔀 Který druh? ↓'}</div>`;
+  }
   if (!it || !it.ean) return '';
   const nazev = rpKodNazev(it);
   if (!nazev) {
@@ -5130,11 +5138,100 @@ function rpKodRadekHTML(it, i) {
 }
 //  Každý kód se zkusí načíst jen JEDNOU za relaci – offline / bez přihlášení se jinak
 //  eanNactiVse hlásí „něco požádáno“, editor se překreslí a zkouší to dokola (zamrznutí).
+// ══════════════════════════════════════════════════════
+//  S27 (v11.94, Milan): VÝBĚR DRUHU NA ŘÁDKU POLOŽKY
+//  cesta: Analýza účtenek → editor účtenky → položka, jejíž zkratka vede k víc výrobkům
+//  „Který druh?“ s plnými názvy z karet (kódů), ▾ rozbalí kód, gramáž, počet nákupů
+//  a „✕ Odebrat ze zkratky“ (omyl). 📷 Jiný přidá další druh, Nevím nechá položku bez kódu.
+//  Jádro (seznam druhů, odebrání) je v ean-sken.js (eanDruhy…).
+// ══════════════════════════════════════════════════════
+function _rpDruhNazev(e, d) {
+  const p = typeof eanProduktZCache === 'function' ? eanProduktZCache(e) : null;
+  return (p && p.stav === 'nalezeno' && typeof eanNazevVyrobku === 'function' && eanNazevVyrobku(p, e)) || (d && d[e] && d[e].n) || ('Kód ' + e);
+}
+//  Klíč zkratky položky, když vede k víc výrobkům (a vybraný kód patří mezi ně), jinak ''.
+function _rpDruhKlic(it) {
+  const r = window._editReceipt;
+  const klic = it && it.name && r && typeof eanAliasKlic === 'function' ? eanAliasKlic(r.store || '', it.name) : '';
+  return klic && typeof eanJeViceDruhu === 'function' && eanJeViceDruhu(klic) && (!it.ean || eanDruhyKody(klic).includes(String(it.ean))) ? klic : '';
+}
+//  Výběr pod řádkem položky – široký na celý telefon (řádek se posouvá do strany, výběr ne).
+function rpDruhyPodRadkem(it, i) {
+  const klic = _rpDruhKlic(it); if (!klic) return '';
+  return `<div style="width:calc(100vw - 84px);max-width:370px;box-sizing:border-box;padding:2px 2px 8px;border-bottom:1px solid var(--border)">${rpDruhyHTML(it, i, klic)}</div>`;
+}
+function rpDruhyHTML(it, i, klic) {
+  const d = eanDruhy(klic), kody = eanDruhyKody(klic).sort((a, b) => ((d[a] && d[a].kdy) || 0) - ((d[b] && d[b].kdy) || 0));
+  const vybrany = it.ean && kody.includes(String(it.ean));
+  const btn = 'font-size:.68rem;padding:5px 7px;border-radius:7px;cursor:pointer;color:var(--text)';
+  let h = `<div id="rp_druhy_${i}" style="padding-left:2px"><div style="font-size:.66rem;color:${vybrany ? '#a8aec8' : '#fbbf24'};line-height:1.3">🔀 ${vybrany ? 'Druh' : 'Který druh?'} · zkratka vede k ${kody.length} výrobkům</div>`;
+  kody.forEach(e => {
+    const sel = String(it.ean || '') === e, op = window._rpDruhOtevren === i + '|' + e;
+    h += `<div style="display:flex;gap:4px;margin-top:3px">
+      <button onclick="rpDruhVyber(${i},'${e}')" style="${btn};flex:1;text-align:left;background:${sel ? '#34d39922' : 'var(--surface2)'};border:1px solid ${sel ? '#34d39988' : 'var(--border)'};white-space:normal;line-height:1.3">${sel ? '✓ ' : ''}${escHtml(_rpDruhNazev(e, d))}</button>
+      <button onclick="rpDruhRozbal(${i},'${e}')" aria-label="Podrobnosti" title="Kód, gramáž, počet nákupů" style="${btn};background:var(--surface2);border:1px solid var(--border);width:28px">${op ? '▴' : '▾'}</button></div>`;
+    if (op) {
+      const p = typeof eanProduktZCache === 'function' ? eanProduktZCache(e) : null;
+      const q = p && p.mnozstvi && p.mnozstvi.hodnota ? ` · ${fmtP(p.mnozstvi.hodnota)} ${escHtml(p.mnozstvi.jednotka || '')}` : '';
+      const n = typeof eanDruhNakupu === 'function' ? eanDruhNakupu(klic, e) : 0;
+      h += `<div style="font-size:.64rem;color:#a8aec8;padding:4px 6px;line-height:1.5">kód ${e}${q} · koupeno ${n}×${p && p.znacka ? ' · ' + escHtml(p.znacka) : ''}
+        <button onclick="rpDruhOdeber(${i},'${e}')" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:.66rem;padding:0 0 0 6px">✕ Odebrat ze zkratky</button></div>`;
+    }
+  });
+  h += `<div style="display:flex;gap:4px;margin-top:3px">
+    <button onclick="eanSkenuj(${i})" style="${btn};background:var(--surface2);border:1px solid var(--border)">📷 Jiný</button>
+    <button onclick="rpDruhNevim(${i})" style="${btn};background:${vybrany ? 'var(--surface2)' : '#fbbf2422'};border:1px solid var(--border);color:#a8aec8">Nevím</button></div></div>`;
+  return h;
+}
+function rpDruhVyber(i, e) {
+  const r = window._editReceipt, it = r && r.items && r.items[i]; if (!it) return;
+  const klic = eanAliasKlic(r.store || '', it.name || '');
+  it.ean = String(e); it.eanNazev = _rpDruhNazev(String(e), eanDruhy(klic)).slice(0, 100);
+  if (typeof eanGramazZKarty === 'function') eanGramazZKarty(it);
+  rpRender();
+}
+function rpDruhNevim(i) {
+  const r = window._editReceipt, it = r && r.items && r.items[i]; if (!it) return;
+  delete it.ean; delete it.eanNazev; rpRender();
+}
+function rpDruhRozbal(i, e) {
+  const k = i + '|' + e; window._rpDruhOtevren = window._rpDruhOtevren === k ? null : k; rpRender();
+}
+async function rpDruhOdeber(i, e) {
+  const r = window._editReceipt, it = r && r.items && r.items[i]; if (!it) return;
+  const klic = eanAliasKlic(r.store || '', it.name || ''); const nazev = _rpDruhNazev(e, eanDruhy(klic));
+  if (typeof confirm === 'function' && !confirm(`Odebrat „${nazev}“ ze zkratky „${it.name}“?\n\nKód zmizí i z tvých účtenek s touto zkratkou a appka ho k ní už sama nenabídne.`)) return;
+  const zbylo = eanDruhOdeber(klic, e);
+  //  rozpracovaná účtenka je kopie – i v ní kód pryč
+  (r.items || []).forEach(x => { if (x && String(x.ean || '') === String(e) && eanAliasKlic(r.store || '', x.name || '') === klic) { delete x.ean; delete x.eanNazev; } });
+  window._rpDruhOtevren = null;
+  const al = typeof _eanAliasy !== 'undefined' && _eanAliasy ? _eanAliasy[klic] : null;
+  try {
+    if (zbylo === 1) {
+      //  zbyl jeden druh → zkratka se vrací k automatice: tvé spojení a hlas komunity na zbylý kód
+      const zb = eanDruhyKody(klic)[0];
+      (r.items || []).forEach(x => { if (x && !x.ean && eanAliasKlic(r.store || '', x.name || '') === klic) { x.ean = zb; x.eanNazev = _rpDruhNazev(zb, eanDruhy(klic)).slice(0, 100); } });
+      if (typeof eanDotaz === 'function') await eanDotaz({ ean: zb, potvrdit: true, klic, obchod: r.store || '', raw: it.name || '' });
+      if (typeof _eanAliasy !== 'undefined' && _eanAliasy) _eanAliasy[klic] = { ean: zb, kdy: Date.now() };
+    } else if (al && String(al.ean) === String(e)) {
+      if (typeof eanDotaz === 'function') await eanDotaz({ ean: e, akce: 'odebrat', klic });
+      delete _eanAliasy[klic];
+    }
+  } catch (err) { /* offline – odmítnutí platí lokálně, komunita se srovná příště */ }
+  if (typeof save === 'function') save();
+  rpRender();
+  if (typeof showToast === 'function') showToast(zbylo === 1 ? '✕ Odebráno – zkratka vede zase k jednomu výrobku a doplní se sama' : '✕ Odebráno ze zkratky');
+}
+Object.assign(window, { rpDruhyHTML, rpDruhyPodRadkem, rpDruhVyber, rpDruhNevim, rpDruhRozbal, rpDruhOdeber });
+
 let _rpKodNacitam = false;
 const _rpKodZkuseno = new Set();
 function rpKodNazvyNacti(r) {
   if (_rpKodNacitam || typeof eanNactiVse !== 'function' || typeof eanProduktZCache !== 'function') return;
-  const chybi = [...new Set(((r && r.items) || []).filter(it => it && it.ean && !eanProduktZCache(it.ean) && !it.eanNazev && !_rpKodZkuseno.has(it.ean)).map(it => it.ean))];
+  const kody = ((r && r.items) || []).filter(it => it && it.ean && !it.eanNazev).map(it => String(it.ean));
+  //  v11.94: i druhy zkratek (výběr ukazuje plné názvy)
+  if (typeof eanDruhyKody === 'function' && typeof eanAliasKlic === 'function') ((r && r.items) || []).forEach(it => { if (it && it.name) eanDruhyKody(eanAliasKlic(r.store || '', it.name)).forEach(e => kody.push(e)); });
+  const chybi = [...new Set(kody.filter(e => !eanProduktZCache(e) && !_rpKodZkuseno.has(e)))];
   if (!chybi.length) return;
   chybi.forEach(e => _rpKodZkuseno.add(e));
   _rpKodNacitam = true;
@@ -5316,7 +5413,7 @@ function rpRender() {
           <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
             style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 0;width:32px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
-        </div>`;
+        </div>${rpDruhyPodRadkem(it, i)}`;
     });
     html += '</div>';
   }
