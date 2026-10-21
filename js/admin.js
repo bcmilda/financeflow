@@ -1,4 +1,4 @@
-// FinanceFlow · v11.90 · admin.js · 2026-10-19
+// FinanceFlow · v11.92 · admin.js · 2026-10-20
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,25 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.92',
+    datum: '2026-10-20',
+    zmeny: [
+      "✍️ RUČNÍ ÚČTENKA (Milan: „je možné přidat účtenku i ručně? zatím tuto možnost nevidím“) · cesta: Analýza účtenek → 📸 Skenovat → „✍️ Zapsat účtenku ručně“. Otevře stejný editor jako po skenu, jen prázdný: obchod, pobočka, datum, peněženka, položky (➕ Přidat), kategorie, čárové kódy (📷 u položky), fotka dokladu. Celkem je součet položek. Uložení vytvoří jednu účtenku a jednu transakci jako po skenu. AI se nevolá, do limitu skenů se nepočítá.",
+      "🐛 FIX-485 · MAPA POLOŽEK: KARTA PODLE ČÁROVÉHO KÓDU, NE PODLE NÁZVU (Milan: „u Mileny se do karty nezapsal alias, kupoval jsem ji 2× v různých obchodech“, „BL Luštěninové chipsy 65g – kupoval jsem 3 různé druhy a název zůstal stejný“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Názvy z účtenek. Skupiny se tvořily podle názvu z účtenky: stejný výrobek pod dvěma zkratkami (MILENA COKO 100G v Penny, Milena čokoláda v Albertu) byly dvě karty a karta otevřená podle kódu ukázala jen jednu zkratku; tři různé chipsy pod jednou zkratkou byly jedna karta s posledním kódem. Teď položka s kódem patří do karty podle kódu – Milena má jednu kartu s oběma názvy a obchody, chipsy tři karty. Položky bez kódu zůstávají podle názvu. Hledání v Mapě najde kartu i podle staršího názvu, Statistika položek čte stejné skupiny, „zapamatovat kategorii“ platí pro všechny názvy karty.",
+      "🧪 tools/smoke_mapa_ean.js – 13 testů (na v11.91 9 z nich selže).",
+    ],
+  },
+  {
+    verze: 'v11.91',
+    datum: '2026-10-20',
+    zmeny: [
+      "🧾 CENA ZLOZVYKU I Z POLOŽEK ÚČTENEK (Milan: „spíše na účtenky, případně obojí“) · cesta: 🧮 Kalkulačky → 🚬 Cena zlozvyku. Pivo z nákupu v supermarketu je v transakci „Nákupy potravin“, podle kategorie transakce ho kalkulačka nenašla. Nově počítá i položky naskenovaných účtenek: s vybranou kategorií položky (např. Jídlo › Pivo), nebo se slovem v názvu – nové pole „🧾 Hledat v položkách účtenek“ s výchozími slovy (pivo, víno, rum, cigarety, tabák, iqos, energy, monster…), vlastní slova oddělená čárkou, prázdné = nehledat. Krátké slovo musí sedět celé („rum“ nenajde „Rumunský salát“, „víno“ nenajde „vinný ocet“), delší stačí od začátku („cigaret“ najde „Cigarety“).",
+      "🧮 Rozpis „Odkud to je · poslední rok“: kolik z transakcí ve vybraných kategoriích a kolik z položek účtenek (počet položek a účtenek) + rozbalovací „Nejvíc z účtenek“ s kusy, částkou a důvodem nálezu. Účtenka, jejíž transakce už je ve vybrané kategorii (např. Hospoda › Pivo), se nepřičte podruhé; kopie účtenek se nepočítají; cizí měna účtenky se přepočte kurzem její transakce. Výběr kategorií nabízí i kategorie položek účtenek.",
+      "⬇️ ODKAZ NA APPKU FINANCEFLOW INBOX (TODO-354) · cesta: Import z banky (BETA) → 📲 Notifikace z telefonu → „⬇️ Stáhnout appku pro Android“. Stálý odkaz na nejnovější APK z repa financeflow-inbox (GitHub ho po každé změně vydá znovu pod stejným odkazem) a postup v pěti krocích (instalace mimo Google Play, přístup k oznámením, propojení kódem, výběr banky, testovací platba). Bez propojeného telefonu je postup rozbalený, s telefonem sbalený.",
+      "🧪 tools/smoke_kalkulacky.js rozšířen na 65 testů (položky účtenek, slova, dvojí započtení, kopie účtenek, cizí měna), tools/smoke_inbox.js na 16 (odkaz na APK).",
+    ],
+  },
   {
     verze: 'v11.90',
     datum: '2026-10-19',

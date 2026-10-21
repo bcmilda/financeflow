@@ -1,9 +1,9 @@
-// FinanceFlow · v11.89 · inbox.js · 2026-10-17
+// FinanceFlow · v11.91 · inbox.js · 2026-10-20
 // ══════════════════════════════════════════════════════
 //  S27 (Milan): 📲 FINANCEFLOW INBOX – NOTIFIKACE Z BANKY Z TELEFONU
 //  cesta: Import z banky (BETA) → 📲 Telefon
 //
-//  Nativní Android appka „FinanceFlow Inbox“ (samostatný projekt financeflow-native) čte notifikace
+//  Nativní Android appka „FinanceFlow Inbox“ (samostatné repo bcmilda/financeflow-inbox, ADR-232) čte notifikace
 //  VYBRANÝCH bankovních aplikací a jejich TEXT posílá do users/{uid}/inbox. Rozpoznání (částka,
 //  obchodník, banka) dělá tady web stávajícím parserem parseBankNotification (sms-import.js) – oprava
 //  parseru tak nepotřebuje novou verzi appky.
@@ -20,6 +20,23 @@
 const _INBOX_DB = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app';
 let _inbox = null, _inboxZar = null, _inboxNacitam = false;
 const INBOX_UCTENKA_KC = 1, INBOX_UCTENKA_DNI = 2;
+//  S27 (v11.91): stálý odkaz na nejnovější APK – GitHub Actions v repu financeflow-inbox ho po každé
+//  změně vydá znovu pod stejným jménem (release „nejnovejsi“), takže se odkaz v appce nemění.
+const INBOX_APK_URL = 'https://github.com/bcmilda/financeflow-inbox/releases/download/nejnovejsi/financeflow-inbox.apk';
+function _inboxStahnoutHTML(zar) {
+  const kroky = `<ol style="margin:6px 0 0 18px;padding:0;font-size:.74rem;color:#c2c7da;line-height:1.6">
+      <li>Odkaz otevři <b>v telefonu</b> (Android) a stažený soubor otevři. Android se zeptá na povolení „Instalovat neznámé aplikace“ pro prohlížeč – povol ho. Google Play Protect může varovat, protože appka není z obchodu: zvol „Přesto nainstalovat“.</li>
+      <li>V appce <b>Přístup k oznámením</b> přečti upozornění, dej „Souhlasím“ a v nastavení Androidu zapni FinanceFlow Inbox.</li>
+      <li>V appce klepni na <b>Propojit s FinanceFlow</b> – ukáže 8místný kód. Opiš ho sem do pole níže a dej 🔗 Propojit telefon.</li>
+      <li>V appce zaškrtni svou <b>bankovní aplikaci</b>.</li>
+      <li>Do 📥 Doručených přijde „1,00 Kč TESTOVACI PLATBA“ – tu zahoď a počkej na skutečnou platbu kartou.</li></ol>`;
+  return `<div style="margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--surface2);border:1px solid var(--border2)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a class="btn btn-sm btn-primary" href="${INBOX_APK_URL}" target="_blank" rel="noopener" download style="text-decoration:none">⬇️ Stáhnout appku pro Android</a>
+        <span style="font-size:.7rem;color:#a8aec8">jen Android · APK mimo Google Play</span></div>
+      <details${zar ? '' : ' open'} style="margin-top:6px"><summary style="cursor:pointer;font-size:.76rem;color:#c2c7da">📋 Jak nainstalovat a propojit</summary>${kroky}</details>
+    </div>`;
+}
 
 async function _inboxFetch(cesta, opt) {
   const me = window._currentUser; const t = await me?.getIdToken?.();
@@ -198,6 +215,7 @@ function inboxRender() {
   el.innerHTML = `<div class="card" style="margin-bottom:12px">
       <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:4px">📲 Notifikace z telefonu <span style="font-size:.6rem;background:rgba(251,191,36,.2);color:var(--debt);padding:1px 6px;border-radius:4px;font-weight:700">BETA</span></div>
       <div style="font-size:.74rem;color:#a8aec8;line-height:1.5">Android appka <b>FinanceFlow Inbox</b> čte notifikace jen z bankovních aplikací, které si v ní vybereš, a posílá je sem. Nic se nezapíše samo – každou platbu potvrdíš, spojíš s naskenovanou účtenkou, nebo zahodíš.</div>
+      ${_inboxStahnoutHTML(zar.length > 0)}
       ${zar.length ? `<div style="margin-top:8px">${zar.map(([dev, z]) => `<div style="display:flex;justify-content:space-between;align-items:center;font-size:.78rem;padding:4px 0;border-top:1px solid var(--border)">
           <span>📱 ${esc(z && z.name || 'Telefon')} <span style="color:#8b93ad">· propojeno ${z && z.kdy ? new Date(z.kdy).toLocaleDateString('cs-CZ') : ''}</span></span>
           <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="inboxOdpoj('${esc(dev)}')">Odpojit</button></div>`).join('')}</div>` : ''}

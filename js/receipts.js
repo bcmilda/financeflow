@@ -1,4 +1,4 @@
-// FinanceFlow · v11.87 · receipts.js · 2026-10-16
+// FinanceFlow · v11.92 · receipts.js · 2026-10-20
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -504,6 +504,9 @@ function buildScanTab(receipts, totalSpent) {
         </button>
         <button class="btn btn-ghost" onclick="document.getElementById('receiptFileInput').click()" style="gap:8px">
           🖼️ Ze souboru / screenshot
+        </button>
+        <button class="btn btn-ghost" onclick="rcptRucne()" style="gap:8px;grid-column:1 / -1;border:1px solid var(--border2)">
+          ✍️ Zapsat účtenku ručně
         </button>
       </div>
 
@@ -2555,7 +2558,9 @@ function mapaSyntPolozka(ean, D) {
 function mapaKartaIndex(ean, D) {
   ean = String(ean || '').replace(/\D/g, ''); if (!ean) return -1;
   if (!_mapaUziv.length) { try { _mapaUziv = mapaUzivData(_mapaUzivReceipts.length ? _mapaUzivReceipts : ((D || getData()).receipts || []), D); } catch (e) {} }
-  const i = _mapaUziv.findIndex(z => z.ean === ean);
+  //  v11.92: přednost má skupina, kde kód nesou samy položky (ne jen odvozený ze zkratky)
+  let i = _mapaUziv.findIndex(z => z.klic === 'ean:' + ean);
+  if (i < 0) i = _mapaUziv.findIndex(z => z.ean === ean);
   if (i >= 0) return i;
   let j = _mapaSynt.findIndex(z => z.ean === ean);
   if (j < 0) { _mapaSynt.push(mapaSyntPolozka(ean, D)); j = _mapaSynt.length - 1; }
@@ -2571,15 +2576,22 @@ Object.assign(window, { _mapaZ, mapaKartaIndex, mapaKartaEan, mapaSyntPolozka })
 const MAPA_UZIV_LIMIT = 150;
 
 //  Čistý výpočet (bez DOM) – testuje se zvlášť.
+//  S27 (v11.92, FIX-485, Milan: „u Mileny se do karty nezapsal alias, kupoval jsem ji ve dvou obchodech“
+//  a „BL Luštěninové chipsy 65g – kupoval jsem 3 různé druhy a název zůstal stejný“): skupiny se
+//  tvořily podle NÁZVU z účtenky. Stejný výrobek pod dvěma zkratkami = dvě karty (karta podle kódu
+//  ukázala jen jednu zkratku); tři výrobky pod jednou zkratkou = jedna karta s posledním kódem.
+//  Teď: položka S KÓDEM patří do skupiny podle kódu (klíč „ean:…“), bez kódu dál podle názvu.
 function mapaUzivData(receipts, D) {
   D = D || getData();
   const podle = {};
   (receipts||[]).forEach(r => (r.items||[]).forEach(it => {
     const nazev = String(it.name||'').trim();
-    const k = (typeof normName==='function') ? normName(nazev) : nazev.toLowerCase();
-    if(!k || k.length < 2) return;
+    const kn = (typeof normName==='function') ? normName(nazev) : nazev.toLowerCase();
+    if(!kn || kn.length < 2) return;
+    const kodP = String(it.ean || '').replace(/\D/g, '');
+    const k = kodP ? 'ean:' + kodP : kn;
     const d = r.date || '';
-    const z = podle[k] || (podle[k] = { klic:k, nazev, pocet:0, datum:'', catId:'', subcat:'', nakupy:[], ean:'', _eanD:'' });
+    const z = podle[k] || (podle[k] = { klic:k, nazev, pocet:0, datum:'', catId:'', subcat:'', nakupy:[], ean:'', _eanD:'', kodZPolozky: !!kodP });
     z.pocet++;
     //  S24 (v11.09): nákupy pro kartu výrobku – obchod, cena, zkratka, kód.
     z.nakupy.push({ obchod: r.store||'', datum: d, cena: parseFloat(it.price)||0, qty: parseFloat(it.qty)||1,
@@ -2647,7 +2659,8 @@ function mapaUzivFiltruj(seznam, f) {
     else if(f.stav !== 'vse' && z.stav !== f.stav) return false;
     if(f.oblast && (!z.tax || z.tax.oblastId !== f.oblast)) return false;
     if(!q) return true;
-    const kde = [z.klic, z.mapa?.obecny, z.mapa?.konkretni, z.tax?.podNazev, z.tax?.oblastNazev].filter(Boolean)
+    //  v11.92: skupina podle kódu má klíč „ean:…“ – hledá se i ve všech názvech z účtenek
+    const kde = [z.klic, z.nazev, ...(z.nakupy || []).map(n => n.raw), z.mapa?.obecny, z.mapa?.konkretni, z.tax?.podNazev, z.tax?.oblastNazev].filter(Boolean)
       .map(t => (typeof normName==='function') ? normName(t) : String(t).toLowerCase()).join(' ');
     return kde.includes(q);
   });
@@ -3650,27 +3663,33 @@ function mapaUzivHledej(v) {
   const el = document.getElementById('mapaUzivSeznam'); if(el) el.innerHTML = mapaUzivSeznamHTML();
 }
 function _mapaPoZmene(i) { mapaUzivKresli(); if(_mapaKartaI === i) mapaUzivDetail(i); }
+//  v11.92: skupina podle kódu může mít víc názvů z účtenek – volba platí pro všechny.
+function _mapaNazvySkupiny(z) {
+  const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
+  const v = new Map(); [z.nazev, ...(z.nakupy || []).map(n => n.raw)].forEach(t => { t = String(t || '').trim(); const k = nn(t); if (k && !v.has(k)) v.set(k, t); });
+  return [...v.values()];
+}
 async function mapaUzivZmen(i, co, hodnota) {
   const z = _mapaUziv[i]; if(!z) return;
   if(co === 'cat') {
     if(!hodnota) return;
-    await saveCategoryMapping(z.nazev, hodnota, '', 'uzivatel');
+    for (const n of _mapaNazvySkupiny(z)) await saveCategoryMapping(n, hodnota, '', 'uzivatel');
   } else {
     if(!z.catId) return;
-    await saveCategoryMapping(z.nazev, z.catId, hodnota, 'uzivatel');
+    for (const n of _mapaNazvySkupiny(z)) await saveCategoryMapping(n, z.catId, hodnota, 'uzivatel');
   }
   if(typeof showToast==='function') showToast('✋ Zapamatováno – platí pro další účtenky');
   _mapaPoZmene(i);
 }
 async function mapaUzivPouzijMapu(i) {
   const z = _mapaUziv[i]; if(!z || !z.mapa?.catId) return;
-  await saveCategoryMapping(z.nazev, z.mapa.catId, z.mapa.subcat||'', 'uzivatel');
+  for (const n of _mapaNazvySkupiny(z)) await saveCategoryMapping(n, z.mapa.catId, z.mapa.subcat||'', 'uzivatel');
   if(typeof showToast==='function') showToast('🗺️ Použit návrh mapy');
   _mapaPoZmene(i);
 }
 async function mapaUzivZrus(i) {
   const z = _mapaUziv[i]; if(!z) return;
-  await deleteCategoryMapping(z.nazev);
+  for (const n of _mapaNazvySkupiny(z)) await deleteCategoryMapping(n);
   if(typeof showToast==='function') showToast('Volba zrušena');
   _mapaPoZmene(i);
 }
@@ -5831,6 +5850,39 @@ async function _analyzeReceipt(file) {
     if(typeof ffCekaniKonec==='function') ffCekaniKonec();   // okno zmizí vždy – i po chybě
   }
 }
+
+// ══════════════════════════════════════════════════════
+//  S27 (v11.92, Milan: „je možné přidat účtenku i ručně? zatím tuto možnost nevidím“)
+//  cesta: Analýza účtenek → 📸 Skenovat → ✍️ Zapsat účtenku ručně
+//  Otevře stejný editor jako po skenu, jen prázdný: obchod, datum, položky (➕ Přidat položku),
+//  kategorie, čárové kódy (📷 u položky), peněženka. Uložení = stejná cesta jako po skenu
+//  (jedna účtenka, jedna transakce). AI se nevolá → nepočítá se do limitu skenů.
+//  Celkem = součet položek (printedTotal zůstává prázdné, kontrola součtu nemá s čím porovnat).
+// ══════════════════════════════════════════════════════
+function rcptRucniUctenka(dnes) {
+  const d = dnes ? new Date(dnes) : new Date();
+  const den = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const nk = typeof rpNakupCat === 'function' ? rpNakupCat() : null;
+  return { store: '', date: den, total: null, rucne: true, category: '',
+    items: [{ name: '', price: 0, qty: 1, itemCatId: (nk && nk.id) || '', itemCat: (nk && nk.name) || 'Nákup' }] };
+}
+function rcptRucne() {
+  const preview = document.getElementById('receiptPreview'), status = document.getElementById('receiptStatus');
+  if (!preview) return;
+  if (preview.style.display !== 'none' && preview.querySelector('#receiptEditForm') && typeof confirm === 'function'
+      && !confirm('Rozpracovanou účtenku zahodit a začít ruční zápis?')) return;
+  const receipt = rcptRucniUctenka();
+  window._rpScanFoto = null;
+  _lastReceiptResult = { receipt, n: 1 };
+  if (status) status.style.display = 'none';
+  preview.style.display = 'block';
+  preview.innerHTML = buildReceiptPreviewHTML(receipt, 1);
+  setTimeout(() => {
+    initReceiptEditor();
+    const st = document.getElementById('rp_store'); if (st) { st.focus(); if (st.scrollIntoView) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  }, 50);
+}
+Object.assign(window, { rcptRucne, rcptRucniUctenka });
 
 // ══════════════════════════════════════════════════════
 //  JEDNA ÚČTENKA = JEDNA TRANSAKCE  (oprava S22, Milan)

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · statistika-polozek.js · 2026-10-12
+// FinanceFlow · v11.92 · statistika-polozek.js · 2026-10-20
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -23,7 +23,9 @@ function spRadky(receipts, mapa, D) {
   const out = [];
   (receipts || []).forEach(r => (r.items || []).forEach(it => {
     if (!it || !it.name) return;
-    const klic = nn(it.name); const m = podleKlice[klic];
+    //  v11.92 (FIX-485): položka s kódem patří do skupiny Mapy podle kódu („ean:…“), jinak podle názvu
+    const kodEan = String(it.ean || '').replace(/\D/g, '');
+    const klic = nn(it.name); const m = (kodEan && podleKlice['ean:' + kodEan]) || podleKlice[klic];
     const castka = Math.round(amt(it) * 100) / 100;
     const q = parseFloat(it.qty) || 1;
     const pg = (typeof productGroupLookup === 'function') ? productGroupLookup(it.name) : null;

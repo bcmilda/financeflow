@@ -1,4 +1,4 @@
-// FinanceFlow · smoke test · S27 (v11.89) · 📲 FinanceFlow Inbox – notifikace z banky z telefonu
+// FinanceFlow · smoke test · S27 (v11.89, v11.91 odkaz na APK) · 📲 FinanceFlow Inbox – notifikace z banky z telefonu
 //  Milan: „nativní část appky pro parser notifikací, data převést do webového rozhraní“
 //         „připojit k notifikacím i naskenovanou účtenku – sken ji převezme, protože je detailnější“
 const vm=require('vm'),fs=require('fs'),path=require('path');
@@ -56,5 +56,14 @@ t('jiná částka účtenku nenabídne',c.inboxUctenkaK(Object.assign({},p,{amou
   t('smazání účtu odpojí telefony (inboxLinks mimo users/)',/inboxOdpojVse\(\)/.test(uc));
   t('pravidla: telefon smí do users/$uid/inbox jen přidat (propojený přes inboxLinks), nesmí číst',/"inbox": \{\s*"\$id": \{\s*"\.write": "auth != null && root\.child\('inboxLinks'\)\.child\(auth\.uid\)\.child\('uid'\)\.val\(\) === \$uid/.test(rules)&&!/"inbox":[^}]*"\.read"/.test(rules));
   t('pravidla: propojení jen s platným kódem (max 15 minut) a jen na vlastní účet',/"inboxLinks"[\s\S]*newData\.child\('uid'\)\.val\(\) === auth\.uid[\s\S]*now - 900000/.test(rules));
+  //  S27 (v11.91): odkaz ke stažení appky v sekci 📲
+  {
+    const c2={console,window:{},getData:()=>S,getWallets:()=>S.wallets,fmtP:v=>String(v),document:{getElementById:id=>c2.els[id]},els:{inboxBox:{innerHTML:''}}};
+    c2.window=c2; vm.createContext(c2); vm.runInContext(sms+'\n'+ib,c2);
+    vm.runInContext('_inbox={}; _inboxZar={}',c2); c2.inboxRender(); let h=c2.els.inboxBox.innerHTML;
+    t('📲 stálý odkaz na APK (release nejnovejsi) a postup instalace – bez telefonu rozbalený',/href="https:\/\/github\.com\/bcmilda\/financeflow-inbox\/releases\/download\/nejnovejsi\/financeflow-inbox\.apk"/.test(h)&&/⬇️ Stáhnout appku pro Android/.test(h)&&/<details open/.test(h)&&/Instalovat neznámé aplikace/.test(h)&&/TESTOVACI PLATBA/.test(h));
+    vm.runInContext("_inboxZar={d1:{name:'Pixel',kdy:1}}",c2); c2.inboxRender(); h=c2.els.inboxBox.innerHTML;
+    t('s propojeným telefonem je postup sbalený, odkaz zůstává',/⬇️ Stáhnout appku/.test(h)&&!/<details open/.test(h));
+  }
   console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;
 })();

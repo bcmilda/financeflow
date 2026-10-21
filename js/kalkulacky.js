@@ -1,4 +1,4 @@
-// FinanceFlow · v11.90 · kalkulacky.js · 2026-10-19
+// FinanceFlow · v11.91 · kalkulacky.js · 2026-10-20
 // ══════════════════════════════════════════════════════════════════════
 //  🧮 KALKULAČKY (TODO-356 + TODO-355, Session 27)
 //  cesta: menu → Nástroje → 🧮 Kalkulačky
@@ -140,18 +140,78 @@ function kalkHodinovka(D) {
   return { kc: 0, zdroj: 'nic' };
 }
 
+//  S27 (v11.91, Milan: „spíše na účtenky, případně obojí“): zlozvyk se hledá i v POLOŽKÁCH účtenek.
+//  Pivo z nákupu v Penny je v transakci „Nákupy potravin“ – podle kategorie transakce ho nenajdeš.
+//  Položka sedí, když má vybranou kategorii položky (itemCatId / itemSubcat), nebo když její název
+//  obsahuje hledané slovo (od začátku slova, bez diakritiky: „pivo“ najde „PIVO RADEGAST 0,5L“).
+//  Dvojí započtení: účtenka, jejíž transakce už se započítala podle kategorie, se přeskočí celá.
+const KALK_ZLOZVYK_SLOVA = ['pivo', 'radler', 'vino', 'sekt', 'prosecco', 'vodka', 'rum', 'whisk', 'slivovic', 'fernet', 'becher', 'liker', 'tequila',
+  'cigaret', 'tabak', 'iqos', 'heets', 'terea', 'marlboro', 'camel', 'petra', 'energy', 'monster', 'red bull', 'redbull', 'semtex', 'big shock'];
+function _kalkBezDiak(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function kalkSlovaZTextu(txt) {
+  return String(txt || '').split(/[,;\n]/).map(x => _kalkBezDiak(x).trim()).filter(x => x.length >= 2);
+}
+//  Krátké slovo (do 4 písmen) musí sedět na CELÉ slovo – jinak „rum“ najde „Rumunský salát“
+//  a „vino“ „vinný ocet“. Delší stačí od začátku slova („cigaret“ → „cigarety“, „becher“ → „becherovka“).
+//  Víceslovné („red bull“) se hledá jako sousední slova.
+function _kalkSlovoVNazvu(nazev, slova) {
+  if (!slova || !slova.length) return '';
+  const tok = _kalkBezDiak(nazev).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  return slova.find(w => {
+    const ws = _kalkBezDiak(w).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+    if (!ws.length) return false;
+    for (let i = 0; i + ws.length <= tok.length; i++) {
+      if (ws.every((x, j) => { const t = tok[i + j], posl = j === ws.length - 1; return posl && x.length >= 5 ? t.startsWith(x) : t === x; })) return true;
+    }
+    return false;
+  }) || '';
+}
+function _kalkUctenky(D) {
+  const r = D.receipts || (typeof S !== 'undefined' && S && S.receipts) || [];
+  return typeof rcptUnikatni === 'function' ? rcptUnikatni(r) : r;
+}
+//  Všechny položky účtenek s částkou v Kč a transakcí účtenky (je-li).
+function _kalkPolozky(D, dnes) {
+  const out = [];
+  _kalkUctenky(D).forEach(r => {
+    if (!r || !r.date) return;
+    const d = _kalkDen(r.date); if (isNaN(d) || d > dnes) return;
+    const tx = typeof rcptNajdiTx === 'function' ? rcptNajdiTx(r, D) : null;
+    //  cizí měna: poměr Kč / nominál z transakce účtenky
+    const fx = tx && (tx.amount || 0) ? _kalkCZK(tx, D) / tx.amount : 1;
+    (r.items || []).forEach(it => {
+      const kc = (typeof lineAmt === 'function' ? lineAmt(it) : ((parseFloat(it.lineTotal) || (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1)))) * fx;
+      if (!kc) return;
+      out.push({ it, r, tx, d, kc, cat: it.itemCatId || '', sub: it.itemSubcat || '', nazev: String(it.name || '') });
+    });
+  });
+  return out;
+}
+//  Byla transakce účtenky už započtena podle kategorie? (rozdělená platba: kterákoli část)
+function _kalkTxZapoctena(tx, D, sedi) {
+  if (!tx || tx.type !== 'expense') return false;
+  if (tx.splitParent && tx.splitId) return (D.transactions || []).some(x => x.splitId === tx.splitId && !x.splitParent && sedi(x));
+  return _kalkStat(tx) && sedi(tx);
+}
+
 //  Výdajové kategorie a podkategorie, za které se za poslední rok utrácelo (pro výběr zlozvyku).
+//  Počítají se transakce i položky účtenek (kategorie položky); položka účtenky, jejíž transakce
+//  už má stejnou kategorii, se nepřičte.
 function kalkZlozvykMoznosti(D, dnes) {
   dnes = dnes ? _kalkDen(dnes) : _kalkDen(new Date());
   const od = new Date(dnes); od.setDate(od.getDate() - 365);
   const sum = {};
+  const pridej = (c, sub, a) => { if (!c) return; sum[c + '|'] = (sum[c + '|'] || 0) + a; if (sub) sum[c + '|' + sub] = (sum[c + '|' + sub] || 0) + a; };
   (D.transactions || []).forEach(t => {
     if (t.type !== 'expense' || !_kalkStat(t)) return;
     const d = new Date(t.date); if (d < od || d > dnes) return;
-    const c = t.catId || t.category; if (!c) return;
-    const a = _kalkCZK(t, D);
-    sum[c + '|'] = (sum[c + '|'] || 0) + a;
-    if (t.subcat) sum[c + '|' + t.subcat] = (sum[c + '|' + t.subcat] || 0) + a;
+    pridej(t.catId || t.category, t.subcat, _kalkCZK(t, D));
+  });
+  _kalkPolozky(D, dnes).forEach(p => {
+    if (p.d < od || !p.cat) return;
+    const tc = p.tx ? (p.tx.catId || p.tx.category) : '';
+    if (p.tx && !p.tx.splitParent && tc === p.cat) return;   // už je v transakci se stejnou kategorií
+    pridej(p.cat, p.sub, p.kc);
   });
   return Object.keys(sum).map(k => {
     const [cat, sub] = k.split('|');
@@ -167,24 +227,43 @@ function kalkZlozvykVychozi(moznosti) {
   const sub = moznosti.filter(x => x.vzor && x.sub && !kat.includes(x.cat + '|')).map(x => x.klic);
   return kat.concat(sub);
 }
-//  Útrata za vybrané klíče „cat|sub" („cat|" = celá kategorie). Transakce se počítá jen jednou.
-function kalkZlozvykData(D, vyber, dnes) {
+//  Útrata za vybrané klíče „cat|sub" („cat|" = celá kategorie) + položky účtenek (kategorie
+//  položky nebo slovo v názvu). Každá transakce i položka se počítá jen jednou.
+function kalkZlozvykData(D, vyber, dnes, slova) {
   dnes = dnes ? _kalkDen(dnes) : _kalkDen(new Date());
   const rokOd = new Date(dnes); rokOd.setDate(rokOd.getDate() - 365);
-  const sedi = t => (vyber || []).some(k => { const [c, s] = k.split('|'); return (t.catId || t.category) === c && (!s || t.subcat === s); });
+  const sediK = (c0, s0) => (vyber || []).some(k => { const [c, s] = k.split('|'); return c0 === c && (!s || s0 === s); });
+  const sedi = t => sediK(t.catId || t.category, t.subcat);
   let rok = 0, celkem = 0, pocet = 0, prvni = null, prvniVse = null;
+  const zapocti = (d, a) => { celkem += a; if (d > rokOd) rok += a; if (!prvni || d < prvni) prvni = d; };
   (D.transactions || []).forEach(t => {
     const d = new Date(t.date); if (isNaN(d) || d > dnes) return;
     if (!prvniVse || d < prvniVse) prvniVse = d;
     if (t.type !== 'expense' || !_kalkStat(t) || !sedi(t)) return;
-    const a = _kalkCZK(t, D);
-    celkem += a; pocet++;
-    if (d > rokOd) rok += a;
-    if (!prvni || d < prvni) prvni = d;
+    pocet++; zapocti(d, _kalkCZK(t, D));
   });
+  //  položky účtenek
+  const u = { rok: 0, celkem: 0, pocet: 0, uctenek: 0 }, top = {}, uSet = new Set();
+  _kalkPolozky(D, dnes).forEach(p => {
+    if (!prvniVse || p.d < prvniVse) prvniVse = p.d;
+    if (_kalkTxZapoctena(p.tx, D, sedi)) return;
+    const podleKat = p.cat && sediK(p.cat, p.sub), slovo = podleKat ? '' : _kalkSlovoVNazvu(p.nazev, slova);
+    if (!podleKat && !slovo) return;
+    zapocti(p.d, p.kc);
+    u.celkem += p.kc;
+    if (p.d > rokOd) {
+      u.rok += p.kc; u.pocet++; uSet.add(p.r);
+      const k = _kalkBezDiak(p.nazev).replace(/\s+/g, ' ').trim();
+      const x = top[k] || (top[k] = { nazev: p.nazev.trim(), kc: 0, ks: 0, proc: podleKat ? 'kategorie položky' : '„' + slovo + '“' });
+      x.kc += p.kc; x.ks += Math.max(1, Math.round(Math.abs(parseFloat(p.it.qty) || 1)));
+    }
+  });
+  u.uctenek = uSet.size;
+  u.rok = Math.round(u.rok); u.celkem = Math.round(u.celkem);
+  u.top = Object.values(top).sort((a, b) => b.kc - a.kc).slice(0, 8).map(x => Object.assign(x, { kc: Math.round(x.kc) }));
   //  měsíční průměr z posledního roku – když data začínají později, dělí se skutečným počtem měsíců
   const mesicuDat = prvniVse ? Math.max(1, Math.min(12, Math.round((dnes - prvniVse) / (30.44 * 86400000)))) : 12;
-  return { rok: Math.round(rok), celkem: Math.round(celkem), pocet, prvni, mesicuDat, mesicne: Math.round(rok / mesicuDat) };
+  return { rok: Math.round(rok), celkem: Math.round(celkem), pocet: pocet + u.pocet, transakci: pocet, uctenky: u, prvni, mesicuDat, mesicne: Math.round(rok / mesicuDat) };
 }
 
 //  Do výplaty – stejný základ jako Finanční radar → 💸 Do výplaty (renderRadarPayday):
@@ -289,7 +368,7 @@ function _kalkStavVychozi() {
   return {
     otevrena: null,
     rezerva: { uspory: null, vydaje: null, omezeni: 0, prijem: 0 },
-    zlozvyk: { vyber: null, hodinovka: null, let: 10, vynos: 6, volatilita: 15 },
+    zlozvyk: { vyber: null, slova: null, hodinovka: null, let: 10, vynos: 6, volatilita: 15 },
     vyplata: { volne: null, dni: null, denni: null },
   };
 }
@@ -502,20 +581,22 @@ function _kalkRezervaTelo(V) {
 function _kalkZlozvykVypocet(D) {
   const s = window._kalk.zlozvyk, moz = kalkZlozvykMoznosti(D, new Date());
   const vyber = Array.isArray(s.vyber) ? s.vyber : kalkZlozvykVychozi(moz);
-  const z = kalkZlozvykData(D, vyber, new Date()), hod = kalkHodinovka(D);
+  //  slova pro položky účtenek: null = výchozí seznam, '' = nehledat v položkách
+  const slova = s.slova == null ? KALK_ZLOZVYK_SLOVA : kalkSlovaZTextu(s.slova);
+  const z = kalkZlozvykData(D, vyber, new Date(), slova), hod = kalkHodinovka(D);
   const hodKc = _kalkCislo(s.hodinovka) != null ? +s.hodinovka : hod.kc;
   const inv = z.mesicne > 0 ? kalkInvestice({ mesicne: z.mesicne, let: +s.let || 10, vynos: _kalkCislo(s.vynos) != null ? +s.vynos : 6, volatilita: _kalkCislo(s.volatilita) != null ? +s.volatilita : 15 }) : null;
-  return { s, moz, vyber, auto: !Array.isArray(s.vyber), z, hod, hodKc, inv };
+  return { s, moz, vyber, slova, auto: !Array.isArray(s.vyber), z, hod, hodKc, inv };
 }
 function _kalkZlozvykTeaser(V) {
-  if (!V.vyber.length) return { hlavni: '–', pod: 'Vyber, co chceš sledovat' };
+  if (!V.vyber.length && !V.slova.length) return { hlavni: '–', pod: 'Vyber, co chceš sledovat' };
   if (!V.z.rok) return { hlavni: '0 Kč', pod: 'Za poslední rok žádná útrata za vybrané' };
   return { hlavni: `${_kalkKc(V.z.rok)} za rok`, pod: V.hodKc > 0 ? `= ${_kalkDes(V.z.rok / V.hodKc, 0)} hodin práce` : `${_kalkKc(V.z.mesicne)} měsíčně` };
 }
 function _kalkZlozvykVysledek(V) {
-  if (!V.vyber.length) return _kalkPrazdne('Není vybraná žádná kategorie.', 'Hledal jsem kategorie a podkategorie s názvem jako pivo, alkohol, cigarety, tabák, sázky, energy drinky – žádná taková nemá za poslední rok výdaje. Vyber nahoře, co chceš sledovat.');
+  if (!V.vyber.length && !V.slova.length) return _kalkPrazdne('Není vybraná žádná kategorie ani slovo pro účtenky.', 'Hledal jsem kategorie a podkategorie s názvem jako pivo, alkohol, cigarety, tabák, sázky, energy drinky – žádná taková nemá za poslední rok výdaje. Vyber nahoře kategorii, nebo napiš slova, která se mají hledat v položkách účtenek.');
   const z = V.z;
-  if (!z.pocet) return _kalkPrazdne('Za vybrané kategorie zatím nejsou žádné výdaje.', 'Počítám jen výdaje (bez přesunů a rozpadů) do dneška.');
+  if (!z.pocet) return _kalkPrazdne('Za vybrané zatím nejsou žádné výdaje.', 'Prošel jsem transakce ve vybraných kategoriích a položky naskenovaných účtenek (kategorie položky i slova v názvu) do dneška – nic nesedí.');
   const hodiny = V.hodKc > 0 ? z.rok / V.hodKc : null;
   const inv = V.inv, roky = inv ? inv.let : 0, k = inv ? inv.sim.kroky[inv.sim.kroky.length - 1] : null;
   return `<div style="font-size:.9rem;color:#e8eaf2;line-height:1.55;margin-bottom:10px">Za poslední rok ${_kalkKc(z.rok)}${hodiny != null ? `, to je <strong>${_kalkDes(hodiny, 0)} hodin práce</strong>` : ''}.`
@@ -525,9 +606,31 @@ function _kalkZlozvykVysledek(V) {
       ${_kalkChip('⏱️', hodiny != null ? _kalkDes(hodiny, 0) + ' h' : '–', 'hodin práce za rok')}
       ${_kalkChip('🗂️', _kalkKc(z.celkem), z.prvni ? 'od ' + z.prvni.toLocaleDateString('cs-CZ', { month: 'numeric', year: 'numeric' }) : 'celkem')}
     </div>
+    ${_kalkZlozvykUctenky(z)}
     ${inv ? kalkVejir({ id: 'zlozvyk', kroky: inv.sim.kroky, xPopisek: i => i === 0 ? 'dnes' : i + '. rok', xNazev: 'roky investování', yNazev: 'hodnota investice (Kč)',
       cara: { body: inv.vlozeno, popisek: 'vloženo' }, tabulkaHlavicka: 'Po letech', tabulkaKazdy: roky > 12 ? 5 : roky > 6 ? 2 : 1 }) : ''}`;
 }
+//  Rozpis: kolik z toho jsou transakce a kolik položky účtenek + nejčastější položky.
+function _kalkZlozvykUctenky(z) {
+  const u = z.uctenky || {};
+  const txRok = Math.max(0, z.rok - (u.rok || 0));
+  const radek = (ik, txt, kc) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:.8rem;color:#e8eaf2"><span>${ik} ${txt}</span><strong style="white-space:nowrap">${_kalkKc(kc)}</strong></div>`;
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+    <div style="font-size:.68rem;color:#a8aec8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px">Odkud to je · poslední rok</div>
+    ${radek('💳', `transakce ve vybraných kategoriích (${z.transakci || 0})`, txRok)}
+    ${radek('🧾', `položky účtenek (${u.pocet || 0} z ${u.uctenek || 0} ${u.uctenek === 1 ? 'účtenky' : 'účtenek'})`, u.rok || 0)}
+    ${u.top && u.top.length ? `<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.76rem;color:#c2c7da">🧾 Nejvíc z účtenek</summary>
+      <div style="overflow-x:auto;margin-top:6px"><table style="width:100%;border-collapse:collapse;font-size:.74rem;color:#e8eaf2">
+      <tr style="color:#a8aec8"><th style="text-align:left;padding:4px 6px">Položka</th><th style="text-align:right;padding:4px 6px">ks</th><th style="text-align:right;padding:4px 6px">Kč</th><th style="text-align:left;padding:4px 6px">našlo podle</th></tr>
+      ${u.top.map(x => `<tr style="border-top:1px solid var(--border)"><td style="padding:4px 6px">${_kalkEsc(x.nazev)}</td><td style="padding:4px 6px;text-align:right">${x.ks}</td><td style="padding:4px 6px;text-align:right;white-space:nowrap">${_kalkKc(x.kc)}</td><td style="padding:4px 6px;color:#a8aec8">${_kalkEsc(x.proc)}</td></tr>`).join('')}
+      </table></div></details>` : ''}
+  </div>`;
+}
+function kalkZlozvykSlova(el) {
+  window._kalk.zlozvyk.slova = String(el.value || '');
+  _kalkStavUloz(); kalkPrepocti('zlozvyk');
+}
+function kalkZlozvykSlovaZpet() { window._kalk.zlozvyk.slova = null; _kalkStavUloz(); _kalkKartaZnovu('zlozvyk'); }
 function _kalkZlozvykTelo(V) {
   const s = V.s, vybrane = V.vyber.map(k => V.moz.find(x => x.klic === k) || { klic: k, nazev: k.replace('|', ' › '), kc: 0 });
   const volne = V.moz.filter(x => !V.vyber.includes(x.klic) && !(x.sub && V.vyber.includes(x.cat + '|')));
@@ -535,6 +638,11 @@ function _kalkZlozvykTelo(V) {
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">${vybrane.length ? vybrane.map(x => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);border-radius:999px;padding:4px 6px 4px 10px;font-size:.78rem;color:#e8eaf2">${_kalkEsc(x.nazev)} <span style="color:#a8aec8">${_kalkKc(x.kc)}/rok</span><button class="btn btn-ghost btn-sm" style="padding:0 6px" title="Odebrat" onclick="kalkZlozvykOdeber('${_kalkEsc(x.klic)}')">✕</button></span>`).join('') : '<span style="font-size:.78rem;color:#a8aec8">nic</span>'}</div>
       <select class="fi" onchange="kalkZlozvykPridej(this.value)"><option value="">➕ Přidat kategorii nebo podkategorii…</option>${volne.map(x => `<option value="${_kalkEsc(x.klic)}">${_kalkEsc(x.nazev)} · ${_kalkKc(x.kc)}/rok</option>`).join('')}</select>
       ${V.auto ? '' : `<button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="kalkZlozvykAuto()">↺ Vybrat automaticky podle názvu</button>`}
+    </div>
+    <div class="fg" style="margin-bottom:10px"><label>🧾 Hledat v položkách účtenek</label>
+      <textarea class="fi" rows="2" style="width:100%;resize:vertical;font-size:.82rem" placeholder="${_kalkEsc(KALK_ZLOZVYK_SLOVA.join(', '))}" oninput="kalkZlozvykSlova(this)">${V.s.slova == null ? '' : _kalkEsc(V.s.slova)}</textarea>
+      <div style="font-size:.7rem;color:#a8aec8;margin-top:3px">${V.s.slova == null ? '⚙️ výchozí slova (napiš vlastní, oddělená čárkou)' : V.slova.length ? '✍️ vlastní slova: ' + V.slova.length : '✍️ prázdné = v názvech položek nehledám'} · hledá se od začátku slova bez diakritiky, „pivo“ najde „PIVO RADEGAST 0,5L“. Položky s vybranou kategorií se počítají vždy.
+        ${V.s.slova == null ? '' : `<button class="btn btn-ghost btn-sm" style="padding:0 6px" onclick="kalkZlozvykSlovaZpet()">↺ výchozí</button>`}</div>
     </div>
     <div class="frow">
       ${_kalkPole('zlozvyk', 'hodinovka', 'Čistá hodinovka', s.hodinovka, V.hod.kc || '', 'Kč/h', V.hod.zdroj === 'vyplatnice' ? 'z výplatnic' : V.hod.zdroj === 'odhad' ? 'odhad: příjem ÷ 160 h' : 'zadej ručně')}
@@ -546,7 +654,7 @@ function _kalkZlozvykTelo(V) {
     <div id="kalkVysl_zlozvyk">${_kalkZlozvykVysledek(V)}</div>
     <details style="margin-top:10px"><summary style="cursor:pointer;font-size:.78rem;color:#c2c7da">ℹ️ Jak to počítám</summary>
       <div style="font-size:.76rem;color:#a8aec8;line-height:1.6;margin-top:6px">
-      Útrata = výdaje ve vybraných kategoriích a podkategoriích (bez přesunů a rozpadů, cizí měny přepočtené). Měsíčně = poslední rok ÷ ${V.z.mesicuDat} ${V.z.mesicuDat === 1 ? 'měsíc' : V.z.mesicuDat < 5 ? 'měsíce' : 'měsíců'} s daty.<br>
+      Útrata = výdaje ve vybraných kategoriích a podkategoriích (bez přesunů a rozpadů, cizí měny přepočtené) + položky naskenovaných účtenek, které mají vybranou kategorii položky nebo hledané slovo v názvu. Účtenka, jejíž transakce už je ve vybrané kategorii, se nepřičítá podruhé. Měsíčně = poslední rok ÷ ${V.z.mesicuDat} ${V.z.mesicuDat === 1 ? 'měsíc' : V.z.mesicuDat < 5 ? 'měsíce' : 'měsíců'} s daty.<br>
       Hodiny práce = útrata ÷ čistá hodinovka${V.hod.zdroj === 'vyplatnice' ? ' (čistá mzda ÷ odpracované hodiny a dovolená z posledních výplatnic)' : ''}.<br>
       Investice: každý měsíc vklad a náhodný výnos kolem zadaného průměru s daným kolísáním; 2 000 průběhů dá vějíř. Není to doporučení investovat – jen „co by kdyby“. Nepočítá daně, poplatky ani inflaci.</div></details>`;
 }
@@ -695,7 +803,7 @@ function kalkZlozvykAuto() { window._kalk.zlozvyk.vyber = null; _kalkStavUloz();
 
 window.renderKalkulacky = renderKalkulacky;
 window.kalkOtevri = kalkOtevri; window.kalkVstup = kalkVstup; window.kalkVstupZpet = kalkVstupZpet; window.kalkPrepocti = kalkPrepocti;
-window.kalkZlozvykPridej = kalkZlozvykPridej; window.kalkZlozvykOdeber = kalkZlozvykOdeber; window.kalkZlozvykAuto = kalkZlozvykAuto;
+window.kalkZlozvykPridej = kalkZlozvykPridej; window.kalkZlozvykSlova = kalkZlozvykSlova; window.kalkZlozvykSlovaZpet = kalkZlozvykSlovaZpet; window.kalkZlozvykOdeber = kalkZlozvykOdeber; window.kalkZlozvykAuto = kalkZlozvykAuto;
 window.mcSimuluj = mcSimuluj; window.mcPercentil = mcPercentil;
 //  název stránky v hlavičce (PAGE_TITLES je v app.js – doplnit odsud, ať se app.js nemusí měnit)
 try { if (typeof PAGE_TITLES !== 'undefined' && !PAGE_TITLES.kalkulacky) PAGE_TITLES.kalkulacky = '🧮 Kalkulačky'; } catch (e) {}

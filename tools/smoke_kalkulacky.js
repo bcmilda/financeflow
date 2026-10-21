@@ -94,6 +94,41 @@ const zl=ctx.kalkZlozvykData(D,vych,dnes);
 t('útrata za rok 950 Kč (150 + 600 + 200), celkem i se starými cigaretami 1 350',zl.rok===950&&zl.celkem===1350&&zl.pocet===4,zl);
 t('měsíčně = rok ÷ 12 (data jsou starší než rok)',zl.mesicuDat===12&&zl.mesicne===79,zl);
 t('podkategorie se nepřičte dvakrát, když je vybraná i celá kategorie',ctx.kalkZlozvykData(D,['jidlo|','jidlo|Pivo'],dnes).rok===22950);
+console.log('── 🚬 zlozvyk v položkách účtenek (v11.91) ──');
+ctx.rcptNajdiTx=(r,D2)=>(D2.transactions||[]).find(t=>t.receiptAddedAt&&t.receiptAddedAt===r.addedAt)||null;
+ctx.lineAmt=it=>it.lineTotal!=null?+it.lineTotal:(+it.price||0)*(+it.qty||1);
+const DU={categories:D.categories.concat([{id:'nak',name:'Nákupy potravin'}]),wallets:[],
+  transactions:[
+    {id:'u1',type:'expense',amount:500,date:'2026-09-10',catId:'nak',receiptAddedAt:11},
+    {id:'u2',type:'expense',amount:300,date:'2026-09-12',catId:'pivo',receiptAddedAt:22},
+    {id:'u3',type:'expense',amount:40,date:'2026-09-14',currency:'EUR',amtCZK:1000,catId:'nak',receiptAddedAt:33},
+    {id:'u4',type:'expense',amount:200,date:'2025-02-01',catId:'nak',receiptAddedAt:44}],
+  receipts:[
+    {addedAt:11,date:'2026-09-10',store:'Penny',total:500,items:[{name:'PIVO RADEGAST 0,5L',price:25,qty:4,lineTotal:100},{name:'Rohlík',price:3,qty:10,lineTotal:30},{name:'Marlboro Red',price:165,qty:1},{name:'Vinný ocet',price:30,qty:1},{name:'Rumunský salát',price:40,qty:1},{name:'Kofola',price:35,qty:1,itemCatId:'jidlo',itemSubcat:'Pivo'}]},
+    {addedAt:22,date:'2026-09-12',store:'Hospoda',total:300,items:[{name:'Pivo 12°',price:60,qty:5}]},
+    {addedAt:33,date:'2026-09-14',store:'Billa AT',total:40,items:[{name:'Bier Gösser',price:10,qty:1},{name:'Pivo Zipfer',price:10,qty:1}]},
+    {addedAt:44,date:'2025-02-01',store:'Penny',total:200,items:[{name:'Pivo Plzeň',price:30,qty:2}]},
+    {addedAt:11,date:'2026-09-10',store:'Penny',total:500,items:[{name:'PIVO RADEGAST 0,5L',price:25,qty:4,lineTotal:100}]}]};
+ctx.rcptUnikatni=rs=>rs.filter((r,i)=>rs.findIndex(x=>x.store===r.store&&x.date===r.date&&x.total===r.total)===i);
+const W=ctx.KALK_ZLOZVYK_SLOVA||vm.runInContext('KALK_ZLOZVYK_SLOVA',ctx);
+let zu=ctx.kalkZlozvykData(DU,['jidlo|Pivo','pivo|'],dnes,W);
+t('položky: pivo z Penny (100), Marlboro (165), Kofola s kategorií položky Jídlo › Pivo (35), Zipfer v EUR přepočtený (250)',zu.uctenky.rok===550&&zu.uctenky.pocet===4,zu.uctenky);
+t('„vinný ocet“ ani „Rumunský salát“ se nepočítají (slovo od začátku, „vino“ ≠ „vinny“)',!zu.uctenky.top.some(x=>/ocet|salát/i.test(x.nazev)));
+t('účtenka z hospody (transakce už v kategorii Pivo) se nepřičte podruhé: 300 jen jednou',zu.transakci===1&&zu.rok===300+550,{r:zu.rok,tx:zu.transakci});
+t('duplicitní kopie účtenky se nepočítá (rcptUnikatni)',zu.uctenky.uctenek===2);
+t('celkem i se starou účtenkou (Pivo Plzeň 60 Kč z 2025)',zu.celkem===300+550+60,zu.celkem);
+t('nejvíc z účtenek: s důvodem nálezu',zu.uctenky.top.some(x=>x.nazev==='Pivo Zipfer'&&x.kc===250&&x.proc==='„pivo“')&&zu.uctenky.top.some(x=>x.nazev==='Kofola'&&x.proc==='kategorie položky'),zu.uctenky.top);
+zu=ctx.kalkZlozvykData(DU,[],dnes,[]);
+t('bez kategorií a bez slov = nic',zu.rok===0&&zu.pocet===0);
+zu=ctx.kalkZlozvykData(DU,[],dnes,ctx.kalkSlovaZTextu('Bier, marlboro'));
+t('vlastní slova „Bier, marlboro“: Gösser 250 + Marlboro 165',zu.uctenky.rok===415,zu.uctenky);
+t('krátké slovo celé, dlouhé od začátku, víceslovné',(()=>{const f=(n,w)=>vm.runInContext('_kalkSlovoVNazvu',ctx)(n,w);return f('RUM TUZEMÁK',['rum'])==='rum'&&f('Rumunský salát',['rum'])===''&&f('Cigarety LM',['cigaret'])==='cigaret'&&f('RED BULL 0,25',['red bull'])==='red bull'&&f('Redbullova sůl',['red bull'])===''&&f('Víno bílé',['vino'])==='vino'})());
+t('kalkSlovaZTextu: bez diakritiky, malá písmena, prázdné pryč',JSON.stringify(ctx.kalkSlovaZTextu('Víno; ,  Pivo\nx'))==='["vino","pivo"]');
+const mozU=ctx.kalkZlozvykMoznosti(DU,dnes);
+t('možnosti výběru zahrnují i kategorie položek účtenek (Jídlo › Pivo)',mozU.some(x=>x.klic==='jidlo|Pivo'&&x.kc===35),mozU);
+t('výchozí výběr najde i kategorii položky Jídlo › Pivo',ctx.kalkZlozvykVychozi(mozU).includes('jidlo|Pivo'));
+delete ctx.rcptNajdiTx; delete ctx.lineAmt; delete ctx.rcptUnikatni;
+
 ctx.vyplDopocet=z=>({cisty:z.c}); ctx.vyplHodinyZPasky=z=>({odprac:z.h,dovolenaH:z.d||0});
 let h=ctx.kalkHodinovka({payslips:[{m:'2026-08',c:30000,h:150,d:11},{m:'2026-09',c:33000,h:165}]});
 t('hodinovka z výplatnic: (30 000 + 33 000) ÷ (161 + 165) = 193 Kč/h',h.kc===193&&h.zdroj==='vyplatnice',h);
@@ -139,6 +174,7 @@ ctx.kalkOtevri('rezerva'); out=els.kalkulackyContent.innerHTML;
 t('druhé klepnutí kartu sbalí',!/Sbalit ↑/.test(out));
 ctx.kalkOtevri('zlozvyk'); out=els.kalkulackyContent.innerHTML;
 t('výnos a kolísání jsou „výchozí hodnota“, ne „z tvých dat“',/kalkVstup\('zlozvyk','vynos',this\)"[\s\S]{0,600}⚙️ výchozí hodnota/.test(out)&&/kalkVstup\('zlozvyk','volatilita',this\)"[\s\S]{0,600}⚙️ výchozí hodnota/.test(out));
+t('pole „Hledat v položkách účtenek“ s výchozími slovy',/oninput="kalkZlozvykSlova\(this\)"/.test(out)&&/placeholder="pivo, radler/.test(out)&&/Hledat v položkách účtenek/.test(out));
 ctx.kalkOtevri('zlozvyk');
 // ruční hodnota: přepočítá jen výsledek, políčko zůstane
 els.kalkTeaser_vyplata={innerHTML:''}; els.kalkVysl_vyplata={innerHTML:''};
