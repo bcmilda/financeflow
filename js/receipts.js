@@ -1,4 +1,4 @@
-// FinanceFlow · v11.92 · receipts.js · 2026-10-20
+// FinanceFlow · v11.93 · receipts.js · 2026-10-21
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4676,7 +4676,7 @@ function buildReceiptPreviewHTML(receipt, n) {
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:.76rem;font-weight:600;color:var(--text2)">Položky <span style="font-size:.62rem;color:var(--text3);font-weight:400">· ← potáhni do stran →</span></span>
-        <button class="btn btn-ghost btn-sm" onclick="rpAddItem()" style="font-size:.72rem">➕ Přidat</button>
+        <span style="display:flex;gap:6px">${r.rucne ? `<button class="btn btn-ghost btn-sm" onclick="rpPridatSkenem()" style="font-size:.72rem">📷 Přidat skenem</button>` : ''}<button class="btn btn-ghost btn-sm" onclick="rpAddItem()" style="font-size:.72rem">➕ Přidat</button></span>
       </div>
       <div id="rp_items" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px"></div>
     </div>
@@ -5073,6 +5073,111 @@ async function updateItemStats(items, date) {
   try { await Promise.all(patches); } catch(e){ console.warn('updateItemStats failed:', e); }
 }
 
+// ══════════════════════════════════════════════════════
+//  S27 (v11.93, Milan: „chtěl bych vyzkoušet název z kódu pod položkou“)
+//  cesta: Analýza účtenek → editor účtenky → položka s kódem (✅)
+//  Pod zkratkou z účtenky se ukáže název výrobku, ke kterému kód patří (dřív jen v bublině ✅,
+//  na telefonu nevidět). Když kód se zkratkou nesedí (jiná gramáž, žádné společné slovo),
+//  řádek je žlutý s důvodem – omyl při skenu je vidět hned (bod C, jen upozornění, nic se nemění).
+// ══════════════════════════════════════════════════════
+function rpKodNazev(it) {
+  if (!it || !it.ean) return '';
+  const p = typeof eanProduktZCache === 'function' ? eanProduktZCache(it.ean) : null;
+  const n = p && p.stav === 'nalezeno' && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(p, it.ean) : '';
+  return String(n || it.eanNazev || '').trim();
+}
+function _rpSlova(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z]+/).filter(w => w.length >= 3);
+}
+function _rpGramaz(t) {
+  const b = typeof baleniZNazvu === 'function' ? baleniZNazvu(t) : null;
+  return b && (b.j === 'g' || b.j === 'ml') && b.m > 0 ? b : null;
+}
+//  Sedí kód se zkratkou? {ok:true} | {ok:false, proc}. Bez názvu výrobku se nesoudí (ok).
+//  Gramáž: jen stejná jednotka, rozdíl nad 15 % (multipack „4X0,5L“ projde i jako 1 kus).
+//  Slova: aspoň jedno slovo (3+ písmena) zkratky začíná stejnými 3 písmeny jako slovo výrobku/značky.
+function rpKodSedi(raw, nazev, produkt) {
+  if (!raw || !nazev) return { ok: true };
+  const gR = _rpGramaz(raw);
+  let gP = null;
+  const q = produkt && produkt.mnozstvi;
+  if (q && q.hodnota > 0 && (q.jednotka === 'g' || q.jednotka === 'ml')) gP = { m: q.hodnota, j: q.jednotka };
+  if (!gP) gP = _rpGramaz(nazev);
+  if (gR && gP && gR.j === gP.j) {
+    const multi = typeof gramazZTextu === 'function' ? gramazZTextu(raw) : null;
+    const sedi = x => x && Math.abs(x.m - gP.m) / Math.max(x.m, gP.m) <= 0.15;
+    if (!sedi(gR) && !(multi && multi.kusy && Math.abs(multi.m / multi.kusy - gP.m) / gP.m <= 0.15) && !sedi(multi))
+      return { ok: false, proc: `gramáž ${fmtP(gR.m)} ${gR.j} ≠ ${fmtP(gP.m)} ${gP.j}` };
+  }
+  const sR = _rpSlova(raw), sP = _rpSlova(nazev + ' ' + ((produkt && produkt.znacka) || ''));
+  if (sR.length && sP.length && !sR.some(a => sP.some(b => a.slice(0, 3) === b.slice(0, 3))))
+    return { ok: false, proc: 'název nesedí se zkratkou' };
+  return { ok: true };
+}
+function rpKodRadekHTML(it, i) {
+  if (!it || !it.ean) return '';
+  const nazev = rpKodNazev(it);
+  if (!nazev) {
+    //  zkusilo se a nic → kód bez názvu (výrobek zatím nikdo nezapsal / offline); jinak se teprve načítá
+    const zkuseno = typeof _rpKodZkuseno !== 'undefined' && _rpKodZkuseno.has(it.ean) && !_rpKodNacitam;
+    return `<div id="rp_kn_${i}" style="font-size:.66rem;color:#a8aec8;line-height:1.3;padding-left:2px">▮▮ kód ${escHtml(it.ean)}${zkuseno ? ' · název výrobku zatím neznáme' : ' · název se načítá…'}</div>`;
+  }
+  const p = typeof eanProduktZCache === 'function' ? eanProduktZCache(it.ean) : null;
+  const k = rpKodSedi(it.name, nazev, p && p.stav === 'nalezeno' ? p : null);
+  return `<div id="rp_kn_${i}" title="${escHtml('Kód ' + it.ean + (k.ok ? '' : ' – zkontroluj, jestli patří k této položce. Klepni na ✅ pro změnu.'))}"
+    style="font-size:.66rem;line-height:1.3;padding-left:2px;color:${k.ok ? 'var(--income)' : '#fbbf24'};overflow-wrap:anywhere">${k.ok ? '▮▮' : '⚠️'} ${escHtml(nazev)}${k.ok ? '' : ' · ' + escHtml(k.proc)}</div>`;
+}
+//  Každý kód se zkusí načíst jen JEDNOU za relaci – offline / bez přihlášení se jinak
+//  eanNactiVse hlásí „něco požádáno“, editor se překreslí a zkouší to dokola (zamrznutí).
+let _rpKodNacitam = false;
+const _rpKodZkuseno = new Set();
+function rpKodNazvyNacti(r) {
+  if (_rpKodNacitam || typeof eanNactiVse !== 'function' || typeof eanProduktZCache !== 'function') return;
+  const chybi = [...new Set(((r && r.items) || []).filter(it => it && it.ean && !eanProduktZCache(it.ean) && !it.eanNazev && !_rpKodZkuseno.has(it.ean)).map(it => it.ean))];
+  if (!chybi.length) return;
+  chybi.forEach(e => _rpKodZkuseno.add(e));
+  _rpKodNacitam = true;
+  eanNactiVse(chybi).then(() => {
+    _rpKodNacitam = false;
+    if (window._editReceipt === r) rpRender();   // jednou: podruhé už nic nechybí (kódy jsou ve _rpKodZkuseno)
+  }).catch(() => { _rpKodNacitam = false; });
+}
+
+// ══════════════════════════════════════════════════════
+//  S27 (v11.93, bod F): RUČNÍ ÚČTENKA SKENEM
+//  cesta: Analýza účtenek → ✍️ Zapsat účtenku ručně → 📷 Přidat skenem
+//  Naskenuješ kód → vznikne položka s názvem výrobku (cenu dopíšeš – Milan: bez automatické ceny).
+//  Použije se prázdná položka, jinak se přidá nová. Kategorie se odhadne podle názvu a kódu.
+//  Spojení „obchod + zkratka“ se tu nezakládá (zkratka z účtenky neexistuje).
+// ══════════════════════════════════════════════════════
+function rpPridatSkenem() {
+  const r = window._editReceipt; if (!r || typeof eanSkenujPolozku !== 'function') return;
+  if (!Array.isArray(r.items)) r.items = [];
+  let i = r.items.findIndex(it => it && !String(it.name || '').trim() && !it.ean && !(parseFloat(it.price) || 0));
+  if (i < 0) {
+    const nk = typeof rpNakupCat === 'function' ? rpNakupCat() : null;
+    r.items.push({ name: '', price: 0, qty: 1, itemCatId: (nk && nk.id) || '', itemCat: (nk && nk.name) || 'Nákup' });
+    i = r.items.length - 1;
+  }
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  rpRender();
+  eanSkenujPolozku({ raw: '', obchod: r.store || '', ean: '', i, hotovo: (ean, p) => rpPoSkenu(i, ean, p) });
+}
+function rpPoSkenu(i, ean, p) {
+  const r = window._editReceipt; const it = r && r.items && r.items[i]; if (!it) return;
+  if (!String(it.name || '').trim()) {
+    const n = it.eanNazev || (p && typeof eanNazevVyrobku === 'function' ? eanNazevVyrobku(p, ean) : '') || ('Kód ' + ean);
+    it.name = String(n).slice(0, 80);
+    const nk = typeof rpNakupCat === 'function' ? rpNakupCat() : null;
+    if ((!it.itemCatId || (nk && it.itemCatId === nk.id)) && typeof rpPriradOdhad === 'function' && typeof guessItemCatId === 'function')
+      rpPriradOdhad(it, guessItemCatId(it.name, null, ean));
+  }
+  rpRender(); rpUpdateTotal();
+  setTimeout(() => { const e = document.getElementById('rp_price_' + i); if (e && e.focus) { e.focus(); if (e.select) e.select(); } }, 80);
+}
+Object.assign(window, { rpKodSedi, rpKodNazev, rpKodRadekHTML, rpPridatSkenem, rpPoSkenu });
+
 function rpAutoAssignCategories() {
   const r = window._editReceipt; if(!r?.items) return;
   r.items.forEach(it => {
@@ -5155,12 +5260,15 @@ function rpRender() {
         : _mp ? `<span title="${escHtml((it._mapa.zdrojTax==='nazev' ? 'Podle názvu v taxonomii' : 'Návrh z komunitní Mapy položek') + ': ' + rpTaxRetez(it._mapa) + (it._mapa.konkretni && it._mapa.tax ? ' · ' + it._mapa.konkretni : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.6rem;color:#60a5fa;margin-left:2px">${it._mapa.zdrojTax==='nazev'?'🧭':'🗺️'}</span>` : '';
       html += `
         <div style="display:flex;align-items:center;gap:5px;padding:5px 2px;border-bottom:1px solid var(--border)" id="rp_item_${i}">
+          <div style="flex:1;min-width:130px;display:flex;flex-direction:column;gap:2px">
           <input id="rp_name_${i}"
             value="${(it.name||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
             placeholder="Název položky"
             title="${rpIsGenericName(it.name)?'Obecný název (oddělení, ne výrobek) – do sledování cen se nepočítá. Přepiš na konkrétní výrobek s gramáží.':''}"
-            style="flex:1;background:var(--surface2);border:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'solid var(--border)'};border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem;min-width:130px"
+            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'solid var(--border)'};border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem"
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          ${rpKodRadekHTML(it, i)}
+          </div>
           <div style="position:relative;flex-shrink:0;display:flex;gap:3px;align-items:center">
             <select id="rp_cat_${i}"
               style="background:var(--surface2);border:1px solid ${it.itemCatId?color:'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.68rem;width:100px">
@@ -5220,6 +5328,8 @@ function rpRender() {
     + '<span>📷</span><span style="flex:1"><b>Tip:</b> klepni na 📷 u položky a vyfoť čárový kód z obalu. Appka zjistí přesný název, značku, složení a Nutri-Score a pozná stejný výrobek i v jiných obchodech.</span>'
     + '<button onclick="try{localStorage.setItem(\'ff_eanTipSkryt\',\'1\')}catch(e){};this.parentNode.remove()" style="background:none;border:1px solid var(--border);border-radius:6px;color:#a8aec8;font-size:.68rem;padding:2px 7px;cursor:pointer">Rozumím</button></div>'; } catch(e) {}
   el.innerHTML = _eanTip + '<div style="min-width:680px">' + html + '</div>';
+  //  S27 (v11.93): názvy výrobků k položkám s kódem, které ještě nejsou načtené → načíst a překreslit
+  rpKodNazvyNacti(r);
 
   // Event listenery
   r.items.forEach((it, i) => {

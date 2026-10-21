@@ -37,7 +37,11 @@ T('propadlé záruky jsou úplně dole',l[l.length-1].r.store==='Datart');
 T('index ukazuje na původní účtenku',recs[l[0].i].store==='Datart2');
 // ── výpis ──
 global.S={receipts:recs};
+//  S27 (v11.93): výpis počítá k dnešku (Date.now) – test zamrazí „dnes“ na 24. 9. 2026, jinak
+//  s plynoucím časem záruka Datart2 (konec 20. 10. 2026) přestala být „ke konci“ a test padal.
+const _ted=Date.now; Date.now=()=>dnes;
 const h=buildDokladyTab(recs);
+Date.now=_ted;
 T('hlavička shrne, kolika dokladům končí záruka',/2<\/b> dokladů má záruku ke konci/.test(h));
 T('ukáže místo pro počítadlo úložiště (počet z limitu podle tarifu načte worker)',/class="dokPocitadlo"/.test(h));   // S25 v11.50: dřív natvrdo „z 300“
 T('náhled nese klíč pro dotažení z R2',/data-key="k1"/.test(h));

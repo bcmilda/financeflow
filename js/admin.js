@@ -1,4 +1,4 @@
-// FinanceFlow · v11.92 · admin.js · 2026-10-20
+// FinanceFlow · v11.93 · admin.js · 2026-10-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.93',
+    datum: '2026-10-21',
+    zmeny: [
+      "▮▮ NÁZEV VÝROBKU Z KÓDU POD POLOŽKOU (Milan: „chtěl bych vyzkoušet název z kódu pod položkou – hned uvidíme název“) · cesta: Analýza účtenek → editor účtenky → položka s ✅. Pod zkratkou z účtenky je zelený řádek s názvem výrobku, ke kterému kód patří (dřív jen v bublině ✅, na telefonu nevidět). Řádek položky je o tento řádek vyšší. Kód, jehož výrobek ještě není načtený, se dočte jednou; neznámý výrobek ukáže „kód … · název výrobku zatím neznáme“.",
+      "⚠️ KONTROLA KÓDU PROTI ZKRATCE (Milan: „dobrá pojistka“) · stejné místo. Když kód se zkratkou nesedí – jiná gramáž (např. Lindt 300 g s kódem Orion Margot 80 g) nebo žádné společné slovo – řádek je žlutý s důvodem. Jen upozornění, nic se samo nemění; opravíš klepnutím na ✅. Multipacky (4X0,5L) a litry proti ml se porovnávají správně.",
+      "📷 RUČNÍ ÚČTENKA SKENEM (Milan: „u ručně přidané účtenky – můžu i jen skenovat kódy?“) · cesta: Analýza účtenek → ✍️ Zapsat účtenku ručně → „📷 Přidat skenem“. Naskenuješ kód a vznikne položka s názvem výrobku a odhadnutou kategorií, kurzor skočí do ceny. Cena se nepředvyplňuje (Milan: bez automatické ceny). Ručně napsaný název se nepřepíše.",
+      "🧪 tools/smoke_kod_nazev.js – 22 testů (kontrola kódu, řádek pod položkou, načtení názvů jednou bez smyčky, přidání skenem).",
+    ],
+  },
   {
     verze: 'v11.92',
     datum: '2026-10-20',
