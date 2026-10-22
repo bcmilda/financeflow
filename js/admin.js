@@ -1,4 +1,4 @@
-// FinanceFlow · v11.97 · admin.js · 2026-10-22
+// FinanceFlow · v11.98 · admin.js · 2026-10-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.98',
+    datum: '2026-10-22',
+    zmeny: [
+      "💰 ČISTÝ MAJETEK PODLE VYBRANÉHO MĚSÍCE (Milan: „stejná hodnota se objevuje i při přepnutí měsíce, což může zkreslovat hodnocení“). U minulého měsíce karta ukáže stav k jeho poslednímu dni: peněženky dopočítané od zadaného zůstatku (stejně jako číslo v závorce v Transakcích), Virtuální peněženka z vkladů do cílů do toho dne, aktiva z historie hodnoty (bez historie = dnešní hodnota s „· dnes“). Aktuální měsíc = stav k dnešku. Nahoře „📅 Stav k …“.",
+      "💸 Dluhy si historii zatím nepamatují → u minulého měsíce dnešní stav s poznámkou (úprava dluhů – Zbývá ke dni, změny splátky – je další krok).",
+      "⚠️ ZAPOMENUTÉ TRANSAKCE: když hotovost nebo spořicí peněženka ve vybraném měsíci vyjde v mínusu, karta upozorní, kdy a o kolik – v appce asi chybí příjem nebo vklad (třeba výběr z bankomatu). Běžný účet a karta se nehlídají (kontokorent, kreditka).",
+      "🧪 tools/smoke_majetek_mesic.js – 21 testů (stav ke dni u peněženek s datem i bez, cizí měna, cíle, aktiva, dluhy, mínus v hotovosti).",
+    ],
+  },
   {
     verze: 'v11.97',
     datum: '2026-10-22',

@@ -1708,12 +1708,53 @@ function hideEmailSuggest() {
 // ══════════════════════════════════════════════════════
 //  CELKOVÝ MAJETEK (NET WORTH)
 // ══════════════════════════════════════════════════════
-function computeNetWorth(D) {
+// ══════════════════════════════════════════════════════
+//  S27 (v11.98, Milan: „stejná hodnota se objevuje i při přepnutí měsíce, což může zkreslovat
+//  hodnocení… zapnout odečítání od zvoleného zůstatku – možná se tak najdou zapomenuté transakce“).
+//  Čistý majetek KE DNI: peněženky dopočítané od zadaného zůstatku (walletBalanceAt – stejně jako
+//  číslo v závorce v Transakcích), Virtuální peněženka z vkladů do cílů s datem, aktiva z historie
+//  hodnoty. Dluhy historii nemají (zbývá jen dnešní částka) → dnešní stav s poznámkou.
+//  den = 'YYYY-MM-DD'; bez dne (nebo dnes/budoucnost) = dnešní stav jako dřív.
+// ══════════════════════════════════════════════════════
+function _nwDnes() { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+//  Hodnota aktiva na konci dne: poslední zapsaná hodnota do toho dne + vklady z napojených
+//  transakcí po ní (ADR-076: vklady se přičítají nad poslední ocenění). Bez historie do toho dne
+//  appka hodnotu nezná → dnešní hodnota s příznakem (v kartě „· dnes“).
+function _nwAktivumKDni(a, den) {
+  const vals = (a.valuations || []).filter(x => x && x.d && x.d <= den).sort((x, y) => x.d.localeCompare(y.d));
+  if (!vals.length) return { v: a.value || 0, dnes: true };
+  const z = vals[vals.length - 1]; let v = z.v || 0;
+  if (a.linkedCatId && typeof assetDepositEvents === 'function')
+    assetDepositEvents(a).forEach(e => { if (e.d > z.d && e.d <= den) v += e.amt; });
+  return { v, dnes: false };
+}
+//  Hotovost a spořicí peněženka nemůžou být v mínusu → mínus v období = v appce chybí příjem/vklad
+//  (typicky výběr z bankomatu). Běžný účet a karta můžou (kontokorent, kreditka) – ty se nehlídají.
+function _nwZaporneVObdobi(D, od, doDne) {
+  const out = [];
+  if (typeof walletBalanceAt !== 'function' || !od || !doDne || od > doDne) return out;
+  (D.wallets || []).filter(w => w.type === 'cash' || w.type === 'savings').forEach(w => {
+    let min = Infinity, minDen = null;
+    const d = new Date(od + 'T12:00:00'), p = n => String(n).padStart(2, '0');
+    for (let i = 0; i < 62; i++) {
+      const s = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+      if (s > doDne) break;
+      const b = walletBalanceAt(w.id, D, s);
+      if (b < min) { min = b; minDen = s; }
+      d.setDate(d.getDate() + 1);
+    }
+    if (min < -0.5) out.push({ name: w.name, min, den: minDen, currency: w.currency || 'CZK' });
+  });
+  return out;
+}
+
+function computeNetWorth(D, den) {
   D = D || getData();
+  const kDni = (den && den < _nwDnes()) ? den : null;   // v11.98: null = dnešní stav
   const wallets = D.wallets || [];
   let total = 0;
   const rows = wallets.map(w => {
-    const bal = computeWalletBalance(w.id, D);
+    const bal = (kDni && typeof walletBalanceAt === 'function') ? walletBalanceAt(w.id, D, kDni) : computeWalletBalance(w.id, D);
     // Pro součet majetku přepočti na CZK; v řádku ukaž originál v měně peněženky
     const balCZK = (typeof toCZK==='function') ? toCZK(bal, w.currency||'CZK') : bal;
     total += balCZK;
@@ -1732,7 +1773,9 @@ function computeNetWorth(D) {
     //   splněný NEZNAMENÁ vybrat z něj peníze – ty tam leží dál, dokud si je
     //   člověk nepřevede zpátky do peněženky. Do majetku patří vždy, když tam jsou.
     const goalsWithMoney = (D.wishes||[]).filter(w => w.isGoal);
-    const vwSaved = goalsWithMoney.reduce((s,g) => s + goalGetSaved(g.id), 0);
+    const vwSaved = goalsWithMoney.reduce((s,g) => s + (kDni && typeof _goalDeposits !== 'undefined'
+      ? (_goalDeposits[g.id] || []).filter(d => String(d.date || '').slice(0, 10) <= kDni).reduce((a, d) => a + (d.amount || 0), 0)   // v11.98: vklady do toho dne
+      : goalGetSaved(g.id)), 0);
     if (vwSaved > 0) {
       total += vwSaved;
       rows.push({ name: 'Virtuální peněženka', type: 'savings', balance: vwSaved, balanceCZK: vwSaved, currency: 'CZK', color: '#f59e0b', isVirtual: true });
@@ -1747,16 +1790,17 @@ function computeNetWorth(D) {
   const assetRows = [];
   (D.assets||[]).forEach(a => {
     if (typeof assetTier === 'function' && assetTier(a) === 'virtual') return;
-    const v = a.value || 0;
+    const h = kDni ? _nwAktivumKDni(a, kDni) : { v: a.value || 0, dnes: false };   // v11.98
+    const v = h.v;
     if (!v) return;
     totalAssets += v;
     assetRows.push({ name: a.name, type: a.type, balance: v, balanceCZK: v, currency: 'CZK',
-                     color: a.color || '#c9cede', isAsset: true, icon: a.icon });
+                     color: a.color || '#c9cede', isAsset: true, icon: a.icon, dnes: h.dnes });
   });
   // Subtract debts
   const totalDebt = (D.debts||[]).reduce((a,d) => a + d.remaining, 0);
   return { total: total + totalAssets - totalDebt, rows, totalDebt, assetRows, totalAssets,
-           totalWithoutAssets: total - totalDebt };
+           totalWithoutAssets: total - totalDebt, kDni };
 }
 
 let _networthShowDebt = true;
@@ -2201,8 +2245,14 @@ window.toggleNetworthAssets = toggleNetworthAssets;
 function renderNetWorth() {
   const el = document.getElementById('networthCard'); if(!el) return;
   const D = getData();
-  const nw = computeNetWorth(D);
+  //  v11.98: stav ke konci vybraného měsíce (aktuální a budoucí měsíc = dnes)
+  const _p = n => String(n).padStart(2, '0'), _m = (typeof S !== 'undefined' && S.curMonth != null) ? S.curMonth : new Date().getMonth(), _y = (typeof S !== 'undefined' && S.curYear) || new Date().getFullYear();
+  const _od = `${_y}-${_p(_m + 1)}-01`, _konec = `${_y}-${_p(_m + 1)}-${_p(new Date(_y, _m + 1, 0).getDate())}`, _dnes = _nwDnes();
+  const nw = computeNetWorth(D, _konec);
   if(!nw.rows.length) { el.innerHTML = ''; return; }
+  const _kDniTxt = nw.kDni ? `📅 Stav k ${new Date(nw.kDni + 'T12:00:00').toLocaleDateString('cs-CZ')}` : '📅 Stav k dnešku';
+  const _zaporne = _nwZaporneVObdobi(D, _od, _konec < _dnes ? _konec : _dnes);
+  const _fmtDen = s => new Date(s + 'T12:00:00').toLocaleDateString('cs-CZ');
   const typeIcons = {cash:'💵',account:'🏦',savings:'🐷',investment:'📈',card:'💳',other:'📦'};
   const hasAssets = (nw.assetRows||[]).length > 0;
   const assetsPart = (hasAssets && _networthShowAssets) ? (nw.totalAssets||0) : 0;
@@ -2218,6 +2268,7 @@ function renderNetWorth() {
         ${nw.totalDebt>0?`<button onclick="toggleNetworthDebt()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:3px 9px;font-size:.7rem;color:#a8aec8;cursor:pointer">${_networthShowDebt?'👁 Skrýt dluhy':'👁 Zobrazit dluhy'}</button>`:''}
       </div>
     </div>
+    <div style="font-size:.7rem;color:var(--text3);margin-bottom:2px">${_kDniTxt}</div>
     <div class="networth-total" style="color:${totalColor}">${fmtB(displayTotal)}</div>
     <div style="display:flex;flex-direction:column;gap:0">
       ${nw.rows.map(r=>`<div class="networth-row">
@@ -2227,7 +2278,7 @@ function renderNetWorth() {
       </div>`).join('')}
       ${(hasAssets&&_networthShowAssets)?nw.assetRows.map(r=>`<div class="networth-row">
         <div class="networth-dot" style="background:${r.color}"></div>
-        <span style="flex:1;color:var(--text2)">${r.icon||'💎'} ${r.name}</span>
+        <span style="flex:1;color:var(--text2)">${r.icon||'💎'} ${r.name}${r.dnes?' <span style="font-size:.66rem;color:var(--text3)" title="Aktivum nemá k tomuto dni zapsanou hodnotu – je tu dnešní">· dnes</span>':''}</span>
         <span style="font-weight:600;color:var(--text)">${fmtB(r.balance)}</span>
       </div>`).join(''):''}
       ${(hasAssets&&!_networthShowAssets)?`<div class="networth-row">
@@ -2241,6 +2292,8 @@ function renderNetWorth() {
         <span style="font-weight:600;color:var(--expense)">−${fmtB(nw.totalDebt)}</span>
       </div>`:''}
     </div>
+    ${nw.kDni&&nw.totalDebt>0?`<div style="font-size:.68rem;color:var(--text3);margin-top:6px">Dluhy: dnešní stav (appka si zatím nepamatuje, kolik zbývalo dřív).</div>`:''}
+    ${_zaporne.map(z=>`<div style="font-size:.72rem;color:#fbbf24;background:#fbbf2414;border:1px solid #fbbf2444;border-radius:8px;padding:6px 8px;margin-top:6px;line-height:1.4">⚠️ ${escHtml(z.name)} vychází ${_fmtDen(z.den)} v mínusu (${z.currency!=='CZK'?fmtP(z.min)+' '+z.currency:fmtB(z.min)}). Hotovost ani spořák do mínusu jít nemůže – v appce asi chybí příjem nebo vklad (třeba výběr z bankomatu) nejpozději k tomuto dni.</div>`).join('')}
     ${nw.totalDebt>0&&!_networthShowDebt?`<div style="font-size:.7rem;color:var(--text3);margin-top:6px;text-align:center">Dluhy skryty · celkový dluh: <span style="color:var(--expense)">${fmtB(nw.totalDebt)}</span></div>`:''}
   </div>`;
 }
