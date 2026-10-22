@@ -5341,6 +5341,29 @@ function rpBaleniZmen(i, txt) {
 }
 window.rpBaleniZmen = rpBaleniZmen;
 
+//  v11.97 (FIX-487): překreslení, které se kvůli psaní v poli odložilo, dohnat, až fokus opustí
+//  pole editoru (klávesnice „Hotovo“, klepnutí jinam). Při klepnutí počkat na puštění prstu, ať se
+//  tlačítko nevymění pod prstem dřív, než se klepnutí zpracuje.
+let _rpPrstDole = false;
+function _rpPrekreslitPozdeji() {
+  window._rpCekaPrekresleni = true;
+  if (window._rpHlidaFokus || typeof document === 'undefined' || !document.addEventListener) return;
+  window._rpHlidaFokus = true;
+  document.addEventListener('pointerdown', () => { _rpPrstDole = true; }, true);
+  document.addEventListener('pointerup', () => { _rpPrstDole = false; if (window._rpCekaPrekresleni) setTimeout(_rpDohnatPrekresleni, 0); }, true);
+  document.addEventListener('pointercancel', () => { _rpPrstDole = false; }, true);
+  document.addEventListener('focusout', e => {
+    if (!window._rpCekaPrekresleni || !e.target || !e.target.closest || !e.target.closest('#rp_items')) return;
+    setTimeout(_rpDohnatPrekresleni, 0);
+  }, true);
+}
+function _rpDohnatPrekresleni() {
+  if (!window._rpCekaPrekresleni || _rpPrstDole) return;
+  const a = document.activeElement;
+  if (a && a !== document.body && a.closest && a.closest('#rp_items')) return;   // pořád v editoru → později
+  rpRender();
+}
+
 function rpRender() {
   const el = document.getElementById('rp_items'); if(!el) return;
   // FIX: Nepřekreslovat pokud je fokusovaný input (způsobuje blikání a ztrátu hodnoty na mobilu)
@@ -5348,7 +5371,19 @@ function rpRender() {
   // FIX: Blokuj re-render jen pro TEXT inputy (zabraňuje ztrátě kurzoru při psaní).
   // SELECT a ostatní prvky NEVYLUČUJ – jinak se nevykreslí subkat po změně kategorie.
   const isTextInput = focused && (focused.tagName==='INPUT' && focused.type!=='number') && focused.closest('#rp_items');
-  if(isTextInput) return;
+  if(isTextInput) { _rpPrekreslitPozdeji(); return; }
+  //  v11.97 (FIX-487, Milan: „při úpravě zeleného tagu mi občas uskočí kurzor“): přechod z pole
+  //  (Balení, Název) do jiného spustí „change“ ještě PŘED fokusem nového pole – aktivní je chvíli
+  //  <body>. Překreslení v tu chvíli zahodilo právě klepnuté pole (tag) → kurzor zmizel a klávesnice
+  //  skočila. Proto počkat jeden tik: když se mezitím fokus usadí v textovém poli editoru, překreslí
+  //  se až po odchodu z polí (viz _rpPrekreslitPozdeji).
+  if ((!focused || focused === document.body) && typeof window !== 'undefined' && window.event && window.event.type === 'change' && !rpRender._tik) {
+    setTimeout(() => { rpRender._tik = true; try { const a = document.activeElement;
+      if (a && a !== document.body && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.closest && a.closest('#rp_items')) _rpPrekreslitPozdeji(); else rpRender();
+    } finally { rpRender._tik = false; } }, 0);
+    return;
+  }
+  window._rpCekaPrekresleni = false;
   const r = rpEditor();   // v11.95 (FIX-486): rozpracovaná účtenka se nesmí ztratit
   if(!r?.items?.length) {
     el.innerHTML = '<div style="font-size:.78rem;color:var(--text2);padding:8px 0">Žádné položky · klikněte Přidat</div>';
@@ -5442,9 +5477,9 @@ function rpRender() {
               style="width:76px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.72rem;text-align:center"
               autocomplete="off" inputmode="text">`; })()}
           <input id="rp_tag_${i}" type="text"
-            value="${it.tag||''}"
+            value="${escHtml(it.tag||'')}"
             placeholder="🏷️ tag"
-            style="width:72px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--income);font-size:.72rem;font-style:italic"
+            style="width:118px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 8px;color:var(--income);font-size:.84rem;font-style:italic"
             list="rp_tag_suggestions"
             title="Vlastní tag (např. Kafe, Jogurt, Svačina...)"
             onfocus="this.placeholder=''"
@@ -5464,7 +5499,7 @@ function rpRender() {
     '<div style="display:flex;gap:8px;align-items:flex-start;background:#60a5fa14;border:1px solid #60a5fa44;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:.74rem;line-height:1.45;color:var(--text);max-width:600px">'
     + '<span>📷</span><span style="flex:1"><b>Tip:</b> klepni na 📷 u položky a vyfoť čárový kód z obalu. Appka zjistí přesný název, značku, složení a Nutri-Score a pozná stejný výrobek i v jiných obchodech.</span>'
     + '<button onclick="try{localStorage.setItem(\'ff_eanTipSkryt\',\'1\')}catch(e){};this.parentNode.remove()" style="background:none;border:1px solid var(--border);border-radius:6px;color:#a8aec8;font-size:.68rem;padding:2px 7px;cursor:pointer">Rozumím</button></div>'; } catch(e) {}
-  el.innerHTML = _eanTip + '<div style="min-width:680px">' + html + '</div>';
+  el.innerHTML = _eanTip + '<div style="min-width:726px">' + html + '</div>';   // v11.97: +46 px širší pole tagu
   //  S27 (v11.93): názvy výrobků k položkám s kódem, které ještě nejsou načtené → načíst a překreslit
   rpKodNazvyNacti(r);
 

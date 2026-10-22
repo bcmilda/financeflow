@@ -1,4 +1,4 @@
-// FinanceFlow · v11.96 · admin.js · 2026-10-21
+// FinanceFlow · v11.97 · admin.js · 2026-10-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.97',
+    datum: '2026-10-22',
+    zmeny: [
+      "🏷️ FIX-487 · Kurzor v zeleném tagu „uskočil“ (Milan): po úpravě Balení nebo Názvu a klepnutí do tagu se editor překreslil dřív, než se tag stihl aktivovat – klepnuté pole zmizelo, psaní se ztratilo. Teď se překreslí až po odchodu z polí (klávesnice Hotovo / klepnutí jinam, po puštění prstu).",
+      "🏷️ Větší pole tagu v editoru účtenky (118 px místo 72 px, větší písmo); tag s uvozovkami se v poli zobrazí celý (escapování).",
+      "🧪 tools/smoke_tag_fokus.js – odložené překreslení při přechodu mezi poli.",
+    ],
+  },
   {
     verze: 'v11.96',
     datum: '2026-10-21',
