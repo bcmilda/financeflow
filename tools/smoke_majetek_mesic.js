@@ -58,6 +58,6 @@ t('prázdné období nic nehlásí',c._nwZaporneVObdobi(D,'2025-10-05','2025-10-
 console.log('── napojení na kartu ──');
 const rn=pick(pr,'renderNetWorth');
 t('karta počítá ke konci vybraného měsíce (S.curMonth/S.curYear)',/computeNetWorth\(D, _konec\)/.test(rn)&&/S\.curMonth/.test(rn));
-t('karta ukazuje „Stav k …“ a poznámku k dluhům',/📅 Stav k/.test(rn)&&/Dluhy: dnešní stav/.test(rn));
+t('karta ukazuje „Stav k …“ a poznámku k dluhům (v12.01: dopočítané ke dni)',/📅 Stav k/.test(rn)&&/Dluhy k tomu dni dopočítané/.test(rn));
 t('karta hlásí mínus v hotovosti/spořáku',/_nwZaporneVObdobi\(D, _od,/.test(rn)&&/v mínusu/.test(rn));
 console.log(`\n${ok} ✅  ${bad} ❌`); process.exit(bad?1:0);

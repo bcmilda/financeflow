@@ -1,4 +1,4 @@
-// FinanceFlow · v11.86 · helpers.js · 2026-10-16
+// FinanceFlow · v12.01 · helpers.js · 2026-10-22
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -428,6 +428,8 @@ function sanitizeUserData(D){
 function computeMonthlyDebtPayments(D){
   const nowStr=`${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;
   return (D.debts||[]).reduce((a,d)=>{
+    //  v12.01: splacená / konsolidací uzavřená půjčka (zbývá 0) už splátku nemá
+    if(d && d.remaining != null && !(d.remaining > 0)) return a;
     let amt;
     if(Array.isArray(d.installments)&&d.installments.length){
       let cur=d.installments[0].amt||0;

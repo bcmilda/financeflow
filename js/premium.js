@@ -1,4 +1,4 @@
-// FinanceFlow · v11.86 · premium.js · 2026-10-16
+// FinanceFlow · v12.01 · premium.js · 2026-10-22
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1797,8 +1797,8 @@ function computeNetWorth(D, den) {
     assetRows.push({ name: a.name, type: a.type, balance: v, balanceCZK: v, currency: 'CZK',
                      color: a.color || '#c9cede', isAsset: true, icon: a.icon, dnes: h.dnes });
   });
-  // Subtract debts
-  const totalDebt = (D.debts||[]).reduce((a,d) => a + d.remaining, 0);
+  // Subtract debts – v12.01: u minulého dne zbytek ke dni (navázané splátky a 📜 změny půjčky)
+  const totalDebt = (D.debts||[]).reduce((a,d) => a + ((kDni && typeof debtZbyvaKDni === 'function') ? debtZbyvaKDni(d, D, kDni) : (d.remaining || 0)), 0);
   return { total: total + totalAssets - totalDebt, rows, totalDebt, assetRows, totalAssets,
            totalWithoutAssets: total - totalDebt, kDni };
 }
@@ -1915,11 +1915,16 @@ function computeFinancialScore(D, _m, _y, _cfg) {
   const txs = getTx(_M, _Y, D);
   const totalInc = incSum(txs);
   const totalExp = expSum(txs);
-  const debts = D.debts || [];
+  //  v12.01 (S27, Milan: „zkrátka si myslím, že se do minulosti můžeme podívat“): u minulého měsíce
+  //  dluhy, jak vypadaly na jeho konci (zbytek, splátka, úrok – debtKDni v debts.js).
+  const _p2 = n => String(n).padStart(2, '0'), _dn = new Date();
+  const _konecM = `${_Y}-${_p2(_M + 1)}-${_p2(new Date(_Y, _M + 1, 0).getDate())}`;
+  const _dnesS = `${_dn.getFullYear()}-${_p2(_dn.getMonth() + 1)}-${_p2(_dn.getDate())}`;
+  const debts = (_konecM < _dnesS && typeof debtKDni === 'function') ? (D.debts || []).map(d => debtKDni(d, D, _konecM)) : (D.debts || []);
 
   // v8.72 (FIX-188): sjednocené splátky (installments + freq) a příjem – stejné jako
   // Bankovní hodnocení a Dluhový stres index (dřív DSTI 732 % vs 753 %).
-  const monthlyPayments = computeMonthlyDebtPayments(D);
+  const monthlyPayments = computeMonthlyDebtPayments(debts === D.debts ? D : Object.assign({}, D, { debts }));
   // S16 (TODO-160): DTI = 12M klouzavý průměr, DSTI = 3–12M adaptivní (stabilní napříč měsíci)
   const incDTI  = computeEffectiveIncome(D, 12);
   const incDSTI = computeEffectiveIncome(D, 12);
@@ -2341,7 +2346,7 @@ function renderNetWorth() {
         <span style="font-weight:600;color:var(--expense)">−${fmtB(nw.totalDebt)}</span>
       </div>`:''}
     </div>
-    ${nw.kDni&&nw.totalDebt>0?`<div style="font-size:.68rem;color:var(--text3);margin-top:6px">Dluhy: dnešní stav (appka si zatím nepamatuje, kolik zbývalo dřív).</div>`:''}
+    ${nw.kDni&&nw.totalDebt>0?`<div style="font-size:.68rem;color:var(--text3);margin-top:6px">Dluhy k tomu dni dopočítané ze splátek navázaných na půjčku a ze 📜 Změn půjčky.</div>`:''}
     ${_zaporne.map(z=>`<div style="font-size:.72rem;color:#fbbf24;background:#fbbf2414;border:1px solid #fbbf2444;border-radius:8px;padding:6px 8px;margin-top:6px;line-height:1.4">⚠️ ${escHtml(z.name)} vychází ${_fmtDen(z.den)} v mínusu (${z.currency!=='CZK'?fmtP(z.min)+' '+z.currency:fmtB(z.min)}). Hotovost ani spořák do mínusu jít nemůže – v appce asi chybí příjem nebo vklad (třeba výběr z bankomatu) nejpozději k tomuto dni.</div>`).join('')}
     ${nw.totalDebt>0&&!_networthShowDebt?`<div style="font-size:.7rem;color:var(--text3);margin-top:6px;text-align:center">Dluhy skryty · celkový dluh: <span style="color:var(--expense)">${fmtB(nw.totalDebt)}</span></div>`:''}
   </div>`;

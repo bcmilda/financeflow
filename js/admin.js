@@ -1,4 +1,4 @@
-// FinanceFlow · v12.00 · admin.js · 2026-10-22
+// FinanceFlow · v12.01 · admin.js · 2026-10-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.01',
+    datum: '2026-10-22',
+    zmeny: [
+      "📜 ZMĚNY PŮJČKY (Milan: „do formuláře bych přidal mimořádnou splátku i změnu měsíční částky či úroku. Ve hře je také navýšení půjčky či konsolidace… do minulosti se můžeme podívat“). Cesta: 💸 Dluhy → půjčka → Upravit → 📜 Změny půjčky → ＋ Přidat změnu: 💰 mimořádná splátka, 📅 nová měsíční splátka od data, 📈 nový úrok od data, ➕ navýšení půjčky. Nová splátka/úrok platná už dnes se propíše do pole formuláře.",
+      "📅 ZBÝVÁ · KE DNI: k poli Zbývá přibylo datum (jako zůstatek peněženky ke dni). Splátky do toho dne už jsou v částce – dopsaná nebo importovaná stará splátka zbytek podruhé nesníží. Pod polem: kolik zbývá dnes po splátkách a změnách + kontrola proti splátkovému plánu (jistina od data začátku, splátky a úrok podle změn).",
+      "🔗 Konsolidace zapíše původní zbytek sloučených půjček jako změnu k datu konsolidace (dřív se přepsal na 0 a historie zmizela); nová půjčka před vznikem neexistovala.",
+      "🕰️ HISTORIE DLUHU: zbytek ke konci kteréhokoli dne = dnešní zbytek + navázané splátky a mimořádné po tom dni − navýšení po tom dni. Čistý majetek za minulý měsíc i Zadluženost ve Finančním skóre (DTI, DSTI) teď berou dluhy, jak vypadaly na konci vybraného měsíce (zbytek, splátka, úrok).",
+      "🐛 Měsíční splátky (DSTI, stres index, bankovní hodnocení): splacená nebo konsolidací uzavřená půjčka (zbývá 0) už splátku nepřičítá.",
+      "🧪 tools/smoke_dluhy_zmeny.js – 26 testů (ke dni, historie, splátka/úrok v čase, plán, konsolidace, DSTI, napojení).",
+    ],
+  },
   {
     verze: 'v12.00',
     datum: '2026-10-22',
