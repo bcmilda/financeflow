@@ -1,4 +1,4 @@
-// FinanceFlow · v12.02 · admin.js · 2026-10-23
+// FinanceFlow · v12.03 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,14 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.03',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-488 · Tlačítka u podezřelého duplikátu byla obráceně (Milan: „klikl jsem na Smazat duplikát u ruční transakce, upozornění si myslí, že patří k účtence“). Cesta: Transakce → řádek s ⚠️ Přesný duplikát. „🗑 Smazat duplikát“ teď smaže TENHLE řádek a „✅ Zachovat tento“ nechá tenhle a smaže ten druhý. Dřív obojí mířilo na druhou transakci – u páru ruční + z účtenky se tak hlásila ochrana účtenky. Potvrzovací okno dál ukáže, co zůstane a co se smaže. Okno Detail (tlačítka u shody) beze změny.",
+      "🧪 tools/smoke_dup_tlacitka.js – 3 testy.",
+    ],
+  },
   {
     verze: 'v12.02',
     datum: '2026-10-23',

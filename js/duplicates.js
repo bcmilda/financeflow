@@ -1,4 +1,4 @@
-//  FinanceFlow · v11.87 · duplicates.js · 2026-10-16
+//  FinanceFlow · v12.03 · duplicates.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -413,12 +413,15 @@ function buildDupActions(t, dupMap, ro) {
   const best = dups[0];
   return `
     <div class="dup-actions" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
+      ${/* v12.03 (FIX-488, Milan: „klikl jsem na Smazat duplikát u ruční transakce, upozornění si myslí, že patří k účtence“):
+            tlačítka v ŘÁDKU se týkají TOHOTO řádku – „Smazat duplikát“ smaže tenhle, „Zachovat tento“ nechá tenhle
+            a smaže druhý. Dřív obráceně (kopie argumentů z okna Detail, kde tlačítka patří ke shodě). */''}
       <button class="btn btn-sm" style="font-size:.7rem;padding:3px 8px;background:rgba(248,113,113,.15);color:var(--expense);border:1px solid rgba(248,113,113,.3)"
-        onclick="event.stopPropagation();dupMerge('${t.id}','${best.otherId}')">
+        onclick="event.stopPropagation();dupMerge('${best.otherId}','${t.id}')" title="Smazat tuto transakci, druhá zůstane">
         🗑 Smazat duplikát
       </button>
       <button class="btn btn-sm" style="font-size:.7rem;padding:3px 8px;background:rgba(74,222,128,.1);color:var(--income);border:1px solid rgba(74,222,128,.2)"
-        onclick="event.stopPropagation();dupMerge('${best.otherId}','${t.id}')">
+        onclick="event.stopPropagation();dupMerge('${t.id}','${best.otherId}')" title="Nechat tuto transakci, smazat tu druhou">
         ✅ Zachovat tento
       </button>
       <button class="btn btn-ghost btn-sm" style="font-size:.7rem;padding:3px 8px"
