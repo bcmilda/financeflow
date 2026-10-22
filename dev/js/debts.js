@@ -1,4 +1,4 @@
-// FinanceFlow · v11.87 · debts.js · 2026-10-16
+// FinanceFlow · v12.02 · debts.js · 2026-10-23
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -581,7 +581,8 @@ function saveTx(){
     if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
     else S.transactions.push({id:genTxId(),...txObj});
     // Snížit zbývající částku půjčky (jen u nové transakce)
-    if(debt && !eid) {
+    //  v12.01: splátka s datem do „Zbývá · ke dni“ už je v zadaném zbytku (dopsaná/importovaná stará splátka)
+    if(debt && !eid && !(debt.zbyvaKeDni && debt.zbyvaKeDni.den && String(date).slice(0,10) <= debt.zbyvaKeDni.den)) {
       debt.remaining = Math.max(0, debt.remaining - amt);
       if(debt.schedule) {
         const unpaid = debt.schedule.find(s=>!s.paid);
@@ -731,10 +732,11 @@ function _nextPeriodDate(dateStr, freq){
 // nezávisle na schedule.paid (odolné proti driftu). Jistina/úrok = mapování na kalendář.
 function computeDebtPaid(d, D){
   D = D || getData();
-  const txs=(D.transactions||[]).filter(t => t.debtId===d.id && !t.splitParent)
+  //  v12.02: splátka z Opakované platby založená dopředu (debtCeka) ještě zaplacená není
+  const txs=(D.transactions||[]).filter(t => t.debtId===d.id && !t.splitParent && !t.debtCeka)
               .sort((a,b)=> new Date(a.date)-new Date(b.date));
   const paidSum=txs.reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A: splátka v cizí měně
-  const sched=d.schedule||[];
+  const sched=(typeof debtPlnyPlan==='function') ? debtPlnyPlan(d, D).vse : (d.schedule||[]);   // v12.02: plán od začátku
   let pPrin=0, pInt=0;
   if((d.interest||0)<=0 || !sched.length){
     pPrin=paidSum; pInt=0;
@@ -894,6 +896,10 @@ function debtDatumSplatky(startStr, freq, periodNum) {
 function debtOpravDataSplatek(debts) {
   let zmen = 0;
   (debts || []).forEach(d => {
+    //  v12.02: starý kalendář začínal datem začátku s DNEŠNÍM zbytkem (míchal data) → jednou přepočítat
+    if (d && Array.isArray(d.schedule) && d.schedule.length && !d._kalV2 && (d.remaining || d.total)) {
+      d.schedule = generateSchedule(d); d._kalV2 = true; zmen++;
+    }
     if (!d || !d.startDate || !Array.isArray(d.schedule)) return;
     const st = debtStartStr(d.startDate), f = d.freq || 'monthly';
     d.schedule.forEach((s, i) => {
@@ -918,8 +924,13 @@ function generateSchedule(debt) {
   const schedule = [];
   let remaining = principal;
   let periodNum = 0;
+  //  v12.02 (S27, Milan: „pokud počítá s dnešním zbytkem na začátku, tak to je špatně“): zbytek je
+  //  DNEŠNÍ → kalendář začíná první splátkou ode dneška (pořadí splátek od data začátku zůstává:
+  //  num = kolikátá splátka od začátku). Minulé splátky podle plánu ukazuje debtPlnyPlan.
+  const _dnesK = _debtDnes();
+  while (startStr < _dnesK && debtDatumSplatky(startStr, freq, periodNum) < _dnesK && periodNum < periodsPerYear * 100) periodNum++;
   // Zvýšen limit na 600 let (7200 měsíců) – prakticky neomezeno
-  const maxPeriods = periodsPerYear * 600;
+  const maxPeriods = periodNum + periodsPerYear * 600;
   while(remaining > 0.5 && periodNum < maxPeriods) {
     const interest = remaining * ratePerPeriod;
     const principalPart = Math.min(payment - interest, remaining);
@@ -1022,6 +1033,8 @@ function openDebtModal() {
   document.getElementById('schedulePreview').innerHTML='';
   document.querySelectorAll('.debt-type-btn').forEach(b=>b.classList.remove('active'));
   document.querySelector('.debt-type-btn[data-type="personal"]')?.classList.add('active');
+  { const rd = document.getElementById('dRemainingDate'); if (rd) rd.value = _debtDnes(); }   // v12.01
+  window._debtZmenyEdit = []; debtZmenyRender(); debtZbyvaInfo();
   document.getElementById('debtModalTitle').textContent='Přidat půjčku';
   document.getElementById('modalDebt').classList.add('open');
 }
@@ -1033,7 +1046,10 @@ function editDebt(id) {
   document.getElementById('dName').value=d.name||'';
   document.getElementById('dCreditor').value=d.creditor||'';
   moneyInFill('dTotal', d.total);   // TODO-216
-  moneyInFill('dRemaining', d.remaining);   // TODO-216
+  //  v12.01: ukázat zbytek „ke dni“, jak byl zadán (dnešní zbytek po splátkách řekne řádek pod ním)
+  moneyInFill('dRemaining', d.zbyvaKeDni ? d.zbyvaKeDni.castka : d.remaining);   // TODO-216
+  { const rd = document.getElementById('dRemainingDate'); if (rd) rd.value = (d.zbyvaKeDni && d.zbyvaKeDni.den) || _debtDnes(); }
+  window._debtZmenyEdit = (d.zmeny || []).map(z => Object.assign({}, z));
   document.getElementById('dInterest').value=d.interest||'0';
   moneyInFill('dPayment', d.payment);   // TODO-216
   document.getElementById('dFreq').value=d.freq||'monthly';
@@ -1051,9 +1067,171 @@ function editDebt(id) {
   const tip=document.getElementById('debtTipBox');
   if(dt?.tip){tip.innerHTML=dt.tip;tip.style.display='block';}else tip.style.display='none';
   generateSchedulePreview();
+  debtZmenyRender(); debtZbyvaInfo();   // v12.01
   document.getElementById('debtModalTitle').textContent='Upravit půjčku';
   document.getElementById('modalDebt').classList.add('open');
 }
+
+// ══════════════════════════════════════════════════════
+//  S27 (v12.01, Milan 22. 10.): 📜 ZMĚNY PŮJČKY + „Zbývá · ke dni“ + historie dluhu
+//  Milan: „do formuláře bych přidal mimořádnou splátku i změnu měsíční částky či úroku. Ve hře je
+//  také navýšení půjčky či konsolidace… zkrátka si myslím, že se do minulosti můžeme podívat.“
+//  • d.zbyvaKeDni = {den, castka} – kolik zbývalo podle výpisu k danému dni (jako zůstatek peněženky
+//    ke dni). Splátky a změny DO toho dne už jsou v částce, zbytek nesnižují (import starých splátek).
+//  • d.zmeny = [{id, typ, den, castka, predtim?}] – mimořádná splátka, nová splátka, nový úrok,
+//    navýšení, konsolidace (zapíše appka při sloučení půjček).
+//  • d.remaining zůstává ŽIVÝ dnešní zbytek (čte ho celá appka) – při uložení se dopočítá
+//    z „ke dni“: částka − navázané splátky po tom dni − mimořádné + navýšení.
+//  • debtZbyvaKDni(d, D, den) – zbytek ke konci dne: dnešní zbytek + navázané splátky (t.debtId)
+//    a mimořádné/konsolidace po tom dni − navýšení po tom dni (stejný postup jako Finanční obraz v8.68).
+// ══════════════════════════════════════════════════════
+const DEBT_ZMENY_TYPY = {
+  mimoradna:   { ikona: '💰', nazev: 'Mimořádná splátka',   jed: 'Kč' },
+  splatka:     { ikona: '📅', nazev: 'Nová měsíční splátka', jed: 'Kč' },
+  urok:        { ikona: '📈', nazev: 'Nový úrok',            jed: '% p.a.' },
+  navyseni:    { ikona: '➕', nazev: 'Navýšení půjčky',       jed: 'Kč' },
+  konsolidace: { ikona: '🔗', nazev: 'Sloučeno konsolidací',  jed: 'Kč', system: true },
+};
+function _debtDnes() { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function debtZmeny(d) { return ((d && d.zmeny) || []).filter(z => z && z.typ && z.den).slice().sort((a, b) => a.den.localeCompare(b.den)); }
+//  navázané splátky (transakce s debtId) s datem v (od, doDne]
+function debtSplatkyMezi(d, D, od, doDne) {
+  return ((D && D.transactions) || []).filter(t => t && t.debtId === d.id && !t.splitParent && t.date
+    && String(t.date).slice(0, 10) > od && String(t.date).slice(0, 10) <= doDne).reduce((a, t) => a + (t.amount || t.amt || 0), 0);
+}
+//  účinek změn s datem v (od, doDne] na zbytek: mimořádná/konsolidace snižují, navýšení zvyšuje
+function _debtZmenyUcinek(d, od, doDne) {
+  return debtZmeny(d).reduce((a, z) => {
+    if (!(z.den > od && z.den <= doDne)) return a;
+    if (z.typ === 'mimoradna' || z.typ === 'konsolidace') return a - (z.castka || 0);
+    if (z.typ === 'navyseni') return a + (z.castka || 0);
+    return a;
+  }, 0);
+}
+//  živý dnešní zbytek z „ke dni“
+function debtZiveZbyva(d, D, kotva) {
+  const dnes = _debtDnes();
+  if (!kotva || !kotva.den || kotva.den >= dnes) return Math.max(0, kotva ? (kotva.castka || 0) : (d.remaining || 0));
+  const r = (kotva.castka || 0) - debtSplatkyMezi(d, D, kotva.den, dnes) + _debtZmenyUcinek(d, kotva.den, dnes);
+  return Math.max(0, Math.round(r * 100) / 100);
+}
+//  zbytek ke konci dne `den` (dnes/budoucnost = dnešní)
+function debtZbyvaKDni(d, D, den) {
+  const dnes = _debtDnes();
+  if (!d) return 0;
+  if (!den || den >= dnes) return Math.max(0, d.remaining || 0);
+  if (d.vznik && den < d.vznik) return 0;   // konsolidovaná půjčka před vznikem neexistovala
+  const r = (d.remaining || 0) + debtSplatkyMezi(d, D, den, dnes) - _debtZmenyUcinek(d, den, dnes);
+  return Math.max(0, Math.round(r * 100) / 100);
+}
+//  splátka / úrok platné v den `den` (podle změn; před první změnou hodnota „předtím“)
+function debtHodnotaKDni(d, typ, den) {
+  const akt = typ === 'urok' ? (d.interest || 0) : (d.payment || 0);
+  const z = debtZmeny(d).filter(x => x.typ === typ);
+  if (!z.length || !den) return akt;
+  if (den < z[0].den) return z[0].predtim != null ? z[0].predtim : akt;
+  let v = akt; z.forEach(x => { if (x.den <= den) v = x.castka; });
+  return v;
+}
+//  půjčka, jak vypadala na konci dne `den` (pro skóre a Čistý majetek za minulé měsíce)
+function debtKDni(d, D, den) {
+  if (!den || den >= _debtDnes()) return d;
+  return Object.assign({}, d, { remaining: debtZbyvaKDni(d, D, den), payment: debtHodnotaKDni(d, 'splatka', den), interest: debtHodnotaKDni(d, 'urok', den) });
+}
+//  kontrola: kolik by podle splátkového plánu mělo zbývat ke dni (jistina od data začátku, splátky
+//  a úrok podle změn, mimořádné a navýšení). null = málo údajů.
+function debtOcekavanyZbytek(d, den) {
+  if (!d || !d.startDate || !(d.total > 0) || !den || String(d.startDate).slice(0, 10) >= den) return null;
+  const f = d.freq || 'monthly', ppy = f === 'weekly' ? 52 : f === 'biweekly' ? 26 : 12;
+  const st = debtStartStr(d.startDate), zm = debtZmeny(d).filter(z => z.typ === 'mimoradna' || z.typ === 'navyseni');
+  let r = d.total, zi = 0, minule = st;
+  for (let i = 0; i < ppy * 60; i++) {
+    const kdy = debtDatumSplatky(st, f, i); if (kdy > den) break;
+    while (zi < zm.length && zm[zi].den <= kdy) { r += zm[zi].typ === 'navyseni' ? (zm[zi].castka || 0) : -(zm[zi].castka || 0); zi++; }
+    const pay = debtHodnotaKDni(d, 'splatka', kdy); if (!(pay > 0)) return null;
+    r = r + r * (debtHodnotaKDni(d, 'urok', kdy) / 100 / ppy) - pay;
+    minule = kdy;
+    if (r <= 0) { r = 0; break; }
+  }
+  while (zi < zm.length && zm[zi].den <= den) { r += zm[zi].typ === 'navyseni' ? (zm[zi].castka || 0) : -(zm[zi].castka || 0); zi++; }
+  return Math.max(0, Math.round(r));
+}
+
+//  ── formulář: seznam změn (rozpracované do uložení) ──
+window._debtZmenyEdit = [];
+function debtZmenyRender() {
+  const box = document.getElementById('debtZmenyBox'); if (!box) return;
+  const z = (window._debtZmenyEdit || []).slice().sort((a, b) => a.den.localeCompare(b.den));
+  const fmtDen = s => { try { return new Date(s + 'T12:00:00').toLocaleDateString('cs-CZ'); } catch (e) { return s; } };
+  const radky = z.map(x => { const t = DEBT_ZMENY_TYPY[x.typ] || { ikona: '•', nazev: x.typ, jed: 'Kč' };
+    const hod = x.typ === 'urok' ? (String(x.castka).replace('.', ',') + ' %') : fmtB(x.castka || 0);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+      <span style="flex:1;color:var(--text2)">${t.ikona} ${t.nazev}${x.pozn ? ` <span style="color:var(--text3);font-size:.7rem">${escHtml(x.pozn)}</span>` : ''}</span>
+      <span style="color:var(--text3);font-size:.74rem">${fmtDen(x.den)}</span>
+      <span style="font-weight:700;min-width:84px;text-align:right">${hod}</span>
+      ${t.system ? '<span style="width:24px"></span>' : `<button type="button" onclick="debtZmenaOdeber('${x.id}')" title="Odebrat" style="background:none;border:none;color:var(--expense);cursor:pointer;width:24px">✕</button>`}
+    </div>`; }).join('');
+  const typy = Object.entries(DEBT_ZMENY_TYPY).filter(([, t]) => !t.system).map(([k, t]) => `<option value="${k}">${t.ikona} ${t.nazev}</option>`).join('');
+  box.innerHTML = `<div style="font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:4px">📜 Změny půjčky</div>
+    ${radky || '<div style="font-size:.74rem;color:var(--text3);padding:4px 0 6px">Zatím žádné – mimořádná splátka, změna splátky nebo úroku, navýšení.</div>'}
+    <div id="debtZmenaNova" style="display:none;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+      <select class="fs" id="dzTyp" style="flex:1 1 170px;min-width:0" onchange="debtZmenaTypZmena()">${typy}</select>
+      <input class="fi" type="date" id="dzDen" style="flex:1 1 130px;min-width:0" value="${_debtDnes()}">
+      <input class="fi" type="number" id="dzCastka" inputmode="decimal" step="0.01" min="0" placeholder="Kč" style="flex:1 1 100px;min-width:0">
+      <button type="button" class="btn btn-accent btn-sm" onclick="debtZmenaPridej()">Přidat</button>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" id="debtZmenaTl" style="margin-top:8px" onclick="debtZmenaOtevri()">＋ Přidat změnu</button>`;
+}
+function debtZmenaOtevri() { const n = document.getElementById('debtZmenaNova'), b = document.getElementById('debtZmenaTl'); if (n) n.style.display = 'flex'; if (b) b.style.display = 'none'; debtZmenaTypZmena(); }
+function debtZmenaTypZmena() { const t = document.getElementById('dzTyp'), c = document.getElementById('dzCastka'); if (t && c) c.placeholder = t.value === 'urok' ? '% p.a.' : 'Kč'; }
+function debtZmenaPridej() {
+  const typ = (document.getElementById('dzTyp') || {}).value, den = (document.getElementById('dzDen') || {}).value;
+  const castka = parseFloat(String((document.getElementById('dzCastka') || {}).value || '').replace(',', '.'));
+  if (!typ || !den || !(castka >= 0) || (typ !== 'urok' && !(castka > 0))) { alert('Vyplň datum a částku'); return; }
+  const z = { id: (typeof uid === 'function' ? uid() : String(Date.now())), typ, den, castka: Math.round(castka * 100) / 100 };
+  //  nová splátka / úrok: zapamatovat hodnotu PŘED změnou (pro výpočty za dřívější měsíce)
+  //  a když je změna platná už dnes a nejnovější, propsat ji do pole formuláře
+  if (typ === 'splatka' || typ === 'urok') {
+    const pole = typ === 'urok' ? 'dInterest' : 'dPayment';
+    const ted = typ === 'urok' ? (parseFloat(document.getElementById(pole).value) || 0) : moneyInRead(pole);
+    const drivejsi = (window._debtZmenyEdit || []).filter(x => x.typ === typ && x.den < den).sort((a, b) => a.den.localeCompare(b.den));
+    const pozdejsi = (window._debtZmenyEdit || []).some(x => x.typ === typ && x.den > den);
+    z.predtim = drivejsi.length ? drivejsi[drivejsi.length - 1].castka : ted;
+    if (!pozdejsi && den <= _debtDnes()) { if (typ === 'urok') document.getElementById(pole).value = z.castka; else moneyInFill(pole, z.castka); }
+  }
+  window._debtZmenyEdit = (window._debtZmenyEdit || []).concat([z]);
+  debtZmenyRender(); debtZbyvaInfo();
+  if (typeof generateSchedulePreview === 'function') generateSchedulePreview();
+}
+function debtZmenaOdeber(id) { window._debtZmenyEdit = (window._debtZmenyEdit || []).filter(x => x.id !== id); debtZmenyRender(); debtZbyvaInfo(); }
+//  informace pod „Zbývá“: dnešní zbytek po splátkách od toho dne + kontrola proti splátkovému plánu
+function debtZbyvaInfo() {
+  const el = document.getElementById('debtZbyvaInfo'); if (!el) return;
+  const den = (document.getElementById('dRemainingDate') || {}).value || _debtDnes();
+  const castka = moneyInRead('dRemaining');
+  const eid = (document.getElementById('editDebtId') || {}).value;
+  const D = getData();
+  const d = Object.assign({}, (eid && (S.debts || []).find(x => x.id === eid)) || {}, {
+    id: eid || '_novy', zmeny: window._debtZmenyEdit || [], total: moneyInRead('dTotal'), payment: moneyInRead('dPayment'),
+    interest: parseFloat((document.getElementById('dInterest') || {}).value) || 0, freq: (document.getElementById('dFreq') || {}).value || 'monthly',
+    startDate: (document.getElementById('dStartDate') || {}).value || '' });
+  const out = [];
+  if (castka > 0 && den < _debtDnes()) {
+    const zive = debtZiveZbyva(d, D, { den, castka });
+    if (Math.abs(zive - castka) >= 1) out.push(`📉 Dnes zbývá <b>${fmtB(zive)}</b> (po splátkách a změnách od ${new Date(den + 'T12:00:00').toLocaleDateString('cs-CZ')}).`);
+  }
+  const ocek = castka > 0 ? debtOcekavanyZbytek(d, den) : null;
+  if (ocek != null) {
+    const tol = Math.max(500, (d.payment || 0) * 1.05, (d.total || 0) * 0.02);
+    out.push(Math.abs(ocek - castka) <= tol
+      ? `✅ Odpovídá splátkovému plánu (podle plánu ~${fmtB(ocek)}).`
+      : `ℹ️ Podle splátkového plánu by k tomu dni mělo zbývat ~<b>${fmtB(ocek)}</b>, zadal jsi ${fmtB(castka)}. Nebyla mimořádná splátka, navýšení nebo změna splátky či úroku? Přidej ji do Změn půjčky.`);
+  }
+  el.innerHTML = out.join('<br>');
+  el.style.display = out.length ? 'block' : 'none';
+}
+window.debtZmenaOtevri = debtZmenaOtevri; window.debtZmenaTypZmena = debtZmenaTypZmena; window.debtZmenaPridej = debtZmenaPridej;
+window.debtZmenaOdeber = debtZmenaOdeber; window.debtZbyvaInfo = debtZbyvaInfo; window.debtZbyvaKDni = debtZbyvaKDni; window.debtKDni = debtKDni;
 
 function saveDebt() {
   if(viewingUid) return;
@@ -1077,6 +1255,11 @@ function saveDebt() {
     startDate:document.getElementById('dStartDate').value||new Date().toISOString().slice(0,10),
     dueDate:document.getElementById('dDueDate').value||null,
   };
+  //  v12.01: Zbývá · ke dni + změny půjčky → živý dnešní zbytek
+  const _den = (document.getElementById('dRemainingDate')||{}).value || _debtDnes();
+  obj.zmeny = (window._debtZmenyEdit||[]).slice();
+  obj.zbyvaKeDni = { den: _den, castka: remaining };
+  obj.remaining = debtZiveZbyva(Object.assign({ id: eid || '_novy' }, obj), getData(), obj.zbyvaKeDni);
   obj.schedule=generateSchedule(obj);
   if(eid){const d=S.debts.find(x=>x.id===eid);if(d){obj.id=eid;Object.assign(d,obj);}}
   else S.debts.push({id:uid(),...obj});
@@ -1299,25 +1482,82 @@ function openScheduleFromSim() {
   showDebtSchedule(id);
 }
 
+//  v12.02 (Milan: „splátkový kalendář by měl být od začátku + vyznačit dnešní měsíc, tam uvidíš,
+//  kolik je odplaceno“): celý plán = MINULÉ splátky podle plánu (jistina od data začátku, splátka
+//  a úrok podle 📜 Změn půjčky, mimořádné a navýšení) + BUDOUCÍ z dnešního zbytku (generateSchedule).
+function debtPlnyPlan(d, D) {
+  const dnes = _debtDnes(), f = d.freq || 'monthly', ppy = f === 'weekly' ? 52 : f === 'biweekly' ? 26 : 12;
+  const minule = [];
+  if (d.startDate && d.total > 0 && debtStartStr(d.startDate) < dnes) {
+    const st = debtStartStr(d.startDate), zm = debtZmeny(d).filter(z => z.typ === 'mimoradna' || z.typ === 'navyseni');
+    let r = d.total, zi = 0;
+    for (let i = 0; i < ppy * 100; i++) {
+      const kdy = debtDatumSplatky(st, f, i); if (kdy >= dnes) break;
+      while (zi < zm.length && zm[zi].den <= kdy) { r += zm[zi].typ === 'navyseni' ? (zm[zi].castka || 0) : -(zm[zi].castka || 0); zi++; }
+      const pay = debtHodnotaKDni(d, 'splatka', kdy) || d.payment || 0; if (!(pay > 0) || r <= 0.5) break;
+      const ur = r * (debtHodnotaKDni(d, 'urok', kdy) / 100 / ppy), jist = Math.min(pay - ur, r);
+      r = Math.max(0, r - jist);
+      minule.push({ num: i + 1, date: kdy, payment: Math.round(Math.min(pay, jist + ur)), principal: Math.round(jist), interest: Math.round(ur), remaining: Math.round(r), minule: true });
+    }
+  }
+  const budouci = generateSchedule(d);
+  return { minule, budouci, vse: minule.concat(budouci) };
+}
+//  v12.02 (Milan: „opakované platby jsou i proto, abys to nemusel ručně každý měsíc zapisovat“):
+//  splátka z Opakované platby (auto-šablona s půjčkou) sníží Zbývá, jakmile nastane její den –
+//  stejně jako ručně zapsaná Splátka. Šablona ji zakládá dopředu s příznakem debtCeka.
+function debtAplikujCekajiciSplatky() {
+  if (typeof S === 'undefined' || !S) return 0;
+  const dnes = _debtDnes(); let n = 0;
+  (S.transactions || []).forEach(t => {
+    if (!t || !t.debtCeka) return;
+    const den = String(t.date || '').slice(0, 10); if (!den || den > dnes) return;
+    delete t.debtCeka; n++;
+    if (t.splitParent) return;
+    const debt = (S.debts || []).find(x => x.id === t.debtId); if (!debt) return;
+    if (debt.zbyvaKeDni && debt.zbyvaKeDni.den && den <= debt.zbyvaKeDni.den) return;   // už ve výpisu
+    debt.remaining = Math.max(0, Math.round(((debt.remaining || 0) - (t.amount || t.amt || 0)) * 100) / 100);
+    if (Array.isArray(debt.schedule)) { const u = debt.schedule.find(x => !x.paid); if (u) u.paid = true; }
+  });
+  return n;
+}
+window.debtAplikujCekajiciSplatky = debtAplikujCekajiciSplatky; window.debtPlnyPlan = debtPlnyPlan;
+
 function showDebtSchedule(id) {
   const d=S.debts.find(x=>x.id===id); if(!d) return;
-  const schedule=d.schedule?.length?d.schedule:generateSchedule(d);
-  if(!schedule.length){
-    document.getElementById('scheduleContent').innerHTML='<div style="text-align:center;padding:30px 16px;color:#a8aec8"><div style="font-size:2rem;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--text);margin-bottom:6px">Kalendář zatím nelze sestavit</div><div style="font-size:.82rem;line-height:1.5">Tato půjčka nemá nastavenou <strong>částku</strong> nebo <strong>měsíční splátku</strong>, takže nejde spočítat rozpis splátek. Doplň je v editaci půjčky (tlačítko \u270e).</div></div>';
+  const D=getData();
+  const plan=debtPlnyPlan(d, D), schedule=plan.budouci;
+  if(!plan.vse.length){
+    document.getElementById('scheduleContent').innerHTML='<div style="text-align:center;padding:30px 16px;color:#a8aec8"><div style="font-size:2rem;margin-bottom:8px">📋</div><div style="font-weight:600;color:var(--text);margin-bottom:6px">Kalendář zatím nelze sestavit</div><div style="font-size:.82rem;line-height:1.5">Tato půjčka nemá nastavenou <strong>částku</strong> nebo <strong>měsíční splátku</strong>, takže nejde spočítat rozpis splátek. Doplň je v editaci půjčky (tlačítko ✎).</div></div>';
     document.getElementById('modalSchedule').classList.add('open');
     return;
   }
-  const today=new Date().toISOString().slice(0,10);
+  const today=_debtDnes();
   const totalPaid=schedule.reduce((a,s)=>a+s.payment,0);
   const totalInterest=schedule.reduce((a,s)=>a+s.interest,0);
-  const rpsn=calcRPSN(d.total||d.remaining,schedule);
-  const rows=schedule.slice(0,120).map((s,i)=>{
-    const isOverdue=!s.paid&&s.date<today;
-    const isCurrent=!s.paid&&s.date>=today&&(i===0||schedule[i-1]?.paid);
-    return '<div class="debt-schedule-row '+(s.paid?'paid':'')+(isOverdue?' overdue':'')+(isCurrent?' current':'')+'"><span>'+s.date+'</span><span style="text-align:right">'+fmt(s.payment)+' Kč</span><span style="text-align:right;color:var(--income)">'+fmt(s.principal)+' Kč</span><span style="text-align:right;color:var(--debt)">'+fmt(s.interest)+' Kč</span><span style="text-align:right;color:var(--text3)">'+fmt(s.remaining)+' Kč</span><span style="text-align:center">'+(s.paid?'✅':isOverdue?'⚠️':isCurrent?'▶':'○')+'</span></div>';
-  }).join('');
-  document.getElementById('scheduleContent').innerHTML='<div class="sched-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px"><div class="stat-card expense"><div class="stat-label">Celkem zaplatíte</div><div class="stat-value down">'+fmt(Math.round(totalPaid))+' Kč</div></div><div class="stat-card debt"><div class="stat-label">Z toho úroky</div><div class="stat-value warn">'+fmt(Math.round(totalInterest))+' Kč</div></div><div class="stat-card income"><div class="stat-label">Počet splátek</div><div class="stat-value up">'+schedule.length+'</div></div><div class="stat-card bank"><div class="stat-label">RPSN</div><div class="stat-value '+(rpsn>50?'down':rpsn>20?'warn':'up')+'">'+rpsn+'%</div></div></div><div class="debt-schedule-row header"><span>Datum</span><span style="text-align:right">Splátka</span><span style="text-align:right">Jistina</span><span style="text-align:right">Úrok</span><span style="text-align:right">Zbývá</span><span>Stav</span></div><div style="max-height:380px;overflow-y:auto">'+rows+'</div>'+(schedule.length>120?'<div style="text-align:center;padding:8px;font-size:.74rem;color:var(--text3)">Zobrazeno prvních 120 z '+schedule.length+' splátek</div>':'');
+  const rpsn=calcRPSN(d.remaining||d.total,schedule);
+  //  v12.02: odplaceno = jistina (+ navýšení) − dnešní zbytek; splátky zapsané v appce (navázané)
+  const navys=debtZmeny(d).filter(z=>z.typ==='navyseni').reduce((a,z)=>a+(z.castka||0),0);
+  const pujceno=(d.total||0)+navys, odpl=Math.max(0,pujceno-(d.remaining||0)), pct=pujceno>0?Math.round(odpl/pujceno*100):0;
+  const zapsano=(D.transactions||[]).filter(t=>t&&t.debtId===d.id&&!t.splitParent&&!t.debtCeka&&String(t.date||'').slice(0,10)<=today);
+  const mesZapl=new Set(zapsano.map(t=>String(t.date).slice(0,7)));
+  const ocek=plan.minule.length?plan.minule[plan.minule.length-1].remaining:null;
+  const fmtDen=s2=>{ try{ return new Date(s2+'T12:00:00').toLocaleDateString('cs-CZ'); }catch(e){ return s2; } };
+  const radek=(s2,cls,stav)=>'<div class="debt-schedule-row '+cls+'"><span>'+fmtDen(s2.date)+'</span><span style="text-align:right">'+fmt(s2.payment)+'</span><span style="text-align:right">'+fmt(s2.principal)+'</span><span style="text-align:right">'+fmt(s2.interest)+'</span><span style="text-align:right">'+fmt(s2.remaining)+'</span><span style="text-align:center">'+stav+'</span></div>';
+  const minRows=plan.minule.slice(-240).map(s2=>{ const ok=mesZapl.has(s2.date.slice(0,7));
+    return radek(s2,'paid'+(ok?'':' bez'),ok?'✅':'<span title="V appce není zapsaná splátka navázaná na půjčku">·</span>'); }).join('');
+  const dnesRow='<div id="schedDnes" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;margin:2px 0;background:var(--debt-bg);border:1px solid rgba(251,191,36,.45);border-radius:8px;font-size:.76rem;font-weight:700">'
+    +'<span>📍 Dnes '+fmtDen(today)+'</span><span>zbývá '+fmtB(d.remaining||0)+(ocek!=null&&Math.abs(ocek-(d.remaining||0))>Math.max(500,(d.payment||0)*1.05)?' <span style="font-weight:400;color:var(--text3)">· podle plánu '+fmtB(ocek)+'</span>':'')+'</span></div>';
+  const budRows=schedule.slice(0,120).map((s2,i)=>radek(s2,i===0?'current':'',i===0?'⏭️':'○')).join('');
+  const pruh='<div style="margin:0 0 14px"><div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:5px"><span>Odplaceno <b>'+fmtB(odpl)+'</b> z '+fmtB(pujceno)+'</span><b>'+pct+' %</b></div>'
+    +'<div style="height:8px;background:var(--surface3);border-radius:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:var(--income)"></div></div>'
+    +'<div style="font-size:.7rem;color:var(--text3);margin-top:5px">Za sebou '+plan.minule.length+' splátek podle plánu · v appce zapsáno '+zapsano.length+' · zbývá '+schedule.length+' splátek</div></div>';
+  document.getElementById('scheduleContent').innerHTML=pruh+'<div class="sched-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px"><div class="stat-card expense"><div class="stat-label">Ještě zaplatíte</div><div class="stat-value down">'+fmt(Math.round(totalPaid))+' Kč</div></div><div class="stat-card debt"><div class="stat-label">Z toho úroky</div><div class="stat-value warn">'+fmt(Math.round(totalInterest))+' Kč</div></div><div class="stat-card income"><div class="stat-label">Zbývá splátek</div><div class="stat-value up">'+schedule.length+'</div></div><div class="stat-card bank"><div class="stat-label">RPSN</div><div class="stat-value '+(rpsn>50?'down':rpsn>20?'warn':'up')+'">'+rpsn+'%</div></div></div>'
+    +'<div class="debt-schedule-row header"><span>Datum</span><span style="text-align:right">Splátka</span><span style="text-align:right">Jistina</span><span style="text-align:right">Úrok</span><span style="text-align:right">Zbývá</span><span>Stav</span></div>'
+    +'<div id="schedScroll" style="max-height:380px;overflow-y:auto">'+(plan.minule.length?'<div style="font-size:.68rem;color:var(--text3);padding:6px 8px">Minulé splátky podle plánu (✅ = v měsíci je zapsaná splátka)</div>':'')+minRows+dnesRow+budRows+'</div>'
+    +(schedule.length>120?'<div style="text-align:center;padding:8px;font-size:.74rem;color:var(--text3)">Zobrazeno dalších 120 z '+schedule.length+' splátek</div>':'');
   document.getElementById('modalSchedule').classList.add('open');
+  setTimeout(()=>{ const sc=document.getElementById('schedScroll'), dn=document.getElementById('schedDnes'); if(sc&&dn) sc.scrollTop=Math.max(0,dn.offsetTop-sc.offsetTop-60); },60);
 }
 
 function showTransferInfo() {
@@ -2570,6 +2810,8 @@ function importConsolidated() {
   if(!S.debts) S.debts = [];
   d.id = uid();
   d.consolidatedFrom = selDebts.map(x=>x.id);
+  d.vznik = _debtDnes();   // v12.01: před vznikem tahle půjčka neexistovala (historie dluhu)
+  d.zbyvaKeDni = { den: d.vznik, castka: d.remaining };
   d.schedule = generateSchedule(d);
 
   // Uzavřít původní půjčky – zmizí z výpočtů (remaining 0), zůstanou dohledatelné
@@ -2577,6 +2819,8 @@ function importConsolidated() {
   d.consolidatedFrom.forEach(oid=>{
     const od = S.debts.find(x=>x.id===oid);
     if(od){
+      //  v12.01: původní zbytek se nezahodí – zapíše se jako změna k datu konsolidace (historie dluhu)
+      if ((od.remaining || 0) > 0) (od.zmeny = od.zmeny || []).push({ id: uid(), typ: 'konsolidace', den: _debtDnes(), castka: od.remaining, pozn: '→ ' + (d.name || 'konsolidovaná půjčka') });
       od.remaining = 0;
       od.closed = true;
       od.closedReason = 'consolidated';

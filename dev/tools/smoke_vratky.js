@@ -66,7 +66,7 @@ console.log('── sloupec Celkem ──');
 t('každý řádek má Celkem za položku (♻️ a zeleně u vratky)',/<span id="rp_sum_\$\{i\}"[\s\S]{0,400}?\$\{lineAmt\(it\) < 0 \? '♻️ ' : ''\}\$\{fmtP\(lineAmt\(it\)\)\}<\/span>/.test(rc));
 t('Celkem se přepočítá při psaní (rpUpdateTotal)',/function rpUpdateTotal[\s\S]{0,3000}getElementById\('rp_sum_' \+ i\)/.test(rc));
 t('změna ks / ceny přepočítá i uloženou řádkovou částku (jinak by Celkem stál)',rc.includes("if (x.lineTotal != null) x.lineTotal = Math.round(((parseFloat(x.price) || 0) * (parseFloat(x.qty) || 1) - (parseFloat(x.discount) || 0)) * 100) / 100;"));
-t('editor je širší kvůli novému sloupci',rc.includes('<div style="min-width:680px">'));
+t('editor je širší kvůli novému sloupci',/<div style="min-width:(\d+)px">/.test(rc)&&+rc.match(/<div style="min-width:(\d+)px">/)[1]>=680);
 
 console.log('── negativní kontrola: kód před v11.76 ──');
 let stary=null; try{stary=cp.execSync('git show HEAD:js/receipts.js',{cwd:path.join(path.dirname(soubor),'..'),stdio:['ignore','pipe','ignore']}).toString();}catch(e){}

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.89 · admin.js · 2026-10-17
+// FinanceFlow · v12.02 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,139 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.02',
+    datum: '2026-10-23',
+    zmeny: [
+      "🔁 SPLÁTKA Z OPAKOVANÉ PLATBY SNIŽUJE ZBÝVÁ (Milan: „opakované platby jsou i proto, abys to nemusel ručně každý měsíc zapisovat. Oprav to.“). Šablona Dluh/Splátka teď zakládá splátku navázanou na půjčku s kategorií Splátka (dřív bez kategorie) a Zbývá se sníží, jakmile nastane den splátky – stejně jako ručně zapsaná Splátka. Splátka s datem do „Zbývá · ke dni“ zbytek nesníží. Platí i pro ručně použitou šablonu.",
+      "🔁 Budoucí platby: splátka půjčky se pozná jako zaplacená podle vazby na půjčku (název „Splátka: …“ se liší) a „Zapsat“ otevře formulář v režimu Dluh/Splátka s vybranou půjčkou – dřív se uložila jako obyčejný výdaj a Zbývá se nesnížilo.",
+      "📋 SPLÁTKOVÝ KALENDÁŘ OD ZAČÁTKU (Milan: „by měl být od začátku + vyznačit dnešní měsíc, tam uvidíš, kolik je odplaceno“). Cesta: 💸 Dluhy → půjčka → 📋 Přehled splácení. Nahoře Odplaceno X z Y (%), počet splátek za sebou / zapsaných / zbývajících. Minulé splátky podle plánu od data začátku z jistiny (✅ = v měsíci je zapsaná splátka), řádek 📍 Dnes se skutečným zbytkem (a plánem, když se liší), budoucí splátky z dnešního zbytku. Otevře se rovnou u dneška.",
+      "📋 Oprava: kalendář dřív začínal datem začátku, ale počítal s DNEŠNÍM zbytkem (míchal data). Budoucí splátky teď začínají první splátkou ode dneška (číslo splátky od začátku zůstává); uložené kalendáře se jednou přepočítají. Tabulka plánováno/zaplaceno na kartě půjčky a rozdělení na jistinu/úroky berou plán od začátku.",
+      "🧪 tools/smoke_dluhy_zmeny.js +13 testů (kalendář od dneška, plán od začátku, splátka ze šablony); smoke_castka_splatky.js – testy krokování dat s pevným „dneškem“.",
+    ],
+  },
+  {
+    verze: 'v12.01',
+    datum: '2026-10-22',
+    zmeny: [
+      "📜 ZMĚNY PŮJČKY (Milan: „do formuláře bych přidal mimořádnou splátku i změnu měsíční částky či úroku. Ve hře je také navýšení půjčky či konsolidace… do minulosti se můžeme podívat“). Cesta: 💸 Dluhy → půjčka → Upravit → 📜 Změny půjčky → ＋ Přidat změnu: 💰 mimořádná splátka, 📅 nová měsíční splátka od data, 📈 nový úrok od data, ➕ navýšení půjčky. Nová splátka/úrok platná už dnes se propíše do pole formuláře.",
+      "📅 ZBÝVÁ · KE DNI: k poli Zbývá přibylo datum (jako zůstatek peněženky ke dni). Splátky do toho dne už jsou v částce – dopsaná nebo importovaná stará splátka zbytek podruhé nesníží. Pod polem: kolik zbývá dnes po splátkách a změnách + kontrola proti splátkovému plánu (jistina od data začátku, splátky a úrok podle změn).",
+      "🔗 Konsolidace zapíše původní zbytek sloučených půjček jako změnu k datu konsolidace (dřív se přepsal na 0 a historie zmizela); nová půjčka před vznikem neexistovala.",
+      "🕰️ HISTORIE DLUHU: zbytek ke konci kteréhokoli dne = dnešní zbytek + navázané splátky a mimořádné po tom dni − navýšení po tom dni. Čistý majetek za minulý měsíc i Zadluženost ve Finančním skóre (DTI, DSTI) teď berou dluhy, jak vypadaly na konci vybraného měsíce (zbytek, splátka, úrok).",
+      "🐛 Měsíční splátky (DSTI, stres index, bankovní hodnocení): splacená nebo konsolidací uzavřená půjčka (zbývá 0) už splátku nepřičítá.",
+      "🧪 tools/smoke_dluhy_zmeny.js – 26 testů (ke dni, historie, splátka/úrok v čase, plán, konsolidace, DSTI, napojení).",
+    ],
+  },
+  {
+    verze: 'v12.00',
+    datum: '2026-10-22',
+    zmeny: [
+      "🎯 Rezerva ve Finančním skóre počítá i peníze v cílech (Virtuální peněženka) – Milan: „virtuální peníze (cíle) se také dají počítat jako rezerva“. U minulého měsíce jen vklady do jeho konce. Přesun do cíle peněženku sníží, takže se nic nepočítá dvakrát.",
+      "📚 Dokumentace: doc/formulas.md (S3 Rezerva od v11.99, Čistý majetek ke dni) a doc/decisions.md ADR-233 – co se do rezervy počítá a co ne.",
+      "🧪 tools/smoke_rezerva.js +3 testy (cíle ke dni, cíle dnes, rezerva jen z cíle).",
+    ],
+  },
+  {
+    verze: 'v11.99',
+    datum: '2026-10-22',
+    zmeny: [
+      "🐷 REZERVA VE FINANČNÍM SKÓRE NOVĚ (Milanovo rozhodnutí 22. 10.): „kolik měsíců vydržím bez příjmu“ = peníze rychle k dispozici ÷ průměr výdajů za 6 měsíců.",
+      "🐷 Do rezervy patří hotovost, běžný účet, spořicí a jiné peněženky + aktiva úrovně „rezerva“ (spořicí účet, termínovaný vklad). Nepatří investice, penzijko, DIP („dlouhodobé – při rychlém výběru neurčitá ztráta“), kreditní karty ani peníze v cílech. Dřív se počítaly jen spořicí a investiční peněženky.",
+      "🐷 Zůstatek ke konci vybraného měsíce dopočítaný z transakcí (dřív jen zadané číslo bez transakcí a vždy dnešní stav i pro staré měsíce). Aktiva z historie hodnoty.",
+      "🐷 Výdaje = průměr 6 měsíců (minulý měsíc: on a 5 před ním; aktuální rozběhnutý měsíc: 6 uzavřených před ním; měsíce bez výdajů se vynechají). Dřív výdaje jednoho měsíce – měsíc s dovolenou rezervu „srazil“.",
+      "🧪 tools/smoke_rezerva.js – 11 testů (co se počítá a co ne, stav ke dni, průměr 6 měsíců, rozběhnutý měsíc, nový účet, napojení na skóre).",
+    ],
+  },
+  {
+    verze: 'v11.98',
+    datum: '2026-10-22',
+    zmeny: [
+      "💰 ČISTÝ MAJETEK PODLE VYBRANÉHO MĚSÍCE (Milan: „stejná hodnota se objevuje i při přepnutí měsíce, což může zkreslovat hodnocení“). U minulého měsíce karta ukáže stav k jeho poslednímu dni: peněženky dopočítané od zadaného zůstatku (stejně jako číslo v závorce v Transakcích), Virtuální peněženka z vkladů do cílů do toho dne, aktiva z historie hodnoty (bez historie = dnešní hodnota s „· dnes“). Aktuální měsíc = stav k dnešku. Nahoře „📅 Stav k …“.",
+      "💸 Dluhy si historii zatím nepamatují → u minulého měsíce dnešní stav s poznámkou (úprava dluhů – Zbývá ke dni, změny splátky – je další krok).",
+      "⚠️ ZAPOMENUTÉ TRANSAKCE: když hotovost nebo spořicí peněženka ve vybraném měsíci vyjde v mínusu, karta upozorní, kdy a o kolik – v appce asi chybí příjem nebo vklad (třeba výběr z bankomatu). Běžný účet a karta se nehlídají (kontokorent, kreditka).",
+      "🧪 tools/smoke_majetek_mesic.js – 21 testů (stav ke dni u peněženek s datem i bez, cizí měna, cíle, aktiva, dluhy, mínus v hotovosti).",
+    ],
+  },
+  {
+    verze: 'v11.97',
+    datum: '2026-10-22',
+    zmeny: [
+      "🏷️ FIX-487 · Kurzor v zeleném tagu „uskočil“ (Milan): po úpravě Balení nebo Názvu a klepnutí do tagu se editor překreslil dřív, než se tag stihl aktivovat – klepnuté pole zmizelo, psaní se ztratilo. Teď se překreslí až po odchodu z polí (klávesnice Hotovo / klepnutí jinam, po puštění prstu).",
+      "🏷️ Větší pole tagu v editoru účtenky (118 px místo 72 px, větší písmo); tag s uvozovkami se v poli zobrazí celý (escapování).",
+      "🧪 tools/smoke_tag_fokus.js – odložené překreslení při přechodu mezi poli.",
+    ],
+  },
+  {
+    verze: 'v11.96',
+    datum: '2026-10-21',
+    zmeny: [
+      "🔎 ZEPTEJ SE SVÝCH DAT (Milan: „kolik utrácím za kávu – kavárny, restaurace, nákup kávy v obchodě, zelené tagy káva/kafe“, „jak často chodím do obchodu“, „kolik kupuju pečiva“, „za měsíc, rok, celou historii; tabulka, číslo, statistika nebo graf“) · cesta: menu → AI Asistent → 🤖 AI Rádce → 🔎 Zeptej se svých dat. Otázka vlastními slovy + 6 příkladů na klepnutí. AI otázku jen pochopí (pojmy i s obměnami, kategorie, štítky, obchody, co měřit, období, výstup) – dostane jen otázku a názvy tvých kategorií, štítků a obchodů, žádné částky. Čísla spočítá appka ze všech transakcí, položek účtenek, štítků a obchodů. Bez AI (nepřihlášen, chyba) appka otázku rozpozná sama podle slov.",
+      "🔎 VÝSLEDEK · hlavní číslo a věta („Za kávu: 3 491 Kč za posledních 12 měsíců – asi 299 Kč měsíčně, z 40 nákupů“), odkud se to vzalo (kategorie / štítek / položka účtenky / obchod). Po odpovědi jde bez nového dotazu přepnout Období (tento měsíc, 30 dní, letos, 12 měsíců, celá historie), Měřit (útrata, počet nákupů, množství), Výstup (číslo, statistika, graf, tabulka) a Rozpad (měsíce, týdny, dny v týdnu, obchody, položky). 🔧 Co hledám: slova jdou ubrat i přidat, zdroje vypnout. 📋 Co jsem započítal: seznam pro kontrolu.",
+      "🧮 Každá útrata jen jednou: transakce, která sedí celá (podkategorie Kavárna, tvůj štítek, název), jde celá; jinak jen sedící položky účtenky – z restaurace jen espresso, ne svíčková, u benzínky jen kafe. Kategorie o víc tématech (Restaurace & Kavárny) se celá nebere. Přesuny, rozpady a vyrovnání ne, cizí měny přepočtené. Worker beze změny.",
+      "🧪 tools/smoke_dotazy.js – 28 testů (hledání slov, rozpoznání 7 typů otázek, výpočet na příkladu s ručně spočítaným součtem, rozpady, zdroje, plán od AI, napojení).",
+    ],
+  },
+  {
+    verze: 'v11.95',
+    datum: '2026-10-21',
+    zmeny: [
+      "🐛 FIX-486 · ROZPRACOVANÁ ÚČTENKA SE ZTRATILA, EDITOR ZŮSTAL (Milan, účtenka z OBI: „Použít na všechny položky – nic se nestalo; přepsal jsem název, položka zmizela a objevila se chyba … reading 'items'“) · cesta: Analýza účtenek → 📸 Skenovat → editor naskenované účtenky. Příčina (zopakováno v Chromiu na v11.94): klepnutí na záložku nahoře – i na už otevřenou 📸 Skenovat, nebo Historie a zpět – vymazalo rozpracovanou účtenku z paměti, ale editor nechalo na obrazovce. Tlačítka pak tiše nic nedělala, překreslení ukázalo „Žádné položky“ a ➕ Přidat spadlo. Teď přepínač záložek novou účtenku ze skenu nemaže (editor z Historie se zavírá jako dřív); kdyby přesto chyběla, editor si ji vezme zpět i s úpravami; ➕ Přidat, ✕, Použít na všechny a Uložit bez účtenky nespadnou ani tiše neselžou (hláška).",
+      "🐛 Stejné místo: překreslení po synchronizaci (např. s visícím příznakem editoru z Historie) stavělo editor nové účtenky znovu z PŮVODNÍHO výsledku skenu – zmizely změněné kategorie, názvy i kódy. Výsledek skenu teď ukazuje na upravovanou kopii, takže se editor obnoví s úpravami.",
+      "🧪 tools/smoke_editor_stav.js – 10 testů (na v11.94 selže).",
+    ],
+  },
+  {
+    verze: 'v11.94',
+    datum: '2026-10-21',
+    zmeny: [
+      "🔀 JEDNA ZKRATKA → VÍC VÝROBKŮ (Milan: „BL Luštěninové chipsy 65g – kupoval jsem 3 různé druhy a název zůstal stejný“, „kde ten výběr bude dostupný, viditelný a spravovatelný“) · cesta: Analýza účtenek → editor účtenky → položka. Karty výrobků zůstávají po jedné na kód; zkratka z účtenky je jen odkaz a nově může vést k víc kartám. Když u položky naskenuješ jiný kód, než zkratka dosud měla, PŘIDÁ se jako další druh – změní se jen ta položka, starší účtenky zůstanou. Zkratka s jedním kódem se doplňuje sama jako dřív.",
+      "🔀 VÝBĚR DRUHU NA ŘÁDKU POLOŽKY · zkratka se 2+ druhy se sama nedoplní (ani z komunity); pod řádkem položky je „Který druh?“ s plnými názvy výrobků z karet, ▾ ukáže kód, gramáž, kolikrát sis ho koupil a „✕ Odebrat ze zkratky“ (omyl – kód zmizí i z tvých účtenek s touto zkratkou a appka ho už nenabídne). Zbude-li jeden druh, zkratka se vrátí k automatice. 📷 Jiný přidá další druh, Nevím nechá položku bez kódu. Stejně funguje i „Přiřadit k položce z účtenky“ ze samostatného skenu (zeptá se, zda přidat jako další druh; nic nepřepíše).",
+      "🌍 Seznam druhů je jen tvůj (S.uiCfg, synchronizuje se mezi zařízeními). Přidání druhu se komunitě neposílá jako oprava – prvnímu kódu neubere hlas. Worker beze změny. Mapa položek u zkratky s víc druhy nepřiřadí kartu naslepo.",
+      "🧪 tools/smoke_ean_druhy.js – 27 testů (přidání druhu, žádná automatika, výběr, Nevím, odebrání omylu, návrat k automatice, samostatný sken, první kód jako dřív).",
+    ],
+  },
+  {
+    verze: 'v11.93',
+    datum: '2026-10-21',
+    zmeny: [
+      "▮▮ NÁZEV VÝROBKU Z KÓDU POD POLOŽKOU (Milan: „chtěl bych vyzkoušet název z kódu pod položkou – hned uvidíme název“) · cesta: Analýza účtenek → editor účtenky → položka s ✅. Pod zkratkou z účtenky je zelený řádek s názvem výrobku, ke kterému kód patří (dřív jen v bublině ✅, na telefonu nevidět). Řádek položky je o tento řádek vyšší. Kód, jehož výrobek ještě není načtený, se dočte jednou; neznámý výrobek ukáže „kód … · název výrobku zatím neznáme“.",
+      "⚠️ KONTROLA KÓDU PROTI ZKRATCE (Milan: „dobrá pojistka“) · stejné místo. Když kód se zkratkou nesedí – jiná gramáž (např. Lindt 300 g s kódem Orion Margot 80 g) nebo žádné společné slovo – řádek je žlutý s důvodem. Jen upozornění, nic se samo nemění; opravíš klepnutím na ✅. Multipacky (4X0,5L) a litry proti ml se porovnávají správně.",
+      "📷 RUČNÍ ÚČTENKA SKENEM (Milan: „u ručně přidané účtenky – můžu i jen skenovat kódy?“) · cesta: Analýza účtenek → ✍️ Zapsat účtenku ručně → „📷 Přidat skenem“. Naskenuješ kód a vznikne položka s názvem výrobku a odhadnutou kategorií, kurzor skočí do ceny. Cena se nepředvyplňuje (Milan: bez automatické ceny). Ručně napsaný název se nepřepíše.",
+      "🧪 tools/smoke_kod_nazev.js – 22 testů (kontrola kódu, řádek pod položkou, načtení názvů jednou bez smyčky, přidání skenem).",
+    ],
+  },
+  {
+    verze: 'v11.92',
+    datum: '2026-10-20',
+    zmeny: [
+      "✍️ RUČNÍ ÚČTENKA (Milan: „je možné přidat účtenku i ručně? zatím tuto možnost nevidím“) · cesta: Analýza účtenek → 📸 Skenovat → „✍️ Zapsat účtenku ručně“. Otevře stejný editor jako po skenu, jen prázdný: obchod, pobočka, datum, peněženka, položky (➕ Přidat), kategorie, čárové kódy (📷 u položky), fotka dokladu. Celkem je součet položek. Uložení vytvoří jednu účtenku a jednu transakci jako po skenu. AI se nevolá, do limitu skenů se nepočítá.",
+      "🐛 FIX-485 · MAPA POLOŽEK: KARTA PODLE ČÁROVÉHO KÓDU, NE PODLE NÁZVU (Milan: „u Mileny se do karty nezapsal alias, kupoval jsem ji 2× v různých obchodech“, „BL Luštěninové chipsy 65g – kupoval jsem 3 různé druhy a název zůstal stejný“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Názvy z účtenek. Skupiny se tvořily podle názvu z účtenky: stejný výrobek pod dvěma zkratkami (MILENA COKO 100G v Penny, Milena čokoláda v Albertu) byly dvě karty a karta otevřená podle kódu ukázala jen jednu zkratku; tři různé chipsy pod jednou zkratkou byly jedna karta s posledním kódem. Teď položka s kódem patří do karty podle kódu – Milena má jednu kartu s oběma názvy a obchody, chipsy tři karty. Položky bez kódu zůstávají podle názvu. Hledání v Mapě najde kartu i podle staršího názvu, Statistika položek čte stejné skupiny, „zapamatovat kategorii“ platí pro všechny názvy karty.",
+      "🧪 tools/smoke_mapa_ean.js – 13 testů (na v11.91 9 z nich selže).",
+    ],
+  },
+  {
+    verze: 'v11.91',
+    datum: '2026-10-20',
+    zmeny: [
+      "🧾 CENA ZLOZVYKU I Z POLOŽEK ÚČTENEK (Milan: „spíše na účtenky, případně obojí“) · cesta: 🧮 Kalkulačky → 🚬 Cena zlozvyku. Pivo z nákupu v supermarketu je v transakci „Nákupy potravin“, podle kategorie transakce ho kalkulačka nenašla. Nově počítá i položky naskenovaných účtenek: s vybranou kategorií položky (např. Jídlo › Pivo), nebo se slovem v názvu – nové pole „🧾 Hledat v položkách účtenek“ s výchozími slovy (pivo, víno, rum, cigarety, tabák, iqos, energy, monster…), vlastní slova oddělená čárkou, prázdné = nehledat. Krátké slovo musí sedět celé („rum“ nenajde „Rumunský salát“, „víno“ nenajde „vinný ocet“), delší stačí od začátku („cigaret“ najde „Cigarety“).",
+      "🧮 Rozpis „Odkud to je · poslední rok“: kolik z transakcí ve vybraných kategoriích a kolik z položek účtenek (počet položek a účtenek) + rozbalovací „Nejvíc z účtenek“ s kusy, částkou a důvodem nálezu. Účtenka, jejíž transakce už je ve vybrané kategorii (např. Hospoda › Pivo), se nepřičte podruhé; kopie účtenek se nepočítají; cizí měna účtenky se přepočte kurzem její transakce. Výběr kategorií nabízí i kategorie položek účtenek.",
+      "⬇️ ODKAZ NA APPKU FINANCEFLOW INBOX (TODO-354) · cesta: Import z banky (BETA) → 📲 Notifikace z telefonu → „⬇️ Stáhnout appku pro Android“. Stálý odkaz na nejnovější APK z repa financeflow-inbox (GitHub ho po každé změně vydá znovu pod stejným odkazem) a postup v pěti krocích (instalace mimo Google Play, přístup k oznámením, propojení kódem, výběr banky, testovací platba). Bez propojeného telefonu je postup rozbalený, s telefonem sbalený.",
+      "🧪 tools/smoke_kalkulacky.js rozšířen na 65 testů (položky účtenek, slova, dvojí započtení, kopie účtenek, cizí měna), tools/smoke_inbox.js na 16 (odkaz na APK).",
+    ],
+  },
+  {
+    verze: 'v11.90',
+    datum: '2026-10-19',
+    zmeny: [
+      "🧮 NOVÁ STRÁNKA KALKULAČKY (TODO-356 + TODO-355, Milan: „jedna stránka, která se bude rozvíjet“, „rozklikávací karty jako u jiných tvůrců“) · cesta: menu → Nástroje → 🧮 Kalkulačky (odkaz i ze 🧭 Simulace života). Každá kalkulačka je karta s ikonou, názvem a popiskem; sbalená ukazuje hlavní výsledek z tvých dat, „Otevřít kalkulačku →“ ji rozbalí přímo v kartě (otevřená je vždy jen jedna). Uvnitř políčka předvyplněná z dat (prázdné = z dat, ručně zadané má ↺), vějíř možných výsledků, tabulka hodnot a „Jak to počítám“. Počítá se k dnešku, šipky měsíce jsou tu skryté.",
+      "🎲 MONTE CARLO · výsledek není jedno číslo, ale pásmo: 2 000 simulací s tím, jak se tvoje výdaje skutečně měnily (náhodně vybrané skutečné měsíce / dny). Graf: medián, polovina případů, 9 z 10 případů, osy s jednotkami, klepnutím hodnoty v bodě. Pevný seed – stejná data dají vždy stejná čísla.",
+      "🛟 REZERVA · cesta: 🧮 Kalkulačky → 🛟 Rezerva. Na kolik měsíců vystačí úspory bez příjmu (peněženky hotovost, běžný, spořicí, jiné – stejné zůstatky jako v Peněženkách) a s jakou pravděpodobností vydrží 3 a 6 měsíců. Volby: omezení výdajů v krizi, příjem během výpadku.",
+      "🚬 CENA ZLOZVYKU · cesta: 🧮 Kalkulačky → 🚬 Cena zlozvyku. Útrata za vybrané kategorie a podkategorie (automaticky podle názvu: pivo, alkohol, cigarety, tabák, sázky, energy drinky – výběr jde změnit) za rok a od začátku dat, přepočet na hodiny práce (čistá hodinovka z výplatnic, bez nich odhad příjem ÷ 160 h) a „kdyby se investovalo“ – vějíř po letech proti vloženým penězům.",
+      "📅 DO VÝPLATY S PRAVDĚPODOBNOSTÍ · cesta: 🧮 Kalkulačky → 📅 Do výplaty. Volné peníze stejně jako Finanční radar → 💸 Do výplaty (příjmy od výplaty − výdaje − známé platby), každý zbývající den náhodný skutečný den nefixních výdajů za posledních 90 dní → „s X % vyjdeš, v nejhorších 10 % chybí / zbude Y Kč“, s nedotknutelnou rezervou z Nastavení.",
+      "🐛 FIX-484 · ZŮSTATEK V ZÁVORCE V TRANSAKCÍCH „NESEDĚL“ (Milan: „co znamená zelené číslo v závorce a proč nesedí výpočty?“) · cesta: Transakce → seznam, číslo v závorce = zůstatek peněženky po transakci. Uvnitř dne se řádky řadily v pořadí uložení, zůstatek podle id – shora dolů proto skákal (34 329 → 37 357 → 36 334). Teď stejné pořadí pro seznam i výpočet (datum, čas zápisu). Navíc výpočet neznal „zůstatek ke dni“ peněženky a vynechával rozdělené platby – poslední číslo v závorce se teď rovná zůstatku v Peněženkách.",
+      "🧪 tools/smoke_kalkulacky.js (52 testů: Monte Carlo, tři karty na datech, vykreslení, rozklikávání, napojení) a tools/smoke_tx_zustatek.js (10 testů: čísla ze screenshotu, zůstatek ke dni, rozdělené platby).",
+    ],
+  },
   {
     verze: 'v11.89',
     datum: '2026-10-17',

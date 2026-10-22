@@ -16,7 +16,7 @@ const ctx={console,window:{},document:{getElementById:id=>els[id]||(els[id]=el()
 ctx.window=ctx; vm.createContext(ctx);
 const a=RC.indexOf('const UCTENKY_PREMIUM_TABS'), b=RC.indexOf('function switchUctenkyTab');
 const cutF=n=>{const x=RC.indexOf('function '+n+'(');let i=RC.indexOf('{',x),d=0;for(;i<RC.length;i++){if(RC[i]==='{')d++;else if(RC[i]==='}'){d--;if(!d)break;}}return RC.slice(x,i+1);};
-vm.runInContext('var _activeUctenkyTab="scan";'+RC.slice(a,b).replace(/const /g,'var ')+cutF('switchUctenkyTab'),ctx);
+vm.runInContext('var _activeUctenkyTab="scan";'+RC.slice(a,b).replace(/const /g,'var ')+cutF('switchUctenkyTab')+'\nfunction _rpNovaUctenkaOtevrena(){return false}',ctx);   // v11.95: přepínač se ptá, jestli je otevřená nová účtenka
 ctx.switchUctenkyTab('prices',{classList:{add(){},remove(){}}}); t('Free: klik na Zdražování → paywall, záložka se nezmění',pay===1&&vm.runInContext('_activeUctenkyTab',ctx)==='scan');
 ctx.switchUctenkyTab('stores'); t('Free: obnovení zamčené záložky → Skenovat bez paywallu',pay===1&&vm.runInContext('_activeUctenkyTab',ctx)==='scan');
 ctx.switchUctenkyTab('mapa',{classList:{add(){},remove(){}}}); t('Free: Mapa položek je volná',vm.runInContext('_activeUctenkyTab',ctx)==='mapa');

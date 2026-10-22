@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · transactions.js · 2026-10-08
+// FinanceFlow · v12.02 · transactions.js · 2026-10-23
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -616,7 +616,8 @@ function toggleDebtTxTable(id){ _debtTxExpanded[id]=!_debtTxExpanded[id]; render
 // f2: tabulka „plánováno vs zaplaceno" s ✓/✗ a odkazem na reálné transakce (editTx)
 function renderDebtTxTable(d, paid, D){
   D = D || getData();
-  const sched = d.schedule||[];
+  //  v12.02: plán od data začátku (minulé podle plánu + budoucí z dnešního zbytku) – splátka[i] ↔ platba[i]
+  const sched = (typeof debtPlnyPlan === 'function') ? debtPlnyPlan(d, D).vse : (d.schedule||[]);
   const txs = paid.txs||[];
   const today = new Date().toISOString().slice(0,10);
   const GRID = 'grid-template-columns:104px 1fr 1fr 46px';
