@@ -1,4 +1,4 @@
-// FinanceFlow · v11.90 · ui.js · 2026-10-19
+// FinanceFlow · v11.96 · ui.js · 2026-10-21
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -32,7 +32,7 @@ function renderPage(){
   if(curPage==='statistiky')renderStats();
   if(curPage==='kategorie')renderCatPage();
   if(curPage==='kurzy'&&typeof renderKurzy==='function')renderKurzy();
-  if(curPage==='ai')renderAiPage();
+  if(curPage==='ai'){renderAiPage(); if(typeof dotazyRender==='function')dotazyRender();}   // S27 (v11.96): 🔎 Zeptej se svých dat
   if(curPage==='rodina')renderFamilySummary();
   if(curPage==='penezenky')renderWalletList();
   if(curPage==='typy')renderPayTypeList();

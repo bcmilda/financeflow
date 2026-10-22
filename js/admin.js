@@ -1,4 +1,4 @@
-// FinanceFlow · v11.95 · admin.js · 2026-10-21
+// FinanceFlow · v11.96 · admin.js · 2026-10-21
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.96',
+    datum: '2026-10-21',
+    zmeny: [
+      "🔎 ZEPTEJ SE SVÝCH DAT (Milan: „kolik utrácím za kávu – kavárny, restaurace, nákup kávy v obchodě, zelené tagy káva/kafe“, „jak často chodím do obchodu“, „kolik kupuju pečiva“, „za měsíc, rok, celou historii; tabulka, číslo, statistika nebo graf“) · cesta: menu → AI Asistent → 🤖 AI Rádce → 🔎 Zeptej se svých dat. Otázka vlastními slovy + 6 příkladů na klepnutí. AI otázku jen pochopí (pojmy i s obměnami, kategorie, štítky, obchody, co měřit, období, výstup) – dostane jen otázku a názvy tvých kategorií, štítků a obchodů, žádné částky. Čísla spočítá appka ze všech transakcí, položek účtenek, štítků a obchodů. Bez AI (nepřihlášen, chyba) appka otázku rozpozná sama podle slov.",
+      "🔎 VÝSLEDEK · hlavní číslo a věta („Za kávu: 3 491 Kč za posledních 12 měsíců – asi 299 Kč měsíčně, z 40 nákupů“), odkud se to vzalo (kategorie / štítek / položka účtenky / obchod). Po odpovědi jde bez nového dotazu přepnout Období (tento měsíc, 30 dní, letos, 12 měsíců, celá historie), Měřit (útrata, počet nákupů, množství), Výstup (číslo, statistika, graf, tabulka) a Rozpad (měsíce, týdny, dny v týdnu, obchody, položky). 🔧 Co hledám: slova jdou ubrat i přidat, zdroje vypnout. 📋 Co jsem započítal: seznam pro kontrolu.",
+      "🧮 Každá útrata jen jednou: transakce, která sedí celá (podkategorie Kavárna, tvůj štítek, název), jde celá; jinak jen sedící položky účtenky – z restaurace jen espresso, ne svíčková, u benzínky jen kafe. Kategorie o víc tématech (Restaurace & Kavárny) se celá nebere. Přesuny, rozpady a vyrovnání ne, cizí měny přepočtené. Worker beze změny.",
+      "🧪 tools/smoke_dotazy.js – 28 testů (hledání slov, rozpoznání 7 typů otázek, výpočet na příkladu s ručně spočítaným součtem, rozpady, zdroje, plán od AI, napojení).",
+    ],
+  },
   {
     verze: 'v11.95',
     datum: '2026-10-21',
