@@ -1857,6 +1857,48 @@ function finScoreS4(rate){ // % základu odloženo do investic → 0–25 b (tab
 //  Slouží ADMIN SIMULÁTORU (adminScoringSim) – ten jím počítá „co by se stalo,
 //  kdyby" nad Milanovými skutečnými daty, aniž by sáhl na ostrou `_SCORING_V2`.
 //  Funkce zůstává čistá: nic nemutuje, bez parametru se chová přesně jako dřív.
+//  ══ S3 REZERVA (v11.99, S27 – Milanovo rozhodnutí 22. 10. 2026) ══
+//  „Kolik měsíců vydržím bez příjmu“:
+//   ČITATEL – peníze rychle k dispozici ke konci vybraného měsíce (aktuální měsíc = dnes):
+//     peněženky hotovost / běžný účet / spořicí / jiné (jako 🛟 Rezerva v Kalkulačkách) se zůstatkem
+//     dopočítaným z transakcí (walletBalanceAt) + aktiva úrovně „rezerva“ (spořicí účet, termínovaný
+//     vklad) z historie hodnoty. NE: investice, penzijko, DIP („dlouhodobé – při rychlém výběru
+//     neurčitá ztráta“), kreditní karty, peníze v cílech (vyčleněné).
+//   JMENOVATEL – průměr měsíčních výdajů za 6 měsíců: minulý měsíc = on a 5 před ním; aktuální
+//     (rozběhnutý) měsíc = 6 uzavřených měsíců před ním. Měsíce bez výdajů se vynechají (nezapsaný
+//     měsíc není měsíc za 0 Kč). Bez uzavřených měsíců → výdaje vybraného měsíce (nový účet).
+function _s3Dlouhodobe(nazev) {
+  const t = typeof assetLiqFromName === 'function' ? assetLiqFromName(nazev) : null;
+  return t === 'long' || /penzij|důchod|duchod|\bdip\b|doplňkov|doplnkov/i.test(String(nazev || ''));   // 'mid' NE – neznámé jméno („Hotovost“) je taky 'mid'
+}
+function _s3Rezerva(D, m, y, vydajeMesice) {
+  const p = n => String(n).padStart(2, '0');
+  const dnesD = new Date(), dnes = dnesD.getFullYear() + '-' + p(dnesD.getMonth() + 1) + '-' + p(dnesD.getDate());
+  const konec = `${y}-${p(m + 1)}-${p(new Date(y, m + 1, 0).getDate())}`;
+  const kDni = konec < dnes ? konec : null;
+  const LIKV = ['cash', 'account', 'savings', 'other'];
+  const pen = (D.wallets || []).filter(w => !w.archived && LIKV.includes(w.type || 'other') && !_s3Dlouhodobe(w.name));
+  let castka = pen.reduce((a, w) => {
+    const b = (kDni && typeof walletBalanceAt === 'function') ? walletBalanceAt(w.id, D, kDni)
+            : (typeof computeWalletBalance === 'function' ? computeWalletBalance(w.id, D) : (w.balance || 0));
+    return a + (typeof toCZK === 'function' ? toCZK(b, w.currency || 'CZK') : b);
+  }, 0);
+  const akt = (typeof assetTier === 'function') ? (D.assets || []).filter(a => assetTier(a) === 'reserve' && !_s3Dlouhodobe(a.name)) : [];
+  castka += akt.reduce((a, x) => a + (kDni && typeof _nwAktivumKDni === 'function' ? _nwAktivumKDni(x, kDni).v : (x.value || 0)), 0);
+  //  průměr výdajů za 6 měsíců
+  const selK = y * 12 + m, tedK = dnesD.getFullYear() * 12 + dnesD.getMonth();
+  const posledni = selK >= tedK ? tedK - 1 : selK;
+  const mesice = [];
+  for (let k = posledni; k > posledni - 6; k--) {
+    const v = expSum(getTx(k % 12, Math.floor(k / 12), D), D);
+    if (v > 0) mesice.push(v);
+  }
+  let vydaje = mesice.length ? mesice.reduce((a, v) => a + v, 0) / mesice.length : 0, mesicu = mesice.length;
+  if (!(vydaje > 0) && vydajeMesice > 0) { vydaje = vydajeMesice; mesicu = 0; }
+  const avail = (pen.length > 0 || akt.length > 0) && vydaje > 0;
+  return { castka, vydaje, mesicu, avail, kDni, penezenek: pen.length, aktiv: akt.length };
+}
+
 function computeFinancialScore(D, _m, _y, _cfg) {
   const _M = (_m == null) ? S.curMonth : _m;
   const _Y = (_y == null) ? S.curYear  : _y;
@@ -1916,16 +1958,14 @@ function computeFinancialScore(D, _m, _y, _cfg) {
   //   vydělávám. Dostupnost navíc vyžaduje aspoň jednu spořicí/rezervní
   //   peněženku nebo aktivum – jinak nula lže, že rezerva neexistuje, místo
   //   toho, že ji appka jen nevidí (stejná past jako dřív u S1/S4). ──
-  const savWallets = (D.wallets||[]).filter(w=>w.type==='savings'||w.type==='investment');
-  let savBalance = savWallets.reduce((a,w)=>a+(w.balance||0),0);
-  let reserveAssetsCount = 0;
-  if(typeof assetTier==='function'){
-    const reserveAssets = (D.assets||[]).filter(a=>assetTier(a)==='reserve');
-    reserveAssetsCount = reserveAssets.length;
-    savBalance += reserveAssets.reduce((a2,x)=>a2+(x.value||0),0);
-  }
-  const s3avail = (savWallets.length>0 || reserveAssetsCount>0) && totalExp > 0;
-  const monthsReserve = s3avail ? savBalance / totalExp : null;
+  //  v11.98+ (S27, Milan 22. 10.): REZERVA = peníze rychle k dispozici KE KONCI vybraného měsíce
+  //   ÷ PRŮMĚR výdajů za 6 měsíců. Dřív: dnešní zadaný zůstatek (bez transakcí) jen spořicích
+  //   a investičních peněženek ÷ výdaje jednoho měsíce → starý měsíc míchal dnešek s minulostí,
+  //   měsíc s dovolenou rezervu „srazil“. Viz _s3Rezerva.
+  const _rz = _s3Rezerva(D, _M, _Y, totalExp);
+  const savBalance = _rz.castka;
+  const s3avail = _rz.avail;
+  const monthsReserve = s3avail ? savBalance / _rz.vydaje : null;
   const s3sub = s3avail ? mscInterpV2(SV2.S3, monthsReserve) : null;
   const s3label = !s3avail ? '⏳ Zatím nezměřeno' :
     s3sub>=80?`🟢 Rezerva ${monthsReserve.toFixed(1)} měs. výdajů`:s3sub>=45?`🟡 Rezerva ${monthsReserve.toFixed(1)} měs.`:`🔴 Nízká rezerva`;
@@ -2053,7 +2093,7 @@ function computeFinancialScore(D, _m, _y, _cfg) {
       {label:'🏦 Zadluženost', score:Math.round((s2sub??0)*_dm.S2/100), max:_dm.S2, detail:s2label, avail:s2avail,
        hint:'Appka ví, že dluh máš, ale nezná ho.', action:"showPage('dluhy');", actionLabel:'Zadat půjčku →',
        sub:[{label:'DTI',score:Math.round(dtiSub??0),max:100},{label:'DSTI',score:Math.round(dstiSub??0),max:100}]},
-      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Založ spořicí peněženku nebo rezervní aktivum.'},
+      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Přidej peněženku (hotovost, běžný účet, spořicí) nebo rezervní aktivum.'},
       {label:'💎 Spoření',     score:Math.round((s4sub??0)*_dm.S4/100), max:_dm.S4, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
       {label:'📊 Rozpočet',    score:Math.round((s5sub??0)*_dm.S5/100), max:_dm.S5, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
     ],

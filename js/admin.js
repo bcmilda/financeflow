@@ -1,4 +1,4 @@
-// FinanceFlow · v11.98 · admin.js · 2026-10-22
+// FinanceFlow · v11.99 · admin.js · 2026-10-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v11.99',
+    datum: '2026-10-22',
+    zmeny: [
+      "🐷 REZERVA VE FINANČNÍM SKÓRE NOVĚ (Milanovo rozhodnutí 22. 10.): „kolik měsíců vydržím bez příjmu“ = peníze rychle k dispozici ÷ průměr výdajů za 6 měsíců.",
+      "🐷 Do rezervy patří hotovost, běžný účet, spořicí a jiné peněženky + aktiva úrovně „rezerva“ (spořicí účet, termínovaný vklad). Nepatří investice, penzijko, DIP („dlouhodobé – při rychlém výběru neurčitá ztráta“), kreditní karty ani peníze v cílech. Dřív se počítaly jen spořicí a investiční peněženky.",
+      "🐷 Zůstatek ke konci vybraného měsíce dopočítaný z transakcí (dřív jen zadané číslo bez transakcí a vždy dnešní stav i pro staré měsíce). Aktiva z historie hodnoty.",
+      "🐷 Výdaje = průměr 6 měsíců (minulý měsíc: on a 5 před ním; aktuální rozběhnutý měsíc: 6 uzavřených před ním; měsíce bez výdajů se vynechají). Dřív výdaje jednoho měsíce – měsíc s dovolenou rezervu „srazil“.",
+      "🧪 tools/smoke_rezerva.js – 11 testů (co se počítá a co ne, stav ke dni, průměr 6 měsíců, rozběhnutý měsíc, nový účet, napojení na skóre).",
+    ],
+  },
   {
     verze: 'v11.98',
     datum: '2026-10-22',
