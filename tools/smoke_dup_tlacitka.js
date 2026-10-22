@@ -15,4 +15,17 @@ t('„🗑 Smazat duplikát“ v řádku smaže TENHLE řádek (ruční), druhý
 c.volano=[]; vm.runInContext(klik('Zachovat tento'),c);
 t('„✅ Zachovat tento“ nechá tenhle řádek a smaže ten druhý',JSON.stringify(c.volano)==='[["RUCNI","UCTENKA"]]',JSON.stringify(c.volano));
 t('okno Detail beze změny: tlačítka u shody se týkají shody',/dupMerge\('\$\{txId\}','\$\{dup\.otherId\}'\)">\s*🗑 Smazat tuto shodu/.test(src)&&/dupMerge\('\$\{dup\.otherId\}','\$\{txId\}'\)">\s*✅ Zachovat tuto shodu/.test(src));
+console.log('── FIX-489 filtr Podezřelé po smazání (v12.04) ──');
+const ui=fs.readFileSync(najdi('ui.js','../js/ui.js'),'utf8'), ad=fs.readFileSync(najdi('admin.js','../js/admin.js'),'utf8');
+const c2={document:{getElementById:id=>c2.el[id]||null},el:{}}; c2.window=c2; vm.createContext(c2);
+const tl=()=>({classList:{_a:false,toggle(n,v){this._a=v}},style:{}});
+c2.el['filt-dup']=tl(); c2.el['dupFilterBtn']=tl();
+vm.runInContext('let _dupFilterOn=false;\n'+pick(src,'_dupFiltrTlacitka')+'\n'+pick(src,'setDupFilter')+'\nfunction renderTx(){}\n'+pick(src,'toggleDupFilter'),c2);
+c2.toggleDupFilter(c2.el['dupFilterBtn']);
+t('zapnutí z lišty rozsvítí i tlačítko ⚠️ Podezřelé nahoře',c2.el['filt-dup'].classList._a===true&&c2.el['dupFilterBtn'].classList._a===true);
+c2.setDupFilter(false);
+t('vypnutí zhasne obě tlačítka',c2.el['filt-dup'].classList._a===false&&c2.el['dupFilterBtn'].classList._a===false);
+t('bez podezřelých párů se filtr sám vypne (žádný prázdný seznam)',/if\(!Object\.keys\(_dupMap\|\|\{\}\)\.length && typeof setDupFilter === 'function'\) setDupFilter\(false\);/.test(ui));
+t('✕ Vymazat vypne i Podezřelé',/function clearTxFilters\(\) \{[\s\S]{0,700}setDupFilter\(false\)/.test(ad));
+t('hláška u chráněné transakce říká, že se nic nesmaže a co udělá OK',/proto se teď nic nesmaže/.test(src)&&/OK = otevřít účtenku v Historii \(nic se nesmaže\)/.test(src));
 console.log(`\n${ok} ✅  ${bad} ❌`); process.exit(bad?1:0);

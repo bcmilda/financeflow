@@ -1,4 +1,4 @@
-// FinanceFlow · v11.96 · ui.js · 2026-10-21
+// FinanceFlow · v12.04 · ui.js · 2026-10-23
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1906,7 +1906,9 @@ function renderTx(){
     (t.note||'').toLowerCase().includes(searchFilter)
   );
   if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
-    txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
+    //  v12.04 (FIX-489): žádný podezřelý pár → filtr vypnout, jinak by zůstal prázdný seznam bez vypínače
+    if(!Object.keys(_dupMap||{}).length && typeof setDupFilter === 'function') setDupFilter(false);
+    else txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
   }
   _txFiltryUkaz(D, { catFilter, subFilter, projectFilter, walletFilter, payTypeFilter, curFilter, tagFilter, searchFilter, searchAllMonths });
 

@@ -1,4 +1,4 @@
-//  FinanceFlow · v12.03 · duplicates.js · 2026-10-23
+//  FinanceFlow · v12.04 · duplicates.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -233,7 +233,9 @@ function txChranenaUctenkou(t) {
 }
 function txChranenaHlaska(t) {
   const u = txChranenaUctenkou(t); if (!u) return false;
-  if (confirm(`🔒 Tahle transakce patří k naskenované účtence ${u.r.store || ''} ${u.r.date || ''}.\n\nSmaže se jen spolu s účtenkou: ✎ Upravit účtenku → v Historii ✕ (smaže účtenku i transakci).\n\nOtevřít účtenku v Historii?`)
+  //  v12.04 (Milan: „ptá se Otevřít účtenku v Historii? – když dám OK, pravděpodobně se transakce smaže?“):
+  //  z textu musí být jasné, že teď se NIC nesmaže a co udělá OK / Zrušit
+  if (confirm(`🔒 Tahle transakce patří k naskenované účtence ${u.r.store || ''} ${u.r.date || ''}, proto se teď nic nesmaže.\n\nSmazat ji jde jen spolu s účtenkou: ✎ Upravit účtenku → v Historii ✕ (smaže účtenku i transakci).\n\nOK = otevřít účtenku v Historii (nic se nesmaže)\nZrušit = nechat být`)
       && typeof openReceiptInHistory === 'function') openReceiptInHistory(u.r.date || '', u.r.store || '');
   return true;
 }
@@ -325,13 +327,24 @@ Object.assign(typeof window !== 'undefined' ? window : {}, { dupVseOtevri, dupVs
 // ══════════════════════════════════════════════════════
 function toggleDupFilter(btn) {
   _dupFilterOn = !_dupFilterOn;
-  if (btn) {
-    btn.classList.toggle('active', _dupFilterOn);
-    btn.style.background = _dupFilterOn ? 'rgba(251,191,36,.2)' : '';
-    btn.style.color = _dupFilterOn ? 'var(--debt)' : '';
-  }
+  _dupFiltrTlacitka();
   renderTx();
 }
+//  v12.04 (FIX-489, Milan: „po smazání duplicit jsem neviděl žádnou transakci, zrušení filtrů nepomohlo
+//  a tlačítko Podezřelé nebylo zaškrtnuté“): filtr zapnutý z lišty „Zobrazit jen podezřelé“ nesvítil na
+//  tlačítku ⚠️ Podezřelé a po smazání posledního páru zmizela i lišta → prázdný seznam bez vypínače.
+//  Obě tlačítka teď svítí podle filtru; bez podezřelých se filtr sám vypne; ✕ Vymazat ho vypne taky.
+function _dupFiltrTlacitka() {
+  if (typeof document === 'undefined') return;
+  ['filt-dup', 'dupFilterBtn'].forEach(id => {
+    const b = document.getElementById(id); if (!b) return;
+    b.classList.toggle('active', _dupFilterOn);
+    b.style.background = _dupFilterOn ? 'rgba(251,191,36,.2)' : '';
+    b.style.color = _dupFilterOn ? 'var(--debt)' : '';
+  });
+}
+function setDupFilter(on) { _dupFilterOn = !!on; _dupFiltrTlacitka(); }
+window.setDupFilter = setDupFilter;
 
 function getDupFilterActive() { return _dupFilterOn; }
 

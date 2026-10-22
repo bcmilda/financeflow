@@ -1,4 +1,4 @@
-// FinanceFlow · v12.03 · admin.js · 2026-10-23
+// FinanceFlow · v12.04 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.04',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-489 · Po smazání duplikátu zůstal prázdný seznam Transakcí (Milan: „neviděl jsem žádnou transakci, zrušení filtrů nepomohlo a tlačítko Podezřelé nebylo zaškrtnuté“). Příčina: filtr zapnutý z lišty „⚠️ Zobrazit jen podezřelé“ nesvítil na tlačítku ⚠️ Podezřelé nahoře a po smazání posledního páru zmizela i lišta, takže nebylo čím ho vypnout. Teď: obě tlačítka svítí podle filtru, bez podezřelých párů se filtr sám vypne a ✕ Vymazat ho vypne taky.",
+      "💬 Hláška u transakce z účtenky (Smazat duplikát / ✕): jasně říká, že se teď nic nesmaže, a co udělá OK (otevře účtenku v Historii) a Zrušit (nechá být). Milan: „když dám OK, pravděpodobně se transakce smaže, nebo ne?“ – nesmaže.",
+      "🧪 tools/smoke_dup_tlacitka.js +5 testů.",
+    ],
+  },
   {
     verze: 'v12.03',
     datum: '2026-10-23',
@@ -9775,6 +9784,7 @@ function clearTxFilters() {
   });
   //  S27 (v11.86): „Vymazat“ ruší i „Hledat ve všech měsících“ (dřív zůstalo zaškrtnuté)
   const allM = document.getElementById('txSearchAllMonths'); if(allM) allM.checked = false;
+  if(typeof setDupFilter === 'function') setDupFilter(false);   // v12.04 (FIX-489): i ⚠️ Podezřelé
   renderTx();
 }
 
