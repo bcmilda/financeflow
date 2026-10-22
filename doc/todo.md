@@ -2228,3 +2228,11 @@ TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · T
 - Session 26 (web) postavila Inbox (companion appka + 📥 Doručené), Session N1 zároveň rozhodla, že nativní appka zapisuje oznámení **rovnou do Transakcí** a bez kategorie (N-005, N-008). Dvě cesty ke stejné věci.
 - **a)** Inbox zrušit – v další verzi webu sekci 📲 schovat, pravidla `inbox*` nechat nebo odebrat. **b)** Inbox nechat jako lehkou alternativu bez celé nativní appky.
 - Doporučení: **a)**, převzít do n0.2 jen pravidlo „sken převezme platbu“ a filtr citlivých oznámení.
+
+### TODO-357 · ✅ rozhodnuto (18. 10. večer, Milan) – varianta b), ADR-232
+- Inbox pokračuje jako nadstavba webu. TODO-354 se obnovuje.
+
+### TODO-354 · ▶ obnoveno (18. 10. večer) – repo `bcmilda/financeflow-inbox`
+1. Milan založí na GitHubu prázdné repo `financeflow-inbox` (bez README).
+2. Claude ho připojí k session, nahraje kód a GitHub Actions sestaví APK; chyby sestavení opraví.
+3. Milan stáhne APK (Actions → Artifacts), nainstaluje, propojí kódem, testovací platba.

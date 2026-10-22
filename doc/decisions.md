@@ -1829,3 +1829,24 @@ Android appka FinanceFlow Inbox (repo financeflow-native) jen zachytí text noti
 
 ### ADR-231 · FinanceFlow Inbox je pozastavený, nativní appka je n0.2 **(Session 26, 18. 10.)**
 Rozhodnutí N1 (N-005, N-008) mají přednost. Web v11.89 (sekce 📲, `inbox.js`, pravidla `inbox*`) zůstává nasazený, ale bez appky se nepoužije; o zrušení nebo ponechání jako alternativy rozhodne Milan (TODO-357). Přenositelné do n0.2: „sken převezme platbu“ (± 1 Kč, ± 2 dny) a filtr citlivých oznámení.
+
+### ADR-232 · FinanceFlow Inbox pokračuje jako nadstavba webu, repo `financeflow-inbox` **(Session 26, 18. 10. večer, Milan)**
+Milan: „Paralelní session je příprava na nativní aplikaci… to rozhodnutí se netýká této webové aplikace a nativní nadstavba je aktuálně pro nás, takže klidně ji založ.“
+- **Rozhodnutí N1 (N-005, N-008) platí jen pro nativní appku n0.2.** Web má vlastní cestu: Inbox (Android) → 📥 Doručené → potvrzení → Transakce. Pozastavení podle ADR-231 končí, TODO-357 = varianta **b)**.
+- **Repo `bcmilda/financeflow-inbox`** (ne `financeflow-native`, to jméno patří monorepu n0.2). APK staví GitHub Actions.
+- Push do `bcmilda/financeflow` jde přes GitHub připojení session (bez PAT); souhlas Milana před pushem platí dál.
+
+### ADR-233 · Rezerva = peníze rychle k dispozici ke konci měsíce ÷ Ø výdajů 6 měsíců **(Session 27, v11.99–v12.00, Milan 22. 10.)**
+Milan: „Do rezervy bych zahrnul i hotovost i běžný účet a peněženky, jsou to peníze, které máme rychle k dispozici… Investice jsou dlouhodobé, stejně jako penzijko a DIP, ty bych nepočítal. Při rychlém výběru by došlo k neurčité ztrátě prostředků.“ „Virtuální peníze (cíle) se také dají počítat jako rezerva.“ „Průměr výdajů za 6M.“
+- **Rozhodnutí:** S3 Rezerva = (hotovost + běžný účet + spořicí + jiné peněženky + rezervní aktiva + peníze v cílech) ke konci vybraného měsíce ÷ průměr výdajů za 6 měsíců. Bez investic, penzijka, DIP a kreditních karet. Vzorec: `doc/formulas.md` → S3 Rezerva.
+- **Důvod:** Dřív dnešní zadaný zůstatek (bez transakcí) jen spořicích a investičních peněženek ÷ výdaje jednoho měsíce – starý měsíc míchal dnešek s minulostí, měsíc s dovolenou rezervu „srazil“, běžný účet a hotovost chyběly, investice (kolísají) se počítaly.
+- **Důsledek:** Kdo měl jen běžný účet, má rezervu nově změřenou → skóre se mu změní. Historické snímky skóre nejsou souměřitelné (ADR-136 platí).
+- **Status:** ✅ v11.99 (peněženky, aktiva, 6 měsíců) · v12.00 (cíle)
+
+### ADR-234 · Půjčka má „Zbývá · ke dni“ a seznam 📜 Změn půjčky; historie dluhu se dopočítává **(Session 27, v12.01, Milan 22. 10.)**
+Milan: „Do formuláře bych přidal mimořádnou splátku i změnu měsíční částky či úroku. Ve hře je také navýšení půjčky či konsolidace.“ „Zkrátka si myslím, že se do minulosti můžeme podívat.“ Na návrh se seznamem změn: „ano postav to takhle“.
+- **Rozhodnutí:** Místo mnoha nových polí jeden seznam změn (mimořádná splátka, nová splátka, nový úrok, navýšení; konsolidaci zapisuje appka). K poli Zbývá datum „ke dni“. `d.remaining` zůstává živý dnešní zbytek (čte ho celá appka), historie se dopočítá (`debtZbyvaKDni`, `debtKDni`). Vzorce: `doc/formulas.md` → Historie dluhu.
+- **Důvod:** Skóre a Čistý majetek za minulé měsíce braly dnešní dluh. Konsolidace přepsala zbytek na 0 a historie zmizela. Import starých splátek by zbytek snížil podruhé.
+- **Import (Milan):** propojení importované splátky s půjčkou zatím neexistuje (jen kategorie); půjčka musí existovat před importem. Až na to Milan narazí, ozve se.
+- **Status:** ✅ v12.01
+
