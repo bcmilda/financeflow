@@ -7,7 +7,8 @@ const ds=fs.readFileSync(najdi('debts.js','../js/debts.js'),'utf8'), hp=fs.readF
 const pick=(s,n)=>{let i=s.indexOf('function '+n+'(');if(i<0)throw new Error('chybí '+n);let d=0,j=s.indexOf('{',i);for(let k=j;k<s.length;k++){if(s[k]==='{')d++;else if(s[k]==='}'){d--;if(!d)return s.slice(i,k+1)}}};
 let ok=0,bad=0;const t=(n,c,i)=>{if(c){ok++;console.log('  ✅',n)}else{bad++;console.log('  ❌',n,i===undefined?'':JSON.stringify(i))}};
 const c={console,S:{curMonth:9,curYear:2025}}; vm.createContext(c);
-vm.runInContext(['debtStartStr','debtDatumSplatky','_debtDnes','debtZmeny','debtSplatkyMezi','_debtZmenyUcinek','debtZiveZbyva','debtZbyvaKDni','debtHodnotaKDni','debtKDni','debtOcekavanyZbytek'].map(n=>pick(ds,n)).join('\n')+'\n'+pick(hp,'computeMonthlyDebtPayments'),c);
+c.calcAnnuity=()=>0; c.getSplatkaCat=()=>({id:'catSpl'});
+vm.runInContext(['debtStartStr','debtDatumSplatky','_debtDnes','debtZmeny','debtSplatkyMezi','_debtZmenyUcinek','debtZiveZbyva','debtZbyvaKDni','debtHodnotaKDni','debtKDni','debtOcekavanyZbytek','generateSchedule','debtPlnyPlan','debtAplikujCekajiciSplatky'].map(n=>pick(ds,n)).join('\n')+'\n'+pick(hp,'computeMonthlyDebtPayments')+'\n'+pick(pr,'_sablonaSplatka'),c);
 
 //  Půjčka 100 000 od 15. 1. 2025, podle výpisu ke 30. 6. zbývá 70 000.
 //  Navázané splátky: 15. 6. (už ve výpisu), 15. 7., 15. 8. po 5 000. Mimořádná 10 000 (1. 8.),
@@ -63,7 +64,34 @@ console.log('── měsíční splátky (DSTI) ──');
 const mp=c.computeMonthlyDebtPayments({debts:[{remaining:0,payment:3000},{remaining:100,payment:2000},{payment:1000}]});
 t('splacená/uzavřená půjčka (zbývá 0) se do splátek nepočítá',mp===3000,mp);
 
+console.log('── splátkový kalendář od začátku (v12.02) ──');
+const dn=new Date(), p2=n=>String(n).padStart(2,'0'), dnes=`${dn.getFullYear()}-${p2(dn.getMonth()+1)}-${p2(dn.getDate())}`;
+const r0=new Date(dn.getFullYear(),dn.getMonth()-10,5), start=`${r0.getFullYear()}-${p2(r0.getMonth()+1)}-05`;
+const pj={id:'k',total:60000,remaining:40000,payment:2000,interest:0,freq:'monthly',startDate:start};
+const fut=c.generateSchedule(pj);
+t('kalendář z dnešního zbytku začíná první splátkou ode dneška (dřív datem začátku)',fut.length&&fut[0].date>=dnes&&fut[0].num>1,fut[0]);
+t('pořadí splátky od data začátku: 1. budoucí = splátka č. (minulé + 1), 40 000 / 2 000 = 20 splátek',fut.length===20&&fut[fut.length-1].remaining===0);
+const pl=c.debtPlnyPlan(pj,{transactions:[]});
+t('celý plán: minulé splátky od data začátku z jistiny (60 000)',pl.minule.length>=10&&pl.minule[0].date===start&&pl.minule[0].remaining===58000,pl.minule.slice(0,2));
+t('minulé + budoucí navazují (číslo splátky)',pl.vse.length===pl.minule.length+fut.length&&fut[0].num===pl.minule.length+1);
+t('dnešní datum odděluje minulé a budoucí',pl.minule.every(x=>x.date<dnes)&&pl.budouci.every(x=>x.date>=dnes));
+t('budoucí start (datum začátku v budoucnu) → kalendář od data začátku',c.generateSchedule({remaining:1000,payment:500,startDate:'2999-01-10'})[0].date==='2999-01-10');
+
+console.log('── splátka z Opakované platby (v12.02) ──');
+const tx=c._sablonaSplatka({id:'s1',amount:3000,date:'2025-10-05',catId:''},{debtId:'q'});
+t('transakce ze šablony: vazba na půjčku, kategorie Splátka, čeká na den splátky',tx.debtId==='q'&&tx.debtCeka===true&&tx.catId==='catSpl');
+c.S={debts:[{id:'q',remaining:50000,schedule:[{paid:false},{paid:false}]},{id:'w',remaining:9000,zbyvaKeDni:{den:'2025-12-31',castka:9000}}],
+     transactions:[tx,{id:'s2',debtId:'q',amount:3000,date:'2999-01-05',debtCeka:true},{id:'s3',debtId:'w',amount:1000,date:'2025-11-05',debtCeka:true},{id:'s4',debtId:'q',amount:777,date:'2025-01-01'}]};
+const n=c.debtAplikujCekajiciSplatky();
+t('splátka, jejíž den nastal, sníží Zbývá (50 000 → 47 000) a označí splátku v kalendáři',c.S.debts[0].remaining===47000&&c.S.debts[0].schedule[0].paid===true&&!c.S.transactions[0].debtCeka,c.S.debts[0]);
+t('budoucí splátka ze šablony čeká (Zbývá se zatím nemění)',c.S.transactions[1].debtCeka===true);
+t('splátka s datem do „Zbývá · ke dni“ zbytek nesníží (už ve výpisu)',c.S.debts[1].remaining===9000&&!c.S.transactions[2].debtCeka);
+t('ruční splátka (bez příznaku) se znovu neodečte; podruhé nic',n===2&&c.debtAplikujCekajiciSplatky()===0&&c.S.debts[0].remaining===47000);
+
 console.log('── napojení ──');
+const bd=fs.readFileSync(najdi('budouci.js','../js/budouci.js'),'utf8');
+t('Budoucí platby: splátka půjčky „zaplacená“ podle vazby na půjčku; Zapsat otevře Dluh/Splátka s půjčkou',/item\.debtId && t\.debtId === item\.debtId && !t\.debtCeka/.test(bd)&&/setTxType\('debt'\); const ds = document\.getElementById\('txDebtId'\); if \(ds\) ds\.value = debtId;/.test(bd));
+t('šablony (auto i ručně použitá) zakládají splátku přes _sablonaSplatka a processAutoSablony ji uplatní',(pr.match(/if\(s\.debtId\) _sablonaSplatka\(tx1?, s\)/g)||[]).length===2&&/_sablonaSplatka\(_t, s\)/.test(pr)&&/debtAplikujCekajiciSplatky\(\)\) \{ save\(\)/.test(pr));
 t('nová splátka s datem do „ke dni“ zbytek nesnižuje',/!\(debt\.zbyvaKeDni && debt\.zbyvaKeDni\.den && String\(date\)\.slice\(0,10\) <= debt\.zbyvaKeDni\.den\)/.test(ds));
 t('uložení půjčky počítá živý zbytek z „ke dni“ a ukládá změny',/obj\.zbyvaKeDni = \{ den: _den, castka: remaining \};\n  obj\.remaining = debtZiveZbyva\(/.test(ds)&&/obj\.zmeny = \(window\._debtZmenyEdit\|\|\[\]\)\.slice\(\)/.test(ds));
 t('konsolidace zapíše původní zbytek jako změnu a vznik nové půjčky',/typ: 'konsolidace', den: _debtDnes\(\), castka: od\.remaining/.test(ds)&&/d\.vznik = _debtDnes\(\)/.test(ds));

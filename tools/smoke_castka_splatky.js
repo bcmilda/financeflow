@@ -52,6 +52,9 @@ global.calcAnnuity=()=>0;
 const _dbt=fs.readFileSync(require('fs').existsSync('debts.js')?'debts.js':require('path').join(__dirname,'../js/debts.js'),'utf8');
 global.window=global.window||{};
 eval(['debtStartStr','debtDatumSplatky','debtOpravDataSplatek','generateSchedule'].map(n=>pickFrom(_dbt,n)).join('\n'));
+//  v12.02: kalendář začíná první splátkou ode dneška – testy krokování dat běží s „dneškem“ před všemi daty
+//  začátku (chování od dneška testuje tools/smoke_dluhy_zmeny.js)
+function _debtDnes(){ return '2000-01-01'; }
 const gen=(startDate,freq)=>generateSchedule({remaining:100000,interest:5,freq:freq||'monthly',payment:5000,startDate});
 
 console.log('\n── FIX-283 · data splátek ──');

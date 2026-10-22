@@ -1,4 +1,4 @@
-// FinanceFlow · v12.01 · admin.js · 2026-10-22
+// FinanceFlow · v12.02 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.02',
+    datum: '2026-10-23',
+    zmeny: [
+      "🔁 SPLÁTKA Z OPAKOVANÉ PLATBY SNIŽUJE ZBÝVÁ (Milan: „opakované platby jsou i proto, abys to nemusel ručně každý měsíc zapisovat. Oprav to.“). Šablona Dluh/Splátka teď zakládá splátku navázanou na půjčku s kategorií Splátka (dřív bez kategorie) a Zbývá se sníží, jakmile nastane den splátky – stejně jako ručně zapsaná Splátka. Splátka s datem do „Zbývá · ke dni“ zbytek nesníží. Platí i pro ručně použitou šablonu.",
+      "🔁 Budoucí platby: splátka půjčky se pozná jako zaplacená podle vazby na půjčku (název „Splátka: …“ se liší) a „Zapsat“ otevře formulář v režimu Dluh/Splátka s vybranou půjčkou – dřív se uložila jako obyčejný výdaj a Zbývá se nesnížilo.",
+      "📋 SPLÁTKOVÝ KALENDÁŘ OD ZAČÁTKU (Milan: „by měl být od začátku + vyznačit dnešní měsíc, tam uvidíš, kolik je odplaceno“). Cesta: 💸 Dluhy → půjčka → 📋 Přehled splácení. Nahoře Odplaceno X z Y (%), počet splátek za sebou / zapsaných / zbývajících. Minulé splátky podle plánu od data začátku z jistiny (✅ = v měsíci je zapsaná splátka), řádek 📍 Dnes se skutečným zbytkem (a plánem, když se liší), budoucí splátky z dnešního zbytku. Otevře se rovnou u dneška.",
+      "📋 Oprava: kalendář dřív začínal datem začátku, ale počítal s DNEŠNÍM zbytkem (míchal data). Budoucí splátky teď začínají první splátkou ode dneška (číslo splátky od začátku zůstává); uložené kalendáře se jednou přepočítají. Tabulka plánováno/zaplaceno na kartě půjčky a rozdělení na jistinu/úroky berou plán od začátku.",
+      "🧪 tools/smoke_dluhy_zmeny.js +13 testů (kalendář od dneška, plán od začátku, splátka ze šablony); smoke_castka_splatky.js – testy krokování dat s pevným „dneškem“.",
+    ],
+  },
   {
     verze: 'v12.01',
     datum: '2026-10-22',

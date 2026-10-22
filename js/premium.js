@@ -1,4 +1,4 @@
-// FinanceFlow · v12.01 · premium.js · 2026-10-22
+// FinanceFlow · v12.02 · premium.js · 2026-10-23
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1107,6 +1107,7 @@ function useSablonaId(id) {
     );
   } else {
     const _t={id:uid(),name:s.name,amount:s.amount,type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
+    if(s.debtId){ _sablonaSplatka(_t, s); if(typeof debtAplikujCekajiciSplatky==='function') debtAplikujCekajiciSplatky(); }   // v12.02: splátka dnes
     if(s.subcat) _t.subcat=s.subcat; if(s.energie) _t.energie=Object.assign({},s.energie);   // S27 (v11.86)
     S.transactions.push(_t);
   }
@@ -1125,8 +1126,19 @@ function useSablonaNow() {
 // S17.8 (FIX-210 v2, Milan): žádné dohánění na 35 dní zpět. Jediné pravidlo: když je den
 // splatnosti v TOMTO měsíci a už nastal (≤ dnes), a transakce ještě není, doplň ji. Pokrývá
 // přesně případ „přidám opakování s datem před dneškem → zapiš i na aktuální měsíc".
+//  v12.02 (S27, Milan: „opakované platby jsou i proto, abys to nemusel ručně každý měsíc zapisovat“):
+//  transakce ze šablony Dluh/Splátka = splátka půjčky jako ruční zápis: vazba na půjčku, kategorie
+//  Splátka (dřív bez kategorie) a příznak debtCeka – Zbývá se sníží, až nastane den splátky
+//  (debtAplikujCekajiciSplatky v debts.js; šablona zakládá splátku dopředu k datu splatnosti).
+function _sablonaSplatka(tx, s) {
+  tx.debtId = s.debtId; tx.debtCeka = true;
+  if (!tx.catId) { const sc = (typeof getSplatkaCat === 'function') ? getSplatkaCat() : null; if (sc) { tx.catId = sc.id; tx.category = sc.id; } }
+  return tx;
+}
 function processAutoSablony() {
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
+  //  v12.02: splátky ze šablon, jejichž den už nastal → snížit Zbývá u půjčky
+  try { if (typeof debtAplikujCekajiciSplatky === 'function' && debtAplikujCekajiciSplatky()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
   //  S23: transakce z účtenek vznikaly BEZ peněženky → zůstatek je neviděl.
   //  Doplní se jen při jediné peněžence (viz rpFixReceiptTxWallets v receipts.js).
   try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }
@@ -1152,7 +1164,7 @@ function processAutoSablony() {
       if(s.onceDate > iso_today) return;                       // ještě nenastalo
       if(S.transactions.some(t=>t.date===s.onceDate && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.done=true; return; }
       const tx1={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
-      if(s.debtId) tx1.debtId=s.debtId;
+      if(s.debtId) _sablonaSplatka(tx1, s);   // v12.02
       if(s.subcat) tx1.subcat=s.subcat;
       if(s.energie) tx1.energie=Object.assign({},s.energie);
       if(s.type==='transfer'){
@@ -1185,7 +1197,7 @@ function processAutoSablony() {
       );
     } else {
       const tx={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
-      if(s.debtId) tx.debtId=s.debtId;
+      if(s.debtId) _sablonaSplatka(tx, s);   // v12.02
       //  S27 (v11.86): záloha z měřidla – podkategorie a vazba na měřidlo (📟 Energie a voda ji čte)
       if(s.subcat) tx.subcat=s.subcat;
       if(s.energie) tx.energie=Object.assign({},s.energie);
@@ -1193,6 +1205,7 @@ function processAutoSablony() {
     }
     added++;
   });
+  if(added>0 && typeof debtAplikujCekajiciSplatky==='function') debtAplikujCekajiciSplatky();   // v12.02: splátka s dnešním datem
   if(added>0){ save(); if(typeof renderPage==='function') renderPage(); }
 }
 

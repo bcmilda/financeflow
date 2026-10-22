@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · budouci.js · 2026-10-08
+// FinanceFlow · v12.02 · budouci.js · 2026-10-23
 //  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
 //  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
 //  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
@@ -408,6 +408,8 @@ function budouciIsPaid(item, D, exact) {
   if (!nm) return false;
   return (D.transactions || []).some(t => {
     if (!t || t.splitParent) return false;
+    //  v12.02: splátka půjčky = transakce navázaná na tutéž půjčku v témže měsíci (název se liší: „Splátka: …“)
+    if (item.debtId && t.debtId === item.debtId && !t.debtCeka) return exact ? (t.date === dateStr) : ((t.date || '').slice(0, 7) === ym);
     const tn = (t.name || '').trim();
     if (!tn) return false;
     // Vydajovou polozku nemuze „zaplatit" prijem se stejnym nazvem
@@ -440,7 +442,7 @@ function budouciPayControl(item, today) {
   // splatnost už nastala – shoda na úrovni měsíce (i off-day ruční platba)
   if (budouciIsPaid(item, getData(), false)) return badge('var(--income-bg)', 'var(--income)', '✓ Zaplaceno');
   // po splatnosti a chybí → nabídni zapsání (předvyplní transakci)
-  return `<button type="button" onclick="event.stopPropagation();budouciMarkPaid('${encodeURIComponent(item.name)}',${item.amount},${item.isTransfer ? 1 : 0},'${_bIso(item.date)}')"
+  return `<button type="button" onclick="event.stopPropagation();budouciMarkPaid('${encodeURIComponent(item.name)}',${item.amount},${item.isTransfer ? 1 : 0},'${_bIso(item.date)}','${item.debtId || ''}')"
       title="Není zaznamenáno – zapsat jako transakci"
       style="flex-shrink:0;margin-left:8px;padding:3px 9px;border-radius:6px;border:1px solid rgba(251,191,36,.45);background:rgba(251,191,36,.10);color:var(--debt);font-size:.7rem;font-weight:700;cursor:pointer;white-space:nowrap">Zaznamenat</button>`;
 }
@@ -449,7 +451,7 @@ function budouciPayControl(item, today) {
 // „✓ Zaplaceno" = poloautomat: otevře standardní modal transakce s předvyplněnou částkou,
 // názvem, datem a typem (výdaj/přesun) – uživatel jen potvrdí. Žádný tichý zápis na pozadí.
 // Plná automatizace (auto-materializace v den splatnosti) je zapsaná jako TODO-190.
-function budouciMarkPaid(nameEnc, amount, isTransfer, dateStr) {
+function budouciMarkPaid(nameEnc, amount, isTransfer, dateStr, debtId) {
   if (typeof viewingUid !== 'undefined' && viewingUid) return;
   const name = decodeURIComponent(nameEnc);
   if (typeof openAddTx !== 'function') { if(typeof showToast==='function') showToast('Nelze otevřít formulář'); return; }
@@ -457,6 +459,8 @@ function budouciMarkPaid(nameEnc, amount, isTransfer, dateStr) {
   setTimeout(() => {
     try {
       if (isTransfer && typeof setTxType === 'function') setTxType('transfer');
+      //  v12.02: splátka půjčky → režim Dluh/Splátka s vybranou půjčkou (sníží Zbývá, naváže se)
+      else if (debtId && typeof setTxType === 'function') { setTxType('debt'); const ds = document.getElementById('txDebtId'); if (ds) ds.value = debtId; }
       else if (typeof setTxType === 'function') setTxType('expense');
       const nm = document.getElementById('txName'); if (nm) nm.value = name;
       const am = document.getElementById('txAmt'); if (am) am.value = amount;
