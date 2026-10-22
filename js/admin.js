@@ -1,4 +1,4 @@
-// FinanceFlow · v11.99 · admin.js · 2026-10-22
+// FinanceFlow · v12.00 · admin.js · 2026-10-22
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.00',
+    datum: '2026-10-22',
+    zmeny: [
+      "🎯 Rezerva ve Finančním skóre počítá i peníze v cílech (Virtuální peněženka) – Milan: „virtuální peníze (cíle) se také dají počítat jako rezerva“. U minulého měsíce jen vklady do jeho konce. Přesun do cíle peněženku sníží, takže se nic nepočítá dvakrát.",
+      "📚 Dokumentace: doc/formulas.md (S3 Rezerva od v11.99, Čistý majetek ke dni) a doc/decisions.md ADR-233 – co se do rezervy počítá a co ne.",
+      "🧪 tools/smoke_rezerva.js +3 testy (cíle ke dni, cíle dnes, rezerva jen z cíle).",
+    ],
+  },
   {
     verze: 'v11.99',
     datum: '2026-10-22',

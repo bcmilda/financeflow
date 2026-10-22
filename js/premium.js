@@ -1863,7 +1863,7 @@ function finScoreS4(rate){ // % základu odloženo do investic → 0–25 b (tab
 //     peněženky hotovost / běžný účet / spořicí / jiné (jako 🛟 Rezerva v Kalkulačkách) se zůstatkem
 //     dopočítaným z transakcí (walletBalanceAt) + aktiva úrovně „rezerva“ (spořicí účet, termínovaný
 //     vklad) z historie hodnoty. NE: investice, penzijko, DIP („dlouhodobé – při rychlém výběru
-//     neurčitá ztráta“), kreditní karty, peníze v cílech (vyčleněné).
+//     neurčitá ztráta“), kreditní karty. Peníze v cílech ANO (v12.00, Milan).
 //   JMENOVATEL – průměr měsíčních výdajů za 6 měsíců: minulý měsíc = on a 5 před ním; aktuální
 //     (rozběhnutý) měsíc = 6 uzavřených měsíců před ním. Měsíce bez výdajů se vynechají (nezapsaný
 //     měsíc není měsíc za 0 Kč). Bez uzavřených měsíců → výdaje vybraného měsíce (nový účet).
@@ -1885,6 +1885,15 @@ function _s3Rezerva(D, m, y, vydajeMesice) {
   }, 0);
   const akt = (typeof assetTier === 'function') ? (D.assets || []).filter(a => assetTier(a) === 'reserve' && !_s3Dlouhodobe(a.name)) : [];
   castka += akt.reduce((a, x) => a + (kDni && typeof _nwAktivumKDni === 'function' ? _nwAktivumKDni(x, kDni).v : (x.value || 0)), 0);
+  //  v12.00 (Milan: „virtuální peníze (cíle) se také dají počítat jako rezerva“): peníze v cílech
+  //  (Virtuální peněženka) – vklady do toho dne. Přesun do cíle peněženku sníží, takže se nic nepočítá dvakrát.
+  let cile = 0;
+  if (typeof goalGetSaved === 'function') (D.wishes || []).filter(g => g && g.isGoal).forEach(g => {
+    cile += (kDni && typeof _goalDeposits !== 'undefined')
+      ? (_goalDeposits[g.id] || []).filter(d => String(d.date || '').slice(0, 10) <= kDni).reduce((a, d) => a + (d.amount || 0), 0)
+      : goalGetSaved(g.id);
+  });
+  if (cile > 0) castka += cile;
   //  průměr výdajů za 6 měsíců
   const selK = y * 12 + m, tedK = dnesD.getFullYear() * 12 + dnesD.getMonth();
   const posledni = selK >= tedK ? tedK - 1 : selK;
@@ -1895,8 +1904,8 @@ function _s3Rezerva(D, m, y, vydajeMesice) {
   }
   let vydaje = mesice.length ? mesice.reduce((a, v) => a + v, 0) / mesice.length : 0, mesicu = mesice.length;
   if (!(vydaje > 0) && vydajeMesice > 0) { vydaje = vydajeMesice; mesicu = 0; }
-  const avail = (pen.length > 0 || akt.length > 0) && vydaje > 0;
-  return { castka, vydaje, mesicu, avail, kDni, penezenek: pen.length, aktiv: akt.length };
+  const avail = (pen.length > 0 || akt.length > 0 || cile > 0) && vydaje > 0;
+  return { castka, vydaje, mesicu, avail, kDni, penezenek: pen.length, aktiv: akt.length, cile };
 }
 
 function computeFinancialScore(D, _m, _y, _cfg) {
@@ -2093,7 +2102,7 @@ function computeFinancialScore(D, _m, _y, _cfg) {
       {label:'🏦 Zadluženost', score:Math.round((s2sub??0)*_dm.S2/100), max:_dm.S2, detail:s2label, avail:s2avail,
        hint:'Appka ví, že dluh máš, ale nezná ho.', action:"showPage('dluhy');", actionLabel:'Zadat půjčku →',
        sub:[{label:'DTI',score:Math.round(dtiSub??0),max:100},{label:'DSTI',score:Math.round(dstiSub??0),max:100}]},
-      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Přidej peněženku (hotovost, běžný účet, spořicí) nebo rezervní aktivum.'},
+      {label:'🐷 Rezerva',     score:Math.round((s3sub??0)*_dm.S3/100), max:_dm.S3, detail:s3label, avail:s3avail, hint:'Přidej peněženku (hotovost, běžný účet, spořicí), rezervní aktivum nebo cíl s vklady.'},
       {label:'💎 Spoření',     score:Math.round((s4sub??0)*_dm.S4/100), max:_dm.S4, detail:s4label, avail:s4avail, hint:'Označ kategorii jako investiční nebo spořicí.'},
       {label:'📊 Rozpočet',    score:Math.round((s5sub??0)*_dm.S5/100), max:_dm.S5, detail:s5label, avail:s5avail, hint:'Nastav limit aspoň u jedné kategorie.'},
     ],

@@ -77,6 +77,17 @@ t('bez uzavřených měsíců → výdaje vybraného měsíce', c.avail && c.vyd
 const Bez = { ...C, wallets: [{ id: 'i', name: 'Akcie', type: 'investment', balance: 1 }] };
 t('jen investiční peněženka → rezerva nezměřena (ne 0)', R(Bez, d.getMonth(), d.getFullYear()).avail === false);
 
+console.log('── peníze v cílech (v12.00) ──');
+vm.runInContext('var _goalDeposits={g1:[{amount:3000,date:"2025-10-05"},{amount:2000,date:"2025-11-20"}]}; function goalGetSaved(id){return id==="g1"?5000:0}', sandbox);
+const G = { ...A, wishes: [{ id: 'g1', isGoal: true }] };
+const g = R(G, 9, 2025);
+t('cíl: k 31. 10. jen vklad z 5. 10. (3 000) → rezerva 78 000', Math.round(g.castka) === 78000 && g.cile === 3000, g);
+const gd = R(G, d.getMonth(), d.getFullYear());
+t('cíl dnes: celých 5 000', gd.cile === 5000, gd);
+const jenCil = { categories: kat, debts: [], assets: [], wallets: [], wishes: [{ id: 'g1', isGoal: true }], transactions: [{ id: 'q', type: 'expense', amount: 1000, date: '2025-10-10', catId: 'z' }] };
+t('jen cíl s penězi stačí, aby se rezerva změřila', R(jenCil, 9, 2025).avail === true);
+vm.runInContext('_goalDeposits={}; goalGetSaved=function(){return 0}', sandbox);
+
 console.log('── napojení na skóre ──');
 sandbox.__D = A; const sc = vm.runInContext('computeFinancialScore(__D, 9, 2025)', sandbox);
 const s3 = sc.components.find(x => x.label.includes('Rezerva'));
