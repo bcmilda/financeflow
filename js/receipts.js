@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · receipts.js · 2026-10-23
+// FinanceFlow · v12.09 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2639,6 +2639,9 @@ function mapaUzivData(receipts, D) {
     z.nakupy.push({ obchod: r.store||'', datum: d, cena: parseFloat(it.price)||0, qty: parseFloat(it.qty)||1,
                     unit: it.unit||'', raw: nazev, ean: it.ean||'', baleni: it.baleni || null,
                     mesto: r.storeCity || '', kraj: r.storeRegion || '' });   // S25: pobočka
+    //  v12.08 (Milan: „ráda bych to opravil, jen nevím, ve které účtence to je“): odkaz na účtenku a položku
+    //  pro „Otevřít účtenku“ a „Opravit název“ v kartě. Neviditelné pro JSON (nekopíruje se nikam).
+    Object.defineProperties(z.nakupy[z.nakupy.length - 1], { _r: { value: r }, _it: { value: it } });
     if(it.baleni && d >= (z._balD||'')) { z.baleni = it.baleni; z._balD = d; }   // S25: gramáž zvlášť
     if(it.ean && d >= z._eanD) { z.ean = it.ean; z._eanD = d; }
     if(d >= z.datum) { z.datum = d; z.nazev = nazev; z.catId = it.itemCatId||''; z.subcat = it.itemSubcat||''; }
@@ -3234,11 +3237,12 @@ function mapaAliasySkupiny(z) {
   const nn = (typeof normName === 'function') ? normName : (t => String(t || '').toLowerCase());
   const sk = {};
   const citelnost = t => (/[a-zá-ž]/.test(t) ? 2 : 0) + (/[áčďéěíňóřšťúůýž]/i.test(t) ? 1 : 0);
-  (z.nakupy || []).forEach(n => {
+  (z.nakupy || []).forEach((n, ni) => {
     const raw = String(n.raw || '').trim(); if (!raw) return;
     const k = nn(raw) || raw.toLowerCase();
-    const g = sk[k] || (sk[k] = { varianty: {}, obchody: new Map(), pocet: 0 });
+    const g = sk[k] || (sk[k] = { klic: k, varianty: {}, obchody: new Map(), pocet: 0, nak: [] });
     g.pocet++; g.varianty[raw] = (g.varianty[raw] || 0) + 1;
+    g.nak.push(ni);   // v12.08: nákupy tohoto názvu (index v z.nakupy) – datum a odkaz na účtenku
     //  v11.82 (Milan: „proč je 2× Penny Market Frýdek-Místek?“): „Frydek Mistek“ = „Frýdek Místek“ – jedna prodejna,
     //  ukáže se podoba s diakritikou.
     if (n.obchodNazev || n.obchod) { const o = (n.obchodNazev || n.obchod) + (n.mesto ? ' · ' + n.mesto : '');
@@ -3247,10 +3251,67 @@ function mapaAliasySkupiny(z) {
   });
   return Object.values(sk).map(g => {
     const v = Object.keys(g.varianty).sort((a, b) => citelnost(b) - citelnost(a) || g.varianty[b] - g.varianty[a] || a.length - b.length);
-    return { nazev: v[0], variant: v.length, obchody: [...g.obchody.values()], pocet: g.pocet };
+    return { klic: g.klic, nazev: v[0], variant: v.length, obchody: [...g.obchody.values()], pocet: g.pocet,
+             nak: g.nak.slice().sort((x, y) => String((z.nakupy[y] || {}).datum || '').localeCompare(String((z.nakupy[x] || {}).datum || ''))) };
   }).sort((a, b) => b.pocet - a.pocet);
 }
 window.mapaAliasySkupiny = mapaAliasySkupiny;
+
+//  v12.08: „12. 3.“ (letošní) nebo „12. 3. 2025“
+function mapaDatumKratce(d, dnes) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || '')); if (!m) return String(d || '–');
+  const rok = String((dnes || new Date()).getFullYear());
+  return (+m[3]) + '. ' + (+m[2]) + '.' + (m[1] === rok ? '' : ' ' + m[1]);
+}
+//  Otevře účtenku nákupu v editoru (Účtenky → Historie) a zvýrazní položku.
+function mapaOtevriNakup(i, ni) {
+  const z = _mapaZ(i); const n = z && z.nakupy[ni]; if (!n) return;
+  const idx = n._r ? (S.receipts || []).indexOf(n._r) : -1;
+  mapaUzivKartaZavri();
+  openReceiptInHistory(n.datum, n.obchod, idx >= 0 ? idx : undefined, n.raw);
+}
+//  ✏️ Opravit název: pole přímo v kartě (žádné další okno).
+function mapaOpravNazevForm(i, ai) {
+  const z = _mapaZ(i); const a = z && mapaAliasySkupiny(z)[ai]; const el = document.getElementById('mkNazev_' + ai);
+  if (!a || !el) return;
+  const nUct = new Set(a.nak.map(ni => z.nakupy[ni] && z.nakupy[ni]._r).filter(Boolean)).size;
+  el.innerHTML = `<input id="mkNazevIn_${ai}" value="${escHtml(a.nazev)}" maxlength="120" style="width:100%;margin-top:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:.82rem"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();mapaOpravNazevUloz(${i},${ai})}">
+    <span style="display:block;font-size:.68rem;color:#a8aec8;margin:5px 0;line-height:1.45">Opraví se text položky na ${nUct === 1 ? '1 účtence' : nUct + ' účtenkách'} (chyba čtení nebo překlep). Když stejný název už máš, karty se spojí.</span>
+    <span style="display:flex;gap:6px"><button class="btn btn-sm btn-primary" style="font-size:.74rem" onclick="mapaOpravNazevUloz(${i},${ai})">💾 Uložit</button>
+      <button class="btn btn-sm" style="font-size:.74rem" onclick="mapaUzivDetail(${i})">Zrušit</button></span>`;
+  const inp = document.getElementById('mkNazevIn_' + ai); if (inp) { inp.focus(); inp.select(); }
+}
+//  Čistá část (testuje smoke_mapa_nazev.js): přepíše název u nákupů skupiny, vrátí dotčené účtenky.
+function mapaOpravNazevProvest(z, ai, novy) {
+  const a = mapaAliasySkupiny(z)[ai]; novy = String(novy || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!a || !novy) return null;
+  const uct = new Set(); let n = 0;
+  a.nak.forEach(ni => { const x = z.nakupy[ni]; if (!x || !x._it) return;
+    if (x._it.name !== novy) { x._it.name = novy; n++;
+      //  Karta s kódem spojeným přes „obchod + zkratka“: spojení visí na staré zkratce → kód zapsat přímo k položce.
+      if (z.ean && !x._it.ean) x._it.ean = z.ean; }
+    if (x._r) uct.add(x._r); });
+  return { n, uctenky: [...uct], novy };
+}
+function mapaOpravNazevUloz(i, ai) {
+  const z = _mapaZ(i); const inp = document.getElementById('mkNazevIn_' + ai); if (!z || !inp) return;
+  const v = inp.value.trim(); if (!v) { inp.focus(); return; }
+  const kz = z.klic, puvodni = (mapaAliasySkupiny(z)[ai] || {}).nazev || '';
+  const res = mapaOpravNazevProvest(z, ai, v); if (!res) return;
+  if (!res.n) { mapaUzivDetail(i); return; }
+  res.uctenky.forEach(r => { if (typeof syncReceiptToTransactions === 'function') syncReceiptToTransactions(r); });
+  if (typeof save === 'function') save();
+  mapaUzivKresli();
+  //  Karta po opravě: položka s kódem zůstává ve své kartě, bez kódu jde pod nový název (spojí se se stejným).
+  const nk = (typeof normName === 'function') ? normName(res.novy) : res.novy.toLowerCase();
+  let j = _mapaUziv.findIndex(x => x.klic === kz && kz.startsWith('ean:'));
+  if (j < 0) j = _mapaUziv.findIndex(x => x.klic === nk);
+  const spojeno = j >= 0 && _mapaUziv[j].pocet > res.n && !kz.startsWith('ean:');
+  if (typeof showToast === 'function') showToast(`✏️ „${puvodni}“ → „${res.novy}“ · ${res.n}× na ${res.uctenky.length === 1 ? '1 účtence' : res.uctenky.length + ' účtenkách'}${spojeno ? ' · karty spojeny' : ''}`);
+  if (j >= 0) mapaUzivDetail(j); else mapaUzivKartaZavri();
+}
+Object.assign(window, { mapaDatumKratce, mapaOtevriNakup, mapaOpravNazevForm, mapaOpravNazevProvest, mapaOpravNazevUloz });
 
 //  Rozbalovací panel COICOP: hierarchie + váha ČSÚ + tvůj podíl se STEJNÝM základem a obdobím.
 let _mapaVahaZaklad = 'potraviny';
@@ -3474,10 +3535,18 @@ function mapaUzivKartaHTML(i, produkt) {
 
   // ── NÁZVY Z ÚČTENEK ──
   const al = mapaAliasySkupiny(z);
-  const alRadek = a => `<div class="mk-r" style="grid-template-columns:minmax(0,1fr)"><span class="v">${e(a.nazev)}${a.pocet > 1 ? ` <span style="color:#8b93ad;font-size:.7rem">· ${a.pocet}×</span>` : ''}
-      <span style="display:block">${a.obchody.slice(0, 3).map(o => `<span class="mk-chip">🏪 ${e(o)}</span>`).join('')}</span></span></div>`;
+  //  v12.08 (Milan: „Drubeji hamburger – rád bych to opravil, jen nevím, ve které je to účtence. Spíš najít
+  //  způsob, jak to opravit rychle ručně“): u názvu data nákupů (klepnutí = otevře účtenku v editoru)
+  //  a ✏️ Opravit název – přepíše text položky na účtenkách; stejný název pak sedne do jedné karty.
+  const alRadek = (a, ai) => { const nk = a.nak.map(ni => [ni, z.nakupy[ni]]).filter(([, n]) => n && n._r);
+    const dat = nk.slice(0, 6).map(([ni, n]) => `<button class="mk-btn-link" style="margin:0 8px 0 0;font-size:.72rem" onclick="mapaOtevriNakup(${i},${ni})" title="Otevřít účtenku${n.obchod ? ' · ' + e(n.obchod) : ''}">📅 ${e(mapaDatumKratce(n.datum))}</button>`).join('')
+      + (nk.length > 6 ? `<span style="color:#8b93ad;font-size:.7rem">+${nk.length - 6}</span>` : '');
+    return `<div class="mk-r" style="grid-template-columns:minmax(0,1fr)"><span class="v">${e(a.nazev)}${a.pocet > 1 ? ` <span style="color:#8b93ad;font-size:.7rem">· ${a.pocet}×</span>` : ''}
+      <span style="display:block">${a.obchody.slice(0, 3).map(o => `<span class="mk-chip">🏪 ${e(o)}</span>`).join('')}</span>
+      ${dat ? `<span style="display:block;margin-top:4px">${dat}</span>` : ''}
+      ${nk.length && !(typeof viewingUid !== 'undefined' && viewingUid) ? `<span id="mkNazev_${ai}" style="display:block;margin-top:2px"><button class="mk-btn-link" style="margin:0;font-size:.72rem" onclick="mapaOpravNazevForm(${i},${ai})">${ikTxt('✎ Opravit název', 'upravit')}</button></span>` : ''}</span></div>`; };
   const aliasy = al.length ? al.slice(0, 3).map(alRadek).join('')
-    + (al.length > 3 ? `<details class="mk-roz"><summary style="padding:8px 12px;font-size:.74rem;color:#60a5fa;border-top:1px solid var(--border)">Zobrazit všechny názvy (${al.length}) <span class="sip">⌄</span></summary>${al.slice(3).map(alRadek).join('')}</details>` : '') : '';
+    + (al.length > 3 ? `<details class="mk-roz"><summary style="padding:8px 12px;font-size:.74rem;color:#60a5fa;border-top:1px solid var(--border)">Zobrazit všechny názvy (${al.length}) <span class="sip">⌄</span></summary>${al.slice(3).map((a, k) => alRadek(a, k + 3)).join('')}</details>` : '') : '';
 
   // ── BALENÍ A SLOŽENÍ ──
   //  v11.60: stejná políčka u každé karty, prázdné „----“. Živiny a složení jdou zadat ručně
@@ -3610,73 +3679,151 @@ function mapaUzivKartaSken(i) {
 //  Mění se položky v účtenkách i jejich kopie v transakcích (receiptItems).
 //  Vždy s náhledem, nikdy samo.
 // ══════════════════════════════════════════════════════
+//  v12.09 (Milan: „Přeřadit staré položky – chybí mi kontext, polovina věcí je správně, nejde to ani jednotlivě…
+//  je to nejapné a nechápu to“). Nově:
+//   • každý výrobek zvlášť (název, obchody a data, z → do, PROČ), zaškrtávání po jednom;
+//   • jisté (tvoje volba, komunitní mapa, čárový kód) předem zaškrtnuté, odhad podle názvu ne;
+//   • vynechá se: položka z restaurace (Švestka 0,5, Kečup – patří k útratě v restauraci), změna jen
+//     podkategorie (Rohlík › Obchůdek – podkategorie bývá podle obchodu, ne podle výrobku);
+//   • co při přeřazení nezaškrtneš, příště nenabídne (S.uiCfg.prerazeniNe, jde vrátit).
+function _prerazeniRestaurace(catId, cats) {
+  const c = (cats || []).find(x => x.id === catId);
+  return !!c && (c.coicop === 11 || /restaura|kav[aá]rn|hospod|bistro|jídlo\s*&\s*pití/i.test(c.name || ''));
+}
+function _prerazeniKlic(nazev, na) { return ((typeof normName === 'function') ? normName(nazev) : String(nazev || '').toLowerCase()).replace(/ /g, '_') + '__' + na; }
 function mapaPrerazeniNavrh(D) {
   D = D || getData();
-  const zmeny = [];
-  const zpracuj = (it, kde) => {
+  const zmeny = [], cats = D.categories || [];
+  const ne = (D.uiCfg && D.uiCfg.prerazeniNe) || {};
+  const zpracuj = (it, kde, r) => {
     if(!it || !it.name) return;
     const g = guessItemCatId(it.name, null, it.ean);
     if(!g || !g.catId || !(g.fromMemory || g.fromMap)) return;
     const stejnaKat = g.catId === (it.itemCatId || '');
     if(stejnaKat && (!g.subcat || g.subcat === (it.itemSubcat || ''))) return;
-    zmeny.push({ it, kde, nazev: it.name, z: it.itemCatId || '', na: g.catId, sub: g.subcat || '', stejnaKat });
+    const m = g.mapa || null;
+    const zdroj = g.fromMemory ? 'moje' : m && m.zdrojTax === 'nazev' ? 'nazev' : m && m.zdrojTax === 'ean' ? 'ean' : 'mapa';
+    const klic = _prerazeniKlic(it.name, g.catId);
+    const vynech = stejnaKat ? 'podkategorie' : _prerazeniRestaurace(it.itemCatId, cats) ? 'restaurace' : ne[klic] ? 'skryto' : '';
+    zmeny.push({ it, kde, r: r || null, nazev: it.name, z: it.itemCatId || '', na: g.catId, sub: g.subcat || '', stejnaKat,
+      zdroj, slovo: zdroj === 'nazev' && m && m.tax ? m.tax.nazev : '', jiste: zdroj !== 'nazev', vynech, klic });
   };
-  (D.receipts || []).forEach(r => (r.items || []).forEach(it => zpracuj(it, 'uctenka')));
+  (D.receipts || []).forEach(r => (r.items || []).forEach(it => zpracuj(it, 'uctenka', r)));
   (D.transactions || []).forEach(t => (t.receiptItems || []).forEach(it => zpracuj(it, 'transakce')));
   return zmeny;
 }
 window.mapaPrerazeniNavrh = mapaPrerazeniNavrh;
+//  Řádky okna: jeden výrobek (název + z → do) = jeden řádek se všemi nákupy.
+function mapaPrerazeniRadky(zm) {
+  const sk = {};
+  (zm || []).filter(z => z.kde === 'uctenka' && !z.vynech).forEach(z => {
+    const k = z.klic + '__' + z.z;
+    const g = sk[k] || (sk[k] = { k, klic: z.klic, nazev: z.nazev, z: z.z, na: z.na, zdroj: z.zdroj, slovo: z.slovo, jiste: z.jiste, nakupy: [] });
+    g.nakupy.push({ obchod: (z.r && z.r.store) || '', datum: (z.r && z.r.date) || '' });
+  });
+  return Object.values(sk).map(g => { g.nakupy.sort((a, b) => String(b.datum).localeCompare(String(a.datum))); return g; })
+    .sort((a, b) => (b.jiste - a.jiste) || b.nakupy.length - a.nakupy.length || a.nazev.localeCompare(b.nazev, 'cs'));
+}
+window.mapaPrerazeniRadky = mapaPrerazeniRadky;
 
 function mapaPrerazeniTlacitko() {
   if(typeof viewingUid !== 'undefined' && viewingUid) return '';
-  const n = mapaPrerazeniNavrh(S).filter(z => z.kde === 'uctenka').length;
-  if(!n) return '';
+  const zm = mapaPrerazeniNavrh(S);
+  const n = zm.filter(z => z.kde === 'uctenka' && !z.vynech).length;
+  const skr = Object.keys((S.uiCfg && S.uiCfg.prerazeniNe) || {}).length;
+  if(!n) return skr ? `<div style="font-size:.7rem;color:#8b93ad">🔄 Skryté návrhy přeřazení: ${skr} · <button class="mk-btn-link" style="margin:0;font-size:.7rem" onclick="mapaPrerazeniVratSkryte()">zobrazit znovu</button></div>` : '';
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)">🔄 <b>${n} položek ve starých účtenkách</b> má podle dnešní mapy jinou rozpočtovou kategorii, než s jakou byly uložené.</span>
-    <button class="btn btn-sm" onclick="mapaPrerazeniNahled()">Zobrazit a přeřadit</button></div>`;
+    <span style="flex:1;min-width:200px;font-size:.78rem;line-height:1.45;color:var(--text)">🔄 <b>${n} položek ve starých účtenkách</b> je v jiné kategorii, než kam je appka zařazuje dnes.</span>
+    <button class="btn btn-sm" onclick="mapaPrerazeniNahled()">Zkontrolovat</button></div>`;
 }
 
+let _prerazeniOkno = [];
 function mapaPrerazeniNahled() {
   const D = S, zm = mapaPrerazeniNavrh(D);
   const cats = D.categories || [];
   const jm = id => { const c = cats.find(x => x.id === id); return c ? (c.icon || '') + ' ' + c.name : '📦 bez kategorie'; };
-  const skup = {};
-  zm.filter(z => z.kde === 'uctenka').forEach(z => {
-    const k = z.z + '→' + z.na + (z.stejnaKat ? '|' + z.sub : '');
-    const g = skup[k] || (skup[k] = { z: z.z, na: z.na, sub: z.sub, stejnaKat: z.stejnaKat, n: 0, nazvy: new Set() });
-    g.n++; g.nazvy.add(z.nazev);
-  });
-  const radky = Object.values(skup).sort((a, b) => b.n - a.n);
+  const radky = _prerazeniOkno = mapaPrerazeniRadky(zm);
+  const vyn = zm.filter(z => z.kde === 'uctenka' && (z.vynech === 'restaurace' || z.vynech === 'podkategorie'));
+  const vynNazvy = [...new Set(vyn.map(z => z.nazev))];
+  const PROC = { moje: ['tvoje volba', 'var(--income)', 'rgba(74,222,128,.12)'], mapa: ['komunitní mapa', '#60a5fa', 'rgba(96,165,250,.12)'],
+                 ean: ['čárový kód', '#60a5fa', 'rgba(96,165,250,.12)'], nazev: ['odhad podle názvu', '#fbbf24', 'rgba(251,191,36,.12)'] };
+  const den = d => typeof mapaDatumKratce === 'function' ? mapaDatumKratce(d) : d;
+  const radek = (g, ix) => { const p = PROC[g.zdroj] || PROC.mapa;
+    const kde = g.nakupy.slice(0, 3).map(n => escHtml([n.obchod, den(n.datum)].filter(Boolean).join(' '))).join(' · ') + (g.nakupy.length > 3 ? ` · +${g.nakupy.length - 3}` : '');
+    return `<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" class="przVyb" data-i="${ix}"${g.jiste ? ' checked' : ''} onchange="mapaPrerazeniPocet()" style="margin-top:3px;width:18px;height:18px;flex:none">
+      <span style="min-width:0;font-size:.78rem;line-height:1.45">
+        <b style="color:var(--text)">${escHtml(g.nazev)}</b>${g.nakupy.length > 1 ? ` <span style="color:#8b93ad">· ${g.nakupy.length}×</span>` : ''}
+        <span style="display:block;font-size:.68rem;color:#8b93ad">${kde}</span>
+        <span style="display:block;color:var(--text2)">${escHtml(jm(g.z))} → <b style="color:var(--income)">${escHtml(jm(g.na))}</b></span>
+        <span style="display:inline-block;margin-top:3px;font-size:.64rem;padding:1px 7px;border-radius:6px;color:${p[1]};background:${p[2]}">${g.zdroj === 'nazev' && g.slovo ? 'odhad: „' + escHtml(g.slovo) + '“' : p[0]}</span>
+      </span></label>`; };
+  const jiste = radky.map((g, ix) => [g, ix]).filter(([g]) => g.jiste), odhad = radky.map((g, ix) => [g, ix]).filter(([g]) => !g.jiste);
+  const sekce = (nadpis, pozn, arr) => arr.length ? `<div style="font-size:.72rem;font-weight:700;color:#a8aec8;margin:12px 0 2px">${nadpis}</div>${pozn ? `<div style="font-size:.66rem;color:#8b93ad;margin-bottom:2px">${pozn}</div>` : ''}${arr.map(([g, ix]) => radek(g, ix)).join('')}` : '';
   let o = document.getElementById('mapaPrerazeniOkno');
   if(!o) { o = document.createElement('div'); o.id = 'mapaPrerazeniOkno';
     o.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px';
-    o.addEventListener('click', e => { if(e.target === o) o.remove(); }); document.body.appendChild(o); }
+    document.body.appendChild(o); }
+  const zavri = `document.getElementById('mapaPrerazeniOkno').remove()`;
   o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:520px">
-    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🔄 Přeřadit staré účtenky</div>
-      <button onclick="document.getElementById('mapaPrerazeniOkno').remove()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
-    <div style="font-size:.74rem;color:#a8aec8;margin:6px 0 10px;line-height:1.5">Rozpočtová kategorie se u těchto položek změní podle tvé volby v Mapě položek nebo podle komunitní mapy. Změní se tím i historické statistiky a rozpočty. Částky ani účtenky se nemění.</div>
-    ${radky.map(r => `<div style="padding:7px 0;border-top:1px solid var(--border);font-size:.78rem">
-      <div><b>${r.n}×</b> ${escHtml(jm(r.z))} → <b style="color:var(--income)">${escHtml(jm(r.na))}</b>${r.stejnaKat && r.sub ? ` › ${escHtml(r.sub)}` : ''}</div>
-      <div style="font-size:.68rem;color:#8b93ad;margin-top:2px">${[...r.nazvy].slice(0, 5).map(escHtml).join(', ')}${r.nazvy.size > 5 ? ' …' : ''}</div></div>`).join('')}
-    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1" onclick="mapaPrerazeniProvest()">✅ Přeřadit ${zm.filter(z => z.kde === 'uctenka').length} položek</button>
-      <button class="btn" onclick="document.getElementById('mapaPrerazeniOkno').remove()">Zrušit</button></div></div>`;
+    <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🔄 Opravit kategorii u starých účtenek</div>
+      <button onclick="${zavri}" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div style="font-size:.74rem;color:#a8aec8;margin:6px 0 4px;line-height:1.5">Tyhle položky jsou na starších účtenkách v jiné rozpočtové kategorii, než kam je appka zařazuje dnes. Zaškrtnuté se přeřadí (i ve statistikách a rozpočtech), ostatní zůstanou, jak jsou. Částky ani účtenky se nemění.</div>
+    ${radky.length ? '' : '<div style="font-size:.78rem;color:var(--text2);padding:10px 0">Nic k přeřazení.</div>'}
+    ${sekce('✅ Jisté – tvoje volba, komunitní mapa nebo čárový kód', '', jiste)}
+    ${sekce('🧭 Odhad podle názvu – zkontroluj', 'Appka tu jen hádá podle názvu z účtenky. Zaškrtni jen to, co sedí.', odhad)}
+    ${vyn.length ? `<div style="font-size:.72rem;font-weight:700;color:#a8aec8;margin:12px 0 2px">Vynecháno automaticky</div>
+      <div style="font-size:.68rem;color:#8b93ad;line-height:1.5">Položky z restaurace a změny jen podkategorie (podkategorie bývá podle obchodu, ne podle výrobku) – ${vyn.length}× (${vynNazvy.slice(0, 4).map(escHtml).join(', ')}${vynNazvy.length > 4 ? ' …' : ''})</div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-primary" id="przTlacitko" style="flex:1" onclick="mapaPrerazeniProvestVyber()"${radky.length ? '' : ' disabled'}>✅ Přeřadit vybrané</button>
+      <button class="btn" onclick="${zavri}">Zavřít</button></div>
+    ${radky.length ? '<div style="font-size:.66rem;color:#8b93ad;margin-top:8px">Co nezaškrtneš, příště už nenabídne (jde vrátit v Mapě položek).</div>' : ''}</div>`;
+  mapaPrerazeniPocet();
 }
-
-function mapaPrerazeniProvest() {
+function mapaPrerazeniPocet() {
+  const b = document.getElementById('przTlacitko'); if(!b) return;
+  const vyb = [...document.querySelectorAll('.przVyb')].filter(x => x.checked).map(x => _prerazeniOkno[+x.dataset.i]).filter(Boolean);
+  const n = vyb.reduce((a, g) => a + g.nakupy.length, 0);
+  b.textContent = '✅ Přeřadit vybrané (' + n + ')';
+}
+//  vyber = seznam řádků (z mapaPrerazeniRadky) k přeřazení; nevybrane = skrýt příště.
+//  Bez parametru (starší volání) se přeřadí všechno, co se nevynechává.
+function mapaPrerazeniProvest(vyber, nevybrane) {
   const zm = mapaPrerazeniNavrh(S);
   const cats = S.categories || [];
+  const ano = vyber ? new Set(vyber.map(g => g.klic + '__' + g.z)) : null;
+  let n = 0;
   zm.forEach(z => {
+    if(z.vynech) return;
+    if(ano && !ano.has(z.klic + '__' + z.z)) return;
     const c = cats.find(x => x.id === z.na); if(!c) return;
-    if(!z.stejnaKat) { z.it.itemCatId = z.na; z.it.itemCat = c.name; z.it.itemSubcat = z.sub || ''; }
-    else if(z.sub) z.it.itemSubcat = z.sub;
+    z.it.itemCatId = z.na; z.it.itemCat = c.name; z.it.itemSubcat = z.sub || '';
+    if(z.kde === 'uctenka') n++;
   });
+  if((nevybrane || []).length) {
+    S.uiCfg = S.uiCfg || {};
+    const ne = Object.assign({}, S.uiCfg.prerazeniNe);
+    nevybrane.forEach(g => { ne[g.klic] = Date.now(); });
+    const kl = Object.keys(ne); if(kl.length > 400) kl.sort((a, b) => ne[a] - ne[b]).slice(0, kl.length - 400).forEach(k => delete ne[k]);
+    S.uiCfg.prerazeniNe = ne;
+  }
   if(typeof save === 'function') save();
-  const n = zm.filter(z => z.kde === 'uctenka').length;
   const o = document.getElementById('mapaPrerazeniOkno'); if(o) o.remove();
-  if(typeof showToast === 'function') showToast('🔄 Přeřazeno ' + n + ' položek');
+  if(typeof showToast === 'function') showToast('🔄 Přeřazeno ' + n + ' položek' + ((nevybrane || []).length ? ' · ' + nevybrane.length + ' skryto' : ''));
+  mapaUzivKresli();
+  return n;
+}
+function mapaPrerazeniProvestVyber() {
+  const ch = [...document.querySelectorAll('.przVyb')];
+  const vyb = ch.filter(x => x.checked).map(x => _prerazeniOkno[+x.dataset.i]).filter(Boolean);
+  const nevyb = ch.filter(x => !x.checked).map(x => _prerazeniOkno[+x.dataset.i]).filter(Boolean);
+  mapaPrerazeniProvest(vyb, nevyb);
+}
+function mapaPrerazeniVratSkryte() {
+  if(S.uiCfg) delete S.uiCfg.prerazeniNe;
+  if(typeof save === 'function') save();
   mapaUzivKresli();
 }
-Object.assign(window, { mapaPrerazeniNahled, mapaPrerazeniProvest });
+Object.assign(window, { mapaPrerazeniNahled, mapaPrerazeniProvest, mapaPrerazeniProvestVyber, mapaPrerazeniPocet, mapaPrerazeniVratSkryte });
 
 function mapaUzivKresli() {
   //  Přepočet stavu (mapa se mohla právě dotáhnout) bez překreslení celé stránky.
@@ -4849,7 +4996,7 @@ function rpMapaNavrh(itemName, D, ean) {
   if(!tax && ep && ep.obecnyId && typeof taxInfo === 'function') { tax = taxInfo(ep.obecnyId); if(tax) zdrojTax = 'ean'; }
   if(!z && !tax && typeof taxNavrh === 'function') {
     const n = taxNavrh(itemName);
-    if(n && (n.jistota === 'presne' || n.jistota === 'slova' || n.jistota === 'tvar')) { tax = n.info; zdrojTax = 'nazev'; }
+    if(n && (n.jistota === 'presne' || n.jistota === 'slova' || n.jistota === 'tvar' || n.jistota === 'past')) { tax = n.info; zdrojTax = 'nazev'; }
   }
   if(!z && !tax && !ep) return null;
   D = D || getData();
@@ -6562,9 +6709,10 @@ function drawStoreTrendChart(id, data){
 // ══════════════════════════════════════════════════════
 
 // Otevři konkrétní účtenku v Historii podle data+obchodu (z transakce s 📷)
-function openReceiptInHistory(date, store) {
+//  v12.08: volitelně přímo index účtenky (z karty výrobku) a název položky, která se v editoru zvýrazní.
+function openReceiptInHistory(date, store, primoIdx, polozka) {
   // Najdi index PŘEDEM
-  const idx = (S.receipts||[]).findIndex(r =>
+  const idx = primoIdx != null && (S.receipts||[])[primoIdx] ? primoIdx : (S.receipts||[]).findIndex(r =>
     (r.date||'')===date && (r.store||'').toLowerCase()===(store||'').toLowerCase());
   showPage('uctenky');
   // Nastav aktivní tab na history PŘED renderem
@@ -6577,8 +6725,12 @@ function openReceiptInHistory(date, store) {
         // Otevři editor té účtenky (slot existuje po renderu history)
         const slot = document.getElementById('rcpt_hist_'+idx);
         if(slot) {
-          editReceiptFromHistory(idx);
-          setTimeout(()=>{ const s2=document.getElementById('rcpt_hist_'+idx); if(s2) s2.scrollIntoView({behavior:'smooth', block:'center'}); }, 100);
+          editReceiptFromHistory(idx, typeof rcptKlic === 'function' ? rcptKlic(S.receipts[idx]) : undefined);
+          setTimeout(()=>{ const s2=document.getElementById('rcpt_hist_'+idx); if(!s2) return;
+            //  v12.08: položka z karty výrobku – najít ji v editoru, zvýraznit a posunout na ni
+            const pol = polozka ? [...s2.querySelectorAll('input')].find(x => x.value === polozka) : null;
+            if(pol) { pol.scrollIntoView({behavior:'smooth', block:'center'}); pol.style.outline = '2px solid #fbbf24'; pol.style.outlineOffset = '1px'; }
+            else s2.scrollIntoView({behavior:'smooth', block:'center'}); }, 150);
         } else if(typeof showToast==='function') {
           showToast('Účtenka nebyla v historii nalezena');
         }

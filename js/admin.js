@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · admin.js · 2026-10-23
+// FinanceFlow · v12.09 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.09',
+    datum: '2026-10-23',
+    zmeny: [
+      "✏️ OPRAVA NÁZVU Z ÚČTENKY (Milan: „Drubeji hamburger – rád bych to opravil, jen nevím, ve které účtence to je… spíš rychle ručně, místo dalších utilit“) · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Názvy z účtenek. U názvu data nákupů 📅 (klepnutí otevře účtenku v editoru a zvýrazní položku) a ✎ Opravit název – přepíše text položky na účtence (chyba čtení, překlep); stejný název pak sedne do jedné karty (Drubeji + Drůbeží = 1 karta, 2×).",
+      "🔄 OPRAVIT KATEGORII U STARÝCH ÚČTENEK – předělané okno (Milan: „chybí mi kontext, polovina je správně, nejde to jednotlivě“) · cesta: Mapa položek → „🔄 N položek ve starých účtenkách… → Zkontrolovat“. Každý výrobek zvlášť se zaškrtnutím, obchody a data, z → do a proč (tvoje volba / komunitní mapa / čárový kód / odhad podle názvu). Odhady podle názvu nejsou předem zaškrtnuté. Vynechá se: položka z restaurace (Švestka 0,5, Kečup) a změna jen podkategorie (Rohlík › Obchůdek). Nezaškrtnuté příště nenabídne (vrátit: „zobrazit znovu“).",
+      "🪤 PASTI V ZAŘAZENÍ (Milan: „dvouslovný název, ne jedno známé slovo, nepřidávej podmínku, pasti zapsat a podchytit“): makový hřeben → Pečivo (ne hřeben → Osobní péče), smetanový krém / „Smet.krem“ → Mléčné dezerty (ne krém → 13.1.2), drůbeží hamburger → Drůbeží maso (ne Restaurace), „Nektarinky koš“ → nektarinka (ne koš → Domácí potřeby). Taška, záloha a poplatek z účtenky už nemají výchozí kategorii Zábava. Taxonomie 1.3, koš ČSÚ s novými klíčovými slovy.",
+      "🧪 tools/smoke_pasti.js (12 – nová past = 1 řádek), smoke_prerazeni.js (12), smoke_mapa_nazev.js (11).",
+    ],
+  },
   {
     verze: 'v12.08',
     datum: '2026-10-23',

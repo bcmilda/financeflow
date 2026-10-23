@@ -33,5 +33,5 @@ t('rok 2020: jen účtenky z toho roku (500 z 1 000 Kč → 50 %)',h20.includes(
 vm.runInContext("_mapaVahaObdobi='vse'",s2);const hv=s2.mapaVahaHTML('01.113',{});
 t('vše: 548 z 2 000 Kč → 27,4 %',hv.includes('ty 27,4 %')&&hv.includes('z účtenek za celou dobu'),hv.replace(/\s+/g,' ').slice(180,420));
 t('statistika bere 5. úroveň, když ji taxonomie má',sp.includes('tax.coicop5 || tax.coicop'));
-t('taxonomie se po změně načte znovu (nová verze v adrese)',R('taxonomie.js','../js/taxonomie.js').includes("taxonomie.json?v=1.2-20261007"));
+t('taxonomie se po změně načte znovu (nová verze v adrese)',R('taxonomie.js','../js/taxonomie.js').includes("taxonomie.json?v=1.3-20261023"));
 console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

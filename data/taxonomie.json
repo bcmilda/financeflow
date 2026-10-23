@@ -1,13 +1,14 @@
 {
  "meta": {
   "nazev": "Taxonomie výrobků FinanceFlow",
-  "verze": "1.2",
+  "verze": "1.3",
   "session": "S24 (T1, návrh ke kontrole)",
   "model": "raw z účtenky → výrobek (Mapa položek) → obecný název → podkategorie → oblast; COICOP u podkategorie, výjimka u obecného názvu",
   "coicop": "CZ-COICOP 2018 v zápisu ČSÚ (kódy z data/product-groups.json, spotřební koš 2026)",
-  "rozpocet": "výchozí rozpočtová kategorie (id výchozí sady); podkategorie může mít vlastní",
+  "rozpocet": "výchozí rozpočtová kategorie (id výchozí sady); podkategorie může mít vlastní; „-“ = žádná výchozí kategorie (taška, záloha, poplatek zůstanou v kategorii nákupu, ne v Zábavě)",
   "pravidla": "id podkategorie ani obecného názvu se po nasazení NEMĚNÍ (odkazují na ně záznamy mapy). Přejmenovat = změnit nazev, ne id.",
-  "c5": "S25: c5 = kód CZ-COICOP 2018 5. úrovně (příloha potravin ČSÚ) pro obecný název – jen pro kartu výrobku a Statistiku položek; podkategorie.coicop (4. úroveň) zůstává pro Srovnání ČR."
+  "c5": "S25: c5 = kód CZ-COICOP 2018 5. úrovně (příloha potravin ČSÚ) pro obecný název – jen pro kartu výrobku a Statistiku položek; podkategorie.coicop (4. úroveň) zůstává pro Srovnání ČR.",
+  "pasti": "S27 (v12.09, Milan: „zkusíme ty pasti zapsat a podchytit“): pasti = text z účtenky (slova po normName) → obecný název. Mají přednost před odhadem podle jednoho slova („Nektarinky koš“ ≠ koš). Nová past = jeden řádek + řádek v tools/smoke_pasti.js."
  },
  "oblasti": [
   {
@@ -51,7 +52,8 @@
       "pita",
       "ciabatta",
       "grahamový rohlík",
-      "sýrová bageta"
+      "sýrová bageta",
+      "makový hřeben"
      ],
      "c5": {
       "rohlík": "01.1.1.3.1",
@@ -84,7 +86,8 @@
       "pita": "01.1.1.3.1",
       "ciabatta": "01.1.1.3.1",
       "grahamový rohlík": "01.1.1.3.1",
-      "sýrová bageta": "01.1.1.3.1"
+      "sýrová bageta": "01.1.1.3.1",
+      "makový hřeben": "01.1.1.3.9"
      }
     },
     {
@@ -303,7 +306,8 @@
       {
        "n": "kuřecí srdce",
        "coicop": "01.124"
-      }
+      },
+      "drůbeží hamburger"
      ],
      "c5": {
       "kuřecí prsa": "01.1.2.2.4",
@@ -318,7 +322,8 @@
       "kachní prsa": "01.1.2.2.4",
       "husa": "01.1.2.2.4",
       "kuřecí játra": "01.1.2.4.0",
-      "kuřecí srdce": "01.1.2.4.0"
+      "kuřecí srdce": "01.1.2.4.0",
+      "drůbeží hamburger": "01.1.2.2.4"
      }
     },
     {
@@ -660,7 +665,8 @@
       "tvarohový dezert",
       "pribináček",
       "mléčný dezert",
-      "mléčný koktejl"
+      "mléčný koktejl",
+      "smetanový krém"
      ],
      "c5": {
       "pudink": "01.1.4.7.0",
@@ -669,7 +675,8 @@
       "tvarohový dezert": "01.1.4.7.0",
       "pribináček": "01.1.4.7.0",
       "mléčný dezert": "01.1.4.7.0",
-      "mléčný koktejl": "01.1.4.7.0"
+      "mléčný koktejl": "01.1.4.7.0",
+      "smetanový krém": "01.1.4.7.0"
      }
     },
     {
@@ -2883,7 +2890,8 @@
       "vratná láhev",
       "taška",
       "poplatek"
-     ]
+     ],
+     "rozpocet": "-"
     }
    ]
   },
@@ -2968,5 +2976,9 @@
     }
    ]
   }
- ]
+ ],
+ "pasti": {
+  "smet krem": "smetanový krém",
+  "nektarinky kos": "nektarinka"
+ }
 }
