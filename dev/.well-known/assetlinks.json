@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "cz.financeflow.app",
       "sha256_cert_fingerprints": [
-        "48:12:C8:41:BD:BA:1F:61:75:AF:CD:71:5F:24:97:B4:43:A8:26:DA:3B:C6:82:8C:F5:B4:A5:DC:2A:CC:C1:12"
+        "48:12:C8:41:BD:BA:1F:61:75:AF:CD:71:5F:24:97:B4:43:A8:26:DA:3B:C6:82:8C:F5:B4:A5:DC:2A:CC:C1:12",
+        "9B:9C:F1:73:A4:13:0A:6C:4F:D9:3E:A9:19:72:2D:2C:5E:2F:07:1E:19:AB:C1:1E:68:C5:3D:CF:DD:A0:F8:7F"
       ]
     }
   }
