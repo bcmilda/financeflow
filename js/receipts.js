@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · receipts.js · 2026-10-23
+// FinanceFlow · v12.06 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -43,7 +43,9 @@ const RP_GENERIC_NAMES = ['uzeniny','uzenina','maso','masne vyrobky','maso a uze
   'ovoce','zelenina','ovoce a zelenina','ovoce zelenina','lahudky','lahudka','mlecne vyrobky','mlecne','syry','napoje','nealko','alkohol',
   'potraviny','zbozi','ruzne','ruzne zbozi','ostatni','ostatni zbozi','prodej','prodej zbozi','polozka','sortiment','drogerie','tabak',
   'tabakove vyrobky','tisk','noviny','casopisy','kvetiny','darkove zbozi','textil','obuv','hracky','papirnictvi','domaci potreby','zelezarstvi',
-  'obcerstveni','jidlo','hotova jidla','hotove jidlo','menu','obed','polevka','hlavni jidlo','sluzba','sluzby','oddeleni'];
+  'obcerstveni','jidlo','hotova jidla','hotove jidlo','menu','obed','polevka','hlavni jidlo','sluzba','sluzby','oddeleni',
+  //  v12.06 (Milan: „obecné názvy typu uzeniny, sýry, mléč. sýry, mléč. výrobky – každý sýr či uzenina má jinou cenu“)
+  'mlec syry','mlec vyrobky','mlecne syry','mlec','syr','salam','salamy','lahudky vazene','uzeniny vazene','syry vazene','maso vazene'];
 function rpIsGenericName(name){
   let n = String(name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   n = n.replace(/\b\d{1,2}\s*%/g,' ')                 // sazba DPH: „Zboží 21%"
@@ -1692,6 +1694,8 @@ function taxJednotkovaCena(it) {
 window.taxJednotkovaCena = taxJednotkovaCena;
 const _taxMedian = a => { const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
+//  v12.06: podkategorie taxonomie, kde má smysl srovnávat podle OBECNÉHO názvu (banán = banán, rohlík = rohlík)
+const TAX_OBECNE_SROVNATELNE = ['ovoce', 'zelenina', 'brambory', 'pecivo'];
 //  Vývoj cen podle obecného názvu (čistá funkce).
 function taxCenyVyvoj(items, D) {
   D = D || getData();
@@ -1714,11 +1718,15 @@ function taxCenyVyvoj(items, D) {
     //    Různé zkratky téhož výrobku se spojí přes kód nebo Mapu položek. Cena dál za kg / l / ks.
     const _bio = /\bbio\b/i.test(it.name || '');
     const _konk = String(it.eanNazev || m.konkretni || '').trim();
-    const klic = vaz ? 'v:' + m.tax.id + (_bio ? '|bio' : '')
+    //  v12.06 (Milan: „přínos může být ve vážených věcech, pečivu a u stejného výrobku“): podle obecného
+    //  názvu jen ovoce, zelenina, brambory (vážené) a pečivo (rohlík = rohlík i balený). Vážené sýry,
+    //  uzeniny či maso z pultu mají každý druh jinou cenu → jako konkrétní výrobek (stejná zkratka).
+    const _obecneOk = TAX_OBECNE_SROVNATELNE.includes(m.tax.podId) && (vaz || m.tax.podId === 'pecivo');
+    const klic = _obecneOk ? 'v:' + m.tax.id + (_bio ? '|bio' : '')
       : it.ean ? 'e:' + it.ean : _konk ? 'k:' + ((typeof normName === 'function') ? normName(_konk) : _konk.toLowerCase())
       : 'n:' + ((typeof normName === 'function') ? normName(it.name || '') : String(it.name || '').toLowerCase());
     const _nazevBal = _konk || ((typeof nazevBezGramaze === 'function') ? nazevBezGramaze(it.name || '') : (it.name || ''));
-    const g = skup[klic] || (skup[klic] = { id: m.tax.id, klic, nazev: vaz ? m.tax.nazev + (_bio ? ' bio' : '') : _nazevBal, obecny: m.tax.nazev, podNazev: m.tax.podNazev, podId: m.tax.podId, oblastId: m.tax.oblastId, ikona: m.tax.ikona, vazene: vaz, nakupy: [] });
+    const g = skup[klic] || (skup[klic] = { id: m.tax.id, klic, nazev: _obecneOk ? m.tax.nazev + (_bio ? ' bio' : '') : _nazevBal, obecny: m.tax.nazev, podNazev: m.tax.podNazev, podId: m.tax.podId, oblastId: m.tax.oblastId, ikona: m.tax.ikona, vazene: vaz, nakupy: [] });
     g.nakupy.push({ datum: it.date || '', obchod: it.store || '', raw: it.name || '', cena: jc.cena, j: jc.j, cenaKs: vaz ? null : (parseFloat(it.price) || null), baleni: jc.baleni ? jc.baleni + ' ' + jc.bj : '' });
   });
   const vysl = Object.values(skup).map(g => {

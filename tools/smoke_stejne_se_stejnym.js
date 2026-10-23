@@ -72,6 +72,12 @@ console.log('── Inflace: palivo vždy za litr ──');
 const inf=R('inflace.js','../js/inflace.js');
 t('Inflace: palivo bez jednotky se počítá za litr (jeden řádek)',/const _palivo = typeof tankJePalivo === 'function' && tankJePalivo\(it\);/.test(inf)&&/if \(_palivo && it\.unit !== 'l'\) it = Object\.assign\(\{\}, it, \{ unit: 'l' \}\);/.test(inf));
 t('Inflace a Detektor bez záloh',/rpJeZaloha\(it\.name\)\) return;/.test(inf)&&(R('projects.js','../js/projects.js').match(/rpJeZaloha\(it\.name\)\) return;/g)||[]).length===2);
+console.log('── v12.06: obecně jen ovoce, zelenina, brambory, pečivo ──');
+const sy=ctx.taxCenyVyvoj([I('Eidam 30% plátky',189,'2026-07-01','KAUFLAND',{unit:'kg',qty:0.2}),I('Eidam 30% plátky',199,'2026-09-01','KAUFLAND',{unit:'kg',qty:0.2}),
+  I('Gouda 48% vážená',229,'2026-07-01','KAUFLAND',{unit:'kg',qty:0.2}),I('Gouda 48% vážená',239,'2026-09-01','KAUFLAND',{unit:'kg',qty:0.2})],S).polozky;
+t('vážené sýry: každý druh zvlášť (Eidam ≠ Gouda)',!sy.some(p=>p.nakupy.some(n=>/Eidam/.test(n.raw))&&p.nakupy.some(n=>/Gouda/.test(n.raw))),sy.map(p=>[p.nazev,p.nakupy.map(n=>n.raw)]));
+['Mléč. sýry','mléč.výrobky','Sýry','Uzeniny'].forEach(n=>t('obecný název mimo sledování cen: '+n,ctx.rpIsGenericName(n)));
+t('Grafy → Denní: šipky přepínají měsíc Denního grafu',/onclick="denniMesic\(-1\)"/.test(R('charts.js','../js/charts.js'))&&/function denniMesic\(d\)/.test(R('charts.js','../js/charts.js'))&&/if\(_grafMonth == null\)/.test(R('charts.js','../js/charts.js')));
 console.log('── vzhled ──');
 const pj=R('projects.js','../js/projects.js'), sp=R('statistika-polozek.js','../js/statistika-polozek.js'), vz=R('vozidla.js','../js/vozidla.js');
 t('Deník: čára poznámky od osy událostí (y 34) a tenká (1 px)',/const xx = xp\(n\.pos\)\.toFixed\(1\), top = 34, bot = padT \+ plotH;/.test(pj)&&/stroke-width="\$\{vybr\?2:1\}"/.test(pj));

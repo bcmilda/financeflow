@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · admin.js · 2026-10-23
+// FinanceFlow · v12.06 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.06',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-490 · Grafy → Denní: šipky ‹ › nepřepínaly měsíc (volaly přepínač Měsíčního grafu). Teď posunou měsíc a překreslí Denní; šipky jsou i u měsíce bez výdajů. Měsíční graf: leden už přepínání neresetuje.",
+      "📲 DORUČENÉ (Import z banky → 📲 Telefon): tatáž platba 2× (Milan: „notifikace chytila 2× stejnou částku 1 168 Kč“) – banka pošle notifikaci a hned ji doplní. Stejná aplikace, typ a částka do 10 minut = jedna položka (zůstane plnější text), ostatní se při Přidat / Zahodit označí jako duplikát.",
+      "📲 Banka podle aplikace, ze které notifikace přišla (KB+ → KB; dřív „George“, protože parser George bral i text bez slova George). Název obchodníka bez „u obchodníka“ a bez čísla karty; převod „z účtu … na účet …“ → „Převod na účet …“.",
+      "📲 Přesuny a investice (Milan: „nemohu přiřadit některé transakce, protože to jsou Přesuny nebo Investice“): v nabídce kategorií 📈 Investice a spoření (jako Přesun → Do aktiv) a ↔️ Přesun do / z vlastní peněženky (pár transakcí se společným přesunem, mimo statistiky).",
+      "💳 KARTA / ÚČET → PENĚŽENKA (Milan: „můžeme nastavit číslo karty = typ peněženky?“): při Přidat se zapamatuje karta (poslední 4 číslice) nebo vlastní účet z notifikace → příště se peněženka předvyplní. U převodu na účet, který už znáš, se předvyplní ↔️ přesun do té peněženky.",
+      "💹 Zdražování → 🧭 Podle výrobků (Milan: „přínos může být ve vážených věcech, pečivu a u stejného výrobku“): podle obecného názvu jen ovoce, zelenina, brambory a pečivo; vážené sýry, uzeniny a maso z pultu jako konkrétní druh. Obecné názvy „Mléč. sýry“, „Mléč. výrobky“, „Sýr“, „Salám“ … se do sledování cen nepočítají.",
+      "🧪 tools/smoke_inbox_v2.js – 16 testů; smoke_stejne_se_stejnym.js +6.",
+    ],
+  },
   {
     verze: 'v12.05',
     datum: '2026-10-23',

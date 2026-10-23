@@ -1,4 +1,4 @@
-// FinanceFlow · v10.25 · charts.js · 2026-08-28
+// FinanceFlow · v12.06 · charts.js · 2026-10-23
 //  GRAFY (simplified)
 // ══════════════════════════════════════════════════════
 function renderGrafy(){
@@ -721,6 +721,15 @@ function onGrafFilterChange() {
 //   Volitelné kategorie (respektuje multi-select filtr), společná osa Y volitelná.
 window._denniSameScale = false;
 function denniToggleScale(){ window._denniSameScale=!window._denniSameScale; renderDenniGrafy(); }
+//  v12.06 (FIX-490, Milan: „Grafy → Denní – nemůžu přepínat měsíce“): šipky volaly přepínač
+//  Měsíčního grafu (jiný stav i jiné vykreslení), takže se Denní nezměnil. Denní bere vybraný
+//  měsíc appky (S.curMonth) – šipky ho posunou a překreslí Denní (a popisek měsíce nahoře).
+function denniMesic(d){
+  S.curMonth+=d; if(S.curMonth<0){S.curMonth=11;S.curYear--;} if(S.curMonth>11){S.curMonth=0;S.curYear++;}
+  if(typeof updateMLabel==='function') updateMLabel();
+  renderDenniGrafy();
+}
+window.denniMesic=denniMesic;
 
 function renderDenniGrafy(){
   const el=document.getElementById('gtab-denni-content'); if(!el) return;
@@ -746,7 +755,7 @@ function renderDenniGrafy(){
   if(yrEl) yrEl.textContent=`${CZ_M[m]} ${y}`;
 
   if(!rows.length){
-    el.innerHTML='<div class="card"><div class="empty"><div class="ei">📊</div><div class="et">Žádné výdaje v tomto měsíci</div></div></div>';
+    el.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="card-title" style="margin:0">📊 Denní výdaje · ${CZ_M[m]} ${y}</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="denniMesic(-1)">‹</button><button class="btn btn-ghost btn-sm" onclick="denniMesic(1)">›</button></div></div><div class="empty"><div class="ei">📊</div><div class="et">Žádné výdaje v tomto měsíci</div></div></div>`;   // v12.06: šipky i u prázdného měsíce
     return;
   }
   const globalMax=Math.max(...rows.map(r=>Math.max(...r.daily)),1);
@@ -755,9 +764,9 @@ function renderDenniGrafy(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
         <div class="card-title" style="margin:0">📊 Denní výdaje po kategoriích · ${CZ_M[m]} ${y}</div>
         <div style="display:flex;gap:6px;align-items:center">
-          <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="changeGrafMonth(-1)">‹</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="denniMesic(-1)">‹</button>
           <button class="btn btn-ghost btn-sm" style="font-size:.72rem;${window._denniSameScale?'border-color:rgba(139,124,246,.5);color:#b9aefc':''}" onclick="denniToggleScale()">${window._denniSameScale?'⚖️ Společná osa':'📐 Vlastní osa'}</button>
-          <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="changeGrafMonth(1)">›</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="denniMesic(1)">›</button>
         </div>
       </div>
       <div style="font-size:.72rem;color:#a8aec8;margin-bottom:12px">${rows.length} kategorií s výdaji · ${window._denniSameScale?'všechny grafy mají stejné měřítko (porovnatelné)':'každý graf má vlastní měřítko (vidíš tvar i u malých kategorií)'} · filtruj nahoře</div>
@@ -844,7 +853,7 @@ function getGrafTxs() {
 }
 
 function changeGrafMonth(d) {
-  if(!_grafMonth) { _grafMonth = S.curMonth; _grafYear2 = S.curYear; }
+  if(_grafMonth == null) { _grafMonth = S.curMonth; _grafYear2 = S.curYear; }   // v12.06: leden (0) nesmí resetovat
   _grafMonth += d;
   if(_grafMonth < 0) { _grafMonth = 11; _grafYear2--; }
   if(_grafMonth > 11) { _grafMonth = 0; _grafYear2++; }
