@@ -1,4 +1,4 @@
-// FinanceFlow · v11.88 · vozidla.js · 2026-10-17
+// FinanceFlow · v12.05 · vozidla.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -176,12 +176,23 @@ window.tankZaznamy = tankZaznamy;
 // ══════════════════════════════════════════════════════
 const TANK_PALIVO_RE = /natural|\bba\s?9[58]\b|\bn\s?9[58]\b|\bevo\b|diesel|\bnafta|benz[ií]n|\blpg\b|\bcng\b|verva|efecta|maxx|\bsuper\b|\bmiles\b|motorov|\b9[58]\b|\bpb\s?9/i;
 const TANK_NE_RE = /adblue|ostřik|ostrik|kapalin|olej|myt[íi]|kafe|káva|kava|latte|hot ?dog/i;
+//  v12.05 (Milan: „v tankování jsou zmatky… ceny za litr nejsou reálné“ – 6 l za 2,50 Kč/l, 4 l za
+//  3,90 Kč/l): dřív stačila jednotka „l“ – za palivo se tak nabídla i voda nebo mléko z běžné účtenky.
+//  Nově musí název vypadat jako palivo A cena za litr musí být reálná (15–90 Kč/l).
+const TANK_PALIVO_SILNE_RE = /\b(evo|verva|efecta|maxx|miles|diesel|nafta|motorov\w*|benz[ií]n|lpg|cng|super\s*plus)\b|\b(natural|ba|n|pb)\s?9[58]\b/i;
+function _tankKc(it) { return it.lineTotal != null ? (parseFloat(it.lineTotal) || 0) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1); }
+function tankJePalivo(it) {
+  if (!it || !it.name || TANK_NE_RE.test(it.name) || !TANK_PALIVO_SILNE_RE.test(it.name)) return false;
+  const l = parseFloat(it.qty) || 0, kc = _tankKc(it);
+  if (!(l >= 1) || !(kc > 0)) return false;
+  const zaL = (kc + Math.abs(parseFloat(it.discount) || 0)) / l;
+  return zaL >= 15 && zaL <= 90;
+}
+window.tankJePalivo = tankJePalivo;
 function tankZUctenky(r) {
   if (!r || !Array.isArray(r.items)) return null;
-  const kc = it => it.lineTotal != null ? (parseFloat(it.lineTotal) || 0) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
-  const kand = r.items.filter(it => it && it.name && !TANK_NE_RE.test(it.name) && kc(it) > 0 && (parseFloat(it.qty) || 0) > 0
-      && (String(it.unit || '').toLowerCase() === 'l' || TANK_PALIVO_RE.test(it.name)) && (parseFloat(it.qty) || 0) >= 1)
-    .sort((a, b) => kc(b) - kc(a));
+  const kc = _tankKc;
+  const kand = r.items.filter(tankJePalivo).sort((a, b) => kc(b) - kc(a));
   const it = kand[0]; if (!it) return null;
   const litry = parseFloat(it.qty) || 0, zapl = kc(it), sleva = Math.abs(parseFloat(it.discount) || 0);
   const n = String(it.name);
@@ -207,6 +218,7 @@ function tankZUctenkyUloz(txId) {
   const u = dupUctenkaPro(t), p = u && tankZUctenky(u.r); if (!p) return;
   const vid = document.getElementById('tuVoz_' + txId)?.value || '';
   const tach = _vozCislo(document.getElementById('tuTach_' + txId)?.value);
+  if (!tankTachometrOk(D, vid, t.date, tach, txId)) return;   // v12.05
   t.tank = tankNormalizuj({ vozidloId: vid, litry: p.litry, tachometr: tach, cenaStojan: p.sleva > 0 ? p.cenaStojan : null, palivo: p.palivo, kc: p.kc, zUctenky: true });
   if (vid) { try { localStorage.setItem('ff_vozidloPosl', vid); } catch (e) {} }
   if (typeof save === 'function') save();
@@ -214,6 +226,49 @@ function tankZUctenkyUloz(txId) {
   renderVozidlaPage();
 }
 window.tankZUctenkyUloz = tankZUctenkyUloz;
+//  v12.05 (Milan: „podařilo se mi uložit paliva bez zapsaného tachometru – chyběla kontrola“):
+//  bez tachometru se zeptá (spotřeba se pak nespočítá), nižší stav než u dřívějšího tankování
+//  téhož vozidla nepustí (překlep).
+function tankTachometrOk(D, vozidloId, datum, tach, bezId) {
+  if (!(tach > 0)) return typeof confirm !== 'function' || confirm('Tachometr není vyplněný – bez něj se u tohoto tankování nespočítá ujeté km ani spotřeba.\n\nOK = zapsat bez tachometru · Zrušit = doplnit');
+  const dr = tankZaznamy(D, vozidloId || '').filter(x => x.id != bezId && x.tachometr > 0);
+  const pred = dr.filter(x => (x.datum || '') <= (datum || '')).reduce((a, x) => Math.max(a, x.tachometr), 0);
+  const po = dr.filter(x => (x.datum || '') > (datum || '')).reduce((a, x) => Math.min(a, x.tachometr), Infinity);
+  if (pred && tach < pred) { if (typeof alert === 'function') alert(`Tachometr ${tach.toLocaleString('cs-CZ')} km je nižší než u dřívějšího tankování (${pred.toLocaleString('cs-CZ')} km). Zkontroluj ho, prosím.`); return false; }
+  if (po !== Infinity && tach > po) { if (typeof alert === 'function') alert(`Tachometr ${tach.toLocaleString('cs-CZ')} km je vyšší než u pozdějšího tankování (${po.toLocaleString('cs-CZ')} km). Zkontroluj ho, prosím.`); return false; }
+  return true;
+}
+window.tankTachometrOk = tankTachometrOk;
+//  v12.05 (Milan: „a nyní už nejde dát upravit/editovat“): úprava záznamu přímo v tabulce
+//  Tankování (Detail vozidla) – tachometr, litry, zaplaceno, cena u stojanu, plná nádrž.
+//  „Odebrat z tankování“ smaže jen údaje o tankování, transakce i účtenka zůstanou.
+let _tankUpravId = null;
+function tankUpravit(txId) { _tankUpravId = (_tankUpravId == txId) ? null : txId; vozidloDetail(_vozDetailId); }
+function tankUpravUloz(txId) {
+  const D = (typeof S !== 'undefined') ? S : getData();
+  const t = (D.transactions || []).find(x => x.id == txId); if (!t || !t.tank) return;
+  const g = id => document.getElementById(id + '_' + txId);
+  const tach = _vozCislo(g('tuETach')?.value), litry = _vozCislo(g('tuELitry')?.value), kc = _vozCislo(g('tuEKc')?.value), cena = _vozCislo(g('tuEStojan')?.value);
+  if (!(litry > 0)) { if (typeof alert === 'function') alert('Vyplň natankované litry.'); return; }
+  if (!tankTachometrOk(D, t.tank.vozidloId || '', t.date, tach, txId)) return;
+  const n = tankNormalizuj(Object.assign({}, t.tank, { litry, tachometr: tach, kc: kc > 0 ? kc : t.tank.kc, cenaStojan: cena, plna: !!g('tuEPlna')?.checked }));
+  if (!n) return;
+  if (!(tach > 0)) delete n.tachometr;
+  t.tank = n; _tankUpravId = null;
+  if (typeof save === 'function') save();
+  if (typeof showToast === 'function') showToast('⛽ Tankování upraveno');
+  vozidloDetail(_vozDetailId); if (typeof renderVozidlaPage === 'function') renderVozidlaPage();
+}
+function tankOdeber(txId) {
+  const D = (typeof S !== 'undefined') ? S : getData();
+  const t = (D.transactions || []).find(x => x.id == txId); if (!t || !t.tank) return;
+  if (typeof confirm === 'function' && !confirm('Odebrat tento záznam z tankování?\n\nSmažou se jen údaje o tankování (litry, tachometr). Transakce i účtenka zůstanou.')) return;
+  delete t.tank; _tankUpravId = null;
+  if (typeof save === 'function') save();
+  if (typeof showToast === 'function') showToast('⛽ Odebráno z tankování');
+  vozidloDetail(_vozDetailId); if (typeof renderVozidlaPage === 'function') renderVozidlaPage();
+}
+Object.assign(window, { tankUpravit, tankUpravUloz, tankOdeber });
 function _tankUctenkyHTML(D) {
   const L = tankUctenkyBez(D); if (!L.length) return '';
   const voz = vozidlaSeznam();
@@ -561,8 +616,8 @@ function vozidloDetail(id) {
   const th = t => `<th style="text-align:right;padding:6px 8px;font-size:.82rem;color:#a8aec8;font-weight:600;white-space:nowrap">${t}</th>`;
   const td = (t, l) => `<td style="text-align:${l ? 'left' : 'right'};padding:6px 8px;font-size:.92rem;white-space:nowrap">${t}</td>`;
   const tab = us.length ? `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
-      <thead><tr style="border-bottom:1px solid var(--border)">${th('Datum').replace('right', 'left')}${th('Tachometr')}${th('Ujeto')}${th('Natankováno')}${th('Cena/' + jed)}${th('Zaplaceno')}${st.usetreno > 0 ? th('Ušetřeno') : ''}${th('Spotřeba')}</tr></thead>
-      <tbody>${us.slice().reverse().map(x => `<tr style="border-bottom:1px solid var(--border)">
+      <thead><tr style="border-bottom:1px solid var(--border)">${th('Datum').replace('right', 'left')}${th('Tachometr')}${th('Ujeto')}${th('Natankováno')}${th('Cena/' + jed)}${th('Zaplaceno')}${st.usetreno > 0 ? th('Ušetřeno') : ''}${th('Spotřeba')}${th('')}</tr></thead>
+      <tbody>${us.slice().reverse().map(x => `<tr style="border-bottom:1px solid var(--border)${x.cenaZaplacenoL && (x.cenaZaplacenoL < 15 || x.cenaZaplacenoL > 90) ? ';background:rgba(251,191,36,.08)' : ''}">
         ${td(_vozEsc(x.datum.split('-').reverse().join('. ')), true)}
         ${td(x.tachometr ? x.tachometr.toLocaleString('cs-CZ') + ' km' : '—')}
         ${td(x.ujeto ? x.ujeto.toLocaleString('cs-CZ') + ' km' : '—')}
@@ -570,8 +625,19 @@ function vozidloDetail(id) {
         ${td(x.cenaZaplacenoL ? _vozDes(x.cenaZaplacenoL, 2) + (x.cenaStojan ? `<div style="font-size:.76rem;color:#8b93ad">stojan ${_vozDes(x.cenaStojan, 2)}</div>` : '') : '—')}
         ${td(fmtKc(x.zaplaceno))}
         ${st.usetreno > 0 ? td(x.cenaStojan > 0 && x.litry > 0 && x.litry * x.cenaStojan > (x.zaplaceno || 0) ? `<span style="color:var(--income)">${fmtKc(x.litry * x.cenaStojan - x.zaplaceno)}</span><div style="font-size:.74rem;color:#8b93ad">${_vozDes(x.litry, 2)} × ${_vozDes(x.cenaStojan, 2)}</div>` : '—') : ''}
-        ${td(x.spotrebaUseku ? _vozDes(x.spotrebaUseku, 1) : '—')}</tr>`).join('')}
-      <tr style="font-weight:800">${td('Celkem', true)}${td('')}${td(st.km ? st.km.toLocaleString('cs-CZ') + ' km' : '—')}${td(_vozDes(st.litryCelkem, 2) + ' ' + jed)}${td(st.cenaEfektivni ? _vozDes(st.cenaEfektivni, 2) : '—')}${td(fmtKc(st.kcCelkem))}${st.usetreno > 0 ? td('<span style="color:var(--income)">' + fmtKc(st.usetreno) + '</span>') : ''}${td(st.spotreba ? _vozDes(st.spotreba, 1) : '—')}</tr>
+        ${td(x.spotrebaUseku ? _vozDes(x.spotrebaUseku, 1) : '—')}
+        ${td(`${x.cenaZaplacenoL && (x.cenaZaplacenoL < 15 || x.cenaZaplacenoL > 90) ? '<span title="Cena za litr nevypadá jako palivo – zkontroluj nebo odeber" style="color:#fbbf24">⚠️</span> ' : ''}<button onclick="tankUpravit('${_vozEsc(x.id)}')" title="Upravit / odebrat" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text);cursor:pointer;padding:3px 8px">✏️</button>`)}</tr>
+        ${_tankUpravId == x.id ? `<tr><td colspan="9" style="padding:8px;background:var(--bg)">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;font-size:.82rem;position:sticky;left:8px;max-width:calc(100vw - 72px);white-space:normal">
+            <label>Tachometr km<br><input class="fi" id="tuETach_${_vozEsc(x.id)}" inputmode="numeric" value="${x.tachometr || ''}" style="width:110px"></label>
+            <label>Natankováno ${jed}<br><input class="fi" id="tuELitry_${_vozEsc(x.id)}" inputmode="decimal" value="${x.litry || ''}" style="width:90px"></label>
+            <label>Zaplaceno Kč<br><input class="fi" id="tuEKc_${_vozEsc(x.id)}" inputmode="decimal" value="${x.zaplaceno || ''}" style="width:100px"></label>
+            <label>Cena u stojanu<br><input class="fi" id="tuEStojan_${_vozEsc(x.id)}" inputmode="decimal" value="${x.cenaStojan || ''}" style="width:90px"></label>
+            <label style="display:flex;gap:5px;align-items:center;padding-bottom:8px"><input type="checkbox" id="tuEPlna_${_vozEsc(x.id)}" ${x.plna ? 'checked' : ''}> plná nádrž</label>
+            <button class="btn btn-sm btn-primary" onclick="tankUpravUloz('${_vozEsc(x.id)}')">💾 Uložit</button>
+            <button class="btn btn-sm" style="color:var(--expense)" onclick="tankOdeber('${_vozEsc(x.id)}')">🗑 Odebrat z tankování</button>
+            <button class="btn btn-sm btn-ghost" onclick="tankUpravit('${_vozEsc(x.id)}')">Zrušit</button></div></td></tr>` : ''}`).join('')}
+      <tr style="font-weight:800">${td('Celkem', true)}${td('')}${td(st.km ? st.km.toLocaleString('cs-CZ') + ' km' : '—')}${td(_vozDes(st.litryCelkem, 2) + ' ' + jed)}${td(st.cenaEfektivni ? _vozDes(st.cenaEfektivni, 2) : '—')}${td(fmtKc(st.kcCelkem))}${st.usetreno > 0 ? td('<span style="color:var(--income)">' + fmtKc(st.usetreno) + '</span>') : ''}${td(st.spotreba ? _vozDes(st.spotreba, 1) : '—')}${td('')}</tr>
       </tbody></table></div>
       <div style="font-size:.8rem;color:#8b93ad;margin-top:4px">Spotřeba úseku = natankováno ÷ ujeto od minula. Bez plné nádrže kolísá – spolehlivý je klouzavý průměr v souhrnu.</div>`
     : '<div style="font-size:.92rem;color:#a8aec8">Zatím žádné tankování.</div>';

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.90 · projects.js · 2026-10-19
+// FinanceFlow · v12.05 · projects.js · 2026-10-23
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5814,6 +5814,7 @@ function renderDetektor() {
         const key = normName(it.name);   // S23 (PLAN F1): jednotný klíč
         if(key.length < 3) return;
         if(typeof rpIsGenericName==='function' && rpIsGenericName(it.name)) return;   // S25 (TODO-276): oddělení, ne výrobek
+        if(typeof rpJeZaloha==='function' && rpJeZaloha(it.name)) return;   // v12.05: záloha za láhev
         if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
         agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
         agg[key].qty += (it.qty||1); agg[key].n++;
@@ -6123,6 +6124,7 @@ function fxLossDetailHTML(fx, txs, D){
     const k=(it.name||'').toLowerCase().trim().replace(/\s+/g,'_');
     if(!k||k.length<3||(it.price||0)<=0) return;
     if(typeof rpIsGenericName==='function' && rpIsGenericName(it.name)) return;
+    if(typeof rpJeZaloha==='function' && rpJeZaloha(it.name)) return;   // v12.05
     if(!priceByItem3M[k]) priceByItem3M[k]={name:it.name,prices:[]};
     priceByItem3M[k].prices.push({price:it.price, month:it.month, year:it.year});
   });
@@ -8234,12 +8236,14 @@ function _osaZivotaHTML(){
   //    Text svisle podél čáry, ať se víc poznámek blízko sebe nepřekrývá. Pod
   //    čárou širší průhledný pruh – na telefonu se do 1,5px čáry trefit nedá.
   const noteMarks = nts.map(n=>{
-    const xx = xp(n.pos).toFixed(1), top = padT - 6, bot = padT + plotH;
+    //  v12.05 (Milan: „čáru s poznámkou protáhnout až úplně nahoru a tenčí linkou“): od osy událostí
+    //  (y 34) až dolů, tloušťka 1 px (vybraná 2 px)
+    const xx = xp(n.pos).toFixed(1), top = 34, bot = padT + plotH;
     const vybr = _osaVybrano===n.id;
     return `<g style="cursor:pointer" onclick="osaDetail('${escJs(n.id)}')" data-osa-poznamka="${esc(n.id)}">
       <title>${esc(n.label)} · ${esc(n.date)}</title>
       <rect x="${(+xx-7).toFixed(1)}" y="${top}" width="14" height="${bot-top}" fill="transparent"/>
-      <line x1="${xx}" y1="${top}" x2="${xx}" y2="${bot}" stroke="${n.color}" stroke-width="${vybr?2.6:1.6}" opacity="${vybr?1:.9}"/>
+      <line x1="${xx}" y1="${top}" x2="${xx}" y2="${bot}" stroke="${n.color}" stroke-width="${vybr?2:1}" opacity="${vybr?1:.9}"/>
       <text transform="translate(${(+xx-4).toFixed(1)},${top+4}) rotate(-90)" text-anchor="end" font-size="10.5" fill="${n.color}" font-family="Georgia,serif" font-weight="700" stroke="#2b1e12" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${esc(n.label.length>34?n.label.slice(0,33)+'…':n.label)}</text>
     </g>`;
   }).join('');

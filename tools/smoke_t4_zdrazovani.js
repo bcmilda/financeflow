@@ -28,8 +28,10 @@ t('cena za kg z gramáže',Math.abs(ctx.taxJednotkovaCena({name:'K EXO VLOCK 500
 t('vážené zboží: cena je už za kg',ctx.taxJednotkovaCena({name:'Banány',price:32.9,unit:'kg'}).cena===32.9);
 const v=ctx.taxCenyVyvoj(items,S);
 const vl=v.polozky.find(p=>p.id==='ovesne vlocky');
-t('různé zkratky a obchody = jeden výrobek',vl&&vl.pocet===4&&vl.zkratek===3,vl);
-t('srovnání za kg (první vs poslední měsíc)',Math.abs(vl.prvni-49.8)<1e-9&&Math.abs(vl.posledni-_m([55.8,67.6]))<1e-9&&vl.zmena===Math.round((_m([55.8,67.6])-49.8)/49.8*100),vl);
+//  v12.05 (Milan: „musíš rovnat stejné se stejným“): balené zboží se spojuje jen přes KONKRÉTNÍ výrobek
+//  (kód / Mapa položek) – „Ovesné vločky 250g“ z Lidlu je jiný výrobek než K-Classic vločky.
+t('různé zkratky téhož výrobku (Mapa položek) = jeden výrobek, jiná značka zvlášť',vl&&vl.pocet===3&&vl.zkratek===2&&vl.nazev==='K-Classic ovesné vločky',vl);
+t('srovnání za kg (první vs poslední měsíc)',Math.abs(vl.prvni-49.8)<1e-9&&Math.abs(vl.posledni-55.8)<1e-9&&vl.zmena===12,vl);
 function _m(a){a=a.slice().sort((x,y)=>x-y);const k=a.length>>1;return a.length%2?a[k]:(a[k-1]+a[k])/2;}
 t('nejlevnější obchod',vl.obchody[0].obchod==='Kaufland'||vl.obchody[0].obchod==='Albert');
 const ban=v.polozky.find(p=>p.id==='banan'); t('banány podle názvu, vážené',ban&&ban.zmena===12,ban&&ban.zmena);
@@ -38,7 +40,7 @@ const sh=ctx.taxShrinkflace(items,S);
 t('shrinkflace napříč obchody',sh.length===1&&sh[0].nazev==='Sedita Mila řezy'&&sh[0].baleniZmena===-10&&sh[0].skryteZdrazeni===11,sh);
 t('dražší balení není shrinkflace',ctx.taxShrinkflace([I('SEDITA MILA REZY 50G',12.9,'2026-06-01','A'),I('SEDITA MILA REZY 45G',14.9,'2026-09-01','B')],S).length===0);
 const h=ctx.taxZdrazovaniHTML(items);
-t('karta: nadpis, pokrytí, výrobky',h.includes('Podle výrobků')&&h.includes('pokrývá')&&h.includes('Ovesné vločky')&&h.includes('3 různé zkratky'));
+t('karta: nadpis, pokrytí, výrobky',h.includes('Podle výrobků')&&h.includes('pokrývá')&&h.includes('K-Classic ovesné vločky')&&h.includes('2 různé zkratky'));
 t('karta: shrinkflace',h.includes('Shrinkflace napříč obchody')&&h.includes('+11 %'));
 t('v záložce Zdražování nahoře',/html \+= taxZdrazovaniHTML\(allItems \|\| \[\]\)/.test(R('receipts.js','../js/receipts.js')));
 console.log(`\n${ok} OK, ${bad} chyb`); if(bad) process.exitCode=1;

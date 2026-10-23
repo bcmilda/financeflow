@@ -1,4 +1,4 @@
-// FinanceFlow · v11.92 · statistika-polozek.js · 2026-10-20
+// FinanceFlow · v12.05 · statistika-polozek.js · 2026-10-23
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -199,11 +199,11 @@ function spRender() {
         <div style="width:100%;height:${Math.max(2, m.castka / maxM * 80)}px;background:#4ade80;border-radius:4px 4px 0 0"></div>
         <div style="font-size:.62rem;color:#a8aec8;margin-top:3px">${e(m.klic.slice(5, 7) + '/' + m.klic.slice(2, 4))}</div></div>`).join('')}</div>` : ''}
     <div style="font-weight:700;font-size:.84rem;margin:16px 0 6px">Položky</div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:420px">
-      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Položka</th><th style="padding:5px 4px;text-align:right">Útrata</th><th style="padding:5px 4px;text-align:right">Ks</th><th style="padding:5px 4px;text-align:right">Ø cena</th><th style="padding:5px 4px;text-align:right">Ø za kg/l</th><th style="padding:5px 4px">Nejlevněji</th></tr>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:600px">
+      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px;min-width:150px">Položka</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Útrata</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ks</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ø cena</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ø za kg/l</th><th style="padding:5px 4px">Nejlevněji</th></tr>
       ${pol.map(p => `<tr style="border-top:1px solid var(--border);${p.mapaI >= 0 ? 'cursor:pointer' : ''}" ${p.mapaI >= 0 ? `onclick="mapaUzivDetail(${p.mapaI})"` : ''}>
         <td style="padding:6px 4px;overflow-wrap:anywhere">${p.ean ? '▮▮ ' : ''}${e(typeof nazevBezGramaze === 'function' ? nazevBezGramaze(p.nazev) : p.nazev)}${p.baleni && typeof baleniText === 'function' ? ` <span style="color:#a8aec8">${e(baleniText(p.baleni))}</span>` : ''}</td><td style="padding:6px 4px;text-align:right;font-weight:700;white-space:nowrap">${kc(p.castka)}</td>
-        <td style="padding:6px 4px;text-align:right">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.vazene ? '—' : kc(p.prumCena)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.vazene ? '—' : kc(p.prumCena)}</td>
         <td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.prumZaJed != null ? kc(p.prumZaJed) + '/' + e(p.jed) : '<span style="color:#a8aec8">—</span>'}</td>
         <td style="padding:6px 4px;color:var(--income)">${p.nejlevneji ? e(p.nejlevneji.o) : '<span style="color:#a8aec8">—</span>'}</td></tr>`).join('')}
     </table></div>

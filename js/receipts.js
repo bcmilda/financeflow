@@ -1,4 +1,4 @@
-// FinanceFlow · v11.95 · receipts.js · 2026-10-21
+// FinanceFlow · v12.05 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -53,6 +53,15 @@ function rpIsGenericName(name){
   return RP_GENERIC_NAMES.includes(n);
 }
 window.rpIsGenericName = rpIsGenericName;
+//  v12.05 (S27, Milan: „míchá se pivo a pivní láhve“): ZÁLOHA ZA OBAL („Láhev pivo 0,5l“ 3 Kč,
+//  „záloha PET“, vratná přepravka) není zboží – do sledování a porovnání cen se nepočítá
+//  (Zdražování, Podle výrobků, Inflace, Detektor). V útratě zůstává, zaplatil jsi ji.
+function rpJeZaloha(name) {
+  const n = String(name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  if (!n) return false;
+  return /zaloh|vratn[aeyiou]|\bvratka\b|prepravk|^\(?\s*(lahev|lahve|lahv)\b/.test(n);
+}
+window.rpJeZaloha = rpJeZaloha;
 
 // ── COICOP globální konstanty a engine ──
 // CZ-COICOP 2018 (platná od 1.1.2024) – 13 oddílů spotřebních výdajů domácností.
@@ -229,6 +238,7 @@ function renderUctenky() {
   allItems.forEach(it => {
     //  S23: obecný název (oddělení místo výrobku) se do sledování cen nepouští.
     if(rpIsGenericName(it.name)){ _genericSkipped++; _genericNames.add(it.name||'bez názvu'); return; }
+    if(rpJeZaloha(it.name)) return;   // v12.05: záloha za láhev není zboží
     const rawName = (it.name||'').toLowerCase().trim();
     //  S23 (PLAN F1): jednotná normalizace z helpers.js. Množství se z klíče
     //  odstraní schválně (aby 100 g a 90 g téhož výrobku patřily k sobě a šla
@@ -355,7 +365,7 @@ function renderUctenky() {
           label:`${Math.round(firstW*1000)}g → ${Math.round(lastW*1000)}g (${wChange}%)`};
       })();
 
-      return {name, displayName, first, last, change, count:deduped.length,
+      return {name, displayName, first, last, change, count:deduped.length, nakupu:sorted.length,   // v12.05: počet nákupů vedle počtu různých cen
               history:deduped, allHistory:sorted, perUnitData, shrinkflation};
     })
     .filter(p => p && (Math.abs(p.change) > 3 || p.perUnitData || p.shrinkflation))
@@ -891,7 +901,7 @@ function renderItemStatsList(topItems, allItems, D, period) {
   const _hiddenCount = _all.length - sorted.length;
   if(!sorted.length) return _tagChips + '<div class="empty"><div class="et">Žádné položky'+(_itemStatsTag?' s tagem „'+_itemStatsTag+'"':' za toto období')+'</div></div>';
 
-  const COLS = 'minmax(0,1fr) 44px 40px 74px 62px'; // Položka | Nákupů | Kusů | Celkem | Průměr
+  const COLS = 'minmax(0,1fr) 40px 52px 74px 62px'; // Položka | Nákupů | Kusů | Celkem | Průměr · v12.05: Ks širší (67 l nepřeteče do Celkem)
   return _tagChips + `<div style="display:grid;grid-template-columns:${COLS};gap:0;border-bottom:2px solid var(--border);padding:6px 0 8px;margin-bottom:2px">
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Položka</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Nák.</div>
@@ -928,8 +938,8 @@ function renderItemStatsList(topItems, allItems, D, period) {
         <div style="font-size:.58rem;color:var(--text3)">nák.</div>
       </div>
       <div style="text-align:center;min-width:0">
-        <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3vw,1rem);font-weight:800;color:#c9cede;white-space:nowrap" title="${Number.isInteger(totalQty)?'':'Součet obsahuje vážené zboží (kg/l) i kusy – proto desetinné číslo.'}">${Math.round((totalQty||0)*10)/10}</div>
-        <div style="font-size:.58rem;color:#a8aec8">${Number.isInteger(totalQty)?'ks':'ks/kg'}</div>
+        <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3vw,1rem);font-weight:800;color:#c9cede;white-space:nowrap" title="${Number.isInteger(totalQty)?'':'Součet obsahuje vážené zboží (kg/l) i kusy – proto desetinné číslo.'}">${(totalQty||0) >= 10 ? Math.round(totalQty||0) : Math.round((totalQty||0)*10)/10}</div>
+        <div style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${Number.isInteger(totalQty)?'ks':'kg/l'}</div>
       </div>
       <div style="text-align:right;padding-right:4px;min-width:0">
         <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3.4vw,.95rem);font-weight:800;color:var(--expense);line-height:1.1;white-space:nowrap">${_cNum(v.total)}</div>
@@ -1693,9 +1703,22 @@ function taxCenyVyvoj(items, D) {
     const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
     if (!m || !m.tax) return;
     pokryto += castka;
+    if (typeof rpJeZaloha === 'function' && rpJeZaloha(it.name)) return;   // v12.05: záloha za láhev není pivo
     const jc = taxJednotkovaCena(it); if (!jc) return;
-    const g = skup[m.tax.id] || (skup[m.tax.id] = { id: m.tax.id, nazev: m.tax.nazev, podNazev: m.tax.podNazev, podId: m.tax.podId, oblastId: m.tax.oblastId, ikona: m.tax.ikona, nakupy: [] });
     const vaz = it.unit === 'kg' || it.unit === 'l';   // S25: u kusového zboží i cena za kus
+    //  v12.05 (Milan: „nelze brát pivo = pivo… nelze míchat banány a banány v čokoládě. Musíš
+    //  rovnat stejné se stejným, váhu můžeš přepočítat na cenu za kg“): dřív jedna skupina na
+    //  OBECNÝ název z taxonomie (Pivo, Banán). Nově:
+    //   • vážené zboží (banány, jablka na kg) → obecný název, bio zvlášť – volně vážené je srovnatelné;
+    //   • balené → KONKRÉTNÍ výrobek: čárový kód, výrobek z Mapy položek, jinak stejná zkratka.
+    //    Různé zkratky téhož výrobku se spojí přes kód nebo Mapu položek. Cena dál za kg / l / ks.
+    const _bio = /\bbio\b/i.test(it.name || '');
+    const _konk = String(it.eanNazev || m.konkretni || '').trim();
+    const klic = vaz ? 'v:' + m.tax.id + (_bio ? '|bio' : '')
+      : it.ean ? 'e:' + it.ean : _konk ? 'k:' + ((typeof normName === 'function') ? normName(_konk) : _konk.toLowerCase())
+      : 'n:' + ((typeof normName === 'function') ? normName(it.name || '') : String(it.name || '').toLowerCase());
+    const _nazevBal = _konk || ((typeof nazevBezGramaze === 'function') ? nazevBezGramaze(it.name || '') : (it.name || ''));
+    const g = skup[klic] || (skup[klic] = { id: m.tax.id, klic, nazev: vaz ? m.tax.nazev + (_bio ? ' bio' : '') : _nazevBal, obecny: m.tax.nazev, podNazev: m.tax.podNazev, podId: m.tax.podId, oblastId: m.tax.oblastId, ikona: m.tax.ikona, vazene: vaz, nakupy: [] });
     g.nakupy.push({ datum: it.date || '', obchod: it.store || '', raw: it.name || '', cena: jc.cena, j: jc.j, cenaKs: vaz ? null : (parseFloat(it.price) || null), baleni: jc.baleni ? jc.baleni + ' ' + jc.bj : '' });
   });
   const vysl = Object.values(skup).map(g => {
@@ -1728,7 +1751,7 @@ function taxShrinkflace(items, D) {
   const sk = {};
   (items || []).forEach(it => {
     const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
-    if (!m || !m.konkretni) return;
+    if (!m || !m.konkretni || (typeof rpJeZaloha === 'function' && rpJeZaloha(it.name))) return;
     const jc = taxJednotkovaCena(it); if (!jc || !jc.baleni || !it.date) return;
     const k = (typeof normName === 'function') ? normName(m.konkretni) : m.konkretni.toLowerCase();
     (sk[k] = sk[k] || { nazev: m.konkretni, n: [] }).n.push({ datum: it.date, baleni: jc.baleni, bj: jc.bj, cenaKs: parseFloat(it.price) || 0, jc: jc.cena, j: jc.j, obchod: it.store || '', raw: it.name || '' });
@@ -1936,7 +1959,7 @@ function buildPricesTab(priceChanges, allItems) {
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-weight:700;font-size:.9rem;text-transform:capitalize">${p.displayName}</div>
-              <div style="font-size:.72rem;color:var(--text2)">${p.count} cen · ${firstDate}–${lastDate}</div>
+              <div style="font-size:.72rem;color:var(--text2)">${p.nakupu && p.nakupu !== p.count ? p.nakupu + ' nákupů · ' : ''}${p.count} ${p.count >= 5 ? 'různých cen' : 'různé ceny'} · ${firstDate}–${lastDate}</div>
             </div>
             <div style="text-align:right">
               <div style="font-family:Syne,sans-serif;font-size:1.25rem;font-weight:800;color:${color}">${arrow} ${Math.abs(p.change)}%</div>
@@ -3907,7 +3930,7 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   allItems.forEach(it=>{
     const k=(it.name||'').trim().toLowerCase();
     if(k.length<3)return;
-    if(rpIsGenericName(it.name))return;   // S25 (TODO-276): „Pečivo 14×“ není výrobek, ale oddělení
+    if(rpIsGenericName(it.name) || rpJeZaloha(it.name))return;   // S25 (TODO-276): „Pečivo 14×“ není výrobek, ale oddělení; v12.05: ani záloha
     if(!itemFreq[k])itemFreq[k]={name:it.name,count:0,total:0,stores:new Set()};
     itemFreq[k].count++;
     itemFreq[k].total+=it.price||0;
@@ -3973,8 +3996,11 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   });
   if(monthReceipts.length){
     const storeM = {};
+    //  v12.05 (Milan: „Penny Market byl navštíven 9× s útratou 2 655 Kč“): obchod se seskupuje
+    //  podle sjednoceného názvu (normalizeStoreName) – „PENNY MARKET“ a „Penny Market s.r.o.“
+    //  dřív byly dva řádky a z Penny se ukázala jen část návštěv.
     monthReceipts.forEach(r=>{
-      const s = r.store||'?';
+      const s = normalizeStoreName(r.store||'?');
       if(!storeM[s]) storeM[s] = {visits:0, total:0, days:{}};
       storeM[s].visits++;
       storeM[s].total += (r.total||0);
@@ -3987,10 +4013,10 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
       + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:380px">'
       + '<thead><tr style="color:#a8aec8;text-align:left">'
       + '<th style="padding:5px 6px">Obchod</th>'
-      + '<th style="padding:5px 6px;text-align:right">Návštěv</th>'
-      + '<th style="padding:5px 6px;text-align:right">Celkem</th>'
-      + '<th style="padding:5px 6px;text-align:right">Ø útrata</th>'
-      + '<th style="padding:5px 6px;text-align:right">Typický den</th>'
+      + '<th style="padding:5px 6px;text-align:right;white-space:nowrap">Návštěv</th>'
+      + '<th style="padding:5px 6px;text-align:right;white-space:nowrap">Celkem</th>'
+      + '<th style="padding:5px 6px;text-align:right;white-space:nowrap">Ø útrata</th>'
+      + '<th style="padding:5px 6px;text-align:right;white-space:nowrap">Typický den</th>'
       + '</tr></thead><tbody>';
     storeRows.forEach(([s,v])=>{
       const topD = Object.entries(v.days).sort((a,b)=>b[1]-a[1])[0];
@@ -6383,25 +6409,37 @@ function buildStoreTrendData(receipts){
   }
   // S12.1g: dedup názvů (case/diakritika: „Můj obchod" = „MOJ OBCHOD"), řazení dle POČTU
   // návštěv (ne útraty) – jednorázové velké faktury (vodárny apod.) graf nezaplevelí.
-  const normKey = s => String(s||'?').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  //  v12.05: klíč = sjednocený název obchodu (normalizeStoreName), stejně jako „Obchody v měsíci“
+  const normKey = s => normalizeStoreName(s||'?').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
   const agg = {}; // key → {name, visits, total, byMonth:{m-y: sum}}
   receipts.forEach(rr=>{
     if(!rr.date) return;
     const k = normKey(rr.store);
-    if(!agg[k]) agg[k] = {name: rr.store||'?', visits:0, total:0, byMonth:{}};
+    if(!agg[k]) agg[k] = {name: normalizeStoreName(rr.store||'?'), visits:0, total:0, byMonth:{}};
     agg[k].visits++; agg[k].total += (rr.total||0);
     const d = new Date(rr.date+'T12:00:00');
     const mk = d.getMonth()+'-'+d.getFullYear();
     agg[k].byMonth[mk] = (agg[k].byMonth[mk]||0) + (rr.total||0);
-    if((rr.store||'').length > agg[k].name.length) agg[k].name = rr.store; // delší varianta názvu vyhrává
   });
   const top = Object.values(agg)
     .sort((a,b)=>b.total-a.total)                   // řadit dle celkové sumy
     .slice(0,4);
+  //  v12.05 (Milan: „bylo by fajn mít i jiné barvy než červenou“): Penny, Kaufland, MOL i Albert
+  //  mají firemní červenou → čáry nešly rozlišit. Barva značky jen u prvního, další dostane
+  //  volnou barvu z palety (graf i legenda berou barvu ze série).
+  const PALETA = ['#60a5fa','#fbbf24','#a78bfa','#34d399','#fb923c','#f472b6','#22d3ee','#4ade80'];
+  const pouzite = [];
+  const _blizko = (a, b) => { const h = x => [1,3,5].map(i => parseInt(x.slice(i, i+2), 16));
+    try { const [p, q] = [h(a), h(b)]; return Math.abs(p[0]-q[0]) + Math.abs(p[1]-q[1]) + Math.abs(p[2]-q[2]) < 120; } catch(e) { return a === b; } };
   const series = top.map(a=>{
     const values = months.map(({m,y})=>Math.round(a.byMonth[m+'-'+y]||0));
-    return {store: a.name, color: storeBrandColor(a.name), values};
-  }).filter(s=>s.values.some(v=>v>0));
+    return {store: a.name, values};
+  }).filter(s=>s.values.some(v=>v>0)).map(s=>{
+    let c = storeBrandColor(s.store);
+    if (!/^#[0-9a-f]{6}$/i.test(c) || pouzite.some(u => _blizko(u, c))) c = PALETA.find(x => !pouzite.some(u => _blizko(u, x))) || c;
+    pouzite.push(c);
+    return Object.assign(s, {color: c});
+  });
   return {months, series};
 }
 

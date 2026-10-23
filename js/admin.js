@@ -1,4 +1,4 @@
-// FinanceFlow · v12.04 · admin.js · 2026-10-23
+// FinanceFlow · v12.05 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,20 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.05',
+    datum: '2026-10-23',
+    zmeny: [
+      "💹 ZDRAŽOVÁNÍ → 🧭 PODLE VÝROBKŮ: STEJNÉ SE STEJNÝM (Milan: „nelze brát pivo = pivo… nelze míchat banány a banány v čokoládě“). Dřív jedna skupina na obecný název (Pivo, Banán). Nově vážené zboží (banány na kg) podle obecného názvu a bio zvlášť; balené zboží jen jako KONKRÉTNÍ výrobek (čárový kód, výrobek z Mapy položek, jinak stejná zkratka). Cena dál za kg / l / ks.",
+      "🍺 Záloha za obal („Láhev pivo 0,5l“ 3 Kč, záloha PET, vratná přepravka) se do sledování cen nepočítá – Zdražování, Podle výrobků, Inflace, Detektor úspor, Pravidelně nakupuješ. V útratě zůstává.",
+      "📈 Inflace: palivo se počítá vždy za litr, i když účtenka jednotku nevyplní – EVO 95 se už nerozpadá na víc řádků „jen 1 cena“. Zdražování ukazuje „4 nákupů · 2 různé ceny“ místo „2 cen“.",
+      "🏪 Analýza účtenek → Obchody v měsíci a 📈 Trend útrat dle obchodů: obchod podle sjednoceného názvu („PENNY MARKET“, „Penny Market s.r.o.“ = jeden obchod; Milan: „Penny byl navštíven 9×“). V trendu má každý obchod jinou barvu (Penny, Kaufland, MOL i Albert mají firemní červenou).",
+      "⛽ TANKOVÁNÍ: z účtenky se nabídne jen skutečné palivo (název paliva a cena 15–90 Kč/l) – dřív stačila jednotka „l“, takže prošla i voda. V Detailu vozidla u každého řádku ✏️: úprava tachometru, litrů, zaplaceno, ceny u stojanu, plné nádrže, nebo 🗑 Odebrat z tankování (transakce i účtenka zůstanou). Řádek s nereálnou cenou za litr je žlutý s ⚠️. Bez tachometru se appka zeptá; nižší stav než u dřívějšího tankování nepustí.",
+      "📐 Statistika položek: širší tabulka, čísla se nezalamují (Ks, Ø za kg). Seznam položek: širší sloupec Ks, u litrů/kg bez desetin od 10.",
+      "📖 Deník → Osa života: čára poznámky vede od osy událostí až dolů a je tenčí.",
+      "🧪 tools/smoke_stejne_se_stejnym.js – 31 testů; smoke_t4_zdrazovani.js upraven na nové pravidlo.",
+    ],
+  },
   {
     verze: 'v12.04',
     datum: '2026-10-23',
