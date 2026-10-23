@@ -1,4 +1,4 @@
-// FinanceFlow · v11.69 · report-mesicni.js · 2026-10-12
+// FinanceFlow · v12.07 · report-mesicni.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -104,6 +104,8 @@ function mesReportData(D, m, y) {
     const obS = Object.values(ob).reduce((a, b) => a + b, 0) || 1;
     ucet = { n: ucty.length, celkem: ut ? ut.celkem : 0, ut, infl, inflPod, ceny, shr,
       obchody: Object.entries(ob).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, v]) => [n, Math.round(v / obS * 100)]) };
+    //  v12.07 (Milan: „Report 2 – trend od začátku roku, max 12 měsíců“): obchody měsíce + trend od ledna
+    try { if (typeof obchodyReportData === 'function') ucet.obch = obchodyReportData(D, m, y); } catch (e) {}
   }
   // výhled příštího měsíce (pravidla): příjmy ze šablon / průměr, výdaje průměr 3M, pásmo = výkyv 6 měsíců
   const v6 = rok.slice(-6).map(x => x.v), mean6 = v6.reduce((a, b) => a + b, 0) / 6;
@@ -460,8 +462,11 @@ function _rpPro3(rd) {
     ${u.ceny.length ? `<table><tr><th class="t">Výrobek</th><th>Dříve</th><th>Nyní</th><th>Změna</th><th>Nákupů</th><th class="t">Nejlevněji</th></tr>${u.ceny.map(p => `<tr><td class="t">${_rpE(p.nazev)}</td><td class="faint">${p.prvni.toFixed(1).replace('.', ',')} Kč/${p.j}</td><td><b>${p.posledni.toFixed(1).replace('.', ',')} Kč/${p.j}</b></td><td class="${p.zmena > 0 ? 'down' : p.zmena < 0 ? 'up' : 'faint'}">${_rpP0(p.zmena)}</td><td class="faint">${p.pocet}</td><td class="t faint">${p.obchody[0] ? _rpE(p.obchody[0].obchod) : ''}</td></tr>`).join('')}</table>` : '<div class="faint" style="font-size:8pt">Zatím málo opakovaných nákupů.</div>'}</div>
   <div class="c6 sec"><h2>Skryté zdražení</h2><div class="sub">Menší balení za stejnou cenu</div>
     ${u.shr.length ? u.shr.map(x => `<div style="display:flex;justify-content:space-between;padding:1.6mm 0;border-bottom:1px solid #F0F3F7;font-size:8pt"><span><b>${_rpE(x.nazev)}</b> <span class="faint">${x.pred.baleni} → ${x.po.baleni} ${x.po.bj}</span></span><b class="down">${x.skryteZdrazeni != null ? '+' + x.skryteZdrazeni + ' %' : ''}</b></div>`).join('') : '<div class="faint" style="font-size:8pt">Nic jsme nenašli.</div>'}</div>
-  <div class="c6 sec"><h2>Obchody</h2><div class="sub">Podíl útraty z účtenek</div>
-    ${u.obchody.map(([n, p]) => `<div style="display:grid;grid-template-columns:26mm 1fr 10mm;gap:2mm;align-items:center;font-size:8pt;margin:1.4mm 0"><span>${_rpE(n)}</span><div class="bar"><i style="width:${p}%;background:#1E293B"></i></div><span class="num">${p} %</span></div>`).join('')}</div>
+  ${u.obch && u.obch.top.length ? `<div class="c6 sec"><h2>V ${_rpE(RP_MES6[rd.m])} nejvíc v ${_rpE(u.obch.top[0].obchod)}</h2><div class="sub">Obchody měsíce · účtenky a notifikace z banky</div>
+    <table><tr><th class="t">Obchod</th><th>Návštěv</th><th>Útrata</th><th>Ø nákup</th></tr>${u.obch.top.map(o => `<tr><td class="t"><span style="display:inline-block;width:2.4mm;height:2.4mm;border-radius:50%;background:${o.barva};margin-right:1.5mm"></span>${_rpE(o.obchod)}</td><td>${o.navstev}×</td><td><b>${_rpKc(o.kc)}</b></td><td class="faint">${_rpKc(o.prumer)}</td></tr>`).join('')}</table></div>
+  <div class="c12 sec"><h2>Trend obchodů od ledna ${rd.y}</h2><div class="sub">Graf 3.4 · Útrata po měsících, 4 obchody s největší útratou · ${u.obch.trend.series.map(x => `<span style="color:${x.color}">●</span> ${_rpE(x.obchod)} ${_rpKc(x.celkem)}`).join(' · ')}</div>${typeof obchodyReportSvg === 'function' ? obchodyReportSvg(u.obch.trend) : ''}</div>`
+  : `<div class="c6 sec"><h2>Obchody</h2><div class="sub">Podíl útraty z účtenek</div>
+    ${u.obchody.map(([n, p]) => `<div style="display:grid;grid-template-columns:26mm 1fr 10mm;gap:2mm;align-items:center;font-size:8pt;margin:1.4mm 0"><span>${_rpE(n)}</span><div class="bar"><i style="width:${p}%;background:#1E293B"></i></div><span class="num">${p} %</span></div>`).join('')}</div>`}
   <div class="foot"><span>Osobní inflace: stejné výrobky, cena za jednotku, váhy podle tvé útraty.</span><span>3 / ${rd._stran}</span></div></section>`;
 }
 function _rpPro4(rd) {

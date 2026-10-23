@@ -1,4 +1,4 @@
-// FinanceFlow · v12.06 · receipts.js · 2026-10-23
+// FinanceFlow · v12.07 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -146,6 +146,7 @@ function normalizeStoreName(name) {
   let n = name.trim()
     .replace(/\s+(s\.r\.o\.|a\.s\.|spol\. s r\.o\.|s\.p\.|v\.o\.s\.)\.?$/i, '')
     .replace(/\s+/g, ' ')
+    .replace(/[\s,;.]+$/, '')   // v12.07: „MOL Česká republika, s.r.o.“ → „MOL Česká republika“ (bez visící čárky)
     .trim();
   // Diakritika → ASCII pro porovnání (ale zobraz originál)
   const lower = n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -4002,12 +4003,15 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
     const d = new Date(r.date+'T12:00:00');
     return d.getMonth()===S.curMonth && d.getFullYear()===S.curYear;
   });
-  if(monthReceipts.length){
-    const storeM = {};
+  //  v12.07: jeden zdroj s Trendem (obchody.js) – účtenky i obchody z notifikací, sjednocené názvy
+  const _obchM = (typeof obchodyMesic === 'function') ? obchodyMesic(getData(), S.curMonth, S.curYear) : null;
+  if(_obchM ? Object.keys(_obchM).length : monthReceipts.length){
+    if(typeof obchodBarvyPriprav === 'function') obchodBarvyPriprav(obchodNakupy(getData()));
+    const storeM = _obchM || {};
     //  v12.05 (Milan: „Penny Market byl navštíven 9× s útratou 2 655 Kč“): obchod se seskupuje
     //  podle sjednoceného názvu (normalizeStoreName) – „PENNY MARKET“ a „Penny Market s.r.o.“
     //  dřív byly dva řádky a z Penny se ukázala jen část návštěv.
-    monthReceipts.forEach(r=>{
+    if(!_obchM) monthReceipts.forEach(r=>{
       const s = normalizeStoreName(r.store||'?');
       if(!storeM[s]) storeM[s] = {visits:0, total:0, days:{}};
       storeM[s].visits++;
@@ -4042,7 +4046,12 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   //  S23: karta „Ušetřeno slevami" se přestěhovala do vlastní záložky 💸 Slevy (buildDiscountsTab).
 
   // ── S12.1d: TREND OBCHODŮ – spojnicový graf útrat po měsících (top 4) ──
-  const storeTrend = buildStoreTrendData(receipts);
+  //  v12.07: karta s přepínačem 6 / 12 měsíců / rok (obchody.js); bez modulu postaru
+  if(typeof obchTrendKartaHTML === 'function'){
+    html += obchTrendKartaHTML(getData());
+    setTimeout(()=>{ if(typeof _obchTrendKresli==='function') _obchTrendKresli(); }, 60);
+  }
+  const storeTrend = (typeof obchTrendKartaHTML === 'function') ? {series:[]} : buildStoreTrendData(receipts);
   if(storeTrend.series.length){
     html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">📈 Trend útrat dle obchodů</span>'
       + '<span style="font-size:.68rem;color:var(--text3)">posledních 6 měsíců</span></div><div class="card-body">'
@@ -6402,7 +6411,7 @@ function storeBrandColor(store){
   return ['#60a5fa','#fbbf24','#a78bfa','#34d399','#fb923c','#f87171','#4ade80'][h % 7];
 }
 function storeBadgeHTML(store, color){
-  const c = color || storeBrandColor(store);
+  const c = color || (typeof obchodBarva === 'function' ? obchodBarva(store) : storeBrandColor(store));   // v12.07: zapamatovaná barva obchodu – stejná v tabulce i grafu
   const ini = String(store||'?').trim().charAt(0).toUpperCase() || '?';
   return '<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:'+c+';color:#fff;font-size:.58rem;font-weight:800;margin-right:5px;flex-shrink:0;vertical-align:-3px">'+ini+'</span>';
 }

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.06 · charts.js · 2026-10-23
+// FinanceFlow · v12.07 · charts.js · 2026-10-23
 //  GRAFY (simplified)
 // ══════════════════════════════════════════════════════
 function renderGrafy(){
@@ -810,7 +810,7 @@ function switchGrafTab(tab, btn) {
   // S16.13 (Milan): filtr Projekty jen od Měsíčního výše – v Denním nedává smysl
   const pw=document.querySelector('.gf-wrap [data-gb="projects"]')?.closest('.gf-wrap');
   if(pw) pw.style.display = (tab==='denni'||tab==='obecne') ? 'none' : '';
-  ['obecne','mesicni','rocni','vsechny','denni'].forEach(t => {  // S16.12: + denni
+  ['obecne','mesicni','rocni','vsechny','denni','obchody'].forEach(t => {  // S16.12: + denni · v12.07: + obchody
     const el = document.getElementById('gtab-'+t+'-content');
     if(el) el.style.display = t===tab ? 'block' : 'none';
     const b = document.getElementById('gtab-'+t);
@@ -821,7 +821,7 @@ function switchGrafTab(tab, btn) {
   if(mn) mn.style.display = tab==='obecne' ? '' : 'none';
   // Sdílené kompaktní filtry — Měsíční + Roční + Všechny roky (Roční↔Vsechny sdílí stav)
   const fw = document.getElementById('grafFilterWrap');
-  if(fw) fw.style.display = (tab==='obecne') ? 'none' : 'flex';
+  if(fw) fw.style.display = (tab==='obecne' || tab==='obchody') ? 'none' : 'flex';   // v12.07: Obchody mají vlastní filtr
   // Rok range zobrazit jen pro vsechny
   const yr = document.getElementById('grafFilterYearRange');
   if(yr) yr.style.display = tab==='vsechny' ? '' : 'none';
@@ -832,6 +832,7 @@ function switchGrafTab(tab, btn) {
       else if(tab==='rocni')   renderRocniGraf();
       else if(tab==='vsechny') renderVsechnyRoky();
   else if(tab==='denni') renderDenniGrafy();  // S16.12
+      else if(tab==='obchody' && typeof renderObchodyGraf==='function') renderObchodyGraf();  // v12.07
     }, 30);
   });
 }

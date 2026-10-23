@@ -1,4 +1,4 @@
-// FinanceFlow · v12.06 · admin.js · 2026-10-23
+// FinanceFlow · v12.07 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.07',
+    datum: '2026-10-23',
+    zmeny: [
+      "🏪 TREND NÁKUPŮ PO OBCHODECH (Milan: „trend za 12 měsíců, za kalendářní rok… barva v tabulce = barva osy grafu… v Reportu… překlikávat roky a porovnat roky ve sloupcovém grafu s filtrem obchodu“). Zdroj: naskenované účtenky I obchody z notifikací (platba spojená s účtenkou se počítá jednou, přes účtenku; převody, přesuny a investice ne). Výchozí míra útrata.",
+      "📈 Analýza účtenek → Trend útrat dle obchodů: přepínač 6 měsíců / 12 měsíců / Rok ‹ 2026 ›. Tabulka 🏪 Obchody v měsíci ze stejného zdroje (i obchody z notifikací).",
+      "🎨 Barva obchodu se přidělí jednou a zapamatuje – stejná v tabulce, v grafu, v legendě, v Reportu i v Grafech. Podobné odstíny (modrá Lidlu × světle modrá) se nepletou.",
+      "📄 Report → Měsíční report, strana 3: obchody měsíce (návštěvy, útrata, Ø nákup) a Trend obchodů od ledna do vybraného měsíce (max 12 měsíců).",
+      "📊 Grafy → nová záložka 🏪 Obchody: rok po měsících (‹ rok ›), míra Útrata / Návštěvy / Ø nákup, výběr obchodů klepnutím, Porovnání let ve sloupcích a tabulka obchod × rok.",
+      "🧹 Název obchodu bez visící čárky („MOL Česká republika, s.r.o.“ → „MOL Česká republika“).",
+      "🧪 tools/smoke_obchody.js – 18 testů.",
+    ],
+  },
   {
     verze: 'v12.06',
     datum: '2026-10-23',
