@@ -1,4 +1,4 @@
-// FinanceFlow · v12.09 · admin.js · 2026-10-23
+// FinanceFlow · v12.10 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.10',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-492 · NÁKUPNÍ SEZNAM – STEJNÝ VÝROBEK VÍCKRÁT, JEDNOU „CENA NEZNÁMÁ“ (Milan: „uniká mi princip“) · cesta: Nákupy → ➕ Přidat do nákupního seznamu → Název produktu. Do komunitního katalogu zapisovaly dvě funkce pod různými klíči: názvy z editoru účtenky (s diakritikou a gramáží, bez ceny) a hlídač cen (sjednocený název, s cenou); k tomu staré klíče z doby před S23. Našeptávač teď ukáže každý výrobek jednou s poslední cenou, bez počtu skenů; dlouhý název se zalomí a cenu nepřekryje.",
+      "🔔 Hlídač ceny: položka navázaná na záznam bez ceny („cena neznámá“) by nikdy neupozornila – výběr i položky už v seznamu se teď vážou na záznam s cenou (přepojí se samy).",
+      "🧾 Editor účtenky → našeptávač názvu: také bez dvojic. Nové názvy se zapisují pod stejný klíč jako ceny a cenu nepřepíšou – nové dvojice nevznikají.",
+      "🧪 tools/smoke_nakup_katalog.js – 10 testů.",
+    ],
+  },
   {
     verze: 'v12.09',
     datum: '2026-10-23',

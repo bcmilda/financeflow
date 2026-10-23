@@ -1,4 +1,4 @@
-// FinanceFlow · v12.09 · receipts.js · 2026-10-23
+// FinanceFlow · v12.10 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -5953,10 +5953,14 @@ async function loadItemCatalog() {
     const snap = await _get(_ref(_db, 'catalog/items'));
     if(snap.exists()) {
       // Katalog je objekt {key: {name:...}} – seřaď abecedně
-      _itemCatalog = Object.values(snap.val())
-        .map(v => typeof v === 'string' ? {name:v} : v)
-        .filter(v => v.name)
-        .sort((a,b) => a.name.localeCompare(b.name, 'cs'));
+      //  v12.10: stejný výrobek jen jednou (dřív víc klíčů pro jeden název)
+      const _cit = t => (/[a-zá-ž]/.test(t) ? 2 : 0) + (/[áčďéěíňóřšťúůýž]/i.test(t) ? 1 : 0);
+      const _sk = new Map();
+      Object.values(snap.val()).map(v => typeof v === 'string' ? {name:v} : v).filter(v => v && v.name).forEach(v => {
+        const k = (typeof normName === 'function' ? normName(v.name) : v.name.toLowerCase()) || v.name;
+        const st = _sk.get(k); if(!st || _cit(v.name) > _cit(st.name)) _sk.set(k, { name: v.name });
+      });
+      _itemCatalog = [..._sk.values()].sort((a,b) => a.name.localeCompare(b.name, 'cs'));
     }
   } catch(e) {}
 }
@@ -5997,13 +6001,11 @@ async function publishToCatalog(items) {
     const updates = {};
     items.forEach(it => {
       if(!it.name || it.name.length < 2 || it.name.length > 60) return;
-      // Klíč = normalizovaný název
-      const key = it.name.toLowerCase()
-        .replace(/[^a-z0-9áčďéěíňóřšťúůýž\s]/g,'')
-        .replace(/\s+/g,'_')
-        .slice(0, 40);
-      if(key.length < 2) return;
-      updates['catalog/items/'+key] = {name: it.name};
+      //  v12.10: stejný klíč jako hlídač cen (publishPricesToCatalog) a zapisuje se JEN název –
+      //  dřív jiný klíč (s diakritikou a gramáží) a přepis celého záznamu → druhý řádek „cena neznámá“.
+      const key = (typeof nakupNormKey === 'function') ? nakupNormKey(it.name) : (typeof normName === 'function' ? normName(it.name) : '');
+      if(!key || key.length < 2) return;
+      updates['catalog/items/'+key+'/name'] = it.name;
     });
     if(Object.keys(updates).length > 0) {
       await _update(_ref(_db), updates);
