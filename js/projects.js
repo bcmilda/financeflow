@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · projects.js · 2026-10-23
+// FinanceFlow · v12.08 · projects.js · 2026-10-23
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -5815,9 +5815,10 @@ function renderDetektor() {
         if(key.length < 3) return;
         if(typeof rpIsGenericName==='function' && rpIsGenericName(it.name)) return;   // S25 (TODO-276): oddělení, ne výrobek
         if(typeof rpJeZaloha==='function' && rpJeZaloha(it.name)) return;   // v12.05: záloha za láhev
-        if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0};
+        if(!agg[key]) agg[key] = {name:(it.name||'').trim(), total:0, qty:0, n:0, jedn:[]};
+        agg[key].jedn.push(typeof polozkaJednotka==='function' ? polozkaJednotka(it) : 'ks');   // v12.08: palivo = l
         agg[key].total += (typeof lineAmt==='function'?lineAmt(it):(it.price||0)*(it.qty||1));
-        agg[key].qty += (it.qty||1); agg[key].n++;
+        agg[key].qty += (parseFloat(it.qty)||1); agg[key].n++;
       });
     });
     const top = Object.values(agg).filter(x=>x.n>=3 && x.total>=200).sort((a,b)=>b.total-a.total).slice(0,5);
@@ -5829,7 +5830,7 @@ function renderDetektor() {
         item: x.name,
         current:`${fmtB(perMonth)}/měs`,
         saving: Math.round(perMonth*0.3),
-        tip:`${x.n}× za 3 měsíce (${Math.round(x.qty)} ks, celkem ${fmtB(Math.round(x.total))}). Omezení o třetinu ušetří ${fmtB(Math.round(perMonth*0.3))}/měs.`,
+        tip:`${x.n}× za 3 měsíce (${(()=>{ const j = typeof jednotkySouhrn==='function' ? jednotkySouhrn(x.jedn) : 'ks'; return j.includes('/') ? '' : Math.round(x.qty) + ' ' + j + ', '; })()}celkem ${fmtB(Math.round(x.total))}). Omezení o třetinu ušetří ${fmtB(Math.round(perMonth*0.3))}/měs.`,
         severity:'low'
       });
       totalSavable += Math.round(perMonth*0.3);

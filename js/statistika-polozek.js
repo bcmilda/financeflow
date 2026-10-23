@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · statistika-polozek.js · 2026-10-23
+// FinanceFlow · v12.08 · statistika-polozek.js · 2026-10-23
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -39,6 +39,7 @@ function spRadky(receipts, mapa, D) {
     const bal = (typeof gramazPolozky === 'function') ? gramazPolozky(it) : (it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null));
     let zaJed = null, jed = '';
     if (vaz(it)) { zaJed = q ? castka / q : null; jed = (it.unit === 'l' ? 'l' : 'kg'); }
+    else if (typeof tankJePalivo === 'function' && tankJePalivo(it)) { zaJed = castka / q; jed = 'l'; }   // v12.08: palivo za litr
     else if (bal && (bal.j === 'g' || bal.j === 'ml') && bal.m > 0) { zaJed = castka / (q * bal.m / 1000); jed = bal.j === 'g' ? 'kg' : 'l'; }
     out.push({
       zaJed, jed, baleni: bal,

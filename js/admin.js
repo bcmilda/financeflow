@@ -1,4 +1,4 @@
-// FinanceFlow · v12.07 · admin.js · 2026-10-23
+// FinanceFlow · v12.08 · admin.js · 2026-10-23
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.08',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-491 · JEDNOTKY (Milan: „u EVO paliva 67 kg/l a u Detektoru úspor 67 ks – nesedí jednotky“) · cesta: Analýza účtenek → seznam položek. Množství má jednotku podle položek: palivo l, vážené zboží kg / l, jinak ks (sloupec „Množ.“). Průměr je cena za JEDNOTKU (Kč/l, Kč/ks) – dřív útrata ÷ počet nákupů s popiskem Kč/ks (Sladký rohlík ukazoval 14 místo 8 Kč/ks). Kusy i váha dohromady → průměr za nákup (Kč/nák.).",
+      "🐛 Detektor úspor → 🛒 Častý nákup: „67 l“ u paliva místo „67 ks“. 📐 Statistika položek: palivo má Ø za litr.",
+      "↕️ MEGAGRAF (Milan: „proč se neseřadil podle velikosti?“) · cesta: Kalendář → Výplatnice → 🔭 Megagraf → ↓ Od největší. Řadil se podle první řady na hlavní ose (Odvody v %), která byla vedle Dobírky v Kč neviditelně malá. U více řad je nově volba „Seřadit podle řady“ (klepnutím); výchozí zůstává první na hlavní ose.",
+      "🧪 tools/smoke_jednotky.js – 9 testů; smoke_vyplatnice_mega.js +1.",
+    ],
+  },
   {
     verze: 'v12.07',
     datum: '2026-10-23',

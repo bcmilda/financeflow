@@ -1,4 +1,4 @@
-// FinanceFlow · v12.07 · receipts.js · 2026-10-23
+// FinanceFlow · v12.08 · receipts.js · 2026-10-23
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -889,7 +889,8 @@ function renderItemStatsList(topItems, allItems, D, period) {
     if(k.length<2)return;
     if(!freq[k])freq[k]={count:0,total:0,catId:it.itemCatId||'',prices:[],tag:it.tag||'',displayName:it.name||''};
     freq[k].count++;
-    freq[k].qty = (freq[k].qty||0) + (it.qty||1); // celkový počet kusů
+    freq[k].qty = (freq[k].qty||0) + (parseFloat(it.qty)||1); // celkové množství (ks / kg / l)
+    (freq[k].jedn || (freq[k].jedn = [])).push(typeof polozkaJednotka === 'function' ? polozkaJednotka(it) : 'ks');   // v12.08
     const lineTotal=lineAmt(it);
     freq[k].total+=lineTotal;
     if(it.price>0) freq[k].prices.push(it.price);
@@ -908,7 +909,7 @@ function renderItemStatsList(topItems, allItems, D, period) {
   return _tagChips + `<div style="display:grid;grid-template-columns:${COLS};gap:0;border-bottom:2px solid var(--border);padding:6px 0 8px;margin-bottom:2px">
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Položka</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Nák.</div>
-    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Ks</div>
+    <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center">Množ.</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right;padding-right:4px">Celkem</div>
     <div style="font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:right">Průměr</div>
   </div>` +
@@ -917,8 +918,14 @@ function renderItemStatsList(topItems, allItems, D, period) {
     const cat = (D.categories||[]).find(c=>c.id===v.catId);
     const icon = cat?.icon||'';
     const color = cat?.color||'var(--text3)';
-    const avgPrice = v.count>0?Math.round(v.total/v.count):0;
     const totalQty = v.qty||v.count;
+    //  v12.08 (Milan: „EVO 95 67 kg/l“): jednotka podle položek (palivo = l, vážené = kg / l, jinak ks).
+    //  Průměr = cena za JEDNOTKU (dřív útrata ÷ počet nákupů s popiskem Kč/ks – u rohlíku 14 místo 8 Kč/ks).
+    //  Různé jednotky (kusy i váha) se nedají sečíst → průměr za nákup.
+    const jedn = typeof jednotkySouhrn === 'function' ? jednotkySouhrn(v.jedn) : (Number.isInteger(totalQty) ? 'ks' : 'kg/l');
+    const jednaJedn = !jedn.includes('/');
+    const avgPrice = jednaJedn ? (totalQty > 0 ? Math.round(v.total/totalQty) : 0) : (v.count>0 ? Math.round(v.total/v.count) : 0);
+    const avgJedn = jednaJedn ? 'Kč/' + jedn : 'Kč/nák.';
     const priceTrend = v.prices.length>=2
       ? (v.prices[v.prices.length-1] > v.prices[0]
           ? `<span style="color:var(--expense);font-weight:700"> ↑</span>`
@@ -941,8 +948,8 @@ function renderItemStatsList(topItems, allItems, D, period) {
         <div style="font-size:.58rem;color:var(--text3)">nák.</div>
       </div>
       <div style="text-align:center;min-width:0">
-        <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3vw,1rem);font-weight:800;color:#c9cede;white-space:nowrap" title="${Number.isInteger(totalQty)?'':'Součet obsahuje vážené zboží (kg/l) i kusy – proto desetinné číslo.'}">${(totalQty||0) >= 10 ? Math.round(totalQty||0) : Math.round((totalQty||0)*10)/10}</div>
-        <div style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${Number.isInteger(totalQty)?'ks':'kg/l'}</div>
+        <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3vw,1rem);font-weight:800;color:#c9cede;white-space:nowrap" title="${jednaJedn?'':'Součet obsahuje vážené zboží i kusy – jednotky se nedají sečíst, průměr je proto za nákup.'}">${(totalQty||0) >= 10 ? Math.round(totalQty||0) : Math.round((totalQty||0)*10)/10}</div>
+        <div style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${jedn}</div>
       </div>
       <div style="text-align:right;padding-right:4px;min-width:0">
         <div style="font-family:Syne,sans-serif;font-size:clamp(.78rem,3.4vw,.95rem);font-weight:800;color:var(--expense);line-height:1.1;white-space:nowrap">${_cNum(v.total)}</div>
@@ -950,7 +957,7 @@ function renderItemStatsList(topItems, allItems, D, period) {
       </div>
       <div style="text-align:right">
         <div style="font-size:.82rem;font-weight:600;color:#c9cede">ø&nbsp;${_cNum(avgPrice)}</div>
-        <div style="font-size:.58rem;color:#a8aec8">Kč/ks</div>
+        <div style="font-size:.58rem;color:#a8aec8">${avgJedn}</div>
       </div>
     </div>`;
   }).join('')
