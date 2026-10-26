@@ -1,4 +1,4 @@
-// FinanceFlow · v12.07 · charts.js · 2026-10-23
+// FinanceFlow · v12.11 · charts.js · 2026-10-25
 //  GRAFY (simplified)
 // ══════════════════════════════════════════════════════
 function renderGrafy(){
@@ -306,18 +306,53 @@ function drawLineChart(id,data,color){drawSimpleAreaChart(id,data.map(d=>d.label
 //  NAROZENINY & PŘÁNÍ
 // ══════════════════════════════════════════════════════
 function renderNarozeniny(){renderBdayList();renderBdayUpcoming();renderWishList();if(typeof renderNakupCile==='function')renderNakupCile();}
+//  v12.11 (Milan: „do tabulky pro přidání narozenin rozbalovací menu: narozeniny, svátek, výročí… a věk,
+//  který by se každý rok zvyšoval, nebo ročník narození a z něj by se počítal věk osoby“):
+//  b.druh = 'narozeniny' | 'svatek' | 'vyroci' (bez druhu = narozeniny), b.rok = rok narození / rok, od kdy
+//  se výročí počítá. Věk se neukládá – počítá se z roku, takže každý rok sám přibude.
+const BDAY_DRUHY = {
+  narozeniny: { kod: 'narozeniny', ikona: '🎂', nazev: 'Narozeniny', rokLabel: 'Rok narození (nepovinné)' },
+  svatek:     { kod: 'svatek',     ikona: '🌸', nazev: 'Svátek',     rokLabel: '' },
+  vyroci:     { kod: 'vyroci',     ikona: '💍', nazev: 'Výročí',     rokLabel: 'Rok, od kdy se počítá (nepovinné)' },
+};
+function bdayDruh(b){ return BDAY_DRUHY[b && b.druh] || BDAY_DRUHY.narozeniny; }
+function _bdayLet(n){ return n===1 ? '1 rok' : (n>=2&&n<=4) ? n+' roky' : n+' let'; }
+//  Věk / počet let k dnešku (narozeniny, výročí s rokem), jinak null
+function bdayVek(b, dnes){
+  if(!b || !b.rok || bdayDruh(b).kod==='svatek') return null;
+  dnes = dnes || new Date();
+  const letos = new Date(dnes.getFullYear(), b.month-1, b.day); letos.setHours(0,0,0,0);
+  const d0 = new Date(dnes); d0.setHours(0,0,0,0);
+  const v = dnes.getFullYear() - b.rok - (d0 < letos ? 1 : 0);
+  return v >= 0 ? v : null;
+}
+//  Kolik bude při nejbližším výskytu (dnes se počítá jako nejbližší)
+function bdayVekPristi(b, dnes){
+  if(!b || !b.rok || bdayDruh(b).kod==='svatek') return null;
+  dnes = dnes || new Date();
+  const d0 = new Date(dnes); d0.setHours(0,0,0,0);
+  let y = dnes.getFullYear(); const letos = new Date(y, b.month-1, b.day); letos.setHours(0,0,0,0);
+  if(letos < d0) y++;
+  const v = y - b.rok;
+  return v >= 0 ? v : null;
+}
+function bdayVekText(b, dnes){
+  const v = bdayVek(b, dnes); if(v == null) return '';
+  return bdayDruh(b).kod === 'vyroci' ? _bdayLet(v) : _bdayLet(v);
+}
+Object.assign(window, { BDAY_DRUHY, bdayDruh, bdayVek, bdayVekPristi, bdayVekText, _bdayLet });
 function renderBdayList(){
   const D=getData();const ro=viewingUid!==null;
   const el=document.getElementById('bdayList');if(!el)return;
   const bdays=(D.birthdays||[]).sort((a,b)=>a.month-b.month||a.day-b.day);
   if(!bdays.length){el.innerHTML='<div class="empty"><div class="ei">🎂</div><div class="et">Žádné narozeniny</div></div>';return;}
-  el.innerHTML=bdays.map(b=>`<div class="bday-item"><div class="bday-icon">🎂</div><div class="bday-info"><div class="bday-name">${b.name}</div><div class="bday-date">${b.day}. ${CZ_M[b.month-1]}${b.gift?` · 🎁 ${fmt(b.gift)}`:''}</div>${b.note?`<div class="bday-date" style="color:var(--text3)">${b.note}</div>`:''}</div><div style="text-align:right">${(()=>{const _d=daysUntilBday(b);return _d<=30?`<div class="bday-soon">${_d===0?'DNES 🎉':_d===1?'ZÍTRA':'za '+_bdayDnu(_d)}</div>`:'';})()}<div style="display:flex;gap:4px;margin-top:4px">${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="editBday('${b.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="deleteBday('${b.id}')">✕</button>`:''}</div></div></div>`).join('');
+  el.innerHTML=bdays.map(b=>`<div class="bday-item"><div class="bday-icon">${bdayDruh(b).ikona}</div><div class="bday-info"><div class="bday-name">${b.name}</div><div class="bday-date">${bdayDruh(b).nazev} · ${b.day}. ${CZ_M[b.month-1]}${bdayVekText(b)?` · ${bdayVekText(b)}`:''}${b.gift?` · 🎁 ${fmt(b.gift)}`:''}</div>${b.note?`<div class="bday-date" style="color:var(--text3)">${b.note}</div>`:''}</div><div style="text-align:right">${(()=>{const _d=daysUntilBday(b);return _d<=30?`<div class="bday-soon">${_d===0?'DNES 🎉':_d===1?'ZÍTRA':'za '+_bdayDnu(_d)}</div>`:'';})()}<div style="display:flex;gap:4px;margin-top:4px">${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="editBday('${b.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="deleteBday('${b.id}')">✕</button>`:''}</div></div></div>`).join('');
 }
 function renderBdayUpcoming(){
   const D=getData();const el=document.getElementById('bdayUpcoming');if(!el)return;
   const bdays=(D.birthdays||[]).map(b=>({...b,days:daysUntilBday(b)})).sort((a,b)=>a.days-b.days).slice(0,5);
   if(!bdays.length){el.innerHTML='<div class="empty"><div class="et">Žádné narozeniny</div></div>';return;}
-  el.innerHTML=bdays.map(b=>`<div class="insight-item ${b.days<=7?'bad':b.days<=30?'warn':'info'}"><div class="insight-icon">🎂</div><div class="insight-text"><strong>${b.name}</strong> – ${b.day}. ${CZ_M[b.month-1]}<br>${b.days===0?'<strong>DNES!</strong>':b.days===1?'<strong>ZÍTRA!</strong>':`za <strong>${_bdayDnu(b.days)}</strong>`}${b.gift?` · dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join('');
+  el.innerHTML=bdays.map(b=>`<div class="insight-item ${b.days<=7?'bad':b.days<=30?'warn':'info'}"><div class="insight-icon">${bdayDruh(b).ikona}</div><div class="insight-text"><strong>${b.name}</strong> – ${bdayDruh(b).nazev.toLowerCase()} ${b.day}. ${CZ_M[b.month-1]}${bdayVekPristi(b)!=null?` · ${bdayDruh(b).kod==='vyroci'?'':'bude '}${_bdayLet(bdayVekPristi(b))}`:''}<br>${b.days===0?'<strong>DNES!</strong>':b.days===1?'<strong>ZÍTRA!</strong>':`za <strong>${_bdayDnu(b.days)}</strong>`}${b.gift?` · dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join('');
 }
 // FIX-291 (S20): dřív se porovnávala PŮLNOC cílového dne s AKTUÁLNÍM časem.
 //   Půlnoc dneška je vždy menší než „teď", takže se datum posunulo o rok:
@@ -340,9 +375,17 @@ function _bdayDnu(n){
   if(a>=2&&a<=4) return a+' dny';
   return a+' dní';
 }
-function openBdayModal(){if(viewingUid)return;['editBdayId','bdayName','bdayDay','bdayGift','bdayNote'].forEach(id=>document.getElementById(id).value='');document.getElementById('bdayMonth').value='1';document.getElementById('bdayModalTitle').textContent='Přidat narozeniny';document.getElementById('modalBday').classList.add('open');}
-function editBday(id){if(viewingUid)return;const b=(S.birthdays||[]).find(x=>x.id===id);if(!b)return;document.getElementById('editBdayId').value=id;document.getElementById('bdayName').value=b.name;document.getElementById('bdayDay').value=b.day;document.getElementById('bdayMonth').value=b.month;moneyInFill('bdayGift', b.gift);document.getElementById('bdayNote').value=b.note||'';document.getElementById('bdayModalTitle').textContent='Upravit narozeniny';document.getElementById('modalBday').classList.add('open');}
-function saveBday(){const eid=document.getElementById('editBdayId').value;const name=document.getElementById('bdayName').value.trim();const day=parseInt(document.getElementById('bdayDay').value);const month=parseInt(document.getElementById('bdayMonth').value);const gift=moneyInRead('bdayGift');const note=document.getElementById('bdayNote').value.trim();if(!name||!day||!month){alert('Vyplň jméno, den a měsíc');return;}if(!S.birthdays)S.birthdays=[];if(eid){const b=S.birthdays.find(x=>x.id===eid);if(b)Object.assign(b,{name,day,month,gift,note});}else S.birthdays.push({id:uid(),name,day,month,gift,note});save();closeModal('modalBday');renderPage();}
+function openBdayModal(){if(viewingUid)return;['editBdayId','bdayName','bdayDay','bdayGift','bdayNote','bdayRok'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('bdayMonth').value='1';const dr=document.getElementById('bdayDruh');if(dr)dr.value='narozeniny';bdayDruhZmen();document.getElementById('modalBday').classList.add('open');}
+//  v12.11: titulek okna a pole Rok podle druhu (u svátku rok nemá smysl)
+function bdayDruhZmen(){const dr=document.getElementById('bdayDruh');const d=BDAY_DRUHY[dr?dr.value:'narozeniny']||BDAY_DRUHY.narozeniny;const eid=document.getElementById('editBdayId');const t=document.getElementById('bdayModalTitle');if(t)t.textContent=(eid&&eid.value?'Upravit ':'Přidat ')+d.nazev.toLowerCase();const w=document.getElementById('bdayRokWrap');if(w)w.style.display=d.rokLabel?'':'none';const l=document.getElementById('bdayRokLabel');if(l)l.textContent=d.rokLabel;}
+window.bdayDruhZmen=bdayDruhZmen;
+function editBday(id){if(viewingUid)return;const b=(S.birthdays||[]).find(x=>x.id===id);if(!b)return;document.getElementById('editBdayId').value=id;document.getElementById('bdayName').value=b.name;document.getElementById('bdayDay').value=b.day;document.getElementById('bdayMonth').value=b.month;moneyInFill('bdayGift', b.gift);document.getElementById('bdayNote').value=b.note||'';const dr=document.getElementById('bdayDruh');if(dr)dr.value=bdayDruh(b).kod;const ro=document.getElementById('bdayRok');if(ro)ro.value=b.rok||'';bdayDruhZmen();document.getElementById('modalBday').classList.add('open');}
+function saveBday(){const eid=document.getElementById('editBdayId').value;const name=document.getElementById('bdayName').value.trim();const day=parseInt(document.getElementById('bdayDay').value);const month=parseInt(document.getElementById('bdayMonth').value);const gift=moneyInRead('bdayGift');const note=document.getElementById('bdayNote').value.trim();if(!name||!day||!month){alert('Vyplň jméno, den a měsíc');return;}
+  //  v12.11: druh a rok (nepovinný, 1900 až letos; u svátku se neukládá)
+  const druh=(document.getElementById('bdayDruh')||{}).value||'narozeniny';const rokV=parseInt((document.getElementById('bdayRok')||{}).value,10);const letos=new Date().getFullYear();
+  if(druh!=='svatek'&&(document.getElementById('bdayRok')||{}).value&&!(rokV>=1900&&rokV<=letos)){alert('Rok zadej mezi 1900 a '+letos+', nebo nech prázdný');return;}
+  const rok=(druh!=='svatek'&&rokV>=1900&&rokV<=letos)?rokV:null;
+  if(!S.birthdays)S.birthdays=[];if(eid){const b=S.birthdays.find(x=>x.id===eid);if(b){Object.assign(b,{name,day,month,gift,note,druh});if(rok)b.rok=rok;else delete b.rok;}}else{const nb={id:uid(),name,day,month,gift,note,druh};if(rok)nb.rok=rok;S.birthdays.push(nb);}save();closeModal('modalBday');renderPage();}
 function deleteBday(id){if(viewingUid)return;if(!confirm('Smazat?'))return;S.birthdays=S.birthdays.filter(b=>b.id!==id);save();renderPage();}
 function searchWishHeureka(n){if(!n)return;window.open('https://www.heureka.cz/?h[fraze]='+encodeURIComponent(n),'_blank');}
 

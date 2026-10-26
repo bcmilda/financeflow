@@ -1,4 +1,4 @@
-// FinanceFlow · v12.10 · receipts.js · 2026-10-23
+// FinanceFlow · v12.11 · receipts.js · 2026-10-25
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -398,9 +398,15 @@ function renderUctenky() {
   const allMonthTxs = (D2.transactions||[]).filter(t =>
     t.type==='expense' && !t.splitParent && !t.isBalancing &&
     !(typeof isTransferTx === 'function' && isTransferTx(t)));
-  const txMonths = new Set(allMonthTxs.map(t=>(t.date||'').slice(0,7)));
+  //  v12.11 (Milan: „Srovnání ČR: dal bych průměr za kalendářní rok, ne ze všech měsíců. Někde to tam připiš.“):
+  //  průměr měsíčních výdajů za kalendářní rok VYBRANÉHO měsíce, od ledna do vybraného měsíce
+  //  (měsíce bez výdajů se nepočítají). Dřív průměr ze všech měsíců v datech.
+  const _cmpRok = String(S.curYear), _cmpDo = S.curYear + '-' + String(S.curMonth + 1).padStart(2, '0');
+  const cmpTxs = allMonthTxs.filter(t => { const mm = (t.date||'').slice(0,7); return mm.slice(0,4) === _cmpRok && mm <= _cmpDo; });
+  const txMonths = new Set(cmpTxs.map(t=>(t.date||'').slice(0,7)));
   const numMonths = Math.max(txMonths.size, 1);
-  allMonthTxs.forEach(tx => {
+  window._cmpObdobi = { rok: S.curYear, doMes: S.curMonth, mesicu: txMonths.size };
+  cmpTxs.forEach(tx => {
     const {coicopId} = mapToCOICOP(tx);
     coicopUserTotals[coicopId] = (coicopUserTotals[coicopId]||0) + (typeof txCZK==='function' ? txCZK(tx, D2) : (tx.amount||tx.amt||0));
   });
@@ -409,12 +415,7 @@ function renderUctenky() {
   });
 
   // Měsíční breakdown – posledních 6 měsíců per COICOP skupina
-  const now = new Date();
-  const last6Months = [];
-  for(let i=5; i>=0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    last6Months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-  }
+  const last6Months = rpMesiceDoVybraneho(6);   // v12.11: 6 měsíců končících vybraným měsícem (dřív od dneška)
   const coicopMonthly = {}; // {coicopId: {month: total}}
   allMonthTxs.forEach(tx => {
     const month = (tx.date||'').slice(0,7);
@@ -426,6 +427,11 @@ function renderUctenky() {
 
   // Kontrola kompletnosti se počítá přímo v buildCompareTab
 
+  //  v12.11 (Milan: „při přepínání měsíce horním tlačítkem nastane nepříjemný problik při překreslení stránky“):
+  //  stránka se staví celá znovu; výška se drží, dokud se nedokreslí grafy a karty na pozadí, a grafy
+  //  se kreslí hned (ne až za 60 ms) – dřív obsah na okamžik zkolaboval a grafy probliklé prázdné.
+  const _vyska0 = el.offsetHeight;
+  if (_vyska0) { el.style.minHeight = _vyska0 + 'px'; clearTimeout(window._uctVyskaT); window._uctVyskaT = setTimeout(() => { el.style.minHeight = ''; }, 1500); }
   el.innerHTML = (typeof cenyInfoBannerHTML === 'function' ? cenyInfoBannerHTML() : '')   // S25: jednorázové oznámení o sdílení cen
     + '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'
     + '<button class="tx-filt-btn" id="utab-scan" onclick="switchUctenkyTab(\'scan\',this)">📸 Skenovat</button>'
@@ -465,6 +471,9 @@ function renderUctenky() {
 
   // Obnov aktivní záložku (ne vždy scan)
   switchUctenkyTab(_activeUctenkyTab);
+  //  v12.11: grafy a Živiny hned po vložení (bez probliknutí prázdné plochy)
+  try { if (typeof _obchTrendKresli === 'function') _obchTrendKresli(); } catch (e) {}
+  try { if (typeof dnaZivinyKresli === 'function') dnaZivinyKresli(); } catch (e) {}
 
   // Obnov stav fronty a preview po překreslení
   updateReceiptQueue();
@@ -662,10 +671,11 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
       <div class="card-body" id="itemStatsLocal">
         <!-- Filtr -->
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap">
-          ${['1M','3M','6M','12M','vše'].map(p=>`<button onclick="filterItemStats('${p}',this)" class="btn btn-ghost btn-sm ${p==='3M'?'active':''}">${p}</button>`).join('')}
+          ${['1M','3M','6M','12M','vše'].map(p=>`<button onclick="filterItemStats('${p}',this)" class="btn btn-ghost btn-sm ${p===_itemStatsPeriod?'active':''}">${p}</button>`).join('')}
+          <span style="font-size:.68rem;color:#a8aec8;align-self:center">${rpObdobiPopis()}</span>
         </div>
         <div id="itemStatsBody">
-          ${renderItemStatsList(topItems, allItems, D, '3M')}
+          ${renderItemStatsList(topItems, allItems, D, _itemStatsPeriod)}
         </div>
       </div>
     </div>
@@ -695,6 +705,7 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
             <option value="6M">6 měsíců</option>
             <option value="12M" selected>12 měsíců</option>
           </select>
+          <span style="font-size:.68rem;color:#a8aec8;align-self:center">${rpObdobiPopis()}</span>
         </div>
         <div id="itemChartCanvas" style="min-height:180px;overflow-x:auto"></div>
       </div>
@@ -713,6 +724,20 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
   return html;
 }
 
+//  v12.11 (Milan: „Nejčastější položky a Vývoj nákupů: 1M–12M počítané od vybraného měsíce. Trend a Slevy
+//  taky od vybraného měsíce“): období N měsíců KONČÍCÍ vybraným měsícem nahoře (S.curMonth/S.curYear),
+//  ne posledních N měsíců od dneška. Vrací pole 'YYYY-MM' od nejstaršího.
+function rpMesiceDoVybraneho(n, mesic, rok) {
+  const m = mesic == null ? S.curMonth : mesic, y = rok == null ? S.curYear : rok, out = [];
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(y, m - i, 1); out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
+  return out;
+}
+window.rpMesiceDoVybraneho = rpMesiceDoVybraneho;
+function rpObdobiPopis() {
+  const M = ['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince'];
+  return 'do ' + M[S.curMonth] + ' ' + S.curYear + ' (měsíc nahoře)';
+}
+
 function renderItemChart(){
   const el = document.getElementById('itemChartCanvas'); if(!el) return;
   const mode = document.getElementById('itemChartMode')?.value||'name';
@@ -724,16 +749,10 @@ function renderItemChart(){
   const months = parseInt(period)||3;
   // S17.13: osa X = SOUVISLÁ řada měsíců (dřív se kreslily jen měsíce, kde byl nákup,
   // takže graf s jedním nákupem ukázal jediný sloupec s popiskem „03" a vypadal rozbitě).
-  const now = new Date();
-  const axisMonths = [];
-  for(let i=months-1;i>=0;i--){
-    const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
-    axisMonths.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-  }
-  const cutoff = new Date(now.getFullYear(), now.getMonth()-(months-1), 1);
+  const axisMonths = rpMesiceDoVybraneho(months);   // v12.11: končí vybraným měsícem
 
   const items = receipts.flatMap(r=>(r.items||[]).map(it=>({...it,date:r.date||''})))
-    .filter(it => it.date && new Date(it.date) >= cutoff);
+    .filter(it => it.date && axisMonths.includes(String(it.date).slice(0,7)));
 
   // Seskup dle měsíce a klíče (název nebo tag)
   const monthlyData = {}, allKeys = new Set();
@@ -861,19 +880,9 @@ function itemChartClear(){ window._itemChartPick=[]; renderItemChart(); }
 let _itemStatsPeriod = '3M';
 let _itemStatsTag = '';
 function renderItemStatsList(topItems, allItems, D, period) {
-  const today = new Date();
-  let fromDate = new Date();
-  if(period==='1M') fromDate.setMonth(fromDate.getMonth()-1);
-  else if(period==='3M') fromDate.setMonth(fromDate.getMonth()-3);
-  else if(period==='6M') fromDate.setMonth(fromDate.getMonth()-6);
-  else if(period==='12M') fromDate.setFullYear(fromDate.getFullYear()-1);
-  else fromDate = new Date('2000-01-01');
-
-  // Filtruj allItems dle období
-  const filtered = period==='vše' ? allItems : allItems.filter(it=>{
-    if(!it.date) return false;
-    return new Date(it.date) >= fromDate;
-  });
+  //  v12.11: 1M = vybraný měsíc, 3M/6M/12M = měsíce končící vybraným měsícem (dřív od dneška)
+  const _mes = period==='vše' ? null : rpMesiceDoVybraneho(parseInt(period,10)||3);
+  const filtered = !_mes ? allItems : allItems.filter(it => it.date && _mes.includes(String(it.date).slice(0,7)));
 
   // FÁZE 4: filtr položek podle COICOP tagu (zelené tagy)
   const _allTags = [...new Set(filtered.flatMap(it=>(it.tag||'').split(/[\s,]+/).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'cs'));
@@ -1048,6 +1057,8 @@ function buildCompareTab(hasData, coicopUserTotals, coicopGroups, receipts, catS
     <!-- Info hlavička -->
     <div style="background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:12px;border:1px solid var(--border)">
       <div style="font-size:.76rem;color:var(--text2);margin-bottom:6px">📊 <strong>ČSÚ 2024</strong> · Statistika rodinných účtů · přepočteno na <strong>${householdSize.toFixed(2).replace('.',',')} spotřební jednotky</strong></div>
+      ${(()=>{ const o = window._cmpObdobi; if(!o) return ''; const M=['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
+        return `<div style="font-size:.74rem;color:#c9cede;margin-bottom:6px">📅 Vy = <strong>průměr na měsíc za rok ${o.rok}</strong> (${o.doMes ? 'leden – ' + M[o.doMes] : 'leden'}, ${o.mesicu} ${o.mesicu === 1 ? 'měsíc' : o.mesicu >= 2 && o.mesicu <= 4 ? 'měsíce' : 'měsíců'} s výdaji). Rok a měsíc mění šipky nahoře.</div>`; })()}
       <div style="display:flex;gap:16px;font-size:.72rem;color:var(--text2)">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--income);margin-right:4px;vertical-align:middle"></span>Vy</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(139,144,168,.35);margin-right:4px;vertical-align:middle"></span>Průměr ČR</span>
@@ -1243,7 +1254,9 @@ function buildTrendTab(coicopMonthly, coicopGroups, last6Months) {
 function buildDiscountsTab(receipts){
   receipts = receipts || [];
   let html = '<div id="utab-discounts-content" style="display:none">';
-    const now = new Date();
+    //  v12.11 (Milan: „Trend a Slevy taky zobrazit od vybraného měsíce“): „měsíc“ = vybraný měsíc nahoře,
+    //  „rok“ = leden až vybraný měsíc téhož roku, sloupce = 6 měsíců končících vybraným (dřív od dneška).
+    const now = (typeof S !== 'undefined' && S.curYear != null) ? new Date(S.curYear, S.curMonth, 15) : new Date();
     let savMonth=0, savYear=0, savTotal=0;
     const byMonth = {};
     //  S23 (Milan): „MÁME SLEDOVAT, KOLIK A KDE JSME UŠETŘILI – NIKDE TO NEVIDÍM."
@@ -1262,7 +1275,7 @@ function buildDiscountsTab(receipts){
       if(sv<=0 || !rr.date) return;
       const d = new Date(rr.date+'T12:00:00');
       savTotal += sv;
-      if(d.getFullYear()===now.getFullYear()){ savYear+=sv; if(d.getMonth()===now.getMonth()) savMonth+=sv; }
+      if(d.getFullYear()===now.getFullYear() && d.getMonth()<=now.getMonth()){ savYear+=sv; if(d.getMonth()===now.getMonth()) savMonth+=sv; }
       const mk = d.getMonth()+'-'+d.getFullYear();
       byMonth[mk]=(byMonth[mk]||0)+sv;
     });
@@ -1281,8 +1294,8 @@ function buildDiscountsTab(receipts){
       const maxB=Math.max(...bars.map(b=>b.v),1);
       html += '<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💸 Ušetřeno slevami</span></div><div class="card-body">'
         + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">'
-        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savMonth)+'</div><div class="stat-label-h">tento měsíc ('+curSym()+')</div></div>'
-        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savYear)+'</div><div class="stat-label-h">letos ('+curSym()+')</div></div>'
+        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savMonth)+'</div><div class="stat-label-h">'+['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'][now.getMonth()]+' '+now.getFullYear()+' ('+curSym()+')</div></div>'
+        +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savYear)+'</div><div class="stat-label-h">rok '+now.getFullYear()+' do '+(now.getMonth()+1)+'. měsíce ('+curSym()+')</div></div>'
         +   '<div class="stat-card-h" style="background:var(--surface2);border-radius:10px;padding:11px;text-align:center;border:1px solid var(--border);min-width:0"><div class="stat-value-h" style="color:var(--income)">'+_cNum(savTotal)+'</div><div class="stat-label-h">celkem ('+curSym()+')</div></div>'
         + '</div>'
         + '<div style="display:flex;align-items:flex-end;gap:6px;height:58px">'
@@ -4148,7 +4161,8 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
 
   //  S26 (v11.67): 🥗 Živiny v nákupu – pod Nákupní DNA, kreslí se po vykreslení záložky
   html += '<div id="dnaZiviny"></div>';
-  setTimeout(() => { if (typeof dnaZivinyKresli === 'function') dnaZivinyKresli(); }, 0);
+  //  v12.11: kreslí se hned po vložení stránky (renderUctenky); setTimeout jen jako záloha
+  setTimeout(() => { const z = document.getElementById('dnaZiviny'); if (z && !z.innerHTML.trim() && typeof dnaZivinyKresli === 'function') dnaZivinyKresli(); }, 0);
 
   // ── S12.1d: MĚSÍČNÍ PŘEHLED OBCHODŮ – tabulka (aktuální měsíc) ──
   const CZ_M2 = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
@@ -4203,7 +4217,7 @@ function buildLearnTab(receipts, allItems, storeStats, totalSpent) {
   //  v12.07: karta s přepínačem 6 / 12 měsíců / rok (obchody.js); bez modulu postaru
   if(typeof obchTrendKartaHTML === 'function'){
     html += obchTrendKartaHTML(getData());
-    setTimeout(()=>{ if(typeof _obchTrendKresli==='function') _obchTrendKresli(); }, 60);
+    setTimeout(()=>{ const c = document.getElementById('storeTrendChart'); if(c && !c._nakresleno && typeof _obchTrendKresli==='function') _obchTrendKresli(); }, 60);
   }
   const storeTrend = (typeof obchTrendKartaHTML === 'function') ? {series:[]} : buildStoreTrendData(receipts);
   if(storeTrend.series.length){
@@ -6671,7 +6685,9 @@ function drawStoreTrendChart(id, data){
       draw();
       requestAnimationFrame(()=>{
         const ctx2 = canvas.getContext('2d');
-        ctx2.save(); ctx2.scale(dpr,dpr);
+        //  v12.11 (Milan: „špatné zobrazení při kliknutí do grafu na značku obchodu“): draw() už měřítko dpr
+        //  nastavilo, druhé scale(dpr) ho zdvojnásobilo – na telefonu (dpr 3) byla bublina 3× větší a mimo graf.
+        ctx2.save(); ctx2.setTransform(dpr,0,0,dpr,0,0);
         ctx2.strokeStyle = 'rgba(232,234,242,.45)'; ctx2.setLineDash([3,3]);
         ctx2.beginPath(); ctx2.moveTo(x(idx), pad.t); ctx2.lineTo(x(idx), H-pad.b); ctx2.stroke(); ctx2.setLineDash([]);
         const lines = data.series.map(s=>({t:s.store.slice(0,14)+': '+fmtB(s.values[idx]), c:s.color, v:s.values[idx]}))
@@ -6693,6 +6709,7 @@ function drawStoreTrendChart(id, data){
       });
     };
     canvas.onmouseleave = function(){ draw(); };
+    canvas._nakresleno = true;
     // S12.1g: dotyk napřímo (touch-action:pan-y = svislý scroll zůstává, tah prstem = scrub)
     if(!canvas._touchBound){
       canvas._touchBound = true;
@@ -6705,7 +6722,8 @@ function drawStoreTrendChart(id, data){
       canvas.addEventListener('touchmove',  fire, {passive:true});
     }
   };
-  requestAnimationFrame(draw);
+  //  v12.11: viditelný graf kreslit hned (dřív vždy až v dalším snímku → krátce prázdná plocha)
+  if (canvas.clientWidth) draw(); else requestAnimationFrame(draw);
 }
 
 // ══════════════════════════════════════════════════════

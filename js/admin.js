@@ -1,4 +1,4 @@
-// FinanceFlow · v12.10 · admin.js · 2026-10-23
+// FinanceFlow · v12.11 · admin.js · 2026-10-25
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.11',
+    datum: '2026-10-25',
+    zmeny: [
+      "📅 ANALÝZA ÚČTENEK OD VYBRANÉHO MĚSÍCE (Milan: „ani jedna záložka nereaguje na změnu měsíce… takhle nezjistím měsíční výdaje“). Cesta: Analýza účtenek → 📊 Statistiky: Nejčastěji nakupované položky (1M = vybraný měsíc, 3M / 6M / 12M = měsíce končící vybraným) a 📈 Vývoj nákupů v čase končí měsícem nahoře, s popiskem „do … (měsíc nahoře)“; volba období se při překreslení už nevrací na 3M. 📈 Trend: 6 měsíců do vybraného. 💸 Slevy: vybraný měsíc a rok do něj, sloupce 6 měsíců do vybraného. 📐 Statistika položek: období končí vybraným měsícem („Vybraný měsíc“ místo „Tento měsíc“).",
+      "🇨🇿 Srovnání ČR: vaše útrata = průměr na měsíc za kalendářní rok vybraného měsíce (leden až vybraný měsíc, jen měsíce s výdaji) – dřív průměr ze všech měsíců v datech. Na kartě to je napsané, šipky měsíce nahoře rok i konec období mění.",
+      "🐛 FIX-493 · Učení → 📈 Trend útrat dle obchodů: po klepnutí do grafu byla bublina na telefonu několikanásobně větší a mimo graf (měřítko displeje se použilo dvakrát). Stejná chyba v grafu Aktiv opravena. Rok = rok vybraného měsíce, ‹ › přepnou na jiný rok s nákupy; když jsou nákupy jen z jednoho roku, karta to napíše (dřív šipky jen zešedly a vypadalo to jako zaseknutí). 6 / 12 měsíců končí vybraným měsícem.",
+      "✨ Přepnutí měsíce nahoře v Analýze účtenek bez probliknutí: stránka drží výšku, grafy a Živiny se kreslí hned.",
+      "💱 PŘEVODNÍK MĚN (Milan) · cesta: Kurzy měn → 💱 Převodník. Částka, z měny, ⇅ Prohodit, do měny; výsledek se přepočítá při psaní, pod ním 1 X = Y a datum kurzu ČNB (bez spojení orientační kurz). Připnuté měny jsou v nabídce první.",
+      "🎂 NAROZENINY, SVÁTKY A VÝROČÍ (Milan) · cesta: Narozeniny & přání → + Přidat. Druh 🎂 Narozeniny / 🌸 Svátek / 💍 Výročí a nepovinný rok (narození / od kdy se výročí počítá) – věk se dopočítá a každý rok sám přibude („40 let“, v Nadcházejících „bude 41 let“). Druh je vidět i v Nadcházejících, na Dashboardu a v Budoucích platbách.",
+      "🧪 tools/smoke_vybrany_mesic.js (20), smoke_kurzy_narozeniny.js (20).",
+    ],
+  },
   {
     verze: 'v12.10',
     datum: '2026-10-23',

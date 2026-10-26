@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · statistika-polozek.js · 2026-10-23
+// FinanceFlow · v12.11 · statistika-polozek.js · 2026-10-25
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -57,13 +57,16 @@ function spRadky(receipts, mapa, D) {
 
 function spFiltruj(radky, f, dnes = new Date()) {
   const q = String(f.q || '').toLowerCase();
-  let od = '';
+  //  v12.11 (Milan: „zkontroluj, zda všechny stránky počítají ze zvoleného měsíce a ne od dneška“):
+  //  období končí měsícem `dnes` (volá se s vybraným měsícem nahoře) – horní mez, dřív jen od.
+  let od = '', doM = '';
   if (f.obdobi && f.obdobi !== 'vse') {
     const d = new Date(dnes.getFullYear(), dnes.getMonth() - (parseInt(f.obdobi, 10) - 1), 1);
     od = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    doM = `${dnes.getFullYear()}-${String(dnes.getMonth() + 1).padStart(2, '0')}`;
   }
   return radky.filter(x =>
-    (!od || x.mesic >= od) &&
+    (!od || x.mesic >= od) && (!doM || x.mesic <= doM) &&
     (!f.coicop || x.coicop === f.coicop || x.coicop.startsWith(f.coicop + '.')) &&
     (!f.oblast || x.oblast === f.oblast) && (!f.pod || x.pod === f.pod) &&
     (!f.obchod || x.obchod === f.obchod) && (!f.kraj || x.kraj === f.kraj) && (!f.mesto || x.mesto === f.mesto) && (!f.stitek || x.stitek === f.stitek) && (!f.kat || x.kat === f.kat) &&
@@ -143,7 +146,7 @@ function spRender() {
   const mapa = (typeof _mapaUziv !== 'undefined') ? _mapaUziv : [];
   const vse = spRadky(rec, mapa, D);
   const f = _spFiltr;
-  const r = spFiltruj(vse, f);
+  const r = spFiltruj(vse, f, (typeof S !== 'undefined' && S.curYear != null) ? new Date(S.curYear, S.curMonth, 15) : new Date());   // v12.11: od vybraného měsíce
   const kc = v => (typeof _mapaKc === 'function') ? _mapaKc(v) : (Math.round(v) + ' Kč');
   const e = s => escHtml(String(s == null ? '' : s));
   const uniq = (fn, base) => [...new Set((base || vse).map(fn).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'cs'));
@@ -166,7 +169,7 @@ function spRender() {
     <div style="font-size:.74rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">Každá položka z tvých účtenek, zařazená podle číselníku ČSÚ (CZ-COICOP), taxonomie Mapy položek, obchodu a štítku. Klikni na položku v tabulce a otevře se její karta.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:8px">
       <label style="display:flex;flex-direction:column;gap:3px;font-size:.66rem;color:#a8aec8">Období
-        <select class="fi" style="font-size:.76rem;padding:6px" onchange="spNastav('obdobi',this.value)">${[['1', 'Tento měsíc'], ['3', '3 měsíce'], ['6', '6 měsíců'], ['12', '12 měsíců'], ['vse', 'Vše']].map(([v, l]) => `<option value="${v}" ${f.obdobi === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <select class="fi" style="font-size:.76rem;padding:6px" onchange="spNastav('obdobi',this.value)">${[['1', 'Vybraný měsíc'], ['3', '3 měsíce'], ['6', '6 měsíců'], ['12', '12 měsíců'], ['vse', 'Vše']].map(([v, l]) => `<option value="${v}" ${f.obdobi === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${sel('coicop', 'COICOP / skupina ČSÚ', coicopOpts, fmtCoicop)}
       ${sel('oblast', 'Oblast', uniq(x => x.oblast))}
       ${sel('pod', 'Podkategorie', uniq(x => x.pod, f.oblast ? vse.filter(x => x.oblast === f.oblast) : vse))}

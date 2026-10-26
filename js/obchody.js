@@ -1,4 +1,4 @@
-// FinanceFlow · v12.07 · obchody.js · 2026-10-23
+// FinanceFlow · v12.11 · obchody.js · 2026-10-25
 // ══════════════════════════════════════════════════════
 //  S27 (v12.07, Milan 23. 10.): 🏪 TREND NÁKUPŮ PO OBCHODECH – jeden zdroj pro celou appku
 //  „U trendu útrat se bude hodit i trend za 12 měsíců, za kalendářní rok. Barva v tabulce = barva osy
@@ -190,18 +190,27 @@ function obchTrendNastav(k, v) {
   const el = document.getElementById('obchTrendKarta'); if (el) el.outerHTML = obchTrendKartaHTML();
   setTimeout(_obchTrendKresli, 30);
 }
+//  v12.11 (Milan: „přepínač roku se zasekl na 2026, tlačítky nejde přepnout“ · „zkontroluj, zda všechny
+//  stránky počítají ze zvoleného měsíce a ne od dneška“): 6 / 12 měsíců končí VYBRANÝM měsícem nahoře,
+//  Rok = rok vybraného měsíce, dokud ho šipkami ‹ › nezměníš (do roku vybraného měsíce se vrátí při jeho změně).
+//  Šipky roku se zakázaly, když data byla jen z jednoho roku – bez vysvětlení to vypadalo jako zaseknutí.
+function _obchKotva() { return (typeof S !== 'undefined' && S.curYear != null) ? new Date(S.curYear, S.curMonth, 15) : new Date(); }
 function obchTrendKartaHTML(D) {
-  const s = _obchStav(), nak = obchodNakupy(D);
+  const s = _obchStav(), nak = obchodNakupy(D), kotva = _obchKotva();
+  if (s._kotvaRok !== kotva.getFullYear()) { s.rok = kotva.getFullYear(); s._kotvaRok = kotva.getFullYear(); }
   obchodBarvyPriprav(nak);
-  const data = obchodyTrendData(nak, obchodyMesice(s.obd, s.rok), { top: 4 });
+  const data = obchodyTrendData(nak, obchodyMesice(s.obd, s.rok, kotva), { top: 4 });
   window._obchTrendData = data;
-  const roky = [...new Set(nak.map(x => parseInt(x.datum.slice(0, 4), 10)).filter(y => y > 1990))].sort();
+  const roky = [...new Set(nak.map(x => parseInt(x.datum.slice(0, 4), 10)).filter(y => y > 1990))].sort((a, b) => a - b);
+  const odR = Math.min(roky[0] || kotva.getFullYear(), kotva.getFullYear()), doR = Math.max(roky[roky.length - 1] || kotva.getFullYear(), kotva.getFullYear());
   const btn = (k, l) => `<button class="tx-filt-btn${s.obd === k ? ' active' : ''}" style="font-size:.72rem;padding:3px 9px" onclick="obchTrendNastav('obd','${k}')">${l}</button>`;
   const rokNav = s.obd === 'rok' ? `<span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px">
-      <button class="btn btn-ghost btn-sm" style="padding:2px 8px" ${roky.length && s.rok <= roky[0] ? 'disabled' : ''} onclick="obchTrendNastav('rok',-1)">‹</button>
+      <button class="btn btn-ghost btn-sm" style="padding:2px 8px" ${s.rok <= odR ? 'disabled' : ''} onclick="obchTrendNastav('rok',-1)">‹</button>
       <b style="font-size:.8rem">${s.rok}</b>
-      <button class="btn btn-ghost btn-sm" style="padding:2px 8px" ${s.rok >= new Date().getFullYear() ? 'disabled' : ''} onclick="obchTrendNastav('rok',1)">›</button></span>` : '';
-  const popis = s.obd === 'rok' ? 'kalendářní rok ' + s.rok : 'posledních ' + (s.obd === '12' ? 12 : 6) + ' měsíců';
+      <button class="btn btn-ghost btn-sm" style="padding:2px 8px" ${s.rok >= doR ? 'disabled' : ''} onclick="obchTrendNastav('rok',1)">›</button></span>` : '';
+  const M = ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'], kMes = (kotva.getMonth() + 1) + '/' + String(kotva.getFullYear()).slice(2);
+  const popis = s.obd === 'rok' ? 'kalendářní rok ' + s.rok + (s.rok === kotva.getFullYear() && kotva.getMonth() < 11 ? ' do ' + M[kotva.getMonth()] : '') + (odR === doR ? ' · nákupy máš zatím jen z roku ' + odR : '')
+    : (s.obd === '12' ? 12 : 6) + ' měsíců do ' + kMes;
   return `<div class="card" id="obchTrendKarta" style="margin-bottom:14px"><div class="card-header" style="flex-wrap:wrap;gap:6px"><span class="card-title">📈 Trend útrat dle obchodů</span>
       <span style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">${btn('6', '6 měsíců')}${btn('12', '12 měsíců')}${btn('rok', 'Rok')}${rokNav}</span></div>
     <div class="card-body">

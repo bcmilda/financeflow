@@ -1,4 +1,4 @@
-// FinanceFlow · v12.02 · budouci.js · 2026-10-23
+// FinanceFlow · v12.11 · budouci.js · 2026-10-25
 //  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
 //  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
 //  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
@@ -75,8 +75,8 @@ function budouciGetAll(D, horizonDays, fromDate) {
         items.push({
           id:      `bday-${b.id}-${year}`,
           source:  'bday',
-          icon:    '🎂',
-          name:    `Narozeniny – ${b.name}`,
+          icon:    typeof bdayDruh === 'function' ? bdayDruh(b).ikona : '🎂',   // v12.11: druh (narozeniny / svátek / výročí)
+          name:    `${typeof bdayDruh === 'function' ? bdayDruh(b).nazev : 'Narozeniny'} – ${b.name}`,
           amount:  b.gift || 0,
           date,
           dateStr: _bIso(date),
