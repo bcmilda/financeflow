@@ -127,7 +127,13 @@ c.vyplMegaNastav('rady',[{k:'hruba',osa:'L',slot:0}]); c.vyplMegaNastav('obdobi'
   t('v11.88: řazení ↑ od nejmenší',ra.length&&ra.every((v,i)=>!i||v>=ra[i-1]));
   c.vyplMegaNastav('kum',1); const mk=vm.runInContext('_vyplMegaObsah()',c);
   t('v11.88: při řazení se kumulace vypne (s poznámkou)',!/\(kumulativně\)/.test(mk)&&/kumulace je při řazení vypnutá/.test(mk));
-  c.vyplMegaNastav('kum',0); c.vyplMegaNastav('razeni',''); }
+  c.vyplMegaNastav('kum',0);
+  //  v12.08 (Milan: „proč se megagraf neseřadil podle velikosti?“ – řadil se podle neviditelné první řady)
+  c.vyplMegaNastav('rady',[{k:'hruba',osa:'L',slot:0},{k:'cisty',osa:'L',slot:1}]); c.vyplMegaNastav('razeni','desc'); c.vyplMegaNastav('razeniK','cisty');
+  { const m2=vm.runInContext('_vyplMegaObsah()',c);
+    const ci=[...m2.slice(m2.indexOf('id="vgMega"')).matchAll(/<tr><td>(\d+)\. [^<]+<\/td><td>[\d\s ]+<\/td><td>([\d\s ]+)<\/td>/g)].map(m=>+m[2].replace(/\D/g,''));
+    t('v12.08: u více řad volba „Seřadit podle řady“ – seřazeno podle zvolené (čistá)',/Seřadit podle řady:/.test(m2)&&/vyplMegaNastav\('razeniK','cisty'\)/.test(m2)&&ci.length===data.length&&ci.every((v,i)=>!i||v<=ci[i-1]),ci.slice(0,4)); }
+  c.vyplMegaNastav('rady',[{k:'hruba',osa:'L',slot:0}]); c.vyplMegaNastav('razeniK',''); c.vyplMegaNastav('razeni',''); }
 //  nové otázky
 { const o=c.vyplOdpoved('serazeni',data);
   t('v11.88: otázka „Seřaď hrubou mzdu“ → nejvyšší a nejnižší měsíce, tabulka s pořadím, graf přepnut na řazení',/Nejvyšší hrubá/.test(o.html)&&o.tab[1].length===data.length&&o.tab[1][0][0]==='1.'&&o.nastav.razeni==='desc');

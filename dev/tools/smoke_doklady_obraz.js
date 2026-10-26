@@ -10,7 +10,7 @@ const konst=(s,n)=>{const a=s.indexOf('const '+n);return s.slice(a,s.indexOf(';'
 console.log('── S25 · obecné názvy, Obraz, záruka ──');
 // 276
 t('Inflace: obecné názvy oddělení se vynechají a počet se ukáže',inf.includes("rpIsGenericName(it.name)) { obecne++; return; }")&&inf.includes('return { obs, stores, items, obecne };')&&inf.includes('s obecným názvem oddělení'));
-t('Analýza účtenek → Pravidelně nakupuješ: bez obecných názvů',/if\(k\.length<3\)return;\n\s*if\(rpIsGenericName\(it\.name\)\)return;/.test(rc));
+t('Analýza účtenek → Pravidelně nakupuješ: bez obecných názvů',/if\(k\.length<3\)return;\n\s*if\(rpIsGenericName\(it\.name\)( \|\| rpJeZaloha\(it\.name\))?\)return;/.test(rc));
 t('Detektor úspor: nejčastější položky i zdražování za 3 měsíce bez obecných názvů',(pj.match(/rpIsGenericName\(it\.name\)\) return;/g)||[]).length===2);
 t('Detektor: klíč už se neořezává na 25 znaků (slučoval podobné výrobky)',!pj.includes(".toLowerCase().trim().slice(0,25).replace(/\\s+/g,'_')")&&pj.includes(".toLowerCase().trim().replace(/\\s+/g,'_');"));
 const sg={};vm.createContext(sg);vm.runInContext(konst(rc,'RP_GENERIC_NAMES')+'\n'+pick(rc,'rpIsGenericName'),sg);

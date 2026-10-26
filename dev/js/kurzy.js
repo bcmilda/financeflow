@@ -1,4 +1,4 @@
-// FinanceFlow · v10.45 · kurzy.js · 2026-09-04
+// FinanceFlow · v12.11 · kurzy.js · 2026-10-25
 // Kurzy měn (denní kurzovní lístek ČNB) + možnost připnout oblíbené měny pro rychlý přehled.
 // Data: proxy přes Cloudflare Worker (endpoint /cnb, cache 1×/den + CORS).
 // Fallback: poslední načtené kurzy v paměti → uložené orientační průměry (_FX_RATES z debts.js).
@@ -132,6 +132,68 @@ async function fxRatesForDate(isoDate){
 }
 window.fxRatesForDate = fxRatesForDate;
 
+// ══════════════════════════════════════════════════════
+//  v12.11 (Milan: „do kurzů měn mi můžeš přidat převodník?“): 💱 PŘEVODNÍK
+//  Částka × kurz „z“ ÷ kurz „do“ (kurzy = Kč za 1 jednotku, CZK = 1). Stav převodníku si pamatuje
+//  prohlížeč (jen pohodlí – poslední měny a částka).
+// ══════════════════════════════════════════════════════
+function fxPrevod(castka, z, na, rates) {
+  const r = Object.assign({ CZK: 1 }, rates || {});
+  const v = parseFloat(String(castka == null ? '' : castka).replace(/\s/g, '').replace(',', '.'));
+  if (!isFinite(v) || !r[z] || !r[na]) return null;
+  return v * r[z] / r[na];
+}
+function _fxPrevodStav() {
+  if (!window._fxPrevod) { let v = null; try { v = JSON.parse(localStorage.getItem('ff_fxPrevod') || 'null'); } catch (e) {}
+    window._fxPrevod = Object.assign({ castka: '100', z: 'EUR', na: 'CZK' }, v || {}); }
+  return window._fxPrevod;
+}
+function _fxPrevodUloz() { try { localStorage.setItem('ff_fxPrevod', JSON.stringify(window._fxPrevod)); } catch (e) {} }
+function _fxFmt(v, kod) {
+  if (v == null) return '–';
+  const des = Math.abs(v) >= 1000 ? 2 : Math.abs(v) >= 1 ? 2 : 4;
+  return v.toLocaleString('cs-CZ', { minimumFractionDigits: des === 4 ? 2 : 2, maximumFractionDigits: des }) + ' ' + kod;
+}
+function fxPrevodHTML(rates, poradi) {
+  const st = _fxPrevodStav(), r = Object.assign({ CZK: 1 }, rates || {});
+  if (!r[st.z]) st.z = 'EUR'; if (!r[st.na]) st.na = 'CZK';
+  const kody = ['CZK'].concat(poradi.filter(c => c !== 'CZK'));
+  const opt = sel => kody.map(c => `<option value="${c}"${c === sel ? ' selected' : ''}>${(FX_INFO[c] || [c, ''])[1] || ''} ${c}</option>`).join('');
+  const vys = fxPrevod(st.castka, st.z, st.na, r);
+  const sSel = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 6px;color:var(--text);font-size:.86rem;min-width:0';
+  return `<div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-title">💱 Převodník</span></div><div class="card-body">
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center">
+      <input id="fxPrCastka" class="fi" inputmode="decimal" value="${String(st.castka).replace(/"/g, '')}" oninput="fxPrevodZmen('castka',this.value)" style="font-size:1rem;font-weight:700;min-width:0">
+      <select id="fxPrZ" onchange="fxPrevodZmen('z',this.value)" style="${sSel}">${opt(st.z)}</select>
+    </div>
+    <div style="display:flex;justify-content:center;margin:6px 0"><button class="btn btn-ghost btn-sm" onclick="fxPrevodOtoc()" title="Prohodit měny" aria-label="Prohodit měny">⇅ Prohodit</button></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center">
+      <div id="fxPrVysledek" style="font-size:1.15rem;font-weight:800;color:var(--income);overflow-wrap:anywhere">${_fxFmt(vys, st.na)}</div>
+      <select id="fxPrNa" onchange="fxPrevodZmen('na',this.value)" style="${sSel}">${opt(st.na)}</select>
+    </div>
+    <div id="fxPrKurz" style="font-size:.7rem;color:#a8aec8;margin-top:8px">${_fxPrevodKurzText(st, r)}</div>
+  </div></div>`;
+}
+function _fxPrevodKurzText(st, r) {
+  const k = fxPrevod(1, st.z, st.na, r);
+  const zdroj = (!_fxData || _fxData.source === 'fallback' || !_fxData.date) ? 'orientační kurz (ČNB teď nedostupné)' : 'kurz ČNB ' + _fxData.date;
+  return k == null ? '' : `1 ${st.z} = ${_fxFmt(k, st.na)} · ${zdroj}`;
+}
+//  Změna pole: překreslí jen výsledek (psaní v poli se nepřeruší)
+function fxPrevodZmen(k, v) {
+  const st = _fxPrevodStav(); st[k] = v; _fxPrevodUloz();
+  const r = Object.assign({ CZK: 1 }, (_fxData && _fxData.rates) || {});
+  const out = document.getElementById('fxPrVysledek'); if (out) out.textContent = _fxFmt(fxPrevod(st.castka, st.z, st.na, r), st.na);
+  const kz = document.getElementById('fxPrKurz'); if (kz) kz.textContent = _fxPrevodKurzText(st, r);
+}
+function fxPrevodOtoc() {
+  const st = _fxPrevodStav(); const t = st.z; st.z = st.na; st.na = t; _fxPrevodUloz();
+  const a = document.getElementById('fxPrZ'), b = document.getElementById('fxPrNa');
+  if (a) a.value = st.z; if (b) b.value = st.na;
+  fxPrevodZmen('z', st.z);
+}
+Object.assign(window, { fxPrevod, fxPrevodHTML, fxPrevodZmen, fxPrevodOtoc });
+
 async function renderKurzy(){
   const el = document.getElementById('kurzyContent'); if (!el) return;
   if (!_fxData) {
@@ -156,6 +218,9 @@ async function renderKurzy(){
     + '<div style="font-size:.78rem;color:' + (isFallback ? '#fbbf24' : '#a8aec8') + ';margin-top:2px">' + statusTxt + '</div>'
     + '<div style="font-size:.72rem;color:#a8aec8;margin-top:3px">Kolik Kč stojí 1 jednotka měny. Hvězdičkou připneš měnu nahoru. Kurzy ČNB se aktualizují jednou denně.</div>'
     + '</div></div>';
+
+  // v12.11: převodník (připnuté měny první v nabídce)
+  html += fxPrevodHTML(rates, pinned.concat(codes.filter(c => !pinned.includes(c))));
 
   // připnuté
   if (pinned.length) {

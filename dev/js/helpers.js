@@ -1,4 +1,4 @@
-// FinanceFlow · v12.01 · helpers.js · 2026-10-22
+// FinanceFlow · v12.08 · helpers.js · 2026-10-23
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -1360,6 +1360,21 @@ function normKey(text) {
 }
 
 window.normName = normName; window.normQty = normQty; window.normKey = normKey;
+
+//  v12.08 (Milan: „u EVO paliva 67 kg/l a v Detektoru úspor 67 ks – nesedí jednotky“):
+//  jednotka množství JEDNÉ položky účtenky: palivo z tankování = l, vážené zboží = kg / l, jinak ks.
+function polozkaJednotka(it) {
+  if (!it) return 'ks';
+  if (typeof tankJePalivo === 'function' && tankJePalivo(it)) return 'l';
+  const u = String(it.unit || '').toLowerCase();
+  return u === 'kg' || u === 'l' ? u : 'ks';
+}
+//  Souhrn jednotek více nákupů: jedna jednotka → ta, různé → „ks/kg“ (podle výskytu).
+function jednotkySouhrn(jednotky) {
+  const u = [...new Set((jednotky || []).filter(Boolean))];
+  return u.length ? u.sort().join('/') : 'ks';
+}
+window.polozkaJednotka = polozkaJednotka; window.jednotkySouhrn = jednotkySouhrn;
 
 function escHtml(s) {
   return String(s == null ? '' : s)

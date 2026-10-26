@@ -1,4 +1,4 @@
-// FinanceFlow · v11.88 · vyplatnice.js · 2026-10-17
+// FinanceFlow · v12.08 · vyplatnice.js · 2026-10-23
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -1078,7 +1078,10 @@ function _vyplMegaObsah(opt) {
   const aktivni = s.rady.map(r => { const d = dle(r.k) || {}; const o = Object.assign({}, d, r, { barva: VYPL_MEGA_SLOTY[r.slot % 6] });
       if (kum && d.suma && d.hodnoty) { let a = 0; o.hodnoty = d.hodnoty.map(v => (a += (+v || 0))); o.kumul = true; }
       return o; }).filter(r => r.hodnoty);
-  const klicR = razeni && (aktivni.find(r => r.osa === 'L') || aktivni[0]);
+  //  v12.08 (Milan: „proč se megagraf neseřadil podle velikosti?“): řadilo se podle PRVNÍ řady na hlavní ose
+  //  (Odvody v %), která byla vedle Dobírky v Kč neviditelně malá – graf vypadal neseřazený. Teď si řadu
+  //  pro řazení vybereš; výchozí zůstává první na hlavní ose.
+  const klicR = razeni && (aktivni.find(r => r.k === s.razeniK) || aktivni.find(r => r.osa === 'L') || aktivni[0]);
   let radaZ = rada;
   if (klicR) {
     const ord = rada.map((z, i) => i).sort((a, b) => razeni === 'desc' ? (klicR.hodnoty[b] || 0) - (klicR.hodnoty[a] || 0) : (klicR.hodnoty[a] || 0) - (klicR.hodnoty[b] || 0));
@@ -1123,7 +1126,9 @@ function _vyplMegaObsah(opt) {
       ${seg('razeni', razeni, [['', 'Podle času'], ['desc', '↓ Od největší'], ['asc', '↑ Od nejmenší']])}
       ${cela ? '' : '<button class="btn btn-sm" onclick="vyplMegaCela(true)">🔭 Otevřít na samostatné stránce</button>'}
     </div>
-    ${klicR ? `<div class="vg-pozn" style="margin:-2px 0 6px">Seřazeno podle řady <b>${klicR.label}</b> (první na hlavní ose)${s.kum ? ' · kumulace je při řazení vypnutá' : ''}.</div>` : ''}
+    ${klicR ? (aktivni.length > 1
+      ? `<div class="vg-pozn" style="margin:-2px 0 6px">Seřadit podle řady:</div><div class="vg-chipy" style="margin-bottom:6px">${aktivni.map(r => `<button class="vg-chip${r.k === klicR.k ? ' on' : ''}" onclick="vyplMegaNastav('razeniK','${r.k}')"><span class="vg-dot" style="background:${r.barva};margin:0"></span>${r.kratce}</button>`).join('')}</div>${s.kum ? '<div class="vg-pozn" style="margin:-2px 0 6px">Kumulace je při řazení vypnutá.</div>' : ''}`
+      : `<div class="vg-pozn" style="margin:-2px 0 6px">Seřazeno podle řady <b>${klicR.label}</b>${s.kum ? ' · kumulace je při řazení vypnutá' : ''}.</div>`) : ''}
     ${aktivni.length ? `<div class="vg-sek2">Zobrazené řady a jejich osa</div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">${aktivni.map(r => `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.78rem">
       <span class="vg-dot" style="background:${r.barva};margin:0"></span><span style="flex:1 1 120px;min-width:0">${r.label}${r.kumul ? ' <span style="color:#8b93ad">(kumulativně)</span>' : ''}</span>

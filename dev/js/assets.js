@@ -1,4 +1,4 @@
-//  FinanceFlow · v10.31 · assets.js · 2026-09-02
+//  FinanceFlow · v12.11 · assets.js · 2026-10-25
 // ══════════════════════════════════════════════════════
 //  FINANČNÍ AKTIVA – FinanceFlow v6.50
 //  Správa majetku: nemovitosti, investice, vozidla, vlastní
@@ -641,7 +641,7 @@ function drawAssetValChart(canvasId, assetId){
       let idx=0,best=1e9; for(let i=0;i<vals.length;i++){const dd=Math.abs(mx-x(i)); if(dd<best){best=dd;idx=i;}}
       draw();
       requestAnimationFrame(()=>{
-        const c2=canvas.getContext('2d'); c2.save(); c2.scale(dpr,dpr);
+        const c2=canvas.getContext('2d'); c2.save(); c2.setTransform(dpr,0,0,dpr,0,0);   // v12.11: draw() měřítko už nastavil (dřív 2× scale → obří bublina na telefonu)
         c2.strokeStyle='rgba(232,234,242,.4)'; c2.setLineDash([3,3]); c2.beginPath(); c2.moveTo(x(idx),pad.t); c2.lineTo(x(idx),H-pad.b); c2.stroke(); c2.setLineDash([]);
         const txt1=fmtD(vals[idx].d), txt2=fmtBP(vals[idx].v); // v8.61
         const bw=110,bh=invested>0?44:32; let bx=x(idx)+8; if(bx+bw>cw-pad.r) bx=x(idx)-bw-8;

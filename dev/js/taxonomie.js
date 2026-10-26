@@ -1,4 +1,4 @@
-// FinanceFlow · v11.41 · taxonomie.js · 2026-10-07
+// FinanceFlow · v12.09 · taxonomie.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  S24 (T2, PLAN-mapa-produktu): TAXONOMIE VÝROBKŮ
 //  Zdroj: data/taxonomie.json (13 oblastí · 139 podkategorií · ~900 obecných názvů).
@@ -13,8 +13,8 @@
 //  Když se nenačte, všechny funkce vrací null / [] a appka se chová jako dřív.
 // ══════════════════════════════════════════════════════
 
-const TAX_URL = 'data/taxonomie.json?v=1.2-20261007';   // S24 v11.16: rozpočet Osobní péče → cat47, Zvířata → cat44
-let _tax = null, _taxIndex = null, _taxNacitani = null, _taxSlova = null;
+const TAX_URL = 'data/taxonomie.json?v=1.3-20261023';   // S27 v12.09: pasti (smet krem, nektarinky koš), makový hřeben, smetanový krém, drůbeží hamburger, poplatky bez Zábavy
+let _tax = null, _taxIndex = null, _taxNacitani = null, _taxSlova = null, _taxPasti = null;
 
 function _taxNorm(t) {
   return (typeof normName === 'function') ? normName(t) : String(t || '').toLowerCase().trim();
@@ -36,7 +36,8 @@ function taxPostavIndex(T) {
       //  S25: 5. úroveň CZ-COICOP (příloha potravin ČSÚ) – jen karta a Statistika položek;
       //  „coicop“ (4. úroveň) zůstává pro Srovnání ČR a inflaci.
       coicop5: (p.c5 && p.c5[n]) || '',
-      rozpocet: p.rozpocet || o.rozpocet || '',
+      //  v12.09: „-“ = podkategorie bez výchozí rozpočtové kategorie (taška, záloha – ne do Zábavy)
+      rozpocet: p.rozpocet === '-' ? '' : (p.rozpocet || o.rozpocet || ''),
     };
   })));
   return idx;
@@ -47,6 +48,9 @@ function taxNastav(T) {
   _taxIndex = T ? taxPostavIndex(T) : null;
   _taxSlova = _taxIndex ? Object.values(_taxIndex).map(z => ({ z, slova: z.id.split(' ') }))
     .sort((a, b) => b.slova.length - a.slova.length || b.z.id.length - a.z.id.length) : null;
+  //  S27 (v12.09, Milan: „zkusíme ty pasti zapsat a podchytit“): pasti z taxonomie.json – text z účtenky → obecný název
+  _taxPasti = _taxIndex && T.pasti ? Object.entries(T.pasti).map(([k, n]) => ({ slova: _taxNorm(k).split(' ').filter(Boolean), z: _taxIndex[_taxNorm(n)] }))
+    .filter(x => x.z && x.slova.length).sort((a, b) => b.slova.length - a.slova.length) : null;
   return _taxIndex;
 }
 
@@ -81,6 +85,8 @@ function taxNavrh(text) {
   if (_taxIndex[q]) return { info: _taxIndex[q], jistota: 'presne' };
   const tokeny = q.split(' ').filter(Boolean);
   const mnozina = new Set(tokeny);
+  //  Pasti mají přednost (všechna slova pasti jsou v textu): „Nektarinky koš“ → nektarinka, ne koš.
+  for (const p of (_taxPasti || [])) if (p.slova.every(s => mnozina.has(s))) return { info: p.z, jistota: 'past' };
   for (const { z, slova } of _taxSlova) {
     if (slova.every(s => mnozina.has(s))) return { info: z, jistota: 'slova' };
   }

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.04 · admin.js · 2026-10-23
+// FinanceFlow · v12.12 · admin.js · 2026-10-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,99 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.12',
+    datum: '2026-10-26',
+    zmeny: [
+      "📅 STATISTIKY A NÁKUPNÍ DNA ZA VYBRANÝ MĚSÍC (Milan: „také převeď na aktuální měsíc a dej tam 2 přepínací tlačítka Vybraný měsíc a Vše jak v Co nakupuješ“) · cesta: Analýza účtenek → 📊 Statistiky (nahoře přepínač 📅 měsíc | ∞ Vše pro 🧭 Za co utrácíš, Celkem utraceno / Průměrný nákup / Naskenováno položek, Výdaje dle kategorie a Co nakupuješ) a 🧠 Učení → 🧬 Nákupní DNA (stejný přepínač). Výchozí je vybraný měsíc nahoře. Nejčastěji nakupované položky a Vývoj nákupů mají dál své 1M–12M.",
+      "🔗 SPOJIT S… (TODO-358, Milan: „název Brambory konzumní a 3 aliasy“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta → 🔗 Spojit s…: hlavní název karty, najdi kartu stejného výrobku, 🔗 Spojit. Zkratky zůstanou jako aliasy a další účtenky s nimi padnou rovnou do karty; text účtenek se nemění. Karta s čárovým kódem zůstává (zkratka bez kódu se k ní připojí), dvě karty s různými kódy spojit nejde. ✕ Odpojit u názvu spojení zruší. Platí i ve Statistice položek. Jen tvoje (synchronizuje se mezi zařízeními).",
+      "📄 MĚSÍČNÍ REPORT · nová strana 🏪 Obchody (Milan: „porovnání s minulým měsícem + 3 největší celkové nákupy a 3 nejmenší“): obchody měsíce, 3 největší a 3 nejmenší nákupy (obchod, datum, částka, celé účtenky), srovnání s minulým měsícem (počet účtenek, útrata) a trend obchodů od ledna. Strana Účtenky se tím odlehčila – s obchody na A4 přetékala. Srovnání s minulým měsícem i u KPI Útrata z účtenek a Účtenek. Report má s obchody 5 stran.",
+      "🧪 tools/smoke_spojit.js – 18 testů.",
+    ],
+  },
+  {
+    verze: 'v12.11',
+    datum: '2026-10-25',
+    zmeny: [
+      "📅 ANALÝZA ÚČTENEK OD VYBRANÉHO MĚSÍCE (Milan: „ani jedna záložka nereaguje na změnu měsíce… takhle nezjistím měsíční výdaje“). Cesta: Analýza účtenek → 📊 Statistiky: Nejčastěji nakupované položky (1M = vybraný měsíc, 3M / 6M / 12M = měsíce končící vybraným) a 📈 Vývoj nákupů v čase končí měsícem nahoře, s popiskem „do … (měsíc nahoře)“; volba období se při překreslení už nevrací na 3M. 📈 Trend: 6 měsíců do vybraného. 💸 Slevy: vybraný měsíc a rok do něj, sloupce 6 měsíců do vybraného. 📐 Statistika položek: období končí vybraným měsícem („Vybraný měsíc“ místo „Tento měsíc“).",
+      "🇨🇿 Srovnání ČR: vaše útrata = průměr na měsíc za kalendářní rok vybraného měsíce (leden až vybraný měsíc, jen měsíce s výdaji) – dřív průměr ze všech měsíců v datech. Na kartě to je napsané, šipky měsíce nahoře rok i konec období mění.",
+      "🐛 FIX-493 · Učení → 📈 Trend útrat dle obchodů: po klepnutí do grafu byla bublina na telefonu několikanásobně větší a mimo graf (měřítko displeje se použilo dvakrát). Stejná chyba v grafu Aktiv opravena. Rok = rok vybraného měsíce, ‹ › přepnou na jiný rok s nákupy; když jsou nákupy jen z jednoho roku, karta to napíše (dřív šipky jen zešedly a vypadalo to jako zaseknutí). 6 / 12 měsíců končí vybraným měsícem.",
+      "✨ Přepnutí měsíce nahoře v Analýze účtenek bez probliknutí: stránka drží výšku, grafy a Živiny se kreslí hned.",
+      "💱 PŘEVODNÍK MĚN (Milan) · cesta: Kurzy měn → 💱 Převodník. Částka, z měny, ⇅ Prohodit, do měny; výsledek se přepočítá při psaní, pod ním 1 X = Y a datum kurzu ČNB (bez spojení orientační kurz). Připnuté měny jsou v nabídce první.",
+      "🎂 NAROZENINY, SVÁTKY A VÝROČÍ (Milan) · cesta: Narozeniny & přání → + Přidat. Druh 🎂 Narozeniny / 🌸 Svátek / 💍 Výročí a nepovinný rok (narození / od kdy se výročí počítá) – věk se dopočítá a každý rok sám přibude („40 let“, v Nadcházejících „bude 41 let“). Druh je vidět i v Nadcházejících, na Dashboardu a v Budoucích platbách.",
+      "🧪 tools/smoke_vybrany_mesic.js (20), smoke_kurzy_narozeniny.js (20).",
+    ],
+  },
+  {
+    verze: 'v12.10',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-492 · NÁKUPNÍ SEZNAM – STEJNÝ VÝROBEK VÍCKRÁT, JEDNOU „CENA NEZNÁMÁ“ (Milan: „uniká mi princip“) · cesta: Nákupy → ➕ Přidat do nákupního seznamu → Název produktu. Do komunitního katalogu zapisovaly dvě funkce pod různými klíči: názvy z editoru účtenky (s diakritikou a gramáží, bez ceny) a hlídač cen (sjednocený název, s cenou); k tomu staré klíče z doby před S23. Našeptávač teď ukáže každý výrobek jednou s poslední cenou, bez počtu skenů; dlouhý název se zalomí a cenu nepřekryje.",
+      "🔔 Hlídač ceny: položka navázaná na záznam bez ceny („cena neznámá“) by nikdy neupozornila – výběr i položky už v seznamu se teď vážou na záznam s cenou (přepojí se samy).",
+      "🧾 Editor účtenky → našeptávač názvu: také bez dvojic. Nové názvy se zapisují pod stejný klíč jako ceny a cenu nepřepíšou – nové dvojice nevznikají.",
+      "🧪 tools/smoke_nakup_katalog.js – 10 testů.",
+    ],
+  },
+  {
+    verze: 'v12.09',
+    datum: '2026-10-23',
+    zmeny: [
+      "✏️ OPRAVA NÁZVU Z ÚČTENKY (Milan: „Drubeji hamburger – rád bych to opravil, jen nevím, ve které účtence to je… spíš rychle ručně, místo dalších utilit“) · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek → Názvy z účtenek. U názvu data nákupů 📅 (klepnutí otevře účtenku v editoru a zvýrazní položku) a ✎ Opravit název – přepíše text položky na účtence (chyba čtení, překlep); stejný název pak sedne do jedné karty (Drubeji + Drůbeží = 1 karta, 2×).",
+      "🔄 OPRAVIT KATEGORII U STARÝCH ÚČTENEK – předělané okno (Milan: „chybí mi kontext, polovina je správně, nejde to jednotlivě“) · cesta: Mapa položek → „🔄 N položek ve starých účtenkách… → Zkontrolovat“. Každý výrobek zvlášť se zaškrtnutím, obchody a data, z → do a proč (tvoje volba / komunitní mapa / čárový kód / odhad podle názvu). Odhady podle názvu nejsou předem zaškrtnuté. Vynechá se: položka z restaurace (Švestka 0,5, Kečup) a změna jen podkategorie (Rohlík › Obchůdek). Nezaškrtnuté příště nenabídne (vrátit: „zobrazit znovu“).",
+      "🪤 PASTI V ZAŘAZENÍ (Milan: „dvouslovný název, ne jedno známé slovo, nepřidávej podmínku, pasti zapsat a podchytit“): makový hřeben → Pečivo (ne hřeben → Osobní péče), smetanový krém / „Smet.krem“ → Mléčné dezerty (ne krém → 13.1.2), drůbeží hamburger → Drůbeží maso (ne Restaurace), „Nektarinky koš“ → nektarinka (ne koš → Domácí potřeby). Taška, záloha a poplatek z účtenky už nemají výchozí kategorii Zábava. Taxonomie 1.3, koš ČSÚ s novými klíčovými slovy.",
+      "🧪 tools/smoke_pasti.js (12 – nová past = 1 řádek), smoke_prerazeni.js (12), smoke_mapa_nazev.js (11).",
+    ],
+  },
+  {
+    verze: 'v12.08',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-491 · JEDNOTKY (Milan: „u EVO paliva 67 kg/l a u Detektoru úspor 67 ks – nesedí jednotky“) · cesta: Analýza účtenek → seznam položek. Množství má jednotku podle položek: palivo l, vážené zboží kg / l, jinak ks (sloupec „Množ.“). Průměr je cena za JEDNOTKU (Kč/l, Kč/ks) – dřív útrata ÷ počet nákupů s popiskem Kč/ks (Sladký rohlík ukazoval 14 místo 8 Kč/ks). Kusy i váha dohromady → průměr za nákup (Kč/nák.).",
+      "🐛 Detektor úspor → 🛒 Častý nákup: „67 l“ u paliva místo „67 ks“. 📐 Statistika položek: palivo má Ø za litr.",
+      "↕️ MEGAGRAF (Milan: „proč se neseřadil podle velikosti?“) · cesta: Kalendář → Výplatnice → 🔭 Megagraf → ↓ Od největší. Řadil se podle první řady na hlavní ose (Odvody v %), která byla vedle Dobírky v Kč neviditelně malá. U více řad je nově volba „Seřadit podle řady“ (klepnutím); výchozí zůstává první na hlavní ose.",
+      "🧪 tools/smoke_jednotky.js – 9 testů; smoke_vyplatnice_mega.js +1.",
+    ],
+  },
+  {
+    verze: 'v12.07',
+    datum: '2026-10-23',
+    zmeny: [
+      "🏪 TREND NÁKUPŮ PO OBCHODECH (Milan: „trend za 12 měsíců, za kalendářní rok… barva v tabulce = barva osy grafu… v Reportu… překlikávat roky a porovnat roky ve sloupcovém grafu s filtrem obchodu“). Zdroj: naskenované účtenky I obchody z notifikací (platba spojená s účtenkou se počítá jednou, přes účtenku; převody, přesuny a investice ne). Výchozí míra útrata.",
+      "📈 Analýza účtenek → Trend útrat dle obchodů: přepínač 6 měsíců / 12 měsíců / Rok ‹ 2026 ›. Tabulka 🏪 Obchody v měsíci ze stejného zdroje (i obchody z notifikací).",
+      "🎨 Barva obchodu se přidělí jednou a zapamatuje – stejná v tabulce, v grafu, v legendě, v Reportu i v Grafech. Podobné odstíny (modrá Lidlu × světle modrá) se nepletou.",
+      "📄 Report → Měsíční report, strana 3: obchody měsíce (návštěvy, útrata, Ø nákup) a Trend obchodů od ledna do vybraného měsíce (max 12 měsíců).",
+      "📊 Grafy → nová záložka 🏪 Obchody: rok po měsících (‹ rok ›), míra Útrata / Návštěvy / Ø nákup, výběr obchodů klepnutím, Porovnání let ve sloupcích a tabulka obchod × rok.",
+      "🧹 Název obchodu bez visící čárky („MOL Česká republika, s.r.o.“ → „MOL Česká republika“).",
+      "🧪 tools/smoke_obchody.js – 18 testů.",
+    ],
+  },
+  {
+    verze: 'v12.06',
+    datum: '2026-10-23',
+    zmeny: [
+      "🐛 FIX-490 · Grafy → Denní: šipky ‹ › nepřepínaly měsíc (volaly přepínač Měsíčního grafu). Teď posunou měsíc a překreslí Denní; šipky jsou i u měsíce bez výdajů. Měsíční graf: leden už přepínání neresetuje.",
+      "📲 DORUČENÉ (Import z banky → 📲 Telefon): tatáž platba 2× (Milan: „notifikace chytila 2× stejnou částku 1 168 Kč“) – banka pošle notifikaci a hned ji doplní. Stejná aplikace, typ a částka do 10 minut = jedna položka (zůstane plnější text), ostatní se při Přidat / Zahodit označí jako duplikát.",
+      "📲 Banka podle aplikace, ze které notifikace přišla (KB+ → KB; dřív „George“, protože parser George bral i text bez slova George). Název obchodníka bez „u obchodníka“ a bez čísla karty; převod „z účtu … na účet …“ → „Převod na účet …“.",
+      "📲 Přesuny a investice (Milan: „nemohu přiřadit některé transakce, protože to jsou Přesuny nebo Investice“): v nabídce kategorií 📈 Investice a spoření (jako Přesun → Do aktiv) a ↔️ Přesun do / z vlastní peněženky (pár transakcí se společným přesunem, mimo statistiky).",
+      "💳 KARTA / ÚČET → PENĚŽENKA (Milan: „můžeme nastavit číslo karty = typ peněženky?“): při Přidat se zapamatuje karta (poslední 4 číslice) nebo vlastní účet z notifikace → příště se peněženka předvyplní. U převodu na účet, který už znáš, se předvyplní ↔️ přesun do té peněženky.",
+      "💹 Zdražování → 🧭 Podle výrobků (Milan: „přínos může být ve vážených věcech, pečivu a u stejného výrobku“): podle obecného názvu jen ovoce, zelenina, brambory a pečivo; vážené sýry, uzeniny a maso z pultu jako konkrétní druh. Obecné názvy „Mléč. sýry“, „Mléč. výrobky“, „Sýr“, „Salám“ … se do sledování cen nepočítají.",
+      "🧪 tools/smoke_inbox_v2.js – 16 testů; smoke_stejne_se_stejnym.js +6.",
+    ],
+  },
+  {
+    verze: 'v12.05',
+    datum: '2026-10-23',
+    zmeny: [
+      "💹 ZDRAŽOVÁNÍ → 🧭 PODLE VÝROBKŮ: STEJNÉ SE STEJNÝM (Milan: „nelze brát pivo = pivo… nelze míchat banány a banány v čokoládě“). Dřív jedna skupina na obecný název (Pivo, Banán). Nově vážené zboží (banány na kg) podle obecného názvu a bio zvlášť; balené zboží jen jako KONKRÉTNÍ výrobek (čárový kód, výrobek z Mapy položek, jinak stejná zkratka). Cena dál za kg / l / ks.",
+      "🍺 Záloha za obal („Láhev pivo 0,5l“ 3 Kč, záloha PET, vratná přepravka) se do sledování cen nepočítá – Zdražování, Podle výrobků, Inflace, Detektor úspor, Pravidelně nakupuješ. V útratě zůstává.",
+      "📈 Inflace: palivo se počítá vždy za litr, i když účtenka jednotku nevyplní – EVO 95 se už nerozpadá na víc řádků „jen 1 cena“. Zdražování ukazuje „4 nákupů · 2 různé ceny“ místo „2 cen“.",
+      "🏪 Analýza účtenek → Obchody v měsíci a 📈 Trend útrat dle obchodů: obchod podle sjednoceného názvu („PENNY MARKET“, „Penny Market s.r.o.“ = jeden obchod; Milan: „Penny byl navštíven 9×“). V trendu má každý obchod jinou barvu (Penny, Kaufland, MOL i Albert mají firemní červenou).",
+      "⛽ TANKOVÁNÍ: z účtenky se nabídne jen skutečné palivo (název paliva a cena 15–90 Kč/l) – dřív stačila jednotka „l“, takže prošla i voda. V Detailu vozidla u každého řádku ✏️: úprava tachometru, litrů, zaplaceno, ceny u stojanu, plné nádrže, nebo 🗑 Odebrat z tankování (transakce i účtenka zůstanou). Řádek s nereálnou cenou za litr je žlutý s ⚠️. Bez tachometru se appka zeptá; nižší stav než u dřívějšího tankování nepustí.",
+      "📐 Statistika položek: širší tabulka, čísla se nezalamují (Ks, Ø za kg). Seznam položek: širší sloupec Ks, u litrů/kg bez desetin od 10.",
+      "📖 Deník → Osa života: čára poznámky vede od osy událostí až dolů a je tenčí.",
+      "🧪 tools/smoke_stejne_se_stejnym.js – 31 testů; smoke_t4_zdrazovani.js upraven na nové pravidlo.",
+    ],
+  },
   {
     verze: 'v12.04',
     datum: '2026-10-23',

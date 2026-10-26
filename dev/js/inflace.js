@@ -1,4 +1,4 @@
-// FinanceFlow · v11.66 · inflace.js · 2026-10-12
+// FinanceFlow · v12.05 · inflace.js · 2026-10-23
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -97,6 +97,7 @@ function _inflCollect() {
       //  názvem je jednou rohlík, jindy celý nákup → falešné „zdražení“ o stovky %.
       //  Stejné pravidlo jako Zdražování v Analýze účtenek (FIX-357).
       if (typeof rpIsGenericName === 'function' && rpIsGenericName(it.name)) { obecne++; return; }
+      if (typeof rpJeZaloha === 'function' && rpJeZaloha(it.name)) return;   // v12.05: záloha za láhev není zboží
 
       // ── FIX-269 (S19, nahlásil Milan): SLEVA SE DO CENY NEPROMÍTALA ──
       //  Bralo se `it.price`, tedy cena PŘED slevou. Zbytek aplikace používá
@@ -118,7 +119,12 @@ function _inflCollect() {
       // ne „81 Kč/kg". Přepočet na Kč/kg se dělá JEN u zboží skutečně prodávaného na váhu
       // (it.unit = kg/l, např. volné banány). U balených položek slouží Kč/kg pouze jako
       // DOPLŇKOVÝ údaj pro odhalení shrinkflace (balení se zmenší, cena zůstane).
-      const weighed = (it.unit === 'kg' || it.unit === 'l');
+      //  v12.05 (Milan: „v Inflaci je víc EVO 95 – jen 1 cena, přitom jich je naskenovaných víc“):
+      //  palivo se prodává na litry, i když účtenka (nebo čtení) jednotku nevyplní → jinak se
+      //  tatáž položka rozpadla na řádek „za l“ a „za balení“, každý s jedinou cenou.
+      const _palivo = typeof tankJePalivo === 'function' && tankJePalivo(it);
+      const weighed = (it.unit === 'kg' || it.unit === 'l' || _palivo);
+      if (_palivo && it.unit !== 'l') it = Object.assign({}, it, { unit: 'l' });
       //  S26 (v11.66): gramáž z pole Balení / karty výrobku / zkratky (gramazNaKgL), ne jen z názvu
       const ui = (typeof gramazNaKgL === 'function') ? gramazNaKgL(it) : _inflExtractUnit(it.name || '');
       const unit = weighed ? it.unit : 'ks';

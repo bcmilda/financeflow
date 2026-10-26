@@ -17,7 +17,7 @@ T.oblasti.forEach(o=>{
     t('unikátní id podkategorie '+p.id,!podIds.has(p.id)); podIds.add(p.id);
     t('id podkategorie jen malá písmena a pomlčky '+p.id,/^[a-z0-9-]+$/.test(p.id));
     t('COICOP podkategorie '+p.id+' je v číselníku ČSÚ',coicopOk(p.coicop),p.coicop);
-    if(p.rozpocet) t('rozpočet podkategorie '+p.id,katId.has(p.rozpocet),p.rozpocet);
+    if(p.rozpocet) t('rozpočet podkategorie '+p.id,p.rozpocet==='-'||katId.has(p.rozpocet),p.rozpocet);   // v12.09: „-“ = bez výchozí kategorie
     t('podkategorie '+p.id+' má aspoň 1 název',p.nazvy.length>0);
     p.nazvy.forEach(x=>{
       nazvu++;

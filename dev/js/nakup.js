@@ -1,4 +1,4 @@
-// FinanceFlow · v11.03 · nakup.js · 2026-09-25
+// FinanceFlow · v12.10 · nakup.js · 2026-10-23
 // ══════════════════════════════════════════════════════
 //  NÁKUPNÍ SEZNAM + HLÍDAČ CEN + PLÁNY A CÍLE – FinanceFlow v6.49
 // ══════════════════════════════════════════════════════
@@ -45,9 +45,51 @@ async function nakupLoadCatalog() {
         priceCount:  val.priceCount  || 0,
       })).filter(c => c.name && c.name.length >= 2)
         .sort((a,b) => a.name.localeCompare(b.name, 'cs'));
+      _nakupPrepojSeznam();
     }
   } catch(e) { console.log('nakupLoadCatalog error', e); }
 }
+
+//  v12.10 (Milan: „proč se mi objevují stejné názvy vícekrát? jednou s cenou a podruhé cena neznámá?“):
+//  do katalogu zapisovaly dvě funkce pod RŮZNÝMI klíči – názvy z editoru účtenky („activia_kefír_borůvka_280g“,
+//  bez ceny) a hlídač cen (normName „activia kefir boruvka“, s cenou); k tomu staré klíče z doby před S23.
+//  Jeden výrobek = víc záznamů. Tady se sloučí podle sjednoceného názvu: jeden řádek, čitelný název,
+//  klíč a cena z nejnovějšího záznamu S CENOU (na ten se váže hlídání).
+function nakupKatalogSkupiny(katalog) {
+  const citelnost = t => (/[a-zá-ž]/.test(t) ? 2 : 0) + (/[áčďéěíňóřšťúůýž]/i.test(t) ? 1 : 0);
+  const sk = new Map();
+  (katalog || []).forEach(c => {
+    const k = nakupNormKey(c.name) || c.key; if (!k) return;
+    const g = sk.get(k) || { klic: k, name: c.name, key: c.key, latestPrice: null, latestDate: '', clenove: [] };
+    g.clenove.push(c.key);
+    if (citelnost(c.name) > citelnost(g.name)) g.name = c.name;
+    if (c.latestPrice && (!g.latestPrice || String(c.latestDate || '') > String(g.latestDate || ''))) {
+      g.latestPrice = c.latestPrice; g.latestDate = c.latestDate || ''; g.key = c.key;
+    }
+    sk.set(k, g);
+  });
+  return [...sk.values()].sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+}
+//  Klíč, na který se má položka seznamu vázat: záznam s cenou téhož výrobku.
+function nakupKanonKlic(key, name, katalog) {
+  katalog = katalog || _nakupCatalog;
+  const c = katalog.find(x => x.key === key);
+  const k = nakupNormKey((c && c.name) || name || '');
+  if (!k) return key;
+  const g = nakupKatalogSkupiny(katalog.filter(x => nakupNormKey(x.name) === k))[0];
+  return g && g.latestPrice ? g.key : key;
+}
+//  Položky už v seznamu navázané na záznam bez ceny se přepojí – jinak by hlídač ceny nikdy neupozornil.
+function _nakupPrepojSeznam() {
+  if (typeof viewingUid !== 'undefined' && viewingUid) return 0;
+  const L = (typeof S !== 'undefined' && S.nakupList) || []; let n = 0;
+  L.forEach(it => { if (!it || !it.catalogKey) return;
+    const k = nakupKanonKlic(it.catalogKey, it.name);
+    if (k && k !== it.catalogKey) { it.catalogKey = k; n++; } });
+  if (n && typeof save === 'function') save();
+  return n;
+}
+window.nakupKatalogSkupiny = nakupKatalogSkupiny; window.nakupKanonKlic = nakupKanonKlic;
 
 async function nakupLoadPriceHistory(key) {
   if (_nakupCatalogCache[key]) return _nakupCatalogCache[key];
@@ -921,18 +963,19 @@ async function nakupShowCatalogSuggest(val) {
   if (q.length < 2) { el.style.display = 'none'; return; }
   if (!_nakupCatalog.length) await nakupLoadCatalog();
 
-  const matches = _nakupCatalog.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8);
+  //  v12.10: stejný výrobek jen jednou (nakupKatalogSkupiny); bez počtu skenů (Milan: „stačí mi cena“);
+  //  název se zalomí a cena má vlastní místo vpravo – nepřekrývají se.
+  const qn = nakupNormKey(val);
+  const matches = nakupKatalogSkupiny(_nakupCatalog.filter(c => c.name.toLowerCase().includes(q) || (qn && nakupNormKey(c.name).includes(qn)))).slice(0, 8);
   if (!matches.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
+  const esc = t => (typeof escHtml === 'function' ? escHtml(t) : String(t));
   el.innerHTML = matches.map(c => `
-    <div onclick="nakupSelectCatalogItem('${c.key}','${c.name.replace(/'/g,"&#39;")}')"
-      style="padding:8px 12px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"
+    <div onclick="nakupSelectCatalogItem('${esc(c.key).replace(/'/g,"&#39;")}','${esc(c.name).replace(/'/g,"&#39;")}')"
+      style="padding:8px 12px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px"
       onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''">
-      <span><strong>${c.name}</strong></span>
-      <span style="color:${c.latestPrice?'var(--income)':'var(--text3)'};font-size:.75rem">
-        ${c.latestPrice ? fmtP(c.latestPrice)+' Kč' : 'cena neznámá'}
-        ${c.priceCount > 1 ? `<span style="color:var(--text3)"> · ${c.priceCount}× sken</span>` : ''}
-      </span>
+      <strong style="flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.3">${esc(c.name)}</strong>
+      <span style="flex-shrink:0;white-space:nowrap;color:${c.latestPrice?'var(--income)':'var(--text3)'};font-size:.75rem">${c.latestPrice ? fmtP(c.latestPrice)+' Kč' : 'cena neznámá'}</span>
     </div>`).join('');
 }
 
@@ -944,6 +987,7 @@ function nakupHideSuggest() {
 }
 
 function nakupSelectCatalogItem(key, name) {
+  key = nakupKanonKlic(key, name);   // v12.10: vždy záznam s cenou
   document.getElementById('nakupItemName').value = name;
   document.getElementById('nakupCatalogKey').value = key;
   document.getElementById('nakupCatalogSuggest').style.display = 'none';

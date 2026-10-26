@@ -1,4 +1,4 @@
-// FinanceFlow · v11.92 · statistika-polozek.js · 2026-10-20
+// FinanceFlow · v12.12 · statistika-polozek.js · 2026-10-26
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -25,7 +25,7 @@ function spRadky(receipts, mapa, D) {
     if (!it || !it.name) return;
     //  v11.92 (FIX-485): položka s kódem patří do skupiny Mapy podle kódu („ean:…“), jinak podle názvu
     const kodEan = String(it.ean || '').replace(/\D/g, '');
-    const klic = nn(it.name); const m = (kodEan && podleKlice['ean:' + kodEan]) || podleKlice[klic];
+    const klic = nn(it.name); const m = (kodEan && podleKlice['ean:' + kodEan]) || podleKlice[(typeof mapaSpojeniKam === 'function' && mapaSpojeniKam(klic)) || klic] || podleKlice[klic];   // v12.12: ručně spojené zkratky
     const castka = Math.round(amt(it) * 100) / 100;
     const q = parseFloat(it.qty) || 1;
     const pg = (typeof productGroupLookup === 'function') ? productGroupLookup(it.name) : null;
@@ -39,6 +39,7 @@ function spRadky(receipts, mapa, D) {
     const bal = (typeof gramazPolozky === 'function') ? gramazPolozky(it) : (it.baleni || (typeof baleniZNazvu === 'function' ? baleniZNazvu(it.name) : null));
     let zaJed = null, jed = '';
     if (vaz(it)) { zaJed = q ? castka / q : null; jed = (it.unit === 'l' ? 'l' : 'kg'); }
+    else if (typeof tankJePalivo === 'function' && tankJePalivo(it)) { zaJed = castka / q; jed = 'l'; }   // v12.08: palivo za litr
     else if (bal && (bal.j === 'g' || bal.j === 'ml') && bal.m > 0) { zaJed = castka / (q * bal.m / 1000); jed = bal.j === 'g' ? 'kg' : 'l'; }
     out.push({
       zaJed, jed, baleni: bal,
@@ -56,13 +57,16 @@ function spRadky(receipts, mapa, D) {
 
 function spFiltruj(radky, f, dnes = new Date()) {
   const q = String(f.q || '').toLowerCase();
-  let od = '';
+  //  v12.11 (Milan: „zkontroluj, zda všechny stránky počítají ze zvoleného měsíce a ne od dneška“):
+  //  období končí měsícem `dnes` (volá se s vybraným měsícem nahoře) – horní mez, dřív jen od.
+  let od = '', doM = '';
   if (f.obdobi && f.obdobi !== 'vse') {
     const d = new Date(dnes.getFullYear(), dnes.getMonth() - (parseInt(f.obdobi, 10) - 1), 1);
     od = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    doM = `${dnes.getFullYear()}-${String(dnes.getMonth() + 1).padStart(2, '0')}`;
   }
   return radky.filter(x =>
-    (!od || x.mesic >= od) &&
+    (!od || x.mesic >= od) && (!doM || x.mesic <= doM) &&
     (!f.coicop || x.coicop === f.coicop || x.coicop.startsWith(f.coicop + '.')) &&
     (!f.oblast || x.oblast === f.oblast) && (!f.pod || x.pod === f.pod) &&
     (!f.obchod || x.obchod === f.obchod) && (!f.kraj || x.kraj === f.kraj) && (!f.mesto || x.mesto === f.mesto) && (!f.stitek || x.stitek === f.stitek) && (!f.kat || x.kat === f.kat) &&
@@ -142,7 +146,7 @@ function spRender() {
   const mapa = (typeof _mapaUziv !== 'undefined') ? _mapaUziv : [];
   const vse = spRadky(rec, mapa, D);
   const f = _spFiltr;
-  const r = spFiltruj(vse, f);
+  const r = spFiltruj(vse, f, (typeof S !== 'undefined' && S.curYear != null) ? new Date(S.curYear, S.curMonth, 15) : new Date());   // v12.11: od vybraného měsíce
   const kc = v => (typeof _mapaKc === 'function') ? _mapaKc(v) : (Math.round(v) + ' Kč');
   const e = s => escHtml(String(s == null ? '' : s));
   const uniq = (fn, base) => [...new Set((base || vse).map(fn).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'cs'));
@@ -165,7 +169,7 @@ function spRender() {
     <div style="font-size:.74rem;color:#a8aec8;line-height:1.5;margin-bottom:10px">Každá položka z tvých účtenek, zařazená podle číselníku ČSÚ (CZ-COICOP), taxonomie Mapy položek, obchodu a štítku. Klikni na položku v tabulce a otevře se její karta.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:8px">
       <label style="display:flex;flex-direction:column;gap:3px;font-size:.66rem;color:#a8aec8">Období
-        <select class="fi" style="font-size:.76rem;padding:6px" onchange="spNastav('obdobi',this.value)">${[['1', 'Tento měsíc'], ['3', '3 měsíce'], ['6', '6 měsíců'], ['12', '12 měsíců'], ['vse', 'Vše']].map(([v, l]) => `<option value="${v}" ${f.obdobi === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <select class="fi" style="font-size:.76rem;padding:6px" onchange="spNastav('obdobi',this.value)">${[['1', 'Vybraný měsíc'], ['3', '3 měsíce'], ['6', '6 měsíců'], ['12', '12 měsíců'], ['vse', 'Vše']].map(([v, l]) => `<option value="${v}" ${f.obdobi === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${sel('coicop', 'COICOP / skupina ČSÚ', coicopOpts, fmtCoicop)}
       ${sel('oblast', 'Oblast', uniq(x => x.oblast))}
       ${sel('pod', 'Podkategorie', uniq(x => x.pod, f.oblast ? vse.filter(x => x.oblast === f.oblast) : vse))}
@@ -199,11 +203,11 @@ function spRender() {
         <div style="width:100%;height:${Math.max(2, m.castka / maxM * 80)}px;background:#4ade80;border-radius:4px 4px 0 0"></div>
         <div style="font-size:.62rem;color:#a8aec8;margin-top:3px">${e(m.klic.slice(5, 7) + '/' + m.klic.slice(2, 4))}</div></div>`).join('')}</div>` : ''}
     <div style="font-weight:700;font-size:.84rem;margin:16px 0 6px">Položky</div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:420px">
-      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px">Položka</th><th style="padding:5px 4px;text-align:right">Útrata</th><th style="padding:5px 4px;text-align:right">Ks</th><th style="padding:5px 4px;text-align:right">Ø cena</th><th style="padding:5px 4px;text-align:right">Ø za kg/l</th><th style="padding:5px 4px">Nejlevněji</th></tr>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.74rem;min-width:600px">
+      <tr style="color:#a8aec8;text-align:left"><th style="padding:5px 4px;min-width:150px">Položka</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Útrata</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ks</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ø cena</th><th style="padding:5px 4px;text-align:right;white-space:nowrap">Ø za kg/l</th><th style="padding:5px 4px">Nejlevněji</th></tr>
       ${pol.map(p => `<tr style="border-top:1px solid var(--border);${p.mapaI >= 0 ? 'cursor:pointer' : ''}" ${p.mapaI >= 0 ? `onclick="mapaUzivDetail(${p.mapaI})"` : ''}>
         <td style="padding:6px 4px;overflow-wrap:anywhere">${p.ean ? '▮▮ ' : ''}${e(typeof nazevBezGramaze === 'function' ? nazevBezGramaze(p.nazev) : p.nazev)}${p.baleni && typeof baleniText === 'function' ? ` <span style="color:#a8aec8">${e(baleniText(p.baleni))}</span>` : ''}</td><td style="padding:6px 4px;text-align:right;font-weight:700;white-space:nowrap">${kc(p.castka)}</td>
-        <td style="padding:6px 4px;text-align:right">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.vazene ? '—' : kc(p.prumCena)}</td>
+        <td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.pocet}</td><td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.vazene ? '—' : kc(p.prumCena)}</td>
         <td style="padding:6px 4px;text-align:right;white-space:nowrap">${p.prumZaJed != null ? kc(p.prumZaJed) + '/' + e(p.jed) : '<span style="color:#a8aec8">—</span>'}</td>
         <td style="padding:6px 4px;color:var(--income)">${p.nejlevneji ? e(p.nejlevneji.o) : '<span style="color:#a8aec8">—</span>'}</td></tr>`).join('')}
     </table></div>

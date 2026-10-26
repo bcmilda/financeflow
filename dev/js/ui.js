@@ -1,4 +1,4 @@
-// FinanceFlow · v12.04 · ui.js · 2026-10-23
+// FinanceFlow · v12.11 · ui.js · 2026-10-25
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -713,7 +713,7 @@ function renderDashboard(){
   const bEl=document.getElementById('bdayAlert');
   if(bEl){
     const bdays=(D.birthdays||[]).filter(b=>daysUntilBday(b)<=7);
-    bEl.innerHTML=bdays.length?bdays.map(b=>`<div class="insight-item warn" style="margin-bottom:10px"><div class="insight-icon">🎂</div><div class="insight-text"><strong>${b.name}</strong> – narozeniny za ${daysUntilBday(b)} dní${b.gift?` · Dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join(''):'';
+    bEl.innerHTML=bdays.length?bdays.map(b=>`<div class="insight-item warn" style="margin-bottom:10px"><div class="insight-icon">${typeof bdayDruh==='function'?bdayDruh(b).ikona:'🎂'}</div><div class="insight-text"><strong>${b.name}</strong> – ${typeof bdayDruh==='function'?bdayDruh(b).nazev.toLowerCase():'narozeniny'} ${daysUntilBday(b)===0?'dnes':daysUntilBday(b)===1?'zítra':'za '+(typeof _bdayDnu==='function'?_bdayDnu(daysUntilBday(b)):daysUntilBday(b)+' dní')}${typeof bdayVekPristi==='function'&&bdayVekPristi(b)!=null?' · '+(bdayDruh(b).kod==='vyroci'?'':'bude ')+_bdayLet(bdayVekPristi(b)):''}${b.gift?` · Dárek: <strong>${fmt(b.gift)}</strong>`:''}</div></div>`).join(''):'';
   }
   // S25 (TODO-309): doklady se zárukou ke konci (Analýza účtenek → 📎 Doklady)
   const zEl=document.getElementById('zarukaAlert');
