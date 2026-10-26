@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.12</title>
+<title>FinanceFlow v12.13</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.12 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.13 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -1031,12 +1031,18 @@
       <div class="card-header"><span class="card-title">🔄 Převod mezi peněženkami</span></div>
       <div class="card-body">
         <div class="frow" style="margin-bottom:10px">
-          <div class="fg"><label>Z peněženky</label><select class="fi" id="transferFrom"></select></div>
-          <div class="fg"><label>Do peněženky</label><select class="fi" id="transferTo"></select></div>
+          <div class="fg"><label>Z peněženky</label><select class="fi" id="transferFrom" onchange="updatePrevodConv()"></select></div>
+          <div class="fg"><label>Do peněženky</label><select class="fi" id="transferTo" onchange="updatePrevodConv()"></select></div>
         </div>
         <div class="frow" style="margin-bottom:10px">
-          <div class="fg"><label>Částka</label><input class="fi" type="number" id="transferAmt" placeholder="0"></div>
+          <div class="fg"><label>Částka (<span id="prevodAmtCur">Kč</span>)</label><input class="fi" type="number" id="transferAmt" placeholder="0" oninput="updatePrevodConv()"></div>
           <div class="fg"><label>Datum</label><input class="fi" type="date" id="transferDate"></div>
+        </div>
+        <!-- S28 (v12.13, FIX-494): různé měny → připsaná částka kurzem ČNB, upravitelná -->
+        <div id="prevodConvRow" style="display:none;margin-bottom:10px;background:var(--surface2);border:1px solid rgba(96,165,250,.35);border-radius:10px;padding:9px 12px">
+          <label style="color:var(--bank);font-weight:700;font-size:.74rem;letter-spacing:.04em;display:block;margin-bottom:4px">PŘIPSAT DO CÍLOVÉ PENĚŽENKY (<span id="prevodConvCur">–</span>)</label>
+          <input class="fi" id="prevodConvAmt" type="number" placeholder="0" min="0" oninput="_prevodConvTouched=true">
+          <div style="font-size:.68rem;color:#a8aec8;margin-top:4px;line-height:1.4" id="prevodConvHint">Předvyplněno kurzem ČNB – uprav podle skutečně připsané částky.</div>
         </div>
         <div class="fg" style="margin-bottom:10px"><label>Poznámka</label><input class="fi" id="transferNote" placeholder="Volitelná poznámka..."></div>
         <button class="btn btn-accent" style="width:100%" onclick="doTransfer()">↔️ Provést převod</button>
@@ -1094,7 +1100,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.12</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.13</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1481,8 +1487,10 @@
       <div class="fg"><label>Název</label><input class="fi" id="sablonaName" placeholder="např. Internet O2, Výplata..."></div>
       <div class="fg"><label>Částka (Kč)</label><input class="fi" type="number" id="sablonaAmt" placeholder="0"></div>
       <div class="fg" id="sablonaCatSection"><label>Kategorie</label><div class="cat-scroll" id="sablonaCatPicker"></div></div>
-      <div class="fg"><label id="sablonaWalletLabel">Peněženka</label><select class="fi" id="sablonaWallet"></select></div>
-      <div class="fg" id="sablonaWalletToSection" style="display:none"><label>Do peněženky (spoření, rezerva…)</label><select class="fi" id="sablonaWalletTo"></select></div>
+      <div class="fg"><label id="sablonaWalletLabel">Peněženka</label><select class="fi" id="sablonaWallet" onchange="sablonaPresunInfo()"></select></div>
+      <div class="fg" id="sablonaWalletToSection" style="display:none"><label>Do peněženky (spoření, rezerva…)</label><select class="fi" id="sablonaWalletTo" onchange="sablonaPresunInfo()"></select>
+        <!-- S28 (v12.13, FIX-494): přesun mezi měnami ze šablony = kurz ČNB dne zápisu -->
+        <div id="sablonaPresunInfo" style="display:none;font-size:.7rem;color:#c9cede;background:var(--surface2);border:1px solid rgba(96,165,250,.35);border-radius:8px;padding:7px 10px;margin-top:6px;line-height:1.45"></div></div>
       <div class="fg" id="sablonaDebtSection" style="display:none"><label>Splácený dluh</label><select class="fi" id="sablonaDebtId"></select></div>
       <div class="frow">
         <div class="fg">
@@ -2273,7 +2281,7 @@ window.addEventListener('error', function(e){
 <script src="js/ai.js?v=3ace4c75ee055cae" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/dotazy.js?v=74f815619b9401f9" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
-<script src="js/premium.js?v=661a114938e95a0f" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=52d961d470193263" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
 <script src="js/projects.js?v=330fa68442e67787" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
@@ -2305,7 +2313,7 @@ window.addEventListener('error', function(e){
 <script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
-<script src="js/admin.js?v=dc34c513a29131dd" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=47439ca23080ef3f" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=dca47a349466fb22" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

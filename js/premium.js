@@ -1,4 +1,4 @@
-// FinanceFlow · v12.02 · premium.js · 2026-10-23
+// FinanceFlow · v12.13 · premium.js · 2026-10-26
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -630,14 +630,17 @@ function renderTransferDropdowns(wallets) {
   const goalOpts = goals.length ? `<optgroup label="🎯 Virtuální peněženka – cíle">`
         + goals.map(g=>`<option value="goal:${g.id}">🎯 ${g.name}</option>`).join('')
         + `</optgroup>` : '';
+  //  FIX-494: překreslení (i ze synchronizace) nesmí tiše vrátit výběr na první peněženku –
+  //  dopočet kurzu by pak patřil jiné dvojici, než do které převod odejde.
+  const _plnit = (sel) => { if(!sel) return; const v = sel.value; sel.innerHTML = walletOpts + goalOpts;
+    if(v && [...sel.options].some(o => o.value === v)) sel.value = v; };
   // transferFrom: peněženky + virtuální cíle (lze převést i Z cíle zpět)
-  const sel0 = document.getElementById('transferFrom');
-  if(sel0) sel0.innerHTML = walletOpts + goalOpts;
+  _plnit(document.getElementById('transferFrom'));
   // transferTo: peněženky + virtuální cíle
-  const selTo = document.getElementById('transferTo');
-  if(selTo) selTo.innerHTML = walletOpts + goalOpts;
+  _plnit(document.getElementById('transferTo'));
   const d = document.getElementById('transferDate');
   if(d && !d.value) d.value = new Date().toISOString().slice(0,10);
+  if(typeof updatePrevodConv === 'function') updatePrevodConv();
 }
 
 function openWalletModal() {
@@ -734,6 +737,68 @@ function toCZK(amount, currency){
   const r = rates[currency] || 1;
   return amount * r;
 }
+// ══════════════════════════════════════════════════════
+//  S28 (v12.13, FIX-494, Milan): PŘESUN S RŮZNOU MĚNOU – i mimo ➕ Přidat.
+//  FIX-176 (v8.59) opravil jen formulář ➕ Přidat → ↔️ Přesun (debts.js). Peněženky →
+//  🔄 Převod a šablony přesunu dál psaly do cílové peněženky surové číslo
+//  (2 530 Kč → +2 530 €). Teď všechny tři cesty zapisují pár přes presunPar():
+//  připsaná částka = zadaná (skutečně připsaná, po poplatku / kurzu banky), jinak
+//  křížový kurz ČNB přes CZK. Tvar obou nohou je stejný jako v debts.js (saveTx).
+//  Skutečnou částku u šablony (zapsané kurzem dne) Milan opraví klepnutím na příjem
+//  v Transakcích – úprava drží transferId (Object.assign).
+// ══════════════════════════════════════════════════════
+function presunPar(o) {
+  const amt = Math.round((parseFloat(o.amt) || 0) * 100) / 100;
+  const curF = _walletCur(o.from), curT = _walletCur(o.to);
+  let inAmt = amt;
+  if (curF !== curT) {
+    const v = parseFloat(o.inAmt);
+    inAmt = Math.round(((isFinite(v) && v > 0) ? v : amt * _fxToCzk(curF) / _fxToCzk(curT)) * 100) / 100;
+  }
+  const czk = (curF !== 'CZK' || curT !== 'CZK') ? Math.round(amt * _fxToCzk(curF) * 100) / 100 : null;
+  const transferId = o.transferId || uid();
+  const spol = { name: o.name, date: o.date, note: o.note, transferId, category: 'transfer', catId: 'transfer', amtCZK: czk };
+  return [
+    Object.assign({ id: uid() }, spol, { amount: amt, amt, type: 'expense', wallet: o.from || null }),
+    Object.assign({ id: uid() }, spol, { amount: inAmt, amt: inAmt, type: 'income', wallet: o.to || null }),
+  ];
+}
+window.presunPar = presunPar;
+function _presunMena(v, cur) { return fmtP(v) + ' ' + (cur === 'CZK' ? 'Kč' : cur); }
+
+//  Peněženky → 🔄 Převod: pole „Připsat do cílové peněženky“ jen při různých měnách,
+//  předvyplněné kurzem ČNB, dokud do něj uživatel nesáhne (vzor updateTransferConv v debts.js).
+let _prevodConvTouched = false;
+function updatePrevodConv() {
+  const row = document.getElementById('prevodConvRow'); if (!row) return;
+  const from = document.getElementById('transferFrom')?.value || '';
+  const to = document.getElementById('transferTo')?.value || '';
+  const cel = from.startsWith('goal:') || to.startsWith('goal:');
+  const curF = cel && from.startsWith('goal:') ? 'CZK' : _walletCur(from), curT = _walletCur(to);
+  const cl = document.getElementById('prevodAmtCur'); if (cl) cl.textContent = curF === 'CZK' ? 'Kč' : curF;
+  if (cel || !from || !to || from === to || curF === curT) { row.style.display = 'none'; return; }
+  row.style.display = 'block';
+  const cc = document.getElementById('prevodConvCur'); if (cc) cc.textContent = curT === 'CZK' ? 'Kč' : curT;
+  const amt = parseFloat(document.getElementById('transferAmt')?.value) || 0;
+  const cross = _fxToCzk(curF) / _fxToCzk(curT);
+  if (!_prevodConvTouched) { const f = document.getElementById('prevodConvAmt'); if (f) f.value = amt > 0 ? String(Math.round(amt * cross * 100) / 100) : ''; }
+  const h = document.getElementById('prevodConvHint');
+  if (h) h.textContent = `Předvyplněno kurzem ČNB (1 ${curF} ≈ ${Math.round(cross * 10000) / 10000} ${curT}) – uprav podle skutečně připsané částky (poplatek, kurz banky).`;
+}
+function _prevodVycisti() {
+  ['transferAmt', 'transferNote', 'prevodConvAmt'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  _prevodConvTouched = false;
+}
+//  FIX-494: zůstatky se po převodu ukázaly až po přepnutí stránky – save() jen ukládá,
+//  stránku překreslí až renderPage(). Výsledek převodu (#transferResult) leží mimo překreslovanou část.
+function _prevodHotovo(html) {
+  _prevodVycisti();
+  if (typeof renderPage === 'function') renderPage();
+  updatePrevodConv();
+  const r = document.getElementById('transferResult'); if (r) r.innerHTML = html;
+  setTimeout(() => { const x = document.getElementById('transferResult'); if (x) x.innerHTML = ''; }, 4000);
+}
+
 function doTransfer() {
   const from=document.getElementById('transferFrom').value;
   const to=document.getElementById('transferTo').value;
@@ -769,10 +834,7 @@ function doTransfer() {
     if(typeof _goalDeposits!=='undefined'){ if(!_goalDeposits[goalId])_goalDeposits[goalId]=[]; _goalDeposits[goalId].push(dep); }
     if(window._currentUser && window._db){ _set(_ref(_db, `users/${window._currentUser.uid}/goal_deposits/${dep.id}`), dep).catch(()=>{}); }
     save();
-    document.getElementById('transferAmt').value='';
-    document.getElementById('transferNote').value='';
-    document.getElementById('transferResult').innerHTML=`<div class="insight-item good"><div class="insight-icon">↩️</div><div class="insight-text">Výběr <strong>${fmtB(amt)}</strong> z cíle <strong>${goal.name}</strong> na <strong>${wDest?.name}</strong> proveden!</div></div>`;
-    setTimeout(()=>{const r=document.getElementById('transferResult');if(r)r.innerHTML='';},4000);
+    _prevodHotovo(`<div class="insight-item good"><div class="insight-icon">↩️</div><div class="insight-text">Výběr <strong>${fmtB(amt)}</strong> z cíle <strong>${goal.name}</strong> na <strong>${wDest?.name}</strong> proveden!</div></div>`);   // FIX-494
     return;
   }
 
@@ -815,25 +877,22 @@ function doTransfer() {
       _set(_ref(_db, `users/${window._currentUser.uid}/goal_deposits/${dep.id}`), dep).catch(()=>{});
     }
     save();
-    document.getElementById('transferAmt').value='';
-    document.getElementById('transferNote').value='';
-    document.getElementById('transferResult').innerHTML=`<div class="insight-item good"><div class="insight-icon">🎯</div><div class="insight-text">Vklad <strong>${fmtB(amt)}</strong> z <strong>${wFrom?.name}</strong> do cíle <strong>${goal.name}</strong> proveden!</div></div>`;
-    setTimeout(()=>{const r=document.getElementById('transferResult');if(r)r.innerHTML='';},4000);
+    _prevodHotovo(`<div class="insight-item good"><div class="insight-icon">🎯</div><div class="insight-text">Vklad <strong>${fmtB(amt)}</strong> z <strong>${wFrom?.name}</strong> do cíle <strong>${goal.name}</strong> proveden!</div></div>`);   // FIX-494
     return;
   }
 
   const wTo=findWallet(to);
-  // Create two linked transactions
-  const transferId=uid();
-  const txOut={id:uid(),name:`Převod → ${wTo?.name||''}`,amount:amt,type:'expense',date,wallet:from,note:note||'Převod mezi peněženkami',transferId,category:'transfer'};
-  const txIn={id:uid(),name:`Převod ← ${wFrom?.name||''}`,amount:amt,type:'income',date,wallet:to,note:note||'Převod mezi peněženkami',transferId,category:'transfer'};
+  // FIX-494: dvě propojené transakce přes presunPar – cílová noha v měně cílové peněženky
+  const _conv=document.getElementById('prevodConvRow');
+  const _inAmt=(_conv && _conv.style.display!=='none') ? document.getElementById('prevodConvAmt')?.value : null;
+  const [txOut,txIn]=presunPar({from,to,amt,inAmt:_inAmt,date,note:note||'Převod mezi peněženkami',name:''});
+  txOut.name=`Převod → ${wTo?.name||''}`; txIn.name=`Převod ← ${wFrom?.name||''}`;
   if(!S.transactions)S.transactions=[];
   S.transactions.push(txOut,txIn);
   save();
-  document.getElementById('transferAmt').value='';
-  document.getElementById('transferNote').value='';
-  document.getElementById('transferResult').innerHTML=`<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Převod <strong>${fmtB(amt)}</strong> z <strong>${wFrom?.name}</strong> do <strong>${wTo?.name}</strong> proveden!</div></div>`;
-  setTimeout(()=>{const r=document.getElementById('transferResult');if(r)r.innerHTML='';},4000);
+  const _cF=_walletCur(from), _cT=_walletCur(to);
+  const _kolik=_cF===_cT ? `<strong>${_presunMena(txOut.amount,_cF)}</strong>` : `<strong>${_presunMena(txOut.amount,_cF)}</strong> → <strong>${_presunMena(txIn.amount,_cT)}</strong>`;
+  _prevodHotovo(`<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Převod ${_kolik} z <strong>${wFrom?.name}</strong> do <strong>${wTo?.name}</strong> proveden!</div></div>`);
 }
 
 // ══════════════════════════════════════════════════════
@@ -903,6 +962,22 @@ function deletePayType(id) {
 const FREQ_LABELS={weekly:'Týdně',biweekly:'Každé 2 týdny',monthly:'Měsíčně',quarterly:'Čtvrtletně',yearly:'Ročně',once:'1× jednorázově'};
 let _sablonaType='expense';
 
+//  FIX-494 (S28, v12.13, Milan): šablona přesunu mezi peněženkami s různou měnou připíše
+//  částku kurzem ČNB v den zápisu; skutečně připsanou (poplatek, kurz banky) Milan opraví
+//  klepnutím na příjem přesunu v Transakcích. Popisek částky = měna zdrojové peněženky.
+function sablonaPresunInfo() {
+  const box = document.getElementById('sablonaPresunInfo');
+  const lbl = document.querySelector('label[for="sablonaAmt"]') || document.getElementById('sablonaAmt')?.parentElement?.querySelector('label');
+  const prenos = _sablonaType === 'transfer';
+  const curF = _walletCur(document.getElementById('sablonaWallet')?.value || '');
+  const curT = _walletCur(document.getElementById('sablonaWalletTo')?.value || '');
+  if (lbl) lbl.textContent = 'Částka (' + ((prenos ? curF : 'CZK') === 'CZK' ? 'Kč' : curF) + ')';
+  if (!box) return;
+  if (!prenos || curF === curT) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = `💱 Různé měny (${curF} → ${curT}): do cílové peněženky se připíše částka <strong>kurzem ČNB v den zápisu</strong>. Skutečně připsanou částku (poplatek, kurz banky) opravíš v Transakcích – klepni na příjem přesunu a změň částku.`;
+}
+
 function setSablonaType(t) {
   _sablonaType=t;
   // S12.1i: typ Přesun – skrýt kategorii, zobrazit cílovou peněženku
@@ -920,6 +995,7 @@ function setSablonaType(t) {
   const wl=document.getElementById('sablonaWalletLabel');
   if(wl) wl.textContent = t==='transfer' ? 'Z peněženky' : 'Peněženka';
   if(t==='transfer' && typeof renderSablonaWalletTo==='function') renderSablonaWalletTo();
+  if(typeof sablonaPresunInfo==='function') sablonaPresunInfo();   // FIX-494
   document.getElementById('stt-income').className='tt'+(t==='income'?' sel-income':'');
   document.getElementById('stt-expense').className='tt'+(t==='expense'?' sel-expense':'');
   const stDebt=document.getElementById('stt-debt');
@@ -1054,6 +1130,7 @@ function editSablona(id) {
   renderSablonaWallets();
   document.getElementById('sablonaWallet').value=s.wallet||'';
   if(document.getElementById('sablonaWalletTo')) document.getElementById('sablonaWalletTo').value=s.walletTo||'';
+  if(typeof sablonaPresunInfo==='function') sablonaPresunInfo();   // FIX-494
   if(s.debtId){ renderSablonaDebts(); const ds=document.getElementById('sablonaDebtId'); if(ds) ds.value=s.debtId; }  // S17.7
   document.getElementById('sablonaModalTitle').textContent='Upravit šablonu';
   document.getElementById('modalSablona').classList.add('open');
@@ -1099,12 +1176,8 @@ function useSablonaId(id) {
   if(!S.transactions)S.transactions=[];
   if(s.type==='transfer'){
     // S12.1i: opakovaný PŘESUN – pár transakcí s transferId (statistiky ho ignorují, peněženky započítají)
-    const transferId=uid();
-    const txName=s.name||'Převod (šablona)';
-    S.transactions.push(
-      {id:uid(),name:txName,amount:s.amount,amt:s.amount,type:'expense',date:_dateStr,wallet:s.wallet||null,note:s.note||'Z šablony: '+s.name,transferId,category:'transfer',catId:'transfer'},
-      {id:uid(),name:txName,amount:s.amount,amt:s.amount,type:'income', date:_dateStr,wallet:s.walletTo||null,note:s.note||'Z šablony: '+s.name,transferId,category:'transfer',catId:'transfer'}
-    );
+    //  FIX-494: různé měny → připsáno kurzem ČNB dne zápisu (skutečnou částku opraví úprava příjmu)
+    S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:_dateStr,name:s.name||'Převod (šablona)',note:s.note||'Z šablony: '+s.name}));
   } else {
     const _t={id:uid(),name:s.name,amount:s.amount,type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
     if(s.debtId){ _sablonaSplatka(_t, s); if(typeof debtAplikujCekajiciSplatky==='function') debtAplikujCekajiciSplatky(); }   // v12.02: splátka dnes
@@ -1168,11 +1241,7 @@ function processAutoSablony() {
       if(s.subcat) tx1.subcat=s.subcat;
       if(s.energie) tx1.energie=Object.assign({},s.energie);
       if(s.type==='transfer'){
-        const trid=uid();
-        S.transactions.push(
-          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:s.onceDate,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'},
-          {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:s.onceDate,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId:trid,category:'transfer',catId:'transfer'}
-        );
+        S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:s.onceDate,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
       } else S.transactions.push(tx1);
       s.done=true; added++;
       return;
@@ -1190,11 +1259,7 @@ function processAutoSablony() {
     // idempotence: existuje už auto-transakce téže šablony k tomuto datu?
     if(S.transactions.some(t=>t.date===dateStr && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) return;
     if(s.type==='transfer'){
-      const transferId=uid();
-      S.transactions.push(
-        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'expense',date:dateStr,wallet:s.wallet||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'},
-        {id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:'income', date:dateStr,wallet:s.walletTo||null,note:'Auto-šablona: '+s.name,transferId,category:'transfer',catId:'transfer'}
-      );
+      S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:dateStr,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
     } else {
       const tx={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) _sablonaSplatka(tx, s);   // v12.02
