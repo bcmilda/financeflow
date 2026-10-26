@@ -1,4 +1,4 @@
-// FinanceFlow · v12.12 · admin.js · 2026-10-26
+// FinanceFlow · v12.14 · admin.js · 2026-10-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,25 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.14',
+    datum: '2026-10-26',
+    zmeny: [
+      "🐛 FIX-495 · ZŮSTATEK PENĚŽENKY V CIZÍ MĚNĚ (Milan: „tato chyba mi unikla, oprav ji taky“) · cesta: Peněženky → 👛 Moje peněženky: EUR účet ukazoval „200 Kč“ (zůstatek v eurech se formátoval jako koruny a zaokrouhlil). Teď 199,50 € a pod tím ≈ 5 047 Kč. Korunové peněženky beze změny.",
+      "🐛 FIX-495 · MĚSÍČNÍ REPORT · cesta: Report → 📄 Měsíční report → strana 1, Peněženky: součet sčítal eura s korunami (100 € + 10 000 Kč = „10 100 Kč“) – teď přepočet na Kč, řádek cizí peněženky v její měně (199,50 €). Totéž v podkladech pro AI komentář (peněženky celkem, rezerva v měsících).",
+      "🧪 tools/smoke_penezenky_mena.js – 9 testů (na v12.13 jich 7 selže).",
+    ],
+  },
+  {
+    verze: 'v12.13',
+    datum: '2026-10-26',
+    zmeny: [
+      "🐛 FIX-494 · PŘESUN MEZI PENĚŽENKAMI S RŮZNOU MĚNOU (Milan: „chyba přetrvala a oprava nebyla úplná“) · cesta: Peněženky → 🔄 Převod mezi peněženkami: 2 530 Kč na EUR účet připsalo +2 530 € (FIX-176 z v8.59 opravil jen ➕ Přidat → ↔️ Přesun). Teď se při různých měnách ukáže pole „Připsat do cílové peněženky“ předvyplněné kurzem ČNB – přepiš ho podle skutečně připsané částky (poplatek, kurz banky). Popisek Částka ukazuje měnu zdrojové peněženky, hláška po převodu obě částky (10 EUR → 253 Kč).",
+      "🐛 FIX-494 · ŠABLONY PŘESUNU · cesta: Opakované platby → šablona typu ↔️ Přesun (ruční použití i automatický zápis): do cílové peněženky v jiné měně se připíše částka kurzem ČNB v den zápisu (dřív stejné číslo jako odešlo). Ve formuláři šablony je o tom poznámka; skutečně připsanou částku opravíš v Transakcích klepnutím na příjem přesunu (přesun zůstane spárovaný).",
+      "🐛 FIX-494 · ZŮSTATKY HNED (Milan: „částky mezi peněženkami se nepropsaly okamžitě až po překliknutí“) · cesta: Peněženky → 🔄 Převod: po převodu (i do / z cíle) se seznam peněženek hned překreslí. Překreslení ze synchronizace už nevrátí výběr peněženek na první položku.",
+      "🧪 tools/smoke_presun_mena.js – 22 testů (na v12.12 jich 16 selže).",
+    ],
+  },
   {
     verze: 'v12.12',
     datum: '2026-10-26',

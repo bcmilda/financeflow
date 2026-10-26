@@ -1,4 +1,4 @@
-// FinanceFlow · v12.12 · report-mesicni.js · 2026-10-26
+// FinanceFlow · v12.14 · report-mesicni.js · 2026-10-26
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -85,7 +85,10 @@ function mesReportData(D, m, y) {
   try { const sc = computeFinancialScore(D, m, y); const z = scoreZobrazeni(sc); skore = { tot: z.tot, max: z.max, comps: sc.components, grade: sc.grade };
         const sp = computeFinancialScore(D, pm.m, pm.y); skoreMM = scoreZobrazeni(sp).tot; } catch (e) {}
   // peněženky dnes, dluhy, cíle
-  const penezenky = (typeof getWallets === 'function' ? getWallets(D) : []).map(w => { let b = 0; try { b = computeWalletBalance(w.id, D); } catch (e) {} return { n: w.name, b }; });
+  //  S28 (v12.14, FIX-495): b = zůstatek v MĚNĚ peněženky, bk = v Kč (součty a AI podklady sčítaly
+  //  eura s korunami: 100 € + 10 000 Kč = „10 100 Kč“).
+  const penezenky = (typeof getWallets === 'function' ? getWallets(D) : []).map(w => { let b = 0; try { b = computeWalletBalance(w.id, D); } catch (e) {}
+    const cur = w.currency || 'CZK'; return { n: w.name, b, cur, bk: cur !== 'CZK' && typeof toCZK === 'function' ? toCZK(b, cur) : b }; });
   const dluhy = (D.debts || []).filter(d => (d.remaining || 0) > 0).map(d => ({ n: d.name || d.creditor || 'Půjčka', zb: d.remaining || 0, puv: d.total || d.remaining || 0, spl: d.payment || 0, urok: d.interest || 0 }));
   const cile = (D.wishes || []).filter(w => w && !w.done && (w.price || w.target)).map(w => ({ n: w.name || 'Cíl', ma: w.savedAmount || 0, cil: w.price || w.target })).slice(0, 3);
   // účtenky
@@ -135,7 +138,7 @@ function mesReportAIPodklady(rd) {
   const drobne = rd.pravidelne.filter(x => x.mes > 0 && x.mes < 1500), drobneM = drobne.reduce((a, x) => a + x.mes, 0);
   const pravM = rd.pravidelne.reduce((a, x) => a + x.mes, 0);
   const dluhZb = rd.dluhy.reduce((a, d) => a + d.zb, 0), dluhSpl = rd.dluhy.reduce((a, d) => a + (d.spl || 0), 0);
-  const penez = rd.penezenky.reduce((a, w) => a + w.b, 0);
+  const penez = rd.penezenky.reduce((a, w) => a + (w.bk != null ? w.bk : w.b), 0);   // FIX-495: v Kč
   const u = rd.ucet;
   return {
     obdobi: { mesic: RP_MES[rd.m], rok: rd.y, dalsiMesic: RP_MES[rd.nm], probiha, ...(probiha ? { den: dnes.getDate(), dnuVMesici: rd.dni } : {}) },
@@ -347,7 +350,11 @@ function _rpFree1(rd) {
   const r = [...kat.filter(k => k.v > 0).map(k => ({ n: k.n, c: k.c, v: k.v })), ...(rd.bil > 0 ? [{ n: 'Zůstalo', c: '#0F8C6E', v: rd.bil }] : [])];
   const tot = r.reduce((a, x) => a + x.v, 0) || 1;
   const nejSk = kat.map(k => ({ ...k, d: k.v - k.mm })).sort((a, b) => a.d - b.d);
-  const penSum = rd.penezenky.reduce((a, w) => a + w.b, 0);
+  const penSum = rd.penezenky.reduce((a, w) => a + (w.bk != null ? w.bk : w.b), 0);   // FIX-495: v Kč
+  //  FIX-495: cizí měna v řádku v měně peněženky (100 €), součet nahoře v Kč
+  const _rpPen = w => (w.cur && w.cur !== 'CZK')
+    ? (Math.round(w.b * 100) / 100).toLocaleString('cs-CZ', Number.isInteger(Math.round(w.b * 100) / 100) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + ({ EUR: '€', USD: '$', GBP: '£', PLN: 'zł' }[w.cur] || w.cur)
+    : _rpKc(w.b);
   return `<section class="page" aria-label="Strana 1">${_rpTop(rd, `Měsíční report · ${RP_MES[rd.m]} ${rd.y}`, false)}
   <div class="c12 title"><div><h1>${RP_MES[rd.m].charAt(0).toUpperCase() + RP_MES[rd.m].slice(1)} ${rd.y}</h1><p class="lead">${_rpLead(rd)}</p></div>
     <div class="verdict-box" style="border-color:${rd.bil >= 0 ? '#0F8C6E' : '#C8501E'}"><b>${_rpKcz(rd.bil)} na konci měsíce</b>${b0 || mm.p ? `${rd.bil >= b0 ? 'o ' + _rpKc(rd.bil - b0) + ' víc' : 'o ' + _rpKc(b0 - rd.bil) + ' méně'} než v ${RP_MES6[mm.m]}` : 'první měsíc s daty'}</div></div>
@@ -357,7 +364,7 @@ function _rpFree1(rd) {
     <div class="leg" style="grid-template-columns:repeat(${Math.min(8, r.length)},1fr)">${r.slice(0, 8).map(x => `<div style="border-color:${x.c}"><b>${_rpE(x.n)}</b>${_rpKc(x.v)}</div>`).join('')}</div></div>` : ''}
   <div class="c8 sec"><h2>${rd.vyd <= rd.avg.v ? 'Výdaje pod průměrem posledních 3 měsíců' : 'Výdaje nad průměrem posledních 3 měsíců'}</h2><div class="sub">Příjmy (tmavší) a výdaje (světlejší) za 6 měsíců, nad sloupci bilance</div>${_rpTrend(rd.rok)}</div>
   <div class="c4 sec"><h2>Peněženky</h2><div class="sub">Stav dnes</div><div style="font-size:19pt;font-weight:600;line-height:1.1">${_rpKc(penSum)}</div>
-    <ul class="list" style="margin-top:2mm">${rd.penezenky.slice(0, 4).map(w => `<li><span>${_rpE(w.n)}</span><b>${_rpKc(w.b)}</b></li>`).join('')}</ul></div>
+    <ul class="list" style="margin-top:2mm">${rd.penezenky.slice(0, 4).map(w => `<li><span>${_rpE(w.n)}</span><b>${_rpPen(w)}</b></li>`).join('')}</ul></div>
   <div class="c12 sec"><h2>${nejSk.length && nejSk[0].d < -300 ? `Nejvíc ušetřilo: ${_rpE(nejSk[0].n.toLowerCase())}` : 'Výdaje podle skupin'}${nejSk.length && nejSk.at(-1).d > 300 ? `, nejvíc přibylo: ${_rpE(nejSk.at(-1).n.toLowerCase())}` : ''}</h2><div class="sub">Změna proti ${RP_MES6[mm.m]}</div>
     <table><tr><th class="t">Skupina</th><th class="t" style="width:44%"></th><th>${RP_MES2[rd.m]}</th><th>Podíl</th><th>${RP_MES2[mm.m]}</th><th>Změna</th></tr>
     ${kat.map(x => { const d = x.v - x.mm, ok = Math.abs(d) < 300; return `<tr><td class="t"><span class="dot" style="background:${x.c}"></span>${_rpE(x.n)}</td><td class="t"><div class="bar" style="height:3mm"><i style="width:${x.v / mxK * 100}%;background:${x.c}"></i></div></td>
