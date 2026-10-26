@@ -1,4 +1,4 @@
-// FinanceFlow · v12.13 · premium.js · 2026-10-26
+// FinanceFlow · v12.14 · premium.js · 2026-10-26
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -538,6 +538,12 @@ function renderWalletList() {
   if(!wallets.length && !archiv.length) { el.innerHTML='<div class="empty"><div class="ei">👛</div><div class="et">Žádné peněženky. Přidej první!</div></div>'; return; }
   el.innerHTML = wallets.map(w => {
     const bal = computeWalletBalance(w.id, D);
+    //  S28 (v12.14, FIX-495, Milan): zůstatek je v MĚNĚ PENĚŽENKY, ale formátoval se fmtB
+    //  jako koruny → EUR účet ukazoval „200 Kč“ (zaokrouhleno z 199,50 €). Cizí měna = částka
+    //  v její měně s desetinami, pod ní ≈ v základní měně. Korunová peněženka beze změny.
+    const _cur = w.currency || 'CZK', _ciz = _cur !== 'CZK';
+    const _hl = _ciz ? `${fmtP(bal)} ${curSym(_cur)}` : fmtB(bal);
+    const _pod = _ciz ? `≈ ${fmtB(toCZK(bal, _cur))}` : _cur;
     return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
       <div style="width:40px;height:40px;border-radius:12px;background:${w.color||'#4ade80'}22;border:2px solid ${w.color||'#4ade80'}44;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${WALLET_TYPES[w.type]?.split(' ')[0]||'👛'}</div>
       <div style="flex:1;min-width:0">
@@ -545,8 +551,8 @@ function renderWalletList() {
         <div style="font-size:.74rem;color:var(--text3)">${WALLET_TYPES[w.type]||'Jiné'} · ${w.currency||'CZK'}</div>
       </div>
       <div style="text-align:right">
-        <div style="font-weight:700;font-size:.95rem;color:${bal>=0?'var(--income)':'var(--expense)'}">${fmtB(bal)}</div>
-        <div style="font-size:.7rem;color:var(--text3)">${w.currency||'CZK'}</div>
+        <div style="font-weight:700;font-size:.95rem;color:${bal>=0?'var(--income)':'var(--expense)'};white-space:nowrap">${_hl}</div>
+        <div style="font-size:.7rem;color:${_ciz?'#a8aec8':'var(--text3)'};white-space:nowrap">${_pod}</div>
       </div>
       ${!ro?`<div style="display:flex;gap:4px"><button class="btn btn-edit btn-icon btn-sm" onclick="editWallet('${w.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="deleteWallet('${w.id}')" title="Smazat nebo archivovat">✕</button></div>`:''}
     </div>`;

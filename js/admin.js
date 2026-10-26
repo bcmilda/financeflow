@@ -1,4 +1,4 @@
-// FinanceFlow · v12.13 · admin.js · 2026-10-26
+// FinanceFlow · v12.14 · admin.js · 2026-10-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.14',
+    datum: '2026-10-26',
+    zmeny: [
+      "🐛 FIX-495 · ZŮSTATEK PENĚŽENKY V CIZÍ MĚNĚ (Milan: „tato chyba mi unikla, oprav ji taky“) · cesta: Peněženky → 👛 Moje peněženky: EUR účet ukazoval „200 Kč“ (zůstatek v eurech se formátoval jako koruny a zaokrouhlil). Teď 199,50 € a pod tím ≈ 5 047 Kč. Korunové peněženky beze změny.",
+      "🐛 FIX-495 · MĚSÍČNÍ REPORT · cesta: Report → 📄 Měsíční report → strana 1, Peněženky: součet sčítal eura s korunami (100 € + 10 000 Kč = „10 100 Kč“) – teď přepočet na Kč, řádek cizí peněženky v její měně (199,50 €). Totéž v podkladech pro AI komentář (peněženky celkem, rezerva v měsících).",
+      "🧪 tools/smoke_penezenky_mena.js – 9 testů (na v12.13 jich 7 selže).",
+    ],
+  },
   {
     verze: 'v12.13',
     datum: '2026-10-26',
