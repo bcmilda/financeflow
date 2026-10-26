@@ -551,3 +551,10 @@ v `Summary_s25.md`.
 - Každé políčko karty jde opravit, u výrobku s kódem pro všechny. U údaje je vidět, odkud je.
 - 📦 Moje výrobky otevírají stejnou kartu jako Mapa položek (ADR-208).
 - Směr: interní databáze je hlavní zdroj pro české výrobky, Open Food Facts doplňuje. Schválené karty jednou posílat i do Open Food Facts (TODO-336).
+
+## Dodatek Session 27 (2026-10-19 až 2026-10-24) **(Session 27)**
+
+- **Hodnocení podle měsíce:** Čistý majetek, rezerva i dluhy se počítají ke konci vybraného měsíce, ne k dnešku – přepnutí měsíce dává jiná čísla.
+- **Data rozumí uživateli:** „Zeptej se svých dat“ odpoví na otázku vlastními slovy (káva, pečivo, jak často do obchodu), čísla počítá appka.
+- **Méně automatiky, víc rychlé ruční opravy:** Milan odmítl slučovat výrobky podle obecného názvu („není brambor jako brambor“) – oprava názvu a zařazení přímo v kartě, chybné zařazení jako „past“ v datech.
+- **Google Play:** web je v interním testování (TWA), Inbox (Android) funguje mimo Play.

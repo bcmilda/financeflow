@@ -5,6 +5,8 @@
 > **jaký styl a logiku dodržovat**, a obsahuje **konkrétní příklad aktualizace** (Session 5 → `todo.md`).
 > Autor: Milan Migdal + Claude | Vytvořeno: 2026-04-19
 > **Session 25** (2026-10-05 až 2026-10-09, v11.30 → v11.57): obsah souboru beze změny. Přehled session v `doc/Summary_s25.md`.
+> **Session 27** (2026-10-19 až 2026-10-24, v11.90 → v12.10): obsah souboru beze změny. Přehled session v `doc/Summary_s27.md`.
+> **Session 27 dodatek** (2026-10-26, v12.11–v12.12): obsah souboru beze změny.
 
 ---
 

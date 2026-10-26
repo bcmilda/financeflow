@@ -258,3 +258,25 @@ taxonomie, obchodu, kraje, štítku a kategorie.
 - **📲 Notifikace z telefonu / 📥 Doručené / FinanceFlow Inbox** – návrhy plateb z Android appky (`users/{uid}/inbox`), pozastaveno (ADR-231).
 - **`zNotifikace`** – vazba transakce na notifikaci z telefonu; „Účtenka převezme platbu“ ji přenese na transakci účtenky.
 - **Kalkulačky** – plánovaná jedna stránka s kartami a pásmy Monte Carlo (TODO-356).
+
+## Session 27 **(Session 27)**
+- **Kalkulačky** – stránka 🧮 s kartami Rezerva, Cena zlozvyku, Do výplaty; výsledek jako pásmo Monte Carlo (ADR-235).
+- **Vějíř (Monte Carlo)** – medián, polovina případů (25–75 %) a 9 z 10 případů (5–95 %) z 2 000 simulací.
+- **Druh zkratky** – jeden z víc čárových kódů, ke kterým vede stejná zkratka z účtenky (`S.uiCfg.eanDruhy`, ADR-237).
+- **Zbývá · ke dni** – zbytek půjčky zadaný k datu; splátky do toho dne už v něm jsou (ADR-234).
+- **📜 Změny půjčky** – mimořádná splátka, nová splátka, nový úrok, navýšení, konsolidace (`d.zmeny`).
+- **Stejné se stejným** – Zdražování srovnává podle obecného názvu jen ovoce, zeleninu, brambory a pečivo, jinak konkrétní výrobek (ADR-241).
+- **Záloha za obal** – vratná láhev, PET, přepravka; v útratě ano, ve sledování cen ne (`rpJeZaloha`).
+- **Barva obchodu** – barva přidělená obchodu jednou a stejná ve všech kartách (`S.uiCfg.barvyObchodu`).
+- **Past (zařazení)** – známý text z účtenky, který by se podle jednoho slova zařadil špatně; zapsaný v `taxonomie.json` → `pasti` a v `smoke_pasti.js` (ADR-245).
+- **Rozpočet „-“** – podkategorie taxonomie bez výchozí rozpočtové kategorie (taška, záloha, poplatek).
+- **Přeřazení starých účtenek** – oprava uložené rozpočtové kategorie položek podle dnešní mapy, po výrobcích s důvodem (ADR-246).
+- **Seřadit podle řady** – volba řady, podle které Megagraf řadí měsíce.
+- **Množ.** – sloupec množství v seznamu položek s jednotkou podle položek (l / kg / ks).
+
+## Dodatek Session 27 · v12.11–v12.12 (2026-10-25 až 2026-10-26) **(Session 27)**
+- **Vybraný měsíc / ∞ Vše** – přepínač období ve Statistikách a Nákupní DNA (ADR-248).
+- **Spojení karet (🔗 Spojit s…)** – ruční připojení zkratky bez kódu ke kartě výrobku; **hlavní název** = název spojené karty (ADR-249).
+- **Strana Obchody (report)** – 4. strana Měsíčního reportu s obchody měsíce a 3 největšími / nejmenšími nákupy (ADR-250).
+- **Převodník** – přepočet částky mezi měnami kurzem ČNB (Kurzy měn).
+- **Druh (narozeniny)** – narozeniny / svátek / výročí; **rok** → věk / počet let (ADR-251).

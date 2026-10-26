@@ -1,4 +1,4 @@
-// FinanceFlow · v12.07 · report-mesicni.js · 2026-10-23
+// FinanceFlow · v12.12 · report-mesicni.js · 2026-10-26
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -106,6 +106,8 @@ function mesReportData(D, m, y) {
       obchody: Object.entries(ob).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, v]) => [n, Math.round(v / obS * 100)]) };
     //  v12.07 (Milan: „Report 2 – trend od začátku roku, max 12 měsíců“): obchody měsíce + trend od ledna
     try { if (typeof obchodyReportData === 'function') ucet.obch = obchodyReportData(D, m, y); } catch (e) {}
+    //  v12.12 (Milan: „porovnání s minulým měsícem + 3 největší celkové nákupy a 3 nejmenší (obchody)“)
+    try { ucet.nakupy = rpReportNakupy(D, m, y); } catch (e) {}
   }
   // výhled příštího měsíce (pravidla): příjmy ze šablon / průměr, výdaje průměr 3M, pásmo = výkyv 6 měsíců
   const v6 = rok.slice(-6).map(x => x.v), mean6 = v6.reduce((a, b) => a + b, 0) / 6;
@@ -441,6 +443,21 @@ function _rpPro2(rd) {
     <tr class="sum"><td class="t">Celkem</td><td>${_rpKc(rd.vyd)}</td><td>${_rpP0(_rpPct(rd.vyd, rd.pm.v))}</td><td>${_rpP0(_rpPct(rd.vyd, rd.avg.v))}</td><td></td></tr></table></div>
   <div class="foot"><span>Plně = tento měsíc, šedě = minulost, šrafa = odhad.</span><span>2 / ${rd._stran}</span></div></section>`;
 }
+//  v12.12: účtenky měsíce – 3 největší a 3 nejmenší nákupy (obchod, datum, částka) a srovnání s minulým
+//  měsícem (útrata z položek a počet účtenek). Kopie účtenek se nepočítají. Čistá funkce (test).
+function rpReportNakupy(D, m, y) {
+  const uni = typeof rcptUnikatni === 'function' ? rcptUnikatni(D.receipts || []) : (D.receipts || []);
+  const pref = (mm, yy) => `${yy}-${String(mm + 1).padStart(2, '0')}`;
+  const [pmm, pyy] = m === 0 ? [11, y - 1] : [m - 1, y];
+  const vMes = (mm, yy) => uni.filter(r => String(r.date || '').startsWith(pref(mm, yy)));
+  const polSum = rr => rr.reduce((a, r) => a + (r.items || []).reduce((b, it) => { const v = it.lineTotal != null ? parseFloat(it.lineTotal) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1); return b + (v > 0 ? v : 0); }, 0), 0);
+  const ted = vMes(m, y), min = vMes(pmm, pyy);
+  const nak = ted.filter(r => (parseFloat(r.total) || 0) > 0).map(r => ({ obchod: typeof normalizeStoreName === 'function' ? normalizeStoreName(r.store || '') : (r.store || ''), datum: r.date || '', kc: parseFloat(r.total) || 0 }));
+  const podle = nak.slice().sort((a, b) => b.kc - a.kc || String(a.datum).localeCompare(String(b.datum)));
+  const nejvetsi = podle.slice(0, 3), nejmensi = podle.length > 3 ? podle.slice(-Math.min(3, podle.length - 3)).reverse() : [];
+  return { nejvetsi, nejmensi, ted: { n: ted.length, kc: polSum(ted) }, minule: { n: min.length, kc: polSum(min), m: pmm, y: pyy } };
+}
+if (typeof window !== 'undefined') window.rpReportNakupy = rpReportNakupy;
 function _rpPro3(rd) {
   const u = rd.ucet;
   if (!u) return `<section class="page" aria-label="Premium strana 3">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · účtenky`, true)}
@@ -450,8 +467,8 @@ function _rpPro3(rd) {
   return `<section class="page dense" aria-label="Premium strana 3">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · co kupuješ a za kolik`, true)}
   <div class="c12" style="display:flex;align-items:baseline;gap:5mm"><h1 style="font-size:20pt;white-space:nowrap">Účtenky</h1><p class="lead" style="font-size:10.5pt">Z ${u.n} účtenek vidíme, co přesně kupuješ${u.infl ? `. Tvůj košík: ${_rpP1(u.infl.v)} (${u.infl.typ}).` : '.'}</p></div>
   <div class="c12 kpis" style="grid-template-columns:repeat(4,1fr)">
-    ${_rpKpi('Útrata z účtenek', _rpKc(u.celkem), `<span>${rd.vyd ? Math.round(u.celkem / rd.vyd * 100) : 0} % výdajů</span>`)}
-    ${_rpKpi('Účtenek', u.n, `<span>průměrný nákup ${_rpKc(u.celkem / u.n)}</span>`)}
+    ${_rpKpi('Útrata z účtenek', _rpKc(u.celkem), `<span>${rd.vyd ? Math.round(u.celkem / rd.vyd * 100) : 0} % výdajů${u.nakupy && u.nakupy.minule.kc > 0 ? ` · ${_rpP0(_rpPct(u.nakupy.ted.kc, u.nakupy.minule.kc))} proti ${_rpE(RP_MES6[u.nakupy.minule.m])}` : ''}</span>`)}
+    ${_rpKpi('Účtenek', u.n, `<span>průměrný nákup ${_rpKc(u.celkem / u.n)}${u.nakupy && u.nakupy.minule.n ? ` · minule ${u.nakupy.minule.n}` : ''}</span>`)}
     ${_rpKpi('Tvoje inflace košíku', u.infl ? _rpP1(u.infl.v) : '—', `<span>${u.infl ? u.infl.typ + ', stejné výrobky' : 'málo dat'}</span>`)}
     ${_rpKpi('Taxonomie pokrývá', u.ut && u.ut.celkem ? Math.round((1 - u.ut.mimo / u.ut.celkem) * 100) + ' %' : '—', '<span>útraty z účtenek</span>')}</div>
   <div class="c6 sec"><h2>${pods[0] ? 'Nejvíc utrácíš za ' + _rpE(pods[0].nazev.toLowerCase()) : 'Za co utrácíš'}</h2><div class="sub">Graf 3.1 · Útrata podle podkategorií</div>
@@ -460,14 +477,33 @@ function _rpPro3(rd) {
     ${u.inflPod.length ? u.inflPod.map(x => `<div style="display:flex;justify-content:space-between;font-size:8pt;padding:1.4mm 0;border-bottom:1px solid #F0F3F7"><span>${_rpE(x.pod.ikona + ' ' + x.pod.nazev)}</span><b class="${x.zmena > 0 ? 'down' : 'up'}">${_rpP1(x.zmena)}</b></div>`).join('') : '<div class="faint" style="font-size:8pt">Potřeba stejné výrobky alespoň ve dvou nákupech.</div>'}</div>
   <div class="c12 sec"><h2>Vývoj cen výrobků</h2><div class="sub">Tabulka 3.3 · Cena za kg / l / ks, první proti poslednímu měsíci</div>
     ${u.ceny.length ? `<table><tr><th class="t">Výrobek</th><th>Dříve</th><th>Nyní</th><th>Změna</th><th>Nákupů</th><th class="t">Nejlevněji</th></tr>${u.ceny.map(p => `<tr><td class="t">${_rpE(p.nazev)}</td><td class="faint">${p.prvni.toFixed(1).replace('.', ',')} Kč/${p.j}</td><td><b>${p.posledni.toFixed(1).replace('.', ',')} Kč/${p.j}</b></td><td class="${p.zmena > 0 ? 'down' : p.zmena < 0 ? 'up' : 'faint'}">${_rpP0(p.zmena)}</td><td class="faint">${p.pocet}</td><td class="t faint">${p.obchody[0] ? _rpE(p.obchody[0].obchod) : ''}</td></tr>`).join('')}</table>` : '<div class="faint" style="font-size:8pt">Zatím málo opakovaných nákupů.</div>'}</div>
-  <div class="c6 sec"><h2>Skryté zdražení</h2><div class="sub">Menší balení za stejnou cenu</div>
+  <div class="${u.obch && u.obch.top.length ? 'c12' : 'c6'} sec"><h2>Skryté zdražení</h2><div class="sub">Menší balení za stejnou cenu</div>
     ${u.shr.length ? u.shr.map(x => `<div style="display:flex;justify-content:space-between;padding:1.6mm 0;border-bottom:1px solid #F0F3F7;font-size:8pt"><span><b>${_rpE(x.nazev)}</b> <span class="faint">${x.pred.baleni} → ${x.po.baleni} ${x.po.bj}</span></span><b class="down">${x.skryteZdrazeni != null ? '+' + x.skryteZdrazeni + ' %' : ''}</b></div>`).join('') : '<div class="faint" style="font-size:8pt">Nic jsme nenašli.</div>'}</div>
-  ${u.obch && u.obch.top.length ? `<div class="c6 sec"><h2>V ${_rpE(RP_MES6[rd.m])} nejvíc v ${_rpE(u.obch.top[0].obchod)}</h2><div class="sub">Obchody měsíce · účtenky a notifikace z banky</div>
-    <table><tr><th class="t">Obchod</th><th>Návštěv</th><th>Útrata</th><th>Ø nákup</th></tr>${u.obch.top.map(o => `<tr><td class="t"><span style="display:inline-block;width:2.4mm;height:2.4mm;border-radius:50%;background:${o.barva};margin-right:1.5mm"></span>${_rpE(o.obchod)}</td><td>${o.navstev}×</td><td><b>${_rpKc(o.kc)}</b></td><td class="faint">${_rpKc(o.prumer)}</td></tr>`).join('')}</table></div>
-  <div class="c12 sec"><h2>Trend obchodů od ledna ${rd.y}</h2><div class="sub">Graf 3.4 · Útrata po měsících, 4 obchody s největší útratou · ${u.obch.trend.series.map(x => `<span style="color:${x.color}">●</span> ${_rpE(x.obchod)} ${_rpKc(x.celkem)}`).join(' · ')}</div>${typeof obchodyReportSvg === 'function' ? obchodyReportSvg(u.obch.trend) : ''}</div>`
-  : `<div class="c6 sec"><h2>Obchody</h2><div class="sub">Podíl útraty z účtenek</div>
+  ${u.obch && u.obch.top.length ? '' : `<div class="c6 sec"><h2>Obchody</h2><div class="sub">Podíl útraty z účtenek</div>
     ${u.obchody.map(([n, p]) => `<div style="display:grid;grid-template-columns:26mm 1fr 10mm;gap:2mm;align-items:center;font-size:8pt;margin:1.4mm 0"><span>${_rpE(n)}</span><div class="bar"><i style="width:${p}%;background:#1E293B"></i></div><span class="num">${p} %</span></div>`).join('')}</div>`}
   <div class="foot"><span>Osobní inflace: stejné výrobky, cena za jednotku, váhy podle tvé útraty.</span><span>3 / ${rd._stran}</span></div></section>`;
+}
+//  v12.12: strana „Obchody a nákupy“ – obchody měsíce, 3 největší a 3 nejmenší nákupy, trend od ledna.
+//  Dřív na straně 3, která se s nimi na A4 nevešla (přetékala už před přidáním nákupů).
+function _rpProObchody(rd, str) {
+  const u = rd.ucet; if (!u || !u.obch || !u.obch.top.length) return '';
+  const n = u.nakupy;
+  const srov = n && n.minule.n ? ` Proti ${_rpE(RP_MES6[n.minule.m])}: ${n.ted.n} účtenek místo ${n.minule.n}, útrata z položek ${_rpP0(_rpPct(n.ted.kc, n.minule.kc))}.` : '';
+  return `<section class="page dense" aria-label="Premium strana ${str}">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · obchody a nákupy`, true)}
+  <div class="c12" style="display:flex;align-items:baseline;gap:5mm"><h1 style="font-size:20pt;white-space:nowrap">Obchody</h1><p class="lead" style="font-size:10.5pt">V ${_rpE(RP_MES6[rd.m])} nejvíc v ${_rpE(u.obch.top[0].obchod)}.${srov}</p></div>
+  <div class="c6 sec"><h2>Obchody měsíce</h2><div class="sub">Tabulka ${str}.1 · účtenky a notifikace z banky</div>
+    <table><tr><th class="t">Obchod</th><th>Návštěv</th><th>Útrata</th><th>Ø nákup</th></tr>${u.obch.top.map(o => `<tr><td class="t"><span style="display:inline-block;width:2.4mm;height:2.4mm;border-radius:50%;background:${o.barva};margin-right:1.5mm"></span>${_rpE(o.obchod)}</td><td>${o.navstev}×</td><td><b>${_rpKc(o.kc)}</b></td><td class="faint">${_rpKc(o.prumer)}</td></tr>`).join('')}</table></div>
+  ${_rpNakupyHTML(u, str)}
+  <div class="c12 sec"><h2>Trend obchodů od ledna ${rd.y}</h2><div class="sub">Graf ${str}.3 · Útrata po měsících, 4 obchody s největší útratou · ${u.obch.trend.series.map(x => `<span style="color:${x.color}">●</span> ${_rpE(x.obchod)} ${_rpKc(x.celkem)}`).join(' · ')}</div>${typeof obchodyReportSvg === 'function' ? obchodyReportSvg(u.obch.trend) : ''}</div>
+  <div class="foot"><span>Nákup = celá účtenka. Obchody z účtenek i z notifikací banky.</span><span>${str} / ${rd._stran}</span></div></section>`;
+}
+function _rpNakupyHTML(u, str) {
+  const n = u && u.nakupy; if (!n || !n.nejvetsi.length) return '';
+  const den = d => { const x = String(d || '').split('-'); return x.length === 3 ? (+x[2]) + '. ' + (+x[1]) + '.' : ''; };
+  const sez = arr => arr.map(x => `<div style="display:flex;justify-content:space-between;gap:2mm;font-size:8pt;padding:1.1mm 0;border-bottom:1px solid #F0F3F7"><span>${_rpE(x.obchod)} <span class="faint">${den(x.datum)}</span></span><b>${_rpKc(x.kc)}</b></div>`).join('');
+  return `<div class="c6 sec"><h2>Největší a nejmenší nákupy</h2><div class="sub">Tabulka ${str || 4}.2 · celé účtenky měsíce${n.minule.n ? ` · minule ${n.minule.n} účtenek za ${_rpKc(n.minule.kc)}` : ''}</div>
+    <div class="faint" style="font-size:7.5pt;margin:.8mm 0">3 největší</div>${sez(n.nejvetsi)}
+    <div class="faint" style="font-size:7.5pt;margin:2.5mm 0 .8mm">3 nejmenší</div>${n.nejmensi.length ? sez(n.nejmensi) : '<div class="faint" style="font-size:8pt">málo účtenek</div>'}</div>`;
 }
 function _rpPro4(rd) {
   const f = rd.fc, rec = [];
@@ -477,7 +513,7 @@ function _rpPro4(rd) {
   //  Jen drobné pravidelné platby (předplatné, služby) – nájem ani splátky se „nerušící".
   const drobne = rd.pravidelne.filter(x => x.mes > 0 && x.mes < 1500), ps = drobne.reduce((a, x) => a + x.mes, 0);
   if (drobne.length >= 2) rec.push([`Projdi předplatné a drobné pravidelné platby`, `${_rpKc(ps * 12)} ročně`, `${drobne.length} plateb (${drobne.slice(0, 3).map(x => _rpE(x.n)).join(', ')}${drobne.length > 3 ? '…' : ''}) za ${_rpKc(ps)} měsíčně. Co nevyužíváš, zruš – každá stovka měsíčně je 1 200 Kč ročně.`]);
-  return `<section class="page dense" aria-label="Premium strana 4">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · výhled a doporučení`, true)}
+  return `<section class="page dense" aria-label="Premium strana ${rd._stran}">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · výhled a doporučení`, true)}
   <div class="c12 sec"><h2>${RP_MES[rd.nm].charAt(0).toUpperCase() + RP_MES[rd.nm].slice(1)}: odhad bilance ${_rpKcz(f.b)} (${_rpKcz(f.b - f.pasmo)} až ${_rpKcz(f.b + f.pasmo)})</h2><div class="sub">${rd.ai && rd.ai.vyhled ? '✨ ' + _rpE(rd.ai.vyhled) : 'Graf 4.1 · Bilance posledních 6 měsíců a odhad příštího s pásmem nejistoty'}</div>${_rpFc(rd)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:1.6mm;font-size:7.8pt"><div><b>Z čeho odhad vychází</b><ul class="list">
       <li><span>Příjmy ${rd.pristi.some(x => x.v > 0) ? '(šablony)' : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
@@ -490,7 +526,7 @@ function _rpPro4(rd) {
   <div class="c12 ai${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '' : ' pz'}"><div class="tag">Doporučení na ${RP_MES[rd.nm]} <span style="color:#4B5563;font-weight:500">${rd.ai && rd.ai.doporuceni && rd.ai.doporuceni.length ? '✨ napsala AI z tvých čísel · čísla ověřená appkou' : 'spočítané z tvých čísel'}</span></div>
     ${rec.length ? rec.slice(0, 3).map(r => `<div class="rec"><b>${r[0]}</b><span class="k">${r[1]}</span><p>${r[2]}</p></div>`).join('') : '<p>Tento měsíc nic, co by stálo za změnu. 🎉</p>'}</div>
   <div class="c12" style="font-size:7.6pt;color:#4B5563;line-height:1.5;border-top:1px solid #DDE3EA;padding-top:2mm"><b style="color:#1F2937">Metodika.</b> Bilance = příjmy − výdaje bez převodů mezi vlastními účty. Skupiny = karty útraty (účtenky rozdělené po položkách podle taxonomie). Skóre stejné jako na Dashboardu. Odhad: příjmy ze šablon nebo průměr, výdaje vážený průměr (tento měsíc + 2× průměr 3 měsíců), pásmo podle výkyvů posledních 6 měsíců. Report je informativní, nejde o investiční doporučení.</div>
-  <div class="foot"><span>FinanceFlow · ${RP_MES[rd.m]} ${rd.y}</span><span>4 / ${rd._stran}</span></div></section>`;
+  <div class="foot"><span>FinanceFlow · ${RP_MES[rd.m]} ${rd.y}</span><span>${rd._stran} / ${rd._stran}</span></div></section>`;
 }
 
 // ── CSS (scoped .rp4, ze schváleného návrhu v4) ──
@@ -567,8 +603,9 @@ function _rpCss() {
 }
 
 function mesReportHTML(rd, pro) {
-  rd._stran = pro ? 4 : 2;
-  return pro ? _rpPro1(rd) + _rpPro2(rd) + _rpPro3(rd) + _rpPro4(rd) : _rpFree1(rd) + _rpFree2(rd, false);
+  const obchStr = !!(pro && rd.ucet && rd.ucet.obch && rd.ucet.obch.top.length);   // v12.12: strana Obchody a nákupy
+  rd._stran = pro ? (obchStr ? 5 : 4) : 2;
+  return pro ? _rpPro1(rd) + _rpPro2(rd) + _rpPro3(rd) + (obchStr ? _rpProObchody(rd, 4) : '') + _rpPro4(rd) : _rpFree1(rd) + _rpFree2(rd, false);
 }
 window.mesReportHTML = mesReportHTML;
 

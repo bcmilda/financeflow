@@ -12,12 +12,14 @@
 > **Doplnění Session 18** (2026-08-03, `patch-session18.md`): TL;DR přepočítáno, nová sekce na konci souboru. TL;DR mezi Session 9 a 18 nebyla průběžně udržovaná — čísla níže odrážejí až stav po S18.
 > **Doplnění Session 23** (2026-09-25): řádky Session 23 v TL;DR a ROADMAP, nová sekce na konci souboru.
 > **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 27** (2026-10-23): na konci souboru nová sekce „Session 27 · v11.90 → v12.10“ (TODO-358–371, dokončené TODO-354/355/356/301). Přehled v `doc/Summary_s27.md`.
 
 ---
 
 ## 📋 TL;DR – Stav TODO
 
 > ⚠️ Tabulka níže je **přepočítaná k Session 18** (2026-08-03) — čísla ze Session 9 už dávno neplatila. Priority P1–P3 jsou u novějších úkolů orientační podle textu zápisu, ne přeznačené zpětně.
+> **Session 27 dodatek** (2026-10-26, v12.11–v12.12): na konci souboru – TODO-358 hotovo, nové TODO-372 (graf Za co utrácíš), TODO-373, audit vybraného měsíce.
 
 | Priorita | Otevřené | Příklady |
 |---|---|---|
@@ -2236,3 +2238,99 @@ TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · T
 1. Milan založí na GitHubu prázdné repo `financeflow-inbox` (bez README).
 2. Claude ho připojí k session, nahraje kód a GitHub Actions sestaví APK; chyby sestavení opraví.
 3. Milan stáhne APK (Actions → Artifacts), nainstaluje, propojí kódem, testovací platba.
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+## ✅ Dokončeno v Session 27
+- [x] TODO-356 🧮 Kalkulačky – stránka, karty Rezerva, Cena zlozvyku, Do výplaty – **(Session 27, v11.90)**
+- [x] TODO-355 Monte Carlo (`mcSimuluj`, pevný seed, vějíř) – **(Session 27, v11.90)**
+- [x] TODO-354 FinanceFlow Inbox – APK z `bcmilda/financeflow-inbox` (0.1.2), propojení a platby z banky fungují (23. 10.), odkaz na APK ve webu (v11.91) – **(Session 27)**
+- [x] TODO-301 otisk podpisového klíče Google `9B:9C:F1:73:…` v `.well-known/assetlinks.json` vedle nahrávacího `48:12:…` – **(Session 27)** ⚠️ po nasazení ověřit, že se appka z Play otevře bez adresního řádku
+- [x] Ruční účtenka, karta podle kódu (FIX-485), název z kódu pod položkou, víc druhů u zkratky, Zeptej se svých dat, Čistý majetek a Rezerva ke konci měsíce, 📜 Změny půjčky, splátka ze šablony snižuje Zbývá, Stejné se stejným, Doručené v2, 🏪 Trend obchodů, jednotky, oprava názvu v kartě, předělané Přeřadit, pasti, katalog nákupního seznamu – v11.91–v12.10, podrobně `features.md` a `Summary_s27.md`
+
+## Aktualizace existujících **(Session 27 update)**
+- **TODO-343:** push dělá Milan sám přes GitHub Desktop (session nemá do repa zápis, připojení repa Milan odmítl). Lokálně 24 commitů v11.90–v12.10. `vyplatnice-import.json` z repa pořád čeká na souhlas.
+- **TODO-345 / TODO-346** (výplata) – v S27 nezačato, přesun do S28.
+- **TODO-350 / TODO-352** (Měřidla) – beze změny.
+
+## Nové úkoly **(Session 27)**
+
+### TODO-358 · 🔗 Spojit s… – karty bez kódu ručně · P2 · Milan (návrh přijat ve směru, stavba nepotvrzena)
+- **Cesta:** Analýza účtenek → 🗺️ Mapa položek → karta → 🔗 Spojit s…
+- **Princip:** vybrat jinou svou kartu, zvolit hlavní název (např. „Brambory konzumní“), zkratky zůstanou jako aliasy; appka si zapamatuje zkratku → kartu, další účtenky padnou do karty. Text účtenky se nemění. Žádné automatické slučování podle obecného názvu (ADR-244).
+- **🔗 Cross-reference:** `decisions.md` ADR-244, FIX-485.
+
+### TODO-359 · 🤖 AI návrh zařazení pro frontu „Mimo taxonomii“ · P2 · návrh
+- Admin → Mapa → fronta → „🤖 Navrhnout zařazení“ (dávka ~50): AI dostane zkratku, obchod, cenu, gramáž a vybere obecný název JEN ze seznamu taxonomie (jako `eanObohat` u kódů), nebo „nevím“. Admin ✅ / ✏️ / ✕, „Potvrdit vše“ → `community/productMap`.
+- **Zamítnuté (Milanova otázka):** zůstanou Mimo taxonomii, příště se nenabídnou; admin je může zařadit sám.
+- Vyžaduje endpoint ve workeru. Volitelně stejná kontrola položek zařazených „🧭 podle názvu“.
+
+### TODO-360 · Karta výrobku bez kódu – vlastní zařazení a jednodušší karta · P3 · Milan promyslí
+- Milan: „karta bez kódu by měla mít jiné zařazení, např. Vážená nebo Bez kódu“. Bez kódu se Značka, Výrobce, Obal, Složení, Nutri-Score nikdy samy nedoplní → zvážit kratší kartu (název, zařazení, názvy z účtenek, nákupy, rozpočet) + „▮▮ Přiřadit čárový kód“.
+
+### TODO-361 · Revize kategorií + ☕ Sledovaná témata · P2 · čeká na Milanův `categories.json`
+- Dokončit podle `doc/kategorie.md` (S25 rozhodnutí v paměti backlogu). Otevřené: sledování kávy napříč místy (obchod, kavárna, benzínka, restaurace) – výběrová kategorie vs. „Sledovaná témata“ jako vrstva nad kategoriemi a položkami.
+
+### TODO-362 · Inbox – dokončení · P2
+- Doručené načítat samy při otevření Importu z banky (dnes jen 🔄 Načíst).
+- Pravidlo DB: tvar ID `users/$uid/inbox/$id` (`$id.matches(/^n[0-9]+_[0-9a-f-]+$/)`).
+- Inbox na Google Play (ověřený vývojář, vlastní podpis, Data safety) kvůli varování Play Protect.
+
+### TODO-363 · Google Play – web (TWA) · P1 · Milan
+- Interní testování: verze 1 (1.0.0.0) nahraná 23. 10., automatická ochrana vypnutá (balík minSdk 23).
+- **Příští balík:** minSdk 24, stejný `signing.keystore`, versionCode 2. `signing.keystore` a `signing-key-info.txt` NIKDY do repa.
+- Hlavní panel: Data safety, účet pro kontrolora (`google-play.md`), screenshoty, feature graphic. Produkce vyžaduje 12 testerů po 14 dní.
+
+### TODO-364 · `legal.html` – doplnit provozovatele · P1 (před produkcí na Play) · Milan
+- Tři místa `[DOPLŇ]`: jméno / IČO / sídlo provozovatele, pravidla vrácení peněz a délka předplatného.
+
+### TODO-365 · Vyzkoušet v11.90–v12.10 na skutečných datech · P1 · Milan
+- Ověřeno jen v testovacím prostředí (186 sad testů + Chromium na zkušebních datech). Hlavně: Report strana 3 (obchody) se vejde, Penny / EVO 95 se nerozpadají, jednotky v seznamu položek, okno Přeřadit, oprava názvu v kartě, našeptávač nákupního seznamu, Splátkový kalendář, Rezerva ve skóre.
+
+### TODO-366 · Úklid komunitního katalogu `catalog/items` · P3 · jen na přání Milana
+- Staré dvojice klíčů (S9 názvy, klíče před S23) jsou po v12.10 neviditelné. Úklid = admin skript sloučení podle `nakupNormKey`.
+
+### TODO-367 · Import z banky ↔ splátka půjčky · P3 · až na to Milan narazí (ADR-234)
+- Importovaná splátka se s půjčkou nepropojí (`debtId`), půjčka musí existovat před importem.
+
+### TODO-368 · Sjednotit starou rezervu v `obrazDopadStylu` s `_s3Rezerva` · P3
+
+### TODO-369 · Položky z účtenky restaurace při skenu · P3 · nalezeno
+- Odhad podle názvu dá „Švestka 0,5“ ovoce a „Kečup“ potraviny i u účtenky z restaurace. Přeřazení je od v12.09 vynechává.
+
+### TODO-370 · Práh komunity pro automatické přiřazení kódu (2 různí lidé) · P3 · odloženo (Milan: „zatím ne, zapsat“)
+- Dnes stačí 1 hlas. Návrh: automaticky až od 2 lidí, do té doby návrh na klepnutí. Admin zámky mají přednost.
+
+### TODO-371 · Obecné názvy bez 📷 a bez komunitního kódu · P3 · odloženo
+- Milan se bojí chybného označení obecného názvu. Budoucí směr: obecné karty bez EAN (rajče, rohlík) s živinami.
+
+## Další kroky (start Session 28)
+1. **Ověřit** v11.90–v12.10 (TODO-365), podle nálezů opravit.
+2. **Postavit:** TODO-358 Spojit s…, TODO-361 revize kategorií (až přijde `categories.json`).
+3. **Play:** TODO-363, TODO-364.
+4. **Výplata:** TODO-345, TODO-346.
+
+## Dodatek Session 27 · v12.11–v12.12 (2026-10-25 až 2026-10-26) **(Session 27)**
+
+- [x] TODO-358 🔗 Spojit s… – **(Session 27, v12.12)**
+- [x] Analýza účtenek od vybraného měsíce (Statistiky, Trend, Slevy, Statistika položek, Srovnání ČR, Nákupní DNA) – **(Session 27, v12.11–v12.12)**, ADR-248
+- [x] Report: strana Obchody (3 největší / 3 nejmenší nákupy, srovnání s minulým měsícem) – **(Session 27, v12.12)**, ADR-250
+- [x] Kurzy měn → 💱 Převodník; Narozeniny → druh (narozeniny / svátek / výročí) a věk z roku – **(Session 27, v12.11)**, ADR-251
+
+### TODO-372 · 🧭 Za co utrácíš → rozkliknout podkategorii a vidět útratu po měsících · P2 · Milan (zhodnoceno 26. 10.)
+- **Cesta:** Analýza účtenek → 📊 Statistiky → 🧭 Za co utrácíš → klepnutí na řádek (Pečivo, Ovoce…).
+- **Zhodnocení: jde to a není to velké (jedna verze).**
+  - Data už jsou: `taxUtrataPodkategorie` má u každé položky podkategorii (`podId`) i datum → stačí ji sečíst po měsících.
+  - **Návrh:** řádek se rozbalí přímo v kartě (otevřený vždy jen jeden): sloupcový graf **12 měsíců končících vybraným měsícem** (osa, mřížka, Ø čára, hodnota klepnutím), pod ním tabulka měsíc × Kč a top 3 obecné názvy v měsíci; odkaz „📐 Otevřít ve Statistice položek“ s filtrem podkategorie (filtr `pod` a vývoj po měsících tam už existují).
+  - **Pozor:** položky mimo taxonomii se nezapočítají (stejně jako dnes v kartě); výpočet zařazení (`rpMapaNavrh`) je drahý → spočítat jednou pro všechny položky a držet v paměti do dalšího překreslení.
+  - **Hotovo, když:** graf pro libovolnou podkategorii, test (součet měsíců = částka „Vše“ za stejné období), kontrola na šířce telefonu.
+
+### TODO-373 · Grafy → 🏪 Obchody: rok podle vybraného měsíce · P3 · nalezeno při auditu
+- Záložka v Grafech počítá aktuální rok do dnešního měsíce a rok si drží sama (karta v Učení se od v12.11 řídí měsícem nahoře). Sjednotit, jen pokud to Milan bude chtít.
+
+### Audit „počítá stránka z vybraného měsíce?“ **(Session 27, 25. 10.)**
+- Z vybraného měsíce: Dashboard, Transakce, Statistiky (stránka), Grafy, Report, Analýza účtenek (od v12.11–v12.12).
+- Záměrně od dneška: Kalkulačky (šipky skryté), Budoucí platby, Radar → Do výplaty, Příští měsíc, Narozeniny (odpočet dní).
+- Celá historie (záměr): Mapa položek, Zdražování, Doklady, Historie, Moje výrobky, „Co se aplikace naučila“, Pravidelně nakupuješ.

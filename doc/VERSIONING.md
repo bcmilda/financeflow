@@ -554,3 +554,45 @@ Worker ani pravidla DB se v v11.58–v11.60 nemění.
 **Nasazení:** Milan nasadil v11.89 i pravidla DB v11.89 (18. 10.) a nahrál kód na GitHub (`dev`, vlastní commity v11.62–v11.89).
 **Doručování (Milan, 17. 10.):** posílat **jen soubory změněné v dané verzi**, ne kompletní sady.
 **Pozn.:** komentáře v kódu a hlavičky testů z verzí v11.84–v11.89 jsou označené „S27“ – patří k Session 26 (číslo se zjistilo až na konci session).
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.90 | 19. 10. | 🧮 Kalkulačky (Rezerva, Cena zlozvyku, Do výplaty, Monte Carlo), FIX-484 zůstatek v závorce – nový modul `kalkulacky.js` |
+| v11.91 | 20. 10. | Cena zlozvyku z položek účtenek, odkaz na APK FinanceFlow Inbox |
+| v11.92 | 20. 10. | Ruční účtenka, FIX-485 Mapa položek podle kódu |
+| v11.93 | 21. 10. | Název z kódu pod položkou, kontrola kódu proti zkratce, přidání skenem |
+| v11.94 | 21. 10. | Jedna zkratka → víc druhů |
+| v11.95 | 21. 10. | FIX-486 rozpracovaná účtenka po klepnutí na záložku |
+| v11.96 | 21. 10. | 🔎 Zeptej se svých dat – nový modul `dotazy.js` |
+| v11.97 | 22. 10. | FIX-487 kurzor v tagu |
+| v11.98 | 22. 10. | Čistý majetek ke konci měsíce |
+| v11.99 | 22. 10. | Rezerva ve skóre (ADR-233) |
+| v12.00 | 22. 10. | Rezerva i z cílů, dokumentace S3 |
+| v12.01 | 22. 10. | 📜 Změny půjčky, Zbývá ke dni, historie dluhu (ADR-234) |
+| v12.02 | 23. 10. | Splátka ze šablony snižuje Zbývá, kalendář od začátku |
+| v12.03 | 23. 10. | FIX-488 tlačítka duplikátu v řádku |
+| v12.04 | 23. 10. | FIX-489 filtr Podezřelé po smazání duplikátu |
+| v12.05 | 23. 10. | Stejné se stejným, zálohy, palivo za litr, tankování, obchody podle sjednoceného názvu |
+| v12.06 | 23. 10. | FIX-490 Grafy Denní, Doručené v2, obecné srovnání jen ovoce / zelenina / brambory / pečivo |
+| v12.07 | 23. 10. | 🏪 Trend nákupů po obchodech – nový modul `obchody.js` (52 modulů) |
+| v12.08 | 23. 10. | FIX-491 jednotky, Megagraf „Seřadit podle řady“ |
+| v12.09 | 23. 10. | Oprava názvu v kartě, přeřazení po výrobcích, pasti – **`data/taxonomie.json` 1.3 a `data/product-groups.json`** |
+| v12.10 | 23. 10. | FIX-492 katalog nákupního seznamu |
+
+**Testy:** 186 sad `tools/smoke_*` + `smoke.js` = 187, vše prochází. Worker beze změny (v11.61), pravidla DB beze změny (v11.89).
+**Doručování (S27):** každá verze do vlastní složky `/mnt/user-data/outputs/vX.YY/` se strukturou repa (`js/`, `data/`, `tools/`, `docs/`), jen změněné soubory, posílat jednotlivě.
+**Datové soubory:** mají vlastní parametr verze v kódu – `TAX_URL` (`taxonomie.js`, `?v=1.3-20261023`) a `product-groups.json?v=20261023` (`product-db.js`). Při změně dat zvýšit, jinak prohlížeč a service worker drží stará data.
+**Push:** ze session se nepushuje (repo nepřipojené); Milan nahrává přes GitHub Desktop.
+
+## Session 27 · dodatek v12.11–v12.12 **(Session 27)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v12.11 | 25. 10. | Analýza účtenek od vybraného měsíce, Srovnání ČR za rok, FIX-493 bublina grafu, bez probliknutí, 💱 převodník, druh a věk u narozenin |
+| v12.12 | 26. 10. | Statistiky a Nákupní DNA s přepínačem měsíc / Vše, 🔗 Spojit s…, report strana Obchody (5 stran) |
+
+**Testy po v12.12:** 189 sad `tools/smoke_*` + `smoke.js` = 190, vše prochází.

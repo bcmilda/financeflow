@@ -1,4 +1,4 @@
-// FinanceFlow · v12.11 · admin.js · 2026-10-25
+// FinanceFlow · v12.12 · admin.js · 2026-10-26
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.12',
+    datum: '2026-10-26',
+    zmeny: [
+      "📅 STATISTIKY A NÁKUPNÍ DNA ZA VYBRANÝ MĚSÍC (Milan: „také převeď na aktuální měsíc a dej tam 2 přepínací tlačítka Vybraný měsíc a Vše jak v Co nakupuješ“) · cesta: Analýza účtenek → 📊 Statistiky (nahoře přepínač 📅 měsíc | ∞ Vše pro 🧭 Za co utrácíš, Celkem utraceno / Průměrný nákup / Naskenováno položek, Výdaje dle kategorie a Co nakupuješ) a 🧠 Učení → 🧬 Nákupní DNA (stejný přepínač). Výchozí je vybraný měsíc nahoře. Nejčastěji nakupované položky a Vývoj nákupů mají dál své 1M–12M.",
+      "🔗 SPOJIT S… (TODO-358, Milan: „název Brambory konzumní a 3 aliasy“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta → 🔗 Spojit s…: hlavní název karty, najdi kartu stejného výrobku, 🔗 Spojit. Zkratky zůstanou jako aliasy a další účtenky s nimi padnou rovnou do karty; text účtenek se nemění. Karta s čárovým kódem zůstává (zkratka bez kódu se k ní připojí), dvě karty s různými kódy spojit nejde. ✕ Odpojit u názvu spojení zruší. Platí i ve Statistice položek. Jen tvoje (synchronizuje se mezi zařízeními).",
+      "📄 MĚSÍČNÍ REPORT · nová strana 🏪 Obchody (Milan: „porovnání s minulým měsícem + 3 největší celkové nákupy a 3 nejmenší“): obchody měsíce, 3 největší a 3 nejmenší nákupy (obchod, datum, částka, celé účtenky), srovnání s minulým měsícem (počet účtenek, útrata) a trend obchodů od ledna. Strana Účtenky se tím odlehčila – s obchody na A4 přetékala. Srovnání s minulým měsícem i u KPI Útrata z účtenek a Účtenek. Report má s obchody 5 stran.",
+      "🧪 tools/smoke_spojit.js – 18 testů.",
+    ],
+  },
   {
     verze: 'v12.11',
     datum: '2026-10-25',

@@ -1850,3 +1850,83 @@ Milan: „Do formuláře bych přidal mimořádnou splátku i změnu měsíční
 - **Import (Milan):** propojení importované splátky s půjčkou zatím neexistuje (jen kategorie); půjčka musí existovat před importem. Až na to Milan narazí, ozve se.
 - **Status:** ✅ v12.01
 
+
+### ADR-235 · 🧮 Kalkulačky jako jedna stránka, zatím zdarma pro všechny; Monte Carlo s pevným seedem **(Session 27, v11.90, Milan)**
+- **Rozhodnutí:** jedna stránka s rozklikávacími kartami (Rezerva, Cena zlozvyku, Do výplaty), předvyplněné z dat, ruční změna hodnot (↺ vrátí na data). Výsledek jako pásmo (2 000 simulací ze skutečných měsíců / dnů), ne jedno číslo. Milan 20. 10.: kalkulačky zatím zdarma.
+- **Status:** ✅ v11.90 (`js/kalkulacky.js`)
+
+### ADR-236 · Cena zlozvyku i z položek účtenek **(Session 27, v11.91, Milan)**
+Milan: „spíše na účtenky, případně obojí“.
+- **Rozhodnutí:** kategorie transakcí + položky účtenek (kategorie položky nebo slovo v názvu). Krátké slovo musí sedět celé, delší od začátku. Účtenka, jejíž transakce už je ve vybrané kategorii, se nepřičte podruhé.
+- **Status:** ✅ v11.91
+
+### ADR-237 · Karta v Mapě položek podle kódu; zkratka může vést k víc druhům (lokálně) **(Session 27, v11.92–v11.94, Milan 21. 10.)**
+- **Rozhodnutí:** položka s kódem patří do karty podle kódu, bez kódu podle názvu (FIX-485). Zkratka je jen odkaz: jiný kód u položky se přidá jako další druh (jen ta položka), 2+ druhy = žádná automatika, výběr „Který druh?“ s plnými názvy. Seznam druhů je osobní (`S.uiCfg.eanDruhy`), komunitě se neposílá.
+- **Milan:** zpětný přepis kódu ve vlastních účtenkách ponechat; dialog „Oprava / Jiný druh“ při skenu ne (uživatel by vždy zvolil Oprava); komunitní práh 2 lidí zatím ne (TODO-370); kontrolu kódu proti zkratce bere jako „dobrou pojistku“ (jen upozornění).
+- **Status:** ✅ v11.92 · v11.93 · v11.94
+
+### ADR-238 · 🔎 Zeptej se svých dat: AI jen pochopí otázku, čísla počítá appka **(Session 27, v11.96)**
+- **Rozhodnutí:** AI dostane jen otázku a názvy kategorií, štítků a obchodů (žádné částky) a vrátí plán (pojmy, zdroje, míra, období, výstup). Součty z transakcí, položek účtenek a štítků spočítá appka; každá útrata jen jednou. Bez AI rozpoznání podle slov. Worker beze změny.
+- **Status:** ✅ v11.96 (`js/dotazy.js`)
+
+### ADR-239 · Čistý majetek ke konci vybraného měsíce **(Session 27, v11.98, Milan 22. 10.)**
+Milan: „stejná hodnota se objevuje i při přepnutí měsíce, což může zkreslovat hodnocení“.
+- **Rozhodnutí:** `computeNetWorth(D, den)` – peněženky od zadaného zůstatku ke dni + transakce, cíle z vkladů do toho dne, aktiva z historie hodnoty (bez historie dnešní s „· dnes“), dluhy z historie (od v12.01, ADR-234). Mínus v hotovosti / spořáku = upozornění na zapomenutou transakci. Vzorec `formulas.md`.
+- **Status:** ✅ v11.98
+
+### ADR-240 · Splátka z Opakované platby snižuje Zbývá; Splátkový kalendář od začátku s 📍 Dnes **(Session 27, v12.02, Milan)**
+Milan: „opakované platby jsou i proto, abys to nemusel ručně každý měsíc zapisovat. Oprav to.“ „Splátkový kalendář by měl být od začátku + vyznačit dnešní měsíc.“
+- **Rozhodnutí:** šablona Dluh/Splátka zakládá splátku s vazbou na půjčku (`debtCeka` do dne splátky), Zbývá se sníží v den splátky; splátka s datem do „Zbývá · ke dni“ nesníží. Kalendář: minulé splátky podle plánu z jistiny od začátku, řádek Dnes se skutečným zbytkem, budoucí od dneška (`_kalV2` jednorázový přepočet).
+- **Status:** ✅ v12.02
+
+### ADR-241 · Zdražování „Podle výrobků“: stejné se stejným **(Session 27, v12.05–v12.06, Milan)**
+Milan: „nelze brát pivo = pivo… nelze míchat banány a banány v čokoládě“ · „přínos může být ve vážených věcech, pečivu a u stejného výrobku. Obecné názvy typu uzeniny nebo sýry…“
+- **Rozhodnutí:** podle obecného názvu (+ bio zvlášť) jen `TAX_OBECNE_SROVNATELNE` = ovoce, zelenina, brambory, pečivo; ostatní jen jako konkrétní výrobek (kód → výrobek z Mapy → stejná zkratka). Obecné názvy oddělení („Sýr“, „Salám“, „Mléč. výrobky“) mimo sledování cen. Záloha za obal (`rpJeZaloha`) mimo ceny, v útratě zůstává.
+- **Status:** ✅ v12.05 · v12.06
+
+### ADR-242 · 📥 Doručené: duplikát notifikace, banka podle aplikace, karta / účet → peněženka **(Session 27, v12.06, Milan)**
+- **Rozhodnutí:** stejná aplikace, typ a částka do 10 minut = jedna položka (zůstane plnější text). Banka podle aplikace, ze které notifikace přišla. Při Přidat se zapamatuje karta (poslední 4 číslice) nebo vlastní účet → peněženka (`S.uiCfg.inboxPenezenky`). Kategorie nabízí 📈 Investice a spoření a ↔️ Přesun do / z vlastní peněženky (pár transakcí se společným přesunem).
+- **Status:** ✅ v12.06
+
+### ADR-243 · 🏪 Trend nákupů po obchodech: účtenky i notifikace, výchozí útrata, zapamatovaná barva obchodu **(Session 27, v12.07, Milan 23. 10.)**
+- **Rozhodnutí:** zdroj = naskenované účtenky + obchody z notifikací (platba spojená s účtenkou jen jednou, přes účtenku; převody, přesuny a investice ne). Míra útrata (přepínatelně návštěvy, Ø nákup). Analýza účtenek 6 / 12 měsíců / kalendářní rok, Report od ledna (max 12 měsíců), Grafy s porovnáním let. Barva obchodu se přidělí jednou (`S.uiCfg.barvyObchodu`, odstínově odlišná) a je stejná všude.
+- **Status:** ✅ v12.07 (`js/obchody.js`)
+
+### ADR-244 · Karty bez kódu se automaticky neslučují; překlep se opraví ručně na účtence **(Session 27, v12.09, Milan 23. 10.)**
+Milan: „Není brambor jako brambor. Máme rané, konzumní, salátové, baby, batáty… Ne všechny názvy se dají takto sjednotit.“ · „Spíš najít způsob, jak to opravit rychle ručně, místo dalších utilit.“ · „Tvé návrhy byly zajímavé, ale nedomyšlené a komplikované.“
+- **Rozhodnutí:** žádné slučování podle obecného názvu ani podobnosti písmen. V kartě u názvu data nákupů (otevře účtenku a zvýrazní položku) a ✎ Opravit název (přepíše text položky na účtenkách; stejný název = jedna karta). Ruční spojení zkratek pod hlavní název (TODO-358) – směr přijat, stavba nepotvrzena.
+- **Status:** ✅ v12.09 (oprava názvu) · TODO-358
+
+### ADR-245 · Pasti v zařazení: víceslovný název a seznam pastí, žádné podmínky **(Session 27, v12.09, Milan 23. 10.)**
+Milan: „Bude lepší použít i dvouslovný název, ne jedno známé slovo. Nepřidávej podmínku. Zkusíme ty pasti zapsat a podchytit. Ani můj štítek do toho netahej.“ · „Drůbeží hamburger byl jen flák masa bez housky → maso.“
+- **Rozhodnutí:** chybné zařazení se opravuje v datech: víceslovné obecné názvy v `data/taxonomie.json` (makový hřeben, smetanový krém, drůbeží hamburger) mají přednost před jedním slovem; odchylky textu z účtenky jdou do `pasti` (`"smet krem"`, `"nektarinky kos"`), které `taxNavrh` zkouší první; klíčová slova koše ČSÚ v `product-groups.json`. Každá past = řádek v `tools/smoke_pasti.js`. COICOP se nikdy nezadává ručně – plyne z obecného názvu.
+- **Rozpočet „-“:** podkategorie s `rozpocet: "-"` (Poplatky a služby na účtence: taška, záloha, poplatek) nemá výchozí kategorii – dřív Zábava z oblasti.
+- **Status:** ✅ v12.09 (taxonomie 1.3)
+
+### ADR-246 · Oprava kategorie u starých účtenek po výrobcích, s důvodem a výběrem **(Session 27, v12.09, Milan)**
+Milan: „Chybí mi kontext, navíc podle obrázku tam je tak polovina věcí správně. Nejde to ani jednotlivě… je to nejapné a nechápu to.“
+- **Rozhodnutí:** řádek = výrobek (obchody, data, z → do, proč: tvoje volba / komunitní mapa / čárový kód / odhad podle názvu). Jisté předem zaškrtnuté, odhady ne. Vynechat položky z restaurace (COICOP 11) a změny jen podkategorie (podkategorie bývá podle obchodu). Nezaškrtnuté příště nenabízet (`S.uiCfg.prerazeniNe`, „zobrazit znovu“).
+- **Status:** ✅ v12.09
+
+### ADR-247 · Komunitní katalog nákupního seznamu: jeden klíč, název nepřepisuje cenu **(Session 27, v12.10, Milan)**
+- **Rozhodnutí:** klíč `catalog/items/{nakupNormKey(name)}` pro názvy i ceny; názvy z účtenek se zapisují jen jako `/name`. Našeptávač slučuje podle klíče a ukazuje jen poslední cenu (Milan: „stačí mi cena, počet skenů nechci“). Položka seznamu se váže na záznam s cenou (jinak hlídač nikdy neupozorní). Staré dvojice v DB zůstávají (TODO-366).
+- **Status:** ✅ v12.10
+
+### ADR-248 · Analýza účtenek počítá od vybraného měsíce; souhrny s přepínačem Vybraný měsíc / Vše **(Session 27, v12.11–v12.12, Milan 25.–26. 10.)**
+Milan: „Nejčastější položky a Vývoj nákupů: 1M–12M počítané od vybraného měsíce. Trend a Slevy taky… Srovnání ČR: dal bych průměr za kalendářní rok, ne ze všech měsíců. Někde to tam připiš.“ · „Za co utrácíš, Nákupní DNA, Celkem utraceno / Průměrný nákup a Výdaje dle kategorie také převeď na aktuální měsíc a dej tam 2 přepínací tlačítka Vybraný měsíc a Vše.“
+- **Rozhodnutí:** období končí měsícem nahoře (`rpMesiceDoVybraneho`), ne dneškem. Statistiky (Za co utrácíš, souhrn, Výdaje dle kategorie, Co nakupuješ) a Nákupní DNA mají společný přepínač 📅 měsíc | ∞ Vše (`window._coicopPeriod`, výchozí měsíc). Srovnání ČR = průměr na měsíc za rok vybraného měsíce (leden až vybraný, jen měsíce s výdaji), napsané na kartě. Trend obchodů: rok = rok vybraného měsíce.
+- **Celá historie zůstává** u karet, které s historií pracují (Mapa, Zdražování, Doklady, Historie, Moje výrobky, Co se aplikace naučila).
+- **Status:** ✅ v12.11 · v12.12
+
+### ADR-249 · 🔗 Spojit s…: ruční spojení karet bez kódu, osobní **(Session 27, v12.12, navazuje na ADR-244)**
+- **Rozhodnutí:** `S.uiCfg.spojeni[normName(zkratka)] = klíč karty`, `S.uiCfg.spojeniNazev[klíč] = hlavní název`. Zkratka se zapamatuje → další účtenky padnou do karty. Karta s kódem zůstává (zkratka bez kódu se k ní připojí), dvě karty s různými kódy spojit nejde. Text účtenek se nemění, ✕ Odpojit spojení zruší. Komunitě se neposílá.
+- **Status:** ✅ v12.12 (TODO-358)
+
+### ADR-250 · Měsíční report: obchody a nákupy na vlastní straně **(Session 27, v12.12, Milan)**
+Milan: „porovnání s minulým měsícem + 3 největší celkové nákupy a 3 nejmenší (obchody)“.
+- **Rozhodnutí:** nákup = celá účtenka (obchod, datum, částka; kopie účtenek se nepočítají). Strana „Obchody“ (4 z 5): obchody měsíce, 3 největší / 3 nejmenší nákupy, srovnání s minulým měsícem (počet účtenek, útrata z položek), trend od ledna. Strana Účtenky se odlehčila (přetékala A4). Bez obchodů v měsíci má report 4 strany jako dřív.
+- **Status:** ✅ v12.12
+
+### ADR-251 · Narozeniny: druh a rok, věk se neukládá **(Session 27, v12.11, Milan)**
+- **Rozhodnutí:** `b.druh` = narozeniny | svátek | výročí (bez druhu = narozeniny), `b.rok` nepovinný (1900 až letos, u svátku ne). Věk / počet let se počítá z roku k dnešku (`bdayVek`) a k nejbližšímu výskytu (`bdayVekPristi`), takže každý rok sám přibude.
+- **Status:** ✅ v12.11

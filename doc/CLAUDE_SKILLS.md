@@ -852,3 +852,37 @@ Filtr „všechny měsíce“ zůstal zapnutý v zavřeném panelu a nadpis tvrd
 
 ### SKILL 97 · Před stavbou nové velké části zkontrolovat Projekt a paměť **(Session 26)**
 Inbox (companion appka + Doručené) vznikl ve web session ve stejný den, kdy souběžná session N1 rozhodla opak (zápis rovnou do Transakcí). Před stavbou něčeho, co sahá mimo běžnou práci session (nový projekt, nová appka, nový uzel DB), projít dokumenty Projektu a paměť – mohla to mezitím rozhodnout jiná session.
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+### SKILL 98 · Neměnit, co nebylo zadáno **(Session 27)**
+Při opravě tagu jsem přidal `autocomplete` a `enterkeyhint`; Milan: „Proč si to měnil, když jsem tě o to nežádal?“ Vrátil jsem to. Do opravy patří jen to, co řeší nahlášený problém. Vedlejší nápad = otázka nebo zápis do poznámek, ne změna.
+
+### SKILL 99 · Všechny zapisovače jednoho uzlu musí mít stejný klíč **(Session 27)**
+Do `catalog/items` zapisovaly dvě funkce s různým klíčem → každý výrobek dvakrát, jednou bez ceny, a hlídač ceny navázaný na špatný záznam (FIX-492). Před změnou uzlu `grep` na jeho cestu ve VŠECH souborech (i `worker*.js`) a klíč brát ze sdílené funkce (`normName`), nikdy vlastní regex.
+
+### SKILL 100 · Popisek jednotky musí odpovídat výpočtu **(Session 27)**
+„ø Kč/ks“ byl ve skutečnosti útrata ÷ počet nákupů (FIX-491). U každého průměru si napsat čitatel a jmenovatel a popisek odvodit z nich. Jednotka množství patří k položce (palivo l, vážené kg), ne k tomu, zda součet vyšel celé číslo.
+
+### SKILL 101 · Výchozí volba, kterou uživatel nevidí, musí jít změnit **(Session 27)**
+Megagraf řadil podle první řady na hlavní ose (Odvody v %), která byla vedle Kč neviditelná – graf vypadal neseřazený. Když výsledek řídí skrytá volba, ukázat ji a dát vybrat („Seřadit podle řady“). Souvisí se SKILL 95.
+
+### SKILL 102 · Odhad podle jednoho slova je past – opravovat v datech, ne podmínkami **(Session 27)**
+„Makový hřeben“ → hřeben (kosmetika), „Nektarinky koš“ → koš, „Smet.krem“ → krém. Milan nechtěl podmínky ani štítek v zařazení: víceslovný název a seznam pastí v `taxonomie.json` + řádek v `smoke_pasti.js`. Nejistý odhad nevydávat za jistý (v okně Přeřadit není předem zaškrtnutý a ukazuje slovo, podle kterého appka hádá).
+
+### SKILL 103 · Nejdřív nejjednodušší ruční cesta, automatika až když je jistá **(Session 27)**
+Můj první návrh pro Mapu položek (slučování podle obecného názvu, podobné názvy, štítek v zařazení) Milan odmítl jako „zajímavé, ale nedomyšlené a komplikované“ – „není brambor jako brambor“. Co uživatel umí rozlišit lépe než appka, neslučovat automaticky; dát mu rychlý ruční nástroj přímo tam, kde chybu vidí (✎ Opravit název v kartě).
+
+### SKILL 104 · Překreslení při `blur` zahodí pole, na které uživatel právě klepl **(Session 27)**
+Kurzor v tagu „uskočil“ (FIX-487): změna v jednom poli překreslila editor dřív, než se aktivovalo další. Překreslovat až po odchodu z polí (`focusout` + kontrola `document.activeElement` po puštění prstu).
+
+### SKILL 105 · Filtr zapnutý z jednoho místa musí svítit všude a zmizet se svým důvodem **(Session 27)**
+Po smazání posledního duplikátu zůstal filtr Podezřelé zapnutý bez jediného tlačítka, které by ho ukazovalo (FIX-489). Stav filtru číst z jednoho místa pro všechna tlačítka; když zmizí jeho důvod (žádné páry), vypnout ho.
+
+### SKILL 106 · Canvas: měřítko displeje nastavit jednou (setTransform), ne násobit **(Session 27)**
+Bublina grafu byla na telefonu 9× větší (FIX-493): `draw()` už udělal `scale(dpr)`, překreslení bubliny přidalo další. Na desktopu (dpr 1) chyba není vidět, proto ji testovat i s `device_scale_factor=3`. Při kreslení nad hotovým grafem vždy `setTransform(dpr,0,0,dpr,0,0)`.
+
+### SKILL 107 · Na stránce s měsícem nahoře počítá všechno od vybraného měsíce, nebo říká, že ne **(Session 27)**
+Analýza účtenek měla šipky měsíce, ale karty počítaly od dneška nebo z celé historie bez popisku (ADR-248). Každá karta buď končí vybraným měsícem, nebo má viditelný přepínač / popisek „celá historie“. „Tento měsíc“ = vybraný měsíc, ne dnešní.

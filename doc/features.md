@@ -1585,3 +1585,68 @@ SVG sada (13 oblastí, 12 podkategorií, ikony karty výrobku a akcí). Ikona se
 - **(v11.88)** Vozidla: „📷 Účtenky z benzínky → tankování“ (litry, Kč za palivo, sleva z účtenky; doplnit vozidlo + tachometr), v úpravě transakce „📷 Doplnit z účtenky“. Výplatnice: stránky 🧾 Výplatnice | 🔭 Megagraf, řazení ↓ / ↑, otázky „Kolik dovolené mi zbývá?“ a „Seřaď hrubou mzdu“.
 
 - **(v11.89)** 📲 Notifikace z telefonu (`cesta: Import z banky (BETA) → 📲`): propojení telefonu kódem, 📥 Doručené (přidat / spojit s účtenkou / zahodit / zapsat ručně), „Účtenka převezme platbu z notifikace“. Android appka FinanceFlow Inbox v repu financeflow-native.
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+## 🧮 Kalkulačky **(Session 27, v11.90–v11.91)**
+`cesta: menu → Nástroje → 🧮 Kalkulačky`
+- Rozklikávací karty s hlavním výsledkem z dat; uvnitř políčka z dat (↺), vějíř Monte Carlo (medián, 50 %, 90 %), tabulka a „Jak to počítám“.
+- **🛟 Rezerva** – na kolik měsíců vystačí úspory, pravděpodobnost 3 / 6 měsíců.
+- **🚬 Cena zlozvyku** – kategorie i položky účtenek (slova pivo, víno, cigarety…), hodiny práce, „kdyby se investovalo“.
+- **📅 Do výplaty** – „s X % vyjdeš, v nejhorších 10 % chybí Y Kč“.
+
+## 🧾 Účtenky **(Session 27)**
+- **✍️ Ruční účtenka** (v11.92) – `cesta: Analýza účtenek → 📸 Skenovat → ✍️ Zapsat účtenku ručně`; 📷 Přidat skenem kódu (v11.93, bez ceny).
+- **Název výrobku z kódu pod položkou** + žlutá kontrola kódu proti zkratce (v11.93).
+- **Jedna zkratka → víc druhů** (v11.94) – výběr „Který druh?“ pod řádkem položky.
+- **Větší pole tagu**, kurzor neuskočí (v11.97).
+
+## 🗺️ Mapa položek **(Session 27)**
+- Karta podle čárového kódu (v11.92, FIX-485).
+- **Názvy z účtenek:** 📅 data nákupů → otevře účtenku v editoru a zvýrazní položku; ✎ Opravit název → karty se spojí (v12.09).
+- **🔄 Opravit kategorii u starých účtenek** – po výrobcích se zaškrtnutím a důvodem (v12.09).
+- **Pasti v zařazení** – makový hřeben, smetanový krém, drůbeží hamburger, nektarinky koš (v12.09).
+
+## 🔎 Zeptej se svých dat **(Session 27, v11.96)**
+`cesta: menu → AI Asistent → 🤖 AI Rádce → 🔎 Zeptej se svých dat`
+- Otázka vlastními slovy (káva, pečivo, jak často do obchodu…), hlavní číslo, přepínání Období / Měřit / Výstup / Rozpad, „Co jsem započítal“.
+
+## 💰 Majetek, skóre, dluhy **(Session 27)**
+- **Čistý majetek ke konci vybraného měsíce** + upozornění na mínus v hotovosti (v11.98).
+- **Rezerva ve skóre:** hotovost, účet, spořicí, jiné peněženky, rezervní aktiva a cíle ÷ Ø výdajů 6 měsíců (v11.99–v12.00).
+- **📜 Změny půjčky** (mimořádná splátka, nová splátka, nový úrok, navýšení, konsolidace) a **Zbývá · ke dni** (v12.01) – `cesta: 💸 Dluhy → půjčka → Upravit`.
+- **Splátka z Opakované platby snižuje Zbývá**, **Splátkový kalendář od začátku s 📍 Dnes a Odplaceno** (v12.02).
+
+## 🔁 Transakce a duplicity **(Session 27)**
+- Zůstatek v závorce sedí s Peněženkami (v11.90).
+- Tlačítka duplikátu v řádku platí pro ten řádek, filtr Podezřelé se sám vypne (v12.03–v12.04).
+
+## 📲 Doručené **(Session 27, v11.91, v12.06)**
+`cesta: Import z banky (BETA) → 📲 Notifikace z telefonu`
+- ⬇️ Stáhnout appku pro Android (APK z `financeflow-inbox`), postup v pěti krocích.
+- Tatáž platba 2× = jedna položka, banka podle aplikace, čistý název obchodníka, 📈 Investice a ↔️ Přesun, karta / účet → peněženka.
+
+## 💹 Ceny a obchody **(Session 27)**
+- **Stejné se stejným** v Zdražování → 🧭 Podle výrobků, zálohy mimo ceny, palivo v Inflaci za litr (v12.05–v12.06).
+- **🏪 Trend nákupů po obchodech** (v12.07): Analýza účtenek → Trend útrat dle obchodů (6 / 12 měsíců / rok), Report strana 3, Grafy → 🏪 Obchody (rok, porovnání let, tabulka).
+- **Jednotky:** palivo l, vážené kg / l, Ø za jednotku (v12.08).
+
+## ⛽ Vozidla **(Session 27, v12.05)**
+- Z účtenky jen skutečné palivo, ✏️ úprava a 🗑 odebrání tankování, ⚠️ nereálná cena za litr, kontrola tachometru.
+
+## 📊 Grafy a Výplatnice **(Session 27)**
+- Grafy → Denní: přepínání měsíců (v12.06).
+- 🔭 Megagraf: „Seřadit podle řady“ u více řad (v12.08).
+
+## 🛒 Nákupní seznam **(Session 27, v12.10)**
+`cesta: Nákupy → ➕ Přidat do nákupního seznamu → Název produktu`
+- Našeptávač bez dvojic, jen poslední cena, dlouhý název se zalomí. Hlídač ceny vždy na záznam s cenou.
+
+## Dodatek Session 27 · v12.11–v12.12 **(Session 27)**
+- **📅 Analýza účtenek od vybraného měsíce** (v12.11–v12.12): Statistiky s přepínačem 📅 měsíc | ∞ Vše (Za co utrácíš, souhrn, Výdaje dle kategorie, Co nakupuješ), Nejčastější položky a Vývoj nákupů 1M–12M do vybraného měsíce, Trend, Slevy, Statistika položek, Srovnání ČR za rok, 🧬 Nákupní DNA s přepínačem, Trend obchodů podle roku nahoře. Bez probliknutí při přepnutí měsíce.
+- **🔗 Spojit s…** (v12.12) – `cesta: Analýza účtenek → 🗺️ Mapa položek → karta`: hlavní název, najít kartu, 🔗 Spojit, ✕ Odpojit u aliasu.
+- **📄 Report → strana 🏪 Obchody** (v12.12): obchody měsíce, 3 největší a 3 nejmenší nákupy, srovnání s minulým měsícem, trend od ledna.
+- **💱 Převodník** (v12.11) – `cesta: Kurzy měn`: částka, z / do, ⇅ Prohodit, kurz ČNB.
+- **🎂 Narozeniny, svátky a výročí** (v12.11) – `cesta: Narozeniny & přání → + Přidat`: druh, rok → věk („40 let“, „bude 41 let“), druh i na Dashboardu a v Budoucích platbách.

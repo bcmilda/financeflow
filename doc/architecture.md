@@ -1994,3 +1994,40 @@ Doplněná data se při obnově zachovají (`EAN_ZACHOVAT`, v11.50).
 | `inboxLinks/{devUid}` | `{uid, code, kdy}` – propojení, zakládá web s platným kódem (≤ 15 min), ruší web i telefon; při smazání účtu `inboxOdpojVse()` |
 | `t.zNotifikace` | `{id, bank, postedAt, prevzato?}` – transakce vznikla z notifikace / účtenka převzala platbu |
 Modul `js/inbox.js` (za `sms-import.js`). Android appka: repo `financeflow-native/inbox-android` (Kotlin, bez knihoven, REST na Firebase).
+
+---
+
+## Session 27 · v11.90 → v12.10 **(Session 27)**
+
+**52 JS modulů** – nové `js/kalkulacky.js` (v11.90), `js/dotazy.js` (v11.96), `js/obchody.js` (v12.07, za `dotazy.js`). Worker ani pravidla DB se v S27 neměnily (worker v11.61, pravidla v11.89).
+
+| Kde | Co |
+|---|---|
+| `js/kalkulacky.js` | `mcSimuluj(n, krok, opt)` – Monte Carlo (pevný seed, percentily), karty Rezerva / Cena zlozvyku / Do výplaty |
+| `js/dotazy.js` | `dotazSpocitej(D, plan, dnes)`, `dotazSouhrn`, `dotazVysledekHTML` – plán od AI (nebo podle slov), součty počítá appka |
+| `js/obchody.js` | `obchodNakupy(D)` (účtenky + obchody z notifikací), `obchodBarva` (`S.uiCfg.barvyObchodu`), `obchodyMesice`, `obchodyTrendData`, `obchodyRoky`, `obchodyReportData`, `renderObchodyGraf`; stav karet v `localStorage` `ff_obchTrend`, `ff_obchG` |
+| `computeNetWorth(D, den)` (premium.js) | Čistý majetek ke dni; `_s3Rezerva` – rezerva skóre (ADR-233) |
+| Dluh `d` (debts.js) | `d.zbyvaKeDni {den, castka}`, `d.zmeny[]` (mimořádná, splátka, úrok, navýšení, konsolidace), `d.vznik`, `d.remaining` dál živý dnešní zbytek, `_kalV2` (jednorázový přepočet kalendáře); transakce ze šablony `debtCeka` do dne splátky |
+| `S.uiCfg` (synchronizované, nesdílí se) | `eanDruhy` (zkratka → víc kódů), `inboxPenezenky` (karta / účet → peněženka), `barvyObchodu`, `prerazeniNe` (skryté návrhy přeřazení) |
+| `helpers.js` | `polozkaJednotka(it)` (palivo l / kg / l / ks), `jednotkySouhrn(jedn)` (v12.08) |
+| `data/taxonomie.json` 1.3 | nové obecné názvy (makový hřeben, smetanový krém, drůbeží hamburger), klíč `pasti` (text z účtenky → obecný název, `taxNavrh` je zkouší první, jistota `past`), `rozpocet: "-"` = podkategorie bez výchozí kategorie; `TAX_URL ?v=1.3-20261023` |
+| `data/product-groups.json` | klíčová slova `drubezi hamburger`, `smet krem`, `smetanovy krem`, `makovy hreben`; `?v=20261023` v `product-db.js` |
+| Mapa položek | nákup v `z.nakupy[]` nese neenumerovatelné `_r` (účtenka) a `_it` (položka); `mapaAliasySkupiny` vrací `klic`, `nak` (indexy nákupů); `mapaOpravNazevProvest(z, ai, novy)`; `openReceiptInHistory(date, store, idx?, polozka?)` zvýrazní položku |
+| Přeřazení | `mapaPrerazeniNavrh(D)` → `{zdroj: moje / mapa / ean / nazev, jiste, slovo, vynech: restaurace / podkategorie / skryto, klic}`, `mapaPrerazeniRadky`, `mapaPrerazeniProvest(vyber, nevybrane)` |
+| `catalog/items/{klic}` | od v12.10 jeden klíč `nakupNormKey(name)` (= `normName`) pro názvy i ceny; `publishToCatalog` zapisuje jen `/name`; `nakupKatalogSkupiny`, `nakupKanonKlic`, `_nakupPrepojSeznam` (nakup.js) |
+| Inbox | `inboxDuplikaty` (10 min), `inboxBankaZAppky`, `inboxObchodnik`, `inboxIdent` (`karta:1234` / `ucet:…`), `inboxProtiucet`; Android appka v repu `bcmilda/financeflow-inbox` |
+| `.well-known/assetlinks.json` | dva otisky: nahrávací `48:12:C8…` a podpisový klíč Google `9B:9C:F1:73…` |
+
+## Session 27 · dodatek v12.11–v12.12 **(Session 27)**
+| Kde | Co |
+|---|---|
+| `rpMesiceDoVybraneho(n)`, `rpObdobiPopis()` (receipts.js) | N měsíců končících `S.curMonth/S.curYear` ('YYYY-MM') |
+| `rpStatObdobi()`, `rpVMesici(datum)`, `rpObdobiPrepinac()` | přepínač 📅 měsíc / ∞ Vše pro Statistiky a Nákupní DNA; stav `window._coicopPeriod` ('all' / jinak měsíc), mění `coicopSetPeriod` |
+| `spFiltruj(radky, f, dnes)` | horní mez období = měsíc `dnes` (volá se s vybraným měsícem) |
+| `window._cmpObdobi` | Srovnání ČR: rok, poslední měsíc, počet měsíců s výdaji |
+| `_obchKotva()` (obchody.js) | vybraný měsíc pro Trend obchodů; `_obchTrend._kotvaRok` |
+| `S.uiCfg.spojeni` / `spojeniNazev` | 🔗 Spojit s…: zkratka (normName) → klíč karty, hlavní název; `mapaSpojeniKam`, `mapaSpojitProvest`, `mapaOdpojitProvest`; `mapaUzivData` i `spRadky` je respektují |
+| `rpReportNakupy(D, m, y)`, `_rpProObchody(rd, 4)` (report-mesicni.js) | report strana Obchody; `rd._stran` = 5 s obchody, jinak 4; poslední strana má číslo `rd._stran` |
+| `fxPrevod(castka, z, na, rates)`, `fxPrevodHTML` (kurzy.js) | převodník; stav `localStorage` `ff_fxPrevod` |
+| `b.druh`, `b.rok`; `BDAY_DRUHY`, `bdayDruh`, `bdayVek`, `bdayVekPristi`, `_bdayLet` (charts.js) | druh a věk u narozenin |
+| Canvas bubliny | `setTransform(dpr,…)` (receipts.js `drawStoreTrendChart`, assets.js) |

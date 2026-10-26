@@ -191,3 +191,10 @@ Souhlasím s účelem: chceš to vidět hned, bez filtru, a nechceš, aby to zap
 3. **Starší transakce při zapnutí výběrové kategorie:** přesouvat vždy, nikdy, nebo se zeptat?
 4. **Cigarety:** nechat zvlášť (můj návrh), nebo sloučit s Alkoholem podle COICOP?
 5. **Konkrétní služby v Předplatném** (Netflix, Spotify…): nechat jako podkategorie, nebo obecné typy a konkrétní službu poznávat podle názvu transakce?
+
+---
+
+## Stav po Session 27 (2026-10-23) **(Session 27)**
+- Revize stále čeká na Milanův upravený `categories.json` (TODO-361). Milanova rozhodnutí z S25 jsou v sekci 5 a v poznámkách backlogu.
+- Nové téma: **☕ sledování kávy napříč místy** (obchod, kavárna, benzínka, restaurace) bez volby Restaurace › Kavárny u nákupu v supermarketu. Dvě cesty: výběrová kategorie „Káva“ (míchá COICOP) nebo „Sledovaná témata“ jako vrstva nad kategoriemi a položkami účtenek. Částečně to už umí 🔎 Zeptej se svých dat (v11.96). Nerozhodnuto.
+- Taxonomie výrobků (ne rozpočtové kategorie) dostala v12.09 „pasti“ a podkategorii bez výchozí kategorie (`rozpocet: "-"`) – ADR-245.

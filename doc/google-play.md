@@ -248,3 +248,12 @@ Krátký nadpis do horní části každého screenshotu prodá víc než samotn�
 6. Účet **nemaž a neměň mu heslo** – Google ho používá i při kontrole každé další verze.
 
 Stejný účet se ti pak hodí i na screenshoty (ukázková data místo tvých skutečných).
+
+---
+
+## 13. Stav po Session 27 (2026-10-23) **(Session 27)**
+- Vývojářský účet založený, telefon ověřený (23. 10.).
+- **Interní testování:** nahrán balík z PWABuilderu ze Session 23 – FinanceFlow.aab, verze 1 (1.0.0.0). Automatická ochrana pro vydání **vypnutá** (vyžaduje minSdk 24, balík má 23).
+- **assetlinks.json:** oba otisky – nahrávací klíč `48:12:C8…` a podpisový klíč Google `9B:9C:F1:73:…:F8:7F` (z podepsaného univerzálního APK). Po nasazení webu ověřit, že se appka z Play otevře bez adresního řádku.
+- **Příští balík:** minSdk 24, stejný `signing.keystore`, versionCode 2. `signing.keystore` a `signing-key-info.txt` nikdy do repa.
+- **Zbývá:** hlavní panel (Data safety podle sekce 8, účet pro kontrolu podle sekce 12, screenshoty, feature graphic), `legal.html` provozovatel (TODO-364), 12 testerů po 14 dní pro produkci (TODO-363).

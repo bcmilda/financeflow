@@ -122,3 +122,9 @@ v11.58 vlastní SVG ikony (automaticky přes taxonomii) · v11.59 Měsíční re
 ## Dodatek v11.62–v11.89 (2026-10-10 až 2026-10-18) **(Session 26)**
 
 - **v11.62–v11.83:** výplatnice a kalendář (odhad výplaty, roční zúčtování), účtenky, Nutri-Score z OFF. **v11.84–v11.89:** Měřidla (VT/NT, karta s panely, plyn, voda, zálohy jako šablona), viditelné filtry Transakcí, megagraf jako samostatná stránka, tankování z účtenky, 📲 Notifikace z telefonu (pozastaveno, TODO-357). **Celkový rozsah Session 26:** FIX-451–483, ADR-209–231, SKILL 86–97, TODO-342–357. Plán další: `PLAN-SESSION-27.md`.
+
+## Dodatek v11.90–v12.10 (2026-10-19 až 2026-10-24) **(Session 27)**
+
+- **v11.90–v11.96:** 🧮 Kalkulačky s Monte Carlo, ruční účtenka, karta Mapy podle kódu, víc druhů u zkratky, 🔎 Zeptej se svých dat. **v11.97–v12.02:** Čistý majetek, rezerva a dluhy ke konci vybraného měsíce, 📜 Změny půjčky, splátky ze šablony. **v12.03–v12.10:** duplicity, Doručené v2, Stejné se stejným, 🏪 Trend obchodů, jednotky, oprava názvu v kartě, pasti v zařazení, katalog nákupního seznamu. FIX-484 až 492, ADR-235 až 247, SKILL 98–105, TODO-358–371. Přehled `Summary_s27.md`.
+
+- **v12.11–v12.12:** Analýza účtenek od vybraného měsíce (ADR-248), 🔗 Spojit s… (ADR-249), report strana Obchody (ADR-250), převodník měn, druh a věk u narozenin (ADR-251), FIX-493. **Celkový rozsah Session 27:** v11.90 → v12.12 · FIX-484–493 · ADR-233–251 · SKILL 98–107 · TODO-358–373.

@@ -2865,3 +2865,74 @@ U skoro všech účtenek „Jídlo & Nákupy“. Teď podle kategorií položek.
 - **Oprava:** návrh „↔ Prohodit“ pod datem, když prohozené datum je nedávné a přečtené v budoucnu / > 45 dní zpět (worker beze změny).
 
 ### FIX-483 · Graf ceny za litr: čára přes popisky osy **(Session 26, v11.87, Milan)**
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+### FIX-484 · Zůstatek v závorce v Transakcích „neseděl“ **(Session 27, v11.90, Milan)**
+- **Symptom:** „Co znamená zelené číslo v závorce a proč nesedí výpočty?“ Zůstatek po transakci shora dolů skákal (34 329 → 37 357 → 36 334).
+- **Příčina:** seznam řadil řádky uvnitř dne v pořadí uložení, výpočet zůstatku podle id; výpočet navíc neznal „zůstatek ke dni“ peněženky a vynechával rozdělené platby.
+- **Oprava:** stejné pořadí pro seznam i výpočet (datum, čas zápisu), zůstatek od „ke dni“, rozdělené platby započtené. Poslední číslo v závorce = zůstatek v Peněženkách. Test `smoke_tx_zustatek.js`.
+
+### FIX-485 · Mapa položek: karta podle názvu místo podle kódu **(Session 27, v11.92, Milan)**
+- **Symptom:** „U Mileny se do karty nezapsal alias, kupoval jsem ji ve dvou obchodech“ a „BL Luštěninové chipsy 65g – 3 různé druhy a název zůstal stejný“.
+- **Příčina:** skupiny v `mapaUzivData` se tvořily podle názvu z účtenky: stejný výrobek pod dvěma zkratkami = dvě karty, tři výrobky pod jednou zkratkou = jedna karta s posledním kódem.
+- **Oprava:** položka s kódem patří do karty podle kódu (klíč `ean:…`), bez kódu dál podle názvu. Statistika položek čte stejné skupiny. Test `smoke_mapa_ean.js` (na v11.91 9 z 13 selže).
+
+### FIX-486 · Rozpracovaná účtenka se ztratila, editor zůstal **(Session 27, v11.95, Milan – účtenka z OBI)**
+- **Symptom:** „Použít na všechny položky – nic se nestalo; přepsal jsem název, položka zmizela… reading 'items'“.
+- **Příčina:** klepnutí na záložku (i na už otevřenou 📸 Skenovat) vymazalo `_editReceipt`, editor ale zůstal na obrazovce; tlačítka pak tiše nic, ➕ Přidat spadlo. Překreslení po synchronizaci stavělo editor z PŮVODNÍHO výsledku skenu (zmizely úpravy).
+- **Oprava:** přepínač záložek novou účtenku ze skenu nemaže (`_rpNovaUctenkaOtevrena`), editor si ji obnoví i s úpravami, tlačítka bez účtenky nespadnou. Test `smoke_editor_stav.js` (na v11.94 selže).
+
+### FIX-487 · Kurzor v zeleném tagu „uskočil“ **(Session 27, v11.97, Milan)**
+- **Příčina:** po úpravě Balení nebo Názvu se editor překreslil při `blur` dřív, než se klepnutý tag stihl aktivovat – pole zmizelo pod prstem.
+- **Oprava:** překreslení odložené až po odchodu z polí (`_rpPrekreslitPozdeji` / `_rpDohnatPrekresleni`), pole tagu 118 px. Test `smoke_tag_fokus.js`.
+
+### FIX-488 · Tlačítka u podezřelého duplikátu v řádku obráceně **(Session 27, v12.03, Milan)**
+- **Symptom:** „Smazat duplikát“ u ruční transakce hlásil ochranu účtenky.
+- **Příčina:** obě tlačítka v řádku mířila na DRUHOU transakci páru.
+- **Oprava:** „🗑 Smazat duplikát“ smaže tenhle řádek, „✅ Zachovat tento“ smaže ten druhý. Test `smoke_dup_tlacitka.js`.
+
+### FIX-489 · Po smazání duplikátu prázdný seznam Transakcí **(Session 27, v12.04, Milan)**
+- **Příčina:** filtr zapnutý z lišty „⚠️ Zobrazit jen podezřelé“ nesvítil na tlačítku ⚠️ Podezřelé; po smazání posledního páru zmizela i lišta → nebylo čím filtr vypnout.
+- **Oprava:** obě tlačítka svítí podle filtru, bez párů se filtr sám vypne, ✕ Vymazat ho vypne. Hláška u transakce z účtenky jasně říká, co OK a Zrušit udělají. Test `smoke_dup_tlacitka.js` +5.
+
+### FIX-490 · Grafy → Denní: šipky nepřepínaly měsíc **(Session 27, v12.06, Milan)**
+- **Příčina:** šipky volaly přepínač Měsíčního grafu; leden přepínání resetoval (`_grafMonth` 0 = nepravda).
+- **Oprava:** `denniMesic(d)`, kontrola `_grafMonth == null`, šipky i u měsíce bez výdajů.
+
+### FIX-491 · Jednotky množství a průměr „Kč/ks“ **(Session 27, v12.08, Milan)**
+- **Symptom:** „U EVO paliva 67 kg/l a u Detektoru úspor 67 ks – nesedí jednotky.“
+- **Příčina:** jednotka byla jen „ks“ nebo „kg/l“ podle toho, zda je součet celé číslo; sloupec „ø Kč/ks“ byl ve skutečnosti útrata ÷ počet NÁKUPŮ (Sladký rohlík ø 14 místo 8 Kč/ks). Detektor psal vždy „ks“.
+- **Oprava:** `polozkaJednotka(it)` / `jednotkySouhrn()` (helpers.js): palivo l (`tankJePalivo`), vážené kg / l, jinak ks; sloupec „Množ.“, Ø = cena za jednotku, smíšené jednotky = Kč/nák. Statistika položek: palivo Ø za litr. Test `smoke_jednotky.js`.
+
+### FIX-492 · Nákupní seznam: stejný výrobek víckrát, jednou „cena neznámá“ **(Session 27, v12.10, Milan)**
+- **Symptom:** „Proč se mi objevují stejné názvy vícekrát? A proč je jednou s cenou a podruhé bez ceny? Uniká mi princip.“
+- **Příčina:** do `catalog/items` zapisovaly dvě funkce pod RŮZNÝMI klíči – `publishToCatalog` (receipts.js, S9: klíč s diakritikou a gramáží, přepis celého uzlu jen `{name}`) a `publishPricesToCatalog` (nakup.js: `nakupNormKey` = `normName`, s cenou); k tomu staré klíče hlídače z doby před S23. Položka navázaná na řádek „cena neznámá“ by nikdy nespustila hlídání ceny.
+- **Oprava:** našeptávač slučuje podle `nakupNormKey` (`nakupKatalogSkupiny`), cena z nejnovějšího záznamu s cenou, bez počtu skenů, název se zalomí (cena `flex-shrink:0`). Výběr i položky v seznamu se vážou na záznam s cenou (`nakupKanonKlic`, `_nakupPrepojSeznam`). `publishToCatalog` zapisuje `catalog/items/{normName}/name`. Test `smoke_nakup_katalog.js`.
+- **Zbývá:** staré dvojice v databázi (neviditelné) – úklid jen na přání (TODO-366).
+
+## Nalezeno, neopraveno **(Session 27)**
+- **Restaurace při skenu:** „Švestka 0,5“ (slivovice) a „Kečup“ z účtenky restaurace dostanou podle názvu ovoce / potraviny. Přeřazení starých účtenek je od v12.09 vynechává, odhad při skenu ne (TODO-369).
+- **`obrazDopadStylu`** (projects.js) má vlastní starou rezervu (spořicí + investiční peněženky), nesjednocenou s `_s3Rezerva` (TODO-368).
+- **Neověřeno na skutečných datech:** rozpad EVO 95 v Inflaci a Penny v trendu po v12.05, vejde-li se Report strana 3 (obchody) – TODO-365.
+
+## Dodatek Session 27 · v12.11–v12.12 (2026-10-25 až 2026-10-26) **(Session 27)**
+
+### FIX-493 · Bublina v grafu obchodů na telefonu obří a mimo graf **(Session 27, v12.11, Milan)**
+- **Symptom:** „Učení – je tam špatné zobrazení při kliknutí do grafu na značku obchodu“ (bublina „VIII ■ M“ přes půl obrazovky).
+- **Příčina:** `drawStoreTrendChart` – `draw()` už nastavil `ctx.scale(dpr, dpr)`, bublina v `requestAnimationFrame` přidala druhé `scale(dpr, dpr)` → na telefonu (dpr 3) 9× větší měřítko. Stejný vzor v grafu Aktiv (`assets.js`).
+- **Oprava:** `setTransform(dpr,0,0,dpr,0,0)` místo druhého `scale` (obě místa). Test `smoke_vybrany_mesic.js`.
+
+### Analýza účtenek nereagovala na vybraný měsíc **(Session 27, v12.11–v12.12, Milan)**
+- **Symptom:** „Ani jedna záložka nereaguje na změnu měsíce… takhle nezjistím měsíční výdaje.“
+- **Příčina:** žádné rozhodnutí – záložky vznikaly od S9/S12 nad všemi účtenkami a karty si braly vlastní období počítané **od dneška** (1M–12M, Trend 6 měsíců, Slevy „tento měsíc“, Statistika položek), Srovnání ČR průměr ze všech měsíců.
+- **Oprava:** viz ADR-248. Přepínač roku v Trendu obchodů nebyl zaseknutý – data byla jen z roku 2026, šipky zešedly bez vysvětlení (teď je to napsané).
+
+### Problik při přepnutí měsíce v Analýze účtenek **(Session 27, v12.11, Milan)**
+- **Příčina:** stránka se staví celá znovu, karty Živiny a graf Trendu se dokreslovaly až za 0–60 ms (výška skočila o ~250 px, graf krátce prázdný).
+- **Oprava:** výška stránky se drží do dokreslení, grafy a Živiny se kreslí hned po vložení. Ověřeno v Chromiu (výška beze skoku).
+
+### Report strana 3 přetékala A4 **(Session 27, v12.12)**
+- Strana Účtenky měla s obchody 1 200 px při výšce stránky 1 123 px (už před přidáním nákupů). Obchody, nákupy a trend jsou teď na vlastní straně 4 (ADR-250).

@@ -308,3 +308,10 @@ Veřejný postup `smazani-uctu.html` (Google Play: odkaz na smazání bez instal
   - Worker hodnotu ořízne, zkontroluje a přijme jen povolená políčka (`EAN_POLE_RUCNE`). Názvy touto cestou nejdou (návrh adminovi, ADR-206).
 - **Log `community/eanUpravyLog/{ean}/{uid}/{pole}`** obsahuje uid. Zapisuje ho jen worker a klient ho číst nemůže, protože žádné pravidlo čtení nepovoluje. Slouží adminovi k dohledání vandalismu (TODO-339).
 - **Admin „Načíst znovu“** už kartu nemaže (`kdy: 0`), takže nepřijdeme o data komunity.
+
+## Dodatek Session 27 (2026-10-19 až 2026-10-24) **(Session 27)**
+- **Google Play podpis:** `signing.keystore` a `signing-key-info.txt` (heslo ke klíči) patří jen k Milanovi, **nikdy do repa** ani do Projektu. Otisky v `.well-known/assetlinks.json` jsou veřejné a to je v pořádku.
+- **Zeptej se svých dat** (v11.96): AI dostane jen otázku a názvy kategorií, štítků a obchodů – žádné částky ani transakce.
+- **Doručené** (v12.06): z notifikace se ukládá jen identifikátor karty (`karta:` + poslední 4 číslice) nebo účtu → peněženka v `S.uiCfg.inboxPenezenky`; celé číslo karty se nikde neukládá.
+- **Komunitní katalog** `catalog/items` (v12.10): zapisuje se jen název a cena výrobku, žádné údaje o uživateli; uid zůstává jen v `catalog/prices` jako dřív.
+- Pravidla DB ani worker se v S27 neměnily.

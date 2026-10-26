@@ -6,6 +6,8 @@
 > **Datum poslední aktualizace:** 2026-08-24 (Session 19, druhá vlna) — viz `patch-session19-FINAL.md` a `OTEVRENE-body-s19.md`
 > **Doplnění Session 23** (2026-09-25): tři nová pravidla v sekci „Pravidla pro AI asistenta" + sekce Session 23 na konci souboru.
 > **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+> **Doplnění Session 27** (2026-10-23): na konci souboru sekce „Session 27 · v11.90 → v12.10“. Přehled v `doc/Summary_s27.md`, plán `doc/PLAN-SESSION-28.md`.
+> **Doplnění Session 27** (2026-10-26): dodatek v12.11–v12.12 na konci souboru.
 
 > **DŮLEŽITÉ:** Tento soubor obsahuje pouze základní přehled. Pro plný kontext si přečti relevantní `.md` soubory ve složce `doc/` podle potřeby a aktuálního úkolu.
 
@@ -595,3 +597,39 @@ TODO-343 (push, pravidla, výplatnice z repa) · TODO-344 (vyzkoušet) · TODO-3
 
 ## Otevřené P1
 TODO-356 (🧮 Kalkulačky) · TODO-357 (Inbox vs. n0.2) · TODO-345 (predikce výplaty do Příštího měsíce) · TODO-346 (kontrola pásky proti kalendáři) · TODO-350 (měřidla – historie z innogy).
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10
+
+## Stav
+- **Verze v12.10**, **52 JS modulů** (nové `kalkulacky.js`, `dotazy.js`, `obchody.js`), 186 sad `tools/smoke_*` + `smoke.js` (vše prochází). Worker beze změny (v11.61), pravidla DB beze změny (v11.89).
+- **GitHub:** ze session se NEpushuje – repo není v session připojené a Milan připojení odmítl („Push byla moje mýlka“). Milan nahrává sám přes GitHub Desktop z `/mnt/user-data/outputs/vX.YY/`. Lokálně 24 commitů v11.90–v12.10.
+- Přehled: `doc/Summary_s27.md`. Plán: `doc/PLAN-SESSION-28.md`.
+
+## Co se změnilo v jádře
+- **Čistý majetek, rezerva i dluhy ke dni** (`computeNetWorth(D, den)`, `_s3Rezerva`, historie dluhu ze `zmeny` a `zbyvaKeDni`) – ADR-233, 234, 239.
+- **Mapa položek:** karta podle kódu (FIX-485), zkratka s víc druhy (`S.uiCfg.eanDruhy`), oprava názvu přímo v kartě, předělané přeřazení starých účtenek.
+- **Zařazení:** pasti a víceslovné názvy v `data/taxonomie.json` 1.3 (ADR-245). COICOP se nikdy nepíše ručně.
+- **Katalog nákupního seznamu:** jeden klíč `nakupNormKey` (ADR-247).
+
+## Pravidla pro práci (S27)
+- **Neměnit, co nebylo zadáno** (SKILL 98). Vedlejší nápady jen nabídnout.
+- **Návrh nejdřív jednoduchý a ruční** (SKILL 103). Milanova pravidla pro zařazení: žádné podmínky, štítek do zařazení netahat, pasti zapisovat do dat + test (SKILL 102).
+- **Všechny zapisovače uzlu se stejným klíčem** (SKILL 99), **popisek jednotky z čitatele a jmenovatele** (SKILL 100).
+- **Data soubory mají vlastní `?v=`** (`TAX_URL` v `taxonomie.js`, `product-groups.json` v `product-db.js`) – při změně dat zvýšit, jinak se nová data nestáhnou.
+- **Výstupy každé verze do vlastní složky** `/mnt/user-data/outputs/vX.YY/` (jen změněné soubory, i `data/`), posílat jednotlivě.
+- `signing.keystore` a `signing-key-info.txt` (Google Play) **nikdy do repa**.
+
+## Nasazuje se zvlášť
+- Nic – worker ani pravidla se v S27 neměnily. U v12.09 nahrát i `data/taxonomie.json` a `data/product-groups.json`.
+
+## Otevřené P1
+TODO-365 (vyzkoušet v11.90–v12.10 na skutečných datech) · TODO-363 (Google Play – příští balík, hlavní panel) · TODO-364 (`legal.html` provozovatel).
+
+## Session 27 · dodatek v12.11–v12.12 (2026-10-25 až 2026-10-26)
+- **Verze v12.12**, 52 JS modulů, 189 sad `tools/smoke_*` + `smoke.js` (vše prochází). Worker ani pravidla DB beze změny. Lokálně 28 commitů (poslední = dokumentace), Milan nahrává přes GitHub Desktop.
+- **Analýza účtenek počítá od vybraného měsíce** (ADR-248) – nové karty tam stavět stejně: období končí `S.curMonth/S.curYear`, nebo přepínač / popisek „celá historie“ (SKILL 107).
+- **Canvas:** bublinu nad hotovým grafem kreslit se `setTransform(dpr,…)`, testovat i s `device_scale_factor=3` (SKILL 106).
+- **Mapa položek:** klíč karty může přesměrovat `S.uiCfg.spojeni` (ADR-249) – kdo seskupuje položky podle názvu, má použít `mapaSpojeniKam`.
+- **Report:** s obchody 5 stran (ADR-250); čísla stran brát z `rd._stran`, ne natvrdo.

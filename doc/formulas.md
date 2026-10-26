@@ -1349,6 +1349,59 @@ měsíců = (spořicí peněženky + rezervní aktiva) / měsíční VÝDAJE
 ```
 ~~Dříve: / měsíční příjem~~
 
+**Od v11.99 / v12.00 (Session 27, ADR-233, Milan 22. 10. 2026)** – `_s3Rezerva()` v premium.js:
+```
+měsíců = rezerva ke konci vybraného měsíce / Ø měsíčních výdajů za 6 měsíců
+
+rezerva = peněženky hotovost + běžný účet + spořicí + jiné      (zůstatek dopočítaný z transakcí, walletBalanceAt)
+        + aktiva úrovně „rezerva“ (spořicí účet, termínovaný vklad)   (hodnota z historie k tomu dni)
+        + peníze v cílech (Virtuální peněženka)                   (vklady do toho dne, v12.00)
+NEPOČÍTÁ SE: investice (peněženky i aktiva), penzijko, DIP, doplňkové penzijní spoření
+             („dlouhodobé – při rychlém výběru neurčitá ztráta“), kreditní karty.
+
+Ø výdajů = průměr expSum za 6 měsíců:
+  minulý měsíc  → ten měsíc + 5 před ním
+  aktuální měsíc (rozběhnutý) → 6 UZAVŘENÝCH měsíců před ním
+  měsíce bez výdajů se vynechají; žádný uzavřený měsíc → výdaje vybraného měsíce (nový účet)
+aktuální měsíc = stav k dnešku
+```
+Měřitelné, když existuje aspoň jedna započitatelná peněženka, rezervní aktivum nebo cíl s penězi a Ø výdajů > 0.
+Stejná sada peněženek jako 🛟 Rezerva v Kalkulačkách (`KALK_LIKVIDNI`).
+
+### Historie dluhu a 📜 Změny půjčky (v12.01, Session 27, ADR-234)
+```
+d.zbyvaKeDni = {den, castka}            // Zbývá podle výpisu k danému dni
+d.zmeny = [{typ, den, castka, predtim}] // mimoradna | splatka | urok | navyseni | konsolidace
+d.remaining (živý, dnes) = castka − navázané splátky (t.debtId) po dni − mimořádné/konsolidace po dni + navýšení po dni
+zbytek ke dni X       = d.remaining + navázané splátky po X + mimořádné/konsolidace po X − navýšení po X
+                        (konsolidovaná půjčka před d.vznik = 0)
+splátka / úrok ke dni = poslední změna ≤ X; před první změnou její „predtim“
+kontrola plánu        = jistina od data začátku, splátky k datům debtDatumSplatky, úrok a splátka podle změn,
+                        mimořádné a navýšení → porovnání se Zbývá (tolerance max(500 Kč, 1 splátka, 2 % jistiny))
+```
+Nová splátka zapsaná s datem ≤ `zbyvaKeDni.den` zbytek nesnižuje (už je ve výpisu).
+
+**v12.02 – kalendář a šablony:**
+```
+generateSchedule(d) = budoucí splátky z DNEŠNÍHO zbytku od první splátky ≥ dnes (num = pořadí od data začátku)
+debtPlnyPlan(d)     = minulé splátky podle plánu (jistina od data začátku, splátka/úrok podle změn,
+                      mimořádné a navýšení) + generateSchedule(d)
+odplaceno           = jistina + navýšení − dnešní zbytek
+splátka ze šablony  = transakce s debtId, kategorie Splátka, debtCeka → v den splátky sníží Zbývá
+                      (debtAplikujCekajiciSplatky; ne když datum ≤ zbyvaKeDni.den)
+```
+Měsíční splátky (`computeMonthlyDebtPayments`) vynechávají půjčky se zbytkem 0.
+
+### Čistý majetek ke dni (v11.98, Session 27)
+```
+peněženky  = walletBalanceAt(den)  – od zadaného zůstatku „ke dni“ (jako číslo v závorce v Transakcích)
+cíle       = vklady do cílů s datem ≤ den
+aktiva     = poslední zapsaná hodnota ≤ den + vklady z napojených transakcí po ní; bez historie = dnešní („· dnes“)
+dluhy      = dnešní stav (v11.98) → od v12.01 zbytek ke dni (Historie dluhu výše)
+den        = poslední den vybraného měsíce; aktuální/budoucí měsíc = dnes
+```
+Upozornění: hotovost nebo spořicí peněženka v mínusu v kterémkoli dni vybraného měsíce → chybí příjem/vklad.
+
 ### Měsíční objem trvalých závazků (FIX-333)
 ```
 fixedTotal = Σ |částka| × převod(frekvence)
@@ -1493,4 +1546,56 @@ ozvěna:  kanon(R) == kanon(odesláno) → nic
 ```
 limit = free 300 · trial/premium 1 000 · admin 100 000 fotek
 využito = Σ počet photoKeys (ne počet účtenek) · zbývá = limit − využito
+```
+
+---
+
+## Session 27 · další vzorce **(Session 27)**
+
+### Množství a průměr v seznamu položek (v12.08, FIX-491)
+```
+jednotka položky = l (palivo: tankJePalivo – název paliva a 15–90 Kč/l) | kg / l (it.unit) | ks
+jednotka řádku   = jedna jednotka všech nákupů, jinak „kg/ks“ (nesčítá se)
+Ø cena           = útrata ÷ množství   [Kč/l, Kč/kg, Kč/ks]   když je jednotka jedna
+                 = útrata ÷ počet nákupů [Kč/nák.]           když jsou jednotky různé
+```
+
+### 🏪 Trend nákupů po obchodech (v12.07, ADR-243)
+```
+nákupy = účtenky (bez kopií) + výdaje z notifikací (zNotifikace), které nejsou spojené s účtenkou,
+         nejsou převod / přesun / investice; obchod = normalizeStoreName
+útrata(obchod, měsíc)   = Σ částek
+návštěvy(obchod, měsíc) = počet nákupů
+Ø nákup                 = útrata ÷ návštěvy
+období: 6 / 12 měsíců končících aktuálním měsícem · kalendářní rok (letos do aktuálního měsíce)
+Report: od ledna do vybraného měsíce (max 12)
+```
+
+### Monte Carlo v Kalkulačkách (v11.90, ADR-235)
+```
+2 000 simulací; krok = náhodně vybraný skutečný měsíc (Rezerva, Cena zlozvyku) nebo den nefixních výdajů za 90 dní (Do výplaty)
+výsledek = percentily P5, P25, P50, P75, P95; v testech pevný seed
+```
+
+### Srovnání ČR – vaše útrata (v12.11, ADR-248)
+```
+Vy = Σ výdajů (bez přesunů, rozpadů, vyrovnání) v kalendářním roce vybraného měsíce, leden až vybraný měsíc
+     ÷ počet měsíců s výdaji v tomto období
+```
+
+### Report – nákupy (v12.12, ADR-250)
+```
+nákup = celá účtenka (bez kopií); 3 největší = podle částky sestupně; 3 nejmenší = z ostatních, vzestupně (bez překryvu)
+srovnání = útrata z položek a počet účtenek vybraného vs. minulého měsíce
+```
+
+### Věk u narozenin (v12.11, ADR-251)
+```
+věk dnes = rok dneška − rok − (letošní datum ještě nebylo ? 1 : 0)
+„bude“ = rok nejbližšího výskytu − rok        (u svátku se nepočítá)
+```
+
+### Převodník měn (v12.11)
+```
+výsledek = částka × kurz(z) ÷ kurz(do)     kurz = Kč za 1 jednotku, CZK = 1
 ```

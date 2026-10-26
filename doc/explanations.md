@@ -636,3 +636,22 @@ Naše databáze (`community/eanProdukty`) má ke každému kódu jeden záznam, 
 Karta z Mapy položek se kreslí podle indexu do `_mapaUziv` (položky z účtenek). Naskenovaný výrobek bez účtenky v něm není.
 - Kdyby se do `_mapaUziv` přidal, objevil by se v seznamu Mapy a statistikách a při přepočtu by zmizel.
 - Proto má vlastní seznam `_mapaSynt` s indexy od 100000 a všechna místa karty čtou `_mapaZ(i)`.
+
+---
+
+## Session 27 **(Session 27)**
+
+### Proč se Čistý majetek po starší účtence nezmění **(Session 27, 22. 10.)**
+Peněženka má „Zůstatek · ke dni“. Transakce s datem do toho dne už jsou v zadaném zůstatku, takže dnešní stav (a Čistý majetek na Dashboardu) nemění. Dopočítají jen historii zpět. Mínus v minulosti znamená, že v appce chybí dřívější příjem nebo vklad (např. výběr z bankomatu). Chování je správné.
+
+### Proč se v nákupním seznamu zdvojoval výrobek **(Session 27, v12.10)**
+Komunitní katalog `catalog/items` plnily dvě funkce, každá s jiným klíčem: názvy z editoru účtenky (s diakritikou a gramáží, bez ceny) a hlídač cen (sjednocený název, s cenou). Proto jeden řádek s cenou a druhý „cena neznámá“, u „kefir“ / „kefír“ a starých klíčů ještě víc. Od v12.10 jeden klíč a našeptávač slučuje (ADR-247).
+
+### Proč se COICOP nezadává ručně **(Session 27, v12.09)**
+Kód plyne z řetězu název z účtenky → obecný název → podkategorie → COICOP. Oprava chybného zařazení = správný obecný název (víceslovný název nebo past v `taxonomie.json`), kód pak sedne sám. U položky mimo taxonomii se bere klíčové slovo spotřebního koše ČSÚ (`product-groups.json`).
+
+### Proč GitHub Desktop nabízel Pull místo Push **(Session 27, 23. 10.)**
+Na GitHubu (`dev`) byly dva commity ze S26 (jen `doc/`), které Milan lokálně neměl – větev se rozjela. Postup: Pull origin → při konfliktu v `doc/decisions.md` vzít lokální verzi → Push origin. Force push ne.
+
+### Proč jsou daně z výplaty od prosince 2025 nižší **(Session 27, 25. 10.)**
+Od pásky za prosinec 2025 je vedle slevy na poplatníka (2 570 Kč) i sleva na dítě 1 267 Kč/měs (`slevaDet`). Daň = 15 % × hrubá zaokrouhlená nahoru na stovky − slevy: květen 25 3 550 Kč vs. květen 26 2 253 Kč (rozdíl 1 267 + 30 Kč z nižšího základu). Březen 25: 33 h přesčasu (165 h odpracováno proti fondu 132 h) = 5 750 Kč mzda + 1 164 Kč příplatek – dva řádky, jeden přesčas.

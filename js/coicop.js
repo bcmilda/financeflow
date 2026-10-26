@@ -1,4 +1,4 @@
-// FinanceFlow · v11.26 · coicop.js · 2026-10-02
+// FinanceFlow · v12.12 · coicop.js · 2026-10-26
 // COICOP agregace – COMPUTE oddělený od renderu. Roll-up SKUTEČNÝCH výdajů uživatele
 // z položek účtenek na jemné COICOP úrovně (podtřída 01.1, třída 01.11, kód 01.113)
 // přes productGroupLookup z produktové DB.
@@ -115,14 +115,14 @@ function _coicopCardShell(bodyHtml){
     + '<div class="card-header"><span class="card-title">🧾 Co nakupuješ – z účtenek</span>'
       + '<span style="display:flex;gap:4px">'
       + ['month','all'].map(function(p){
-          var on = (window._coicopPeriod||'all') === p;
-          var lbl = p==='month' ? '📅 Tento měsíc' : '∞ Vše';
+          var on = (window._coicopPeriod==='all'?'all':'month') === p;   // v12.12: výchozí vybraný měsíc (jako celé Statistiky)
+          var lbl = p==='month' ? '📅 Vybraný měsíc' : '∞ Vše';
           return '<button onclick="coicopSetPeriod(\''+p+'\')" style="padding:3px 9px;border-radius:7px;font-size:.7rem;font-weight:600;cursor:pointer;border:1px solid '+(on?'rgba(139,124,246,.5)':'var(--border)')+';background:'+(on?'rgba(139,124,246,.14)':'transparent')+';color:'+(on?'#b9aefc':'#a8aec8')+'">'+lbl+'</button>';
         }).join('')
       + '</span></div>'
     + '<div class="card-body">'
     + '<div style="font-size:.72rem;color:#a8aec8;margin-bottom:10px"><strong>Jen naskenované položky z účtenek</strong>, zařazené podle oficiálních skupin ČSÚ – '
-      + ((window._coicopPeriod||'all')==='month'
+      + ((window._coicopPeriod==='all'?'all':'month')==='month'
           ? 'jen <strong>' + ((typeof CZ_M!=='undefined'&&typeof S!=='undefined')?(CZ_M[S.curMonth]+' '+S.curYear):'zvolený měsíc') + '</strong>.'
           : '<strong>celá historie</strong> účtenek (ne jen zvolený měsíc).')
       + ' Nepokrývá výdaje bez účtenky (nájem, splátky, benzín) – ty najdeš v <strong>Jak utrácíš proti průměru</strong>, která počítá ze všech transakcí jako měsíční průměr. Proto se čísla obou tabulek liší.</div>'
