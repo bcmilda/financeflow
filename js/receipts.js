@@ -1,4 +1,4 @@
-// FinanceFlow · v12.20 · receipts.js · 2026-10-28
+// FinanceFlow · v12.22 · receipts.js · 2026-10-29
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3083,9 +3083,16 @@ function mapaVahaPodtridy(kod4) {
   const k = Object.keys(_productDB.groups).find(g => coicopNorm(g) === kod4);
   return k && _productDB.groups[k].w ? _productDB.groups[k].w : null;
 }
+//  S28 (v12.22, FIX-500, Milan: „+1316 % proti průměru za 3 balení kapesníků nedává smysl, výpočet bude špatně“):
+//  váha oddílu se sčítala přes VŠECHNY úrovně číselníku (skupina 05.1 + třída 05.11 + podtřída 05.111 …),
+//  takže vycházela ~3× větší (oddíl 05: 153,7 ‰ místo 51,2 ‰) a „Váha ČSÚ“ v kartě ~3× menší.
+//  Teď vlastní váha oddílu z koše ČSÚ; když chybí, součet jen podtříd (nejnižší úroveň).
 function mapaVahaOddilu(odd) {
   if (typeof _productDB === 'undefined' || !_productDB || !_productDB.groups || typeof coicopNorm !== 'function') return null;
-  const s = Object.entries(_productDB.groups).filter(([g]) => coicopNorm(g).startsWith(odd + '.')).reduce((a, [, x]) => a + (x.w || 0), 0);
+  const g = Object.entries(_productDB.groups);
+  const vlastni = g.find(([k]) => coicopNorm(k) === odd);
+  if (vlastni && vlastni[1].w > 0) return vlastni[1].w;
+  const s = g.filter(([k]) => { const n = coicopNorm(k); return n.startsWith(odd + '.') && n.split('.').length === 4; }).reduce((a, [, x]) => a + (x.w || 0), 0);
   return s || null;
 }
 //  S25 (Milan): období pro „tvůj podíl" volitelné – výchozí posledních 12 měsíců (váhy ČSÚ jsou
@@ -3572,7 +3579,10 @@ function mapaKoicopPanelHTML(code, D, cast) {
     const seg = [['3', '3 měs.'], ['6', '6 měs.'], ['12', '12 měs.'], ['vse', 'vše']].map(([v, n]) => `<button type="button" class="${o === v ? 'on' : ''}" onclick="mapaVahaObdobi('${v}')">${n}</button>`).join('');
     const rokSel = roky.length ? `<select onchange="mapaVahaObdobi(this.value)" style="font-size:.7rem;padding:4px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px">
         <option value="">rok…</option>${roky.map(y => `<option value="${y}"${o === y ? ' selected' : ''}>${y}</option>`).join('')}</select>` : '';
-    const rozdil = csu && muj != null ? Math.round((muj - csu) / csu * 100) : null;
+    //  S28 (v12.22): s malým základem (pár desetikorun za oddíl) je „% proti průměru“ jen šum – koš ČSÚ
+    //  počítá s celým oddílem (u 05 i nábytek a spotřebiče), účtenky ho pokryjí jen zčásti.
+    const MALO_KC = 500, malo = jm > 0 && jm < MALO_KC;
+    const rozdil = csu && muj != null && !malo ? Math.round((muj - csu) / csu * 100) : null;
     srov = `<div style="margin-top:10px;font-weight:700;font-size:.8rem">Srovnání výdajů</div>
       <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px">Období tvých nákupů</div>
       <div class="mk-seg">${seg}${rokSel}</div>
@@ -3586,7 +3596,8 @@ function mapaKoicopPanelHTML(code, D, cast) {
       <div class="mk-cislo"><div class="t">Tvůj podíl</div>
         <div><span class="h" style="color:#4ade80">${muj != null ? f(muj) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span>
           ${rozdil != null ? `<span style="font-size:.72rem;font-weight:700;color:${rozdil > 25 ? '#f87171' : rozdil < -20 ? '#4ade80' : '#a8aec8'}">${rozdil >= 0 ? '+' : ''}${rozdil} % proti průměru</span>` : ''}</div>
-        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div></div>`;
+        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div>
+        ${malo ? `<div class="p" style="color:#fbbf24;margin-top:4px">⚠️ Na srovnání je zatím málo dat – za ${escHtml(oddN)} máš z účtenek jen ${kc(jm)}. Koš ČSÚ počítá s celým oddílem, i s tím, co na účtence obvykle nemáš, proto „% proti průměru“ ukážu až od ${kc(MALO_KC)}. Zkus „ze všech výdajů“.</div>` : ''}</div>`;
   }
   //  v11.60 (Milan): rozbaluje se jen číselník; Srovnání výdajů je v kartě vždy vidět.
   if (cast === 'hier') return hier ? `<div style="padding:0 12px 12px">${hier}</div>` : '';
@@ -3779,7 +3790,13 @@ function mapaUzivKartaHTML(i, produkt) {
   const zivZdroj = p && p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + (p.nutriceObal.kdy ? ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : '')
     : p && p.nutrice ? 'z databáze Open Food Facts'
     : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '') : '';
-  const ziv = zivN
+  //  S28 (v12.22, Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“)
+  const netyka = !zivN && !!lok.bezZivin;
+  const ziv = netyka
+    ? `<div class="mk-box mk-pozn" style="margin-top:8px;color:#a8aec8"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>Nutriční hodnoty</span><span style="font-size:.72rem;color:#c9cede">🚫 netýká se</span></div>
+        <div style="font-size:.7rem;margin-top:3px">Označeno, že výrobek živiny nemá (drogerie, pivo…). Karta je kompletní a do živin za měsíc se nepočítá.
+        <button class="mk-btn-link" onclick="mapaBezZivinPrepni(${i})">↺ Zrušit</button></div></div>`
+    : zivN
     ? `<div class="mk-box" style="margin-top:8px;padding:10px 12px"><div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 ${zivN.na === 'ml' ? 'ml' : 'g'}</div>${typeof eanNutriceHTML === 'function' ? eanNutriceHTML(zivN) : ''}
         <div style="font-size:.64rem;color:#8b93ad;margin-top:6px">${zivZdroj}
         <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div></div>`
@@ -3787,7 +3804,8 @@ function mapaUzivKartaHTML(i, produkt) {
         <div style="font-size:.72rem;margin-top:3px">${z.ean ? 'Živiny databáze zatím nemá.' : 'Bez čárového kódu je opíšeš z obalu ručně (uloží se jen tobě).'}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${z.ean ? `<button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button>
         <button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo,true)">🖼️ z galerie</button>` : ''}
-        <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button></div></div>`;
+        <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="mapaBezZivinPrepni(${i})" title="Drogerie, pivo, věci bez tabulky živin">🚫 Bez živin</button></div></div>`;
 
   // ── MOJE NÁKUPY ──
   const ob = mapaUzivObchody(z);
@@ -3870,6 +3888,16 @@ async function mapaUzivDetail(i) {
 }
 function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivDetail(_mapaKartaI); }
 window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
+//  S28 (v12.22): 🚫 Bez živin – značka v osobní kartě (S.uiCfg.karty[klíč].bezZivin), u kódu i bez kódu.
+function mapaBezZivin(z) { return !!(z && typeof mapaKartaLok === 'function' && mapaKartaLok(z).bezZivin); }
+function mapaBezZivinPrepni(i) {
+  const z = _mapaZ(i); if (!z) return;
+  const nove = !mapaBezZivin(z);
+  mapaKartaLokUloz(z, { bezZivin: nove ? 1 : null });
+  if (typeof showToast === 'function') showToast(nove ? '🚫 Bez živin – karta je kompletní' : '↺ Živiny zase chybí');
+  mapaUzivFotoHotovo();
+}
+Object.assign(window, { mapaBezZivin, mapaBezZivinPrepni });
 function mapaUzivKartaZavri() { _mapaKartaI = -1; const o = document.getElementById('mapaKarta'); if(o) o.remove(); }
 function mapaUzivKartaSken(i) {
   const z = _mapaZ(i); if(!z || typeof eanSkenujPolozku !== 'function') return;
@@ -4134,7 +4162,7 @@ function dnaJeJidlo(it, maZiviny) {
 }
 
 //  Čistý výpočet (testuje tools/smoke_dna_ziviny.js).
-function dnaZivinyData(receipts, m, y, produkt, kartaLok) {
+function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
   const sum = {}; DNA_ZIVINY.forEach(([k]) => { sum[k] = 0; });
   const ns = { a: 0, b: 0, c: 0, d: 0, e: 0 }; let nsUtrata = 0;
   const prispevek = { cukry: {}, sul: {} };
@@ -4152,6 +4180,7 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok) {
       const utrata = (typeof lineAmt === 'function') ? lineAmt(it) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
       if (!(utrata > 0)) return;
       const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok);
+      if (!n && typeof bezZivin === 'function' && bezZivin(it)) return;    // v12.22: 🚫 bez živin (pivo) nesnižuje pokrytí
       if (!dnaJeJidlo(it, !!n)) return;
       jidloUtrata += utrata; jidloPolozek++;
       if (znamka) { ns[znamka] += utrata; nsUtrata += utrata; }
@@ -4230,7 +4259,8 @@ async function dnaZivinyKresli() {
   const m = S.curMonth, y = S.curYear;
   const produkt = e => (typeof eanProduktZCache === 'function') ? eanProduktZCache(e) : null;
   const kartaLok = it => (it.ean || typeof mapaKartaLok !== 'function' || typeof normName !== 'function') ? null : mapaKartaLok({ klic: normName(it.name || '') });
-  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok), m, y); };
+  const bezZivin = it => typeof mapaBezZivin === 'function' && mapaBezZivin(it.ean ? { ean: it.ean } : { klic: typeof normName === 'function' ? normName(it.name || '') : it.name });
+  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin), m, y); };
   kresli();
   try {
     const eany = [];

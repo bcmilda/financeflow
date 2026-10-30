@@ -1,4 +1,4 @@
-// FinanceFlow · v12.21 · admin.js · 2026-10-29
+// FinanceFlow · v12.22 · admin.js · 2026-10-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.22',
+    datum: '2026-10-29',
+    zmeny: [
+      "🩹 FIX-500 VÁHA ČSÚ V KARTĚ VÝROBKU BYLA ~3× MENŠÍ (Milan: „+1316 % proti průměru za pár balení kapesníků nedává smysl, výpočet bude špatně“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Váha oddílu se sčítala přes všechny úrovně číselníku (skupina + třída + podtřída), oddíl 05 vycházel 153,7 ‰ místo 51,2 ‰, potraviny 526,7 ‰ místo 168,6 ‰. Teď vlastní váha oddílu z koše ČSÚ: Kuchyňské houbičky 12,3 % z oddílu 05 (dřív 4,1 %). Týkalo se všech karet, i potravin.",
+      "⚠️ MÁLO DAT = BEZ „% PROTI PRŮMĚRU“ · když máš za oddíl z účtenek méně než 500 Kč (např. 74 Kč za vybavení domácnosti), karta procento proti průměru neukáže a vysvětlí proč: koš ČSÚ počítá s celým oddílem (i nábytek, spotřebiče), účtenky ho pokryjí jen zčásti. Tip: přepni „ze všech výdajů“.",
+      "🚫 BEZ ŽIVIN (Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“) · cesta: karta výrobku → Nutriční hodnoty → 🚫 Bez živin (i ve skeneru u Zadat živiny ručně). Moje výrobky pak místo „bez živin“ ukážou „🚫 živiny se netýkají“ a výrobek nepatří do Chybí údaje; v Živinách za měsíc pivo nesnižuje pokrytí. ↺ Zrušit vrátí zpět. Ukládá se do osobní karty (synchronizuje se, nesdílí se).",
+      "🧪 tools/smoke_vaha_oddilu.js – 15 testů (na v12.21 padá 10, stará verze dává přesně 4,1 % ze screenshotu); Chromium 390 px: karta houbiček 12,3 %, 🚫 Bez živin → „netýká se“, šířka 390, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.21',
     datum: '2026-10-29',

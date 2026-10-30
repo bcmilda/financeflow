@@ -1,4 +1,4 @@
-// FinanceFlow · v12.21 · ean-sken.js · 2026-10-29
+// FinanceFlow · v12.22 · ean-sken.js · 2026-10-29
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -684,6 +684,9 @@ function eanFotoTlacitkaHTML(ean, p, poHotovo, bezObalu) {
     <button class="btn btn-sm" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo})">📸 Vyfotit tabulku živin</button>
     <button class="btn btn-sm" style="opacity:.85" onclick="eanFoto('${escHtml(ean)}','ziviny',${poHotovo},true)" title="Tabulka živin z galerie">🖼️ z galerie</button>
     <button class="btn btn-sm" onclick="eanZivinyForm('${escHtml(ean)}','${poHotovo}')" title="Opsat nebo opravit hodnoty z obalu ručně">✍️ Zadat živiny ručně</button>
+    ${eanMaZiviny(p) ? '' : eanBezZivin(ean)
+      ? `<button class="btn btn-ghost btn-sm" onclick="eanBezZivinPrepni('${escHtml(ean)}');if(typeof ${poHotovo}==='function')${poHotovo}()" title="Zrušit značku bez živin">🚫 Bez živin ✓ · zrušit</button>`
+      : `<button class="btn btn-ghost btn-sm" onclick="eanBezZivinPrepni('${escHtml(ean)}');if(typeof ${poHotovo}==='function')${poHotovo}()" title="Drogerie, pivo, věci bez tabulky živin">🚫 Bez živin</button>`}
   </div>
   <div style="font-size:.64rem;color:#8b93ad;margin-top:4px">Fotka se neukládá – AI z ní jen přečte údaje. Free 3 fotky měsíčně, s Premium víc. Ruční zadání živin je bez limitu.${!p || p.stav !== 'nalezeno' ? ` Výrobek můžeš přidat i do <a href="https://world.openfoodfacts.org/cgi/product.pl?type=search_or_add&code=${encodeURIComponent(ean)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Food Facts</a> (web nebo jejich aplikace).` : ''}</div>`;
 }
@@ -991,14 +994,28 @@ function eanMojeVyrobky(D) {
   return Object.values(m).map(z => Object.assign(z, { obchody: [...z.obchody], nazvy: [...z.nazvy],
     akt: Math.max(z.posledni ? Date.parse(z.posledni) || 0 : 0, z.nask) })).sort((a, b) => b.akt - a.akt);
 }
+//  S28 (v12.22, Milan: „u piva a drogerie živiny nejsou – hodilo by se tlačítko bez živin“): značka v osobní
+//  kartě (S.uiCfg.karty['e'+kód].bezZivin, stejné místo jako v 🗺️ Mapě položek) – výrobek pak živiny nepotřebuje.
+function eanMaZiviny(p) { return !!(p && p.stav === 'nalezeno' && ((p.nutriceObal && Object.keys(p.nutriceObal).length > 1) || (p.nutrice && Object.keys(p.nutrice).length))); }
+function eanBezZivin(ean) { return typeof mapaBezZivin === 'function' ? mapaBezZivin({ ean }) : !!(typeof S !== 'undefined' && S.uiCfg && S.uiCfg.karty && (S.uiCfg.karty['e' + String(ean).replace(/\D/g, '')] || {}).bezZivin); }
+function eanBezZivinPrepni(ean) {
+  if (typeof mapaKartaLokUloz !== 'function') return;
+  const nove = !eanBezZivin(ean);
+  mapaKartaLokUloz({ ean, nazev: '' }, { bezZivin: nove ? 1 : null });
+  if (typeof showToast === 'function') showToast(nove ? '🚫 Bez živin – karta je kompletní' : '↺ Živiny zase chybí');
+  if (typeof eanMojeVyrobkyKresli === 'function') try { eanMojeVyrobkyKresli(); } catch (e) {}
+}
+Object.assign(window, { eanMaZiviny, eanBezZivin, eanBezZivinPrepni });
 //  Co výrobku chybí (podle uložené karty z databáze).
 function eanMojeStav(z, p) {
   const nalez = !!(p && p.stav === 'nalezeno');
-  const ziv = nalez && ((p.nutriceObal && Object.keys(p.nutriceObal).length > 1) || (p.nutrice && Object.keys(p.nutrice).length));
+  const ziv = typeof eanMaZiviny === 'function' ? eanMaZiviny(p)    // SKILL 36: testy berou funkci samostatně
+    : nalez && ((p.nutriceObal && Object.keys(p.nutriceObal).length > 1) || (p.nutrice && Object.keys(p.nutrice).length));
+  const netyka = !ziv && typeof eanBezZivin === 'function' && eanBezZivin(z.ean);
   const moje = typeof _eanMojeNazvy !== 'undefined' && _eanMojeNazvy && _eanMojeNazvy[z.ean];
   const cz = nalez && (p.nazevCesky || p.nazevCs || moje);
   return { nacteno: p !== undefined && p !== null || (typeof _eanProdukty !== 'undefined' && _eanProdukty[z.ean] !== undefined),
-    neznamy: !nalez, bezZivin: nalez && !ziv, bezCz: nalez && !cz, neprirazeny: !z.nakupy };
+    neznamy: !nalez, bezZivin: nalez && !ziv && !netyka, netyka, bezCz: nalez && !cz, neprirazeny: !z.nakupy };
 }
 window.eanMojeVyrobky = eanMojeVyrobky; window.eanMojeStav = eanMojeStav;
 function eanMojeVyrobkyHTML(D, samostatne) {
@@ -1035,7 +1052,7 @@ function eanMojeVyrobkyHTML(D, samostatne) {
           <div style="font-size:.66rem;color:#a8aec8">${[p && p.znacka ? escHtml(p.znacka) : '', escHtml(mn(p)), z.nakupy ? `${z.nakupy}× koupeno${z.obchody.length ? ' · ' + escHtml(z.obchody.slice(0, 2).join(', ')) : ''}` : '', z.posledni ? 'naposledy ' + dat(z.posledni) : ''].filter(Boolean).join(' · ')}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">
             ${!st.nacteno ? stit('načítám…', '#8b93ad') : st.neznamy && !n && z.nazvy[0] ? stit('📝 zatím jen zkratka z účtenky', '#60a5fa') : st.neznamy && !n ? stit('🤷 databáze nezná', '#fbbf24') : st.neznamy ? stit('✍️ tvoje karta', '#60a5fa') : ''}
-            ${st.bezZivin ? stit('bez živin', '#fbbf24') : ''}${st.bezCz ? stit('bez českého názvu', '#fbbf24') : ''}
+            ${st.bezZivin ? stit('bez živin', '#fbbf24') : ''}${st.netyka ? stit('🚫 živiny se netýkají', '#8b93ad') : ''}${st.bezCz ? stit('bez českého názvu', '#fbbf24') : ''}
             ${st.neprirazeny ? stit('nepřiřazený k účtence', '#f87171') : ''}
             ${st.nacteno && !st.neznamy && !st.bezZivin && !st.bezCz && !st.neprirazeny ? stit('✓ kompletní', '#34d399') : ''}
           </div>
