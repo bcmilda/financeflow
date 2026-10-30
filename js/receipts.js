@@ -1,4 +1,4 @@
-// FinanceFlow · v12.19 · receipts.js · 2026-10-28
+// FinanceFlow · v12.20 · receipts.js · 2026-10-28
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -5896,8 +5896,9 @@ function rpRender() {
           ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
           <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
             style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 0;width:32px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
+          ${typeof rpTemaTlacitko === 'function' ? rpTemaTlacitko(it, i) : ''}${/* S28 (v12.20): ⭐ sledované téma */''}
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
-        </div>${rpDruhyPodRadkem(it, i)}`;
+        </div>${rpDruhyPodRadkem(it, i)}${typeof rpTemaPodRadkem === 'function' ? rpTemaPodRadkem(it, i) : ''}`;
     });
     html += '</div>';
   }
@@ -6695,6 +6696,8 @@ function addReceiptAsTx(receipt) {
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
       lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(Array.isArray(it.temata) && it.temata.length ? { temata: it.temata.slice() } : {}),       // S28 (v12.20): ⭐ téma
+      ...(Array.isArray(it.temataNe) && it.temataNe.length ? { temataNe: it.temataNe.slice() } : {}),
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
@@ -6990,6 +6993,8 @@ function syncReceiptToTransactions(r) {
         ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
       tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(Array.isArray(it.temata) && it.temata.length ? { temata: it.temata.slice() } : {}),       // S28 (v12.20): ⭐ téma
+      ...(Array.isArray(it.temataNe) && it.temataNe.length ? { temataNe: it.temataNe.slice() } : {}),
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)

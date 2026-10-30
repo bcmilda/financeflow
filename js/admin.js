@@ -1,4 +1,4 @@
-// FinanceFlow · v12.19 · admin.js · 2026-10-28
+// FinanceFlow · v12.20 · admin.js · 2026-10-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.20',
+    datum: '2026-10-28',
+    zmeny: [
+      "⭐ SLEDOVANÁ TÉMATA (Milan: „hlavní je označit položku a přiřadit ji k tématu – káva, pivo, Mac…“, „AI paměť by se hodila“) · cesta: Statistiky → ⭐ Sledovaná témata → ＋ Téma (název + ikona). Označení: Analýza účtenek → editor účtenky → ⭐ u položky, nebo Transakce → Upravit → ⭐ Sledované téma (celá platba – hospoda, kavárna) / ⭐ u položek účtenky. Přehled: částka za vybraný měsíc, počet, Ø 12 měsíců; rozklik: graf 12 měsíců, Co jsem započítal (🧾 jen položka / celá platba, ✕ sem nepatří), Kde to je v kategoriích, ✎ Upravit, 🗑 Smazat téma.",
+      "🧠 AI PAMĚŤ TÉMAT · stejný název položky (Pilsner Urquell v Lidlu i v Albertu) nebo platby (Hospoda U Lípy) se příště označí sám – i ve starších účtenkách. ✕ u jedné položky ji vyřadí a paměť pro ten název zapomene.",
+      "⚖️ Téma je jen značka: kategorie, COICOP, rozpočty, report ani srovnání s ČSÚ se nemění, témata se nesčítají do výdajů. Celá platba v tématu se počítá celá, jinak jen označené položky – nikdy obojí. Bez štítků a bez automatických slov (Milan).",
+      "🧪 tools/smoke_temata.js – 17 testů (při psaní odhalil, že dvě témata založená v jedné milisekundě dostala stejné id – opraveno); Chromium 390 px: založení, ⭐ u platby, u položky, v editoru účtenky, paměť, statistiky beze změny. Nový modul js/temata.js (53 modulů).",
+    ],
+  },
   {
     verze: 'v12.19',
     datum: '2026-10-28',

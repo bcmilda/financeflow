@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · stats.js · 2026-10-12
+// FinanceFlow · v12.20 · stats.js · 2026-10-28
 
 // S19 (TODO-219, Milan): v maticích zůstávají HOLÁ čísla přepočtená do základní měny,
 //   symbol je jednou v popisku tabulky. Samostatné hodnoty (souhrny, karty rodiny)
@@ -53,6 +53,7 @@ function statAvailableYears(D){
 }
 
 function renderStats(){
+  if(typeof temataRender==='function'){ try{ temataRender(); }catch(e){ console.warn('[temata]',e); } }   // S28 (v12.20): ⭐ Sledovaná témata
   const D=getData();
   const expCats=(D.categories||[]).filter(c=>c.type==='expense'||c.type==='both');
 

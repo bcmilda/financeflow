@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · ui.js · 2026-10-28
+// FinanceFlow · v12.20 · ui.js · 2026-10-28
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2288,6 +2288,7 @@ function editTx(id){
   if(_bs) _bs.style.display=(!t.splitId && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
   window._modalTxId=id;
   if(typeof txPropojRender==='function'){ _txPropOtevreno=false; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
+  if(typeof temaTxRender==='function') temaTxRender(id);   // S28 (v12.20): ⭐ sledované téma
   document.getElementById('modalAdd').classList.add('open');
 }
 
