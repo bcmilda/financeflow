@@ -1,4 +1,4 @@
-// FinanceFlow · v11.86 · meridla.js · 2026-10-16
+// FinanceFlow · v12.16 · meridla.js · 2026-10-27
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -313,7 +313,7 @@ function merKartaHTML(m, D) {
   const graf = klice.length && typeof ffGrafSloupce === 'function' ? ffGrafSloupce(klice.map(k => {
     const a = tar && mVt[k] != null ? mVt[k] : mes[k], b = tar && mNt[k] != null ? mNt[k] : 0;
     const lon = mes[(+k.slice(0, 4) - 1) + k.slice(4)];
-    return { popis: k.slice(5) + '/' + k.slice(2, 4), a, b, titul: `${k}: ${_merDes(mes[k], 1)} ${jed}${tar && mVt[k] != null ? ` (VT ${_merDes(mVt[k], 1)} · NT ${_merDes(mNt[k], 1)})` : ''}${lon != null ? ' · loni ' + _merDes(lon, 1) : ''}` };
+    return { mesic: k, a, b, titul: `${k}: ${_merDes(mes[k], 1)} ${jed}${tar && mVt[k] != null ? ` (VT ${_merDes(mVt[k], 1)} · NT ${_merDes(mNt[k], 1)})` : ''}${lon != null ? ' · loni ' + _merDes(lon, 1) : ''}` };
   }), { barva: '#fbbf24', barvaB: '#818cf8', vyska: 70 }) : '';
   const dl = (l, v, p) => `<div style="background:var(--bg);border-radius:10px;padding:9px 11px">
       <div style="font-size:.66rem;color:#a8aec8">${l}</div><div style="font-size:1rem;font-weight:800;color:var(--text)">${v}</div>
@@ -842,7 +842,7 @@ function _merDetailHTML(m, D) {
   const kl = Object.keys(mes).sort().slice(-24);
   const graf = kl.length && typeof ffGrafSloupce === 'function' ? ffGrafSloupce(kl.map(k => {
     const a = tar && mVt[k] != null ? mVt[k] : mes[k], b = tar && mNt[k] != null ? mNt[k] : 0;
-    return { popis: k.slice(5) + '/' + k.slice(2, 4), a, b, titul: `${k}: ${_merDes(mes[k], 1)} ${jed}${tar && mVt[k] != null ? ` (VT ${_merDes(mVt[k], 1)} · NT ${_merDes(mNt[k], 1)})` : ''}` };
+    return { mesic: k, a, b, titul: `${k}: ${_merDes(mes[k], 1)} ${jed}${tar && mVt[k] != null ? ` (VT ${_merDes(mVt[k], 1)} · NT ${_merDes(mNt[k], 1)})` : ''}` };
   }), { barva: '#fbbf24', barvaB: '#818cf8' }) : '';
 
   // tabulka vývoje – nejnovější nahoře

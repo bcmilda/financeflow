@@ -1,4 +1,4 @@
-// FinanceFlow · v12.15 · admin.js · 2026-10-27
+// FinanceFlow · v12.16 · admin.js · 2026-10-27
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,14 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.16',
+    datum: '2026-10-27',
+    zmeny: [
+      "🐛 FIX-497 · POPISKY SLOUPCŮ SE PŘEKRÝVALY (Milan, screenshot Plyn) · cesta: Majetek → 📟 Energie a voda → karta měřidla (graf po měsících) a 📊 Detail spotřeby: popisek „05/25“ byl na telefonu širší než sloupec. Teď číslo měsíce a rok jen pod prvním sloupcem a pod lednem; u 24 sloupců v Detailu menší písmo a užší mezera. Stejně opraveno i ve Vozidlech (Útrata za palivo po měsících) – sdílený graf.",
+      "🧪 tools/smoke_graf_popisky.js – 9 testů (na v12.15 jich 7 selže); rozložení změřeno v Chromiu na 390 px: 0 překryvů u 12 i 24 sloupců.",
+    ],
+  },
   {
     verze: 'v12.15',
     datum: '2026-10-27',

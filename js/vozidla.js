@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · vozidla.js · 2026-10-23
+// FinanceFlow · v12.16 · vozidla.js · 2026-10-27
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -533,12 +533,22 @@ function ffGrafSloupce(data, o) {
   if (!data || !data.length) return '';
   const max = Math.max(1e-9, ...data.map(d => (d.a || 0) + (d.b || 0)));
   const vyska = o.vyska || 90;
-  return `<div style="display:flex;align-items:flex-end;justify-content:${data.length < 8 ? 'center' : 'flex-start'};gap:${data.length > 24 ? 2 : 6}px;height:${vyska + 20}px;overflow-x:auto">${data.map(d => {
+  //  S28 (v12.16, FIX-497, Milan: „popis sloupečků se překrývá“): popisek „05/25“ byl na telefonu u 12+
+  //  sloupců širší než sloupec. Měsíc (d.mesic = 'YYYY-MM') se teď popisuje číslem měsíce a rok jen pod
+  //  prvním sloupcem a pod lednem; víc sloupců = menší písmo a užší mezera.
+  const mnoho = data.length > 8, pis = data.length > 16 ? '.58rem' : mnoho ? '.64rem' : '.7rem';
+  const _pop = (d, i) => {
+    if (!d.mesic) return `<div style="font-size:${pis};color:#a8aec8;margin-top:3px;white-space:nowrap">${_vozEsc(d.popis || '')}</div>`;
+    const m = +String(d.mesic).slice(5, 7), rok = i === 0 || m === 1 ? '’' + String(d.mesic).slice(2, 4) : '';
+    //  rok je mimo tok (position:absolute) – nerozšíří sloupec; sousedé pod sebou rok nemají, takže se nepřekryje
+    return `<div style="font-size:${pis};color:#a8aec8;margin-top:3px;white-space:nowrap;line-height:1.15;text-align:center">${m}<div style="position:relative;height:1.15em">${rok ? `<span style="position:absolute;left:50%;transform:translateX(-50%);color:#7e84a0">${rok}</span>` : ''}</div></div>`;
+  };
+  return `<div style="display:flex;align-items:flex-end;justify-content:${data.length < 8 ? 'center' : 'flex-start'};gap:${data.length > 16 ? 1 : mnoho ? 4 : 6}px;height:${vyska + 30}px;overflow-x:auto">${data.map((d, i) => {
     const ha = (d.a || 0) / max * vyska, hb = (d.b || 0) / max * vyska;
     return `<div title="${_vozEsc(d.titul || '')}" style="flex:1;min-width:${o.min || 10}px;max-width:64px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">
       ${hb > 0 ? `<div style="width:100%;height:${Math.max(2, hb)}px;background:${o.barvaB || '#a78bfa'};border-radius:3px 3px 0 0"></div>` : ''}
       <div style="width:100%;height:${Math.max(ha > 0 ? 2 : 0, ha)}px;background:${o.barva || '#60a5fa'};border-radius:${hb > 0 ? '0' : '3px 3px'} 0 0"></div>
-      <div style="font-size:.7rem;color:#a8aec8;margin-top:3px;white-space:nowrap">${_vozEsc(d.popis || '')}</div></div>`;
+      ${_pop(d, i)}</div>`;
   }).join('')}</div>`;
 }
 //  Čárový graf jedné řady (cena za litr v čase apod.).
@@ -641,7 +651,7 @@ function vozidloDetail(id) {
       </tbody></table></div>
       <div style="font-size:.8rem;color:#8b93ad;margin-top:4px">Spotřeba úseku = natankováno ÷ ujeto od minula. Bez plné nádrže kolísá – spolehlivý je klouzavý průměr v souhrnu.</div>`
     : '<div style="font-size:.92rem;color:#a8aec8">Zatím žádné tankování.</div>';
-  const mes = st.mesice.slice(-12).map(m => ({ popis: m.mesic.slice(5) + '/' + m.mesic.slice(2, 4), a: m.kc, titul: `${m.mesic}: ${_vozKc(m.kc)} · ${_vozDes(m.litry, 1)} ${jed}` }));
+  const mes = st.mesice.slice(-12).map(m => ({ mesic: m.mesic, a: m.kc, titul: `${m.mesic}: ${_vozKc(m.kc)} · ${_vozDes(m.litry, 1)} ${jed}` }));
   const ceny = us.filter(x => x.cenaZaplacenoL).map(x => ({ y: x.cenaZaplacenoL, titul: `${x.datum}: ${_vozDes(x.cenaZaplacenoL, 2)} Kč/${jed}` }));
   const prHTML = id ? `<div style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:.88rem;color:#8b93ad;text-transform:uppercase;letter-spacing:.04em">🤝 Příspěvky na cestu</div>
