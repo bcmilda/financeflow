@@ -1,0 +1,598 @@
+# FinanceFlow – Pravidla verzování a workflow
+
+> Tento dokument definuje pravidla pro verzování aplikace, souborů a dokumentace.
+> Po schválení Milanem přesunout do `doc/VERSIONING.md`.
+> Vytvořeno: Session 7, 2026-04-23
+> **Doplnění Session 25** (2026-10-09): na konci souboru nová sekce „Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61“ včetně dodatku v11.28–v11.30. Přehled v `doc/Summary_s25.md`.
+
+---
+
+## 1. Verzování aplikace (index.html)
+
+### Schéma verzí
+
+```
+Bug fix / malý tweak    → +0.01   (např. v6.47 → v6.48)
+Nová feature            → +0.01   (od v6.11)
+Velký milestone         → +1.00   (např. v7.0 = publikace aplikace)
+```
+
+### Co se musí změnit při každém incrementu verze
+
+Při každé změně JS souboru nebo index.html **VŽDY** aktualizovat:
+
+1. **`<title>`** v `index.html` řádek 6:
+   ```html
+   <title>FinanceFlow v6.48</title>
+   ```
+
+2. **Sidebar logo** v `index.html`:
+   ```html
+   <small>v6.48 · Premium</small>
+   ```
+
+3. **"O aplikaci" banner** v `index.html` sekce `page-oAplikaci`:
+   ```html
+   <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 6.48</div>
+   ```
+
+4. **Cache-busting hash** pro každý změněný JS soubor:
+   ```html
+   <script src="js/app.js?v=NOVÝ_HASH">
+   ```
+   Hash = prvních 8 znaků MD5 souboru: `md5sum js/app.js | cut -c1-8`
+
+5. **VERZE_LOG** v `js/admin.js` – nový záznam na začátek pole:
+   ```javascript
+   const VERZE_LOG = [
+     {
+       verze: 'v6.48',
+       datum: '2026-04-23',
+       zmeny: [
+         '✅ popis změny 1',
+         '🐛 popis opravy 1',
+       ]
+     },
+     // ... starší záznamy
+   ];
+   ```
+
+### Ikony v VERZE_LOG
+
+| Ikona | Význam |
+|---|---|
+| ✅ | Nová feature / nasazení |
+| 🐛 | Oprava bugu |
+| ⚠️ | Částečné řešení / k ověření |
+| 🔐 | Security oprava |
+| 📝 | Dokumentace / Admin panel |
+| 🔄 | Refaktor bez změny funkce |
+
+---
+
+## 2. Verzování .md dokumentů
+
+### Filozofie
+
+`doc/` obsahuje vždy **aktuální master verzi** každého dokumentu.
+`docs/` je pracovní složka pro change preview a snapshoty.
+
+### Archivní snapshoty sessions
+
+Před každou session (nebo po ní) lze vytvořit snapshot stavu před:
+```
+docs/todo_s7.md      ← stav todo.md před Session 7
+docs/bugs_s7.md      ← stav bugs.md před Session 7
+```
+
+**Naming konvence:** `[název]_s[číslo_session].md`
+
+Snapshoty slouží jako záloha a auditní stopa. Nejsou povinné, ale doporučené – zejména před velkými úpravami.
+
+### Change preview workflow (POVINNÉ před úpravou doc/)
+
+```
+1. Claude vytvoří docs/change_[název].md
+   └─ Kopie originálu se změnami označenými <ins>/<del>
+
+2. Milan zkontroluje a napíše "schváleno" nebo "připomínky"
+
+3. Claude přepíše doc/[název].md finální verzí
+   └─ Bez <ins>/<del> tagů
+```
+
+**Výjimka:** Milan může říct "rovnou přepiš" nebo "bez preview" – pak krok 1 přeskočíme.
+
+### Tagy v change preview
+
+```markdown
+<ins>nový nebo doplněný text</ins>         → GitHub zobrazí zeleně podtržené
+<del>odstraněný nebo přesunutý text</del>  → GitHub zobrazí červeně přeškrtnuté
+*(beze změn)*                              → zkratka pro sekce bez změn
+```
+
+---
+
+## 3. Workflow při změně kódu
+
+```
+Claude edituje DEV/js/soubor.js
+       ↓
+Claude VŽDY aktualizuje DEV/index.html:
+  ✅ title verze +0.01
+  ✅ sidebar logo verze +0.01
+  ✅ O aplikaci banner verze +0.01
+  ✅ cache-busting hash pro každý změněný .js
+  ✅ VERZE_LOG záznam v admin.js
+       ↓
+Milan kopíruje z DEV/ → financeflow/financeflow/
+       ↓
+GitHub Desktop: commit + push → branch dev
+       ↓
+firebase deploy --only hosting
+```
+
+---
+
+## 4. Workflow při aktualizaci dokumentace
+
+```
+Claude přečte doc/[soubor].md
+       ↓
+Claude vytvoří docs/change_[soubor].md
+  (change preview s <ins>/<del>)
+       ↓
+Milan zkontroluje → "schváleno" / připomínky
+       ↓
+Claude přepíše doc/[soubor].md (bez tagů)
+       ↓
+(volitelně) Claude uloží snapshot docs/[soubor]_sN.md
+```
+
+---
+
+## 5. Přehled složek
+
+| Složka | Obsah | Přístup Claude |
+|---|---|---|
+| `doc/` | Master .md dokumenty (9 souborů) | Jen po schválení change preview |
+| `docs/` | Change preview, snapshoty, dočasné soubory | Volný přístup |
+| `js/` | JS moduly | Volný přístup, vždy aktualizovat verzi |
+| `css/` | Styly | Volný přístup |
+| `cloudflare-worker/` | Worker kód | Volný přístup, nasazení ručně v Cloudflare |
+
+---
+
+## 6. Soubory v doc/
+
+| Soubor | Obsah |
+|---|---|
+| `todo.md` | Seznam úkolů, priority, roadmap |
+| `bugs.md` | Bugy a opravy, FIX záznamy |
+| `architecture.md` | Technická architektura, struktura souborů |
+| `decisions.md` | ADR záznamy (architektonická rozhodnutí) |
+| `features.md` | Přehled funkcí a jejich stav |
+| `context.md` | Kontext projektu, cílová skupina |
+| `explanations.md` | Technické vysvětlivky |
+| `GLOSSARY.md` | Slovník pojmů |
+| `SECURITY.md` | Bezpečnostní pravidla, API klíče |
+| `VERSIONING.md` | Tenhle soubor – pravidla verzování |
+
+---
+
+*Vytvořeno: Session 7, 2026-04-23 | Autor: Milan Migdal + Claude*
+
+
+---
+
+## Session 11 – aktualizace verzovacího procesu
+
+### Oprava version bump procesu (FIX-125, v7.68)
+
+**Problém:** Banner „Verze X.YY" v sekci O aplikaci zůstal na v7.55 přes celou Session 11 (v7.56–v7.67). Příčina: sed pattern `s|Verze 7.XX|...` neobsahoval `>` závorky → nikdy neodpovídal HTML formátu `>Verze 7.55</div>`.
+
+**Správný sed příkaz pro banner (krok 3):**
+```bash
+sed -i 's|>Verze 7.68<|>Verze 7.69<|' app.html
+# Ověření:
+grep -o 'Verze 7.69' app.html | head -1
+```
+
+### Kompletní version bump – 4 atomické kroky + ověření
+
+```bash
+# Nastavit proměnné
+OLD=7.68; NEW=7.69
+
+# Krok 1: title tag
+sed -i "s|v${OLD}</title>|v${NEW}</title>|" app.html
+
+# Krok 2: sidebar logo
+sed -i "s|v${OLD} · Premium|v${NEW} · Premium|" app.html
+
+# Krok 3: O aplikaci banner (POZOR na > závorky!)
+sed -i "s|>Verze ${OLD}<|>Verze ${NEW}<|" app.html
+
+# Krok 4: VERZE_LOG v admin.js (Python prepend)
+python3 - << 'PYEOF'
+content = open('js/admin.js').read()
+entry = """  { verze: 'v${NEW}', datum: '$(date +%Y-%m-%d)', zmeny: ['...'] },\n"""
+content = content.replace("const VERZE_LOG = [\n", "const VERZE_LOG = [\n" + entry, 1)
+open('js/admin.js', 'w').write(content)
+PYEOF
+
+# sw.js CACHE_NAME
+sed -i "s|'ff-shell-v${OLD}'|'ff-shell-v${NEW}'|" sw.js
+
+# Cache hashe pro všechny změněné soubory
+for f in admin helpers ui receipts; do
+  h=$(sha256sum js/$f.js | cut -c1-16)
+  sed -i -E "s|js/${f}\.js\?v=[A-Za-z0-9]+|js/${f}.js?v=$h|" app.html
+done
+
+# Ověření VŠECH 4 kroků:
+grep -o "v${NEW}</title>" app.html
+grep -o "v${NEW} · Premium" app.html
+grep -o "Verze ${NEW}" app.html
+grep -o "ff-shell-v${NEW}" sw.js
+```
+
+### Rozsah verzí po sessions
+| Session | Verze rozsah | Datum |
+|---|---|---|
+| Session 8 | v6.51 → v6.65 | 2026-05-24 |
+| Session 9 | v6.74 → v7.05 | 2026-05-28 |
+| Session 10 | v7.06 → v7.30 | 2026-06-01 |
+| Session 11 | v7.50 → v7.69 | 2026-06-08/09 |
+
+---
+
+*Aktualizace Session 11: 2026-06-09*
+
+
+---
+
+## Verzovaci hlavicka souboru (Session 13, v8.24)
+
+Kazdy zmeneny zdrojovy soubor nese na PRVNIM radku verzovaci hlavicku:
+
+```js
+// FinanceFlow - v8.24 - app.js - 2026-06-20
+```
+
+- JS soubory: // FinanceFlow - vX.XX - <soubor> - <datum> na radku 1
+- worker.js: v existujici hlavicce radek * FinanceFlow - Cloudflare Worker - vX.XX - datum
+- sw.js: v komentarove hlavicce //  FinanceFlow - Service Worker - vX.XX - datum
+- database_rules.json: // FinanceFlow - database rules - vX.XX - datum na radku 1 (Firebase RTDB pravidla // komentare prijima, konzole je strhne)
+
+Pravidlo: pri kazdem bumpu verze aktualizovat hlavicku kazdeho zmeneneho souboru na novou verzi. Hlavicka se meni -> meni se hash -> pregenerovat ?v=hash v app.html. Ucel: na prvni pohled poznat zda je soubor aktualni verze, bez dohadovani stara/nova.
+
+### Poradi atomickych kroku verzovani (rozsireno na 5)
+1. <title> v app.html
+2. Sidebar text (vX.XX . <span id=sidebarTierLabel>)
+3. Verze X.XX banner (O aplikaci)
+4. CACHE_NAME (ff-shell-vX.XX) v sw.js
+5. Verzovaci hlavicka kazdeho zmeneneho souboru + sha256 hashe v app.html + VERZE_LOG v admin.js (pregenerovat admin.js hash NAPOSLEDY)
+
+---
+
+*Aktualizace Session 13: 2026-06-20*
+
+---
+
+## Doplnění Session 18 (2026-08-03)
+
+**Nový krok před nasazením** — přidat před dosavadní verzovací kroky, ne místo nich:
+
+0. `node tools/check_tdz.js js/*.js` — kontrola proměnných použitých před deklarací. Vyžaduje `npm install --save-dev acorn acorn-walk` (jednorázově v repu). Teprve po čistém výsledku pokračovat kroky 1–5 níže.
+
+**Soubory mimo hash chain, nasazované zvlášť (rozšířeno o S18):**
+- `database_rules.json` — u S18 nutné kvůli novým uzlům `reviews` a validaci `milestones`
+- `tools/check_tdz.js` — vývojářský nástroj, nikdy se nenasazuje (v `firebase.json` ignore)
+
+*Aktualizace Session 18: 2026-08-03*
+
+---
+
+## Session 19 (2026-08-21) — v9.79 → v9.98
+
+### Doplnění k postupu
+
+**Soubory nasazované zvlášť** (mimo hash chain) — nyní **čtyři**:
+`worker.js` (Cloudflare) · `database_rules.json` (Firebase Console) · `.nojekyll` ·
+**`tools/**`** (v `firebase.json` v `ignore` — nikdy se nenasadí).
+Jejich verze v hlavičce = **verze poslední změny**, ne aktuální verze aplikace (ADR-068).
+
+**`worker.js` změněn ve v9.97** — přijímá `/cnb?date=`. Nezapomeň nahrát do Cloudflare.
+
+### Ověření hashů po každé dodávce
+```python
+# admin.js VŽDY jako poslední – jeho VERZE_LOG odkazuje na hashe ostatních
+for f in zmenene_soubory_krome_admin: rehash(f)
+rehash('admin.js')
+```
+Kontrola: všech **33** `?v=` hashů v `app.html` musí sedět se skutečným SHA-256.
+V S19 se našel **zastaralý hash `announcements.js`** — uživatelům s cache se
+servírovala stará verze modulu. **Ověřuj všechny hashe, ne jen ty, které jsi měnil.**
+
+### Hlavičky souborů
+Aktualizovat **jen ve skutečně změněných** souborech. V S19 měly nesjednocený formát:
+- `// FinanceFlow · vX · soubor.js · datum` (většina)
+- `//  FinanceFlow · vX · soubor.js · datum` (dvě mezery — `debts.js`, `assets.js`, `charts.js`)
+- `ai.js` hlavičku **neměl vůbec** — doplněna ve v9.81
+- `worker.js` má hlavičku v blokovém komentáři `/** … */`
+
+### CRLF soubory — ověřený stav (S19)
+```
+CRLF:  premium.js  settings.js  assets.js  charts.js  nakup.js  ai.js
+       budouci.js  worker.js  push.js  share.js  duplicates.js
+LF:    debts.js ← POZOR, dřívější seznam ho uváděl jako CRLF
+```
+**Před každou úpravou ověř skutečný stav**, neřiď se seznamem.
+Python: `io.open(f, encoding='utf-8', newline='')` zachová konce řádků beze změny.
+
+### ⚠️ Jednořádkové funkce (SKILL 29)
+`charts.js` má některé funkce na jediném řádku. Komentář `//` za nahrazeným příkazem
+zakomentuje **zbytek řádku** včetně zavíracích závorek. `node --check` to odhalí,
+ale při plošných náhradách je to tichý zabiják.
+
+---
+
+# Session 22 (2026-09-12 až 2026-09-16) · v10.59 → v10.82
+
+> Poučení z verzování ve Session 22.
+
+## ⚠️ Bump se musí OVĚŘIT, ne jen provést **(Session 22)**
+`CACHE_NAME` v `sw.js` uvízl na `ff-shell-v10.66` po **třinácti verzích**.
+Příčina: bump se prováděl textovou náhradou, jejíž kotva obsahovala **konkrétní
+datum**. Jakmile přestala sedět, náhrada **tiše nic neudělala** — bez chyby,
+bez varování. Verze 10.67–10.79 tedy cache shellu nevynucovaly znovu
+a prohlížeč mohl servírovat starý `app.html`.
+
+**Nové pravidlo:** po každém bumpu ověřit, že se hodnota skutečně zapsala:
+```bash
+grep -n "CACHE_NAME" sw.js
+grep -n "<title>\|Verze " app.html
+```
+Kotva náhrady **nesmí obsahovat datum ani jiný proměnlivý údaj**.
+
+**🔗 Cross-reference:** `bugs.md` FIX-341, `CLAUDE_SKILLS.md` SKILL 47
+
+## Pořadí nasazení Session 22
+1. `database_rules.json` → Firebase Console (uzel `receipt_reports`)
+2. `worker.js` → Cloudflare (prompt na slevy + routa `/inflace`)
+3. zbytek → GitHub
+
+⚠️ **Nový soubor `poznamky.js`** — bez něj se stránka poznámek nenačte
+a prohlížeč vypíše `Uncaught SyntaxError` (hosting vrátí HTML místo 404).
+
+---
+
+# Session 23 (2026-09-25) · v10.82 → v11.04
+
+> Poučení z verzování ve Session 23.
+
+- Nasazení pouze `worker.js` do Cloudflare **nezvyšuje verzi appky** (Session 23).
+  Hlavička workeru se srovná s nejbližším vydáním appky.
+- Po bumpu ověřit hashe **všech** souborů v `app.html`, ne jen měněných (Session 23).
+- `transactions.js` má v hlavičce DVĚ mezery (`//  FinanceFlow`) – bump regex na to musí
+  počítat, jinak tiše neprojde a soubor zůstane na staré verzi (Session 23).
+
+---
+
+# Session 24 (2026-09-26 až 2026-10-03) · v11.04 → v11.26
+
+## Verze
+| Verze | Obsah |
+|---|---|
+| v11.05 | Mapa položek F3 (osobní vrstva) |
+| v11.06 | EAN u položky účtenky, worker `/ean` |
+| v11.07 | Taxonomie T1 + admin Mapa T2 |
+| v11.08 | Mapa T3 – podkategorie → rozpočet |
+| v11.09 | Mapa položek předělaná + karta výrobku |
+| v11.10 | Dashboard skóre, zámek Poradce, kalendář na mobilu |
+| v11.11 | ⛽ Tankování + Vozidla |
+| v11.12 | 📟 Energie a voda |
+| v11.13 | 🤖 AI zařazení do COICOP (worker `/coicop`) |
+| v11.14 | Detail spotřeby, dvoutarif, detail vozidla, příspěvky, oprava AI |
+| v11.15 | ⭐ Hlavní zdroj příjmů, limit u příjmů skryt |
+| v11.16 | Free 3 účtenky, cat47, bankomat = přesun, testy |
+| v11.17 | Příspěvky/doplatky oboustranně, peněženka |
+| v11.18 | Blok 📟 v transakci, karty útraty v Reportu, menu klepnutím vedle |
+| v11.19 | T4 krok 1 – zdražování a shrinkflace přes taxonomii |
+| v11.20 | Vymazat data i uzly S24, TODO-289/311, typy workeru |
+| v11.21 | Karty po položkách + ruční karta, odečty v checklistu, záloha modulů |
+| v11.22 | TODO-314, menu Měřidla, ilustrace |
+| v11.23 | EAN: AI český název + zařazení, admin Čárové kódy, smazání tagů |
+| v11.24 | Český název (zdroje, návrhy), fotka obalu/živin |
+| v11.25 | Samostatné skenování EAN, doplnění AI u starých výrobků |
+| v11.26 | T4 krok 2 – inflace, statistiky a COICOP přes taxonomii |
+| v11.27 | Měsíční report na skutečných datech v Report2 (TODO-317 F2), Report odemčen pro Free |
+
+Worker: v11.06 → v11.13 → v11.16 → v11.20 → v11.23 → **v11.24**. Pravidla DB: nasadit verzi z v11.24.
+
+## Pořadí nasazení (Milan má v11.14)
+1. `database.rules.json` → Firebase · 2. `worker.js` → Cloudflare · 3. GitHub: všechny soubory z výstupů v11.15–v11.26
+(`app.html`, `sw.js`, `index.html`, `js/…`, `data/categories.json`, `data/taxonomie.json`, `tools/…`). Od v11.27 navíc nový `js/report-mesicni.js` a `js/report.js`.
+
+---
+
+# Session 25 (2026-10-05 až 2026-10-10) · v11.30 → v11.61
+
+## Verze
+| Verze | Obsah |
+|---|---|
+| v11.28 | *(dodatek)* okna a scroll, nový výběr kategorie, zůstatek ke dni, import do peněženky, report e-mailem PDF, uschování fotek účtenky |
+| v11.29 | *(dodatek)* proklik z Predikce, detail vozidla, barvy tlačítek Měřidel |
+| v11.30 | *(dodatek)* fotka živin v okně, přiřazení přes účtenky, ✕ Odebrat, kód ze souboru – **stav GitHubu `dev`** |
+| v11.31 | foťák u živin (regrese), AI český název se značkou |
+| v11.32 | duplicitní účtenky + transakce, ID obchodů, český název bez cizího |
+| v11.33 | zelený štítek z taxonomie (vráceno v11.34), kopírování směn do konce roku, dovolená v hodinách, výplata po měsících |
+| v11.34 | štítek podle ČSÚ + paměť, vážené zboží, rozšířená karta výrobku |
+| v11.35 | 📐 Statistika položek (nový modul) |
+| v11.36 | číselník CZ-COICOP 2018 |
+| v11.37 | gramáž jako pole, názvy zvlášť |
+| v11.38 | pobočka z hlavičky účtenky |
+| v11.39 | sdílené ceny po krajích (`/ceny`, pravidla DB) |
+| v11.40 | Zdražování podle výrobků, naskenované výrobky se pamatují |
+| v11.41 | 5. úroveň CZ-COICOP v taxonomii |
+| v11.42 | období pro tvůj podíl |
+| v11.43 | ruční živiny s kontrolou |
+| v11.44 | datum v letním čase, export, landing hamburger |
+| v11.45 | smazání účtu i z Firebase Auth, `smazani-uctu.html` |
+| v11.46 | záruka na Dashboardu, obecné názvy mimo Inflaci, Finanční obraz bez dat |
+| v11.47 | AI komentář reportu, oprava tarifu ve workeru |
+| v11.48 | editor účtenky neztrácí úpravy, 🎯 Nejspíš |
+| v11.49 | 📦 Moje výrobky, fotky bez účtenky |
+| v11.50 | úložiště podle tarifu, admin 💾 Úložiště, zápis názvu neznámého kódu |
+| v11.51 | Zpět na telefonu, K vyřízení |
+| v11.52 | **sync audit** – tří-cestné slučování, rozpracovaná práce, offline |
+| v11.53 | čekací okno analýzy účtenky |
+| v11.54 | karta: zkratka z účtenky, český název, ✓ Přiřazeno |
+| v11.55 | 📦 Moje výrobky jako záložka, bez převzetí zkratky |
+| v11.56 | přestavba karty výrobku v2 |
+| v11.57 | tři názvy výrobku, fotka českého popisku, COICOP panel na řádku |
+
+**Worker:** měněn ve v11.31, v11.32, v11.34, v11.37, v11.38, v11.39, v11.43, v11.47, v11.50 a v11.57 → nasadit **v11.57**. Hlavička ručně: ` * FinanceFlow · Cloudflare Worker · vX.YY · datum`.
+**Pravidla DB:** nasadit verzi z v11.39 (hlavička `// FinanceFlow · database rules · v11.39`).
+
+## Postup verzování v S25
+- Jeden bump na odpověď (Milan). Bump dělá skript (`bump.py STARÁ NOVÁ DATUM log.json soubory…`). Skript upraví:
+  - hlavičky souborů
+  - `VERZE_LOG` v `admin.js`
+  - v `app.html` titulek, sidebar a banner Verze
+  - `?v=` = prvních 16 znaků sha256
+  - `CACHE_NAME` v `sw.js` (`ff-shell-vX.YY`)
+- Testy běží z ploché složky (všechny `js`, `data`, `tools`, html, `worker.js`, `database.rules.json` + kopie `database_rules.json`), `TZ=Europe/Prague`.
+- Kontrola UI v Chromiu (Playwright + lokální server) na šířce telefonu u každé změny karty.
+
+## Pořadí nasazení (GitHub má v11.30)
+1. `database.rules.json` → Firebase
+2. `worker.js` → Cloudflare
+3. GitHub: soubory z výstupů v11.31–v11.57 (seznam v `Summary_s25.md`) + MD soubory S25
+
+## Dodatek v11.58–v11.60 (2026-10-09 večer) **(Session 25)**
+
+| Verze | Obsah |
+|---|---|
+| v11.58 | vlastní SVG ikony (`js/ikony.js`), automatické přiřazení přes taxonomii |
+| v11.59 | Měsíční report: neměřené skóre, změna na stejné škále, zarovnání sekcí 9 a 11 |
+| v11.60 | jednotná karta výrobku, osobní karta (bez kódu), COICOP – srovnání vždy vidět |
+
+Worker ani pravidla DB se v v11.58–v11.60 nemění.
+
+**Nasazení navíc proti v11.57 (GitHub):**
+- `app.html`, `sw.js`
+- `js/ikony.js` (nový), `js/receipts.js`, `js/ean-sken.js`, `js/projects.js`, `js/admin.js`
+- `tools/smoke_ikony.js` a `tools/smoke_karta_jednotna.js` (nové), `smoke_skore_report.js`, `smoke_karta_v2.js`, `smoke_coicop5.js`, `smoke_ziviny_rucne.js`
+
+**Testy:** 145 (144 sad `smoke_*` + `smoke.js`), všechny prochází.
+
+## Dodatek v11.61 (2026-10-10) **(Session 25)**
+
+### v11.61 · 2026-10-10 **(Session 25)**
+- **Změny:**
+  - ADR-207: Open Food Facts jen doplňuje.
+  - ADR-208 / TODO-333: jedna karta všude, oprava každého políčka, štítky zdroje.
+  - FIX-447 až 450.
+- **Soubory:** `cloudflare-worker/worker.js`, `js/receipts.js`, `js/ean-sken.js`, `js/ceny-kraje.js`, `js/admin.js`, `app.html`, `sw.js`.
+- **Testy:**
+  - nový `tools/smoke_karta_zdroje.js` (50),
+  - upravené: `smoke_gramaz_nazvy`, `smoke_karta_v2`, `smoke_mapa_karta`, `smoke_moje_vyrobky`, `smoke_uloziste_karta`, `smoke_v1124`, `smoke_ziviny_rucne`.
+  - Celkem 146, vše prošlo.
+- **Nasazení:** worker → GitHub. Pravidla DB beze změny.
+
+---
+
+# Session 26 (2026-10-10 až 2026-10-16) · v11.62 → v11.83 **(Session 26)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.62 | 10. 10. | Osa života: poznámky s barvou, rozsah, filtr |
+| v11.63 | 11. 10. | Osa života: posuvník u dlouhé historie |
+| v11.64 | 11. 10. | Automatické přiřazení kódů (vlastní, komunita), doplnění starších nákupů |
+| v11.65 | 11. 10. | FIX-451 Skenovat: včerejší účtenka |
+| v11.66 | 12. 10. | Gramáž z jednoho místa, pole Balení, multipack |
+| v11.67 | 12. 10. | Živiny v nákupu |
+| v11.68 | 12. 10. | Nové karty od uživatelů, 🔒 zámek admina – **pravidla DB** |
+| v11.69 | 12. 10. | Měsíční report nový vzhled, šablona importu, diamanty |
+| v11.70 | 12. 10. | Historie účtenek (index), prázdný editor, OXALIS |
+| v11.71 | 12. 10. | Hromadná kategorie, zaokrouhlení jako nabídka, Nákupní DNA |
+| v11.72 | 12. 10. | Uložit změny?, kód z fotky, K vyřízení |
+| v11.73 | 13. 10. | Podezřelé páry za všechny měsíce, duplicitní účtenky |
+| v11.74 | 13. 10. | Ochrana transakcí účtenky, Doklady filtr, brzda 60 s |
+| v11.75 | 13. 10. | Kalendář: 11 h, odhad výplaty (starý) |
+| v11.76 | 13. 10. | Vratné lahve, sloupec Celkem |
+| v11.77 | 14. 10. | Výplatnice: AI import, soubor, celá páska, grafy, daně, odměny, srážky |
+| v11.78 | 14. 10. | Megagraf, otázky, odvody z přesčasu, odhad výplaty z pásky, paragraf |
+| v11.79 | 14. 10. | Paragraf neplacený, přesčas bez přestávky, Sumář |
+| v11.80 | 15. 10. | Simulace přesčasů, přivýdělek nad rámec, dovolená z pásek |
+| v11.81 | 15. 10. | Zrušen řádek „v měsíci přijde výplata za předchozí“ |
+| v11.82 | 15. 10. | Karta výrobku: živiny, Nutri-Score, Open Food Facts, prodejny, název z EAN |
+| v11.83 | 15. 10. | Roční zúčtování daně |
+
+**Worker:** beze změny celou session (v11.61). **Pravidla DB:** jen v11.68.
+**Nové soubory:** žádný nový modul (48 JS). Nové testy `tools/smoke_*` – celkem 161 sad + `smoke.js` = 162, vše prochází.
+**Nasazení:** 1) `database.rules.json` (v11.68) → Firebase, 2) GitHub (22 commitů). Vždy celé poslední verze souborů z `verze/v11.83` (a starších složek pro soubory, které se později neměnily).
+**Pravidlo potvrzené v S26:** jeden bump na odpověď; drobná oprava ve stejné odpovědi se přidá do téhož commitu (`--amend`) a stejnojmenné soubory se pošlou znovu.
+
+---
+
+# Session 26 · pokračování (2026-10-16 až 2026-10-18) · v11.84 → v11.89 **(Session 26)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.84 | 16. 10. | Měřidla: karta místo oken, VT/NT v odečtu, úprava a mazání odečtů, víc odečtů najednou, aktuální období, odhad podle loňska |
+| v11.85 | 16. 10. | Měřidla: Tarif nahoře jen u elektřiny, Druh jako text, plyn m³, zima plynu podle loňska |
+| v11.86 | 16. 10. | Transakce: viditelné filtry; Měřidla: zálohy jako opakovaná platba, doplatek z vyúčtování |
+| v11.87 | 16. 10. | Megagraf celá obrazovka / osy / od ledna / kumulativně; podezřelé z účtenky; tankování při úpravě; datum účtenky; graf Vozidel |
+| v11.88 | 17. 10. | Tankování z účtenky; megagraf na samostatné stránce; řazení; otázky dovolená a řazení |
+| v11.89 | 17. 10. | 📲 Notifikace z telefonu (FinanceFlow Inbox), sken převezme platbu – **pravidla DB v11.89**, nový modul `inbox.js` (49 modulů) |
+
+**Testy:** 166 sad `tools/smoke_*` + `smoke.js` = 167, vše prochází. Worker beze změny (v11.61).
+**Pravidla DB:** v11.68 a v11.89 (`users/$uid/inbox`, `inboxPairing`, `inboxLinks`).
+**Nasazení:** Milan nasadil v11.89 i pravidla DB v11.89 (18. 10.) a nahrál kód na GitHub (`dev`, vlastní commity v11.62–v11.89).
+**Doručování (Milan, 17. 10.):** posílat **jen soubory změněné v dané verzi**, ne kompletní sady.
+**Pozn.:** komentáře v kódu a hlavičky testů z verzí v11.84–v11.89 jsou označené „S27“ – patří k Session 26 (číslo se zjistilo až na konci session).
+
+---
+
+# Session 27 (2026-10-19 až 2026-10-24) · v11.90 → v12.10 **(Session 27)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v11.90 | 19. 10. | 🧮 Kalkulačky (Rezerva, Cena zlozvyku, Do výplaty, Monte Carlo), FIX-484 zůstatek v závorce – nový modul `kalkulacky.js` |
+| v11.91 | 20. 10. | Cena zlozvyku z položek účtenek, odkaz na APK FinanceFlow Inbox |
+| v11.92 | 20. 10. | Ruční účtenka, FIX-485 Mapa položek podle kódu |
+| v11.93 | 21. 10. | Název z kódu pod položkou, kontrola kódu proti zkratce, přidání skenem |
+| v11.94 | 21. 10. | Jedna zkratka → víc druhů |
+| v11.95 | 21. 10. | FIX-486 rozpracovaná účtenka po klepnutí na záložku |
+| v11.96 | 21. 10. | 🔎 Zeptej se svých dat – nový modul `dotazy.js` |
+| v11.97 | 22. 10. | FIX-487 kurzor v tagu |
+| v11.98 | 22. 10. | Čistý majetek ke konci měsíce |
+| v11.99 | 22. 10. | Rezerva ve skóre (ADR-233) |
+| v12.00 | 22. 10. | Rezerva i z cílů, dokumentace S3 |
+| v12.01 | 22. 10. | 📜 Změny půjčky, Zbývá ke dni, historie dluhu (ADR-234) |
+| v12.02 | 23. 10. | Splátka ze šablony snižuje Zbývá, kalendář od začátku |
+| v12.03 | 23. 10. | FIX-488 tlačítka duplikátu v řádku |
+| v12.04 | 23. 10. | FIX-489 filtr Podezřelé po smazání duplikátu |
+| v12.05 | 23. 10. | Stejné se stejným, zálohy, palivo za litr, tankování, obchody podle sjednoceného názvu |
+| v12.06 | 23. 10. | FIX-490 Grafy Denní, Doručené v2, obecné srovnání jen ovoce / zelenina / brambory / pečivo |
+| v12.07 | 23. 10. | 🏪 Trend nákupů po obchodech – nový modul `obchody.js` (52 modulů) |
+| v12.08 | 23. 10. | FIX-491 jednotky, Megagraf „Seřadit podle řady“ |
+| v12.09 | 23. 10. | Oprava názvu v kartě, přeřazení po výrobcích, pasti – **`data/taxonomie.json` 1.3 a `data/product-groups.json`** |
+| v12.10 | 23. 10. | FIX-492 katalog nákupního seznamu |
+
+**Testy:** 186 sad `tools/smoke_*` + `smoke.js` = 187, vše prochází. Worker beze změny (v11.61), pravidla DB beze změny (v11.89).
+**Doručování (S27):** každá verze do vlastní složky `/mnt/user-data/outputs/vX.YY/` se strukturou repa (`js/`, `data/`, `tools/`, `docs/`), jen změněné soubory, posílat jednotlivě.
+**Datové soubory:** mají vlastní parametr verze v kódu – `TAX_URL` (`taxonomie.js`, `?v=1.3-20261023`) a `product-groups.json?v=20261023` (`product-db.js`). Při změně dat zvýšit, jinak prohlížeč a service worker drží stará data.
+**Push:** ze session se nepushuje (repo nepřipojené); Milan nahrává přes GitHub Desktop.
+
+## Session 27 · dodatek v12.11–v12.12 **(Session 27)**
+
+| Verze | Datum | Obsah |
+|---|---|---|
+| v12.11 | 25. 10. | Analýza účtenek od vybraného měsíce, Srovnání ČR za rok, FIX-493 bublina grafu, bez probliknutí, 💱 převodník, druh a věk u narozenin |
+| v12.12 | 26. 10. | Statistiky a Nákupní DNA s přepínačem měsíc / Vše, 🔗 Spojit s…, report strana Obchody (5 stran) |
+
+**Testy po v12.12:** 189 sad `tools/smoke_*` + `smoke.js` = 190, vše prochází.
