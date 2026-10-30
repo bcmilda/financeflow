@@ -1,4 +1,4 @@
-// FinanceFlow · v12.02 · debts.js · 2026-10-23
+// FinanceFlow · v12.17 · debts.js · 2026-10-28
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -19,6 +19,7 @@ function openAddTx(){
   // v8.59 (TODO-149): reset přepočtu přesunu mezi měnami
   _transferConvTouched=false; { const tf=document.getElementById('txTransferConvAmt'); if(tf) tf.value=''; }
   document.getElementById('modalAddTitle').textContent='Přidat transakci';
+  { const pb=document.getElementById('txPropojBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }   // v12.17: 🔗 jen u úpravy
   _transferMode='wallets';_assetCatId='';_assetSub='';_debtSub='';
   const _dr=document.getElementById('debtRecurring'); if(_dr)_dr.checked=false;
   const _dro=document.getElementById('debtRecurringOpts'); if(_dro)_dro.style.display='none';

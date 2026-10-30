@@ -1,4 +1,4 @@
-// FinanceFlow · v12.11 · budouci.js · 2026-10-25
+// FinanceFlow · v12.17 · budouci.js · 2026-10-28
 //  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
 //  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
 //  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
@@ -50,7 +50,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
         source:   'sablona',
         icon:     isTransfer ? '↔️' : '🔄',
         name:     s.name,
-        amount:   s.amount || 0,
+        amount:   (typeof sablonaCastka === 'function' ? sablonaCastka(s, _bIso(date)) : s.amount) || 0,   // S28 (v12.17): rozpis záloh
         date:     date,
         dateStr:  _bIso(date),
         note:     isTransfer

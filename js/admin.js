@@ -1,4 +1,4 @@
-// FinanceFlow · v12.16 · admin.js · 2026-10-27
+// FinanceFlow · v12.17 · admin.js · 2026-10-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.17',
+    datum: '2026-10-28',
+    zmeny: [
+      "📅 ROZPIS ZÁLOH (Milan: „postav rozpis záloh na aktuální období“) · cesta: Majetek → 📟 Energie a voda → ⚙️ nastavení měřidla → 🔄 Měsíční záloha → 📅 Změny zálohy v období: nová částka + datum, od kdy platí. Opakovaná platba se v ten den přepne sama, už zapsaná budoucí platba se přepočítá, zaplacené zálohy zůstávají v transakcích. Odhad vyúčtování počítá zbývající zálohy po skutečných dnech plateb a částce platné v ten den; dlaždice Měsíční záloha ukáže i nadcházející změnu. Totéž čtou 🔄 Šablony a Budoucí platby.",
+      "💡 POROVNÁNÍ ZÁLOH A NÁVRH ZÁLOHY (Milan: „porovnej zaplacené zálohy proti spotřebě a ceně, a pokud uvidíš nedoplatek, navrhni úpravu záloh pro nadcházející měsíc“) · cesta: Energie a voda → karta měřidla → Odhad vyúčtování: „Zatím v období: zaplaceno … · spotřeba ≈ … × cena = … → zálohy zatím stačí / chybí“ a při nedoplatku návrh zálohy od nejbližší platby (co chybí ÷ zbývající platby, nahoru na 50 Kč) s tlačítkem 📅 Přidat do rozpisu záloh. Sám se nic nezapíše; změnu je třeba nahlásit i dodavateli. Nahrazuje dřívější „záloha by měla být asi X měsíčně“ (počítala průměr za celé období i s už zaplacenými měsíci).",
+      "🔀 PŘEPÍNAČ MĚŘIDEL (Milan: varianta a) · cesta: Energie a voda: nahoře ⚡ Elektřina | 🔥 Plyn | 💧 Voda – ukazuje se vždy jedno měřidlo, volba se pamatuje v prohlížeči; otevřený formulář přepne na své měřidlo, nové měřidlo se rovnou vybere.",
+      "🔗 PROPOJIT TRANSAKCE (Milan: „ruční dohledání a propojení transakce bez změn reportu a statistik… nenásilnou formou“) · cesta: Transakce → klepnout na transakci (Upravit) → 🔗 Propojit s jinou transakcí: k příjmu (vrácení peněz) najdeš výdaj – stejná částka první, hledání podle názvu i částky. Jen odkaz na obou stranách (v seznamu 🔗), klepnutí otevře protistranu, ✕ zruší. Příjem zůstává příjmem, výdaj výdajem – statistiky ani report se nemění.",
+      "🧪 tools/smoke_zalohy_rozpis.js (19) a smoke_propojeni.js (13) – na v12.16 selžou; Chromium 390 px: přepínač, návrh 1 850 Kč od 15. 11. → období ≈ +110 Kč, propojení a beze změny statistik.",
+    ],
+  },
   {
     verze: 'v12.16',
     datum: '2026-10-27',

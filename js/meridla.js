@@ -1,4 +1,4 @@
-// FinanceFlow · v12.16 · meridla.js · 2026-10-27
+// FinanceFlow · v12.17 · meridla.js · 2026-10-28
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -140,9 +140,33 @@ function merZalohy(D, m, odData, doData) {
   const kc = t => (typeof txCZK === 'function') ? txCZK(t, D) : (parseFloat(t.amount || t.amt) || 0);
   return { soucet: tx.reduce((a, t) => a + kc(t), 0), pocet: tx.length, posledni: tx.map(kc) };
 }
-//  Průměrná měsíční záloha: zadaná, jinak průměr plateb za posledních 6 měsíců.
+//  S28 (v12.17, Milan: „postav rozpis záloh na aktuální období“): ROZPIS ZÁLOH.
+//  m.zaloha = základní záloha, m.zalohyRozpis = [{id, od:'YYYY-MM-DD', kc}] = změny (od data platí nová částka).
+//  Zaplacené zálohy jsou dál jen transakce – rozpis určuje částku BUDOUCÍCH plateb (odhad, opakovaná platba).
+function merZalohyRozpis(m) { return Object.values((m && m.zalohyRozpis) || {}).filter(x => x && x.od && x.kc > 0).sort((a, b) => a.od.localeCompare(b.od)); }
+function merZalohaKDni(m, d) {
+  const r = merZalohyRozpis(m).filter(x => x.od <= d);
+  return r.length ? r[r.length - 1].kc : (m && m.zaloha > 0 ? m.zaloha : null);
+}
+//  Den platby zálohy: z opakované platby, jinak zadaný, jinak 15.
+const merZalohaDen = m => +(((typeof merZalohaSablonaNajdi === 'function' && merZalohaSablonaNajdi(m.id)) || {}).den || m.zalohaDen || 15);
+//  Dny plateb záloh po dnešku do konce období (konec = první den dalšího období, nepatří do něj).
+function merDnyPlateb(m, dnes, konec) {
+  const den = merZalohaDen(m), out = [];
+  let y = +dnes.slice(0, 4), mo = +dnes.slice(5, 7);
+  for (let i = 0; i < 36; i++) {
+    const posl = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    const d = `${y}-${String(mo).padStart(2, '0')}-${String(Math.min(den, posl)).padStart(2, '0')}`;
+    if (d >= konec) break;
+    if (d > dnes) out.push(d);
+    if (++mo > 12) { mo = 1; y++; }
+  }
+  return out;
+}
+//  Průměrná měsíční záloha: zadaná (k dnešku podle rozpisu), jinak průměr plateb za posledních 6 měsíců.
 function merMesicniZaloha(D, m, dnes) {
-  if (m.zaloha > 0) return m.zaloha;
+  const zk = merZalohaKDni(m, dnes || _merS(Date.now()));
+  if (zk > 0) return zk;
   const z = merZalohy(D, m, _merPlusMesice(dnes, -6), dnes);
   return z.pocet ? z.soucet / 6 : null;
 }
@@ -208,7 +232,10 @@ function merOdhad(m, D, dnes) {
   const zal = merZalohy(D, m, start, dnes);
   const mz = merMesicniZaloha(D, m, dnes);
   const zbyvaMesicu = Math.max(0, Math.round(_merDni(dnes, konec) / 30.44));
-  const zalohyObdobi = zal.soucet + (mz != null ? mz * zbyvaMesicu : 0);
+  //  v12.17: s rozpisem záloh po skutečných dnech plateb a částce platné v ten den (bez rozpisu jako dřív)
+  const rozpis = merZalohyRozpis(m).length > 0;
+  const platby = rozpis ? merDnyPlateb(m, dnes, konec).map(d => ({ d, kc: merZalohaKDni(m, d) || 0 })) : null;
+  const zalohyObdobi = zal.soucet + (rozpis ? platby.reduce((a, x) => a + x.kc, 0) : (mz != null ? mz * zbyvaMesicu : 0));
   const kcDosud = (c && odhadDosud != null) ? odhadDosud * c.cena : null;
   const kcObdobi = (c && odhadObdobi != null) ? odhadObdobi * c.cena : null;
   return {
@@ -224,9 +251,23 @@ function merOdhad(m, D, dnes) {
     saldoObdobi: kcObdobi != null ? zalohyObdobi - kcObdobi : null,
     //  Doporučená záloha, aby období vyšlo nula (zaokrouhleno na 50 Kč).
     doporucenaZaloha: kcObdobi != null ? Math.ceil(kcObdobi / mesicu / 50) * 50 : null,
+    //  v12.17 (Milan: „pokud uvidíš nedoplatek, navrhni úpravu záloh pro nadcházející měsíc“):
+    //  zbývající platby a záloha od nejbližší platby, aby období vyšlo nula (co chybí ÷ počet zbývajících plateb).
+    platby: platby || merDnyPlateb(m, dnes, konec).map(d => ({ d, kc: merZalohaKDni(m, d) || mz || 0 })),
+    navrhZalohy: merNavrhZalohy(kcObdobi, zal.soucet, platby || merDnyPlateb(m, dnes, konec).map(d => ({ d, kc: merZalohaKDni(m, d) || mz || 0 }))),
   };
 }
-Object.assign(window, { merIntervaly, merDenne, merMesicne, merPrumerDenni, merCena, merZalohy, merOdhad, merSezonniFaktor, _merPlusMesice });
+//  Návrh: nová záloha od nejbližší platby = (odhad nákladů za období − zaplaceno) ÷ zbývající platby,
+//  nahoru na 50 Kč. Jen když by bez změny vyšel nedoplatek a nová záloha je vyšší než plánovaná.
+function merNavrhZalohy(kcObdobi, zaplaceno, platby) {
+  if (kcObdobi == null || !platby || !platby.length) return null;
+  const chybi = kcObdobi - zaplaceno, plan = platby.reduce((a, x) => a + x.kc, 0);
+  if (chybi - plan <= 0) return null;                        // plánované zálohy stačí
+  const kc = Math.ceil(chybi / platby.length / 50) * 50;
+  if (!(kc > (platby[0].kc || 0))) return null;
+  return { od: platby[0].d, kc, plateb: platby.length, nedoplatekBez: Math.round(chybi - plan) };
+}
+Object.assign(window, { merZalohyRozpis, merZalohaKDni, merDnyPlateb, merNavrhZalohy, merIntervaly, merDenne, merMesicne, merPrumerDenni, merCena, merZalohy, merOdhad, merSezonniFaktor, _merPlusMesice });
 
 // ══════════════════════════════════════════════════════
 //  v11.84 (Milan): KARTA MÍSTO VYSKAKOVACÍCH OKEN
@@ -253,6 +294,19 @@ function _merPoUlozeni() {
 const _merToast = t => { if (typeof showToast === 'function') showToast(t); };
 
 // ── stránka 📟 Energie a voda ──
+//  v12.17 (Milan: „jednotlivé karty pro každou energii – přepínač nahoře“): ⚡ Elektřina | 🔥 Plyn | 💧 Voda –
+//  ukazuje se vždy jedno měřidlo. Volba se pamatuje v prohlížeči (jen pohodlí, žádná data).
+let _merTab = null;
+try { _merTab = localStorage.getItem('ffEnergieTab'); } catch (e) {}
+function merTab(id) { _merTab = id; try { localStorage.setItem('ffEnergieTab', id); } catch (e) {} if (_merPanel && _merPanel.id !== id) _merPanel = null; renderEnergiePage({ cisty: true }); }
+window.merTab = merTab;
+function _merTabyHTML(mer, akt) {
+  if (mer.length < 2) return '';
+  return `<div role="tablist" style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:12px;padding-bottom:2px">${mer.map(m => {
+    const dr = MER_DRUHY[m.druh] || MER_DRUHY.jine, sel = m.id === akt;
+    return `<button role="tab" aria-selected="${sel}" class="btn btn-sm${sel ? ' btn-primary' : ''}" style="flex-shrink:0;white-space:nowrap;font-weight:${sel ? 800 : 600}" onclick="merTab('${_merEsc(m.id)}')">${dr.ikona} ${_merEsc(m.nazev || dr.n)}</button>`;
+  }).join('')}</div>`;
+}
 function renderEnergiePage(o) {
   const el = document.getElementById('energieContent'); if (!el) return;
   if (_meridla === null) { el.innerHTML = '<div class="empty"><div class="ei">📟</div><div class="et">Načítám…</div></div>'; loadMeridla().then(() => renderEnergiePage()); return; }
@@ -265,8 +319,13 @@ function renderEnergiePage(o) {
   const intro = (typeof tabIntro === 'function') ? tabIntro('energie', '📟', 'Energie a voda',
     'Spotřeba elektřiny, plynu, vody a tepla a <strong>odhad vyúčtování dopředu</strong> – jestli budeš doplácet, nebo dostaneš přeplatek. Zadáváš jen spotřebu (odečet měřidla nebo čísla z vyúčtování); zálohy appka čte z tvých transakcí, nic se nezapisuje dvakrát.') : '';
   const novy = _merPanel && _merPanel.id === 'novy' ? _merPanelObal('➕ Nové měřidlo', _merNastaveniHTML(null)) : '';
+  //  vybrané měřidlo: otevřený panel má přednost, pak zapamatovaná volba, jinak první
+  if (_merPanel && _merPanel.id !== 'novy' && mer.some(m => m.id === _merPanel.id)) _merTab = _merPanel.id;
+  if (!mer.some(m => m.id === _merTab)) _merTab = mer.length ? mer[0].id : null;
+  const vyb = mer.length > 1 ? mer.filter(m => m.id === _merTab) : mer;
   el.innerHTML = intro + `<div style="margin-bottom:12px"><button class="btn btn-primary" onclick="merFormMeridlo()">➕ Přidat měřidlo</button></div>${novy}`
-    + (mer.length ? mer.map(m => merKartaHTML(m, D)).join('') : `<div class="empty"><div class="ei">📟</div><div class="et">Zatím žádné měřidlo</div>
+    + _merTabyHTML(mer, _merTab)
+    + (mer.length ? vyb.map(m => merKartaHTML(m, D)).join('') : `<div class="empty"><div class="ei">📟</div><div class="et">Zatím žádné měřidlo</div>
        <div style="font-size:.78rem;color:#a8aec8;margin-top:6px;line-height:1.5">Přidej elektřinu, plyn nebo vodu a zapiš poslední vyúčtování nebo stav měřidla.</div></div>`);
   Object.entries(zach).forEach(([id, v]) => { const i = document.getElementById(id); if (!i) return; if (i.type === 'checkbox') i.checked = v; else i.value = v; });
 }
@@ -302,6 +361,24 @@ function _merObdobiHTML(m, o, J) {
   </div>`;
 }
 
+//  v12.17 (Milan: „porovnej zaplacené zálohy proti spotřebě a ceně, a pokud uvidíš nedoplatek,
+//  navrhni úpravu záloh pro nadcházející měsíc“): stav k dnešku + návrh zálohy od nejbližší platby.
+//  Návrh se sám nezapíše – tlačítko ho přidá do 📅 rozpisu záloh.
+function _merSrovnaniHTML(m, o, J) {
+  let h = '';
+  if (o.kcDosud != null && o.dnyDosud > 0) {
+    const sd = o.saldoDosud, plus = sd >= 0;
+    h += `<div style="font-size:.72rem;color:#c3c8dc;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);line-height:1.5">
+      <b>Zatím v období</b> (${o.dnyDosud} dní): zaplaceno ${_merKc(o.zalohyDosud)} · spotřeba ≈ ${_merDes(o.spotrebaDosud, 0)} ${J} × ${_merDes(o.cena.cena, 2)} Kč = ${_merKc(o.kcDosud)}
+      → <b style="color:${plus ? 'var(--income)' : '#f87171'}">${plus ? 'zálohy zatím stačí o' : 'zatím chybí'} ${_merKc(Math.abs(sd))}</b></div>`;
+  }
+  const n = o.navrhZalohy;
+  if (n && o.saldoObdobi < 0) h += `<div style="font-size:.74rem;color:#fbbf24;margin-top:6px;line-height:1.5">💡 Bez změny vyjde doplatek ≈ ${_merKc(Math.abs(o.saldoObdobi))}. Návrh: záloha <b>${_merKc(n.kc)}</b> od ${_merDatumCz(n.od)} (zbývá ${n.plateb} ${n.plateb === 1 ? 'platba' : n.plateb < 5 ? 'platby' : 'plateb'}) → období vyjde zhruba nula.</div>
+      <button class="btn btn-sm" style="margin-top:6px" onclick="merRozpisPridej('${_merEsc(m.id)}','${n.od}',${n.kc})">📅 Přidat do rozpisu záloh</button>
+      <div style="font-size:.64rem;color:#8b93ad;margin-top:3px">Změnu zálohy musíš nahlásit i dodavateli – appka jen počítá.</div>`;
+  else if (o.saldoObdobi < 0 && !(o.platby || []).length) h += `<div style="font-size:.72rem;color:#a8aec8;margin-top:6px">Do konce období už žádná záloha není – doplatek přijde s vyúčtováním.</div>`;
+  return h;
+}
 function merKartaHTML(m, D) {
   const dr = MER_DRUHY[m.druh] || MER_DRUHY.jine;
   const jed = _merJed(m), J = _merEsc(jed), id = _merEsc(m.id);
@@ -327,7 +404,7 @@ function merKartaHTML(m, D) {
       <div style="font-size:1.25rem;font-weight:800;color:${plus ? 'var(--income)' : '#f87171'};margin:2px 0">${plus ? 'přeplatek ≈ ' : 'doplatek ≈ '}${_merKc(Math.abs(s))}</div>
       <div style="font-size:.74rem;color:#c3c8dc;line-height:1.5">Spotřeba ≈ ${_merDes(o.spotrebaObdobi, 0)} ${J} × ${_merDes(o.cena.cena, 2)} Kč = ${_merKc(o.kcObdobi)} · zálohy ${_merKc(o.zalohyObdobi)}
         ${o.zalohyPocet ? `<span style="color:#8b93ad">(zaplaceno ${_merKc(o.zalohyDosud)} + zbývající)</span>` : ''}</div>
-      ${!plus && o.doporucenaZaloha ? `<div style="font-size:.72rem;color:#fbbf24;margin-top:4px">💡 Aby období vyšlo nula, záloha by měla být asi ${_merKc(o.doporucenaZaloha)} měsíčně.</div>` : ''}
+      ${_merSrovnaniHTML(m, o, J)}
       ${o.zmerenoDni < o.dnyDosud ? `<div style="font-size:.66rem;color:#8b93ad;margin-top:4px">Od posledního odečtu odhaduji ${o.dnyOdhadLoni ? 'podle loňského průběhu ve stejné dny' : 'podle průměru ' + _merDes(o.prumerDenni, 2) + ' ' + J + '/den'} – přesnější bude nový odečet.</div>` : ''}`;
   }
   const cat = (D.categories || []).find(c => c.id === m.catId);
@@ -356,7 +433,8 @@ function merKartaHTML(m, D) {
       ${dl('Průměr denně', o && o.prumerDenni != null ? _merDes(o.prumerDenni, 2) + ' ' + J : '—', '')}
       ${dl('Za měsíc', o && o.prumerDenni != null ? _merDes(o.prumerDenni * 30.44, 0) + ' ' + J : '—', 'podle průměru')}
       ${dl('Cena za ' + J, o && o.cena ? _merDes(o.cena.cena, 2) + ' Kč' : '—', o && o.cena ? (o.cena.zdroj === 'vyuctovani' ? 'z vyúčtování vč. stálých plateb' : 'zadaný tarif') : '')}
-      ${dl('Měsíční záloha', o && o.mesicniZaloha != null ? _merKc(o.mesicniZaloha) : '—', merZalohaSablonaNajdi(m.id) ? '🔄 automaticky ' + _merEsc(merZalohaSablonaNajdi(m.id).den) + '. v měsíci' : m.zaloha > 0 ? 'zadaná' : 'průměr plateb')}
+      ${dl('Měsíční záloha', o && o.mesicniZaloha != null ? _merKc(o.mesicniZaloha) : '—', (merZalohaSablonaNajdi(m.id) ? '🔄 automaticky ' + _merEsc(merZalohaSablonaNajdi(m.id).den) + '. v měsíci' : m.zaloha > 0 ? 'zadaná' : 'průměr plateb')
+        + (() => { const dalsi = merZalohyRozpis(m).find(x => x.od > _merS(Date.now())); return dalsi ? `<br>📅 od ${_merDatumCz(dalsi.od)} ${_merKc(dalsi.kc)}` : ''; })())}
     </div>
     ${graf ? `<div style="margin-top:10px">${tar ? '<div style="font-size:.66rem;color:#a8aec8;margin-bottom:2px"><span style="color:#fbbf24">■</span> VT <span style="color:#818cf8">■</span> NT · po měsících</div>' : ''}${graf}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -442,6 +520,7 @@ async function merUlozMeridlo(id) {
   if (auto) { m.zalohaDen = Math.min(31, Math.max(1, parseInt(document.getElementById('merZalDen')?.value, 10) || 15)); m.zalohaWallet = document.getElementById('merZalWal')?.value || ''; }
   const ok = await _merUloz(m);
   const sab = merZalohaSablona(m, auto);
+  if (!stary && ok) { _merTab = m.id; try { localStorage.setItem('ffEnergieTab', m.id); } catch (e) {} }   // v12.17: nové měřidlo = vybraná záložka
   _merToast(!ok ? '⚠️ Uložení se nepovedlo' : sab === 'nova' ? '📟 Uloženo · 🔄 záloha se bude zapisovat každý měsíc' : sab === 'zrusena' ? '📟 Uloženo · opakovaná platba zálohy zrušena' : '📟 Uloženo');
   _merPanel = null; renderEnergiePage({ cisty: true });
 }
@@ -478,6 +557,8 @@ function merZalohaSablona(m, zapnout) {
     name: 'Záloha – ' + (m.nazev || (MER_DRUHY[m.druh] || MER_DRUHY.jine).n), amount: m.zaloha, type: 'expense',
     catId: kat.catId, subcat: kat.subcat, freq: 'monthly', den: m.zalohaDen || 15, auto: true,
     wallet: m.zalohaWallet || null, note: '📟 záloha z měřidla', energie: { meridloId: m.id, typ: 'zaloha' },
+    //  v12.17: rozpis záloh – opakovaná platba se v den změny přepne sama (sablonaCastka v premium.js)
+    rozpis: merZalohyRozpis(m).length ? merZalohyRozpis(m).map(x => ({ od: x.od, kc: x.kc })) : null,
   });
   if (!st) S.sablony.push(s);
   if (typeof save === 'function') save();
@@ -501,8 +582,63 @@ function _merZalohaBlokHTML(m) {
       'Automaticky = vznikne opakovaná platba v 🔄 Šablonách a Budoucích platbách; každý měsíc z ní appka zapíše transakci zálohy s vazbou na toto měřidlo. Platbu importovanou z banky pak pozná ⚠️ Podezřelé jako duplicitu.')}
     ${_merPole('Z peněženky', typeof ffPenezenkaSelect === 'function' ? ffPenezenkaSelect('merZalWal', wal).replace('<select ', '<select data-mer ') : '<select class="fi" id="merZalWal" data-mer></select>')}
     ${st ? `<div style="font-size:.68rem;color:var(--income);margin-top:6px">✓ Opakovaná platba běží: ${_merKc(st.amount)} každého ${_merEsc(st.den)}. v měsíci</div>` : ''}
+    ${m ? _merRozpisHTML(m) : ''}
   </div>`;
 }
+//  v12.17 (Milan): ROZPIS ZÁLOH – změna zálohy během období „od data“. Ukládá se hned (ne až 💾 Uložit),
+//  opakovaná platba se přepne v den změny, už zapsaná BUDOUCÍ auto-platba (datum po dnešku) se přepočítá.
+function _merRozpisHTML(m) {
+  const r = merZalohyRozpis(m), id = _merEsc(m.id), dnes = _merS(Date.now());
+  const radek = x => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.78rem;padding:5px 0;border-top:1px solid var(--border)">
+      <span>od <b>${_merDatumCz(x.od)}</b> → <b>${_merKc(x.kc)}</b>${x.od <= dnes ? ' <span style="color:#8b93ad">· platí</span>' : ''}</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:.7rem" title="Smazat změnu" onclick="merRozpisSmaz('${id}','${_merEsc(x.id)}')">✕</button></div>`;
+  return `<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border2)">
+    <div style="font-weight:700;font-size:.78rem;color:var(--text)">📅 Změny zálohy v období${r.length ? ' (' + r.length + ')' : ''}</div>
+    <div style="font-size:.66rem;color:#8b93ad;margin:3px 0 4px;line-height:1.45">Částka nahoře = záloha od začátku období. Když ti dodavatel zálohu změní, zapiš novou částku a datum, od kdy platí. Zaplacené zálohy zůstávají v transakcích.</div>
+    ${r.map(radek).join('')}
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:end;margin-top:6px">
+      ${_merPole('Platí od', `<input class="fi" id="merRzOd" data-mer type="date">`)}
+      ${_merPole('Nová záloha (Kč)', `<input class="fi" id="merRzKc" data-mer inputmode="decimal" placeholder="např. 1500">`)}
+      <button class="btn btn-sm" style="margin-bottom:2px" onclick="merRozpisPridej('${id}')">＋ Přidat</button></div>
+  </div>`;
+}
+//  Po změně rozpisu: šablona + už zapsané budoucí auto-platby zálohy (datum po dnešku) podle nové částky.
+function _merRozpisPropis(m) {
+  if (merZalohaSablonaNajdi(m.id)) merZalohaSablona(m, true);
+  const dnes = _merS(Date.now()); let n = 0;
+  ((typeof S !== 'undefined' && S.transactions) || []).forEach(t => {
+    if (!t || !t.energie || t.energie.meridloId !== m.id || t.energie.typ !== 'zaloha' || !(t.date > dnes) || !/Auto-šablona/.test(t.note || '')) return;
+    const kc = merZalohaKDni(m, t.date);
+    if (kc > 0 && Math.abs((t.amount || 0) - kc) > 0.005) { t.amount = kc; t.amt = kc; n++; }
+  });
+  if (n && typeof save === 'function') save();
+  return n;
+}
+async function merRozpisPridej(id, od, kc) {
+  const m = (_meridla || {})[id]; if (!m) return;
+  od = od || document.getElementById('merRzOd')?.value || '';
+  kc = kc != null ? kc : _merCislo(document.getElementById('merRzKc')?.value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(od) || !(kc > 0)) { _merToast('Vyplň datum a novou částku zálohy'); return; }
+  const r = Object.assign({}, m.zalohyRozpis);
+  Object.keys(r).forEach(k => { if (r[k] && r[k].od === od) delete r[k]; });   // stejný den = přepsat
+  const rid = 'z' + Date.now().toString(36);
+  r[rid] = { id: rid, od, kc: Math.round(kc * 100) / 100 };
+  m.zalohyRozpis = r;
+  const ok = await _merUloz(m);
+  const n = _merRozpisPropis(m);
+  _merToast(ok ? `📅 Od ${_merDatumCz(od)} záloha ${_merKc(kc)}${n ? ` · upravena i ${n} už zapsaná budoucí platba` : ''}` : '⚠️ Uložení se nepovedlo');
+  renderEnergiePage({ cisty: true });
+}
+async function merRozpisSmaz(id, rid) {
+  const m = (_meridla || {})[id]; if (!m || !m.zalohyRozpis) return;
+  const r = Object.assign({}, m.zalohyRozpis); delete r[rid];
+  if (Object.keys(r).length) m.zalohyRozpis = r; else delete m.zalohyRozpis;
+  const ok = await _merUloz(m);
+  _merRozpisPropis(m);
+  _merToast(ok ? 'Změna zálohy smazána' : '⚠️ Uložení se nepovedlo');
+  renderEnergiePage({ cisty: true });
+}
+window.merRozpisPridej = merRozpisPridej; window.merRozpisSmaz = merRozpisSmaz;
 
 //  Přepnutí jeden tarif ↔ VT + NT přímo v odečtu (v11.84: dřív schované v ⚙️).
 async function merDvoutarif(id, zapnout) {

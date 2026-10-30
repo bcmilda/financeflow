@@ -1,4 +1,4 @@
-// FinanceFlow · v12.14 · premium.js · 2026-10-26
+// FinanceFlow · v12.17 · premium.js · 2026-10-28
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1055,7 +1055,7 @@ function renderSablonaList() {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.88rem">${s.name}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-          <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(s.amount)}</span>
+          <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(typeof sablonaCastka==='function'?sablonaCastka(s,new Date().toISOString().slice(0,10)):s.amount)}</span>
           <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}${s.freq==='once'&&s.done?' · ✅ provedeno':''}</span>
           ${cat?`<span style="font-size:.74rem;color:var(--text3)">${cat.icon} ${cat.name}</span>`:''}
           ${s.auto?'<span style="font-size:.7rem;background:var(--income-bg);color:var(--income);padding:1px 6px;border-radius:5px">auto</span>':''}
@@ -1176,6 +1176,15 @@ function deleteSablona(id) {
   S.sablony=(S.sablony||[]).filter(s=>s.id!==id);
   save(); renderSablonaList();
 }
+//  S28 (v12.17, Milan: „postav rozpis záloh na aktuální období“): částka šablony KE DNI.
+//  Šablona zálohy z měřidla nese rozpis změn s.rozpis = [{od:'YYYY-MM-DD', kc}] – platba v den d
+//  má částku poslední změny s od ≤ d, jinak základní s.amount. Ostatní šablony rozpis nemají.
+function sablonaCastka(s, d) {
+  if (!s) return 0;
+  const r = Array.isArray(s.rozpis) ? s.rozpis.filter(x => x && x.od && x.kc > 0 && x.od <= d).sort((a, b) => a.od.localeCompare(b.od)) : [];
+  return r.length ? r[r.length - 1].kc : s.amount;
+}
+window.sablonaCastka = sablonaCastka;
 function useSablonaId(id) {
   const s=(S.sablony||[]).find(x=>x.id===id); if(!s) return;
   const _dateStr=new Date().toISOString().slice(0,10);
@@ -1185,7 +1194,7 @@ function useSablonaId(id) {
     //  FIX-494: různé měny → připsáno kurzem ČNB dne zápisu (skutečnou částku opraví úprava příjmu)
     S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:_dateStr,name:s.name||'Převod (šablona)',note:s.note||'Z šablony: '+s.name}));
   } else {
-    const _t={id:uid(),name:s.name,amount:s.amount,type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
+    const _t={id:uid(),name:s.name,amount:(typeof sablonaCastka==='function'?sablonaCastka(s,_dateStr):s.amount),type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
     if(s.debtId){ _sablonaSplatka(_t, s); if(typeof debtAplikujCekajiciSplatky==='function') debtAplikujCekajiciSplatky(); }   // v12.02: splátka dnes
     if(s.subcat) _t.subcat=s.subcat; if(s.energie) _t.energie=Object.assign({},s.energie);   // S27 (v11.86)
     S.transactions.push(_t);
@@ -1242,7 +1251,8 @@ function processAutoSablony() {
       const iso_today=iso(today);
       if(s.onceDate > iso_today) return;                       // ještě nenastalo
       if(S.transactions.some(t=>t.date===s.onceDate && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.done=true; return; }
-      const tx1={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+      const _k1=typeof sablonaCastka==='function'?sablonaCastka(s,s.onceDate):s.amount;   // v12.17: rozpis záloh
+      const tx1={id:uid(),name:s.name,amount:_k1,amt:_k1,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) _sablonaSplatka(tx1, s);   // v12.02
       if(s.subcat) tx1.subcat=s.subcat;
       if(s.energie) tx1.energie=Object.assign({},s.energie);
@@ -1267,7 +1277,8 @@ function processAutoSablony() {
     if(s.type==='transfer'){
       S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:dateStr,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
     } else {
-      const tx={id:uid(),name:s.name,amount:s.amount,amt:s.amount,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+      const _k=typeof sablonaCastka==='function'?sablonaCastka(s,dateStr):s.amount;   // v12.17: rozpis záloh – částka platná v den platby
+      const tx={id:uid(),name:s.name,amount:_k,amt:_k,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) _sablonaSplatka(tx, s);   // v12.02
       //  S27 (v11.86): záloha z měřidla – podkategorie a vazba na měřidlo (📟 Energie a voda ji čte)
       if(s.subcat) tx.subcat=s.subcat;
