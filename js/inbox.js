@@ -1,4 +1,4 @@
-// FinanceFlow · v12.06 · inbox.js · 2026-10-23
+// FinanceFlow · v12.15 · inbox.js · 2026-10-27
 // ══════════════════════════════════════════════════════
 //  S27 (Milan): 📲 FINANCEFLOW INBOX – NOTIFIKACE Z BANKY Z TELEFONU
 //  cesta: Import z banky (BETA) → 📲 Telefon
@@ -85,6 +85,9 @@ function inboxObchodnik(m) {
   let t = String(m || '').trim();
   const prevod = t.match(/^z\s+účtu\s+[\d\s-]+\/\d{4}\s+na\s+účet\s+([\d\s-]+\/\d{4})/i);
   if (prevod) return 'Převod na účet ' + prevod[1].replace(/\s+/g, '');
+  //  S28 (v12.15, FIX-496): příchozí „na účet <můj> z účtu <odesílatel>“ → „Platba z účtu …“, bez odesílatele „Příchozí platba“
+  const prich = t.match(/^na\s+účet\s+[\d\s-]+\/\d{4}\.?\s*(?:z\s+účtu\s+([\d\s-]+\/\d{4}))?\s*(?:od\s+(.+?))?[\s.]*$/i);
+  if (prich) return prich[2] ? prich[2].trim() : prich[1] ? 'Platba z účtu ' + prich[1].replace(/\s+/g, '') : 'Příchozí platba';
   t = t.replace(/^u\s+obchodníka\s+/i, '').replace(/,?\s*💳?\s*(VISA|Mastercard|Maestro|Debit|Kreditní|karta)\b[\s\S]*$/i, '').replace(/[\s.,;]+$/, '').trim();
   return t || String(m || '').trim();
 }
@@ -116,11 +119,15 @@ function inboxDuplikaty(list) {
 let _inboxDupy = {};
 //  v12.06 (Milan: „můžeme nastavit číslo karty = typ peněženky?“): karta (poslední 4 číslice) nebo
 //  vlastní účet z notifikace → peněženka. Zapamatuje se při Přidat, příště se předvyplní.
-function inboxIdent(x) {
+//  S28 (v12.15): vlastní účet podle SMĚRU – příjem přišel „na účet“ (můj), výdaj odešel „z účtu“ (můj).
+//  Dřív se bralo vždy nejdřív „z účtu“, takže u příjmu se jako můj účet zapamatoval účet odesílatele.
+function inboxIdent(x, p) {
   const t = inboxText(x);
   const k = t.match(/\*{2,}[\s*]*(\d{4})\b/);   // „4779 75** **** 2267“ → 2267
   if (k) return 'karta:' + k[1];
-  const u = t.match(/z\s+účtu\s+([\d-]+\/\d{4})/i) || t.match(/na\s+účet\s+([\d-]+\/\d{4})/i);
+  const prijem = (p || inboxRozpoznej(x) || {}).type === 'income';
+  const zUctu = t.match(/z\s+účtu\s+([\d-]+\/\d{4})/i), naUcet = t.match(/na\s+účet\s+([\d-]+\/\d{4})/i);
+  const u = prijem ? (naUcet || zUctu) : (zUctu || naUcet);
   return u ? 'ucet:' + u[1] : '';
 }
 //  protistrana převodu (z účtu A na účet B → B; příchozí z účtu A → A)
@@ -130,6 +137,52 @@ function inboxProtiucet(x, p) {
   return m ? 'ucet:' + m[1] : '';
 }
 function _inboxPenezenky() { return (typeof S !== 'undefined' && S.uiCfg && S.uiCfg.inboxPenezenky) || {}; }
+//  S28 (v12.15, Milan: „podle čísla účtu pak vím: tady jsem převáděl mezi účty, nebo zaplatil plyn“):
+//  protiúčet (komu platím / kdo mi posílá) → kategorie a název. Převod na vlastní účet se pamatuje
+//  jako vlastní účet peněženky (inboxPenezenky) → příště ↔️ přesun.
+function _inboxProtiucty() { return (typeof S !== 'undefined' && S.uiCfg && S.uiCfg.inboxProtiucty) || {}; }
+//  Typ platby (Milan): platba kartou = 💳 Platební karta, z účtu na účet = 🏦 Bankovní převod,
+//  výběr z bankomatu = přesun do Hotovosti (typ platby žádný). Jde změnit na kartě.
+function inboxTypPlatby(x, p) {
+  p = p || inboxRozpoznej(x); if (!p || p.vyber) return '';
+  const t = inboxText(x);
+  if (/kartou|\*{2,}[\s*]*\d{4}|💳/i.test(t)) return 'card';
+  if (/z\s+účtu\s+[\d-]+\/\d{4}|na\s+účet\s+[\d-]+\/\d{4}|převod/i.test(t)) return 'transfer';
+  return '';
+}
+//  Návrh vyplnění karty v Doručených: peněženka (karta / vlastní účet), kategorie nebo ↔️ přesun, název, typ platby.
+//  duvod = co si appka pamatuje (ukáže se na kartě, ať je vidět, proč je co předvyplněné).
+function inboxNavrh(x, p) {
+  p = p || inboxRozpoznej(x); if (!p) return null;
+  const pam = _inboxPenezenky(), pro = _inboxProtiucty();
+  const ident = inboxIdent(x, p), wallet = (ident && pam[ident]) || '';
+  const proti = inboxProtiucet(x, p);
+  const out = { wallet, catId: p.catId || '', nazev: '', pay: inboxTypPlatby(x, p), ident, proti, duvod: [] };
+  if (wallet) out.duvod.push({ druh: 'penezenka', klic: ident, kam: wallet });
+  if (proti && pam[proti] && pam[proti] !== wallet) { out.catId = 'presun:' + pam[proti]; out.duvod.push({ druh: 'vlastni', klic: proti, kam: pam[proti] }); }
+  else if (proti && pro[proti]) { out.catId = pro[proti].catId || out.catId; out.nazev = pro[proti].nazev || ''; out.duvod.push({ druh: 'protiucet', klic: proti, kam: pro[proti] }); }
+  if (p.vyber) {   // výběr z bankomatu → přesun do první peněženky typu Hotovost
+    const hot = ((typeof getWallets === 'function' ? getWallets() : (getData().wallets || [])) || []).find(w => w && !w.archived && w.type === 'cash' && w.id !== wallet);
+    if (hot) { out.catId = 'presun:' + hot.id; out.duvod.push({ druh: 'vyber', kam: hot.id }); }
+  }
+  return out;
+}
+//  Přehled zapamatovaných (SKILL 95 – skrytý stav musí být vidět) a ✕ zapomenout.
+function inboxZapamatovane() {
+  const out = [];
+  Object.entries(_inboxPenezenky()).forEach(([k, w]) => out.push({ druh: 'penezenka', klic: k, wallet: w }));
+  Object.entries(_inboxProtiucty()).forEach(([k, v]) => out.push({ druh: 'protiucet', klic: k, catId: v && v.catId, nazev: v && v.nazev }));
+  return out;
+}
+function inboxZapomen(druh, klic) {
+  if (typeof viewingUid !== 'undefined' && viewingUid) return;
+  S.uiCfg = S.uiCfg || {};
+  const pole = druh === 'protiucet' ? 'inboxProtiucty' : 'inboxPenezenky';
+  const m = Object.assign({}, S.uiCfg[pole]); delete m[klic]; S.uiCfg[pole] = m;
+  if (typeof save === 'function') save();
+  if (typeof inboxRender === 'function' && typeof document !== 'undefined' && document.getElementById('inboxBox')) inboxRender();
+}
+const _inboxKlicText = k => String(k || '').replace('karta:', 'karta ****').replace('ucet:', 'účet ');
 //  Naskenovaná účtenka ke stejné platbě: transakce z účtenky, výdaj, částka ± 1 Kč, datum ± 2 dny.
 function inboxUctenkaK(p, D) {
   if (!p || p.type !== 'expense' || typeof dupUctenkaPro !== 'function') return null;
@@ -174,6 +227,8 @@ async function inboxPrijmout(id) {
   const catId = document.getElementById('ib_cat_' + id)?.value || p.catId || '';
   const name = (document.getElementById('ib_name_' + id)?.value || '').trim() || p.merchant || 'Platba';
   const wallet = document.getElementById('ib_wal_' + id)?.value || '';
+  const _payEl = document.getElementById('ib_pay_' + id);   // S28 (v12.15): typ platby
+  const payType = _payEl ? (_payEl.value || '') : inboxTypPlatby(x, p);
   let amt = p.amount;
   if (p.currency === 'EUR') amt = Math.round(amt * 25); else if (p.currency === 'USD') amt = Math.round(amt * 23); else if (p.currency === 'GBP') amt = Math.round(amt * 29);
   const novyId = () => (typeof genTxId === 'function') ? genTxId() : (typeof uid === 'function' ? uid() : String(Date.now() * 16 + Math.floor(Math.random() * 16)));
@@ -192,15 +247,31 @@ async function inboxPrijmout(id) {
     const out = { id: novyId(), name, amount: amt, amt, type: 'expense', date: p.date, wallet: z, note, transferId, category: 'transfer', catId: 'transfer', zNotifikace: zN };
     const inn = { id: novyId(), name, amount: amt, amt, type: 'income', date: p.date, wallet: na, note, transferId, category: 'transfer', catId: 'transfer' };
     if (inn.id === out.id) inn.id = out.id + '1';
+    if (payType) { out.payType = payType; inn.payType = payType; }
     S.transactions.push(out, inn); txId = out.id;
   } else {
     const tx = { id: novyId(), type: p.type, name, amount: amt, amt, catId, category: catId, date: p.date, note, zNotifikace: zN };
     if (wallet) tx.wallet = wallet;
+    if (payType) tx.payType = payType;
     S.transactions.push(tx); txId = tx.id;
   }
-  //  zapamatovat kartu / účet → peněženka
-  const ident = inboxIdent(x);
-  if (ident && wallet) { S.uiCfg = S.uiCfg || {}; S.uiCfg.inboxPenezenky = Object.assign({}, S.uiCfg.inboxPenezenky, { [ident]: wallet }); }
+  //  zapamatovat kartu / vlastní účet → peněženka
+  const ident = inboxIdent(x, p);
+  S.uiCfg = S.uiCfg || {};
+  if (ident && wallet) S.uiCfg.inboxPenezenky = Object.assign({}, S.uiCfg.inboxPenezenky, { [ident]: wallet });
+  //  S28 (v12.15): protiúčet → převod na vlastní účet (= vlastní účet té peněženky), nebo kategorie + název.
+  //  Výběr z bankomatu se nepamatuje (nemá protiúčet). Název jen když ho uživatel přepsal.
+  const proti = !p.vyber && inboxProtiucet(x, p);
+  if (proti && proti !== ident) {
+    if (catId.startsWith('presun:')) {
+      S.uiCfg.inboxPenezenky = Object.assign({}, S.uiCfg.inboxPenezenky, { [proti]: catId.slice(7) });
+      const m = Object.assign({}, S.uiCfg.inboxProtiucty); delete m[proti]; S.uiCfg.inboxProtiucty = m;
+    } else if (catId) {
+      const v = { catId };
+      if (name && name !== p.merchant) v.nazev = name.slice(0, 80);
+      S.uiCfg.inboxProtiucty = Object.assign({}, S.uiCfg.inboxProtiucty, { [proti]: v });
+    }
+  }
   if (typeof save === 'function') save();
   await _inboxStav(id, { stav: 'prijato', txId });
   await _inboxDupyVyrid(id);
@@ -274,7 +345,18 @@ function inboxRender() {
   const prevzeti = inboxPrevzetiUctenkou(D);
   const _wal = (typeof getWallets === 'function' ? getWallets() : (D.wallets || [])).filter(w => !w.archived);
   const walOpt = (vyb) => _wal.map(w => `<option value="${esc(w.id)}"${w.id === vyb ? ' selected' : ''}>${esc((w.icon || '👛') + ' ' + w.name)}</option>`).join('');
-  const _pam = _inboxPenezenky();
+  //  S28 (v12.15): názvy pro vysvětlení „zapamatováno“ a typy plateb
+  const _walN = wid => { const w = (D.wallets || []).find(v => v && v.id === wid); return w ? w.name : 'smazaná peněženka'; };
+  const _catN = cid => { const c = (D.categories || []).find(v => v && v.id === cid); return c ? ((c.icon ? c.icon + ' ' : '') + c.name) : 'smazaná kategorie'; };
+  const _pays = typeof getPayTypes === 'function' ? getPayTypes(D) : [];
+  const _duvodHTML = d => {
+    const r = s => `<div style="font-size:.7rem;color:#a8aec8;margin:2px 0">${s}</div>`;
+    if (d.druh === 'penezenka') return r(`${d.klic.startsWith('karta:') ? '💳' : '🏦'} ${esc(_inboxKlicText(d.klic))} → peněženka <b>${esc(_walN(d.kam))}</b> (zapamatováno)`);
+    if (d.druh === 'vlastni') return r(`↔️ ${esc(_inboxKlicText(d.klic))} je tvůj účet (<b>${esc(_walN(d.kam))}</b>) → přesun (zapamatováno)`);
+    if (d.druh === 'protiucet') return r(`🏦 ${esc(_inboxKlicText(d.klic))} → <b>${esc(_catN(d.kam.catId))}${d.kam.nazev ? ' · ' + esc(d.kam.nazev) : ''}</b> (zapamatováno)`);
+    if (d.druh === 'vyber') return r(`🏧 Výběr z bankomatu → ↔️ přesun do <b>${esc(_walN(d.kam))}</b>`);
+    return '';
+  };
   const karta = ([id, x]) => {
     const p = inboxRozpoznej(x);
     const kdy = new Date(x.postedAt || 0).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -286,9 +368,10 @@ function inboxRender() {
     const cats = (D.categories || []).filter(c => c.type === p.type || c.type === 'both');
     //  v12.06: investice / spoření (kategorie typu přesun) a přesun do jiné vlastní peněženky
     const invest = (D.categories || []).filter(c => c.type === 'transfer' && c.name !== 'Virtuální přesun');
-    const ident = inboxIdent(x), walVyb = (ident && _pam[ident]) || '';
-    const proti = inboxProtiucet(x, p), protiWal = (proti && _pam[proti]) || '';
-    const presunVyb = protiWal && protiWal !== walVyb ? 'presun:' + protiWal : '';
+    //  S28 (v12.15): návrh z paměti – karta / vlastní účet → peněženka, protiúčet → kategorie + název nebo přesun
+    const nav = inboxNavrh(x, p) || { duvod: [] };
+    const walVyb = nav.wallet || '', catVyb = nav.catId || '';
+    const presunVyb = catVyb.startsWith('presun:') ? catVyb : '';
     const nDup = (_inboxDupy[id] || []).length;
     return `<div class="card" style="margin-bottom:8px;border-left:3px solid ${p.type === 'income' ? 'var(--income)' : 'var(--expense)'}">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.72rem;color:#a8aec8"><span>${esc(p.bankIcon || '🏦')} ${esc(p.bank)} · ${esc(x.app || '')}</span><span>${esc(kdy)}</span></div>
@@ -297,14 +380,15 @@ function inboxRender() {
         <span style="font-weight:800;color:${p.type === 'income' ? 'var(--income)' : 'var(--expense)'}">${p.type === 'income' ? '+' : '−'}${esc(String(p.amount))} ${esc(p.currency === 'CZK' ? 'Kč' : p.currency)}</span></div>
       ${u ? `<div style="font-size:.76rem;color:#93c5fd;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.3);border-radius:8px;padding:6px 8px;margin:6px 0">🧾 K téhle platbě máš naskenovanou účtenku <b>${esc(u.name || '')}</b> ${esc(kc(u.amount || u.amt))} (${esc(u.date)}) – je podrobnější, spoj je a nová transakce nevznikne.</div>` : ''}
       ${nDup ? `<div style="font-size:.7rem;color:#8b93ad;margin:2px 0">📎 Banka poslala tutéž platbu ${nDup + 1}× – ukazuji jednou (ostatní se označí jako duplikát).</div>` : ''}
-      ${walVyb ? `<div style="font-size:.7rem;color:#8b93ad;margin:2px 0">💳 ${esc(ident.replace('karta:', 'karta ****').replace('ucet:', 'účet '))} → peněženka předvyplněná (zapamatováno)</div>` : ''}
+      ${nav.duvod.map(_duvodHTML).join('')}
       ${m ? `<div style="font-size:.74rem;color:#fbbf24;margin:6px 0">⚠️ Možná už zapsáno: ${esc(m.name || '')} ${esc(kc(m.amount || m.amt))} (${esc(m.date)})</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
-        <select class="fi" id="ib_cat_${esc(id)}" style="font-size:.78rem"><option value="">📂 Kategorie…</option>${cats.map(c => `<option value="${esc(c.id)}"${!presunVyb && c.id === p.catId ? ' selected' : ''}>${esc((c.icon || '') + ' ' + c.name)}</option>`).join('')}
-          ${invest.length ? `<optgroup label="📈 Investice a spoření">${invest.map(c => `<option value="${esc(c.id)}">${esc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</optgroup>` : ''}
+        <select class="fi" id="ib_cat_${esc(id)}" style="font-size:.78rem"><option value="">📂 Kategorie…</option>${cats.map(c => `<option value="${esc(c.id)}"${c.id === catVyb ? ' selected' : ''}>${esc((c.icon || '') + ' ' + c.name)}</option>`).join('')}
+          ${invest.length ? `<optgroup label="📈 Investice a spoření">${invest.map(c => `<option value="${esc(c.id)}"${c.id === catVyb ? ' selected' : ''}>${esc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</optgroup>` : ''}
           ${_wal.length > 1 ? `<optgroup label="${p.type === 'income' ? '↔️ Přesun z vlastní peněženky' : '↔️ Přesun do vlastní peněženky'}">${_wal.map(w => `<option value="presun:${esc(w.id)}"${'presun:' + w.id === presunVyb ? ' selected' : ''}>↔️ ${esc(w.name)}</option>`).join('')}</optgroup>` : ''}</select>
         <select class="fi" id="ib_wal_${esc(id)}" style="font-size:.78rem"><option value="">👛 Peněženka…</option>${walOpt(walVyb)}</select>
-        <input class="fi" id="ib_name_${esc(id)}" value="${esc(p.merchant)}" style="font-size:.78rem;grid-column:1 / -1" placeholder="Název">
+        <input class="fi" id="ib_name_${esc(id)}" value="${esc(nav.nazev || p.merchant)}" style="font-size:.78rem" placeholder="Název">
+        <select class="fi" id="ib_pay_${esc(id)}" style="font-size:.78rem" title="Typ platby"><option value="">💳 Typ platby…</option>${_pays.map(t => `<option value="${esc(t.id)}"${t.id === nav.pay ? ' selected' : ''}>${esc((t.icon ? t.icon + ' ' : '') + t.name)}</option>`).join('')}</select>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
         ${u ? `<button class="btn btn-sm btn-primary" onclick="inboxSpojitSUctenkou('${esc(id)}','${esc(u.id)}')">🧾 Spojit s účtenkou</button><button class="btn btn-sm" onclick="inboxPrijmout('${esc(id)}')">➕ Přesto nová transakce</button>`
@@ -330,6 +414,13 @@ function inboxRender() {
         <span>📲 ${esc(n.name || '')} ${esc(kc(n.amount || n.amt))} (${esc(n.date)}) ↔ 🧾 ${esc(u.name || '')} ${esc(kc(u.amount || u.amt))}</span>
         <button class="btn btn-sm btn-primary" onclick="inboxPrevzit('${esc(n.id)}')">Převzít účtenkou</button></div>`).join('')}
       <div style="font-size:.68rem;color:#8b93ad;margin-top:4px">Transakce z notifikace se smaže, peněženka se přenese na transakci účtenky (účtenka má položky a kategorie).</div></div>` : ''}
+    ${(() => { const z = inboxZapamatovane(); if (!z.length) return '';
+      const radek = r => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.76rem;padding:5px 0;border-top:1px solid var(--border)">
+          <span style="min-width:0">${r.druh === 'penezenka' ? (r.klic.startsWith('karta:') ? '💳' : '🏦') : '🧾'} ${esc(_inboxKlicText(r.klic))} → <b>${r.druh === 'penezenka' ? esc(_walN(r.wallet)) : esc(_catN(r.catId)) + (r.nazev ? ' · ' + esc(r.nazev) : '')}</b></span>
+          <button class="btn btn-ghost btn-sm" style="font-size:.7rem;flex-shrink:0" title="Zapomenout" onclick="inboxZapomen('${r.druh}','${esc(r.klic)}')">✕</button></div>`;
+      return `<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:700;font-size:.84rem;color:var(--text)">🧠 Zapamatované karty a účty (${z.length})</summary>
+        <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 2px;line-height:1.5">Appka si to pamatuje při ✅ Přidat: karta nebo tvůj účet → peněženka, účet příjemce / odesílatele → kategorie a název, převod na tvůj účet → přesun. ✕ zapomene.</div>
+        ${z.map(radek).join('')}</details>`; })()}
     <div style="font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:4px 0 8px">📥 Doručené (${cekaji.length})</div>
     ${cekaji.length ? cekaji.map(karta).join('') : `<div style="font-size:.78rem;color:#8b93ad;margin-bottom:12px">${zar.length ? 'Zatím nic nového z telefonu.' : 'Propoj telefon – v appce FinanceFlow Inbox klepni na „Propojit s FinanceFlow“ a kód opiš sem.'}</div>`}`;
 }
@@ -339,5 +430,5 @@ function inboxRucne(id) {
   const t = document.getElementById('smsInput'); if (t) { t.value = inboxText(x); t.scrollIntoView && t.scrollIntoView({ block: 'center' }); }
   inboxZahodit(id);
 }
-Object.assign(window, { inboxDuplikaty, inboxIdent, inboxBankaZAppky, inboxObchodnik, inboxProtiucet, inboxNacti, inboxRender, inboxParuj, inboxOdpoj, inboxOdpojVse, inboxPrijmout, inboxSpojitSUctenkou, inboxZahodit, inboxPrevzit, inboxRucne,
+Object.assign(window, { inboxTypPlatby, inboxNavrh, inboxZapamatovane, inboxZapomen, inboxDuplikaty, inboxIdent, inboxBankaZAppky, inboxObchodnik, inboxProtiucet, inboxNacti, inboxRender, inboxParuj, inboxOdpoj, inboxOdpojVse, inboxPrijmout, inboxSpojitSUctenkou, inboxZahodit, inboxPrevzit, inboxRucne,
   inboxRozpoznej, inboxUctenkaK, inboxMoznaZapsano, inboxPrevzetiUctenkou, inboxText });

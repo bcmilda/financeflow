@@ -1,4 +1,4 @@
-// FinanceFlow · v12.14 · admin.js · 2026-10-26
+// FinanceFlow · v12.15 · admin.js · 2026-10-27
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.15',
+    datum: '2026-10-27',
+    zmeny: [
+      "🐛 FIX-496 · PŘÍCHOZÍ PLATBA Z OZNÁMENÍ BYLA VÝDAJ (Milan: „chybí mi možnost volby kategorie příjmu“, screenshot KB+) · cesta: Import z banky → 📲 Doručené: „💰 Příchozí platba 200,00 Kč na účet …“ se četla jako výdaj (pravidlo „Platba X Kč“ chytilo slovo platba uvnitř „Příchozí platba“), proto se nabízely jen výdajové kategorie. Teď příjem s příjmovými kategoriemi a názvem „Platba z účtu …“. Opraveno i pro texty George a KB Alert vložené ručně.",
+      "🏦 ZAPAMATOVANÉ ÚČTY (Milan: „podle čísla účtu vím: tady jsem převáděl mezi účty, nebo zaplatil plyn“) · cesta: Import z banky → 📲 Doručené: po ✅ Přidat si appka zapamatuje i účet příjemce / odesílatele – s kategorií a názvem (účet 35-…/0100 → Bydlení · Plyn innogy), nebo jako tvůj účet, když jsi zvolil ↔️ přesun (příště se rovnou nabídne přesun na Spořák). Vlastní účet se u příjmu bere z „na účet“, u výdaje z „z účtu“ (dřív se u příjmu zapamatoval účet odesílatele). Na kartě je vidět, co je předvyplněné z paměti.",
+      "🧠 ZAPAMATOVANÉ KARTY A ÚČTY · cesta: Import z banky → 📲 Doručené → 🧠 Zapamatované karty a účty: přehled všeho, co si appka pamatuje (karta → peněženka, účet → peněženka, účet → kategorie), u každého ✕ zapomenout.",
+      "💳 TYP PLATBY (Milan: „opravdu se jedná o platbu kartou… bankovní převod je převod z účtu na účet, výběr hotovosti je přesun do peněženky Hotovost“) · cesta: Import z banky → 📲 Doručené: nové pole Typ platby předvyplněné – platba kartou 💳 Platební karta, z účtu na účet 🏦 Bankovní převod; jde změnit. Výběr z bankomatu se nabídne jako ↔️ přesun do peněženky Hotovost (přesný text výběru z KB+ zatím neznáme – rozpozná „Výběr … X Kč“).",
+      "🧪 tools/smoke_inbox_kb.js – 27 testů na textech ze skutečného oznámení KB+ (na v12.14 jich 16 selže).",
+    ],
+  },
   {
     verze: 'v12.14',
     datum: '2026-10-26',

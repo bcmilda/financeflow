@@ -1,4 +1,4 @@
-// FinanceFlow · v11.89 · sms-import.js · 2026-10-17
+// FinanceFlow · v12.15 · sms-import.js · 2026-10-27
 // ══════════════════════════════════════════════════════
 //  SMS / NOTIFIKACE IMPORT – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -8,6 +8,41 @@
 
 // ── Regex pravidla pro každou banku ──
 const BANK_PARSERS = [
+
+  // ── PŘEVOD Z ÚČTU NA ÚČET (KB+ a další) · S28 (v12.15, FIX-496) ─────────
+  // Skutečné oznámení KB+ (Milan, screenshot 27. 10.):
+  //   „💰 Příchozí platba“  200,00 Kč na účet 43-1062300257/0100 …
+  //   „💸 Odchozí platba“   1 200,00 Kč z účtu 43-1062300257/0100 na účet …
+  // Dřív pravidlo George „Platba X Kč“ chytilo slovo „platba“ uvnitř „Příchozí platba“ a stálo
+  // před pravidlem příjmu → každý příjem z KB+ byl VÝDAJ (Doručené nabízely jen výdajové kategorie).
+  // Pravidlo bere jen texty s účtem za částkou, ostatní formáty (George, KB Alert) zůstávají svým bankám.
+  {
+    bank: 'KB',
+    icon: '🟡',
+    patterns: [
+      {
+        re: /(Příchozí|Odchozí)\s+platba\s*:?\s*(?:Platba\s+)?([\d\s,.]+?)\s*(Kč|CZK|EUR|USD)(?![A-Za-z])\s*((?:na\s+účet|z\s+účtu)\s.*)$/i,
+        parse: m => ({
+          type: /^p/i.test(m[1]) ? 'income' : 'expense',
+          amount: parseCzNum(m[2]),
+          currency: normCurrency(m[3]),
+          merchant: m[4].replace(/\s*(?:\||Zůstatek)[\s\S]*$/i, '').trim(),
+        })
+      },
+      // Výběr z bankomatu (Milan: „výběr hotovosti je přesun do peněženky Hotovost“) – Doručené
+      // ho nabídnou jako ↔️ přesun. Přesný text KB+ zatím neznáme, proto obecně: „Výběr … X Kč“.
+      {
+        re: /Výběr(?:\s+z\s+bankomatu|\s+hotovosti|\s+z\s+ATM)?\s*:?\s*([\d\s,.]+?)\s*(Kč|CZK|EUR|USD)(?![A-Za-z])/i,
+        parse: m => ({
+          type: 'expense',
+          amount: parseCzNum(m[1]),
+          currency: normCurrency(m[2]),
+          merchant: 'Výběr z bankomatu',
+          vyber: true,
+        })
+      },
+    ]
+  },
 
   // ── REVOLUT ──────────────────────────────────────────
   // "You spent €12.50 at McDonald's"
@@ -66,7 +101,7 @@ const BANK_PARSERS = [
         })
       },
       {
-        re: /(?:George[:\s]*)?(?:Platba|Odešla platba)\s+([\d\s,.]+)\s*Kč(?:\s+(.+?))?(?:\s*\||\s*Zůstatek|$)/i,
+        re: /(?:George[:\s]*)?(?<!(?:Příchozí|Odchozí)\s)(?:Platba|Odešla platba)\s+([\d\s,.]+)\s*Kč(?:\s+(.+?))?(?:\s*\||\s*Zůstatek|$)/i,   // FIX-496: ne uvnitř „Příchozí platba“
         parse: m => ({
           type: 'expense',
           amount: parseCzNum(m[1]),
@@ -407,6 +442,7 @@ function parseBankNotification(text) {
           catIcon:  cat?.icon || '📋',
           date:     new Date().toISOString().slice(0, 10),
           uncertain: result.uncertain || false,
+          vyber:    result.vyber || false,   // S28 (v12.15): výběr z bankomatu → Doručené nabídnou přesun
           raw:      text.trim().slice(0, 200),
         };
       }
