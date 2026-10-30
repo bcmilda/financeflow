@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · premium.js · 2026-10-28
+// FinanceFlow · v12.19 · premium.js · 2026-10-28
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1020,12 +1020,38 @@ function setSablonaType(t) {
 }
 
 //  S23: u jednorázové platby se místo „den v měsíci" ptáme na celé datum.
+//  S28 (v12.19, Milan: „u čtvrtletní, roční atd. je jen den v měsíci, což stačí u měsíčního, ale ne pro
+//  delší horizont – bude třeba zapsat první den platby (splatnost)“). s.prvni = 'YYYY-MM-DD', další
+//  výskyty se počítají od něj. Bez něj (staré šablony) se počítá jako dřív od dneška + upozornění v seznamu.
+const SABLONA_KOTVA = ['weekly', 'biweekly', 'quarterly', 'yearly'];
+//  Výskyty od první splatnosti: ISO data d, kde odIso < d ≤ doIso. Den 29.–31. v kratším měsíci = poslední den.
+function ffKotvaVyskyty(freq, prvni, odIso, doIso) {
+  const m0 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(prvni || '')); if (!m0 || !SABLONA_KOTVA.includes(freq)) return [];
+  const y0 = +m0[1], mo0 = +m0[2] - 1, d0 = +m0[3], out = [];
+  const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const tyden = freq === 'weekly' || freq === 'biweekly', krok = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : freq === 'quarterly' ? 3 : 12;
+  const t0 = Date.UTC(y0, mo0, d0), od = Date.parse(odIso + 'T00:00:00Z');
+  let k = 0;
+  if (od > t0) k = Math.max(0, tyden ? Math.floor((od - t0) / (krok * 864e5)) - 1 : Math.floor(((+odIso.slice(0, 4) - y0) * 12 + (+odIso.slice(5, 7) - 1 - mo0)) / krok) - 1);
+  for (let n = 0; n < 600; n++, k++) {
+    let d;
+    if (tyden) d = new Date(t0 + k * krok * 864e5).toISOString().slice(0, 10);
+    else { const mm = mo0 + k * krok, y = y0 + Math.floor(mm / 12), m = ((mm % 12) + 12) % 12; d = iso(y, m, Math.min(d0, new Date(Date.UTC(y, m + 1, 0)).getUTCDate())); }
+    if (d > doIso) break;
+    if (d > odIso) out.push(d);
+  }
+  return out;
+}
+window.ffKotvaVyskyty = ffKotvaVyskyty; window.SABLONA_KOTVA = SABLONA_KOTVA;
 function sablonaFreqChange(){
   const f=document.getElementById('sablonaFreq')?.value;
   const den=document.getElementById('sablonaDenWrap');
   const once=document.getElementById('sablonaOnceWrap');
-  if(den)  den.style.display  = f==='once' ? 'none'  : 'block';
+  const kotva=['weekly','biweekly','quarterly','yearly'].includes(f);
+  if(den)  den.style.display  = (f==='once'||kotva) ? 'none'  : 'block';
   if(once) once.style.display = f==='once' ? 'block' : 'none';
+  { const pw=document.getElementById('sablonaPrvniWrap'); if(pw) pw.style.display = kotva ? 'block' : 'none';
+    const pp=document.getElementById('sablonaPrvniPozn'); if(pp) pp.style.display = kotva ? 'block' : 'none'; }
   const auto=document.getElementById('sablonaAuto');
   //  Jednorázová platba bez automatického vytvoření by jen visela v seznamu
   //  a v den D se nic nestalo – to by byla stejná past jako „vlastní položky"
@@ -1071,6 +1097,14 @@ function renderSablonaList() {
   }).join('');
 }
 function getNextSablonaDate(s) {
+  //  v12.19: čtvrtletní / roční / týdenní – od první splatnosti; bez ní upozornění (počítalo by se od dneška)
+  if(['weekly','biweekly','quarterly','yearly'].includes(s.freq)){
+    if(!s.prvni) return '⚠️ doplň datum první platby (✎)';
+    const _t=new Date(), _v=new Date(_t.getTime()-864e5);
+    const _y=`${_v.getFullYear()}-${String(_v.getMonth()+1).padStart(2,'0')}-${String(_v.getDate()).padStart(2,'0')}`;
+    const _n=ffKotvaVyskyty(s.freq, s.prvni, _y, '2999-12-31')[0];
+    return _n ? new Date(_n+'T12:00:00').toLocaleDateString('cs-CZ') : '—';
+  }
   const today=new Date();
   const day=s.den||1;
   let next=new Date(today.getFullYear(),today.getMonth(),day);
@@ -1106,6 +1140,8 @@ function openSablonaModal(prefill) {
   document.getElementById('sablonaFreq').value='monthly';
   document.getElementById('sablonaDen').value='1';
   document.getElementById('sablonaAuto').checked=true;
+  { const p=document.getElementById('sablonaPrvni'); if(p) p.value=''; }   // v12.19
+  if(typeof sablonaFreqChange==='function') sablonaFreqChange();
   selCatId='';
   renderSablonaCatPicker();
   renderSablonaWallets();
@@ -1126,6 +1162,7 @@ function editSablona(id) {
   moneyInFill('sablonaAmt', s.amount);   // TODO-216
   document.getElementById('sablonaFreq').value=s.freq||'monthly';
   const _od=document.getElementById('sablonaOnceDate'); if(_od) _od.value=s.onceDate||'';
+  { const _pv=document.getElementById('sablonaPrvni'); if(_pv) _pv.value=s.prvni||''; }   // v12.19
   if(typeof sablonaFreqChange==='function') sablonaFreqChange();
   document.getElementById('sablonaDen').value=s.den||1;
   document.getElementById('sablonaAuto').checked=!!s.auto;
@@ -1151,6 +1188,8 @@ function saveSablona() {
   const _freq=document.getElementById('sablonaFreq').value;
   const _onceDate=(document.getElementById('sablonaOnceDate')?.value)||'';
   if(_freq==='once' && !_onceDate){alert('U jednorázové platby vyber datum');return;}
+  const _prvni=(document.getElementById('sablonaPrvni')?.value)||'';   // v12.19
+  if(['weekly','biweekly','quarterly','yearly'].includes(_freq) && !_prvni){alert('Vyber datum první platby (splatnost) – od něj appka spočítá další platby');return;}
   const s={id:eid||uid(),name,amount,type:_sablonaType,catId:selCatId,freq:document.getElementById('sablonaFreq').value,den:parseInt(document.getElementById('sablonaDen').value)||1,auto:document.getElementById('sablonaAuto').checked,endDate:document.getElementById('sablonaEnd').value||null,wallet:document.getElementById('sablonaWallet').value||null,walletTo:document.getElementById('sablonaWalletTo')?.value||null,note:document.getElementById('sablonaNote').value.trim()};
   if(_sablonaType==='transfer'){
     if(!s.wallet||!s.walletTo){alert('U přesunu vyber obě peněženky');return;}
@@ -1165,6 +1204,7 @@ function saveSablona() {
   }
   if(!S.sablony)S.sablony=[];
   if(_freq==='once'){ s.onceDate=_onceDate; s.auto=true; s.den=parseInt(_onceDate.slice(8,10))||1; }
+  if(['weekly','biweekly','quarterly','yearly'].includes(_freq)){ s.prvni=_prvni; s.den=parseInt(_prvni.slice(8,10))||1; }   // v12.19: první splatnost
   //  S27 (v11.86): šablona zálohy z měřidla si drží podkategorii a vazbu na měřidlo i po úpravě tady
   if(eid){const _o=S.sablony.find(x=>x.id===eid); if(_o&&_o.energie){ s.energie=_o.energie; if(_o.subcat&&s.catId===_o.catId) s.subcat=_o.subcat; }}
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}

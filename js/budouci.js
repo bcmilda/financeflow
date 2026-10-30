@@ -1,4 +1,4 @@
-// FinanceFlow · v12.18 · budouci.js · 2026-10-28
+// FinanceFlow · v12.19 · budouci.js · 2026-10-28
 //  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
 //  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
 //  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
@@ -35,7 +35,7 @@ function budouciGetAll(D, horizonDays, fromDate) {
     if (freq === 'once') {
       const od = _bDen(s.onceDate);
       occurrences = (s.done || !od || od < today || od > horizon) ? [] : [od];
-    } else occurrences = budouciGetOccurrences(freq, den, today, horizon);
+    } else occurrences = budouciGetOccurrences(freq, den, today, horizon, s.prvni);   // v12.19: první splatnost
 
     const isTransfer = s.type === 'transfer';
     // S12.1l: u přesunu doplň cílovou peněženku do popisku „→ Spoření"
@@ -165,9 +165,13 @@ function budouciGetAll(D, horizonDays, fromDate) {
 }
 
 // Generuje data výskytu pravidelné platby v horizontu
-function budouciGetOccurrences(freq, den, from, to) {
+function budouciGetOccurrences(freq, den, from, to, prvni) {
   const dates = [];
   const today = new Date(from); today.setHours(0,0,0,0);
+  //  S28 (v12.19, Milan): čtvrtletní / roční / týdenní šablona s první splatností → výskyty od ní
+  //  (dřív od dneška: roční pojistka se ukazovala „za rok od dneška“, ne ve skutečném měsíci).
+  if (prvni && typeof ffKotvaVyskyty === 'function' && ['weekly', 'biweekly', 'quarterly', 'yearly'].includes(freq))
+    return ffKotvaVyskyty(freq, prvni, _bIso(today), _bIso(to)).map(_bDen);
 
   //  S23 (Milan): jednorázová platba – jediný výskyt k uloženému datu.
   if (freq === 'once') return dates;   // výskyt doplní volající z s.onceDate

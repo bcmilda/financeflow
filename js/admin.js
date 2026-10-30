@@ -1,4 +1,4 @@
-// FinanceFlow · v12.18 · admin.js · 2026-10-28
+// FinanceFlow · v12.19 · admin.js · 2026-10-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.19',
+    datum: '2026-10-28',
+    zmeny: [
+      "📅 PRVNÍ PLATBA U ČTVRTLETNÍ / ROČNÍ / TÝDENNÍ ŠABLONY (Milan: „je tam jen den v měsíci, což stačí u měsíčního, ale nestačí pro delší horizont – bude třeba zapsat první den platby (splatnost)“) · cesta: 🔄 Šablony → ➕ / ✎ → Frekvence Čtvrtletně, Ročně, Týdně, Každé 2 týdny → pole První platba (splatnost) místo Dne v měsíci. Další platby se počítají od ní (den 29.–31. v kratším měsíci = poslední den) v Budoucích platbách, Radaru, Kalkulačkách, Příštím měsíci i v „Příště:“ v seznamu šablon. Dřív se počítaly od dneška – roční pojistka se ukazovala „za rok od dneška“. Starší šablona bez data má v seznamu „⚠️ doplň datum první platby (✎)“. Automaticky se do transakcí dál zapisují jen měsíční a jednorázové platby (formulář to říká).",
+      "🧭 ZA CO UTRÁCÍŠ – ROZKLIK PO MĚSÍCÍCH (TODO-372) · cesta: Analýza účtenek → 📊 Statistiky → 🧭 Za co utrácíš → klepnout na řádek (Pečivo, Ovoce…): graf 12 měsíců končících vybraným měsícem (osa, mřížka, ┄ průměr, klepnutím na sloupec částka a 3 nejčastější názvy), tabulka měsíc × Kč a 📐 Otevřít ve Statistice položek s filtrem podkategorie. Otevřený je vždy jeden řádek, překresluje se jen karta.",
+      "🧪 tools/smoke_sablony_prvni.js (16) a smoke_tax_rozklik.js (13) – na v12.18 selžou; Chromium 390 px: pojistka s 1. splatností 15. 3. 2025 → Příště 15. 3. 2027, rozklik Pečiva, klepnutí na sloupec, zavření.",
+    ],
+  },
   {
     verze: 'v12.18',
     datum: '2026-10-28',

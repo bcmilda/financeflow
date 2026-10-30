@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.18</title>
+<title>FinanceFlow v12.19</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.18 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.19 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -1100,7 +1100,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.18</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.19</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1508,7 +1508,10 @@
         <!--  S23 (Milan): JEDNORÁZOVÁ PLATBA – u „1×" nedává „den v měsíci" smysl,
               potřebuje celé datum. Přepíná se v sablonaFreqChange(). -->
         <div class="fg" id="sablonaOnceWrap" style="display:none"><label>Datum platby</label><input class="fi" type="date" id="sablonaOnceDate"></div>
+        <!--  S28 (v12.19, Milan): ČTVRTLETNÍ / ROČNÍ / TÝDENNÍ – den v měsíci nestačí, potřebuje první splatnost -->
+        <div class="fg" id="sablonaPrvniWrap" style="display:none"><label>První platba (splatnost)</label><input class="fi" type="date" id="sablonaPrvni"></div>
       </div>
+      <div id="sablonaPrvniPozn" style="display:none;font-size:.7rem;color:#a8aec8;margin:-2px 0 6px;line-height:1.45">Od tohoto data appka počítá další platby (po 3 měsících, po roce, po týdnu). Budoucí platby a Radar je ukážou ve správném měsíci. Automaticky se do transakcí zatím zapisují jen měsíční a jednorázové platby.</div>
       <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="sablonaAuto" style="width:18px;height:18px;cursor:pointer">
         <label for="sablonaAuto" style="cursor:pointer;font-size:.85rem">Automatické vytváření transakcí</label>
@@ -2283,14 +2286,14 @@ window.addEventListener('error', function(e){
 <script src="js/ai.js?v=3ace4c75ee055cae" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/dotazy.js?v=74f815619b9401f9" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
-<script src="js/premium.js?v=528035ee7fa1e82c" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=95aecba08ee21198" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
 <script src="js/projects.js?v=330fa68442e67787" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
 <script src="js/taxonomie.js?v=72dee07513064b77" onerror="window._ffScriptFail&&window._ffScriptFail('js/taxonomie.js')"></script>
 <script src="js/ceny-kraje.js?v=efd74792830fe7ac" onerror="window._ffScriptFail&&window._ffScriptFail('js/ceny-kraje.js')"></script>
 <script src="js/statistika-polozek.js?v=944d978a41454c0b" onerror="window._ffScriptFail&&window._ffScriptFail('js/statistika-polozek.js')"></script>
-<script src="js/receipts.js?v=dd7864f63f771c99" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/receipts.js?v=5ffd70bff5196bce" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
 <script src="js/ean-sken.js?v=d1d62a0ad8fdb6db" onerror="window._ffScriptFail&&window._ffScriptFail('js/ean-sken.js')"></script>
 <script src="js/offline-sync.js?v=11672e9dbe7c620d" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
 <script src="js/settings.js?v=eb7e3ced2d30ed01" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
@@ -2301,8 +2304,8 @@ window.addEventListener('error', function(e){
 <script src="js/nakup.js?v=02a7366d20acde9c" onerror="window._ffScriptFail&&window._ffScriptFail('js/nakup.js')"></script>
 <script src="js/product-db.js?v=510a3a98e600f6a0" onerror="window._ffScriptFail&&window._ffScriptFail('js/product-db.js')"></script>
 <script src="js/coicop.js?v=df019a10c7f67df0" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop.js')"></script>
-<script src="js/budouci.js?v=21c6398070e44494" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
-<script src="js/pristi.js?v=0bdddc66e57bd014" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
+<script src="js/budouci.js?v=66d71c078f2ba010" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
+<script src="js/pristi.js?v=0e426d27cf019ba5" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
 <script src="js/vozidla.js?v=9e96aacebbc00e1a" onerror="window._ffScriptFail&&window._ffScriptFail('js/vozidla.js')"></script>
 <script src="js/meridla.js?v=44b24e7d88e45b11" onerror="window._ffScriptFail&&window._ffScriptFail('js/meridla.js')"></script>
 <script src="js/coicop-ai.js?v=869df69a057e66a8" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop-ai.js')"></script>
@@ -2315,7 +2318,7 @@ window.addEventListener('error', function(e){
 <script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
-<script src="js/admin.js?v=eac44d721b0e879b" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=a0fa90625c365f2d" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=dca47a349466fb22" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>
