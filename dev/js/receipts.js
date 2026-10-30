@@ -1,4 +1,4 @@
-// FinanceFlow · v12.12 · receipts.js · 2026-10-26
+// FinanceFlow · v12.22 · receipts.js · 2026-10-29
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -585,19 +585,100 @@ function taxUtrataPodkategorie(items, D) {
     top: Object.entries(g.obec).sort((a, b) => b[1] - a[1]).slice(0, 3) })).sort((a, b) => b.castka - a.castka) };
 }
 window.taxUtrataPodkategorie = taxUtrataPodkategorie;
-function taxUtrataHTML(items) {
+// ══════════════════════════════════════════════════════
+//  S28 (v12.19, TODO-372, Milan: „udělej rozklik“): ROZKLIK PODKATEGORIE PO MĚSÍCÍCH
+//  cesta: Analýza účtenek → 📊 Statistiky → 🧭 Za co utrácíš → klepnout na řádek (Pečivo, Ovoce…)
+//  Graf 12 měsíců končících vybraným měsícem (osa, mřížka, Ø, hodnota klepnutím), tabulka měsíc × Kč,
+//  top 3 obecné názvy ve vybraném měsíci, odkaz do 📐 Statistiky položek s filtrem podkategorie.
+//  Zařazení (rpMapaNavrh) je drahé → spočítá se jednou pro všechny položky a drží v paměti, dokud se
+//  položky nezmění. Otevřený je vždy jen jeden řádek; překresluje se jen karta (bez probliknutí stránky).
+// ══════════════════════════════════════════════════════
+let _taxUtrOtev = null, _taxUtrPosl = null, _taxMesCache = { klic: '', data: null };
+const _TAX_MES3 = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
+const _TAX_MES2 = ['ledna', 'února', 'března', 'dubna', 'května', 'června', 'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+const _taxYm = (y, m) => y + '-' + String(m + 1).padStart(2, '0');
+//  podId → { 'YYYY-MM': { kc, obec: {název: Kč} } }; první měsíc s jakoukoli položkou (pro průměr)
+function taxUtrataPoMesicich(items, D) {
+  const klic = (items || []).length + '|' + ((items || [])[0] || {}).date + '|' + ((items || []).at ? ((items.at(-1) || {}).date) : '') + '|' + (items || []).reduce((a, it) => a + (parseFloat(it.lineTotal != null ? it.lineTotal : it.price) || 0), 0).toFixed(2);
+  if (_taxMesCache.klic === klic && _taxMesCache.data) return _taxMesCache.data;
+  D = D || getData();
+  const pod = {}; let prvni = null;
+  (items || []).forEach(it => {
+    const a = (it.lineTotal != null ? parseFloat(it.lineTotal) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1)) || 0;
+    const ym = String(it.date || '').slice(0, 7); if (a <= 0 || !/^\d{4}-\d{2}$/.test(ym)) return;
+    if (!prvni || ym < prvni) prvni = ym;
+    const m = (typeof rpMapaNavrh === 'function') ? rpMapaNavrh(it.name, D, it.ean) : null;
+    if (!m || !m.tax) return;
+    const g = (pod[m.tax.podId] = pod[m.tax.podId] || {}), x = (g[ym] = g[ym] || { kc: 0, obec: {} });
+    x.kc += a; x.obec[m.tax.nazev] = (x.obec[m.tax.nazev] || 0) + a;
+  });
+  _taxMesCache = { klic, data: { pod, prvni } };
+  return _taxMesCache.data;
+}
+window.taxUtrataPoMesicich = taxUtrataPoMesicich;
+//  12 měsíců končících vybraným měsícem: [{ym, kc, obec}], Ø = průměr měsíců od první položky v okně
+function taxUtrataRada(podId, data, y, m) {
+  const out = [];
+  for (let i = 11; i >= 0; i--) { let mm = m - i, yy = y; while (mm < 0) { mm += 12; yy--; } const ym = _taxYm(yy, mm), x = ((data.pod || {})[podId] || {})[ym]; out.push({ ym, kc: x ? x.kc : 0, obec: x ? x.obec : {} }); }
+  const zapoc = out.filter(r => data.prvni && r.ym >= data.prvni);
+  return { rada: out, prumer: zapoc.length ? zapoc.reduce((a, r) => a + r.kc, 0) / zapoc.length : 0, mesicu: zapoc.length };
+}
+window.taxUtrataRada = taxUtrataRada;
+function taxUtrataRozbal(podId) {
+  _taxUtrOtev = _taxUtrOtev === podId ? null : podId;
+  const el = document.getElementById('taxUtrataCard');
+  if (el && _taxUtrPosl) el.outerHTML = taxUtrataHTML(_taxUtrPosl.items, _taxUtrPosl.vse);
+}
+function taxUtrataSloupec(i) {
+  const r = (window._taxUtrRada || [])[i], el = document.getElementById('taxUtrataBublina'); if (!r || !el) return;
+  const kc = x => Math.round(x).toLocaleString('cs-CZ') + ' Kč';
+  const top = Object.entries(r.obec || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  el.innerHTML = `<b>${CZ_M[+r.ym.slice(5) - 1]} ${r.ym.slice(0, 4)}: ${kc(r.kc)}</b>${top.length ? ' · ' + top.map(([n, a]) => escHtml(n) + ' ' + kc(a)).join(' · ') : ''}`;
+  document.querySelectorAll('#taxUtrataCard [data-sl]').forEach(b => b.setAttribute('stroke', +b.getAttribute('data-sl') === i ? '#e8eaf2' : 'none'));
+}
+function taxUtrataDoStatistiky(nazev) {
+  if (typeof _spFiltr !== 'undefined') { _spFiltr.pod = nazev; _spFiltr.oblast = ''; }
+  const b = document.getElementById('utab-polstat'); if (typeof switchUctenkyTab === 'function') switchUctenkyTab('polstat', b);
+}
+Object.assign(window, { taxUtrataRozbal, taxUtrataSloupec, taxUtrataDoStatistiky });
+function _taxUtrataDetailHTML(p, vse) {
+  const data = taxUtrataPoMesicich(vse, getData());
+  const { rada, prumer } = taxUtrataRada(p.podId, data, S.curYear, S.curMonth);
+  window._taxUtrRada = rada;
+  const kc = x => Math.round(x).toLocaleString('cs-CZ') + ' Kč';
+  const mx = Math.max(1, ...rada.map(r => r.kc), prumer);
+  const W = 340, H = 150, L = 44, P = 10, B = 22, sw = (W - L - P) / 12;
+  const Y = v => H - B - v / mx * (H - B - P);
+  const bars = rada.map((r, i) => `<rect data-sl="${i}" x="${(L + i * sw + 2).toFixed(1)}" y="${Y(r.kc).toFixed(1)}" width="${(sw - 4).toFixed(1)}" height="${Math.max(r.kc > 0 ? 1.5 : 0, H - B - Y(r.kc)).toFixed(1)}" rx="2" fill="${i === 11 ? '#93c5fd' : '#60a5fa'}" stroke="${i === 11 ? '#e8eaf2' : 'none'}" stroke-width="1.5"/>
+      <rect x="${(L + i * sw).toFixed(1)}" y="${P}" width="${sw.toFixed(1)}" height="${H - P}" fill="transparent" style="cursor:pointer" onclick="taxUtrataSloupec(${i})"/>`).join('');
+  const osaX = rada.map((r, i) => { const mo = +r.ym.slice(5); return `<text x="${(L + i * sw + sw / 2).toFixed(1)}" y="${H - 8}" font-size="10" fill="#a8aec8" text-anchor="middle">${mo}</text>${i === 0 || mo === 1 ? `<text x="${(L + i * sw + sw / 2).toFixed(1)}" y="${H + 3}" font-size="8.5" fill="#7e84a0" text-anchor="middle">’${r.ym.slice(2, 4)}</text>` : ''}`; }).join('');
+  const mrizka = [0, .5, 1].map(f => `<line x1="${L}" x2="${W - P}" y1="${Y(mx * f).toFixed(1)}" y2="${Y(mx * f).toFixed(1)}" stroke="rgba(148,163,184,.18)"/><text x="${L - 5}" y="${(Y(mx * f) + 3.5).toFixed(1)}" font-size="9.5" fill="#a8aec8" text-anchor="end">${Math.round(mx * f).toLocaleString('cs-CZ')}</text>`).join('');
+  const avg = prumer > 0 ? `<line x1="${L}" x2="${W - P}" y1="${Y(prumer).toFixed(1)}" y2="${Y(prumer).toFixed(1)}" stroke="#fbbf24" stroke-dasharray="4 3" stroke-width="1.3"/>` : '';
+  const tento = rada[11], top = Object.entries(tento.obec || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const nazevMes = _TAX_MES2[S.curMonth];   // „do října 2026“
+  return `<div style="margin:6px 0 4px;padding:9px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px" onclick="event.stopPropagation()">
+    <div style="font-size:.7rem;color:#a8aec8;margin-bottom:2px">12 měsíců do ${nazevMes} ${S.curYear} · <span style="color:#fbbf24">┄ Ø ${kc(prumer)}/měs</span> · klepni na sloupec</div>
+    <svg viewBox="0 0 ${W} ${H + 6}" style="width:100%;height:auto;display:block" role="img" aria-label="Útrata ${escHtml(p.nazev)} po měsících">${mrizka}${avg}${bars}${osaX}</svg>
+    <div id="taxUtrataBublina" style="font-size:.74rem;color:var(--text);min-height:1.2em;margin:2px 0 6px"><b>${CZ_M[S.curMonth]} ${S.curYear}: ${kc(tento.kc)}</b>${top.length ? ' · ' + top.map(([n, a]) => escHtml(n) + ' ' + kc(a)).join(' · ') : ''}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px;font-size:.72rem">${rada.slice().reverse().map(r => `<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding:3px 0"><span style="color:#a8aec8">${_TAX_MES3[+r.ym.slice(5) - 1]} ${r.ym.slice(2, 4)}</span><span style="font-weight:${r.ym === tento.ym ? 800 : 600}">${r.kc > 0 ? kc(r.kc) : '–'}</span></div>`).join('')}</div>
+    <button class="btn btn-sm" style="margin-top:8px;font-size:.72rem" onclick="event.stopPropagation();taxUtrataDoStatistiky('${escHtml(p.nazev).replace(/'/g, '&#39;')}')">📐 Otevřít ve Statistice položek</button>
+  </div>`;
+}
+function taxUtrataHTML(items, vse) {
+  _taxUtrPosl = { items, vse: vse || items };
   const v = taxUtrataPodkategorie(items);
   if (!v.pods.length) return rpStatObdobi() === 'month' ? `<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="font-weight:700;font-size:.92rem">🧭 Za co utrácíš</div><div style="font-size:.76rem;color:#a8aec8;margin-top:6px">${v.celkem > 0 ? 'Položky vybraného měsíce zatím nejsou zařazené v taxonomii (zařadíš je v Mapě položek).' : 'Ve vybraném měsíci nejsou naskenované položky.'}</div></div></div>` : '';
   const kc = x => Math.round(x).toLocaleString('cs-CZ') + ' Kč';
   const mx = Math.max(...v.pods.map(p => p.castka));
-  return `<div class="card" style="margin-bottom:12px"><div class="card-body">
+  return `<div class="card" id="taxUtrataCard" style="margin-bottom:12px"><div class="card-body">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font-weight:700;font-size:.92rem">🧭 Za co utrácíš</div>
       <div style="font-size:.7rem;color:#a8aec8">${rpStatObdobi() === 'month' ? '' : v.mesicu + ' měs. · '}taxonomie pokrývá ${v.celkem ? Math.round((1 - v.mimo / v.celkem) * 100) : 0} %</div></div>
-    ${v.pods.slice(0, 12).map(p => `<div style="padding:7px 0;border-top:1px solid var(--border)">
-      <div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem"><span>${typeof ffIkonaTax === 'function' ? rpIkTax(p, 16) + ' ' + escHtml(p.nazev) : escHtml(p.ikona + ' ' + p.nazev)}</span>
+    ${v.pods.slice(0, 12).map(p => `<div style="padding:7px 0;border-top:1px solid var(--border);cursor:pointer" onclick="taxUtrataRozbal('${escHtml(String(p.podId)).replace(/'/g, '&#39;')}')" role="button" aria-expanded="${_taxUtrOtev === p.podId}">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:.8rem"><span>${typeof ffIkonaTax === 'function' ? rpIkTax(p, 16) + ' ' + escHtml(p.nazev) : escHtml(p.ikona + ' ' + p.nazev)} <span style="color:#8b93ad;font-size:.7rem">${_taxUtrOtev === p.podId ? '▴' : '▾'}</span></span>
         <span><b>${kc(p.castka)}</b> <span style="color:#8b93ad;font-size:.7rem">${rpStatObdobi() === 'month' ? '' : '· ' + kc(p.mesicne) + '/měs '}· ${Math.round(p.podil)} %</span></span></div>
       <div style="height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin:4px 0"><div style="height:100%;width:${(p.castka / mx * 100).toFixed(0)}%;background:#60a5fa"></div></div>
-      <div style="font-size:.66rem;color:#8b93ad">${p.top.map(([n, a]) => escHtml(n) + ' ' + kc(a)).join(' · ')}</div></div>`).join('')}
+      <div style="font-size:.66rem;color:#8b93ad">${p.top.map(([n, a]) => escHtml(n) + ' ' + kc(a)).join(' · ')}</div>
+      ${_taxUtrOtev === p.podId ? _taxUtrataDetailHTML(p, (vse || items)) : ''}</div>`).join('')}
     ${v.mimo > 0 ? `<div style="font-size:.7rem;color:#8b93ad;padding-top:6px;border-top:1px solid var(--border)">📦 Mimo taxonomii ${kc(v.mimo)} – zařadíš je v Mapě položek.</div>` : ''}
   </div></div>`;
 }
@@ -636,7 +717,7 @@ function buildStatsTab(hasData, receipts, totalSpent, allItems, catStats) {
 
   let html = `<div id="utab-stats-content" style="display:none">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span style="font-size:.76rem;color:#a8aec8">Období karet níže (Za co utrácíš, souhrn, kategorie, Co nakupuješ):</span>${rpObdobiPrepinac()}</div>
-    ${(()=>{ try { return taxUtrataHTML(allItems); } catch(e) { return ''; } })()}
+    ${(()=>{ try { return taxUtrataHTML(allItems, _vse.allItems); } catch(e) { return ''; } })()}
     <!-- Souhrn -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
       <div class="stat-card expense"><div class="stat-label">Celkem utraceno</div><div class="stat-value down">${fmtB(Math.round(totalSpent))}</div><div class="stat-sub">${receipts.length} účtenek</div></div>
@@ -3002,9 +3083,16 @@ function mapaVahaPodtridy(kod4) {
   const k = Object.keys(_productDB.groups).find(g => coicopNorm(g) === kod4);
   return k && _productDB.groups[k].w ? _productDB.groups[k].w : null;
 }
+//  S28 (v12.22, FIX-500, Milan: „+1316 % proti průměru za 3 balení kapesníků nedává smysl, výpočet bude špatně“):
+//  váha oddílu se sčítala přes VŠECHNY úrovně číselníku (skupina 05.1 + třída 05.11 + podtřída 05.111 …),
+//  takže vycházela ~3× větší (oddíl 05: 153,7 ‰ místo 51,2 ‰) a „Váha ČSÚ“ v kartě ~3× menší.
+//  Teď vlastní váha oddílu z koše ČSÚ; když chybí, součet jen podtříd (nejnižší úroveň).
 function mapaVahaOddilu(odd) {
   if (typeof _productDB === 'undefined' || !_productDB || !_productDB.groups || typeof coicopNorm !== 'function') return null;
-  const s = Object.entries(_productDB.groups).filter(([g]) => coicopNorm(g).startsWith(odd + '.')).reduce((a, [, x]) => a + (x.w || 0), 0);
+  const g = Object.entries(_productDB.groups);
+  const vlastni = g.find(([k]) => coicopNorm(k) === odd);
+  if (vlastni && vlastni[1].w > 0) return vlastni[1].w;
+  const s = g.filter(([k]) => { const n = coicopNorm(k); return n.startsWith(odd + '.') && n.split('.').length === 4; }).reduce((a, [, x]) => a + (x.w || 0), 0);
   return s || null;
 }
 //  S25 (Milan): období pro „tvůj podíl" volitelné – výchozí posledních 12 měsíců (váhy ČSÚ jsou
@@ -3491,7 +3579,10 @@ function mapaKoicopPanelHTML(code, D, cast) {
     const seg = [['3', '3 měs.'], ['6', '6 měs.'], ['12', '12 měs.'], ['vse', 'vše']].map(([v, n]) => `<button type="button" class="${o === v ? 'on' : ''}" onclick="mapaVahaObdobi('${v}')">${n}</button>`).join('');
     const rokSel = roky.length ? `<select onchange="mapaVahaObdobi(this.value)" style="font-size:.7rem;padding:4px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px">
         <option value="">rok…</option>${roky.map(y => `<option value="${y}"${o === y ? ' selected' : ''}>${y}</option>`).join('')}</select>` : '';
-    const rozdil = csu && muj != null ? Math.round((muj - csu) / csu * 100) : null;
+    //  S28 (v12.22): s malým základem (pár desetikorun za oddíl) je „% proti průměru“ jen šum – koš ČSÚ
+    //  počítá s celým oddílem (u 05 i nábytek a spotřebiče), účtenky ho pokryjí jen zčásti.
+    const MALO_KC = 500, malo = jm > 0 && jm < MALO_KC;
+    const rozdil = csu && muj != null && !malo ? Math.round((muj - csu) / csu * 100) : null;
     srov = `<div style="margin-top:10px;font-weight:700;font-size:.8rem">Srovnání výdajů</div>
       <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px">Období tvých nákupů</div>
       <div class="mk-seg">${seg}${rokSel}</div>
@@ -3505,7 +3596,8 @@ function mapaKoicopPanelHTML(code, D, cast) {
       <div class="mk-cislo"><div class="t">Tvůj podíl</div>
         <div><span class="h" style="color:#4ade80">${muj != null ? f(muj) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span>
           ${rozdil != null ? `<span style="font-size:.72rem;font-weight:700;color:${rozdil > 25 ? '#f87171' : rozdil < -20 ? '#4ade80' : '#a8aec8'}">${rozdil >= 0 ? '+' : ''}${rozdil} % proti průměru</span>` : ''}</div>
-        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div></div>`;
+        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div>
+        ${malo ? `<div class="p" style="color:#fbbf24;margin-top:4px">⚠️ Na srovnání je zatím málo dat – za ${escHtml(oddN)} máš z účtenek jen ${kc(jm)}. Koš ČSÚ počítá s celým oddílem, i s tím, co na účtence obvykle nemáš, proto „% proti průměru“ ukážu až od ${kc(MALO_KC)}. Zkus „ze všech výdajů“.</div>` : ''}</div>`;
   }
   //  v11.60 (Milan): rozbaluje se jen číselník; Srovnání výdajů je v kartě vždy vidět.
   if (cast === 'hier') return hier ? `<div style="padding:0 12px 12px">${hier}</div>` : '';
@@ -3698,7 +3790,13 @@ function mapaUzivKartaHTML(i, produkt) {
   const zivZdroj = p && p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + (p.nutriceObal.kdy ? ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : '')
     : p && p.nutrice ? 'z databáze Open Food Facts'
     : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '') : '';
-  const ziv = zivN
+  //  S28 (v12.22, Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“)
+  const netyka = !zivN && !!lok.bezZivin;
+  const ziv = netyka
+    ? `<div class="mk-box mk-pozn" style="margin-top:8px;color:#a8aec8"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span>Nutriční hodnoty</span><span style="font-size:.72rem;color:#c9cede">🚫 netýká se</span></div>
+        <div style="font-size:.7rem;margin-top:3px">Označeno, že výrobek živiny nemá (drogerie, pivo…). Karta je kompletní a do živin za měsíc se nepočítá.
+        <button class="mk-btn-link" onclick="mapaBezZivinPrepni(${i})">↺ Zrušit</button></div></div>`
+    : zivN
     ? `<div class="mk-box" style="margin-top:8px;padding:10px 12px"><div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 ${zivN.na === 'ml' ? 'ml' : 'g'}</div>${typeof eanNutriceHTML === 'function' ? eanNutriceHTML(zivN) : ''}
         <div style="font-size:.64rem;color:#8b93ad;margin-top:6px">${zivZdroj}
         <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div></div>`
@@ -3706,7 +3804,8 @@ function mapaUzivKartaHTML(i, produkt) {
         <div style="font-size:.72rem;margin-top:3px">${z.ean ? 'Živiny databáze zatím nemá.' : 'Bez čárového kódu je opíšeš z obalu ručně (uloží se jen tobě).'}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${z.ean ? `<button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button>
         <button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo,true)">🖼️ z galerie</button>` : ''}
-        <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button></div></div>`;
+        <button class="btn btn-sm" style="font-size:.72rem" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Zadat ručně</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="mapaBezZivinPrepni(${i})" title="Drogerie, pivo, věci bez tabulky živin">🚫 Bez živin</button></div></div>`;
 
   // ── MOJE NÁKUPY ──
   const ob = mapaUzivObchody(z);
@@ -3789,6 +3888,16 @@ async function mapaUzivDetail(i) {
 }
 function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivDetail(_mapaKartaI); }
 window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
+//  S28 (v12.22): 🚫 Bez živin – značka v osobní kartě (S.uiCfg.karty[klíč].bezZivin), u kódu i bez kódu.
+function mapaBezZivin(z) { return !!(z && typeof mapaKartaLok === 'function' && mapaKartaLok(z).bezZivin); }
+function mapaBezZivinPrepni(i) {
+  const z = _mapaZ(i); if (!z) return;
+  const nove = !mapaBezZivin(z);
+  mapaKartaLokUloz(z, { bezZivin: nove ? 1 : null });
+  if (typeof showToast === 'function') showToast(nove ? '🚫 Bez živin – karta je kompletní' : '↺ Živiny zase chybí');
+  mapaUzivFotoHotovo();
+}
+Object.assign(window, { mapaBezZivin, mapaBezZivinPrepni });
 function mapaUzivKartaZavri() { _mapaKartaI = -1; const o = document.getElementById('mapaKarta'); if(o) o.remove(); }
 function mapaUzivKartaSken(i) {
   const z = _mapaZ(i); if(!z || typeof eanSkenujPolozku !== 'function') return;
@@ -4053,7 +4162,7 @@ function dnaJeJidlo(it, maZiviny) {
 }
 
 //  Čistý výpočet (testuje tools/smoke_dna_ziviny.js).
-function dnaZivinyData(receipts, m, y, produkt, kartaLok) {
+function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
   const sum = {}; DNA_ZIVINY.forEach(([k]) => { sum[k] = 0; });
   const ns = { a: 0, b: 0, c: 0, d: 0, e: 0 }; let nsUtrata = 0;
   const prispevek = { cukry: {}, sul: {} };
@@ -4071,6 +4180,7 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok) {
       const utrata = (typeof lineAmt === 'function') ? lineAmt(it) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
       if (!(utrata > 0)) return;
       const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok);
+      if (!n && typeof bezZivin === 'function' && bezZivin(it)) return;    // v12.22: 🚫 bez živin (pivo) nesnižuje pokrytí
       if (!dnaJeJidlo(it, !!n)) return;
       jidloUtrata += utrata; jidloPolozek++;
       if (znamka) { ns[znamka] += utrata; nsUtrata += utrata; }
@@ -4149,7 +4259,8 @@ async function dnaZivinyKresli() {
   const m = S.curMonth, y = S.curYear;
   const produkt = e => (typeof eanProduktZCache === 'function') ? eanProduktZCache(e) : null;
   const kartaLok = it => (it.ean || typeof mapaKartaLok !== 'function' || typeof normName !== 'function') ? null : mapaKartaLok({ klic: normName(it.name || '') });
-  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok), m, y); };
+  const bezZivin = it => typeof mapaBezZivin === 'function' && mapaBezZivin(it.ean ? { ean: it.ean } : { klic: typeof normName === 'function' ? normName(it.name || '') : it.name });
+  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin), m, y); };
   kresli();
   try {
     const eany = [];
@@ -5815,8 +5926,9 @@ function rpRender() {
           ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
           <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
             style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 0;width:32px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
+          ${typeof rpTemaTlacitko === 'function' ? rpTemaTlacitko(it, i) : ''}${/* S28 (v12.20): ⭐ sledované téma */''}
           <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
-        </div>${rpDruhyPodRadkem(it, i)}`;
+        </div>${rpDruhyPodRadkem(it, i)}${typeof rpTemaPodRadkem === 'function' ? rpTemaPodRadkem(it, i) : ''}`;
     });
     html += '</div>';
   }
@@ -6614,6 +6726,8 @@ function addReceiptAsTx(receipt) {
       name: it.name, price: it.price, qty: it.qty, unit: it.unit||'ks',
       lineTotal: it.lineTotal, tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(Array.isArray(it.temata) && it.temata.length ? { temata: it.temata.slice() } : {}),       // S28 (v12.20): ⭐ téma
+      ...(Array.isArray(it.temataNe) && it.temataNe.length ? { temataNe: it.temataNe.slice() } : {}),
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
@@ -6909,6 +7023,8 @@ function syncReceiptToTransactions(r) {
         ? it.lineTotal : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1),
       tag: it.tag||'', discount: parseFloat(it.discount)||0,
       itemCatId: it.itemCatId||'', itemSubcat: it.itemSubcat||'',
+      ...(Array.isArray(it.temata) && it.temata.length ? { temata: it.temata.slice() } : {}),       // S28 (v12.20): ⭐ téma
+      ...(Array.isArray(it.temataNe) && it.temataNe.length ? { temataNe: it.temataNe.slice() } : {}),
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)

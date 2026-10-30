@@ -1,4 +1,4 @@
-// FinanceFlow · v11.44 · pristi.js · 2026-10-08
+// FinanceFlow · v12.19 · pristi.js · 2026-10-28
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -105,6 +105,11 @@ function pristiOccurrences(freq, den, from, to, sablona) {
     const od = _m ? new Date(+_m[1], +_m[2] - 1, +_m[3]) : null;
     if (!od || sablona.done || od < from || od > to) return out;
     return [od];
+  }
+  //  S28 (v12.19, Milan): s první splatností se čtvrtletní / roční / týdenní platba počítá od ní, ne od dneška.
+  if (sablona && sablona.prvni && typeof ffKotvaVyskyty === 'function' && ['weekly', 'biweekly', 'quarterly', 'yearly'].includes(freq)) {
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return ffKotvaVyskyty(freq, sablona.prvni, iso(new Date(from.getTime() - DAY)), iso(to)).map(x => new Date(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10)));
   }
   if (freq === 'weekly' || freq === 'biweekly') {
     const step = freq === 'weekly' ? 7 : 14;

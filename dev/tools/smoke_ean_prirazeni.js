@@ -28,7 +28,7 @@ console.log('── S25 · přiřazení kódu výrobku ──');
  t('volná položka má cenu',rows.find(x=>x.raw==='LINDOR 200G').cena===129);
  vm.runInContext(`_eanStav.vysledek={ean:"${EAN}",produkt:{stav:"nalezeno",nazev:"Lindt Lindor",nutriceObal:{energie:600}}};_eanMojeNazvy={}`,c);
  c.eanVyberPolozku(); c.eanZavri=()=>{};
- t('okno informuje, že výrobek už je přiřazený',els.eanVyber.innerHTML.includes('už máš přiřazený')&&els.eanVyber.innerHTML.includes('MLEKO 1L'));
+ t('okno informuje, že výrobek už je přiřazený',els.eanVyber.innerHTML.includes('je přiřazený k')&&els.eanVyber.innerHTML.includes('MLEKO 1L'));
  const idx=n=>c._eanKandidati.findIndex(x=>x.raw===n);
  await c.eanOdebratZPolozky(idx('MLEKO 1L'));
  t('odebrání: kód pryč z účtenky i z kopie v transakci',!S.receipts[1].items[0].ean&&!S.receipts[1].items[0].eanNazev&&!S.transactions[0].receiptItems[0].ean);

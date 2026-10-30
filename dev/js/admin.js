@@ -1,4 +1,4 @@
-// FinanceFlow · v12.14 · admin.js · 2026-10-26
+// FinanceFlow · v12.22 · admin.js · 2026-10-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,83 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.22',
+    datum: '2026-10-29',
+    zmeny: [
+      "🩹 FIX-500 VÁHA ČSÚ V KARTĚ VÝROBKU BYLA ~3× MENŠÍ (Milan: „+1316 % proti průměru za pár balení kapesníků nedává smysl, výpočet bude špatně“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Váha oddílu se sčítala přes všechny úrovně číselníku (skupina + třída + podtřída), oddíl 05 vycházel 153,7 ‰ místo 51,2 ‰, potraviny 526,7 ‰ místo 168,6 ‰. Teď vlastní váha oddílu z koše ČSÚ: Kuchyňské houbičky 12,3 % z oddílu 05 (dřív 4,1 %). Týkalo se všech karet, i potravin.",
+      "⚠️ MÁLO DAT = BEZ „% PROTI PRŮMĚRU“ · když máš za oddíl z účtenek méně než 500 Kč (např. 74 Kč za vybavení domácnosti), karta procento proti průměru neukáže a vysvětlí proč: koš ČSÚ počítá s celým oddílem (i nábytek, spotřebiče), účtenky ho pokryjí jen zčásti. Tip: přepni „ze všech výdajů“.",
+      "🚫 BEZ ŽIVIN (Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“) · cesta: karta výrobku → Nutriční hodnoty → 🚫 Bez živin (i ve skeneru u Zadat živiny ručně). Moje výrobky pak místo „bez živin“ ukážou „🚫 živiny se netýkají“ a výrobek nepatří do Chybí údaje; v Živinách za měsíc pivo nesnižuje pokrytí. ↺ Zrušit vrátí zpět. Ukládá se do osobní karty (synchronizuje se, nesdílí se).",
+      "🧪 tools/smoke_vaha_oddilu.js – 15 testů (na v12.21 padá 10, stará verze dává přesně 4,1 % ze screenshotu); Chromium 390 px: karta houbiček 12,3 %, 🚫 Bez živin → „netýká se“, šířka 390, bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.21',
+    datum: '2026-10-29',
+    zmeny: [
+      "🩹 FIX-499 OPRAVA ŠPATNÉHO PŘIŘAZENÍ KÓDU (Milan: „udělal jsem chybu při přiřazování položky k účtence, jak to opravit?“) · cesta: Analýza účtenek → 📷 Skenovat kód (nebo 🗺️ Mapa položek → výrobek / 📷 K vyřízení) → zelený rámeček ✓ Přiřazeno → ✎ Změnit / ✕ Odebrat přiřazení. Přiřazená položka je ve výběru vždy nahoře s ✕ Odebrat (i ze starší účtenky); po odebrání vybereš správnou položku. Dřív se k ✕ Odebrat nedalo dostat – zelený stav neměl žádné tlačítko.",
+      "📜 VÝBĚR POLOŽKY BEZ LIMITU (Milan: „v nabídce bylo málo účtenek a málo položek“) · dřív natvrdo 12 nejnovějších účtenek (s hledáním 30). Teď ⬇ Zobrazit další účtenky po 12 a vysvětlení, že stejná zkratka z obchodu se ukáže jen jednou (u nejnovější účtenky) – proto starší účtenky mají málo položek. Hledání prohledá všechny.",
+      "🧭 DRUHÁ CESTA PO SKENU (Milan: „pokud nepřiřadím k účtence, co potom?“) · nepřiřazený výrobek: „Nechceš ho teď přiřazovat?“ – je uložený v 📦 Moje výrobky (Analýza účtenek → 🗺️ Mapa položek) a v 📷 K vyřízení; tlačítka 📦 Otevřít kartu výrobku a Hotovo, přiřadím později.",
+      "🧪 tools/smoke_ean_oprava.js – 10 testů (na v12.20 padá všech 10); smoke_ean_prirazeni.js upraven na nový text. Chromium 390 px: 20 účtenek, Lindt přiřazený ke Kaiserce → ✎ Změnit → ✕ Odebrat → hledat „lindt“ → správně přiřazeno, bez chyb, šířka 390.",
+    ],
+  },
+  {
+    verze: 'v12.20',
+    datum: '2026-10-28',
+    zmeny: [
+      "⭐ SLEDOVANÁ TÉMATA (Milan: „hlavní je označit položku a přiřadit ji k tématu – káva, pivo, Mac…“, „AI paměť by se hodila“) · cesta: Statistiky → ⭐ Sledovaná témata → ＋ Téma (název + ikona). Označení: Analýza účtenek → editor účtenky → ⭐ u položky, nebo Transakce → Upravit → ⭐ Sledované téma (celá platba – hospoda, kavárna) / ⭐ u položek účtenky. Přehled: částka za vybraný měsíc, počet, Ø 12 měsíců; rozklik: graf 12 měsíců, Co jsem započítal (🧾 jen položka / celá platba, ✕ sem nepatří), Kde to je v kategoriích, ✎ Upravit, 🗑 Smazat téma.",
+      "🧠 AI PAMĚŤ TÉMAT · stejný název položky (Pilsner Urquell v Lidlu i v Albertu) nebo platby (Hospoda U Lípy) se příště označí sám – i ve starších účtenkách. ✕ u jedné položky ji vyřadí a paměť pro ten název zapomene.",
+      "⚖️ Téma je jen značka: kategorie, COICOP, rozpočty, report ani srovnání s ČSÚ se nemění, témata se nesčítají do výdajů. Celá platba v tématu se počítá celá, jinak jen označené položky – nikdy obojí. Bez štítků a bez automatických slov (Milan).",
+      "🧪 tools/smoke_temata.js – 17 testů (při psaní odhalil, že dvě témata založená v jedné milisekundě dostala stejné id – opraveno); Chromium 390 px: založení, ⭐ u platby, u položky, v editoru účtenky, paměť, statistiky beze změny. Nový modul js/temata.js (53 modulů).",
+    ],
+  },
+  {
+    verze: 'v12.19',
+    datum: '2026-10-28',
+    zmeny: [
+      "📅 PRVNÍ PLATBA U ČTVRTLETNÍ / ROČNÍ / TÝDENNÍ ŠABLONY (Milan: „je tam jen den v měsíci, což stačí u měsíčního, ale nestačí pro delší horizont – bude třeba zapsat první den platby (splatnost)“) · cesta: 🔄 Šablony → ➕ / ✎ → Frekvence Čtvrtletně, Ročně, Týdně, Každé 2 týdny → pole První platba (splatnost) místo Dne v měsíci. Další platby se počítají od ní (den 29.–31. v kratším měsíci = poslední den) v Budoucích platbách, Radaru, Kalkulačkách, Příštím měsíci i v „Příště:“ v seznamu šablon. Dřív se počítaly od dneška – roční pojistka se ukazovala „za rok od dneška“. Starší šablona bez data má v seznamu „⚠️ doplň datum první platby (✎)“. Automaticky se do transakcí dál zapisují jen měsíční a jednorázové platby (formulář to říká).",
+      "🧭 ZA CO UTRÁCÍŠ – ROZKLIK PO MĚSÍCÍCH (TODO-372) · cesta: Analýza účtenek → 📊 Statistiky → 🧭 Za co utrácíš → klepnout na řádek (Pečivo, Ovoce…): graf 12 měsíců končících vybraným měsícem (osa, mřížka, ┄ průměr, klepnutím na sloupec částka a 3 nejčastější názvy), tabulka měsíc × Kč a 📐 Otevřít ve Statistice položek s filtrem podkategorie. Otevřený je vždy jeden řádek, překresluje se jen karta.",
+      "🧪 tools/smoke_sablony_prvni.js (16) a smoke_tax_rozklik.js (13) – na v12.18 selžou; Chromium 390 px: pojistka s 1. splatností 15. 3. 2025 → Příště 15. 3. 2027, rozklik Pečiva, klepnutí na sloupec, zavření.",
+    ],
+  },
+  {
+    verze: 'v12.18',
+    datum: '2026-10-28',
+    zmeny: [
+      "🐛 FIX-498 · BUDOUCÍ PLATBY VYNECHÁVALY NEJBLIŽŠÍ MĚSÍČNÍ PLATBU (od v6.49, duben 2026) · cesta: Budoucí platby, a všude, kde se čtou: Finanční radar (Do výplaty, platby 30/60/90 dní, odhad konce měsíce), Příští měsíc, 🧮 Kalkulačky → Do výplaty. Výpočet výskytů měsíční šablony posunul počítadlo měsíce o jeden napřed – 28. 10. se splatností 15. ukázal první platbu až 15. 12. (listopad chyběl), 10. 10. až 15. 11. (chyběl říjen). Do výplaty tak vycházelo víc volných peněz, než ve skutečnosti bylo. Opraveno; navíc den 29.–31. v kratším měsíci = poslední den měsíce (dřív 31. 11. přeteklo na 1. 12. – listopad chyběl, prosinec byl dvakrát).",
+      "🧪 tools/smoke_budouci_vyskyty.js – 9 testů výpočtu výskytů (na v12.17 jich 8 selže). Generátor dosud žádný test neměl – smoke_budouci.js zkoušel jen označení „zaplaceno“.",
+    ],
+  },
+  {
+    verze: 'v12.17',
+    datum: '2026-10-28',
+    zmeny: [
+      "📅 ROZPIS ZÁLOH (Milan: „postav rozpis záloh na aktuální období“) · cesta: Majetek → 📟 Energie a voda → ⚙️ nastavení měřidla → 🔄 Měsíční záloha → 📅 Změny zálohy v období: nová částka + datum, od kdy platí. Opakovaná platba se v ten den přepne sama, už zapsaná budoucí platba se přepočítá, zaplacené zálohy zůstávají v transakcích. Odhad vyúčtování počítá zbývající zálohy po skutečných dnech plateb a částce platné v ten den; dlaždice Měsíční záloha ukáže i nadcházející změnu. Totéž čtou 🔄 Šablony a Budoucí platby.",
+      "💡 POROVNÁNÍ ZÁLOH A NÁVRH ZÁLOHY (Milan: „porovnej zaplacené zálohy proti spotřebě a ceně, a pokud uvidíš nedoplatek, navrhni úpravu záloh pro nadcházející měsíc“) · cesta: Energie a voda → karta měřidla → Odhad vyúčtování: „Zatím v období: zaplaceno … · spotřeba ≈ … × cena = … → zálohy zatím stačí / chybí“ a při nedoplatku návrh zálohy od nejbližší platby (co chybí ÷ zbývající platby, nahoru na 50 Kč) s tlačítkem 📅 Přidat do rozpisu záloh. Sám se nic nezapíše; změnu je třeba nahlásit i dodavateli. Nahrazuje dřívější „záloha by měla být asi X měsíčně“ (počítala průměr za celé období i s už zaplacenými měsíci).",
+      "🔀 PŘEPÍNAČ MĚŘIDEL (Milan: varianta a) · cesta: Energie a voda: nahoře ⚡ Elektřina | 🔥 Plyn | 💧 Voda – ukazuje se vždy jedno měřidlo, volba se pamatuje v prohlížeči; otevřený formulář přepne na své měřidlo, nové měřidlo se rovnou vybere.",
+      "🔗 PROPOJIT TRANSAKCE (Milan: „ruční dohledání a propojení transakce bez změn reportu a statistik… nenásilnou formou“) · cesta: Transakce → klepnout na transakci (Upravit) → 🔗 Propojit s jinou transakcí: k příjmu (vrácení peněz) najdeš výdaj – stejná částka první, hledání podle názvu i částky. Jen odkaz na obou stranách (v seznamu 🔗), klepnutí otevře protistranu, ✕ zruší. Příjem zůstává příjmem, výdaj výdajem – statistiky ani report se nemění.",
+      "🧪 tools/smoke_zalohy_rozpis.js (19) a smoke_propojeni.js (13) – na v12.16 selžou; Chromium 390 px: přepínač, návrh 1 850 Kč od 15. 11. → období ≈ +110 Kč, propojení a beze změny statistik.",
+    ],
+  },
+  {
+    verze: 'v12.16',
+    datum: '2026-10-27',
+    zmeny: [
+      "🐛 FIX-497 · POPISKY SLOUPCŮ SE PŘEKRÝVALY (Milan, screenshot Plyn) · cesta: Majetek → 📟 Energie a voda → karta měřidla (graf po měsících) a 📊 Detail spotřeby: popisek „05/25“ byl na telefonu širší než sloupec. Teď číslo měsíce a rok jen pod prvním sloupcem a pod lednem; u 24 sloupců v Detailu menší písmo a užší mezera. Stejně opraveno i ve Vozidlech (Útrata za palivo po měsících) – sdílený graf.",
+      "🧪 tools/smoke_graf_popisky.js – 9 testů (na v12.15 jich 7 selže); rozložení změřeno v Chromiu na 390 px: 0 překryvů u 12 i 24 sloupců.",
+    ],
+  },
+  {
+    verze: 'v12.15',
+    datum: '2026-10-27',
+    zmeny: [
+      "🐛 FIX-496 · PŘÍCHOZÍ PLATBA Z OZNÁMENÍ BYLA VÝDAJ (Milan: „chybí mi možnost volby kategorie příjmu“, screenshot KB+) · cesta: Import z banky → 📲 Doručené: „💰 Příchozí platba 200,00 Kč na účet …“ se četla jako výdaj (pravidlo „Platba X Kč“ chytilo slovo platba uvnitř „Příchozí platba“), proto se nabízely jen výdajové kategorie. Teď příjem s příjmovými kategoriemi a názvem „Platba z účtu …“. Opraveno i pro texty George a KB Alert vložené ručně.",
+      "🏦 ZAPAMATOVANÉ ÚČTY (Milan: „podle čísla účtu vím: tady jsem převáděl mezi účty, nebo zaplatil plyn“) · cesta: Import z banky → 📲 Doručené: po ✅ Přidat si appka zapamatuje i účet příjemce / odesílatele – s kategorií a názvem (účet 35-…/0100 → Bydlení · Plyn innogy), nebo jako tvůj účet, když jsi zvolil ↔️ přesun (příště se rovnou nabídne přesun na Spořák). Vlastní účet se u příjmu bere z „na účet“, u výdaje z „z účtu“ (dřív se u příjmu zapamatoval účet odesílatele). Na kartě je vidět, co je předvyplněné z paměti.",
+      "🧠 ZAPAMATOVANÉ KARTY A ÚČTY · cesta: Import z banky → 📲 Doručené → 🧠 Zapamatované karty a účty: přehled všeho, co si appka pamatuje (karta → peněženka, účet → peněženka, účet → kategorie), u každého ✕ zapomenout.",
+      "💳 TYP PLATBY (Milan: „opravdu se jedná o platbu kartou… bankovní převod je převod z účtu na účet, výběr hotovosti je přesun do peněženky Hotovost“) · cesta: Import z banky → 📲 Doručené: nové pole Typ platby předvyplněné – platba kartou 💳 Platební karta, z účtu na účet 🏦 Bankovní převod; jde změnit. Výběr z bankomatu se nabídne jako ↔️ přesun do peněženky Hotovost (přesný text výběru z KB+ zatím neznáme – rozpozná „Výběr … X Kč“).",
+      "🧪 tools/smoke_inbox_kb.js – 27 testů na textech ze skutečného oznámení KB+ (na v12.14 jich 16 selže).",
+    ],
+  },
   {
     verze: 'v12.14',
     datum: '2026-10-26',

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.11 · ui.js · 2026-10-25
+// FinanceFlow · v12.20 · ui.js · 2026-10-28
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2099,8 +2099,9 @@ function buildTxRow(t, D, ro, dupMap={}) {
       (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
       : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
       : '';
-    const badgeM = isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
-                : hasReceiptItems ? ` <span style="font-size:.66rem;color:#a8aec8">📷 ${t.receiptItems.length} ▾</span>` : '';
+    const badgeM = (isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
+                : hasReceiptItems ? ` <span style="font-size:.66rem;color:#a8aec8">📷 ${t.receiptItems.length} ▾</span>` : '')
+                + (Array.isArray(t.propojeno) && t.propojeno.length ? ' <span style="font-size:.66rem" title="Propojeno s jinou transakcí">🔗</span>' : '');   // v12.17
     const subM = t.subcat ? `<span style="font-size:.72rem;color:var(--text3)"> · ${t.subcat}</span>` : '';
     const balM = (window._txBalMap&&window._txBalMap[t.id]!==undefined) ? `<div style="font-size:.64rem;color:var(--income);opacity:.85">(${fmtP(window._txBalMap[t.id])} ${curLabel})</div>` : '';
     const descM = customName || t.name || t.note || (t.receiptStore||'') || '–';
@@ -2180,6 +2181,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
       ${(window._txBalMap&&window._txBalMap[t.id]!==undefined)?`<div style="font-size:.66rem;color:var(--income);opacity:.85;white-space:nowrap">(${fmtP(window._txBalMap[t.id])} ${curLabel})</div>`:''}
       ${isSplitParent?`<span class="split-badge" style="margin-left:0;margin-top:3px;display:inline-block">✂️ SPLIT · ${splitChildren.length}×</span>`:''}
       ${hasReceiptItems?`<span style="font-size:.62rem;color:#a8aec8;display:block;margin-top:2px">📷 ${t.receiptItems.length} pol. ▾</span>`:''}
+      ${Array.isArray(t.propojeno)&&t.propojeno.length?`<span style="font-size:.62rem;color:#a8aec8;display:block;margin-top:2px" title="Propojeno s jinou transakcí">🔗 propojeno</span>`:''}
     </div>
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
       ${isVirtualTransfer?`<span style="font-size:.66rem;color:#a8aec8" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_coarse
@@ -2285,8 +2287,77 @@ function editTx(id){
   const _bs=document.getElementById('btnTxSplit');
   if(_bs) _bs.style.display=(!t.splitId && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
   window._modalTxId=id;
+  if(typeof txPropojRender==='function'){ _txPropOtevreno=false; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
+  if(typeof temaTxRender==='function') temaTxRender(id);   // S28 (v12.20): ⭐ sledované téma
   document.getElementById('modalAdd').classList.add('open');
 }
+
+// ══════════════════════════════════════════════════════
+//  S28 (v12.17, Milan: „vrácení peněz beru jako příjem… jediná věc, která by se hodila, je ruční
+//  dohledání a propojení transakce bez změn reportu a statistik“; „udělej to nenásilnou formou“).
+//  cesta: Transakce → klepnout na transakci (Upravit) → 🔗 Propojit s jinou transakcí
+//  t.propojeno = [id, …] na OBOU transakcích. Jen odkaz – žádný výpočet ho nečte, příjem zůstává
+//  příjmem a výdaj výdajem. Smazaná protistrana se prostě neukáže.
+// ══════════════════════════════════════════════════════
+const _txPropId = v => String(v);
+function txPropojene(t, D) {
+  const ids = (t && Array.isArray(t.propojeno) ? t.propojeno : []).map(_txPropId);
+  return ((D || getData()).transactions || []).filter(x => x && ids.includes(_txPropId(x.id)));
+}
+//  Kandidáti: opačný typ (k příjmu výdaje, k výdaji příjmy), bez přesunů a rozdělených rodičů, za 2 roky.
+//  Řazení: stejná částka první, pak blízké datum. Hledá v názvu, poznámce a částce.
+function txPropojKandidati(t, D, q) {
+  if (!t) return [];
+  const typ = t.type === 'income' ? 'expense' : 'income', d0 = Date.parse((t.date || '') + 'T12:00:00') || Date.now();
+  const castka = parseFloat(t.amount || t.amt) || 0, uz = (t.propojeno || []).map(_txPropId);
+  const qq = String(q || '').trim().toLowerCase(), qn = parseFloat(qq.replace(/\s/g, '').replace(',', '.'));
+  return ((D || getData()).transactions || []).filter(x => x && x.type === typ && _txPropId(x.id) !== _txPropId(t.id) && !uz.includes(_txPropId(x.id))
+      && !x.splitParent && !x.isBalancing && !(typeof isTransferTx === 'function' && isTransferTx(x))
+      && Math.abs((Date.parse((x.date || '') + 'T12:00:00') || 0) - d0) <= 730 * 864e5)
+    .filter(x => !qq || (x.name || '').toLowerCase().includes(qq) || (x.note || '').toLowerCase().includes(qq)
+      || (isFinite(qn) && Math.abs((parseFloat(x.amount || x.amt) || 0) - qn) < 0.5))
+    .map(x => ({ x, stejna: Math.abs((parseFloat(x.amount || x.amt) || 0) - castka) < 0.5 ? 0 : 1, dni: Math.abs((Date.parse((x.date || '') + 'T12:00:00') || 0) - d0) }))
+    .sort((a, b) => a.stejna - b.stejna || a.dni - b.dni).slice(0, 8).map(o => o.x);
+}
+function txPropoj(idA, idB) {
+  if (viewingUid) return;
+  const a = (S.transactions || []).find(x => x.id == idA), b = (S.transactions || []).find(x => x.id == idB); if (!a || !b) return;
+  const pridej = (t, id) => { const l = (Array.isArray(t.propojeno) ? t.propojeno : []).map(_txPropId); if (!l.includes(_txPropId(id))) l.push(_txPropId(id)); t.propojeno = l; };
+  pridej(a, b.id); pridej(b, a.id);
+  save(); txPropojRender(idA);
+  if (typeof showToast === 'function') showToast('🔗 Propojeno – statistiky ani report se nemění');
+}
+function txOdpoj(idA, idB) {
+  if (viewingUid) return;
+  [[idA, idB], [idB, idA]].forEach(([p, q]) => { const t = (S.transactions || []).find(x => x.id == p); if (!t || !Array.isArray(t.propojeno)) return;
+    t.propojeno = t.propojeno.filter(v => _txPropId(v) !== _txPropId(q)); if (!t.propojeno.length) delete t.propojeno; });
+  save(); txPropojRender(idA);
+}
+let _txPropOtevreno = false;
+function txPropojRender(id, q) {
+  const box = document.getElementById('txPropojBox'); if (!box) return;
+  const D = getData(), t = (D.transactions || []).find(x => x.id == id);
+  if (!t || viewingUid) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const esc = s => (typeof escHtml === 'function') ? escHtml(s) : String(s == null ? '' : s);
+  const pop = x => `${esc(x.name || x.note || '–')} · ${x.type === 'income' ? '+' : '−'}${fmtP(x.amount || x.amt || 0)} Kč · ${esc(new Date((x.date || '') + 'T12:00:00').toLocaleDateString('cs-CZ'))}`;
+  const sp = txPropojene(t, D);
+  const idS = esc(_txPropId(t.id)).replace(/'/g, '');
+  let h = sp.map(x => `<div style="display:flex;align-items:center;gap:6px;font-size:.76rem;padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;margin-bottom:4px">
+      <span style="flex:1;min-width:0;cursor:pointer;color:var(--text)" title="Otevřít" onclick="editTx('${esc(_txPropId(x.id)).replace(/'/g, '')}')">🔗 ${pop(x)}</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:2px 7px" title="Zrušit propojení" onclick="txOdpoj('${idS}','${esc(_txPropId(x.id)).replace(/'/g, '')}')">✕</button></div>`).join('');
+  if (!_txPropOtevreno) h += `<button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem;color:#a8aec8" onclick="_txPropOtevreno=true;txPropojRender('${idS}')">🔗 ${sp.length ? 'Propojit s další transakcí' : 'Propojit s jinou transakcí'}</button>`;
+  else {
+    const k = txPropojKandidati(t, D, q);
+    h += `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 9px">
+      <div style="font-size:.7rem;color:#a8aec8;margin-bottom:5px;line-height:1.45">${t.type === 'income' ? 'K jakému výdaji patří? (např. vrácené peníze za reklamaci)' : 'Ke kterému příjmu patří? (např. vrácení peněz)'} Jen odkaz – statistiky ani report se nemění.</div>
+      <input class="fi" id="txPropojQ" placeholder="Hledat název nebo částku" value="${esc(q || '')}" oninput="txPropojRender('${idS}', this.value)" style="font-size:.8rem;margin-bottom:5px" autocomplete="off">
+      ${k.length ? k.map(x => `<div style="font-size:.76rem;padding:6px 4px;border-top:1px solid var(--border);cursor:pointer" onclick="_txPropOtevreno=false;txPropoj('${idS}','${esc(_txPropId(x.id)).replace(/'/g, '')}')">${pop(x)}</div>`).join('') : '<div style="font-size:.72rem;color:#8b93ad">Nic nenalezeno.</div>'}
+      <button type="button" class="btn btn-ghost btn-sm" style="font-size:.7rem;margin-top:4px" onclick="_txPropOtevreno=false;txPropojRender('${idS}')">Zavřít</button></div>`;
+  }
+  box.innerHTML = h; box.style.display = 'block';
+  if (q != null) { const i = document.getElementById('txPropojQ'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+}
+Object.assign(window, { txPropojene, txPropojKandidati, txPropoj, txOdpoj, txPropojRender });
 
 // ══════════════════════════════════════════════════════
 //  TODO-231: NAŠEPTÁVAČ NÁZEV / POZNÁMKA (vzor: nakupShowCatalogSuggest, tagsInputHandler)
