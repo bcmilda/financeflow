@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · admin.js · 2026-10-28
+// FinanceFlow · v12.18 · admin.js · 2026-10-28
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,14 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.18',
+    datum: '2026-10-28',
+    zmeny: [
+      "🐛 FIX-498 · BUDOUCÍ PLATBY VYNECHÁVALY NEJBLIŽŠÍ MĚSÍČNÍ PLATBU (od v6.49, duben 2026) · cesta: Budoucí platby, a všude, kde se čtou: Finanční radar (Do výplaty, platby 30/60/90 dní, odhad konce měsíce), Příští měsíc, 🧮 Kalkulačky → Do výplaty. Výpočet výskytů měsíční šablony posunul počítadlo měsíce o jeden napřed – 28. 10. se splatností 15. ukázal první platbu až 15. 12. (listopad chyběl), 10. 10. až 15. 11. (chyběl říjen). Do výplaty tak vycházelo víc volných peněz, než ve skutečnosti bylo. Opraveno; navíc den 29.–31. v kratším měsíci = poslední den měsíce (dřív 31. 11. přeteklo na 1. 12. – listopad chyběl, prosinec byl dvakrát).",
+      "🧪 tools/smoke_budouci_vyskyty.js – 9 testů výpočtu výskytů (na v12.17 jich 8 selže). Generátor dosud žádný test neměl – smoke_budouci.js zkoušel jen označení „zaplaceno“.",
+    ],
+  },
   {
     verze: 'v12.17',
     datum: '2026-10-28',

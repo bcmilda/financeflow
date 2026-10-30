@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · budouci.js · 2026-10-28
+// FinanceFlow · v12.18 · budouci.js · 2026-10-28
 //  S25 (v11.44): datum v MÍSTNÍM čase. Dřív toISOString() (UTC) → místní půlnoc vyšla jako
 //  předchozí den: „Zaznamenat“ zapsalo platbu o den dřív a platba splatná 1. se kontrolovala
 //  proti předchozímu měsíci. _bDen čte „RRRR-MM-DD“ jako místní den (ne UTC půlnoc).
@@ -178,15 +178,18 @@ function budouciGetOccurrences(freq, den, from, to) {
     let cur = new Date(today.getTime() + 14 * 86400000);
     while (cur <= to) { dates.push(new Date(cur)); cur = new Date(cur.getTime() + 14 * 86400000); }
   } else if (freq === 'monthly') {
-    let m = today.getMonth() + 1, y = today.getFullYear();
-    // Pokud je den v tomto měsíci ještě před námi nebo dnes = zahrň
-    const thisMonthDate = new Date(y, m - 1, den); thisMonthDate.setHours(0,0,0,0);
-    if (thisMonthDate > today) { m = today.getMonth(); y = today.getFullYear(); }
-    for (let i = 0; i < 24; i++) {
-      if (++m > 11) { m = 0; y++; }
-      const d = new Date(y, m, den); d.setHours(0,0,0,0);
+    //  S28 (v12.18, FIX-498, Milan: „Proč tam je taková chyba? Oprav ji.“): od v6.49 se VŽDY vynechal
+    //  nejbližší výskyt – počítadlo měsíce se před první platbou zvýšilo o jeden navíc (28. 10., den 15 →
+    //  první výskyt 15. 12., listopad chyběl; 10. 10. → 15. 11., chyběl říjen). Projevilo se všude, kde
+    //  se čtou budoucí platby: Budoucí platby, Radar (Do výplaty, 30/60/90), Příští měsíc, Kalkulačky.
+    //  Teď se jde od tohoto měsíce a bere se každý výskyt po dnešku. Den 29.–31. v kratším měsíci =
+    //  poslední den měsíce (dřív 31. 11. → 1. 12., takže listopad chyběl a prosinec byl dvakrát).
+    let y = today.getFullYear(), m = today.getMonth();
+    for (let i = 0; i < 25; i++) {
+      const d = new Date(y, m, Math.min(den, new Date(y, m + 1, 0).getDate())); d.setHours(0,0,0,0);
       if (d > to) break;
       if (d > today) dates.push(d);
+      if (++m > 11) { m = 0; y++; }
     }
   } else if (freq === 'quarterly') {
     let cur = new Date(today.getFullYear(), today.getMonth() + 3, den);
