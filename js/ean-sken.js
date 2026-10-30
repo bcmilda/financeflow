@@ -1,4 +1,4 @@
-// FinanceFlow · v11.94 · ean-sken.js · 2026-10-21
+// FinanceFlow · v12.21 · ean-sken.js · 2026-10-29
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -441,9 +441,12 @@ window.eanKartaHTML = eanKartaHTML;
 //  „přiřadit i k jiné položce“ – stejný výrobek pod jinou zkratkou spojí aliasy obchod+zkratka.)
 function eanPrirazeniHTML(ean) {
   const zUct = typeof eanNazvyZUctenek === 'function' ? eanNazvyZUctenek(ean) : [];
+  //  S28 (v12.21, FIX-499, Milan: „udělal jsem chybu při přiřazování položky k účtence, jak to opravit?“):
+  //  po přiřazení zbyl jen zelený stav bez tlačítka – ✕ Odebrat byl schovaný v seznamu, kam už nešlo.
   if (zUct.length) return `<div style="flex:1;min-width:200px;background:#34d39914;border:1px solid #34d39955;border-radius:10px;padding:8px 10px;font-size:.78rem">
-      <b style="color:var(--income)">✓ Přiřazeno k položce z účtenky</b><div style="color:#c9cede;margin-top:2px">${zUct.slice(0, 3).map(escHtml).join(', ')}</div></div>`;
-  return `<button class="btn btn-primary" style="flex:1" onclick="eanVyberPolozku()">🔗 Přiřadit k položce z účtenky</button>`;
+      <b style="color:var(--income)">✓ Přiřazeno k položce z účtenky</b><div style="color:#c9cede;margin-top:2px">${zUct.slice(0, 3).map(escHtml).join(', ')}</div>
+      <button class="btn btn-sm" style="margin-top:6px;font-size:.7rem" onclick="_eanVyberLimit=12;eanVyberPolozku()">✎ Změnit / ✕ Odebrat přiřazení</button></div>`;
+  return `<button class="btn btn-primary" style="flex:1" onclick="_eanVyberLimit=12;eanVyberPolozku()">🔗 Přiřadit k položce z účtenky</button>`;
 }
 function eanVysledekKresli(ean, p) {
   const el = document.getElementById('eanVysledek'); if (!el) return;
@@ -453,7 +456,12 @@ function eanVysledekKresli(ean, p) {
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-start">
       ${volne ? eanPrirazeniHTML(ean) : `<button class="btn btn-primary" style="flex:1" onclick="eanPrirad()">✅ Přiřadit k položce</button>`}
       <button class="btn" onclick="document.getElementById('eanVysledek').innerHTML='';eanStartKamery()">↺ Skenovat znovu</button>
-    </div>`;
+    </div>
+    ${volne ? `<div style="margin-top:10px;padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;font-size:.74rem;color:#c9cede;line-height:1.5">
+      <b>Nechceš ho teď přiřazovat?</b> Nevadí – výrobek je uložený v 📦 <b>Moje výrobky</b> (Analýza účtenek → 🗺️ Mapa položek) a v 📷 K vyřízení. K položce ho přiřadíš, až budeš mít účtenku.
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
+        <button class="btn btn-sm" onclick="eanZavri();eanOtevriKartu('${escHtml(ean)}')">📦 Otevřít kartu výrobku</button>
+        <button class="btn btn-ghost btn-sm" onclick="eanZavri()">Hotovo, přiřadím později</button></div></div>` : ''}`;
 }
 
 async function eanNalezen(kod) {
@@ -1161,6 +1169,7 @@ function eanNalezenZobraz(ean, p) {
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:flex-start">
         ${eanPrirazeniHTML(ean)}
         <button class="btn" onclick="document.getElementById('eanVysledek').innerHTML='';eanStartKamery()">↺ Skenovat znovu</button></div>
+      ${(typeof eanNazvyZUctenek === 'function' && eanNazvyZUctenek(ean).length) ? '' : `<div style="font-size:.7rem;color:#a8aec8;margin-top:8px;line-height:1.5">Bez přiřazení zůstává výrobek v 📦 Moje výrobky a v 📷 K vyřízení – přiřadíš ho, až budeš mít účtenku. <button class="btn btn-ghost btn-sm" style="font-size:.68rem" onclick="eanZavri()">Hotovo, přiřadím později</button></div>`}
       ${p && p.stav === 'nalezeno' && typeof mapaKartaEan === 'function' ? `<button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="eanZavri();mapaKartaEan('${escHtml(ean)}')">📇 Otevřít celou kartu výrobku</button>` : ''}`;
 }
 
@@ -1244,14 +1253,19 @@ function eanNavrhyPolozek(D, ean, p) {
 }
 window.eanNavrhyPolozek = eanNavrhyPolozek;
 
+//  S28 (v12.21, Milan: „v nabídce bylo málo účtenek a málo položek, je tam množstevní omezení?“):
+//  dřív natvrdo 12 nejnovějších účtenek (s hledáním 30). Teď po 12 s „Zobrazit další“; přiřazené
+//  položky jsou vždy nahoře s ✕ Odebrat, i když jejich účtenka je starší.
+var _eanVyberLimit = 12;
 function eanVyberPolozku(hledat) {
   const el = document.getElementById('eanVysledek'); if (!el) return;
   const D = (typeof S !== 'undefined') ? S : getData();
   const v = _eanStav.vysledek || {};
-  const sk = eanPolozkyUctenek(D, hledat, v.ean).slice(0, hledat ? 30 : 12);
+  const vse = eanPolozkyUctenek(D, hledat, v.ean);
+  const sk = vse.slice(0, _eanVyberLimit);
   const box = document.getElementById('eanVyber') || (() => { const d = document.createElement('div'); d.id = 'eanVyber'; el.appendChild(d); return d; })();
   const flat = []; const dat = d => d ? d.split('-').reverse().join('. ') : '';
-  const tento = sk.flatMap(g => g.rows).filter(x => x.stav === 'tento');
+  const tento = vse.flatMap(g => g.rows.map(x => Object.assign({ datum: g.datum }, x))).filter(x => x.stav === 'tento');
   const vp = v.produkt && v.produkt.stav === 'nalezeno' ? v.produkt : null;
   const navrhy = hledat ? [] : eanNavrhyPolozek(D, v.ean, vp);
   const navrhyHTML = navrhy.length ? `<div style="margin-bottom:10px;border:1px solid #4ade8066;border-radius:10px;overflow:hidden">
@@ -1263,7 +1277,13 @@ function eanVyberPolozku(hledat) {
     </div>` : (!hledat && !vp ? `<div style="font-size:.74rem;color:#fbbf24;line-height:1.5;margin-bottom:8px">Výrobek databáze nezná, takže nevím, podle čeho položku hledat. Nahoře 📸 vyfoť obal – pak ti položky seřadím podle značky, druhu a gramáže. Nebo vyhledej slovo z obalu a vyber účtenku podle data nákupu.</div>` : '');
   box.innerHTML = `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
     <div style="font-weight:700;font-size:.84rem;margin-bottom:4px">Ke které položce z účtenky patří?</div>
-    ${tento.length ? `<div style="font-size:.74rem;color:var(--income);margin-bottom:6px">✓ Tento výrobek už máš přiřazený: ${tento.map(x => '<b>' + escHtml(x.raw) + '</b>').join(', ')}</div>` : ''}
+    ${tento.length ? `<div style="margin-bottom:10px;border:1px solid #34d39966;border-radius:10px;overflow:hidden">
+      <div style="background:#34d39914;padding:6px 10px;font-size:.74rem;font-weight:700;color:var(--income)">✓ Tento výrobek je přiřazený k – špatně? ✕ Odebrat</div>
+      ${tento.map(x => { const i = flat.push(x) - 1;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--border);font-size:.8rem">
+          <span style="overflow-wrap:anywhere"><b>${escHtml(x.raw)}</b> <span style="color:#a8aec8;font-size:.7rem">🧾 ${escHtml(x.obchod || 'Účtenka')} · ${escHtml(dat(x.datum))}</span></span>
+          <button class="btn btn-sm" style="font-size:.7rem;padding:3px 9px;flex-shrink:0" onclick="event.stopPropagation();eanOdebratZPolozky(${i})">✕ Odebrat</button></div>`; }).join('')}
+      <div style="font-size:.66rem;color:#8b93ad;padding:5px 10px;border-top:1px solid var(--border)">Odebráním zmizí kód ze všech tvých účtenek s touto zkratkou v obchodě a appka ho k ní už sama nenabídne. Pak vyber správnou položku níž.</div></div>` : ''}
     ${navrhyHTML}
     <input class="fi" id="eanVyberQ" placeholder="🔍 Hledat položku…" value="${escHtml(hledat || '')}" oninput="eanVyberPolozku(this.value)" style="font-size:.8rem;margin-bottom:8px">
     ${sk.length ? sk.map(g => `<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
@@ -1276,6 +1296,8 @@ function eanVyberPolozku(hledat) {
             <span style="overflow-wrap:anywhere"><b>${escHtml(x.raw)}</b></span><span style="display:flex;align-items:center;gap:6px">${st}</span></div>`; }).join('')}
       </div>`).join('')
       : '<div style="font-size:.76rem;color:#a8aec8">Žádná položka' + (hledat ? ' neodpovídá hledání' : ' v účtenkách') + '.</div>'}
+    ${vse.length > sk.length ? `<button class="btn btn-sm" style="width:100%;margin-top:2px" onclick="_eanVyberLimit+=12;eanVyberPolozku(document.getElementById('eanVyberQ')?.value||'')">⬇ Zobrazit další účtenky (${sk.length} z ${vse.length})</button>` : ''}
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:6px;line-height:1.45">Každá zkratka z obchodu je tu jednou – u nejnovější účtenky, kde se objevila (stejná zkratka = stejný výrobek). Starší účtenky proto ukazují jen položky, které jinde nejsou. Hledání prohledá všechny účtenky.</div>
   </div>`;
   window._eanKandidati = flat;
   const q = document.getElementById('eanVyberQ'); if (q && hledat != null && q.focus) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
@@ -1347,7 +1369,9 @@ async function eanOdebratZPolozky(i) {
   try { await eanDotaz({ ean: v.ean, akce: 'odebrat', klic: x.klic }); } catch (e) {}
   if (_eanAliasy && _eanAliasy[x.klic] && _eanAliasy[x.klic].ean === v.ean) delete _eanAliasy[x.klic];
   if (typeof showToast === 'function') showToast('Kód odebrán od „' + x.raw + '"');
-  eanVyberPolozku(document.getElementById('eanVyberQ')?.value || '');
+  const _q = document.getElementById('eanVyberQ')?.value || '';
+  if (_eanStav.cil && _eanStav.cil.volne) eanVysledekKresli(v.ean, v.produkt);   // v12.21: zelený stav „Přiřazeno“ pryč
+  eanVyberPolozku(_q);
 }
 Object.assign(window, { eanSkenujVolne, eanVolneObnov, eanVyberPolozku, eanPriradKPolozce, eanOdebratZPolozky });
 

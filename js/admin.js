@@ -1,4 +1,4 @@
-// FinanceFlow · v12.20 · admin.js · 2026-10-28
+// FinanceFlow · v12.21 · admin.js · 2026-10-29
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.21',
+    datum: '2026-10-29',
+    zmeny: [
+      "🩹 FIX-499 OPRAVA ŠPATNÉHO PŘIŘAZENÍ KÓDU (Milan: „udělal jsem chybu při přiřazování položky k účtence, jak to opravit?“) · cesta: Analýza účtenek → 📷 Skenovat kód (nebo 🗺️ Mapa položek → výrobek / 📷 K vyřízení) → zelený rámeček ✓ Přiřazeno → ✎ Změnit / ✕ Odebrat přiřazení. Přiřazená položka je ve výběru vždy nahoře s ✕ Odebrat (i ze starší účtenky); po odebrání vybereš správnou položku. Dřív se k ✕ Odebrat nedalo dostat – zelený stav neměl žádné tlačítko.",
+      "📜 VÝBĚR POLOŽKY BEZ LIMITU (Milan: „v nabídce bylo málo účtenek a málo položek“) · dřív natvrdo 12 nejnovějších účtenek (s hledáním 30). Teď ⬇ Zobrazit další účtenky po 12 a vysvětlení, že stejná zkratka z obchodu se ukáže jen jednou (u nejnovější účtenky) – proto starší účtenky mají málo položek. Hledání prohledá všechny.",
+      "🧭 DRUHÁ CESTA PO SKENU (Milan: „pokud nepřiřadím k účtence, co potom?“) · nepřiřazený výrobek: „Nechceš ho teď přiřazovat?“ – je uložený v 📦 Moje výrobky (Analýza účtenek → 🗺️ Mapa položek) a v 📷 K vyřízení; tlačítka 📦 Otevřít kartu výrobku a Hotovo, přiřadím později.",
+      "🧪 tools/smoke_ean_oprava.js – 10 testů (na v12.20 padá všech 10); smoke_ean_prirazeni.js upraven na nový text. Chromium 390 px: 20 účtenek, Lindt přiřazený ke Kaiserce → ✎ Změnit → ✕ Odebrat → hledat „lindt“ → správně přiřazeno, bez chyb, šířka 390.",
+    ],
+  },
   {
     verze: 'v12.20',
     datum: '2026-10-28',
