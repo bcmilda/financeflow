@@ -1,4 +1,4 @@
-// FinanceFlow · v12.22 · receipts.js · 2026-10-29
+// FinanceFlow · v12.23 · receipts.js · 2026-10-30
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3529,7 +3529,11 @@ function mapaOdpojit(i, klicZkratky) {
 Object.assign(window, { mapaSpojeniKam, mapaSpojeniNazev, mapaSpojitProvest, mapaOdpojitProvest, mapaSpojitForm, mapaSpojitKandidati, mapaSpojitHledej, mapaSpojitUloz, mapaSpojitNazevUloz, mapaOdpojit });
 
 //  Rozbalovací panel COICOP: hierarchie + váha ČSÚ + tvůj podíl se STEJNÝM základem a obdobím.
-let _mapaVahaZaklad = 'potraviny';
+//  S28 (v12.23, Milan: „58 % z malé útraty je hodně a vypadá to, že přesahuju limity ČSÚ. Právě když utratím
+//  méně, mělo by to být zobrazeno tím 0,63 %, to je logické“): výchozí 'auto' = za oddíl aspoň 500 Kč → podíl
+//  z výdajů za oddíl, jinak ze všech výdajů. Klepnutí na přepínač volí základ ručně (platí do zavření appky).
+let _mapaVahaZaklad = 'auto';
+const MAPA_ZAKLAD_ODDIL_KC = 500;
 function mapaVahaZaklad(v) { _mapaVahaZaklad = v === 'vse' ? 'vse' : 'potraviny'; if (typeof _mapaKartaI !== 'undefined' && _mapaKartaI >= 0 && typeof mapaUzivDetail === 'function') mapaUzivDetail(_mapaKartaI); }
 window.mapaVahaZaklad = mapaVahaZaklad;
 let _mapaKoicopOtevreno = false;
@@ -3557,7 +3561,8 @@ function mapaKoicopPanelHTML(code, D, cast) {
   const cesta = typeof coicopCesta === 'function' ? coicopCesta(code) : [];
   const kod4 = coicopNorm(code).split('.').slice(0, 4).join('.');
   const odd = kod4.slice(0, 2);
-  const f = v => (Math.round(v * 10) / 10).toLocaleString('cs-CZ');
+  //  v12.23: pod 1 % na dvě desetinná místa (0,63 %, ne 0,6 %)
+  const f = v => (Math.abs(v) < 1 ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10).toLocaleString('cs-CZ');
   const kc = v => Math.round(v).toLocaleString('cs-CZ') + ' Kč';
   const hier = cesta.length ? `<div class="mk-hier">${cesta.map((x, i) => `<div style="padding-left:${i * 6}px"><span class="kod">${i ? '↳ ' : ''}${escHtml(x.kod)}</span><span>${escHtml(x.nazev)}</span></div>`).join('')}</div>` : '';
   let srov = '';
@@ -3568,36 +3573,33 @@ function mapaKoicopPanelHTML(code, D, cast) {
     const sum = fn => r.filter(fn).reduce((a, x) => a + x.castka, 0);
     const moje = sum(x => x.coicop && (x.coicop === kod4 || x.coicop.startsWith(kod4 + '.')));
     const potr = sum(x => x.coicop && x.coicop.startsWith(odd + '.'));
-    const vse = _mapaVahaZaklad === 'vse' ? mapaVsechnyVydaje(D, o) : 0;
+    const zaklad = _mapaVahaZaklad === 'auto' ? (potr >= MAPA_ZAKLAD_ODDIL_KC ? 'potraviny' : 'vse') : _mapaVahaZaklad;
+    const vse = zaklad === 'vse' ? mapaVsechnyVydaje(D, o) : 0;
     const wOdd = mapaVahaOddilu(odd);
     const oddN = ((typeof coicopNazev === 'function' && coicopNazev(odd)) || 'oddíl ' + odd).toLowerCase();
-    const zakladTxt = _mapaVahaZaklad === 'vse' ? 'ze všech výdajů' : 'z výdajů za ' + oddN;
-    const csu = _mapaVahaZaklad === 'vse' ? w / 10 : (wOdd ? w / wOdd * 100 : null);
-    const jm = _mapaVahaZaklad === 'vse' ? vse : potr;
+    const zakladTxt = zaklad === 'vse' ? 'ze všech výdajů' : 'z výdajů za ' + oddN;
+    const csu = zaklad === 'vse' ? w / 10 : (wOdd ? w / wOdd * 100 : null);
+    const jm = zaklad === 'vse' ? vse : potr;
     const muj = jm > 0 ? moje / jm * 100 : null;
     const roky = mapaVahaRoky(mapaVahaRadky(D));
     const seg = [['3', '3 měs.'], ['6', '6 měs.'], ['12', '12 měs.'], ['vse', 'vše']].map(([v, n]) => `<button type="button" class="${o === v ? 'on' : ''}" onclick="mapaVahaObdobi('${v}')">${n}</button>`).join('');
     const rokSel = roky.length ? `<select onchange="mapaVahaObdobi(this.value)" style="font-size:.7rem;padding:4px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px">
         <option value="">rok…</option>${roky.map(y => `<option value="${y}"${o === y ? ' selected' : ''}>${y}</option>`).join('')}</select>` : '';
-    //  S28 (v12.22): s malým základem (pár desetikorun za oddíl) je „% proti průměru“ jen šum – koš ČSÚ
-    //  počítá s celým oddílem (u 05 i nábytek a spotřebiče), účtenky ho pokryjí jen zčásti.
-    const MALO_KC = 500, malo = jm > 0 && jm < MALO_KC;
-    const rozdil = csu && muj != null && !malo ? Math.round((muj - csu) / csu * 100) : null;
+    const rozdil = csu && muj != null ? Math.round((muj - csu) / csu * 100) : null;
     srov = `<div style="margin-top:10px;font-weight:700;font-size:.8rem">Srovnání výdajů</div>
       <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px">Období tvých nákupů</div>
       <div class="mk-seg">${seg}${rokSel}</div>
       <div style="font-size:.7rem;color:#a8aec8;margin:10px 0 4px">Základ srovnání</div>
       <div class="mk-seg">
-        <button type="button" class="${_mapaVahaZaklad !== 'vse' ? 'on' : ''}" onclick="mapaVahaZaklad('potraviny')">z výdajů za ${escHtml(oddN.split(' ')[0])}</button>
-        <button type="button" class="${_mapaVahaZaklad === 'vse' ? 'on' : ''}" onclick="mapaVahaZaklad('vse')">ze všech výdajů</button></div>
+        <button type="button" class="${zaklad !== 'vse' ? 'on' : ''}" onclick="mapaVahaZaklad('potraviny')">z výdajů za ${escHtml(oddN.split(' ')[0])}</button>
+        <button type="button" class="${zaklad === 'vse' ? 'on' : ''}" onclick="mapaVahaZaklad('vse')">ze všech výdajů</button></div>
       <div class="mk-cislo"><div class="t">Váha ČSÚ – průměrná domácnost</div>
         <div><span class="h">${csu != null ? f(csu) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span></div>
         <div class="p">Stálé váhy spotřebního koše ČSÚ (podle nich se počítá inflace) · podtřída ${escHtml(kod4)} · ${f(w)} ‰ ze všech výdajů</div></div>
       <div class="mk-cislo"><div class="t">Tvůj podíl</div>
         <div><span class="h" style="color:#4ade80">${muj != null ? f(muj) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span>
           ${rozdil != null ? `<span style="font-size:.72rem;font-weight:700;color:${rozdil > 25 ? '#f87171' : rozdil < -20 ? '#4ade80' : '#a8aec8'}">${rozdil >= 0 ? '+' : ''}${rozdil} % proti průměru</span>` : ''}</div>
-        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${_mapaVahaZaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${_mapaVahaZaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div>
-        ${malo ? `<div class="p" style="color:#fbbf24;margin-top:4px">⚠️ Na srovnání je zatím málo dat – za ${escHtml(oddN)} máš z účtenek jen ${kc(jm)}. Koš ČSÚ počítá s celým oddílem, i s tím, co na účtence obvykle nemáš, proto „% proti průměru“ ukážu až od ${kc(MALO_KC)}. Zkus „ze všech výdajů“.</div>` : ''}</div>`;
+        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš ${zaklad === 'vse' ? 'výdaje' : 'účtenky z tohoto oddílu'}`}${zaklad === 'vse' ? ' · výdaje z transakcí, položka z účtenek' : ' · z účtenek'}</div></div>`;
   }
   //  v11.60 (Milan): rozbaluje se jen číselník; Srovnání výdajů je v kartě vždy vidět.
   if (cast === 'hier') return hier ? `<div style="padding:0 12px 12px">${hier}</div>` : '';

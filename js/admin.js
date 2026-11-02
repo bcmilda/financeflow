@@ -1,4 +1,4 @@
-// FinanceFlow · v12.22 · admin.js · 2026-10-29
+// FinanceFlow · v12.23 · admin.js · 2026-10-30
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.23',
+    datum: '2026-10-30',
+    zmeny: [
+      "⚖️ SROVNÁNÍ S ČSÚ: MALÁ ÚTRATA = MALÉ PROCENTO (Milan: „58 % z malé útraty je hodně a vypadá to, že přesahuju limity ČSÚ. Právě když utratím méně, mělo by to být zobrazeno tím 0,63 %“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Když máš za oddíl z účtenek méně než 500 Kč, karta sama porovnává ze všech výdajů: Kuchyňské houbičky – ČSÚ 0,63 %, ty např. 0,06 % = −90 % proti průměru. Od 500 Kč za oddíl zůstává základ „z výdajů za oddíl“. Přepínač Základ srovnání funguje dál ručně.",
+      "🧹 Hláška „Na srovnání je zatím málo dat“ (v12.22) odstraněna – i malá částka se ukáže. Procenta pod 1 % na dvě desetinná místa (0,63 %, ne 0,6 %).",
+      "🧪 tools/smoke_vaha_oddilu.js – 17 testů (na v12.22 padá 6); smoke_karta_v2.js upraven na nový název proměnné. Chromium 390 px: 0,63 % vs 0,06 %, −90 % zeleně, šířka 390, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.22',
     datum: '2026-10-29',
