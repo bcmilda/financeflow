@@ -2,10 +2,10 @@
 // S28 (v12.22, FIX-500, Milan: „proč mám +1316 % větší útratu než průměr, když jsem koupil jen 3 balení kapesníků?
 // Ten výpočet bude špatně.“). Váha oddílu se sčítala přes všechny úrovně číselníku → ~3× víc → „Váha ČSÚ“
 // v kartě ~3× menší a „proti průměru“ nafouknuté.
-// v12.23 (Milan: „právě když utratím méně, mělo by to být zobrazeno tím 0,63 %“): za oddíl < 500 Kč karta sama
-// porovná ze všech výdajů, bez hlášky o málo datech; ručně jde přepnout na „z výdajů za oddíl“.
+// v12.24 (Milan: „nemůžeš v jedné kartě používat 2 různé výpočty“): karta má JEDEN výpočet – ze všech výdajů.
+// Malá útrata = malé procento; koupě ledničky (jiná věc z oddílu) procento čisticích věcí nezmění.
 // + 🚫 Bez živin: značka v osobní kartě, Moje výrobky ji berou jako kompletní, živiny za měsíc ji nepočítají.
-// Negativní kontrola: na v12.21 i v12.22 test padá.
+// Negativní kontrola: na v12.21, v12.22 i v12.23 test padá.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const najdi = (...c) => c.map(p => path.join(__dirname, p)).find(p => fs.existsSync(p));
 const R = (...c) => fs.readFileSync(najdi(...c), 'utf8');
@@ -19,10 +19,9 @@ const S = { uiCfg: {}, receipts: [], transactions: [] };
 const c = { console, S, getData: () => S, Math, JSON, Object, Array, String, Number, Set, Date, parseFloat, isFinite,
   _productDB: PG, escHtml: x => String(x == null ? '' : x), save() {}, showToast() {}, normName: x => String(x || '').toLowerCase().trim() };
 c.window = c; vm.createContext(c);
-const fn = ['mapaVahaZaklad', 'mapaVahaPodtridy', 'mapaVahaOddilu', 'mapaObdobiOd', 'mapaVyberObdobi', 'mapaVahaRoky', 'mapaVahaObdobiNazev', 'mapaVsechnyVydaje',
+const fn = ['mapaVahaPodtridy', 'mapaVahaOddilu', 'mapaObdobiOd', 'mapaVyberObdobi', 'mapaVahaRoky', 'mapaVahaObdobiNazev', 'mapaVsechnyVydaje',
   'mapaKoicopPanelHTML', 'mapaKartaKlic', 'mapaKartaLok', 'mapaKartaLokUloz', 'mapaBezZivin', 'dnaZivinyData', 'dnaKartaPolozky', 'dnaMnozstvi', 'dnaJeJidlo'];
-vm.runInContext(vyber(PD, 'coicopNorm') + '\nvar _mapaVahaObdobi = "vse";\n' + ((RC.match(/^let _mapaVahaZaklad = [^\n]*/m) || [''])[0].replace('let ', 'var ')) + '\n'
-  + ((RC.match(/^const MAPA_ZAKLAD_ODDIL_KC = [^\n]*/m) || [''])[0].replace('const ', 'var ')) + '\nvar mapaUzivDetail = function () {}, _mapaKartaI = -1;\nvar DNA_ZIVINY = [["kcal","Energie","kcal"]];\n'
+vm.runInContext(vyber(PD, 'coicopNorm') + '\nvar _mapaVahaObdobi = "vse", _mapaVahaZaklad = "potraviny", MAPA_ZAKLAD_ODDIL_KC = 500;\nvar mapaUzivDetail = function () {}, _mapaKartaI = -1;\nvar DNA_ZIVINY = [["kcal","Energie","kcal"]];\n'
   + fn.map(n => vyber(RC, n)).join('\n') + '\n' + ['eanMaZiviny', 'eanBezZivin', 'eanMojeStav'].map(n => vyber(E, n)).join('\n'), c);
 console.log('── váha oddílu v koši ČSÚ ──');
 const w05 = c.mapaVahaOddilu('05'), w01 = c.mapaVahaOddilu('01');
@@ -33,17 +32,20 @@ console.log('── karta Kuchyňské houbičky (05.6.1.1) ──');
 c.mapaVahaRadky = () => [{ coicop: '05.6.1.1', castka: 43, mesic: '2026-10' }, { coicop: '05.6.1.9', castka: 31, mesic: '2026-10' }];
 S.transactions = [{ type: 'expense', amount: 20000, date: '2026-10-05' }];   // všechny výdaje 20 000 Kč
 let h = c.mapaKoicopPanelHTML('05.6.1.1', S, 'srov');
-t('74 Kč za oddíl → karta sama porovná ze všech výdajů (tlačítko zapnuté)', /class="on" onclick="mapaVahaZaklad\('vse'\)"/.test(h));
+const proti = x => (x.match(/[−+-]?\d+ % proti průměru/) || [''])[0];
 t('Váha ČSÚ 0,63 % ze všech výdajů (6,3 ‰)', /class="h">0,63 %/.test(h), (h.match(/class="h"[^>]*>([^<]*)/) || [])[1]);
 t('Tvůj podíl 0,22 % (43 z 20 000 Kč) – malá útrata = malé procento', /0,22 %/.test(h) && /43 Kč z 20[\s\u00a0]000 Kč/.test(h));
-t('pod průměrem: −66 % proti průměru (dřív +1316 %)', /[−-]66 % proti průměru/.test(h) && !/1316/.test(h), (h.match(/[−+-]?\d+ % proti průměru/) || [])[0]);
+t('pod průměrem: −66 % proti průměru (dřív +1316 %)', /[−-]66 % proti průměru/.test(proti(h)), proti(h));
+t('jediný výpočet: žádný přepínač „Základ srovnání“, žádné „z výdajů za oddíl“', !/Základ srovnání/.test(h) && !/mapaVahaZaklad\(/.test(h) && !/z výdajů za/.test(h));
 t('žádná hláška „málo dat“', !/málo dat/.test(h));
-c.mapaVahaZaklad('potraviny'); h = c.mapaKoicopPanelHTML('05.6.1.1', S, 'srov');
-t('ručně „z výdajů za oddíl“: 12,3 % proti tvým 58,1 % (zobrazí se, bez hlášky)', /12,3 %/.test(h) && /58,1 %/.test(h) && /\d+ % proti průměru/.test(h) && !/málo dat/.test(h));
-vm.runInContext('_mapaVahaZaklad = "auto"', c);
+//  koupě ledničky: oddíl 05 roste o 5 000 Kč, čisticích věcí stejně → procento čisticích věcí se nezmění
+c.mapaVahaRadky = () => [{ coicop: '05.6.1.1', castka: 43, mesic: '2026-10' }, { coicop: '05.6.1.9', castka: 31, mesic: '2026-10' }, { coicop: '05.3.1.1', castka: 5000, mesic: '2026-10' }];
+S.transactions = [{ type: 'expense', amount: 20000, date: '2026-10-05' }];
+const h2 = c.mapaKoicopPanelHTML('05.6.1.1', S, 'srov');
+t('lednička za 5 000 Kč (stejné celkové výdaje) → houbičky pořád 0,22 %, −66 % (dřív v oddílu −93 %)', /0,22 %/.test(h2) && proti(h2) === proti(h), proti(h2));
 c.mapaVahaRadky = () => [{ coicop: '05.6.1.1', castka: 300, mesic: '2026-10' }, { coicop: '05.1.1.1', castka: 2700, mesic: '2026-10' }];
-h = c.mapaKoicopPanelHTML('05.6.1.1', S, 'srov');
-t('s 3 000 Kč za oddíl zůstává základ oddíl: 10 % proti 12,3 % = −19 %', /class="on" onclick="mapaVahaZaklad\('potraviny'\)"/.test(h) && /[−-]19 % proti průměru/.test(h), (h.match(/[−+-]?\d+ % proti průměru/) || [])[0]);
+const h3 = c.mapaKoicopPanelHTML('05.6.1.1', S, 'srov');
+t('i s 3 000 Kč za oddíl stejný výpočet: 300 z 20 000 = 1,5 % proti 0,63 % = +138 %', /1,5 %/.test(h3) && /\+138 % proti průměru/.test(proti(h3)), proti(h3));
 console.log('── 🚫 bez živin ──');
 const P = { stav: 'nalezeno', nazev: 'Pilsner Urquell' };
 t('výrobek bez živin: Moje výrobky ho hlásí jako chybějící', c.eanMojeStav({ ean: '8594404000015', nakupy: 1 }, P).bezZivin === true);

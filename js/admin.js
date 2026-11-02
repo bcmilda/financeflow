@@ -1,4 +1,4 @@
-// FinanceFlow · v12.23 · admin.js · 2026-10-30
+// FinanceFlow · v12.24 · admin.js · 2026-10-30
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.24',
+    datum: '2026-10-30',
+    zmeny: [
+      "⚖️ SROVNÁNÍ S ČSÚ: JEDEN VÝPOČET (Milan: „nemůžeš v jedné kartě používat 2 různé výpočty… je to špatný přístup a manipulace dat“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Karta počítá vždy jen ze všech výdajů: váha ČSÚ (‰ podtřídy ze všech výdajů, např. houbičky 0,63 %) proti tvé útratě z účtenek děleno všemi výdaji z transakcí za stejné období. Malá útrata = malé procento, koupě jiné věci z oddílu (lednička) procento nezmění.",
+      "🗑️ Přepínač „Základ srovnání“ i automatické přepínání na 500 Kč (v12.23) zrušeny. Základ „z výdajů za oddíl“ ukazoval jen složení oddílu: stejných 43 Kč za čisticí věci vyšlo +373 %, po koupi ledničky −93 %, i když se nákup nezměnil.",
+      "🧪 tools/smoke_vaha_oddilu.js – 17 testů (na v12.23 padá 6, mj. lednička: −93 % místo stejných −66 %); smoke_karta_v2.js: kontrola jednoho výpočtu bez přepínače. Chromium 390 px: 0,63 % vs 0,06 %, −90 %, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.23',
     datum: '2026-10-30',

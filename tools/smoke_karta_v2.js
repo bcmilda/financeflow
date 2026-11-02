@@ -30,8 +30,8 @@ ok('název z EAN jen z databáze (ne z fotky)', /const zDb = p && p\.nazev && p\
 ok('COICOP: kód + název v řádku, hierarchie a srovnání v panelu', /mapaKoicopRadekHTML\(/.test(karta) && /const telo = mapaKoicopPanelHTML\(kodC, D, 'hier'\);/.test(rc));
 const panel = vyrez(rc, 'mapaKoicopPanelHTML');
 ok('panel: přepínač období 3/6/12 měsíců, rok, vše', /\['3', '3 měs\.'\], \['6', '6 měs\.'\], \['12', '12 měs\.'\], \['vse', 'vše'\]/.test(panel) && /rok…/.test(panel));
-ok('panel: přepínač základu – výdaje za potraviny / všechny výdaje', /mapaVahaZaklad\('potraviny'\)/.test(panel) && /mapaVahaZaklad\('vse'\)/.test(panel));
-ok('panel: ČSÚ i tvůj podíl VŽDY se stejným základem (žádné míchání ‰ a %)', /const csu = zaklad === 'vse' \? w \/ 10 : \(wOdd \? w \/ wOdd \* 100 : null\);/.test(panel) && /const jm = zaklad === 'vse' \? vse : potr;/.test(panel));
+ok('panel: jeden výpočet ze všech výdajů – bez přepínače základu (v12.24, Milan)', !/mapaVahaZaklad\(/.test(panel) && !/Základ srovnání/.test(panel));
+ok('panel: ČSÚ i tvůj podíl VŽDY se stejným základem (žádné míchání ‰ a %)', /const csu = w \/ 10;/.test(panel) && /const jm = vse;/.test(panel));
 ok('všechny výdaje = transakce bez převodů a vyrovnání (expSum)', /expSum\(vyb, D \|\| getData\(\)\)/.test(vyrez(rc, 'mapaVsechnyVydaje')));
 ok('Nutri-Score jen jednou (v Balení a složení)', !/Nutri-Score \$\{p\.nutriscore\.toUpperCase\(\)\}/.test(karta) && /pRadek\('nutriscore'/.test(karta));   // v11.61: upravitelné políčko
 ok('identifikace a zdroje dat sbalené', /<details class="mk-roz" style="margin-top:16px"><summary class="mk-tit"/.test(karta));
