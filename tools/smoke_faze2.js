@@ -16,8 +16,9 @@ ok('FIX-318 · admin čte /data dál (Milanovo právo nahlédnout)',
    u.data['.read'].includes("LNEC8VNB2QPwIv6WWQ9lqgR4O5v1"));
 ok('FIX-318 · výřez /shared partnerům ZŮSTÁVÁ čitelný',
    /partners'\)\.child\(auth\.uid\)\.exists\(\)/.test(u.shared['.read']));
+//  S28 (audit bod 18): zápis po potomcích, users/$uid jen smazání vlastního účtu
 ok('FIX-318 · zápis do /data i /shared pořád jen vlastník',
-   u['.write'] === 'auth.uid === $uid');
+   u.data['.write'] === 'auth.uid === $uid' && u.shared['.write'] === 'auth.uid === $uid' && u['.write']==="auth.uid === $uid && !newData.exists() && root.child('deletedAccounts').child($uid).exists()" && u.$other['.write']==='auth.uid === $uid');
 // Kdyby někdo omylem vrátil partnery zpět, tenhle test to chytí
 ok('FIX-318 · /data a /shared mají RŮZNÁ čtecí pravidla (jinak je fáze 2 zbytečná)',
    u.data['.read'] !== u.shared['.read']);

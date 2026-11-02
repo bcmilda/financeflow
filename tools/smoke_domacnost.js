@@ -32,7 +32,8 @@ ok('A ZÁROVEŇ členství v members (jinak by stačilo si hodnotu nastavit)',
 ok('householdId nesmí být null (jinak by se spojili všichni bez skupiny)',
    /householdId'\)\.val\(\) !== null/.test(r));
 ok('původní párování dvojic zůstává funkční', /partners'\)\.child\(auth\.uid\)\.exists\(\)/.test(r));
-ok('householdId si píše jen vlastník (kaskáda z users/$uid)', u['.write']==='auth.uid === $uid');
+//  S28 (audit bod 18): users/$uid už jen mazání vlastního účtu, zápis po potomcích (kaskáda by přebila premium)
+ok('householdId si píše jen vlastník', u.householdId['.write']==='auth.uid === $uid' && u['.write']==="auth.uid === $uid && !newData.exists() && root.child('deletedAccounts').child($uid).exists()" && u.$other['.write']==='auth.uid === $uid');
 ok('/data zůstává po fázi 2 zavřené i pro členy skupiny', !/household/.test(u.data['.read']));
 
 // ── Kód ───────────────────────────────────────────────────────────

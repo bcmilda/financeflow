@@ -1,4 +1,4 @@
-// FinanceFlow · v12.24 · admin.js · 2026-10-30
+// FinanceFlow · v12.25 · admin.js · 2026-11-01
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.25',
+    datum: '2026-11-01',
+    zmeny: [
+      "🔒 BEZPEČNOST (audit body 17 + 18, Milan: „určitě oprav i díru s AI limitem, sdílený katalog a štítky, počet kliků“) · pravidla databáze: sdílená data (podpora, doporučení, katalog, štítky, hlášení, push odběry) už nikdo cizí nesmaže ani nepřepíše; zkušební Premium jen jednou (zapíše se jen spolu se záznamem e-mailu, smazání účtu jen s náhrobkem); AI limit nejde vynulovat. NUTNO NASADIT: Firebase → Realtime Database → Rules (database.rules.json) a worker (Cloudflare).",
+      "🤖 AI LIMIT · čítač využití AI je nově mimo tvoje data (aiUsage/{uid}) – dřív si ho šlo vynulovat smazáním uzlu users/{uid}. Zapisuje jen worker; v listopadu se převezme stav ze starého místa, takže se limit přesunem nevynuluje. Analýza účtenek → „Zdarma ti zbývá X skenů“ čte nové místo.",
+      "🔗 DOPORUČENÍ · počet kliků na cizí odkaz se dřív přepsal na počet kliků návštěvníkova vlastního kódu + 1. Teď atomické +1 na serveru. Konverze (body za doporučení) a druhá cena téhož výrobku v jednom dni fungují i s novými pravidly (první verze záplaty je blokovala).",
+      "🏷️ KATALOG A ŠTÍTKY · hlas u štítku jde jen o +1, ne libovolné číslo; výrobek v katalogu přijme jen název, cenu (0–100 000 Kč), datum a obchod.",
+      "🧪 tools/test_pravidla_firebase.js – 109 případů v simulátoru pravidel (targaryen): útoky na nových pravidlech zamítnuté, na původních procházely; běžné zápisy aplikace projdou. Spustit před každým nasazením pravidel.",
+    ],
+  },
   {
     verze: 'v12.24',
     datum: '2026-10-30',
@@ -6900,7 +6911,9 @@ async function loadUsersList() {
         const uid = uids[idx++];
         const [prof, p, ref, ai, txCount, act, nast] = await Promise.all([
           fj(`users/${uid}/profile`), fj(`users/${uid}/premium`),
-          fj(`users/${uid}/referral`), fj(`users/${uid}/aiUsage`),
+          fj(`users/${uid}/referral`),
+          //  S28 (v12.25): čítač AI je nově mimo users/ (aiUsage/{uid}); starý se přimíchá (přechod)
+          Promise.all([fj(`aiUsage/${uid}`), fj(`users/${uid}/aiUsage`)]).then(([n, o]) => (n || o) ? Object.assign({}, o || {}, n || {}) : null),
           fCount(`users/${uid}/data/transactions`),
           fj(`users/${uid}/activity`),   // v9.85 (TODO-213)
           fj(`users/${uid}/settings`),   // S23 (TODO-295): souhlas se zasíláním novinek
@@ -7340,7 +7353,7 @@ async function adminRevokePremium(uid) {
 const GDPR_UZLY_UZIVATEL = ['data','profile','settings','premium','referral',
                             'activity','security','meta','notifPrefs','shared',
                             'communityId','householdId','partners','backups'];
-const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs'];
+const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs','aiUsage'];   // S28 v12.25: aiUsage/{uid}
 
 //  Čitelný přehled k odpovědi podle čl. 15 – otevře se v novém okně,
 //  odtud Tisk → Uložit jako PDF. Nevypisuje jednotlivé transakce (ty jsou

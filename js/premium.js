@@ -1,4 +1,4 @@
-// FinanceFlow · v12.19 · premium.js · 2026-10-28
+// FinanceFlow · v12.25 · premium.js · 2026-11-01
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -275,18 +275,13 @@ async function startTrial() {
     }
     const now = Date.now();
     const trialUntil = now + TRIAL_DAYS * 24 * 60 * 60 * 1000;
-    await _set(_ref(_db, `users/${uid}/premium`), {
-      type: 'trial',
-      trialUntil,
-      trialUsed: true,
-      createdAt: (psnap.exists() && psnap.val().createdAt) || now
-    });
-    // S17.36 (FIX-220): zápis do trialsUsed je jen DEDUPLIKACE napříč účty. Když selže
-    // (pravidla, offline), NESMÍ shodit celou aktivaci – trial už je zapsaný v users/{uid}.
-    if (eKey) {
-      try { await _set(_ref(_db, `trialsUsed/${eKey}`), { uid, at: now }); }
-      catch(e2) { console.warn('trialsUsed zápis selhal (trial přesto aktivní):', e2); }
-    }
+    //  S28 (v12.25, audit bod 18): trial a záznam e-mailu (trialsUsed) JEDNÍM zápisem – pravidla
+    //  pustí první trial jen spolu s ním. Dřív šel trial zapsat z konzole bez něj a po smazání
+    //  uzlu users/{uid} znovu. Bez e-mailu (nemělo by nastat) jen premium.
+    const zapis = { [`users/${uid}/premium`]: { type: 'trial', trialUntil, trialUsed: true,
+      createdAt: (psnap.exists() && psnap.val().createdAt) || now } };
+    if (eKey) zapis[`trialsUsed/${eKey}`] = { uid, at: now };
+    await _update(_ref(_db), zapis);
     _premiumStatus = { type: 'trial', daysLeft: TRIAL_DAYS, until: trialUntil };
     updatePremiumUI();
     closePaywall();

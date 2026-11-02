@@ -105,6 +105,24 @@ function tierZPremium(data) {
   return 'free';
 }
 
+// S28 (audit, 1. 11. 2026): ČÍTAČ AI MIMO users/{uid}. Uživatel smí svůj uzel users/{uid} mazat
+//   (smazání dat / účtu), takže si tím dřív vynuloval měsíční limit AI. Nově aiUsage/{uid}/{YYYY-MM},
+//   do kterého pravidla uživateli zápis nepustí. V přechodném měsíci se, když nový záznam chybí,
+//   převezme stav ze starého místa (aby přesun limit nevynuloval).
+async function _aiUsageNacti(env, uid, monthKey, token) {
+  const url = `${env.FIREBASE_DB_URL}/aiUsage/${uid}/${monthKey}.json`;
+  const getRes = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'X-Firebase-ETag': 'true' } });
+  const etag = getRes.headers.get('ETag');
+  let curr = await getRes.json();
+  if (curr == null) {
+    try {
+      const o = await fetch(`${env.FIREBASE_DB_URL}/users/${uid}/aiUsage/${monthKey}.json`, { headers: { Authorization: `Bearer ${token}` } });
+      curr = o.ok ? await o.json() : null;
+    } catch (e) { curr = null; }
+  }
+  return { url, etag, curr: curr || {} };
+}
+
 async function checkAndIncrementQuota(uid, type, env) {
   // Pokud secret neni nastaven -> fail-open (nezablokuj uzivatele)
   if (!env.FIREBASE_SERVICE_ACCOUNT || !env.FIREBASE_DB_URL) return { ok: true, skipped: true };
@@ -113,13 +131,7 @@ async function checkAndIncrementQuota(uid, type, env) {
     const tier  = await getPremiumTier(uid, token, env);
     const limit = AI_LIMITS[tier]?.[type] ?? AI_LIMITS.free[type] ?? 999;
     const monthKey = new Date().toISOString().slice(0, 7);
-    const url = `${env.FIREBASE_DB_URL}/users/${uid}/aiUsage/${monthKey}.json`;
-
-    const getRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, 'X-Firebase-ETag': 'true' }
-    });
-    const etag = getRes.headers.get('ETag');
-    const curr = (await getRes.json()) || {};
+    const { url, etag, curr } = await _aiUsageNacti(env, uid, monthKey, token);
     const used = curr[type] || 0;
 
     if (used >= limit) {
@@ -167,10 +179,7 @@ async function recordTokens(uid, type, usage, env) {
 
     const token = await getFirebaseAdminToken(env);
     const monthKey = new Date().toISOString().slice(0, 7);
-    const url = `${env.FIREBASE_DB_URL}/users/${uid}/aiUsage/${monthKey}.json`;
-    const getRes = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'X-Firebase-ETag': 'true' } });
-    const etag = getRes.headers.get('ETag');
-    const curr = (await getRes.json()) || {};
+    const { url, etag, curr } = await _aiUsageNacti(env, uid, monthKey, token);
 
     // Per-typ rozpad tokenu/nakladu (klice tokens_<typ>, cost_<typ>)
     const updated = {
@@ -196,12 +205,7 @@ async function refundQuota(uid, type, env) {
   try {
     const token = await getFirebaseAdminToken(env);
     const monthKey = new Date().toISOString().slice(0, 7);
-    const url = `${env.FIREBASE_DB_URL}/users/${uid}/aiUsage/${monthKey}.json`;
-    const getRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}`, 'X-Firebase-ETag': 'true' }
-    });
-    const etag = getRes.headers.get('ETag');
-    const curr = (await getRes.json()) || {};
+    const { url, etag, curr } = await _aiUsageNacti(env, uid, monthKey, token);
     const updated = {
       ...curr,
       [type]: Math.max(0, (curr[type] || 0) - 1),

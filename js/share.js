@@ -1,4 +1,4 @@
-// FinanceFlow · v10.92 · share.js · 2026-09-21
+// FinanceFlow · v12.25 · share.js · 2026-11-01
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -123,7 +123,9 @@ async function checkIncomingRef() {
   // Zaloguj klik
   if (window._db && ref !== _myRefCode) {
     _update(_ref(_db), {
-      [`referrals/${ref}/clicks`]: (_refStats.clicks + 1),
+      //  S28 (v12.25): dřív (_refStats.clicks + 1) = počet kliků NÁVŠTĚVNÍKOVA vlastního kódu + 1 →
+      //  cizímu kódu se přepsal počet na nesmysl. Teď atomické +1 na serveru (pravidla jiné nepustí).
+      [`referrals/${ref}/clicks`]: (typeof window._increment === 'function' ? window._increment(1) : 1),
       [`referral_clicks/${Date.now()}_${Math.random().toString(36).slice(2,6)}`]: {
         refCode: ref,
         date: new Date().toISOString().slice(0,10),

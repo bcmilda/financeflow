@@ -1,4 +1,4 @@
-// FinanceFlow · v12.24 · receipts.js · 2026-10-30
+// FinanceFlow · v12.25 · receipts.js · 2026-11-01
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2602,7 +2602,8 @@ function uctenkyMaPremium() { return typeof hasPremiumAccess !== 'function' || h
 function _utDia() { return uctenkyMaPremium() ? '' : ' <span style="font-size:.62rem" title="Premium">💎</span>'; }
 window.uctenkyMaPremium = uctenkyMaPremium;
 
-//  Kolik skenů zbývá (čte users/{uid}/aiUsage/{YYYY-MM}.receipt – zapisuje worker).
+//  Kolik skenů zbývá (čte aiUsage/{uid}/{YYYY-MM}.receipt – zapisuje worker; S28 v12.25 přesun
+//  mimo users/, dřív users/{uid}/aiUsage – ten se čte jen v přechodném měsíci, když nový chybí).
 async function uctenkyKvotaObnov() {
   const el = document.getElementById('uctenkyKvota'); if (!el) return;
   if (uctenkyMaPremium()) { el.innerHTML = ''; return; }
@@ -2610,8 +2611,11 @@ async function uctenkyKvotaObnov() {
   try {
     const uid = window._currentUser?.uid; const t = await window._currentUser?.getIdToken?.();
     if (uid && t) {
-      const r = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/aiUsage/${new Date().toISOString().slice(0, 7)}/receipt.json?auth=${t}`);
-      pouzito = (r.ok ? await r.json() : 0) || 0;
+      const DB = 'https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app', mes = new Date().toISOString().slice(0, 7);
+      const r = await fetch(`${DB}/aiUsage/${uid}/${mes}/receipt.json?auth=${t}`);
+      let v = r.ok ? await r.json() : null;
+      if (v == null) { const r2 = await fetch(`${DB}/users/${uid}/aiUsage/${mes}/receipt.json?auth=${t}`); v = r2.ok ? await r2.json() : 0; }
+      pouzito = v || 0;
     }
   } catch (e) {}
   const zbyva = Math.max(0, UCTENKY_FREE_SKENY - pouzito);

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.45 · firebase.js · 2026-10-08
+// FinanceFlow · v12.25 · firebase.js · 2026-11-01
 // ══════════════════════════════════════════════════════
 //  S12.1e: EMAIL + HESLO PŘIHLÁŠENÍ
 // ══════════════════════════════════════════════════════
@@ -143,7 +143,7 @@ async function sendPasswordReset(){
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut as fbSignOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, applyActionCode } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getDatabase, ref, set, get, update, onValue, off,
+import { getDatabase, ref, set, get, update, onValue, off, increment,
          query, orderByChild, startAt, endAt, limitToLast,
          onChildAdded, onChildChanged, onChildRemoved } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
@@ -166,6 +166,8 @@ window._ref = (database, path) => ref(database, path);
 window._set = (r, val) => set(r, val);
 window._get = (r) => get(r).then(s => ({ exists: () => s.exists(), val: () => s.val() }));
 window._update = (r, val) => update(r, val);
+//  S28 (v12.25): atomické +1 na serveru (počítadlo kliků doporučení – pravidla pustí jen +1)
+window._increment = (n) => increment(n);
 window._onValue = (r, cb) => {
   const wrapped = snap => cb({ exists: () => snap.exists(), val: () => snap.val() });
   onValue(r, wrapped);
