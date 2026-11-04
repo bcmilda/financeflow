@@ -1,4 +1,4 @@
-// FinanceFlow · v12.27 · premium.js · 2026-11-02
+// FinanceFlow · v12.29 · premium.js · 2026-11-04
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1080,12 +1080,13 @@ function renderSablonaList() {
           <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(typeof sablonaCastka==='function'?sablonaCastka(s,new Date().toISOString().slice(0,10)):s.amount)}</span>
           <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}${s.freq==='once'&&s.done?' · ✅ provedeno':''}</span>
           ${cat?`<span style="font-size:.74rem;color:var(--text3)">${cat.icon} ${cat.name}</span>`:''}
-          ${s.auto?'<span style="font-size:.7rem;background:var(--income-bg);color:var(--income);padding:1px 6px;border-radius:5px">auto</span>':''}
+          ${/* S28 (v12.29, Milan: „proč mají zálohy ‚auto‘ (auto = automobil)?“) – štítek znamenal automatické vytváření, ne kategorii Auto */''}
+          ${s.auto?'<span title="Automatické vytváření: v den platby se transakce zapíše sama. Vypneš v ✎ → Automatické vytváření transakcí." style="font-size:.7rem;background:var(--income-bg);color:var(--income);padding:1px 6px;border-radius:5px">⚙️ zapíše se samo</span>':''}
         </div>
         <div style="font-size:.72rem;color:var(--text3);margin-top:3px">Příště: ${nextDate}</div>
       </div>
       ${!ro?`<div style="display:flex;flex-direction:column;gap:4px">
-        <button class="btn btn-accent btn-sm" style="font-size:.7rem;padding:3px 8px" onclick="useSablonaId('${s.id}')">⚡</button>
+        <button class="btn btn-accent btn-sm" style="font-size:.7rem;padding:3px 8px" onclick="useSablonaId('${s.id}')" title="Zapsat platbu teď (jednou, mimo plán)">⚡</button>
         <button class="btn btn-edit btn-icon btn-sm" onclick="editSablona('${s.id}')">✎</button>
         <button class="btn btn-danger btn-icon btn-sm" onclick="deleteSablona('${s.id}')">✕</button>
       </div>`:''}

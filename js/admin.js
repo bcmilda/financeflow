@@ -1,4 +1,4 @@
-// FinanceFlow · v12.28 · admin.js · 2026-11-02
+// FinanceFlow · v12.29 · admin.js · 2026-11-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.29',
+    datum: '2026-11-04',
+    zmeny: [
+      "🏷️ ŠTÍTEK „AUTO“ → „⚙️ ZAPÍŠE SE SAMO“ (Milan: „proč mají zálohy na plyn a elektřinu ‚auto‘ (auto = automobil)?“) · cesta: Opakované šablony. Zelený štítek „auto“ neznamenal kategorii Auto, ale automatické vytváření transakcí (v den platby se zapíše sama). Teď „⚙️ zapíše se samo“ s nápovědou, jak ho vypnout (✎ → Automatické vytváření transakcí); ⚡ má popisek „Zapsat platbu teď“.",
+      "🔔 ZÁLOHA Z MĚŘIDLA: TŘI VOLBY · cesta: 📟 Energie a voda → měřidlo → ⚙️ → 🔄 Měsíční záloha → Zapisovat do transakcí: ne / jen připomínat (v Budoucích platbách, zapíšu sám / z banky) / ano – automaticky. Výběr teď ukazuje skutečný stav šablony – dřív stálo „automaticky“, kdykoli šablona existovala, i když sis auto v šabloně vypnul, a uložení měřidla ho zase zapnulo. Úprava rozpisu záloh volbu nemění.",
+      "🧪 tools/smoke_zalohy_rezim.js (10) – na v12.28 padá 8.",
+    ],
+  },
   {
     verze: 'v12.28',
     datum: '2026-11-02',
