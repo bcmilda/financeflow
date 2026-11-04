@@ -1,4 +1,4 @@
-// FinanceFlow · database rules · aplikace v12.25 · 2026-11-01 (S28: audit body 17+18 - zapis jen na urovni polozky, bez mazani sdilenych uzlu; Premium trial jen jednou; AI citac mimo users/; kliky a stitky jen +1. Test: tools/test_pravidla_firebase.js)
+// FinanceFlow · database rules · aplikace v12.26 · 2026-11-01 (S28: audit body 17+18 - zapis jen na urovni polozky, bez mazani sdilenych uzlu; Premium trial jen jednou; AI citac mimo users/; kliky +1, hlasy komunity jeden na uzivatele. Test: tools/test_pravidla_firebase.js)
 {
   "rules": {
     "users": {
@@ -299,11 +299,23 @@
         ".read": "auth != null",
         // S28 (kontrola zaplaty): admin smi smazat vse (Mapa polozek → Smazat tagy, admin.js)
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        // S28 (oprava 3, Milan: „+1 na polozku u uzivatele, hlasy se scitaji komunitne“): stare pocty
+        //   (cislo u stitku) zustavaji jen ke cteni, nove hlasy jsou v itemTagVotes. Zapis sem jen admin.
         "$itemKey": {
           "$tag": {
-            ".write": "auth != null && newData.exists()",
-            // S28 (oprava 2): hlas jen +1 (receipts.js saveItemTagMapping), ne libovolne cislo
-            ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))"
+            ".validate": "newData.isNumber()"
+          }
+        }
+      },
+      // S28 (oprava 3): JEDEN HLAS NA UZIVATELE A POLOZKU – itemTagVotes/{polozka}/{uid} = stitek.
+      //   Zmena stitku hlas jen prepise (zadne opakovane +1). Cte jen admin (uid u nakupu je osobni udaj).
+      "itemTagVotes": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$itemKey": {
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20 && newData.val().matches(/^[a-z0-9_]+$/)"
           }
         }
       },
@@ -360,11 +372,20 @@
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       },
+      // S28 (oprava 3): stare souhrny jen ke cteni (appka je nemohla cist, takze kazdy zapis
+      //   prepsal hlasy ostatnich). Nove hlasy v suggestionVotes – jeden na uzivatele a nazev.
       "suggestionOverrides": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-        // S28 (audit bod 17): jen jeden navrh, bez mazani
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      },
+      "suggestionVotes": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         "$key": {
-          ".write": "auth != null && newData.exists()"
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.hasChildren(['chosenId','at']) && newData.child('chosenId').isString() && newData.child('chosenId').val().length <= 60 && (!newData.child('chosen').exists() || (newData.child('chosen').isString() && newData.child('chosen').val().length <= 80)) && (!newData.child('suggested').exists() || (newData.child('suggested').isString() && newData.child('suggested').val().length <= 80))"
+          }
         }
       }
     },
