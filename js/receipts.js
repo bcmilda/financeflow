@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · receipts.js · 2026-11-01
+// FinanceFlow · v12.28 · receipts.js · 2026-11-02
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3443,6 +3443,7 @@ Object.assign(window, { mapaDatumKratce, mapaOtevriNakup, mapaOpravNazevForm, ma
 //  v12.12 · TODO-358 · 🔗 SPOJIT S… (Milan: „není brambor jako brambor… dal bych název Brambory konzumní
 //  a 3 aliasy“ · „musíme to vymyslet tak, aby se stejné výrobky spojovaly a netvořily nové karty“)
 //  cesta: Analýza účtenek → 🗺️ Mapa položek → karta → 🔗 Spojit s…
+//  v12.28 (Milan): tlačítko přejmenováno na „🔗 Spojit se stejným výrobkem…“ (dřív „Spojit s…“ – nebylo jasné s čím).
 //  Ručně, žádná automatika (ADR-244). Zkratka bez kódu se připojí ke kartě: S.uiCfg.spojeni[normName(zkratka)]
 //  = klíč karty; další účtenky se stejnou zkratkou padnou rovnou do ní. Hlavní název karty
 //  S.uiCfg.spojeniNazev[klíč]. Text účtenek se nemění. Dvě karty s různými kódy spojit nejde (různé výrobky).
@@ -3480,7 +3481,7 @@ function mapaSpojitForm(i) {
   const z = _mapaZ(i), el = document.getElementById('mkSpojit'); if (!z || !el) return;
   const titul = z.hlavniNazev || (z.tax ? _mapaVelke(z.tax.nazev) : z.nazev);
   el.innerHTML = `<div class="mk-box" style="padding:10px 12px">
-    <div style="font-size:.74rem;font-weight:700;color:var(--text);margin-bottom:6px">🔗 Spojit s jinou kartou</div>
+    <div style="font-size:.74rem;font-weight:700;color:var(--text);margin-bottom:6px">🔗 Spojit se stejným výrobkem</div>
     <label style="font-size:.68rem;color:#a8aec8">Hlavní název karty</label>
     <input id="mkSpojNazev" value="${escHtml(titul)}" maxlength="80" style="width:100%;margin:3px 0 8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:.82rem">
     <label style="font-size:.68rem;color:#a8aec8">Najdi kartu, která je stejný výrobek</label>
@@ -3533,6 +3534,7 @@ function mapaOdpojit(i, klicZkratky) {
 Object.assign(window, { mapaSpojeniKam, mapaSpojeniNazev, mapaSpojitProvest, mapaOdpojitProvest, mapaSpojitForm, mapaSpojitKandidati, mapaSpojitHledej, mapaSpojitUloz, mapaSpojitNazevUloz, mapaOdpojit });
 
 //  Rozbalovací panel COICOP: hierarchie + váha ČSÚ + tvůj podíl se STEJNÝM základem a obdobím.
+//  S28 (v12.28): ① ze všech výdajů a ② uvnitř oddílu – dva SAMOSTATNÉ bloky, každý s vlastním nadpisem.
 //  S28 (v12.24, Milan: „nemůžeš v jedné kartě používat 2 různé výpočty… je to špatný přístup a manipulace dat“):
 //  JEDEN výpočet – podíl ze všech výdajů (ČSÚ ‰ podtřídy / 10 proti položce z účtenek ÷ všem výdajům z transakcí).
 //  Základ „z výdajů za oddíl“ (v12.23 se na 500 Kč přepínal sám) zrušen: ukazoval jen složení oddílu, ne kolik
@@ -3549,14 +3551,38 @@ function mapaVyberObdobi(r, o) {
   if (/^\d{4}$/.test(o)) return r.filter(x => String(x.mesic || '').slice(0, 4) === o);
   return r;
 }
-//  Všechny výdaje (transakce, bez převodů a vyrovnání) za stejné období – základ „ze všech výdajů“.
-function mapaVsechnyVydaje(D, o) {
+//  S28 (v12.28, Milan: „podíl by vyšel podobný za 2 měsíce stejně jako za 12 měsíců“): platí jen tehdy, když
+//  účtenky i transakce pokrývají STEJNÉ měsíce. Kdo skenuje od září, měl při „12 měs.“ v čitateli 2 měsíce
+//  účtenek a ve jmenovateli 12 měsíců transakcí → podíl ~6× menší. Teď se období počítá až od měsíce první
+//  naskenované účtenky (odMin, 'YYYY-MM').
+function mapaPrvniMesicUctenek(r) { let m = ''; (r || []).forEach(x => { if (x && /^\d{4}-\d{2}$/.test(x.mesic || '') && (!m || x.mesic < m)) m = x.mesic; }); return m; }
+function mapaTxObdobi(D, o, odMin) {
   const tx = ((D || getData()).transactions || []).filter(t => t && t.date);
   const od = mapaObdobiOd(o);
-  const vyb = od ? tx.filter(t => String(t.date).slice(0, 7) >= od) : /^\d{4}$/.test(o) ? tx.filter(t => String(t.date).slice(0, 4) === o) : tx;
+  let vyb = od ? tx.filter(t => String(t.date).slice(0, 7) >= od) : /^\d{4}$/.test(o) ? tx.filter(t => String(t.date).slice(0, 4) === o) : tx;
+  if (odMin) vyb = vyb.filter(t => String(t.date).slice(0, 7) >= odMin);
+  return vyb;
+}
+//  Všechny výdaje (transakce, bez převodů a vyrovnání) za stejné období – základ „ze všech výdajů“.
+function mapaVsechnyVydaje(D, o, odMin) {
+  const vyb = mapaTxObdobi(D, o, odMin);
   return typeof expSum === 'function' ? expSum(vyb, D || getData()) : vyb.filter(t => t.type === 'expense').reduce((a, t) => a + (t.amount || 0), 0);
 }
 window.mapaVsechnyVydaje = mapaVsechnyVydaje;
+//  S28 (v12.28, Milan: „pokud kupuji jednorázové položky – jídlo, kávu, benzín – nebo je rozdělím splitem, je to
+//  v podstatě to samé co skenování účtenky… bude korektní u porovnání v hlavních kategoriích (oddílech)“):
+//  výdaje za oddíl z TRANSAKCÍ BEZ ÚČTENKY – kategorie (a podkategorie) transakce má oddíl COICOP 1–13
+//  (computeCoicopAggregates, stejně jako Komunitní přehled). Transakce z naskenované účtenky se vynechá,
+//  její položky už jsou v řádcích z účtenek (jinak by se počítaly dvakrát).
+function mapaJeTxUctenky(t) { return !!(t && (t.receiptItems || t.receiptAddedAt || t.receiptStore)); }
+function mapaOddilZTransakci(D, o, odMin, odd) {
+  const n = parseInt(odd, 10); if (!(n >= 1 && n <= 13)) return 0;
+  const vyb = mapaTxObdobi(D, o, odMin).filter(t => t.type === 'expense' && !t.isBalancing && !t.splitParent
+    && !(typeof isTransferTx === 'function' && isTransferTx(t)) && !mapaJeTxUctenky(t));
+  if (typeof computeCoicopAggregates !== 'function') return 0;
+  return (computeCoicopAggregates(vyb, D || getData()).cats || {})[n] || 0;
+}
+Object.assign(window, { mapaPrvniMesicUctenek, mapaOddilZTransakci });
 function mapaKoicopPanelHTML(code, D, cast) {
   if (typeof coicopNorm !== 'function') return '';
   const cesta = typeof coicopCesta === 'function' ? coicopCesta(code) : [];
@@ -3570,29 +3596,59 @@ function mapaKoicopPanelHTML(code, D, cast) {
   const w = kod4.split('.').length === 4 ? mapaVahaPodtridy(kod4) : null;
   if (w != null) {
     const o = _mapaVahaObdobi;
-    const r = mapaVyberObdobi(mapaVahaRadky(D), o);
+    const vsechnyRadky = mapaVahaRadky(D);
+    const r = mapaVyberObdobi(vsechnyRadky, o);
+    const odMin = mapaPrvniMesicUctenek(vsechnyRadky);   // v12.28: od první naskenované účtenky
+    const odObd = mapaObdobiOd(o);
+    const orez = !!(odMin && (/^\d{4}$/.test(o) ? odMin.slice(0, 4) === o && odMin > o + '-01' : (!odObd || odMin > odObd)));
+    const mesN = m => { const [y, mm] = m.split('-'); return ['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'][+mm - 1] + ' ' + y; };
     const sum = fn => r.filter(fn).reduce((a, x) => a + x.castka, 0);
     const moje = sum(x => x.coicop && (x.coicop === kod4 || x.coicop.startsWith(kod4 + '.')));
-    const vse = mapaVsechnyVydaje(D, o);
+    const vse = mapaVsechnyVydaje(D, o, odMin);
     const zakladTxt = 'ze všech výdajů';
     const csu = w / 10;            //  ‰ ze všech výdajů → %
     const jm = vse;
     const muj = jm > 0 ? moje / jm * 100 : null;
-    const roky = mapaVahaRoky(mapaVahaRadky(D));
+    const roky = mapaVahaRoky(vsechnyRadky);
     const seg = [['3', '3 měs.'], ['6', '6 měs.'], ['12', '12 měs.'], ['vse', 'vše']].map(([v, n]) => `<button type="button" class="${o === v ? 'on' : ''}" onclick="mapaVahaObdobi('${v}')">${n}</button>`).join('');
     const rokSel = roky.length ? `<select onchange="mapaVahaObdobi(this.value)" style="font-size:.7rem;padding:4px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px">
         <option value="">rok…</option>${roky.map(y => `<option value="${y}"${o === y ? ' selected' : ''}>${y}</option>`).join('')}</select>` : '';
+    const barva = d => d > 25 ? '#f87171' : d < -20 ? '#4ade80' : '#a8aec8';
+    const proti = d => d != null ? `<span style="font-size:.72rem;font-weight:700;color:${barva(d)}">${d >= 0 ? '+' : ''}${d} % proti průměru</span>` : '';
     const rozdil = csu && muj != null ? Math.round((muj - csu) / csu * 100) : null;
+    //  ② S28 (v12.28, Milan: „vrať porovnání útraty za oddíl, pokud máme data z ČSÚ i výpočet, kterým ho oni
+    //  počítají“): samostatný blok, vlastní nadpis, vlastní výpočet – žádné přepínání (v12.23) ani míchání s ①.
+    //  ČSÚ = váha podtřídy / vlastní váha oddílu (FIX-500). Ty = podtřída z účtenek / tvé výdaje za oddíl,
+    //  kde oddíl = položky účtenek s kódem oddílu + transakce bez účtenky, jejichž kategorie patří do oddílu.
+    const wOdd = mapaVahaOddilu(odd);
+    const oddN = (typeof coicopNazev === 'function' && coicopNazev(odd)) || 'oddíl ' + odd;
+    const oddUct = sum(x => x.coicop && x.coicop.startsWith(odd + '.'));
+    const oddTx = mapaOddilZTransakci(D, o, odMin, odd);
+    const oddVse = oddUct + oddTx;
+    const csuOdd = wOdd ? w / wOdd * 100 : null;
+    const mujOdd = oddVse > 0 ? moje / oddVse * 100 : null;
+    const rozdilOdd = csuOdd && mujOdd != null ? Math.round((mujOdd - csuOdd) / csuOdd * 100) : null;
+    const blokOdd = csuOdd == null ? '' : `
+      <div style="margin-top:14px;font-weight:700;font-size:.76rem">② Uvnitř oddílu ${escHtml(odd)} ${escHtml(oddN)}</div>
+      <div class="mk-cislo"><div class="t">Váha ČSÚ – průměrná domácnost</div>
+        <div><span class="h">${f(csuOdd)} %</span> <span class="p">z výdajů za oddíl</span></div>
+        <div class="p">${f(w)} ‰ podtřídy z ${f(wOdd)} ‰ celého oddílu</div></div>
+      <div class="mk-cislo"><div class="t">Tvůj podíl</div>
+        <div><span class="h" style="color:#4ade80">${mujOdd != null ? f(mujOdd) + ' %' : '—'}</span> <span class="p">z výdajů za oddíl</span> ${proti(rozdilOdd)}</div>
+        <div class="p">${mujOdd != null ? `${kc(moje)} z ${kc(oddVse)} · za oddíl: ${kc(oddUct)} z účtenek + ${kc(oddTx)} z transakcí bez účtenky` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš výdaje z tohoto oddílu`}</div></div>
+      <div class="p" style="font-size:.66rem;color:#8b93ad;margin-top:4px">Ukazuje složení oddílu: větší nákup jiné věci z oddílu (např. lednička) podíl sníží, i když této položky kupuješ stejně. Kolik utrácíš celkově, ukazuje ①.</div>`;
     srov = `<div style="margin-top:10px;font-weight:700;font-size:.8rem">Srovnání výdajů</div>
       <div style="font-size:.7rem;color:#a8aec8;margin:6px 0 4px">Období tvých nákupů</div>
       <div class="mk-seg">${seg}${rokSel}</div>
+      ${orez ? `<div style="font-size:.66rem;color:#8b93ad;margin-top:5px">📅 Počítá se od ${escHtml(mesN(odMin))} – od první naskenované účtenky (stejné měsíce pro účtenky i transakce).</div>` : ''}
+      <div style="margin-top:10px;font-weight:700;font-size:.76rem">① Ze všech výdajů</div>
       <div class="mk-cislo"><div class="t">Váha ČSÚ – průměrná domácnost</div>
         <div><span class="h">${csu != null ? f(csu) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span></div>
         <div class="p">Stálé váhy spotřebního koše ČSÚ (podle nich se počítá inflace) · podtřída ${escHtml(kod4)} · ${f(w)} ‰ ze všech výdajů</div></div>
       <div class="mk-cislo"><div class="t">Tvůj podíl</div>
         <div><span class="h" style="color:#4ade80">${muj != null ? f(muj) + ' %' : '—'}</span> <span class="p">${escHtml(zakladTxt)}</span>
-          ${rozdil != null ? `<span style="font-size:.72rem;font-weight:700;color:${rozdil > 25 ? '#f87171' : rozdil < -20 ? '#4ade80' : '#a8aec8'}">${rozdil >= 0 ? '+' : ''}${rozdil} % proti průměru</span>` : ''}</div>
-        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš výdaje`} · výdaje z transakcí, položka z účtenek</div></div>`;
+          ${proti(rozdil)}</div>
+        <div class="p">${muj != null ? `${kc(moje)} z ${kc(jm)} · ${escHtml(mapaVahaObdobiNazev(o))}` : `za ${escHtml(mapaVahaObdobiNazev(o))} nemáš výdaje`} · výdaje z transakcí, položka z účtenek</div></div>${blokOdd}`;
   }
   //  v11.60 (Milan): rozbaluje se jen číselník; Srovnání výdajů je v kartě vždy vidět.
   if (cast === 'hier') return hier ? `<div style="padding:0 12px 12px">${hier}</div>` : '';
@@ -3849,7 +3905,7 @@ function mapaUzivKartaHTML(i, produkt) {
     ${tit('Výrobek')}<div class="mk-box">${vyr}</div>${vyrPod}
     ${tit('Zařazení')}<div class="mk-box">${zar}${zarPanel}</div>
     ${aliasy ? tit('Názvy z účtenek') + `<div class="mk-box">${aliasy}</div>` : ''}
-    ${!(typeof viewingUid !== 'undefined' && viewingUid) && !z.synt ? `<div id="mkSpojit" style="margin:6px 0 2px"><button class="btn btn-sm" style="font-size:.74rem" onclick="mapaSpojitForm(${i})">🔗 Spojit s…</button>${z.hlavniNazev ? ` <span style="font-size:.7rem;color:#a8aec8">hlavní název: <b style="color:var(--text)">${e(z.hlavniNazev)}</b></span>` : ''}</div>` : ''}
+    ${!(typeof viewingUid !== 'undefined' && viewingUid) && !z.synt ? `<div id="mkSpojit" style="margin:6px 0 2px"><button class="btn btn-sm" style="font-size:.74rem" onclick="mapaSpojitForm(${i})">🔗 Spojit se stejným výrobkem…</button>${z.hlavniNazev ? ` <span style="font-size:.7rem;color:#a8aec8">hlavní název: <b style="color:var(--text)">${e(z.hlavniNazev)}</b></span>` : ''}</div>` : ''}
     ${tit('Balení a složení')}<div class="mk-box">${bal}</div>${ziv}
     ${tit('Moje nákupy')}${nak}
     ${typeof cenyDoKarty === 'function' ? tit('Ceny v kraji') + '<div class="mk-box mk-pozn"><div id="mkCeny" style="font-size:.76rem;color:#a8aec8">⏳ Načítám…</div></div>' : ''}

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.27 · admin.js · 2026-11-02
+// FinanceFlow · v12.28 · admin.js · 2026-11-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.28',
+    datum: '2026-11-02',
+    zmeny: [
+      "⚖️ SROVNÁNÍ UVNITŘ ODDÍLU ZPĚT (Milan: „vrať porovnání útraty za oddíl, pokud máme data z ČSÚ i výpočet, kterým ho oni počítají“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Dva samostatné bloky, každý s vlastním nadpisem a jedním výpočtem, bez přepínání: ① Ze všech výdajů (beze změny) a ② Uvnitř oddílu – váha podtřídy / váha oddílu z koše ČSÚ (houbičky 12,3 %) proti tvé útratě za položku / tvým výdajům za oddíl. Výdaje za oddíl = položky účtenek s kódem oddílu + transakce bez účtenky, jejichž kategorie do oddílu patří (káva, benzín, rozdělené platby – Milan: „je to v podstatě to samé co skenování“). Transakce z naskenované účtenky se nepočítá dvakrát.",
+      "📅 OBDOBÍ OD PRVNÍ ÚČTENKY (Milan: „podíl by vyšel podobný za 2 měsíce stejně jako za 12 měsíců“) · tamtéž. Při „12 měs.“ se dřív dělila útrata z účtenek (od září) všemi výdaji za 12 měsíců → podíl ~6× menší. Teď se počítá až od měsíce první naskenované účtenky, pro účtenky i transakce stejně; karta to napíše („Počítá se od září 2026“).",
+      "✅ ZNÁMÉ POLOŽKY SE PO SKENU POZNAJÍ (Milan: „u známých, dříve zaevidovaných položek se neukázal zelený čtvereček s fajfkou, musel jsem znovu skenovat EAN“) · cesta: Analýza účtenek → sken účtenky → editor položek. Kód se bral jen ze spojení obchod + zkratka a z komunity. Nově i z ručního spojení s kartou s kódem (🔗 Spojit se stejným výrobkem) a z tvých dřívějších účtenek ze stejného obchodu se stejnou zkratkou (jen když tam je jediný kód). Jiný obchod, zkratka s víc druhy ani kód, který sis odebral, se nedoplní.",
+      "🔗 Tlačítko „Spojit s…“ přejmenováno na „🔗 Spojit se stejným výrobkem…“ (Milan) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → pod Názvy z účtenek.",
+      "🧪 tools/smoke_vaha_oddilu.js rozšířen na 27 (② oddíl, transakce bez účtenky, období od první účtenky), tools/smoke_ean_pamet.js (11) – na v12.27 padají. Chromium 390 px: karta houbiček ① 0,63 % / 0,13 %, ② 12,3 % / 7,8 % (30 Kč účtenky + 350 Kč transakce), „Počítá se od září 2026“, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.27',
     datum: '2026-11-02',
