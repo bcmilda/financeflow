@@ -1,0 +1,41 @@
+name: Chrome Multi-Profile – sestavení .exe
+
+on:
+  push:
+    paths:
+      - "chrome-multi-profile/**"
+      - ".github/workflows/chrome-multi-profile-exe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: chrome-multi-profile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalace knihoven
+        run: python -m pip install -r requirements.txt pyinstaller
+
+      - name: Test enginu (Chrome na runneru, bez okna)
+        env:
+          PYTHONUTF8: "1"
+        run: python tests/test_engine.py
+
+      - name: Sestavení .exe
+        run: pyinstaller --noconfirm --onefile --windowed --name ChromeMultiProfile app.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChromeMultiProfile-windows
+          path: chrome-multi-profile/dist/ChromeMultiProfile.exe
+          retention-days: 30

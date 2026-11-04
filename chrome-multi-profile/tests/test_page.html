@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Test</title>
+<style>#modal{display:none;position:fixed;inset:30% 30%;background:#fff;border:2px solid #333;padding:20px}
+#find{display:none;position:fixed;bottom:10px;left:10px}</style></head>
+<body>
+<h1>Testovací stránka</h1>
+<p>Kliknutí na Find: <span id="count"></span></p>
+<div id="modal"><p>Nic nenalezeno.</p><button id="again" onclick="again()">Search again</button></div>
+<button id="find" class="btn primary" onclick="found()">Find 5 results</button>
+<script>
+  const n = () => +(localStorage.finds || 0);
+  document.getElementById('count').textContent = n();
+  if (location.hash === '#alert') alert('Potvrď mě');
+  setTimeout(() => document.getElementById('modal').style.display = 'block', 700);
+  function again() {
+    document.getElementById('modal').style.display = 'none';
+    setTimeout(() => document.getElementById('find').style.display = 'block', 500);
+  }
+  function found() { localStorage.finds = n() + 1; document.getElementById('count').textContent = n(); }
+</script>
+</body></html>
