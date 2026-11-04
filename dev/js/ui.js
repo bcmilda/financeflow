@@ -1,4 +1,4 @@
-// FinanceFlow · v12.20 · ui.js · 2026-10-28
+// FinanceFlow · v12.26 · ui.js · 2026-11-01
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1939,8 +1939,31 @@ function renderTx(){
   // S21: tabulka si drží stav i po překreslení seznamu (přepnutí měsíce apod.)
   if(typeof renderTxMonthTable === 'function' && _txTableOpen) renderTxMonthTable();
 
+  //  S28 (v12.26, Milan: „je 1. 11. a aplikace už zapsala transakce, které se mají započítat až 15. 11.“):
+  //  platby z automatických šablon se zapíšou až v den splatnosti; do té doby jsou tady jen jako
+  //  📅 naplánované – bez vlivu na součty a zůstatky.
+  let _planHTML = '';
+  if(!(_txDateFilter && _txDateFilter.active) && !searchAllMonths && !searchFilter && typeof sablonyNaplanovane === 'function') {
+    const _n = new Date(), _dn = _n.getFullYear()+'-'+String(_n.getMonth()+1).padStart(2,'0')+'-'+String(_n.getDate()).padStart(2,'0');
+    let _pl = sablonyNaplanovane(D.sablony, S.curMonth, S.curYear, _dn, D.transactions);
+    if(_txTypeFilter === 'income') _pl = _pl.filter(x => x.type === 'income');
+    else if(_txTypeFilter === 'expense') _pl = _pl.filter(x => x.type === 'expense' && !x.transfer);
+    else if(_txTypeFilter === 'transfer') _pl = _pl.filter(x => x.transfer);
+    if(catFilter) _pl = _pl.filter(x => x.catId === catFilter);
+    if(_pl.length) {
+      const _e = v => escHtml(String(v == null ? '' : v));
+      _planHTML = `<div class="tx-plan" style="margin:0 0 10px;border:1px dashed var(--border);border-radius:12px;padding:8px 12px;opacity:.85">
+        <div style="font-size:.74rem;color:#a8aec8;margin-bottom:4px">📅 Naplánováno · zapíše se v den splatnosti, do té doby se nepočítá</div>
+        ${_pl.map(x => { const d = new Date(x.date + 'T12:00:00'); const c = getCat(x.catId, D.categories);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border);font-size:.82rem">
+            <span style="width:22px;text-align:center">${x.transfer ? '↔️' : _e(c.icon || '📅')}</span>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_e(x.name)}<span style="display:block;font-size:.68rem;color:#8b93ad">${d.getDate()}. ${d.getMonth()+1}.${x.subcat ? ' · ' + _e(x.subcat) : ''}</span></span>
+            <span style="color:#a8aec8;font-weight:600;white-space:nowrap">${x.type === 'income' ? '+' : x.transfer ? '' : '−'}${fmtB(x.amount || 0)}</span></div>`; }).join('')}</div>`;
+    }
+  }
+
   if(!txs.length){
-    el.innerHTML='<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Žádné transakce</div></div>';
+    el.innerHTML=_planHTML+'<div class="empty" style="padding:32px"><div class="ei">📭</div><div class="et">Žádné transakce</div></div>';
     return;
   }
 
@@ -1958,7 +1981,7 @@ function renderTx(){
   // When sorting by date – group by day; otherwise show flat table
   const groupByDate = _txSort === 'date';
 
-  let html = '';
+  let html = _planHTML;
 
   if(groupByDate) {
     const byDate = {};

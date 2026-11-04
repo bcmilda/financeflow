@@ -121,10 +121,13 @@ console.log('── editor nové účtenky ──');
   db={'users/U1/eanAliasy':{[kM]:{ean:EAN_MLEKO,kdy:1}}};
   ctx._currentUser={uid:'U1',getIdToken:async()=>'T'}; await ctx.eanAutoDoplnVse(true);
   ctx._currentUser={uid:'U2',getIdToken:async()=>'T'};
+  //  v12.28: po přihlášení jiného účtu appka načte jeho data – S už nejsou účtenky U1 (z nich se bere i paměť dřívějších účtenek)
+  const _sU1=JSON.stringify(ctx.S); vm.runInContext('S.receipts=[];S.transactions=[];',ctx);
   db={'users/U2/eanAliasy':{}};
   const cizi={store:'Lidl',items:[{name:'MLEKO POLOT. 1,5% 1L'}]}; ctx._editReceipt=cizi;
   ctx.eanAutoEditor(cizi); await new Promise(z=>setTimeout(z,30));
   t('revize #4: spojení účtu U1 se nedostane do účtenky U2',!cizi.items[0].ean);
+  vm.runInContext('S='+_sU1,ctx);   // zbytek testu pokračuje s daty jako dřív
   ctx._currentUser=null;
   const odhl={store:'Lidl',items:[{name:'MLEKO POLOT. 1,5% 1L'}]}; ctx.eanAutoEditor(odhl);
   t('odhlášený: nic se nedoplní',!odhl.items[0].ean);

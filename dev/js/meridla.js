@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · meridla.js · 2026-10-28
+// FinanceFlow · v12.29 · meridla.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -516,12 +516,16 @@ async function merUlozMeridlo(id) {
   if (c > 0) m.cena = c; else delete m.cena;
   if (z > 0) m.zaloha = z; else delete m.zaloha;
   //  v11.86: záloha jako opakovaná platba (šablona → každý měsíc transakce s vazbou na měřidlo)
-  const auto = document.getElementById('merZalAuto')?.value === '1' && z > 0;
+  //  S28 (v12.29, Milan: „proč mám u záloh na plyn a elektřinu ‚auto‘?“): tři stavy místo dvou –
+  //  0 = bez opakované platby, 2 = opakovaná platba jen jako připomínka (Budoucí platby, zapíšeš sám / import),
+  //  1 = automaticky zapisovat. Dřív šlo jen „ne“ nebo „automaticky“ a výběr neukazoval, že sis auto v šabloně vypnul.
+  const rezim = document.getElementById('merZalAuto')?.value || '0';
+  const auto = (rezim === '1' || rezim === '2') && z > 0;
   if (auto) { m.zalohaDen = Math.min(31, Math.max(1, parseInt(document.getElementById('merZalDen')?.value, 10) || 15)); m.zalohaWallet = document.getElementById('merZalWal')?.value || ''; }
   const ok = await _merUloz(m);
-  const sab = merZalohaSablona(m, auto);
+  const sab = merZalohaSablona(m, auto, rezim === '1');
   if (!stary && ok) { _merTab = m.id; try { localStorage.setItem('ffEnergieTab', m.id); } catch (e) {} }   // v12.17: nové měřidlo = vybraná záložka
-  _merToast(!ok ? '⚠️ Uložení se nepovedlo' : sab === 'nova' ? '📟 Uloženo · 🔄 záloha se bude zapisovat každý měsíc' : sab === 'zrusena' ? '📟 Uloženo · opakovaná platba zálohy zrušena' : '📟 Uloženo');
+  _merToast(!ok ? '⚠️ Uložení se nepovedlo' : sab === 'nova' ? (rezim === '1' ? '📟 Uloženo · 🔄 záloha se bude zapisovat každý měsíc' : '📟 Uloženo · 🔔 záloha je v Budoucích platbách, zapíšeš ji sám') : sab === 'zrusena' ? '📟 Uloženo · opakovaná platba zálohy zrušena' : '📟 Uloženo');
   _merPanel = null; renderEnergiePage({ cisty: true });
 }
 async function merSmazMeridlo(id) {
@@ -542,7 +546,8 @@ async function merSmazMeridlo(id) {
 const merZalohaSablonaNajdi = id => ((typeof S !== 'undefined' && S.sablony) || []).find(x => x && x.energie && x.energie.meridloId === id && x.energie.typ === 'zaloha');
 window.merZalohaSablonaNajdi = merZalohaSablonaNajdi;
 //  Vytvoří / upraví / zruší šablonu. Vrací 'nova' | 'upravena' | 'zrusena' | ''.
-function merZalohaSablona(m, zapnout) {
+//  zapisovat: true = automaticky (auto), false = jen připomínka; neuvedeno = ponechat, jak je šablona (rozpis záloh).
+function merZalohaSablona(m, zapnout, zapisovat) {
   if (typeof S === 'undefined') return '';
   S.sablony = S.sablony || [];
   const st = merZalohaSablonaNajdi(m.id);
@@ -555,14 +560,15 @@ function merZalohaSablona(m, zapnout) {
   const kat = m.catId ? { catId: m.catId, subcat: m.subcat || '' } : merVychoziKategorie(m.druh);
   const s = Object.assign(st || { id: 'mer-' + m.id }, {
     name: 'Záloha – ' + (m.nazev || (MER_DRUHY[m.druh] || MER_DRUHY.jine).n), amount: m.zaloha, type: 'expense',
-    catId: kat.catId, subcat: kat.subcat, freq: 'monthly', den: m.zalohaDen || 15, auto: true,
+    catId: kat.catId, subcat: kat.subcat, freq: 'monthly', den: m.zalohaDen || 15,
+    auto: zapisovat === undefined ? !(st && st.auto === false) : !!zapisovat,   // v12.29
     wallet: m.zalohaWallet || null, note: '📟 záloha z měřidla', energie: { meridloId: m.id, typ: 'zaloha' },
     //  v12.17: rozpis záloh – opakovaná platba se v den změny přepne sama (sablonaCastka v premium.js)
     rozpis: merZalohyRozpis(m).length ? merZalohyRozpis(m).map(x => ({ od: x.od, kc: x.kc })) : null,
   });
   if (!st) S.sablony.push(s);
   if (typeof save === 'function') save();
-  //  hned zapsat i tento měsíc, pokud den platby ještě nebyl (stejné pravidlo jako u ostatních šablon)
+  //  hned zapsat i tento měsíc, pokud den platby už nastal (stejné pravidlo jako u ostatních šablon)
   if (typeof processAutoSablony === 'function') { try { processAutoSablony(); } catch (e) {} }
   return st ? 'upravena' : 'nova';
 }
@@ -578,8 +584,9 @@ function _merZalohaBlokHTML(m) {
       ${_merPole('Částka (Kč)', `<input class="fi" id="merZaloha" data-mer inputmode="decimal" placeholder="prázdné = průměr plateb" value="${zal ? _merEsc(zal) : ''}">`)}
       ${_merPole('Den platby', `<input class="fi" id="merZalDen" data-mer type="number" min="1" max="31" value="${_merEsc(den)}">`)}
     </div>
-    ${_merPole('Zapisovat do transakcí', `<select class="fi" id="merZalAuto" data-mer><option value="0"${st ? '' : ' selected'}>ne – zálohy zapisuju sám (appka je jen čte)</option><option value="1"${st ? ' selected' : ''}>ano – každý měsíc automaticky (opakovaná platba)</option></select>`,
-      'Automaticky = vznikne opakovaná platba v 🔄 Šablonách a Budoucích platbách; každý měsíc z ní appka zapíše transakci zálohy s vazbou na toto měřidlo. Platbu importovanou z banky pak pozná ⚠️ Podezřelé jako duplicitu.')}
+    ${(() => { const rz = !st ? '0' : st.auto === false ? '2' : '1';   // v12.29: skutečný stav šablony
+      return _merPole('Zapisovat do transakcí', `<select class="fi" id="merZalAuto" data-mer><option value="0"${rz === '0' ? ' selected' : ''}>ne – zálohy zapisuju sám (appka je jen čte)</option><option value="2"${rz === '2' ? ' selected' : ''}>jen připomínat – v Budoucích platbách, zapíšu sám / z banky</option><option value="1"${rz === '1' ? ' selected' : ''}>ano – každý měsíc automaticky (opakovaná platba)</option></select>`,
+        'Jen připomínat = opakovaná platba v 🔄 Šablonách a Budoucích platbách, transakci zapíšeš sám nebo přijde z importu banky. Automaticky = appka každý měsíc v den platby zapíše transakci zálohy s vazbou na toto měřidlo (v Šablonách štítek „⚙️ zapíše se samo“). Když platíš zálohy převodem a importuješ banku, vyber „jen připomínat“ – jinak budou dvakrát.'); })()}
     ${_merPole('Z peněženky', typeof ffPenezenkaSelect === 'function' ? ffPenezenkaSelect('merZalWal', wal).replace('<select ', '<select data-mer ') : '<select class="fi" id="merZalWal" data-mer></select>')}
     ${st ? `<div style="font-size:.68rem;color:var(--income);margin-top:6px">✓ Opakovaná platba běží: ${_merKc(st.amount)} každého ${_merEsc(st.den)}. v měsíci</div>` : ''}
     ${m ? _merRozpisHTML(m) : ''}
@@ -1137,10 +1144,16 @@ function merJeBydleni(catId) {
 function merPlatbaKontext(typ, catId, sub) {
   const mer = meridlaSeznam();
   if (!mer.length || (typ !== 'expense' && typ !== 'income')) return null;
-  const vazba = mer.filter(m => m.catId && m.catId === catId && (!m.subcat || m.subcat === sub));
+  //  S28 (v12.26, Milan: „mají se zobrazovat měřidla při zadávání Bydlení › Fond oprav?!“): dřív stačila
+  //  kategorie Bydlení (nebo měřidlo napojené na celou kategorii) a blok se ukázal u KAŽDÉ podkategorie.
+  //  Teď při vybrané podkategorii jen u energie/plynu/vody/tepla/záloh/doplatků nebo u podkategorie
+  //  výslovně napojené na měřidlo; bez podkategorie jako dřív (ještě se vybírá).
   const energ = MER_ENERGIE_RE.test(sub || '');
+  const presna = mer.filter(m => m.catId && m.catId === catId && m.subcat && m.subcat === sub);
+  const naKat = mer.filter(m => m.catId && m.catId === catId && !m.subcat);
+  const vazba = sub ? (presna.length ? presna : (energ ? naKat : [])) : naKat.concat(mer.filter(m => m.catId === catId && m.subcat));
   if (typ === 'income' && !(MER_PREPLATEK_RE2.test(sub || '') || vazba.length)) return null;
-  if (typ === 'expense' && !(vazba.length || energ || merJeBydleni(catId))) return null;
+  if (typ === 'expense' && !(vazba.length || energ || (!sub && merJeBydleni(catId)))) return null;
   let tip = vazba[0] || null;
   if (!tip && energ) {
     const t = (sub || '').toLowerCase();
@@ -1163,7 +1176,10 @@ function merPlatbaObnov() {
   const catId = (typeof selCatId !== 'undefined') ? selCatId : '';
   const sub = (document.getElementById('customSubInput')?.value || '').trim() || ((typeof selSub !== 'undefined') ? selSub : '');
   if (_meridla === null) { el.style.display = 'none'; loadMeridla().then(merPlatbaObnov); return; }
-  const k = merPlatbaKontext(typ, catId, sub);
+  let k = merPlatbaKontext(typ, catId, sub);
+  //  S28 (v12.26): úprava transakce, která už vazbu na měřidlo má – blok zůstane i u jiné podkategorie
+  if (!k && _merPlatbaForm && _merPlatbaForm._z && _merPlatbaForm.meridloId && meridlaSeznam().some(m => m.id === _merPlatbaForm.meridloId))
+    k = { meridla: meridlaSeznam(), tip: _merPlatbaForm.meridloId, typTip: _merPlatbaForm.typ || 'zaloha' };
   if (!k) { el.style.display = 'none'; el.innerHTML = ''; return; }
   const f = _merPlatbaForm = _merPlatbaForm || {};
   //  Předvyplnit jen u nového zápisu; uložená vazba (editace) se drží.

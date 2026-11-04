@@ -48,11 +48,14 @@ S.transactions=[]; processAutoSablony();
 T('budoucí datum se nezapisuje předčasně', S.transactions.length===0 && !S.sablony[0].done);
 
 // S25 (v11.44): měsíční auto-šablona dostane přesně svůj den (dřív o den dřív kvůli UTC)
-{ const d0=new Date(); const den=Math.min(28,d0.getDate()+1>28?28:d0.getDate()+1);
+// S28 (v12.26, Milan): zapisuje se až V DEN splatnosti – den = dnešek se zapíše, zítřek ještě ne
+{ const d0=new Date(); const den=d0.getDate();
   S.sablony=[{id:'s3',name:'Nájem',amount:9000,type:'expense',freq:'monthly',den,auto:true,catId:'c1'}]; S.transactions=[];
   processAutoSablony();
   const ocek=_loc(new Date(d0.getFullYear(),d0.getMonth(),den));
-  T('měsíční auto-šablona má datum svého dne (ne o den dřív)', d0.getDate()>=28 || (S.transactions.length===1 && S.transactions[0].date===ocek)); }
+  T('měsíční auto-šablona má datum svého dne (ne o den dřív)', S.transactions.length===1 && S.transactions[0].date===ocek);
+  if(d0.getDate()<28){ S.sablony=[{id:'s4',name:'Netflix',amount:299,type:'expense',freq:'monthly',den:d0.getDate()+1,auto:true,catId:'c1'}]; S.transactions=[];
+    processAutoSablony(); T('S28: splatnost zítra → dnes se ještě nezapíše (počítá se až v den platby)', S.transactions.length===0); } }
 
 // ── 4) budoucí platby a Příští měsíc ji vidí ──
 eval(cut(PS,'pristiOccurrences'));

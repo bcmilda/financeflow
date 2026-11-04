@@ -1,4 +1,4 @@
-// FinanceFlow · v12.22 · ean-sken.js · 2026-10-29
+// FinanceFlow · v12.28 · ean-sken.js · 2026-11-02
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -1441,7 +1441,7 @@ function _eanKlic(obchod, raw) {
 //  účtu na stejném zařízení se nesmí jeho spojení dostat do cizích účtenek.
 function _eanHlidejUid() {
   const uid = (window._currentUser && window._currentUser.uid) || null;
-  if (uid !== _eanCacheUid) { _eanCacheUid = uid; _eanAliasy = null; _eanKomunita = {}; _eanAutoKdy = 0; }
+  if (uid !== _eanCacheUid) { _eanCacheUid = uid; _eanAliasy = null; _eanKomunita = {}; _eanAutoKdy = 0; if (typeof _eanHistIdx !== 'undefined') _eanHistIdx = null; }   // v12.28: i paměť dřívějších účtenek
   return uid;
 }
 
@@ -1550,13 +1550,49 @@ function eanGramazZKarty(it) {
   return true;
 }
 
+//  S28 (v12.28, Milan: „prověř, jestli se po naskenování účtenky u známých a již dříve zaevidovaných položek
+//  správně zobrazí zelený čtvereček s fajfkou místo fotoaparátu – teď se to nestalo, musel jsem znovu skenovat EAN“).
+//  Kód se doplňoval JEN ze spojení obchod + zkratka (users/{uid}/eanAliasy) a z komunity. Spojení ale nemusí
+//  existovat, i když výrobek znáš: zkratka je ručně připojená ke kartě s kódem (🔗 Spojit se stejným výrobkem),
+//  kód má starší účtenka z jiné cesty (Moje výrobky, ruční zápis, jiné zařízení), nebo se zápis spojení nepovedl.
+//  Záloha v tomto pořadí: 1) ruční spojení zkratky s kartou s kódem, 2) tvoje dřívější účtenky ze STEJNÉHO
+//  obchodu se stejnou zkratkou – jen když tam je jediný kód. Jiný obchod se nebere (zkratky se liší), zkratka
+//  s víc druhy ani kód, který sis u zkratky odebral, se nedoplní.
+let _eanHistIdx = null, _eanHistKdy = 0, _eanHistPodpis = '';
+function _eanHistorie() {
+  if (typeof S === 'undefined' || !S) return {};
+  const rc = Array.isArray(S.receipts) ? S.receipts : [], tx = Array.isArray(S.transactions) ? S.transactions : [];
+  const podpis = rc.length + ':' + tx.length;
+  if (_eanHistIdx && podpis === _eanHistPodpis && Date.now() - _eanHistKdy < 5000) return _eanHistIdx;
+  const idx = {};
+  const pridej = (obchod, it) => { if (!it || !it.name || !it.ean || !eanKontrola(String(it.ean))) return;
+    const k = _eanKlic(obchod, it.name); if (!k) return; (idx[k] = idx[k] || {})[String(it.ean)] = 1; };
+  rc.forEach(r => (r && Array.isArray(r.items) ? r.items : []).forEach(it => pridej(r.store, it)));
+  tx.forEach(t => (t && Array.isArray(t.receiptItems) ? t.receiptItems : []).forEach(it => pridej(t.receiptStore || t.storeName || '', it)));
+  _eanHistIdx = idx; _eanHistKdy = Date.now(); _eanHistPodpis = podpis;
+  return idx;
+}
+function eanKodZPameti(obchod, nazev, odmitnute) {
+  const klic = _eanKlic(obchod, nazev);
+  if (!klic || eanJeViceDruhu(klic)) return null;
+  const smi = e => eanKontrola(e) && !_eanOdmitnutoMa(odmitnute, klic, e);
+  if (typeof mapaSpojeniKam === 'function' && typeof normName === 'function') {
+    const kam = String(mapaSpojeniKam(normName(nazev)) || '');
+    if (kam.startsWith('ean:') && smi(kam.slice(4))) return { ean: kam.slice(4), zdroj: 'spojeni' };
+  }
+  const h = _eanHistorie()[klic];
+  const kody = h ? Object.keys(h).filter(smi) : [];
+  return kody.length === 1 ? { ean: kody[0], zdroj: 'historie' } : null;
+}
+window.eanKodZPameti = eanKodZPameti;
 //  Doplní kód položkám jednoho seznamu (účtenka nebo receiptItems transakce).
 //  Vrací počet doplněných. nazev(ean) volitelně vrátí název výrobku pro eanNazev.
 function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
   let n = 0;
   (items || []).forEach(it => {
     if (!it || !it.name || it.ean) return;
-    const v = eanKodProKlic(_eanKlic(obchod, it.name), moje, komunita, odmitnute);
+    const v = eanKodProKlic(_eanKlic(obchod, it.name), moje, komunita, odmitnute)
+      || (typeof eanKodZPameti === 'function' ? eanKodZPameti(obchod, it.name, odmitnute) : null);   // v12.28
     if (!v) return;
     it.ean = v.ean;
     const nz = typeof nazev === 'function' ? nazev(v.ean) : '';

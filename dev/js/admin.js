@@ -1,4 +1,4 @@
-// FinanceFlow · v12.22 · admin.js · 2026-10-29
+// FinanceFlow · v12.29 · admin.js · 2026-11-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,74 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.29',
+    datum: '2026-11-04',
+    zmeny: [
+      "🏷️ ŠTÍTEK „AUTO“ → „⚙️ ZAPÍŠE SE SAMO“ (Milan: „proč mají zálohy na plyn a elektřinu ‚auto‘ (auto = automobil)?“) · cesta: Opakované šablony. Zelený štítek „auto“ neznamenal kategorii Auto, ale automatické vytváření transakcí (v den platby se zapíše sama). Teď „⚙️ zapíše se samo“ s nápovědou, jak ho vypnout (✎ → Automatické vytváření transakcí); ⚡ má popisek „Zapsat platbu teď“.",
+      "🔔 ZÁLOHA Z MĚŘIDLA: TŘI VOLBY · cesta: 📟 Energie a voda → měřidlo → ⚙️ → 🔄 Měsíční záloha → Zapisovat do transakcí: ne / jen připomínat (v Budoucích platbách, zapíšu sám / z banky) / ano – automaticky. Výběr teď ukazuje skutečný stav šablony – dřív stálo „automaticky“, kdykoli šablona existovala, i když sis auto v šabloně vypnul, a uložení měřidla ho zase zapnulo. Úprava rozpisu záloh volbu nemění.",
+      "🧪 tools/smoke_zalohy_rezim.js (10) – na v12.28 padá 8.",
+    ],
+  },
+  {
+    verze: 'v12.28',
+    datum: '2026-11-02',
+    zmeny: [
+      "⚖️ SROVNÁNÍ UVNITŘ ODDÍLU ZPĚT (Milan: „vrať porovnání útraty za oddíl, pokud máme data z ČSÚ i výpočet, kterým ho oni počítají“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Dva samostatné bloky, každý s vlastním nadpisem a jedním výpočtem, bez přepínání: ① Ze všech výdajů (beze změny) a ② Uvnitř oddílu – váha podtřídy / váha oddílu z koše ČSÚ (houbičky 12,3 %) proti tvé útratě za položku / tvým výdajům za oddíl. Výdaje za oddíl = položky účtenek s kódem oddílu + transakce bez účtenky, jejichž kategorie do oddílu patří (káva, benzín, rozdělené platby – Milan: „je to v podstatě to samé co skenování“). Transakce z naskenované účtenky se nepočítá dvakrát.",
+      "📅 OBDOBÍ OD PRVNÍ ÚČTENKY (Milan: „podíl by vyšel podobný za 2 měsíce stejně jako za 12 měsíců“) · tamtéž. Při „12 měs.“ se dřív dělila útrata z účtenek (od září) všemi výdaji za 12 měsíců → podíl ~6× menší. Teď se počítá až od měsíce první naskenované účtenky, pro účtenky i transakce stejně; karta to napíše („Počítá se od září 2026“).",
+      "✅ ZNÁMÉ POLOŽKY SE PO SKENU POZNAJÍ (Milan: „u známých, dříve zaevidovaných položek se neukázal zelený čtvereček s fajfkou, musel jsem znovu skenovat EAN“) · cesta: Analýza účtenek → sken účtenky → editor položek. Kód se bral jen ze spojení obchod + zkratka a z komunity. Nově i z ručního spojení s kartou s kódem (🔗 Spojit se stejným výrobkem) a z tvých dřívějších účtenek ze stejného obchodu se stejnou zkratkou (jen když tam je jediný kód). Jiný obchod, zkratka s víc druhy ani kód, který sis odebral, se nedoplní.",
+      "🔗 Tlačítko „Spojit s…“ přejmenováno na „🔗 Spojit se stejným výrobkem…“ (Milan) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → pod Názvy z účtenek.",
+      "🧪 tools/smoke_vaha_oddilu.js rozšířen na 27 (② oddíl, transakce bez účtenky, období od první účtenky), tools/smoke_ean_pamet.js (11) – na v12.27 padají. Chromium 390 px: karta houbiček ① 0,63 % / 0,13 %, ② 12,3 % / 7,8 % (30 Kč účtenky + 350 Kč transakce), „Počítá se od září 2026“, bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.27',
+    datum: '2026-11-02',
+    zmeny: [
+      "🔁 FORMULÁŘ ŠABLONY JAKO TRANSAKCE (Milan: „Opakované šablony → nemůžu se prokliknout na podkategorie a také vzhled a pole neodpovídá novým úpravám v porovnání s Transakcemi“) · cesta: Opakované šablony → ＋ Přidat šablonu (i ✏️ úprava). Stejné pořadí a prvky jako ＋ Transakce: Název, Částka, Peněženka, Typ platby, Kategorie (NEJČASTĚJŠÍ + rozbalovací skupiny), Podkategorie jako klikací štítky + „nebo napiš vlastní…“, Frekvence, Den, Automaticky, Ukončení, Poznámka, 🏷️ Tagy. Podkategorie, typ platby a tagy se ukládají a přenesou do každé transakce ze šablony (automatický zápis, jednorázová platba i ▶ Použít teď). Vlastní podkategorie se přidá do kategorie.",
+      "📅 FIX-210 v2 OBNOVEN (Milan: „když přidám datum opakování před today, tak ať se zapíše i na aktuální měsíc“) · cesta: Opakované šablony. Pravidlo „ne zpětně“ z v12.26 zrušeno: automatická šablona přidaná po dni splatnosti se v aktuálním měsíci zapíše hned, k datu splatnosti. Minulé měsíce se nedoplňují.",
+      "🧪 tools/smoke_sablona_formular.js (12) – na v12.26 padá; smoke_sablony_vden.js rozšířen na 13 (zápis po dni splatnosti, přenos podkategorie/typu platby/tagů).",
+    ],
+  },
+  {
+    verze: 'v12.26',
+    datum: '2026-11-01',
+    zmeny: [
+      "📅 OPAKOVANÉ PLATBY SE ZAPÍŠOU AŽ V DEN SPLATNOSTI (Milan: „je 1. 11. a aplikace už zapsala transakce, které se mají započítat až 15. 11.“) · cesta: Transakce. Automatická šablona (i zálohy z měřidel) dřív zapsala platbu hned na začátku měsíce, takže se 1. 11. počítala do zůstatku peněženky i součtů. Teď se zapíše v den splatnosti; do té doby je nahoře v Transakcích „📅 Naplánováno“ (bez vlivu na součty). Dopředu zapsané a neupravené platby se samy stáhnou a zapíšou znovu v den splatnosti; smazaná platba se v tom měsíci znovu nezaloží.",
+      "📟 MĚŘIDLA JEN U ENERGIÍ (Milan: „mají se zobrazovat měřidla při zadávání Bydlení › Fond oprav?!“) · cesta: + Transakce → Bydlení → podkategorie. Blok Energie a voda se ukáže jen u energie / plynu / vody / tepla / záloh / doplatků nebo u podkategorie napojené na měřidlo, ne u Fondu oprav, Nájmu, Internetu apod.",
+      "🗳️ HLASY KOMUNITY: JEDEN NA UŽIVATELE (Milan: „+1 na položku u uživatele, hlasy se sčítají komunitně“) · štítky položek z účtenek a opravy navržené kategorie: dřív každá změna štítku přičetla +1 (i opakovaně) a návrhy kategorií se navzájem přepisovaly. Teď jeden hlas na uživatele a položku (změna jen přepíše vlastní hlas); admin sčítá hlasy všech se staršími počty (Admin → Mapa položek, Doporučení).",
+      "🧪 tools/smoke_sablony_vden.js (10), smoke_meridla_podkat.js (10), smoke_hlasy.js (8) – na v12.25 padají; test pravidel 117 případů; smoke_s23b a smoke_tx_filtry_zalohy upraveny na zápis v den splatnosti.",
+    ],
+  },
+  {
+    verze: 'v12.25',
+    datum: '2026-11-01',
+    zmeny: [
+      "🔒 BEZPEČNOST (audit body 17 + 18, Milan: „určitě oprav i díru s AI limitem, sdílený katalog a štítky, počet kliků“) · pravidla databáze: sdílená data (podpora, doporučení, katalog, štítky, hlášení, push odběry) už nikdo cizí nesmaže ani nepřepíše; zkušební Premium jen jednou (zapíše se jen spolu se záznamem e-mailu, smazání účtu jen s náhrobkem); AI limit nejde vynulovat. NUTNO NASADIT: Firebase → Realtime Database → Rules (database.rules.json) a worker (Cloudflare).",
+      "🤖 AI LIMIT · čítač využití AI je nově mimo tvoje data (aiUsage/{uid}) – dřív si ho šlo vynulovat smazáním uzlu users/{uid}. Zapisuje jen worker; v listopadu se převezme stav ze starého místa, takže se limit přesunem nevynuluje. Analýza účtenek → „Zdarma ti zbývá X skenů“ čte nové místo.",
+      "🔗 DOPORUČENÍ · počet kliků na cizí odkaz se dřív přepsal na počet kliků návštěvníkova vlastního kódu + 1. Teď atomické +1 na serveru. Konverze (body za doporučení) a druhá cena téhož výrobku v jednom dni fungují i s novými pravidly (první verze záplaty je blokovala).",
+      "🏷️ KATALOG A ŠTÍTKY · hlas u štítku jde jen o +1, ne libovolné číslo; výrobek v katalogu přijme jen název, cenu (0–100 000 Kč), datum a obchod.",
+      "🧪 tools/test_pravidla_firebase.js – 109 případů v simulátoru pravidel (targaryen): útoky na nových pravidlech zamítnuté, na původních procházely; běžné zápisy aplikace projdou. Spustit před každým nasazením pravidel.",
+    ],
+  },
+  {
+    verze: 'v12.24',
+    datum: '2026-10-30',
+    zmeny: [
+      "⚖️ SROVNÁNÍ S ČSÚ: JEDEN VÝPOČET (Milan: „nemůžeš v jedné kartě používat 2 různé výpočty… je to špatný přístup a manipulace dat“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Karta počítá vždy jen ze všech výdajů: váha ČSÚ (‰ podtřídy ze všech výdajů, např. houbičky 0,63 %) proti tvé útratě z účtenek děleno všemi výdaji z transakcí za stejné období. Malá útrata = malé procento, koupě jiné věci z oddílu (lednička) procento nezmění.",
+      "🗑️ Přepínač „Základ srovnání“ i automatické přepínání na 500 Kč (v12.23) zrušeny. Základ „z výdajů za oddíl“ ukazoval jen složení oddílu: stejných 43 Kč za čisticí věci vyšlo +373 %, po koupi ledničky −93 %, i když se nákup nezměnil.",
+      "🧪 tools/smoke_vaha_oddilu.js – 17 testů (na v12.23 padá 6, mj. lednička: −93 % místo stejných −66 %); smoke_karta_v2.js: kontrola jednoho výpočtu bez přepínače. Chromium 390 px: 0,63 % vs 0,06 %, −90 %, bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.23',
+    datum: '2026-10-30',
+    zmeny: [
+      "⚖️ SROVNÁNÍ S ČSÚ: MALÁ ÚTRATA = MALÉ PROCENTO (Milan: „58 % z malé útraty je hodně a vypadá to, že přesahuju limity ČSÚ. Právě když utratím méně, mělo by to být zobrazeno tím 0,63 %“) · cesta: Analýza účtenek → 🗺️ Mapa položek → karta výrobku → Srovnání výdajů. Když máš za oddíl z účtenek méně než 500 Kč, karta sama porovnává ze všech výdajů: Kuchyňské houbičky – ČSÚ 0,63 %, ty např. 0,06 % = −90 % proti průměru. Od 500 Kč za oddíl zůstává základ „z výdajů za oddíl“. Přepínač Základ srovnání funguje dál ručně.",
+      "🧹 Hláška „Na srovnání je zatím málo dat“ (v12.22) odstraněna – i malá částka se ukáže. Procenta pod 1 % na dvě desetinná místa (0,63 %, ne 0,6 %).",
+      "🧪 tools/smoke_vaha_oddilu.js – 17 testů (na v12.22 padá 6); smoke_karta_v2.js upraven na nový název proměnné. Chromium 390 px: 0,63 % vs 0,06 %, −90 % zeleně, šířka 390, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.22',
     datum: '2026-10-29',
@@ -6882,7 +6950,9 @@ async function loadUsersList() {
         const uid = uids[idx++];
         const [prof, p, ref, ai, txCount, act, nast] = await Promise.all([
           fj(`users/${uid}/profile`), fj(`users/${uid}/premium`),
-          fj(`users/${uid}/referral`), fj(`users/${uid}/aiUsage`),
+          fj(`users/${uid}/referral`),
+          //  S28 (v12.25): čítač AI je nově mimo users/ (aiUsage/{uid}); starý se přimíchá (přechod)
+          Promise.all([fj(`aiUsage/${uid}`), fj(`users/${uid}/aiUsage`)]).then(([n, o]) => (n || o) ? Object.assign({}, o || {}, n || {}) : null),
           fCount(`users/${uid}/data/transactions`),
           fj(`users/${uid}/activity`),   // v9.85 (TODO-213)
           fj(`users/${uid}/settings`),   // S23 (TODO-295): souhlas se zasíláním novinek
@@ -7322,7 +7392,7 @@ async function adminRevokePremium(uid) {
 const GDPR_UZLY_UZIVATEL = ['data','profile','settings','premium','referral',
                             'activity','security','meta','notifPrefs','shared',
                             'communityId','householdId','partners','backups'];
-const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs'];
+const GDPR_UZLY_MIMO = ['premiumLog','banned','push_subs','aiUsage'];   // S28 v12.25: aiUsage/{uid}
 
 //  Čitelný přehled k odpovědi podle čl. 15 – otevře se v novém okně,
 //  odtud Tisk → Uložit jako PDF. Nevypisuje jednotlivé transakce (ty jsou
@@ -8477,6 +8547,32 @@ async function assignSubCoicop(catId, sub, selId) {
   }
 }
 
+//  S28 (v12.26, Milan: „+1 na položku u uživatele, hlasy se sčítají komunitně“): staré souhrny
+//  (community/itemTags, community/suggestionOverrides – jen ke čtení) + nové hlasy, jeden na
+//  uživatele (itemTagVotes/{položka}/{uid} = štítek, suggestionVotes/{název}/{uid} = volba).
+function adminSlucTagy(stare, hlasy) {
+  const out = {};
+  Object.entries(stare || {}).forEach(([k, t]) => Object.entries(t || {}).forEach(([tag, n]) => {
+    if (typeof n === 'number' && n > 0) { out[k] = out[k] || {}; out[k][tag] = (out[k][tag] || 0) + n; } }));
+  Object.entries(hlasy || {}).forEach(([k, u]) => Object.values(u || {}).forEach(tag => {
+    if (typeof tag === 'string' && tag) { out[k] = out[k] || {}; out[k][tag] = (out[k][tag] || 0) + 1; } }));
+  return out;
+}
+function adminSlucNavrhy(stare, hlasy) {
+  const out = {};
+  Object.entries(stare || {}).forEach(([k, info]) => {
+    const ch = {}; Object.entries((info && info.chosen) || {}).forEach(([ck, c]) => { ch[ck] = Object.assign({}, c); });
+    out[k] = { suggested: info && info.suggested, chosen: ch }; });
+  Object.entries(hlasy || {}).forEach(([k, u]) => Object.values(u || {}).forEach(h => {
+    if (!h || !h.chosenId) return;
+    const o = out[k] = out[k] || { suggested: h.suggested, chosen: {} }; if (!o.suggested) o.suggested = h.suggested;
+    const ck = String(h.chosenId).replace(/[.#$\/\[\]]/g, '_');
+    const c = o.chosen[ck] = o.chosen[ck] || { name: h.chosen || h.chosenId, catId: h.chosenId, count: 0 };
+    c.count = (c.count || 0) + 1; }));
+  return out;
+}
+Object.assign(window, { adminSlucTagy, adminSlucNavrhy });
+
 // ── TODO-086: Doporučení – přehled co uživatelé mění ──
 async function loadSuggestionOverrides() {
   const el = document.getElementById('adminSuggestions'); if(!el) return;
@@ -8486,7 +8582,8 @@ async function loadSuggestionOverrides() {
     if(!idToken) throw new Error('Nepřihlášen');
     const res = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionOverrides.json?auth=${idToken}`);
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
+    const resH = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionVotes.json?auth=${idToken}`);   // S28 v12.26
+    const data = adminSlucNavrhy(await res.json(), resH.ok ? await resH.json() : null);
     if(!data || !Object.keys(data).length) {
       el.innerHTML = '<div class="card-body" style="color:var(--text2);font-size:.8rem">✅ Žádné změny doporučení zatím. Uživatelé přijímají doporučené kategorie.</div>';
       return;
@@ -8623,7 +8720,8 @@ async function loadCommunityItemTags() {
     if(!idToken) throw new Error('Nepřihlášen');
     const res = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTags.json?auth=${idToken}`);
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
+    const resH = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagVotes.json?auth=${idToken}`);   // S28 v12.26
+    const data = adminSlucTagy(await res.json(), resH.ok ? await resH.json() : null);
 
     // Načti validační statusy
     const valRes = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagValidation.json?auth=${idToken}`);
@@ -9030,8 +9128,9 @@ Object.assign(window, { mapaAdminZamkni, mapaAdminOdemkni, mapaAdminKartyNacti, 
 async function mapaSmazTagy() {
   if (!confirm('Smazat VŠECHNY item tagy od uživatelů (i jejich schválení)? Komunitní mapa položek a čárové kódy zůstanou.')) return;
   const t = await window._currentUser?.getIdToken?.();
-  await Promise.all(['itemTags', 'itemTagValidation'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`, { method: 'DELETE' })));
-  if (typeof showToast === 'function') showToast('🗑️ Item tagy smazány');
+  //  S28 (v12.26): i nové hlasy (itemTagVotes); toast podle výsledku (dřív „smazány“ i při chybě)
+  const odp = await Promise.all(['itemTags', 'itemTagVotes', 'itemTagValidation'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`, { method: 'DELETE' }).then(r => r.ok).catch(() => false)));
+  if (typeof showToast === 'function') showToast(odp.every(Boolean) ? '🗑️ Item tagy smazány' : '⚠️ Smazání se nepovedlo (oprávnění nebo síť) – zkus znovu');
   loadCommunityItemTags();
 }
 Object.assign(window, { mapaAdminEanUloz, mapaAdminEanZnovu, mapaSmazTagy });
@@ -10550,7 +10649,10 @@ async function renderAdminZdravi() {
 
   const [lowConf, itemTags, leads, agg] = await Promise.all([
     countOf('ai_low_confidence'),
-    countOf('community/itemTags'),
+    safe(async () => {   // S28 v12.26: položky se starými počty i s novými hlasy (jedna položka jednou)
+      const [a, b] = await Promise.all(['community/itemTags', 'community/itemTagVotes'].map(p => fetch(q(p, 'shallow=true')).then(r => r.ok ? r.json() : null)));
+      return new Set([...Object.keys(a || {}), ...Object.keys(b || {})]).size;
+    }, null),
     countOf('leads'),
     safe(async () => {
       const r = await fetch(q(`community/${monthKey}/aggregate`));

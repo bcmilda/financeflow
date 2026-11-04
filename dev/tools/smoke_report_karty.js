@@ -36,7 +36,7 @@ c2.window=c2; vm.createContext(c2); vm.runInContext(M,c2);
 vm.runInContext('_meridla={e:{id:"e",druh:"elektrina",nazev:"Elektřina",jednotka:"kWh",kdy:1,dvoutarif:true},p:{id:"p",druh:"plyn",nazev:"Plyn",jednotka:"kWh",kdy:2}}',c2);
 let x=c2.merPlatbaKontext('expense','cat3','Zálohy'); t('Bydlení › Zálohy: blok, bez tipu (víc měřidel)',x&&x.tip===''&&x.typTip==='zaloha');
 x=c2.merPlatbaKontext('expense','cat3','Plyn'); t('Bydlení › Plyn: tip plyn',x.tip==='p');
-x=c2.merPlatbaKontext('expense','cat3','Nájem'); t('Bydlení › Nájem: blok, ale nepropojovat',x&&x.tip==='');
+x=c2.merPlatbaKontext('expense','cat3','Nájem'); t('Bydlení › Nájem: bez bloku (S28 v12.26, Milan: měřidla jen u energií)',x===null);
 t('jiná kategorie bez vazby: žádný blok',c2.merPlatbaKontext('expense','cat1','Pečivo')===null);
 t('příjem Přeplatek: blok',c2.merPlatbaKontext('income','cat8','Přeplatek z vyúčtování').typTip==='preplatek');
 c2.merPlatbaNaplnFormular(null);

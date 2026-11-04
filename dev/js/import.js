@@ -1,4 +1,4 @@
-// FinanceFlow · v11.72 · import.js · 2026-10-12
+// FinanceFlow · v12.26 · import.js · 2026-11-01
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -607,17 +607,13 @@ async function recordSuggestionOverride(name, suggestedCatId, chosenCatId) {
     const sugName = (D.categories||[]).find(c=>c.id===suggestedCatId)?.name || suggestedCatId;
     const choName = (D.categories||[]).find(c=>c.id===chosenCatId)?.name || chosenCatId;
     const idToken = await window._currentUser.getIdToken?.();
-    // Načti aktuální záznam
-    const url = `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionOverrides/${key}.json?auth=${idToken}`;
-    const res = await fetch(url);
-    const cur = res.ok ? (await res.json()||{}) : {};
-    const choKey = chosenCatId.replace(/[.#$/\[\]]/g,'_');
-    cur.suggested = sugName;
-    cur.suggestedId = suggestedCatId;
-    cur.chosen = cur.chosen || {};
-    cur.chosen[choKey] = {name: choName, catId: chosenCatId, count: ((cur.chosen[choKey]?.count)||0)+1};
-    cur.updatedAt = Date.now();
-    await fetch(url, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cur)});
+    //  S28 (v12.26): dřív GET + PUT celého souhrnu – jenže souhrn smí číst jen admin, GET vrátil
+    //  chybu a každý zápis přepsal hlasy všech ostatních (počty se nikdy nesčítaly). Teď JEDEN hlas
+    //  na uživatele a název: community/suggestionVotes/{název}/{uid}; sčítá admin (Doporučení).
+    const uid = window._currentUser.uid;
+    const url = `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionVotes/${key}/${uid}.json?auth=${idToken}`;
+    const hlas = { chosenId: String(chosenCatId).slice(0, 60), chosen: String(choName || '').slice(0, 80), suggested: String(sugName || '').slice(0, 80), at: Date.now() };
+    await fetch(url, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(hlas)});
   } catch(e) { console.warn('recordSuggestionOverride failed:', e?.message); }
 }
 

@@ -40,8 +40,10 @@ console.log('smoke_s21b.js');
      /_set\(_ref\(_db, `users\/\$\{myUid\}\/partners\/\$\{partnerOfUid\}`\)/.test(sh));
   // Pravidla to potvrzují: do cizího podstromu se psát nesmí
   const rules=JSON.parse(R('database_rules.json').replace(/^\s*\/\/.*$/gm,''));
+  //  S28 (audit bod 18): users/$uid jen smazání vlastního účtu, ostatní zápisy po potomcích – všude jen vlastník
   ok('FIX-308 · pravidla skutečně zakazují zápis do cizího users/$uid',
-     rules.rules.users.$uid['.write'] === 'auth.uid === $uid');
+     rules.rules.users.$uid['.write'] === "auth.uid === $uid && !newData.exists() && root.child('deletedAccounts').child($uid).exists()" && rules.rules.users.$uid.$other['.write'] === 'auth.uid === $uid'
+     && Object.entries(rules.rules.users.$uid).filter(([k, v]) => v && typeof v === 'object' && v['.write']).every(([k, v]) => /auth\.uid === \$uid|auth\.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'/.test(v['.write'])));
   ok('FIX-308 · čtení /shared vyžaduje, aby mě druhý měl v partners',
      /partners'\)\.child\(auth\.uid\)\.exists\(\)/.test(rules.rules.users.$uid.shared['.read']));
 }

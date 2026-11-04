@@ -1,13 +1,23 @@
-// FinanceFlow · database rules · v11.89 · 2026-10-17 (S27: FinanceFlow Inbox - users/$uid/inbox zapisuje sparovany telefon, inboxPairing, inboxLinks.)
+// FinanceFlow · database rules · aplikace v12.26 · 2026-11-01 (S28: audit body 17+18 - zapis jen na urovni polozky, bez mazani sdilenych uzlu; Premium trial jen jednou; AI citac mimo users/; kliky +1, hlasy komunity jeden na uzivatele. Test: tools/test_pravidla_firebase.js)
 {
   "rules": {
     "users": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$uid": {
         ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-        ".write": "auth.uid === $uid",
+        // S28 (audit bod 18): .write se dedi dolu a potomek ho nemuze zrusit. Driv tu bylo
+        //   „auth.uid === $uid“ a premium se dalo prepsat zapisem o uroven vys. Ted smi
+        //   vlastnik cely uzel jen SMAZAT (smazani uctu, ucet.js) a zapisuje po potomcich:
+        //   pojmenovane uzly maji vlastni .write, ostatni pokryva $other (pojmenovany ma prednost).
+        // S28 (oprava 2): smazat cely uzel jde jen s nahrobkem (deletedAccounts, zapisuje ucet.js PRED smazanim).
+        //   Bez toho slo: trial zapsat z konzole bez trialsUsed, smazat users/{uid} a trial dat znovu.
+        ".write": "auth.uid === $uid && !newData.exists() && root.child('deletedAccounts').child($uid).exists()",
+        "$other": {
+          ".write": "auth.uid === $uid"
+        },
         "data": {
-          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",          "transactions": {
+          ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === $uid",          "transactions": {
             "$txId": {
               "name": {
                 ".validate": "!newData.isString() || newData.val().length < 300"
@@ -32,11 +42,19 @@
           }
         },
         "profile": {
-          ".read": "auth != null"
+          ".read": "auth != null",
+          ".write": "auth.uid === $uid"
         },
         "premium": {
           ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-          ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          // S28 (audit bod 18): driv si slo zapisovat trial znovu a znovu (smazat trialUsed, prepsat
+          //   trialUntil, obejit pres users/$uid). Vlastnik ted smi jen: free, nebo trial JEDNOU
+          //   (trialUsed true, max 32 dni, ne po smazani uctu - nahrobek, ne kdyz e-mail uz trial mel
+          //   jinym uctem - trialsUsed). Uzel nejde smazat ani zrusit trialUsed. Placene Premium
+          //   S28 (oprava 2): prvni trial jen SPOLU se zaznamem trialsUsed/{e-mail} ve stejnem zapisu
+          //   (premium.js startTrial – jeden update); driv slo trial zapsat z konzole bez nej.
+          //   zapisuje jen admin a worker (Stripe, Database Secret pravidla obchazi).
+          ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || (auth.uid === $uid && newData.exists() && (newData.child('type').val() === 'free' || newData.child('type').val() === 'trial') && (!newData.child('premiumUntil').exists() || newData.child('premiumUntil').val() <= now) && (data.child('trialUsed').val() !== true || newData.child('trialUsed').val() === true) && (newData.child('type').val() !== 'trial' || (newData.child('trialUsed').val() === true && newData.child('trialUntil').isNumber() && newData.child('trialUntil').val() <= now + 2764800000 && ((data.child('trialUsed').val() === true && newData.child('trialUntil').val() === data.child('trialUntil').val()) || (data.child('trialUsed').val() !== true && !root.child('deletedAccounts').child($uid).exists() && (auth.token.email == null || newData.parent().parent().parent().child('trialsUsed').child(auth.token.email.toLowerCase().replace('.', '_')).child('uid').val() === auth.uid))))))",
           "type": {
             ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || newData.val() === 'trial' || newData.val() === 'free'"
           },
@@ -51,6 +69,7 @@
           }
         },
         "shared": {
+          ".write": "auth.uid === $uid",
           ".read": "auth.uid === $uid || root.child('users').child($uid).child('partners').child(auth.uid).exists() || (root.child('users').child($uid).child('householdId').val() !== null && root.child('users').child($uid).child('householdId').val() === root.child('users').child(auth.uid).child('householdId').val() && root.child('households').child(root.child('users').child($uid).child('householdId').val()).child('members').child(auth.uid).val() === true) || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
           "transactions": {
             "$txId": {
@@ -64,10 +83,12 @@
           }
         },
         "settings": {
-          ".read": "auth.uid === $uid"
+          ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid"
         },
         "partners": {
           ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
           // FIX-312 (S21): tenhle uzel znamena "kdo smi cist ME". Zapsat sem smi vlastnik
           //   vzdy; POZVANY navic sam sebe, kdyz predlozi platny token z users/{uid}/invites.
           //   Diky tomu jedno kliknuti na pozvanku propoji OBE strany - dosud musel kazdy
@@ -87,10 +108,12 @@
         //   jen vlastnik – diky tomu me nikdo nemuze do skupiny vtahnout bez me.
         "householdId": {
           ".read": "auth != null",
+          ".write": "auth.uid === $uid",
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length > 8 && newData.val().length < 64)"
         },
         "invites": {
           ".read": "auth.uid === $uid",
+          ".write": "auth.uid === $uid",
           "$token": {
             ".validate": "newData.isBoolean()"
           }
@@ -109,8 +132,11 @@
             ".validate": "newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"updatedAt\"]) || newData.hasChildren([\"name\",\"count\",\"avgPrice\",\"lastDate\"])"
           }
         },
+        // S28 (oprava 2): stary citac AI – appka sem nepise (jen worker), uzivatel ho nesmi smazat.
+        //   Novy citac je mimo users/ (aiUsage/{uid}), aby se nedal vynulovat ani smazanim uctu.
         "aiUsage": {
           ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+          ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
           "$month": {
             "$type": {
               ".validate": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1' || !data.exists() || newData.val() >= data.val()"
@@ -120,6 +146,7 @@
         // S27 (v11.89): notifikace z banky z telefonu (FinanceFlow Inbox). Sparovany telefon smi jen PRIDAT
         // novou polozku (nebo prepsat svou nezpracovanou pri opakovanem odeslani); cist ani mazat nesmi.
         "inbox": {
+          ".write": "auth.uid === $uid",
           "$id": {
             ".write": "auth != null && root.child('inboxLinks').child(auth.uid).child('uid').val() === $uid && (!data.exists() || (data.child('dev').val() === auth.uid && !data.child('stav').exists()))",
             ".validate": "newData.hasChildren(['text','postedAt']) && (auth.uid === $uid || newData.child('dev').val() === auth.uid)",
@@ -160,11 +187,20 @@
         ".write": "auth != null && !data.exists()"
       }
     },
+    // S28 (oprava 2): citac AI (worker pres Database Secret). Uzivatel jen cte svuj, nesmi ho zmenit ani smazat.
+    "aiUsage": {
+      ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+      "$uid": {
+        ".read": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      }
+    },
     "trialsUsed": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$emailKey": {
         ".read": "auth != null",
-        ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid",
+        // S28 (oprava 2): jen klic VLASTNIHO e-mailu (jinak slo cizimu e-mailu trial predem zablokovat)
+        ".write": "auth != null && auth.token.email != null && $emailKey === auth.token.email.toLowerCase().replace('.', '_') && !data.exists() && newData.child('uid').val() === auth.uid",
         ".validate": "newData.hasChildren(['uid','at'])"
       }
     },
@@ -257,12 +293,29 @@
         ".read": "auth != null",
         ".write": false
       },
+      // S28 (audit bod 17): driv .write na celem uzlu -> kdokoli prihlaseny ho mohl smazat
+      //   (.validate se pri mazani nespousti). Ted jen jeden stitek a bez mazani.
       "itemTags": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        // S28 (kontrola zaplaty): admin smi smazat vse (Mapa polozek → Smazat tagy, admin.js)
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        // S28 (oprava 3, Milan: „+1 na polozku u uzivatele, hlasy se scitaji komunitne“): stare pocty
+        //   (cislo u stitku) zustavaji jen ke cteni, nove hlasy jsou v itemTagVotes. Zapis sem jen admin.
         "$itemKey": {
           "$tag": {
             ".validate": "newData.isNumber()"
+          }
+        }
+      },
+      // S28 (oprava 3): JEDEN HLAS NA UZIVATELE A POLOZKU – itemTagVotes/{polozka}/{uid} = stitek.
+      //   Zmena stitku hlas jen prepise (zadne opakovane +1). Cte jen admin (uid u nakupu je osobni udaj).
+      "itemTagVotes": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$itemKey": {
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20 && newData.val().matches(/^[a-z0-9_]+$/)"
           }
         }
       },
@@ -319,52 +372,90 @@
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       },
+      // S28 (oprava 3): stare souhrny jen ke cteni (appka je nemohla cist, takze kazdy zapis
+      //   prepsal hlasy ostatnich). Nove hlasy v suggestionVotes – jeden na uzivatele a nazev.
       "suggestionOverrides": {
         ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-        ".write": "auth != null"
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
+      },
+      "suggestionVotes": {
+        ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
+        "$key": {
+          "$uid": {
+            ".write": "auth.uid === $uid",
+            ".validate": "newData.hasChildren(['chosenId','at']) && newData.child('chosenId').isString() && newData.child('chosenId').val().length <= 60 && (!newData.child('chosen').exists() || (newData.child('chosen').isString() && newData.child('chosen').val().length <= 80)) && (!newData.child('suggested').exists() || (newData.child('suggested').isString() && newData.child('suggested').val().length <= 80))"
+          }
+        }
       }
     },
+    // S28 (audit bod 17): zapis jen na polozku, bez mazani; zaznam ceny jen pridat.
     "catalog": {
       ".read": "auth != null",
-      ".write": "auth != null",
       "$item": {
+        ".write": "auth != null && newData.exists()",
         ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 60"
       },
       "prices": {
         ".read": "auth != null",
-        ".write": "auth != null",
         "$product": {
           "$record": {
-            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0"
+            // S28 (kontrola zaplaty): klic je {den}_{uid} – druhy nakup tehoz vyrobku tyz den prepise
+            //   VLASTNI zaznam (nakup.js). Cizi zaznam ani mazani ne.
+            ".write": "auth != null && newData.exists() && (!data.exists() || data.child('uid').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['price','date','store']) && newData.child('price').isNumber() && newData.child('price').val() > 0 && newData.child('uid').val() === auth.uid"
           }
         }
       },
       "items": {
         ".read": "auth != null",
-        ".write": "auth != null",
         "$itemKey": {
-          ".validate": "newData.hasChildren(['name'])"
+          ".write": "auth != null && newData.exists()",
+          // S28 (oprava 2): jen znama pole s rozumnymi hodnotami (nakup.js, receipts.js publishToCatalog)
+          ".validate": "newData.hasChildren(['name'])",
+          "name": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 60" },
+          "latestPrice": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() < 100000" },
+          "latestDate": { ".validate": "newData.isString() && newData.val().matches(/^20[0-9][0-9]-[01][0-9]-[0-3][0-9]$/)" },
+          "latestStore": { ".validate": "newData.isString() && newData.val().length <= 60" },
+          "$other": { ".validate": false }
         }
       }
     },
+    // S28 (audit bod 17): kod smi zalozit kdokoli (na sve uid), menit a mazat jen jeho vlastnik.
+    //   Driv slo cizi kod prepsat na sebe nebo smazat cely uzel.
     "referrals": {
       ".read": "auth != null",
-      ".write": "auth != null",
       "$refCode": {
-        ".validate": "newData.hasChildren(['uid','createdAt'])"
+        ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || data.child('uid').val() === auth.uid)",
+        // S28 (kontrola zaplaty): vlastnik se nemeni; ciziho kodu se smi dotknout jen pocitadlo kliku
+        //   a vlastni konverze (share.js checkIncomingRef, zadani kodu, potvrzeni aktivity).
+        ".validate": "newData.hasChildren(['uid','createdAt']) && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && newData.child('uid').val() === data.child('uid').val()))",
+        "clicks": {
+          ".write": "auth != null && data.parent().exists() && newData.exists()",
+          // S28 (oprava 2): jen +1 (share.js zapisuje increment(1); driv zapisoval svuj vlastni pocet + 1)
+          ".validate": "newData.isNumber() && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))"
+        },
+        "conversions": {
+          "$cuid": {
+            ".write": "auth != null && $cuid === auth.uid && newData.exists() && data.parent().parent().exists() && data.parent().parent().child('uid').val() !== auth.uid"
+          }
+        }
       }
     },
     "referral_clicks": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      ".write": "auth != null"
+      // S28 (audit bod 17): jen pridat novy zaznam
+      "$click": {
+        ".write": "auth != null && !data.exists()"
+      }
     },
     "keyword_overrides": {
       ".read": "auth != null",
       ".write": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
     },
+    // S28 (audit bod 17): odstranen .write na celem uzlu – kazdy pise jen do sveho $uid
     "coicop_corrections": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      ".write": "auth != null",
       "$uid": {
         ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'"
       }
@@ -384,9 +475,9 @@
       ".read": "auth != null",
       ".write": false
     },
+    // S28 (audit bod 17): odstranen .write na celem uzlu – kazdy pise jen do sveho $uid
     "receipt_reports": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      ".write": "auth != null",
       "$uid": {
         ".write": "auth.uid === $uid || auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
         "$report": {
@@ -394,10 +485,11 @@
         }
       }
     },
+    // S28 (audit bod 17): zpravu podpory jde jen pridat (ne prepsat ani smazat cizi / vsechny)
     "support": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
-      ".write": "auth != null",
       "$entry": {
+        ".write": "auth != null && !data.exists()",
         ".validate": "newData.hasChildren(['email','message','date'])"
       }
     },
@@ -421,10 +513,11 @@
         }
       }
     },
+    // S28 (audit bod 17): klic je {uid}_{id} – psat a mazat smi jen vlastnik (driv slo smazat cizi odber)
     "push_subs": {
       ".read": "auth.uid === 'LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'",
       "$key": {
-        ".write": "auth != null",
+        ".write": "auth != null && ($key.beginsWith(auth.uid + '_') || data.child('uid').val() === auth.uid)",
         ".validate": "newData.child('uid').val() === auth.uid"
       }
     },
