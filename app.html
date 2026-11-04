@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.26</title>
+<title>FinanceFlow v12.27</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.26 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.27 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -1102,7 +1102,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.26</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.27</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1488,8 +1488,15 @@
       </div>
       <div class="fg"><label>Název</label><input class="fi" id="sablonaName" placeholder="např. Internet O2, Výplata..."></div>
       <div class="fg"><label>Částka (Kč)</label><input class="fi" type="number" id="sablonaAmt" placeholder="0"></div>
-      <div class="fg" id="sablonaCatSection"><label>Kategorie</label><div class="cat-scroll" id="sablonaCatPicker"></div></div>
+      <!-- S28 (v12.27, Milan: „nemůžu se prokliknout na podkategorie, vzhled a pole neodpovídá Transakcím“):
+           stejné pořadí a prvky jako formulář transakce – peněženka, typ platby, kategorie ve skupinách,
+           podkategorie, poznámka, tagy. -->
       <div class="fg"><label id="sablonaWalletLabel">Peněženka</label><select class="fi" id="sablonaWallet" onchange="sablonaPresunInfo()"></select></div>
+      <div class="fg" id="sablonaPayTypeSection"><label>Typ platby</label><select class="fi" id="sablonaPayType"></select></div>
+      <div class="fg" id="sablonaCatSection"><label>Kategorie</label><div id="sablonaCatPicker"></div></div>
+      <div class="fg" id="sablonaSubSection" style="display:none"><label>Podkategorie</label>
+        <div id="sablonaSubPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <input class="fi" id="sablonaSubCustom" placeholder="nebo napiš vlastní…" oninput="sablonaSubVlastni(this.value)"></div>
       <div class="fg" id="sablonaWalletToSection" style="display:none"><label>Do peněženky (spoření, rezerva…)</label><select class="fi" id="sablonaWalletTo" onchange="sablonaPresunInfo()"></select>
         <!-- S28 (v12.13, FIX-494): přesun mezi měnami ze šablony = kurz ČNB dne zápisu -->
         <div id="sablonaPresunInfo" style="display:none;font-size:.7rem;color:#c9cede;background:var(--surface2);border:1px solid rgba(96,165,250,.35);border-radius:8px;padding:7px 10px;margin-top:6px;line-height:1.45"></div></div>
@@ -1520,6 +1527,7 @@
       </div>
       <div class="fg"><label>Datum ukončení (volitelné)</label><input class="fi" type="date" id="sablonaEnd"></div>
       <div class="fg"><label>Poznámka</label><input class="fi" id="sablonaNote" placeholder="Volitelná poznámka..."></div>
+      <div class="fg" id="sablonaTagsSection"><label>🏷️ Tagy <span style="text-transform:none;font-weight:400;color:var(--text3)">(např. #dovolená #děti)</span></label><input class="fi" id="sablonaTags" placeholder="#tag1 #tag2 …"></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modalSablona')">Zrušit</button>
@@ -2290,7 +2298,7 @@ window.addEventListener('error', function(e){
 <script src="js/ai.js?v=3ace4c75ee055cae" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/dotazy.js?v=74f815619b9401f9" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
-<script src="js/premium.js?v=84e70c61a8f475f5" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=342393c03efa2df7" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
 <script src="js/projects.js?v=330fa68442e67787" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
@@ -2323,7 +2331,7 @@ window.addEventListener('error', function(e){
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
 <script src="js/temata.js?v=4150ad900d109908" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
-<script src="js/admin.js?v=c40041a8a230e93b" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=e2e91a29edb6e817" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=d47b8068cefcd0bf" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

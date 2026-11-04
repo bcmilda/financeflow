@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · admin.js · 2026-11-01
+// FinanceFlow · v12.27 · admin.js · 2026-11-02
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.27',
+    datum: '2026-11-02',
+    zmeny: [
+      "🔁 FORMULÁŘ ŠABLONY JAKO TRANSAKCE (Milan: „Opakované šablony → nemůžu se prokliknout na podkategorie a také vzhled a pole neodpovídá novým úpravám v porovnání s Transakcemi“) · cesta: Opakované šablony → ＋ Přidat šablonu (i ✏️ úprava). Stejné pořadí a prvky jako ＋ Transakce: Název, Částka, Peněženka, Typ platby, Kategorie (NEJČASTĚJŠÍ + rozbalovací skupiny), Podkategorie jako klikací štítky + „nebo napiš vlastní…“, Frekvence, Den, Automaticky, Ukončení, Poznámka, 🏷️ Tagy. Podkategorie, typ platby a tagy se ukládají a přenesou do každé transakce ze šablony (automatický zápis, jednorázová platba i ▶ Použít teď). Vlastní podkategorie se přidá do kategorie.",
+      "📅 FIX-210 v2 OBNOVEN (Milan: „když přidám datum opakování před today, tak ať se zapíše i na aktuální měsíc“) · cesta: Opakované šablony. Pravidlo „ne zpětně“ z v12.26 zrušeno: automatická šablona přidaná po dni splatnosti se v aktuálním měsíci zapíše hned, k datu splatnosti. Minulé měsíce se nedoplňují.",
+      "🧪 tools/smoke_sablona_formular.js (12) – na v12.26 padá; smoke_sablony_vden.js rozšířen na 13 (zápis po dni splatnosti, přenos podkategorie/typu platby/tagů).",
+    ],
+  },
   {
     verze: 'v12.26',
     datum: '2026-11-01',

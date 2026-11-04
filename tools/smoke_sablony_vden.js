@@ -17,7 +17,7 @@ function sDnem(iso) {   // kontext s „dneškem“ = iso (12:00 místního čas
   class FDate extends RealDate { constructor(...a) { if (!a.length) super(fix); else super(...a); } static now() { return fix; } }
   const c = { console, Math, JSON, Object, Array, String, Number, Set, Date: FDate, S: null, uid: (() => { let n = 0; return () => 'id' + (++n); })(), save() {}, renderPage() {} };
   c.window = c; vm.createContext(c);
-  vm.runInContext(['sablonaCastka', 'sablonyNaplanovane', 'processAutoSablony'].map(n => vyber(P, n)).join('\n'), c);
+  vm.runInContext(['sablonaCastka', 'sablonyNaplanovane', 'sablonaDoTx', 'processAutoSablony'].map(n => vyber(P, n)).join('\n'), c);
   return c;
 }
 const sab = () => [{ id: 's1', name: 'Záloha – Plyn', type: 'expense', amount: 1240, catId: 'cat3', subcat: 'Plyn', freq: 'monthly', den: 15, auto: true },
@@ -41,8 +41,13 @@ t('15. 11.: záloha se zapíše s datem 15. 11. a podkategorií', z.length === 1
 t('… a šablona si pamatuje, že listopad je zapsaný', c.S.sablony[0].posledniZapis === '2026-11');
 c.S.transactions = c.S.transactions.filter(x => x.name !== 'Záloha – Plyn'); c.processAutoSablony();
 t('smazaná platba se v tom měsíci znovu nezaloží', !c.S.transactions.some(x => x.name === 'Záloha – Plyn'));
-c = sDnem('2026-11-20'); c.S = { sablony: [Object.assign(sab()[0], { zalozeno: '2026-11-18' })], transactions: [] }; c.processAutoSablony();
-t('„ne zpětně“: šablona založená 18. 11. se splatností 15. se v listopadu nezapíše', c.S.transactions.length === 0);
-t('… a v prosinci je naplánovaná', c.sablonyNaplanovane(c.S.sablony, 11, 2026, '2026-11-20', []).length === 1);
+//  v12.27 (Milan – FIX-210 v2: „když přidám datum opakování před today, tak ať se zapíše i na aktuální měsíc“)
+c = sDnem('2026-11-20'); c.S = { sablony: [Object.assign(sab()[0], { zalozeno: '2026-11-18', payType: 'karta', tags: ['byt'] })], transactions: [] }; c.processAutoSablony();
+const zp = c.S.transactions;
+t('šablona přidaná 18. 11. se splatností 15. se zapíše hned – na 15. 11. aktuálního měsíce', zp.length === 1 && zp[0].date === '2026-11-15', zp);
+t('… minulé měsíce (říjen) se nedoplňují', !zp.some(x => x.date < '2026-11-01'));
+t('… transakce nese podkategorii, typ platby a tagy ze šablony (v12.27)', zp[0] && zp[0].subcat === 'Plyn' && zp[0].payType === 'karta' && JSON.stringify(zp[0].tags) === '["byt"]', zp[0]);
+t('… a v prosinci je naplánovaná', c.sablonyNaplanovane(c.S.sablony, 11, 2026, '2026-11-20', c.S.transactions).length === 1);
+t('… listopad už naplánovaný není (zapsáno)', c.sablonyNaplanovane(c.S.sablony, 10, 2026, '2026-11-20', c.S.transactions).length === 0);
 console.log(`\n${ok} ✓  ${bad} ✗`);
 process.exit(bad ? 1 : 0);

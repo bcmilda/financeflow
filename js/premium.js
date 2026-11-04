@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · premium.js · 2026-11-01
+// FinanceFlow · v12.27 · premium.js · 2026-11-02
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -992,6 +992,7 @@ function setSablonaType(t) {
   if(toSec) toSec.style.display = t==='transfer' ? 'block' : 'none';
   const debtSec=document.getElementById('sablonaDebtSection');
   if(debtSec) debtSec.style.display = isDebt ? 'block' : 'none';
+  if(typeof renderSablonaSubPicker==='function') renderSablonaSubPicker();   // v12.27
   if(isDebt && typeof renderSablonaDebts==='function') renderSablonaDebts();
   const wl=document.getElementById('sablonaWalletLabel');
   if(wl) wl.textContent = t==='transfer' ? 'Z peněženky' : 'Peněženka';
@@ -1114,11 +1115,66 @@ function getNextSablonaDate(s) {
   }
   return next.toLocaleDateString('cs-CZ');
 }
+//  S28 (v12.27, Milan: „Opakované šablony → nemůžu se prokliknout na podkategorie, vzhled a pole
+//  neodpovídá novým úpravám v porovnání s Transakcemi“): stejný výběr kategorie jako v transakci
+//  (NEJČASTĚJŠÍ + skupiny, debts.js catNejcastejsi/catDoSkupin) a podkategorie s vlastním textem.
+let _sabSub = '', _sabOpenGrp = null, _sabPickSel = null;
+function _sabCats() { const t = _sablonaType === 'debt' ? 'expense' : _sablonaType; return (S.categories || []).filter(c => c.type === t || c.type === 'both'); }
 function renderSablonaCatPicker() {
   const el=document.getElementById('sablonaCatPicker'); if(!el) return;
-  const cats=(S.categories||[]).filter(c=>c.type===_sablonaType||c.type==='both');
-  el.innerHTML=cats.map(c=>`<div class="cat-chip ${c.id===selCatId?'selected':''}" onclick="selCatId='${c.id}';renderSablonaCatPicker()" style="background:${c.color}22;border-color:${c.id===selCatId?c.color:'transparent'}">${c.icon} ${c.name}</div>`).join('');
+  const cats=_sabCats();
+  const e=v=>(typeof escHtml==='function'?escHtml(String(v==null?'':v)):String(v==null?'':v));
+  const hex=c=>/^#[0-9a-f]{6}$/i.test(c.color||'')?c.color:'#7e84a0';
+  const chip=c=>{ const on=selCatId===c.id, col=hex(c);
+    return `<div class="catp-chip ${on?'sel':''}" style="border-color:${col};background:${on?col:col+'1f'}" onclick="sablonaSelCat('${e(c.id)}')"><span class="ic">${c.icon||'📦'}</span><span class="nm">${e(c.name)}</span></div>`; };
+  const grps=typeof catDoSkupin==='function'?catDoSkupin(cats):[{n:'Kategorie',cats}];
+  if(cats.length<=12 || typeof catNejcastejsi!=='function'){
+    el.innerHTML=`<div class="catp"><div class="catp-grid">${cats.map(chip).join('')}</div></div>`;
+  } else {
+    const topIds=catNejcastejsi(cats, S.transactions);
+    const top=topIds.map(id=>cats.find(c=>c.id===id)).filter(Boolean);
+    if(_sabPickSel!==selCatId){ _sabPickSel=selCatId;
+      const g=selCatId&&!topIds.includes(selCatId)?grps.find(x=>x.cats.some(c=>c.id===selCatId)):null; _sabOpenGrp=g?g.n:null; }
+    el.innerHTML=`<div class="catp">
+      <div class="catp-lbl">NEJČASTĚJŠÍ</div><div class="catp-grid">${top.map(chip).join('')}</div>
+      <div class="catp-lbl" style="margin-top:4px">VŠECHNY KATEGORIE</div>
+      ${grps.map((g,i)=>{ const open=_sabOpenGrp===g.n; const sel=!open&&g.cats.find(c=>c.id===selCatId);
+        return `<div class="catp-grp" onclick="sablonaGrpToggle(${i})"><span>${e(g.n)}<span class="cnt">${g.cats.length}</span>${sel?`<span class="selnm">✓ ${e(sel.name)}</span>`:''}</span><span>${open?'▴':'▾'}</span></div>`
+          +(open?`<div class="catp-grid">${g.cats.map(chip).join('')}</div>`:''); }).join('')}
+    </div>`;
+  }
+  renderSablonaSubPicker();
 }
+function sablonaGrpToggle(i){ const g=(typeof catDoSkupin==='function'?catDoSkupin(_sabCats()):[])[i]; if(!g) return; _sabOpenGrp=_sabOpenGrp===g.n?null:g.n; renderSablonaCatPicker(); }
+function sablonaSelCat(id){
+  if(id!==selCatId){ selCatId=id; _sabPickSel=id; _sabSub=''; const ci=document.getElementById('sablonaSubCustom'); if(ci) ci.value=''; }
+  renderSablonaCatPicker();
+}
+function renderSablonaSubPicker(){
+  const wrap=document.getElementById('sablonaSubSection'), inner=document.getElementById('sablonaSubPicker'); if(!wrap||!inner) return;
+  const cat=(S.categories||[]).find(c=>c.id===selCatId);
+  if(!cat || _sablonaType==='transfer' || _sablonaType==='debt'){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const col=cat.color||'var(--accent)', custom=(document.getElementById('sablonaSubCustom')?.value||'').trim();
+  const e=v=>(typeof escHtml==='function'?escHtml(String(v)):String(v));
+  inner.innerHTML=(cat.subs||[]).map(x=>{ const on=!custom&&_sabSub===x;
+    return `<div class="sub-chip ${on?'sel':''}" data-s="${e(x)}" onclick="sablonaSelSub(this.dataset.s)" style="border-color:${col};${on?`background:${col};color:#fff;font-weight:600;`:'color:var(--text);'}">${e(x)}</div>`; }).join('');
+}
+function sablonaSelSub(x){ _sabSub=_sabSub===x?'':x; const ci=document.getElementById('sablonaSubCustom'); if(ci) ci.value=''; renderSablonaSubPicker(); }
+function sablonaSubVlastni(v){ _sabSub=String(v||'').trim(); renderSablonaSubPicker(); }
+function renderSablonaPayTypes(){
+  const sel=document.getElementById('sablonaPayType'); if(!sel) return;
+  const types=(typeof getPayTypes==='function')?getPayTypes():(S.payTypes||[]);
+  sel.innerHTML='<option value="">– neuvedeno –</option>'+types.map(t=>`<option value="${t.id}">${t.icon||'💳'} ${t.name}</option>`).join('');
+}
+//  Přenese podkategorii, typ platby a tagy šablony do transakce (auto i „Použít teď“).
+function sablonaDoTx(tx, s){
+  if(s.subcat) tx.subcat=s.subcat;
+  if(s.payType) tx.payType=s.payType;
+  if(Array.isArray(s.tags)&&s.tags.length) tx.tags=s.tags.slice();
+  return tx;
+}
+Object.assign(window,{sablonaGrpToggle,sablonaSelCat,sablonaSelSub,sablonaSubVlastni,renderSablonaSubPicker,renderSablonaPayTypes,sablonaDoTx});
 function renderSablonaWalletTo() {
   const sel=document.getElementById('sablonaWalletTo'); if(!sel) return;
   sel.innerHTML='<option value="">– vyber –</option>'+(S.wallets||[]).filter(w=>!w.archived).map(w=>`<option value="${w.id}">${w.icon||'💼'} ${w.name}</option>`).join('');   // TODO-241
@@ -1137,9 +1193,11 @@ function openSablonaModal(prefill) {
   document.getElementById('sablonaAuto').checked=true;
   { const p=document.getElementById('sablonaPrvni'); if(p) p.value=''; }   // v12.19
   if(typeof sablonaFreqChange==='function') sablonaFreqChange();
-  selCatId='';
+  selCatId=''; _sabSub=''; _sabPickSel=null;   // v12.27
+  { const ci=document.getElementById('sablonaSubCustom'); if(ci) ci.value=''; const tg=document.getElementById('sablonaTags'); if(tg) tg.value=''; }
   renderSablonaCatPicker();
   renderSablonaWallets();
+  renderSablonaPayTypes();
   if(prefill){
     document.getElementById('sablonaName').value=prefill.name||'';
     moneyInFill('sablonaAmt', prefill.amount);   // TODO-216
@@ -1163,9 +1221,15 @@ function editSablona(id) {
   document.getElementById('sablonaAuto').checked=!!s.auto;
   document.getElementById('sablonaEnd').value=s.endDate||'';
   document.getElementById('sablonaNote').value=s.note||'';
-  selCatId=s.catId||'';
+  selCatId=s.catId||''; _sabPickSel=null;
+  //  v12.27: podkategorie – ze seznamu kategorie jako štítek, jinak jako vlastní text
+  { const cat=(S.categories||[]).find(c=>c.id===selCatId), ci=document.getElementById('sablonaSubCustom');
+    _sabSub=s.subcat||''; if(ci) ci.value=(_sabSub && !(cat&&(cat.subs||[]).includes(_sabSub)))?_sabSub:'';
+    const tg=document.getElementById('sablonaTags'); if(tg) tg.value=(Array.isArray(s.tags)?s.tags:[]).map(x=>'#'+x).join(' '); }
   renderSablonaCatPicker();
   renderSablonaWallets();
+  renderSablonaPayTypes();
+  { const pt=document.getElementById('sablonaPayType'); if(pt) pt.value=s.payType||''; }
   document.getElementById('sablonaWallet').value=s.wallet||'';
   if(document.getElementById('sablonaWalletTo')) document.getElementById('sablonaWalletTo').value=s.walletTo||'';
   if(typeof sablonaPresunInfo==='function') sablonaPresunInfo();   // FIX-494
@@ -1200,8 +1264,13 @@ function saveSablona() {
   if(!S.sablony)S.sablony=[];
   if(_freq==='once'){ s.onceDate=_onceDate; s.auto=true; s.den=parseInt(_onceDate.slice(8,10))||1; }
   if(['weekly','biweekly','quarterly','yearly'].includes(_freq)){ s.prvni=_prvni; s.den=parseInt(_prvni.slice(8,10))||1; }   // v12.19: první splatnost
-  //  S27 (v11.86): šablona zálohy z měřidla si drží podkategorii a vazbu na měřidlo i po úpravě tady
-  if(eid){const _o=S.sablony.find(x=>x.id===eid); if(_o&&_o.energie){ s.energie=_o.energie; if(_o.subcat&&s.catId===_o.catId) s.subcat=_o.subcat; }}
+  //  S27 (v11.86): šablona zálohy z měřidla si drží vazbu na měřidlo i po úpravě tady
+  if(eid){const _o=S.sablony.find(x=>x.id===eid); if(_o&&_o.energie){ s.energie=_o.energie; }}
+  //  S28 (v12.27): podkategorie (štítek nebo vlastní – vlastní se přidá do kategorie), typ platby, tagy
+  if(s.catId && s.catId!=='transfer' && _sablonaType!=='debt' && _sabSub){ s.subcat=_sabSub; if(typeof ensureSubcat==='function') ensureSubcat(s.catId,_sabSub); }
+  { const pt=document.getElementById('sablonaPayType')?.value||''; if(pt && _sablonaType!=='transfer') s.payType=pt; }
+  { const tg=(document.getElementById('sablonaTags')?.value||'').split(/[\s,]+/).map(x=>x.replace(/^#+/,'').trim().toLowerCase()).filter(x=>x&&x.length<=30);
+    if(tg.length && _sablonaType!=='transfer') s.tags=[...new Set(tg)]; }
   //  S28 (v12.26): den založení – šablona přidaná po dni splatnosti se v tom měsíci nezapíše (FIX-210 „ne zpětně“);
   //  posledniZapis = měsíc, za který už se transakce zapsala (smazaná se pak znovu nezaloží)
   { const _o=eid?S.sablony.find(x=>x.id===eid):null; const _d=new Date();
@@ -1236,7 +1305,7 @@ function useSablonaId(id) {
   } else {
     const _t={id:uid(),name:s.name,amount:(typeof sablonaCastka==='function'?sablonaCastka(s,_dateStr):s.amount),type:s.type,date:_dateStr,category:s.catId||'',note:s.note||'Z šablony: '+s.name,wallet:s.wallet||null};
     if(s.debtId){ _sablonaSplatka(_t, s); if(typeof debtAplikujCekajiciSplatky==='function') debtAplikujCekajiciSplatky(); }   // v12.02: splátka dnes
-    if(s.subcat) _t.subcat=s.subcat; if(s.energie) _t.energie=Object.assign({},s.energie);   // S27 (v11.86)
+    if(typeof sablonaDoTx==='function') sablonaDoTx(_t, s); else if(s.subcat) _t.subcat=s.subcat; if(s.energie) _t.energie=Object.assign({},s.energie);   // S27 (v11.86), v12.27 typ platby a tagy
     S.transactions.push(_t);
   }
   save();
@@ -1271,7 +1340,7 @@ function sablonyNaplanovane(sablony, m, y, dnesIso, txs) {
     const f = s.freq || 'monthly'; let d = null;
     if (f === 'once') { if (s.onceDate && s.onceDate.slice(0, 7) === ym) d = s.onceDate; }
     else if (f === 'monthly') { const den = Math.min(Math.max(1, s.den || 1), new Date(y, m + 1, 0).getDate()); d = ym + '-' + p2(den);
-      if (s.zalozeno && s.zalozeno > d && s.zalozeno.slice(0, 7) === ym) d = null; if (s.posledniZapis === ym) d = null; }
+      if (s.posledniZapis === ym) d = null; }
     if (!d || d <= dnesIso || (s.endDate && s.endDate < d)) return;
     if ((txs || []).some(t => t && t.date === d && t.name === s.name && String(t.note || '').includes('Auto-šablona'))) return;   // už zapsaná (upravená)
     out.push({ id: s.id, name: s.name, date: d, type: s.type === 'debt' ? 'expense' : s.type,
@@ -1327,7 +1396,7 @@ function processAutoSablony() {
       const _k1=typeof sablonaCastka==='function'?sablonaCastka(s,s.onceDate):s.amount;   // v12.17: rozpis záloh
       const tx1={id:uid(),name:s.name,amount:_k1,amt:_k1,type:s.type,date:s.onceDate,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) _sablonaSplatka(tx1, s);   // v12.02
-      if(s.subcat) tx1.subcat=s.subcat;
+      if(typeof sablonaDoTx==='function') sablonaDoTx(tx1, s); else if(s.subcat) tx1.subcat=s.subcat;   // v12.27: podkategorie, typ platby, tagy
       if(s.energie) tx1.energie=Object.assign({},s.energie);
       if(s.type==='transfer'){
         S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:s.onceDate,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
@@ -1343,10 +1412,11 @@ function processAutoSablony() {
     //  dřív (FIX-210 v4) se zapisovalo DOPŘEDU hned na začátku měsíce → platba z 15. se 1. počítala do
     //  zůstatku i součtů. Teď se zapíše AŽ V DEN SPLATNOSTI (due ≤ dnes); do té doby ji Transakce ukazují
     //  jako 📅 naplánovanou (sablonyNaplanovane) a vidí ji Budoucí platby i Příští měsíc.
-    //  „Ne zpětně“ zůstává: šablona založená až po dni splatnosti se v tom měsíci nezapíše.
+    //  S28 (v12.27, Milan – FIX-210 v2: „když přidám datum opakování před today, tak ať se zapíše i na
+    //  aktuální měsíc“): pravidlo „ne zpětně“ z v12.26 zrušeno – šablona přidaná po dni splatnosti se
+    //  v aktuálním měsíci zapíše hned (k datu splatnosti). Minulé měsíce se nedoplňují.
     if(due>today) return;
     const dateStr=iso(due), ym=dateStr.slice(0,7);
-    if(s.zalozeno && s.zalozeno > dateStr) return;
     if(s.posledniZapis===ym) return;                              // tento měsíc už zapsáno (i když ji pak smažeš)
     if(s.endDate && s.endDate < dateStr) return;
     // idempotence: existuje už auto-transakce téže šablony k tomuto datu?
@@ -1359,7 +1429,7 @@ function processAutoSablony() {
       const tx={id:uid(),name:s.name,amount:_k,amt:_k,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
       if(s.debtId) _sablonaSplatka(tx, s);   // v12.02
       //  S27 (v11.86): záloha z měřidla – podkategorie a vazba na měřidlo (📟 Energie a voda ji čte)
-      if(s.subcat) tx.subcat=s.subcat;
+      if(typeof sablonaDoTx==='function') sablonaDoTx(tx, s); else if(s.subcat) tx.subcat=s.subcat;   // v12.27: podkategorie, typ platby, tagy
       if(s.energie) tx.energie=Object.assign({},s.energie);
       S.transactions.push(tx);
     }
