@@ -83,7 +83,7 @@ t('detail: statistika, graf, tabulka VT/NT, zálohy, vyhodnocení',w.innerHTML.i
 S.transactions.push({id:'dp',type:'expense',catId:'cat3',subcat:'Energie',amount:600,date:'2026-08-20',energie:{meridloId:'m1',typ:'doplatek'}});
 t('doplatek se nepočítá jako záloha',ctx.merZalohy(S,m,'2026-07-01','2026-09-29').soucet===2000);
 vm.runInContext('_meridla={m1:'+JSON.stringify(m)+'}',ctx);
-t('blok 📟: kategorie záloh (v11.18: u Bydlení vždy, Nájem bez tipu)',ctx.merPlatbaKandidati('expense','cat3','Energie').length===1&&ctx.merPlatbaKontext('expense','cat3','Nájem').tip==='');
+t('blok 📟: kategorie záloh (S28 v12.26: u Bydlení jen energie/zálohy, Nájem bez bloku)',ctx.merPlatbaKandidati('expense','cat3','Energie').length===1&&ctx.merPlatbaKontext('expense','cat3','Nájem')===null);
 t('blok 📟: příjem „Přeplatek…"',ctx.merPlatbaKandidati('income','cat8','Přeplatek z vyúčtování').length===1&&ctx.merPlatbaKandidati('income','cat8','Mzda').length===0);
 ctx.merPlatbaNaplnFormular(null);
 t('záloha = explicitní vazba (v11.18)',JSON.stringify(ctx.merPlatbaZFormulare('expense','cat3','Energie'))==='{"meridloId":"m1","typ":"zaloha"}');

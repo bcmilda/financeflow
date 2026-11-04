@@ -1,4 +1,4 @@
-// FinanceFlow · v12.25 · admin.js · 2026-11-01
+// FinanceFlow · v12.26 · admin.js · 2026-11-01
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.26',
+    datum: '2026-11-01',
+    zmeny: [
+      "📅 OPAKOVANÉ PLATBY SE ZAPÍŠOU AŽ V DEN SPLATNOSTI (Milan: „je 1. 11. a aplikace už zapsala transakce, které se mají započítat až 15. 11.“) · cesta: Transakce. Automatická šablona (i zálohy z měřidel) dřív zapsala platbu hned na začátku měsíce, takže se 1. 11. počítala do zůstatku peněženky i součtů. Teď se zapíše v den splatnosti; do té doby je nahoře v Transakcích „📅 Naplánováno“ (bez vlivu na součty). Dopředu zapsané a neupravené platby se samy stáhnou a zapíšou znovu v den splatnosti; smazaná platba se v tom měsíci znovu nezaloží.",
+      "📟 MĚŘIDLA JEN U ENERGIÍ (Milan: „mají se zobrazovat měřidla při zadávání Bydlení › Fond oprav?!“) · cesta: + Transakce → Bydlení → podkategorie. Blok Energie a voda se ukáže jen u energie / plynu / vody / tepla / záloh / doplatků nebo u podkategorie napojené na měřidlo, ne u Fondu oprav, Nájmu, Internetu apod.",
+      "🗳️ HLASY KOMUNITY: JEDEN NA UŽIVATELE (Milan: „+1 na položku u uživatele, hlasy se sčítají komunitně“) · štítky položek z účtenek a opravy navržené kategorie: dřív každá změna štítku přičetla +1 (i opakovaně) a návrhy kategorií se navzájem přepisovaly. Teď jeden hlas na uživatele a položku (změna jen přepíše vlastní hlas); admin sčítá hlasy všech se staršími počty (Admin → Mapa položek, Doporučení).",
+      "🧪 tools/smoke_sablony_vden.js (10), smoke_meridla_podkat.js (10), smoke_hlasy.js (8) – na v12.25 padají; test pravidel 117 případů; smoke_s23b a smoke_tx_filtry_zalohy upraveny na zápis v den splatnosti.",
+    ],
+  },
   {
     verze: 'v12.25',
     datum: '2026-11-01',
@@ -8508,6 +8518,32 @@ async function assignSubCoicop(catId, sub, selId) {
   }
 }
 
+//  S28 (v12.26, Milan: „+1 na položku u uživatele, hlasy se sčítají komunitně“): staré souhrny
+//  (community/itemTags, community/suggestionOverrides – jen ke čtení) + nové hlasy, jeden na
+//  uživatele (itemTagVotes/{položka}/{uid} = štítek, suggestionVotes/{název}/{uid} = volba).
+function adminSlucTagy(stare, hlasy) {
+  const out = {};
+  Object.entries(stare || {}).forEach(([k, t]) => Object.entries(t || {}).forEach(([tag, n]) => {
+    if (typeof n === 'number' && n > 0) { out[k] = out[k] || {}; out[k][tag] = (out[k][tag] || 0) + n; } }));
+  Object.entries(hlasy || {}).forEach(([k, u]) => Object.values(u || {}).forEach(tag => {
+    if (typeof tag === 'string' && tag) { out[k] = out[k] || {}; out[k][tag] = (out[k][tag] || 0) + 1; } }));
+  return out;
+}
+function adminSlucNavrhy(stare, hlasy) {
+  const out = {};
+  Object.entries(stare || {}).forEach(([k, info]) => {
+    const ch = {}; Object.entries((info && info.chosen) || {}).forEach(([ck, c]) => { ch[ck] = Object.assign({}, c); });
+    out[k] = { suggested: info && info.suggested, chosen: ch }; });
+  Object.entries(hlasy || {}).forEach(([k, u]) => Object.values(u || {}).forEach(h => {
+    if (!h || !h.chosenId) return;
+    const o = out[k] = out[k] || { suggested: h.suggested, chosen: {} }; if (!o.suggested) o.suggested = h.suggested;
+    const ck = String(h.chosenId).replace(/[.#$\/\[\]]/g, '_');
+    const c = o.chosen[ck] = o.chosen[ck] || { name: h.chosen || h.chosenId, catId: h.chosenId, count: 0 };
+    c.count = (c.count || 0) + 1; }));
+  return out;
+}
+Object.assign(window, { adminSlucTagy, adminSlucNavrhy });
+
 // ── TODO-086: Doporučení – přehled co uživatelé mění ──
 async function loadSuggestionOverrides() {
   const el = document.getElementById('adminSuggestions'); if(!el) return;
@@ -8517,7 +8553,8 @@ async function loadSuggestionOverrides() {
     if(!idToken) throw new Error('Nepřihlášen');
     const res = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionOverrides.json?auth=${idToken}`);
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
+    const resH = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/suggestionVotes.json?auth=${idToken}`);   // S28 v12.26
+    const data = adminSlucNavrhy(await res.json(), resH.ok ? await resH.json() : null);
     if(!data || !Object.keys(data).length) {
       el.innerHTML = '<div class="card-body" style="color:var(--text2);font-size:.8rem">✅ Žádné změny doporučení zatím. Uživatelé přijímají doporučené kategorie.</div>';
       return;
@@ -8654,7 +8691,8 @@ async function loadCommunityItemTags() {
     if(!idToken) throw new Error('Nepřihlášen');
     const res = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTags.json?auth=${idToken}`);
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
+    const resH = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagVotes.json?auth=${idToken}`);   // S28 v12.26
+    const data = adminSlucTagy(await res.json(), resH.ok ? await resH.json() : null);
 
     // Načti validační statusy
     const valRes = await fetch(`https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagValidation.json?auth=${idToken}`);
@@ -9061,8 +9099,9 @@ Object.assign(window, { mapaAdminZamkni, mapaAdminOdemkni, mapaAdminKartyNacti, 
 async function mapaSmazTagy() {
   if (!confirm('Smazat VŠECHNY item tagy od uživatelů (i jejich schválení)? Komunitní mapa položek a čárové kódy zůstanou.')) return;
   const t = await window._currentUser?.getIdToken?.();
-  await Promise.all(['itemTags', 'itemTagValidation'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`, { method: 'DELETE' })));
-  if (typeof showToast === 'function') showToast('🗑️ Item tagy smazány');
+  //  S28 (v12.26): i nové hlasy (itemTagVotes); toast podle výsledku (dřív „smazány“ i při chybě)
+  const odp = await Promise.all(['itemTags', 'itemTagVotes', 'itemTagValidation'].map(u => fetch(`${MAPA_URL}/community/${u}.json?auth=${t}`, { method: 'DELETE' }).then(r => r.ok).catch(() => false)));
+  if (typeof showToast === 'function') showToast(odp.every(Boolean) ? '🗑️ Item tagy smazány' : '⚠️ Smazání se nepovedlo (oprávnění nebo síť) – zkus znovu');
   loadCommunityItemTags();
 }
 Object.assign(window, { mapaAdminEanUloz, mapaAdminEanZnovu, mapaSmazTagy });
@@ -10581,7 +10620,10 @@ async function renderAdminZdravi() {
 
   const [lowConf, itemTags, leads, agg] = await Promise.all([
     countOf('ai_low_confidence'),
-    countOf('community/itemTags'),
+    safe(async () => {   // S28 v12.26: položky se starými počty i s novými hlasy (jedna položka jednou)
+      const [a, b] = await Promise.all(['community/itemTags', 'community/itemTagVotes'].map(p => fetch(q(p, 'shallow=true')).then(r => r.ok ? r.json() : null)));
+      return new Set([...Object.keys(a || {}), ...Object.keys(b || {})]).size;
+    }, null),
     countOf('leads'),
     safe(async () => {
       const r = await fetch(q(`community/${monthKey}/aggregate`));

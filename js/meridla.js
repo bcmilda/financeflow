@@ -1,4 +1,4 @@
-// FinanceFlow · v12.17 · meridla.js · 2026-10-28
+// FinanceFlow · v12.26 · meridla.js · 2026-11-01
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -1137,10 +1137,16 @@ function merJeBydleni(catId) {
 function merPlatbaKontext(typ, catId, sub) {
   const mer = meridlaSeznam();
   if (!mer.length || (typ !== 'expense' && typ !== 'income')) return null;
-  const vazba = mer.filter(m => m.catId && m.catId === catId && (!m.subcat || m.subcat === sub));
+  //  S28 (v12.26, Milan: „mají se zobrazovat měřidla při zadávání Bydlení › Fond oprav?!“): dřív stačila
+  //  kategorie Bydlení (nebo měřidlo napojené na celou kategorii) a blok se ukázal u KAŽDÉ podkategorie.
+  //  Teď při vybrané podkategorii jen u energie/plynu/vody/tepla/záloh/doplatků nebo u podkategorie
+  //  výslovně napojené na měřidlo; bez podkategorie jako dřív (ještě se vybírá).
   const energ = MER_ENERGIE_RE.test(sub || '');
+  const presna = mer.filter(m => m.catId && m.catId === catId && m.subcat && m.subcat === sub);
+  const naKat = mer.filter(m => m.catId && m.catId === catId && !m.subcat);
+  const vazba = sub ? (presna.length ? presna : (energ ? naKat : [])) : naKat.concat(mer.filter(m => m.catId === catId && m.subcat));
   if (typ === 'income' && !(MER_PREPLATEK_RE2.test(sub || '') || vazba.length)) return null;
-  if (typ === 'expense' && !(vazba.length || energ || merJeBydleni(catId))) return null;
+  if (typ === 'expense' && !(vazba.length || energ || (!sub && merJeBydleni(catId)))) return null;
   let tip = vazba[0] || null;
   if (!tip && energ) {
     const t = (sub || '').toLowerCase();
@@ -1163,7 +1169,10 @@ function merPlatbaObnov() {
   const catId = (typeof selCatId !== 'undefined') ? selCatId : '';
   const sub = (document.getElementById('customSubInput')?.value || '').trim() || ((typeof selSub !== 'undefined') ? selSub : '');
   if (_meridla === null) { el.style.display = 'none'; loadMeridla().then(merPlatbaObnov); return; }
-  const k = merPlatbaKontext(typ, catId, sub);
+  let k = merPlatbaKontext(typ, catId, sub);
+  //  S28 (v12.26): úprava transakce, která už vazbu na měřidlo má – blok zůstane i u jiné podkategorie
+  if (!k && _merPlatbaForm && _merPlatbaForm._z && _merPlatbaForm.meridloId && meridlaSeznam().some(m => m.id === _merPlatbaForm.meridloId))
+    k = { meridla: meridlaSeznam(), tip: _merPlatbaForm.meridloId, typTip: _merPlatbaForm.typ || 'zaloha' };
   if (!k) { el.style.display = 'none'; el.innerHTML = ''; return; }
   const f = _merPlatbaForm = _merPlatbaForm || {};
   //  Předvyplnit jen u nového zápisu; uložená vazba (editace) se drží.

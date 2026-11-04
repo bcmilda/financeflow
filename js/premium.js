@@ -1,4 +1,4 @@
-// FinanceFlow · v12.25 · premium.js · 2026-11-01
+// FinanceFlow · v12.26 · premium.js · 2026-11-01
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1202,6 +1202,11 @@ function saveSablona() {
   if(['weekly','biweekly','quarterly','yearly'].includes(_freq)){ s.prvni=_prvni; s.den=parseInt(_prvni.slice(8,10))||1; }   // v12.19: první splatnost
   //  S27 (v11.86): šablona zálohy z měřidla si drží podkategorii a vazbu na měřidlo i po úpravě tady
   if(eid){const _o=S.sablony.find(x=>x.id===eid); if(_o&&_o.energie){ s.energie=_o.energie; if(_o.subcat&&s.catId===_o.catId) s.subcat=_o.subcat; }}
+  //  S28 (v12.26): den založení – šablona přidaná po dni splatnosti se v tom měsíci nezapíše (FIX-210 „ne zpětně“);
+  //  posledniZapis = měsíc, za který už se transakce zapsala (smazaná se pak znovu nezaloží)
+  { const _o=eid?S.sablony.find(x=>x.id===eid):null; const _d=new Date();
+    s.zalozeno=(_o&&_o.zalozeno)||(_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0'));
+    if(_o&&_o.posledniZapis) s.posledniZapis=_o.posledniZapis; if(_o&&_o.rozpis) s.rozpis=_o.rozpis; }
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
   else S.sablony.push(s);
   save(); closeModal('modalSablona'); renderSablonaList();
@@ -1258,6 +1263,23 @@ function _sablonaSplatka(tx, s) {
   if (!tx.catId) { const sc = (typeof getSplatkaCat === 'function') ? getSplatkaCat() : null; if (sc) { tx.catId = sc.id; tx.category = sc.id; } }
   return tx;
 }
+//  S28 (v12.26): auto-šablony, které se v měsíci m/y teprve zapíšou (den splatnosti po dnešku).
+//  Jen k zobrazení v Transakcích – nepočítají se do součtů ani zůstatků.
+function sablonyNaplanovane(sablony, m, y, dnesIso, txs) {
+  const p2 = n => String(n).padStart(2, '0'), ym = y + '-' + p2(m + 1), out = [];
+  (sablony || []).filter(s => s && s.auto && !s.done).forEach(s => {
+    const f = s.freq || 'monthly'; let d = null;
+    if (f === 'once') { if (s.onceDate && s.onceDate.slice(0, 7) === ym) d = s.onceDate; }
+    else if (f === 'monthly') { const den = Math.min(Math.max(1, s.den || 1), new Date(y, m + 1, 0).getDate()); d = ym + '-' + p2(den);
+      if (s.zalozeno && s.zalozeno > d && s.zalozeno.slice(0, 7) === ym) d = null; if (s.posledniZapis === ym) d = null; }
+    if (!d || d <= dnesIso || (s.endDate && s.endDate < d)) return;
+    if ((txs || []).some(t => t && t.date === d && t.name === s.name && String(t.note || '').includes('Auto-šablona'))) return;   // už zapsaná (upravená)
+    out.push({ id: s.id, name: s.name, date: d, type: s.type === 'debt' ? 'expense' : s.type,
+      amount: typeof sablonaCastka === 'function' ? sablonaCastka(s, d) : s.amount, catId: s.catId, subcat: s.subcat || '', transfer: s.type === 'transfer' });
+  });
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+window.sablonyNaplanovane = sablonyNaplanovane;
 function processAutoSablony() {
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
   //  v12.02: splátky ze šablon, jejichž den už nastal → snížit Zbývá u půjčky
@@ -1273,6 +1295,22 @@ function processAutoSablony() {
   const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   S.transactions=S.transactions||[];
   let added=0;
+  //  S28 (v12.26): úklid – auto-transakce, které starší verze zapsala DOPŘEDU (datum po dnešku) a které
+  //  uživatel neupravil, se stáhnou; zapíšou se znovu v den splatnosti. Upravené (jiná částka, účtenka,
+  //  rozdělení, poznámka) zůstávají.
+  { const dnesIso=iso(today), auto=new Set(S.sablony.filter(s=>s.auto&&(s.freq||'monthly')==='monthly').map(s=>s.name));
+    const pryc=new Set();
+    S.transactions.forEach(t=>{
+      if(!t||!t.date||t.date<=dnesIso||!auto.has(t.name)||t.note!=='Auto-šablona: '+t.name) return;
+      if(t.splitParent||t.splitId||t.receiptItems||t.receiptDate) return;
+      const s=S.sablony.find(x=>x.auto&&x.name===t.name);
+      if(!s) return;
+      if(!t.transferId && Math.abs((t.amount||0)-(typeof sablonaCastka==='function'?sablonaCastka(s,t.date):s.amount))>0.005) return;
+      pryc.add(t.id); if(t.transferId) S.transactions.forEach(x=>{ if(x.transferId===t.transferId) pryc.add(x.id); });
+      if(s.posledniZapis===t.date.slice(0,7)) delete s.posledniZapis;
+    });
+    if(pryc.size){ S.transactions=S.transactions.filter(t=>!pryc.has(t.id)); added++; }
+  }
 
   S.sablony.filter(s=>s.auto).forEach(s=>{
     // jen měsíční šablony mají „den v měsíci" – u týdenních/dalších řeší výskyty Budoucí platby
@@ -1301,14 +1339,19 @@ function processAutoSablony() {
     const den=Math.min(31, Math.max(1, s.den||1));
     const dueDay=Math.min(den, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate()); // ošetři krátké měsíce
     const due=new Date(today.getFullYear(), today.getMonth(), dueDay); due.setHours(0,0,0,0);
-    // S17.9 (FIX-210 v4, Milan): NE ZPĚTNĚ. Výskyt tohoto měsíce se doplní jen když den splatnosti
-    // ještě NENASTAL (due >= dnes) – proaktivně, ať je vidět. Když den už BYL (šablona přidaná
-    // pozdě), nepropisuje se zpětně, jen se přenese na další měsíc (řeší projekce v Budoucích platbách).
-    if(due<today) return;
-    const dateStr=iso(due);
+    //  S28 (v12.26, Milan: „je 1. 11. a aplikace už zapsala transakce, které se mají započítat až 15. 11.“):
+    //  dřív (FIX-210 v4) se zapisovalo DOPŘEDU hned na začátku měsíce → platba z 15. se 1. počítala do
+    //  zůstatku i součtů. Teď se zapíše AŽ V DEN SPLATNOSTI (due ≤ dnes); do té doby ji Transakce ukazují
+    //  jako 📅 naplánovanou (sablonyNaplanovane) a vidí ji Budoucí platby i Příští měsíc.
+    //  „Ne zpětně“ zůstává: šablona založená až po dni splatnosti se v tom měsíci nezapíše.
+    if(due>today) return;
+    const dateStr=iso(due), ym=dateStr.slice(0,7);
+    if(s.zalozeno && s.zalozeno > dateStr) return;
+    if(s.posledniZapis===ym) return;                              // tento měsíc už zapsáno (i když ji pak smažeš)
     if(s.endDate && s.endDate < dateStr) return;
     // idempotence: existuje už auto-transakce téže šablony k tomuto datu?
-    if(S.transactions.some(t=>t.date===dateStr && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) return;
+    if(S.transactions.some(t=>t.date===dateStr && t.name===s.name && t.note && t.note.includes('Auto-šablona'))) { s.posledniZapis=ym; added++; return; }
+    s.posledniZapis=ym;
     if(s.type==='transfer'){
       S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:dateStr,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
     } else {

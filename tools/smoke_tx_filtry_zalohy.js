@@ -35,7 +35,8 @@ ctx.window=ctx; vm.createContext(ctx);
 vm.runInContext(R('vozidla.js','../js/vozidla.js'),ctx);
 vm.runInContext(mer+'\n;var _isLocalMode=true;',ctx);
 vm.runInContext(pick(prem,'processAutoSablony'),ctx);
-const m={id:'e1',druh:'elektrina',nazev:'Elektřina',jednotka:'kWh',obdobi:'rok',catId:'cat3',subcat:'Energie',zaloha:1185,zalohaDen:31};
+//  S28 (v12.26): platba ze šablony se zapíše až v den splatnosti – den zálohy = dnešek, ať se zapíše hned
+const m={id:'e1',druh:'elektrina',nazev:'Elektřina',jednotka:'kWh',obdobi:'rok',catId:'cat3',subcat:'Energie',zaloha:1185,zalohaDen:new Date().getDate()};
 let r=ctx.merZalohaSablona(m,true);
 const sab=S.sablony[0];
 t('vznikne opakovaná platba: měsíčně, automaticky, Bydlení › Energie, vazba na měřidlo',r==='nova'&&sab.id==='mer-e1'&&sab.amount===1185&&sab.freq==='monthly'&&sab.auto===true&&sab.catId==='cat3'&&sab.subcat==='Energie'&&sab.energie.meridloId==='e1'&&sab.energie.typ==='zaloha',sab);

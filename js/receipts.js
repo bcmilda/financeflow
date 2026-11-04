@@ -1,4 +1,4 @@
-// FinanceFlow · v12.25 · receipts.js · 2026-11-01
+// FinanceFlow · v12.26 · receipts.js · 2026-11-01
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -6054,18 +6054,16 @@ async function saveItemTagMapping(itemName, tag) {
     .replace(/[^a-z0-9\s]/gi,'').replace(/\s+/g,'_').toLowerCase().slice(0,20);
   if(!tagKey) return;
 
+  //  S28 (v12.26, Milan: „+1 na položku u uživatele, hlasy se sčítají komunitně“): dřív každá změna
+  //  štítku přičetla +1 (i opakovaně u téže položky). Teď JEDEN hlas na uživatele a položku:
+  //  community/itemTagVotes/{položka}/{uid} = štítek. Změna štítku hlas jen přepíše; počty sčítá admin.
+  const fbKey = String(key).replace(/[.#$\[\]\/]/g, '_');
   try {
     const uid = window._currentUser?.uid; if(!uid) return;
     const idToken = await window._currentUser.getIdToken?.();
-    // Načti aktuální počet
-    const res = await fetch(
-      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTags/${key}/${tagKey}.json?auth=${idToken}`
-    );
-    const current = res.ok ? (await res.json())||0 : 0;
-    // Ulož increment
     await fetch(
-      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTags/${key}/${tagKey}.json?auth=${idToken}`,
-      {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(typeof current==='number'?current+1:1)}
+      `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/community/itemTagVotes/${encodeURIComponent(fbKey)}/${uid}.json?auth=${idToken}`,
+      {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(tagKey)}
     );
   } catch(e) { console.warn('saveItemTagMapping failed:', e?.message); }
 }
