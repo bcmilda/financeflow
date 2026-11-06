@@ -1,0 +1,20 @@
+// S25 – číselník CZ-COICOP 2018 (data/coicop2018.json z Milanova XLSX) a převod zkrácených kódů.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':JSON.stringify(i));if(!c)bad++;};
+const J=JSON.parse(fs.readFileSync(najdi('coicop2018.json','../data/coicop2018.json'),'utf8'));
+const sb={window:{},console,fetch:()=>Promise.resolve({ok:false})};sb.window=sb;vm.createContext(sb);
+vm.runInContext(fs.readFileSync(najdi('product-db.js','../js/product-db.js'),'utf8'),sb);
+sb.coicopNastav(J.polozky);
+console.log('── S25 · číselník CZ-COICOP ──');
+const u={};Object.values(J.polozky).forEach(x=>u[x.u]=(u[x.u]||0)+1);
+t('číselník: 5 úrovní, oddíly 01–15, 269 položek přílohy potravin',u[1]===15&&u[5]===269&&J.polozky['01.1.1.1.2'].n==='Rýže',u);
+t('zkrácený zápis appky → zápis ČSÚ',sb.coicopNorm('01.113')==='01.1.1.3'&&sb.coicopNorm('01.122.1')==='01.1.2.2.1'&&sb.coicopNorm('01.1.1.3')==='01.1.1.3'&&sb.coicopNorm('1')==='01'&&sb.coicopNorm('02.110')==='02.1.1.0');
+const c=sb.coicopCesta('01.111.2');
+t('cesta k rýži: oddíl › skupina › třída › podtřída › položka',c.length===5&&c[0].nazev==='Potraviny a nealkoholické nápoje'&&c[4].nazev==='Rýže',c.map(x=>x.kod+' '+x.nazev));
+t('název bez „(NT)“, typ zvlášť',sb.coicopCesta('01.1.1.1')[3].nazev==='Obiloviny'&&sb.coicopCesta('01.1.1.1')[3].typ==='NT');
+t('Papita 01.189 = Ostatní cukrovinky',sb.coicopNazev('01.189')==='Ostatní cukrovinky');
+t('kódy z taxonomie i koše ČSÚ jsou v číselníku',(()=>{const tx=JSON.stringify(JSON.parse(fs.readFileSync(najdi('taxonomie.json','../data/taxonomie.json'),'utf8')));
+  const kody=[...new Set((tx.match(/"coicop":\s*"([^"]+)"/g)||[]).map(s=>s.split('"')[3]))];const chybi=kody.filter(k=>!J.polozky[sb.coicopNorm(k)]);
+  console.log('     taxonomie:',kody.length,'kódů, mimo číselník:',chybi.length,chybi.slice(0,8).join(' '));return chybi.length<=kody.length*0.1;})());
+console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);

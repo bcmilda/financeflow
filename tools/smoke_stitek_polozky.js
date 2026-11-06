@@ -1,0 +1,24 @@
+// S25 (v11.34) – zelený štítek položky podle modelu ČSÚ; nejdřív tvůj dřívější štítek stejné položky; karta ukazuje štítek i skupinu ČSÚ.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const najdi=(...c)=>c.map(p=>path.join(__dirname,p)).find(p=>fs.existsSync(p));
+const R=(...c)=>fs.readFileSync(najdi(...c),'utf8');
+let bad=0;const t=(n,c,i)=>{console.log(c?'  ✅':'  ❌',n,c||i===undefined?'':JSON.stringify(i));if(!c)bad++;};
+const sb={console,window:{},fetch:()=>Promise.resolve({ok:false})};sb.window=sb;vm.createContext(sb);
+vm.runInContext(R('helpers.js','../js/helpers.js'),sb);
+vm.runInContext(R('taxonomie.js','../js/taxonomie.js'),sb);
+vm.runInContext(R('product-db.js','../js/product-db.js'),sb);
+sb.taxNastav(JSON.parse(R('taxonomie.json','../data/taxonomie.json')));
+vm.runInContext('_productDB='+R('product-groups.json','../data/product-groups.json')+';_pgKeysSorted=Object.keys(_productDB.keywords).sort((a,b)=>b.length-a.length);',sb);
+console.log('── S25 · štítek položky ──');
+vm.runInContext("var S={receipts:[{date:'2026-09-01',items:[{name:'RELAX JABL-ARONIE',tag:'Džus'}]}]}",sb);
+const r={items:[{name:'ORION KOFILA OPLATKA 42G'},{name:'RELAX JABL-ARONIE 1L'},{name:'Rohlík',tag:'Můj'},{name:'PRAŽSKÁ VODKA'}]};
+sb.productGroupPrefill(r);
+t('model ČSÚ: oplatka → Pečivo (01.1.1.3)',r.items[0].tag==='Pečivo',r.items[0].tag);
+t('tvůj dřívější štítek stejné položky má přednost (džus, ne jablko)',r.items[1].tag==='Džus',r.items[1].tag);
+t('vlastní štítek se nepřepíše',r.items[2].tag==='Můj');
+t('vodka → štítek skupiny ČSÚ (ne taxonomie)',!!r.items[3].tag&&r.items[3].tag!=='Vodka',r.items[3].tag);
+const pg=sb.productGroupLookup('ORION KOFILA OPLATKA 42G');
+t('COICOP zařazení zůstává: 01.1.1.3 Chléb a pekařské výrobky',pg&&sb.pgKodCsu(pg.code)==='01.1.1.3'&&/pekařské/.test(pg.group),pg);
+const rc=R('receipts.js','../js/receipts.js');
+t('karta výrobku: řádky Štítek a Spotřební koš ČSÚ',rc.includes("mkR('Štítek'")&&rc.includes("radek('Spotřební koš ČSÚ'"));
+console.log(bad?`❌ ${bad} selhalo`:'✅ vše prošlo'); process.exit(bad?1:0);
