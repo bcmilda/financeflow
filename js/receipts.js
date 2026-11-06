@@ -1,4 +1,4 @@
-// FinanceFlow · v12.28 · receipts.js · 2026-11-02
+// FinanceFlow · v12.30 · receipts.js · 2026-11-04
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4570,7 +4570,7 @@ function exportReceiptsCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'financeflow-uctenky-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'financeflow-uctenky-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
@@ -5553,13 +5553,13 @@ async function updateItemStats(items, date) {
             count: (existing?.count||0) + 1,
             totalSpent: Math.round(((existing?.totalSpent||0) + price*qty)*100)/100,
             avgPrice: 0,
-            lastDate: date||new Date().toISOString().slice(0,10),
+            lastDate: date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
             catId: it.itemCatId||existing?.catId||'',
             subcat: it.subcat||it.itemSubcat||existing?.subcat||'',
           };
           updated.avgPrice = Math.round(updated.totalSpent/updated.count*100)/100;
           // Historie posledních 24 záznamů (pro trend grafu)
-          const hist = [...(existing?.history||[]), {date:date||new Date().toISOString().slice(0,10), price, qty}].slice(-24);
+          const hist = [...(existing?.history||[]), {date:date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)), price, qty}].slice(-24);
           updated.history = hist;
           return fetch(
             `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/itemStats/${fireKey}.json?auth=${idToken}`,
@@ -6711,7 +6711,7 @@ function addReceiptAsTx(receipt) {
   if(!S.receipts) S.receipts=[];
 
   const items = receipt.items||[];
-  const date = receipt.date||new Date().toISOString().slice(0,10);
+  const date = receipt.date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const store = receipt.store||'Nákup';
 
   //  Položky s dopočítanou řádkovou cenou (lineTotal má přednost – nese slevu).
@@ -7399,7 +7399,7 @@ async function rrOdeslat(){
     }
 
     const zaznam = {
-      date: r.date || new Date().toISOString().slice(0,10),
+      date: r.date || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
       store: r.store || '',
       printedTotal: (r.printedTotal != null ? r.printedTotal : (r.total || 0)),
       itemsSum: c ? c.sum : null,

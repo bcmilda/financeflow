@@ -1,4 +1,4 @@
-// FinanceFlow · v12.29 · admin.js · 2026-11-04
+// FinanceFlow · v12.30 · admin.js · 2026-11-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.30',
+    datum: '2026-11-04',
+    zmeny: [
+      "💳 AUDIT BOD 1 · SPLÁTKA SNIŽUJE ZBÝVÁ JEN O JISTINU · cesta: Půjčky → karta půjčky → Zbývá (a Dashboard → Čistý majetek, Finanční skóre → zadluženost, Finanční obraz). Dřív se odečetla celá splátka i s úrokem – hypotéka 2 000 000 Kč, 5 %, 12 × 12 000 Kč ukazovala 1 856 000 Kč, správně je 1 954 978 Kč (stejně jako splátkový kalendář). Teď se z každé splátky nejdřív zaplatí úrok za období od předchozí splátky (zbytek × sazba / 12, u týdenních podle dnů; sazba podle změn úroku), Zbývá sníží jen jistina. Mimořádná splátka jde celá na jistinu. Půjčky bez úroku beze změny.",
+      "↩️ AUDIT BOD 20 · SMAZÁNÍ A ÚPRAVA SPLÁTKY · cesta: Transakce → splátka → ✕ / ✎. Zbývá se už jen neodečítá, ale vždy dopočítá z „Zbývá · ke dni“ a navázaných splátek: smazaná splátka vrátí částku, změna částky se promítne, totéž import z banky, Doručené, duplicity i synchronizace z jiného zařízení. Potvrzení smazání splátky to řekne.",
+      "📌 STARÉ PŮJČKY · půjčka založená před v12.01 (bez „Zbývá · ke dni“) dostane při prvním spuštění kotvu = dnešní zbytek k poslední zapsané splátce – Zbývá se nezmění, další splátky už se počítají s úrokem. Půjčky s „Zbývá · ke dni“ se přepočítají od toho dne (přesnější). Přesný zůstatek z výpisu zadáš v ✎ → Zbývá · ke dni. Splacená půjčka (0 Kč) se kvůli drobnému rozdílu v úroku neoživí.",
+      "🔁 AUDIT BOD 19 · PŘEVOD SE MAŽE CELÝ · cesta: Transakce → řádek převodu → ✕ (i v detailu projektu). Dřív smazání jedné poloviny nechalo druhou – po smazání výdaje 1 000 Kč si eurová peněženka nechala 39,53 € a peníze vznikly z ničeho. Teď se smažou obě poloviny a potvrzení vypíše obě peněženky s částkou v jejich měně.",
+      "🕛 AUDIT BOD 2 · DNEŠNÍ DATUM V MÍSTNÍM ČASE · cesta: ＋ Nová transakce, Převod, Opakované šablony → ⚡, vklady do cílů, import, Doručené/SMS, měřidla, vozidla, půjčky, projekty, aktiva. Dnešek se bral v UTC – 1. 11. v 0:30 nabídla nová transakce 31. 10. a platba spadla do minulého měsíce (jiný report, rozpočet, skóre). Teď jedna funkce ffDnes() / ffDatum() (helpers.js) na 56 místech.",
+      "🧪 tools/smoke_dluh_jistina.js (19), smoke_dnes_mistni.js (8) – na v12.29 padají; smoke_dluhy_zmeny.js upraven (počet změn místo počtu splátek). Chromium 390 px, Praha 1. 11. 0:30: nová transakce 2026-11-01; splátka 12 000 Kč hypotéky → Zbývá 1 996 333 Kč (jistina 3 667 jako na kartě), smazání → 2 000 000 Kč; smazání poloviny převodu smaže obě, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.29',
     datum: '2026-11-04',

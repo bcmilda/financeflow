@@ -1,4 +1,4 @@
-// FinanceFlow · v12.10 · nakup.js · 2026-10-23
+// FinanceFlow · v12.30 · nakup.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  NÁKUPNÍ SEZNAM + HLÍDAČ CEN + PLÁNY A CÍLE – FinanceFlow v6.49
 // ══════════════════════════════════════════════════════
@@ -804,7 +804,7 @@ function openGoalDepositModal(goalId) {
   document.getElementById('depositGoalName').textContent = goal.name;
   document.getElementById('depositAmount').value   = '';
   document.getElementById('depositNote').value     = '';
-  document.getElementById('depositDate').value     = new Date().toISOString().slice(0,10);
+  document.getElementById('depositDate').value     = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
 
   // Zbývá info
   const el = document.getElementById('depositGoalInfo');
@@ -838,7 +838,7 @@ async function saveGoalDeposit() {
     id:     uid(),
     goalId,
     amount: parseFloat(amount.toFixed(2)),
-    date:   date || new Date().toISOString().slice(0,10),
+    date:   date || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
     note:   note || 'Vklad',
     createdAt: Date.now(),
   };
@@ -1298,7 +1298,7 @@ async function onPenezenkyRender() {
 // ══════════════════════════════════════════════════════
 async function publishPricesToCatalog(items, store, date) {
   if (!items?.length || !window._currentUser) return;
-  const today = date || new Date().toISOString().slice(0,10);
+  const today = date || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   try {
     const updates = {};
     items.forEach(it => {

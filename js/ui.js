@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · ui.js · 2026-11-01
+// FinanceFlow · v12.30 · ui.js · 2026-11-04
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -274,14 +274,14 @@ function showNotificationPanel(items) {
 function snoozeNotifications() {
   // Ulož snooze do localStorage – nezobrazovat znovu dnes
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-  localStorage.setItem('ff_notif_snooze', tomorrow.toISOString().slice(0,10));
+  localStorage.setItem('ff_notif_snooze', (typeof ffDatum === 'function' ? ffDatum(tomorrow) : new Date(tomorrow).toISOString().slice(0, 10)));   // v12.30: místní datum
   _notifShownThisSession = true;
 }
 
 function checkNotifSnooze() {
   const snoozeDate = localStorage.getItem('ff_notif_snooze');
   if(!snoozeDate) return false;
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   if(snoozeDate > today) { _notifShownThisSession = true; return true; }
   localStorage.removeItem('ff_notif_snooze');
   return false;
@@ -2225,12 +2225,32 @@ function deleteTx(id){
   //  v11.74 (Milan): transakce účtenky, která zůstává, se maže jen přes účtenku (🔒)
   const _t=(S.transactions||[]).find(t=>t.id==id);
   if(_t&&typeof txChranenaHlaska==='function'&&txChranenaHlaska(_t)) return;
+  //  S28 (v12.30, audit bod 19): převod = DVA řádky se stejným transferId (výdaj z jedné peněženky, příjem
+  //  do druhé). Smazání jedné poloviny nechalo druhou – po smazání výdaje 1 000 Kč si eurová peněženka
+  //  nechala 39,53 € a peníze vznikly z ničeho. Teď se maže vždy celý převod.
+  const _par=_t&&_t.transferId?(S.transactions||[]).filter(x=>x&&x.transferId===_t.transferId):[];
+  if(_par.length>1){
+    const _w=id=>(S.wallets||[]).find(v=>v.id===id)||{};
+    const _cast=x=>{ const m=_w(x.wallet).currency; return (Math.round((x.amount||0)*100)/100).toLocaleString('cs-CZ')+' '+(!m||m==='CZK'?'Kč':m); };   // v měně peněženky
+    const _popis=_par.map(x=>(x.type==='income'?'＋ ':'− ')+(_w(x.wallet).name||'peněženka')+' '+_cast(x)).join('\n');
+    if(!confirm('Smazat celý převod?\n\nSmažou se obě poloviny, aby peníze nezůstaly jen v jedné peněžence:\n'+_popis)) return;
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // kotva půjček před změnou
+    _par.forEach(x=>{ if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(x.id); });
+    const _ids=new Set(_par.map(x=>x.id));
+    S.transactions=S.transactions.filter(t=>!_ids.has(t.id));
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();
+    save();renderPage();
+    return;
+  }
   const _u=_t&&typeof dupUctenkaPro==='function'?dupUctenkaPro(_t):null;
-  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')))return;
-  if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ save(); renderPage(); } return; }
+  const _spl=_t&&_t.debtId?(S.debts||[]).find(d=>d.id===_t.debtId):null;   // v12.30 (bod 20)
+  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')+(_spl?'\n\n💳 Splátka půjčky „'+_spl.name+'“ – Zbývá se přepočítá (částka se vrátí).':'')))return;
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30: půjčka bez kotvy ji dostane PŘED smazáním
+  if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ if(typeof debtPrepocitejVse==='function') debtPrepocitejVse(); save(); renderPage(); } return; }
   // Pokud je to vklad do cíle (transfer s párovým vkladem) → smaž i vklad v cíli
   if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(id);
   S.transactions=S.transactions.filter(t=>t.id!=id);
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30 (bod 20): smazaná splátka vrátí Zbývá
   save();renderPage();
 }
 function editTx(id){

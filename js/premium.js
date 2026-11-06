@@ -1,4 +1,4 @@
-// FinanceFlow · v12.29 · premium.js · 2026-11-04
+// FinanceFlow · v12.30 · premium.js · 2026-11-04
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -640,13 +640,13 @@ function renderTransferDropdowns(wallets) {
   // transferTo: peněženky + virtuální cíle
   _plnit(document.getElementById('transferTo'));
   const d = document.getElementById('transferDate');
-  if(d && !d.value) d.value = new Date().toISOString().slice(0,10);
+  if(d && !d.value) d.value = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   if(typeof updatePrevodConv === 'function') updatePrevodConv();
 }
 
 function openWalletModal() {
   ['editWalletId','walletName','walletBalance'].forEach(id=>document.getElementById(id).value='');
-  { const bd=document.getElementById('walletBalanceDate'); if(bd) bd.value=new Date().toISOString().slice(0,10); }   // S25: nová peněženka = zůstatek k dnešku
+  { const bd=document.getElementById('walletBalanceDate'); if(bd) bd.value=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)); }   // S25: nová peněženka = zůstatek k dnešku
   document.getElementById('walletType').value='account';
   document.getElementById('walletCurrency').value='CZK';
   document.getElementById('walletColor').value='#4ade80';
@@ -804,7 +804,7 @@ function doTransfer() {
   const from=document.getElementById('transferFrom').value;
   const to=document.getElementById('transferTo').value;
   let amt=parseFloat(document.getElementById('transferAmt').value)||0;
-  const date=document.getElementById('transferDate').value||new Date().toISOString().slice(0,10);
+  const date=document.getElementById('transferDate').value||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const note=document.getElementById('transferNote').value.trim();
   if(!from||!to){alert('Vyber obě peněženky');return;}
   if(from===to){alert('Peněženky musí být různé');return;}
@@ -1077,7 +1077,7 @@ function renderSablonaList() {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.88rem">${s.name}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-          <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(typeof sablonaCastka==='function'?sablonaCastka(s,new Date().toISOString().slice(0,10)):s.amount)}</span>
+          <span style="font-size:.78rem;font-weight:700;color:${s.type==='income'?'var(--income)':'var(--expense)'}">${s.type==='income'?'+':'−'}${fmtB(typeof sablonaCastka==='function'?sablonaCastka(s,(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))):s.amount)}</span>
           <span style="font-size:.74rem;color:var(--text3)">${FREQ_LABELS[s.freq]||s.freq}${s.freq==='once'&&s.done?' · ✅ provedeno':''}</span>
           ${cat?`<span style="font-size:.74rem;color:var(--text3)">${cat.icon} ${cat.name}</span>`:''}
           ${/* S28 (v12.29, Milan: „proč mají zálohy ‚auto‘ (auto = automobil)?“) – štítek znamenal automatické vytváření, ne kategorii Auto */''}
@@ -1297,7 +1297,7 @@ function sablonaCastka(s, d) {
 window.sablonaCastka = sablonaCastka;
 function useSablonaId(id) {
   const s=(S.sablony||[]).find(x=>x.id===id); if(!s) return;
-  const _dateStr=new Date().toISOString().slice(0,10);
+  const _dateStr=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   if(!S.transactions)S.transactions=[];
   if(s.type==='transfer'){
     // S12.1i: opakovaný PŘESUN – pár transakcí s transferId (statistiky ho ignorují, peněženky započítají)
@@ -1603,7 +1603,7 @@ function applySettings() {
   const el6=document.getElementById('settingChildren14'); if(el6) el6.value=_settings.household_ch14||0;
   updateHouseholdEquiv();
   // Set export date defaults
-  const today=new Date().toISOString().slice(0,10);
+  const today=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const firstOfMonth=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0')+'-01';   // S25 v11.44: dřív přes UTC → poslední den minulého měsíce
   const ef=document.getElementById('exportFrom');if(ef&&!ef.value)ef.value=firstOfMonth;
   const et=document.getElementById('exportTo');if(et&&!et.value)et.value=today;
@@ -1673,7 +1673,7 @@ function exportCSV() {
   if(!txs.length){ if(typeof showToast==='function') showToast('⚠️ Žádné transakce k exportu'); return; }
   const blob=new Blob(['\uFEFF'+header+rows],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='financeflow-transakce-'+new Date().toISOString().slice(0,10)+'.csv';
+  const a=document.createElement('a');a.href=url;a.download='financeflow-transakce-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
   if(typeof showToast==='function') showToast(`📊 Exportováno ${txs.length} transakcí`);

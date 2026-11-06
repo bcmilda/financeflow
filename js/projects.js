@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · projects.js · 2026-10-23
+// FinanceFlow · v12.30 · projects.js · 2026-11-04
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -75,7 +75,7 @@ function renderProjectGrid() {
       </div>
       <div style="display:flex;gap:16px;font-size:.78rem;margin-bottom:10px;padding:8px;background:var(--surface2);border-radius:8px">
         <div><span style="color:var(--text3)">Zahájení:</span> <strong>${p.start||'–'}</strong></div>
-        <div><span style="color:var(--text3)">Ukončení:</span> <strong>${p.end||p.closed?p.end||new Date().toISOString().slice(0,10):'–'}</strong></div>
+        <div><span style="color:var(--text3)">Ukončení:</span> <strong>${p.end||p.closed?p.end||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)):'–'}</strong></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px">
         <span style="color:var(--expense)">Výdaje: <strong>${fmtB(spent)}</strong></span>
@@ -345,8 +345,13 @@ function editTxFromProject(txId, projectId) {
 }
 
 function deleteTxFromProject(txId, projectId) {
-  if(!confirm('Smazat transakci?')) return;
-  S.transactions = S.transactions.filter(t => t.id != txId);
+  //  v12.30 (audit body 19 a 20): převod se maže celý (obě poloviny), smazaná splátka vrátí Zbývá půjčky
+  const _t = (S.transactions||[]).find(t => t.id == txId);
+  const _ids = new Set(_t && _t.transferId ? S.transactions.filter(x => x && x.transferId === _t.transferId).map(x => x.id) : [_t ? _t.id : txId]);
+  if(!confirm(_ids.size > 1 ? 'Smazat celý převod? Smažou se obě poloviny (z jedné i do druhé peněženky).' : 'Smazat transakci?')) return;
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // kotva půjček před změnou
+  S.transactions = S.transactions.filter(t => !_ids.has(t.id));
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();
   save();
   renderProjectDetail(projectId);
 }
@@ -365,7 +370,7 @@ function openProjectModal() {
   ['editProjectId','projectName','projectDesc','projectBudget','projectEnd'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('projectType').value='vacation';
   document.getElementById('projectColor').value='#06b6d4';
-  document.getElementById('projectStart').value=new Date().toISOString().slice(0,10);
+  document.getElementById('projectStart').value=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   document.getElementById('projectModalTitle').textContent='Nový projekt';
   document.getElementById('modalProject').classList.add('open');
 }
@@ -413,7 +418,7 @@ function toggleProjectClosed(id) {
   const p=(S.projects||[]).find(x=>x.id===id); if(!p) return;
   p.closed=!p.closed;
   if(p.closed && !p.end) {
-    p.end = new Date().toISOString().slice(0,10); // auto-set end date
+    p.end = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)); // auto-set end date
   }
   save(); renderProjectGrid();
 }

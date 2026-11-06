@@ -1,4 +1,4 @@
-// FinanceFlow · v12.02 · transactions.js · 2026-10-23
+// FinanceFlow · v12.30 · transactions.js · 2026-11-04
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -619,7 +619,7 @@ function renderDebtTxTable(d, paid, D){
   //  v12.02: plán od data začátku (minulé podle plánu + budoucí z dnešního zbytku) – splátka[i] ↔ platba[i]
   const sched = (typeof debtPlnyPlan === 'function') ? debtPlnyPlan(d, D).vse : (d.schedule||[]);
   const txs = paid.txs||[];
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const GRID = 'grid-template-columns:104px 1fr 1fr 46px';
   const header = `<div class="debt-schedule-row header" style="${GRID}"><span>Splátka</span><span style="text-align:right">Plánováno</span><span style="text-align:right">Zaplaceno</span><span style="text-align:center">Stav</span></div>`;
   const actCell = (tx)=> tx
@@ -656,7 +656,7 @@ function renderDebts(){
   if(typeof renderDTISection==='function') renderDTISection(D);
   const el=document.getElementById('debtCards'); if(!el) return;
   if(!(D.debts||[]).length){ el.innerHTML='<div class="empty"><div class="ei">🎉</div><div class="et">Žádné půjčky!</div></div>'; return; }
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   el.innerHTML=(D.debts||[]).map(d=>{
     const pct=Math.round((1-d.remaining/d.total)*100);
     const paid=(typeof computeDebtPaid==='function')?computeDebtPaid(d,D):{paidSum:0,paidPrincipal:0,paidInterest:0,count:0,txs:[]};

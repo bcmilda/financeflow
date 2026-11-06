@@ -1,4 +1,4 @@
-// FinanceFlow · v12.29 · meridla.js · 2026-11-04
+// FinanceFlow · v12.30 · meridla.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -165,7 +165,7 @@ function merDnyPlateb(m, dnes, konec) {
 }
 //  Průměrná měsíční záloha: zadaná (k dnešku podle rozpisu), jinak průměr plateb za posledních 6 měsíců.
 function merMesicniZaloha(D, m, dnes) {
-  const zk = merZalohaKDni(m, dnes || _merS(Date.now()));
+  const zk = merZalohaKDni(m, dnes || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)));
   if (zk > 0) return zk;
   const z = merZalohy(D, m, _merPlusMesice(dnes, -6), dnes);
   return z.pocet ? z.soucet / 6 : null;
@@ -197,7 +197,7 @@ function _merOdhadovac(den) {
 }
 function merOdhad(m, D, dnes) {
   D = D || (typeof getData === 'function' ? getData() : { transactions: [] });
-  dnes = dnes || _merS(Date.now());
+  dnes = dnes || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const den = merDenne(m);
   const vy = Object.values(m.vyuctovani || {}).filter(v => v && v.do).sort((a, b) => b.do.localeCompare(a.do));
   const od = Object.values(m.odecty || {}).filter(o => o && o.datum).sort((a, b) => a.datum.localeCompare(b.datum));
@@ -434,7 +434,7 @@ function merKartaHTML(m, D) {
       ${dl('Za měsíc', o && o.prumerDenni != null ? _merDes(o.prumerDenni * 30.44, 0) + ' ' + J : '—', 'podle průměru')}
       ${dl('Cena za ' + J, o && o.cena ? _merDes(o.cena.cena, 2) + ' Kč' : '—', o && o.cena ? (o.cena.zdroj === 'vyuctovani' ? 'z vyúčtování vč. stálých plateb' : 'zadaný tarif') : '')}
       ${dl('Měsíční záloha', o && o.mesicniZaloha != null ? _merKc(o.mesicniZaloha) : '—', (merZalohaSablonaNajdi(m.id) ? '🔄 automaticky ' + _merEsc(merZalohaSablonaNajdi(m.id).den) + '. v měsíci' : m.zaloha > 0 ? 'zadaná' : 'průměr plateb')
-        + (() => { const dalsi = merZalohyRozpis(m).find(x => x.od > _merS(Date.now())); return dalsi ? `<br>📅 od ${_merDatumCz(dalsi.od)} ${_merKc(dalsi.kc)}` : ''; })())}
+        + (() => { const dalsi = merZalohyRozpis(m).find(x => x.od > (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))); return dalsi ? `<br>📅 od ${_merDatumCz(dalsi.od)} ${_merKc(dalsi.kc)}` : ''; })())}
     </div>
     ${graf ? `<div style="margin-top:10px">${tar ? '<div style="font-size:.66rem;color:#a8aec8;margin-bottom:2px"><span style="color:#fbbf24">■</span> VT <span style="color:#818cf8">■</span> NT · po měsících</div>' : ''}${graf}</div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -595,7 +595,7 @@ function _merZalohaBlokHTML(m) {
 //  v12.17 (Milan): ROZPIS ZÁLOH – změna zálohy během období „od data“. Ukládá se hned (ne až 💾 Uložit),
 //  opakovaná platba se přepne v den změny, už zapsaná BUDOUCÍ auto-platba (datum po dnešku) se přepočítá.
 function _merRozpisHTML(m) {
-  const r = merZalohyRozpis(m), id = _merEsc(m.id), dnes = _merS(Date.now());
+  const r = merZalohyRozpis(m), id = _merEsc(m.id), dnes = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const radek = x => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.78rem;padding:5px 0;border-top:1px solid var(--border)">
       <span>od <b>${_merDatumCz(x.od)}</b> → <b>${_merKc(x.kc)}</b>${x.od <= dnes ? ' <span style="color:#8b93ad">· platí</span>' : ''}</span>
       <button class="btn btn-ghost btn-sm" style="font-size:.7rem" title="Smazat změnu" onclick="merRozpisSmaz('${id}','${_merEsc(x.id)}')">✕</button></div>`;
@@ -612,7 +612,7 @@ function _merRozpisHTML(m) {
 //  Po změně rozpisu: šablona + už zapsané budoucí auto-platby zálohy (datum po dnešku) podle nové částky.
 function _merRozpisPropis(m) {
   if (merZalohaSablonaNajdi(m.id)) merZalohaSablona(m, true);
-  const dnes = _merS(Date.now()); let n = 0;
+  const dnes = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)); let n = 0;
   ((typeof S !== 'undefined' && S.transactions) || []).forEach(t => {
     if (!t || !t.energie || t.energie.meridloId !== m.id || t.energie.typ !== 'zaloha' || !(t.date > dnes) || !/Auto-šablona/.test(t.note || '')) return;
     const kc = merZalohaKDni(m, t.date);
@@ -660,7 +660,7 @@ function merFormOdecet(id, zid) { merOtevri(id, 'odecet', zid, zid ? 'odecty' : 
 function _merOdecetHTML(m, zid, hromadne) {
   const id = _merEsc(m.id), J = _merEsc(_merJed(m)), dvou = !!m.dvoutarif;
   const z = zid ? (m.odecty || {})[zid] : null;
-  const datum = z ? z.datum : _merS(Date.now());
+  const datum = z ? z.datum : (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const posl = Object.entries(m.odecty || {}).filter(([k, x]) => k !== zid && x && x.datum && x.datum <= datum).map(([, x]) => x).sort((a, b) => b.datum.localeCompare(a.datum))[0];
   const v = x => x != null ? _merEsc(x) : '';
   const tarify = (m.druh === 'elektrina' || dvou) ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px">
@@ -812,7 +812,7 @@ function _merVyuctovaniHTML(m, zid) {
   const z = zid ? (m.vyuctovani || {})[zid] : null;
   const mes = (MER_OBDOBI[m.obdobi] || MER_OBDOBI.ctvrtleti)[1];
   const posl = Object.values(m.vyuctovani || {}).sort((a, b) => (b.do || '').localeCompare(a.do || ''))[0];
-  const od = z ? z.od : (posl ? posl.do : _merPlusMesice(_merS(Date.now()), -mes));
+  const od = z ? z.od : (posl ? posl.do : _merPlusMesice((typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)), -mes));
   const doo = z ? z.do : _merPlusMesice(od, mes);
   const v = x => x != null ? _merEsc(x) : '';
   return `<div style="font-size:.72rem;color:#a8aec8;margin-top:6px;line-height:1.5">Opiš čísla z vyúčtování. Je to jen evidence spotřeby – nevzniká žádná transakce, takže se nic nezapočítá dvakrát.</div>
@@ -921,7 +921,7 @@ function merSpotrebaOd(m, od, dnes) {
 
 //  Zálohy za „měřený rok": od zvoleného data (včetně) do dneška.
 function merZalohyOd(m, D, od, dnes) {
-  dnes = dnes || _merS(Date.now());
+  dnes = dnes || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const z = merZalohy(D, m, _merPlusDni(od, -1), dnes);
   const s = merSpotrebaOd(m, od, dnes);
   const c = merCena(m);
@@ -932,7 +932,7 @@ window.merZalohyOd = merZalohyOd;
 
 //  Vyhodnocení po obdobích (čtvrtletí 3 / pololetí 6 / rok 12 měsíců).
 function merObdobiSouhrn(m, D, mesicu, dnes) {
-  dnes = dnes || _merS(Date.now());
+  dnes = dnes || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const den = merDenne(m), tar = m.dvoutarif ? merDenneTarif(m) : null;
   const dny = Object.keys(den).sort(); if (!dny.length) return [];
   const c = merCena(m);
@@ -961,7 +961,7 @@ function merDetail(id) {
   renderEnergiePage({ cisty: true });
 }
 function _merDetailHTML(m, D) {
-  const id = m.id, dnes = _merS(Date.now());
+  const id = m.id, dnes = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const dr = MER_DRUHY[m.druh] || MER_DRUHY.jine, jed = m.jednotka || dr.jed;
   const us = merUseky(m), o = merOdhad(m, D, dnes), den = merDenne(m), c = merCena(m);
   const posl = us[us.length - 1];
@@ -1099,7 +1099,7 @@ function _merPlatbaHTML(m, vid) {
       : 'Zapíše se jako příjem (peníze opravdu přišly). Je to vrácená vlastní záloha, ne mzda.'}<br>⚠️ Pokud platbu importuješ z banky, nezapisuj ji tady – v importované transakci vyber typ v bloku 📟.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       ${_merPole('Částka (Kč)', `<input class="fi" id="merPlCastka" inputmode="decimal" value="${Math.abs(Math.round(s)) || ''}">`)}
-      ${_merPole('Datum', `<input class="fi" id="merPlDatum" type="date" value="${_merS(Date.now())}">`)}</div>
+      ${_merPole('Datum', `<input class="fi" id="merPlDatum" type="date" value="${(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))}">`)}</div>
     ${_merPole(typ === 'doplatek' ? 'Zaplaceno z' : 'Přišlo na', typeof ffPenezenkaSelect === 'function' ? ffPenezenkaSelect('merPlWal') : '<select class="fi" id="merPlWal"></select>')}
     <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merPlatbaUloz('${_merEsc(id)}','${_merEsc(vid || '')}','${typ}')">💾 Uložit</button>`;
 }
@@ -1282,7 +1282,7 @@ async function ffZalohaModuly() {
   const blob = new Blob([JSON.stringify(z, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `FinanceFlow-zaloha-vyplatnice-tankovani-energie-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `FinanceFlow-zaloha-vyplatnice-tankovani-energie-${(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))}.json`;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   if (typeof showToast === 'function') showToast(pocet ? '💾 Záloha stažena' : '💾 Záloha stažena (moduly jsou prázdné)');

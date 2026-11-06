@@ -546,7 +546,7 @@ function openAssetValModal(id){
   const D = getData();
   const asset = (D.assets||[]).find(x=>x.id===id); if(!asset) return;
   document.getElementById('assetValTitle').textContent = `📈 ${asset.name} – historie hodnoty`;
-  document.getElementById('assetValDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('assetValDate').value = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   document.getElementById('assetValAmount').value = '';
   assetValRenderList(asset);
   document.getElementById('modalAssetVal').classList.add('open');
@@ -682,7 +682,7 @@ function assetBuildCard(asset, type) {
           const inv=parseFloat(asset.invested)||0; if(!inv) return '';
           const diff=(asset.value||0)-inv; const pct=inv>0?Math.round(diff/inv*1000)/10:0;
           return `<div style="font-size:.7rem;margin-top:2px;color:${diff>=0?'var(--income)':'var(--expense)'}">${diff>=0?'▲':'▼'} ${diff>=0?'+':''}${fmtBP(diff)} (${pct>0?'+':''}${pct} %) <span style="color:var(--text3)">vs vloženo ${fmtBP(inv)}</span></div>`; })()}
-        ${asset.updatedAt ? `<div style="font-size:.68rem;color:#a8aec8;margin-top:3px">Aktualizováno: ${fmtD(new Date(asset.updatedAt).toISOString().slice(0,10))}</div>` : ''}
+        ${asset.updatedAt ? `<div style="font-size:.68rem;color:#a8aec8;margin-top:3px">Aktualizováno: ${fmtD((typeof ffDatum === 'function' ? ffDatum(asset.updatedAt) : new Date(asset.updatedAt).toISOString().slice(0, 10)))}</div>` : ''}
         ${(((asset.valuations||[]).length + assetDepositEvents(asset).length) >= 2) ? (()=>{ const cid='avc_'+asset.id; setTimeout(()=>drawAssetValChart(cid, asset.id), 60); return `<canvas id="${cid}" style="width:100%;max-width:100%;height:150px;margin-top:8px"></canvas>`; })() : ''}
       </div>
       <!-- Akce -->

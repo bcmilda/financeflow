@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · helpers.js · 2026-10-23
+// FinanceFlow · v12.30 · helpers.js · 2026-11-04
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -1360,6 +1360,17 @@ function normKey(text) {
 }
 
 window.normName = normName; window.normQty = normQty; window.normKey = normKey;
+
+//  S28 (v12.30, audit bod 2): MÍSTNÍ datum 'YYYY-MM-DD'. new Date().toISOString() je v UTC → v Praze mezi
+//  půlnocí a 1:00 (v létě 2:00) vyšel VČEREJŠEK – nová transakce, převod, šablona i import 1. 11. v 0:30
+//  dostaly 31. 10. a spadly do minulého měsíce (jiný report, rozpočet, skóre). Jedna funkce pro celou appku.
+function ffDatum(d) {
+  const x = d == null ? new Date() : (d instanceof Date ? d : new Date(d));
+  if (isNaN(x)) return '';
+  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+}
+function ffDnes() { return ffDatum(new Date()); }
+window.ffDatum = ffDatum; window.ffDnes = ffDnes;
 
 //  v12.08 (Milan: „u EVO paliva 67 kg/l a v Detektoru úspor 67 ks – nesedí jednotky“):
 //  jednotka množství JEDNÉ položky účtenky: palivo z tankování = l, vážené zboží = kg / l, jinak ks.

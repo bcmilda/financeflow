@@ -1,4 +1,4 @@
-// FinanceFlow · v10.60 · ai.js · 2026-09-12
+// FinanceFlow · v12.30 · ai.js · 2026-11-04
 //  AI RÁDCE
 // ══════════════════════════════════════════════════════
 // Worker URL – sem doplňte URL po vytvoření Workeru
@@ -205,7 +205,7 @@ function aiExportChat() {
   }).join('\n\n---\n\n');
   const blob = new Blob([messages], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='financeflow-ai-chat-'+new Date().toISOString().slice(0,10)+'.txt';
+  const a = document.createElement('a'); a.href=url; a.download='financeflow-ai-chat-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.txt';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }

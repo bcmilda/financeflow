@@ -1,4 +1,4 @@
-// FinanceFlow · v12.20 · debts.js · 2026-10-28
+// FinanceFlow · v12.30 · debts.js · 2026-11-04
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -6,7 +6,7 @@ function openAddTx(){
   document.getElementById('editTxId').value='';
   document.getElementById('txName').value='';
   document.getElementById('txAmt').value='';
-  document.getElementById('txDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('txDate').value=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   document.getElementById('txNote').value='';
   // TODO-231: zavřít případně otevřené našeptávače z předchozí editace
   { const ns=document.getElementById('txNameSuggest'); if(ns) ns.style.display='none'; }
@@ -580,12 +580,14 @@ function saveTx(){
     else txObj.amtCZK=_readTxCzk(_dWal,amt); // v8.58 (TODO-144)
     const _dPay=document.getElementById('txPayTypeId')?.value||''; if(_dPay) txObj.payType=_dPay;
     if(projectId) txObj.projectId = projectId;
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30: půjčka bez kotvy ji dostane PŘED zápisem
     if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
     else S.transactions.push({id:genTxId(),...txObj});
-    // Snížit zbývající částku půjčky (jen u nové transakce)
+    //  S28 (v12.30, audit body 1 a 20): Zbývá se DOPOČÍTÁ – sníží se jen o jistinu (splátka − úrok) a úprava
+    //  částky či přesun splátky k jiné půjčce se promítne (dřív jen nová splátka, o celou částku).
     //  v12.01: splátka s datem do „Zbývá · ke dni“ už je v zadaném zbytku (dopsaná/importovaná stará splátka)
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();
     if(debt && !eid && !(debt.zbyvaKeDni && debt.zbyvaKeDni.den && String(date).slice(0,10) <= debt.zbyvaKeDni.den)) {
-      debt.remaining = Math.max(0, debt.remaining - amt);
       if(debt.schedule) {
         const unpaid = debt.schedule.find(s=>!s.paid);
         if(unpaid) unpaid.paid = true;
@@ -772,7 +774,7 @@ let _catOpenGrp = null, _catPickSel = null;
 // Nejčastější kategorie daného typu za posledních `dni` dní (max `n`), bez historie výchozí sada.
 function catNejcastejsi(cats, txs, n = 6, dni = 90, dnes = new Date()) {
   const ids = new Set(cats.map(c => c.id));
-  const od = new Date(dnes.getTime() - dni * 864e5).toISOString().slice(0, 10);
+  const od = (typeof ffDatum === 'function' ? ffDatum(new Date(dnes.getTime() - dni * 864e5)) : new Date(new Date(dnes.getTime() - dni * 864e5)).toISOString().slice(0, 10));   // v12.30: místní datum
   const cnt = {};
   (txs || []).forEach(t => {
     const id = t.catId || t.category;
@@ -1008,7 +1010,7 @@ function generateSchedulePreview() {
   // v8.71: plán počítá ze ZBÝVAJÍCÍ jistiny (u rozjetých úvěrů), splacenou část přičte zvlášť
   const remainNow = moneyInRead('dRemaining') || total;   // TODO-216
   const alreadyPaid = Math.max(0, total - remainNow);
-  const tempDebt = {total, remaining:remainNow, interest, payment:payment||0, freq, startDate:new Date().toISOString().slice(0,10)};
+  const tempDebt = {total, remaining:remainNow, interest, payment:payment||0, freq, startDate:(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))};
   const schedule = generateSchedule(tempDebt);
   if(!schedule.length) { el.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Splátka nepokrývá úroky! Zvyšte splátku.</div></div>'; return; }
   const totalPaid = schedule.reduce((a,s)=>a+s.payment,0);
@@ -1030,7 +1032,7 @@ function openDebtModal() {
   document.getElementById('dPriority').value='mid';
   document.getElementById('dFreq').value='monthly';
   document.getElementById('dType').value='personal';
-  document.getElementById('dStartDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('dStartDate').value=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   document.getElementById('debtTipBox').style.display='none';
   document.getElementById('schedulePreview').innerHTML='';
   document.querySelectorAll('.debt-type-btn').forEach(b=>b.classList.remove('active'));
@@ -1110,12 +1112,60 @@ function _debtZmenyUcinek(d, od, doDne) {
     return a;
   }, 0);
 }
+// ══════════════════════════════════════════════════════
+//  S28 (v12.30, audit body 1 a 20): ZBÝVÁ = JISTINA, DOPOČÍTANÁ ZE SPLÁTEK
+//  1) Splátka snižovala Zbývá o CELOU částku, i o úrok. Hypotéka 2 000 000 Kč, 5 % p. a., splátka 12 000 Kč:
+//     po 12 splátkách appka ukazovala 1 856 000 Kč, správně je ~1 955 000 Kč (dluh vypadal o 99 000 Kč menší,
+//     čistý majetek i skóre lepší). Teď se z každé splátky nejdřív zaplatí úrok narostlý od předchozí
+//     události (zbytek × sazba × měsíce / 12, u týdenních dny / 365; sazba platná v ten den podle změn),
+//     Zbývá sníží jen jistina.
+//     Mimořádná splátka jde celá na jistinu, navýšení přičte. Půjčka bez úroku = jako dřív.
+//  20) Zbývá se jen postupně odečítalo – smazání splátky ho nevrátilo a úprava částky nezměnila. Teď se
+//     Zbývá vždy DOPOČÍTÁ z „Zbývá ke dni“ (kotva) a navázaných splátek (t.debtId) → smazání, úprava,
+//     import i synchronizace z jiného zařízení dají vždy stejný výsledek (debtPrepocitejVse).
+// ══════════════════════════════════════════════════════
+function _debtDny(od, doDne) {
+  const a = Date.parse(String(od).slice(0, 10) + 'T12:00:00Z'), b = Date.parse(String(doDne).slice(0, 10) + 'T12:00:00Z');
+  return isFinite(a) && isFinite(b) && b > a ? Math.round((b - a) / 864e5) : 0;
+}
+//  Část roku mezi dvěma dny pro úrok: týdenní splátky podle dnů (/365), ostatní podle měsíců (/12) –
+//  stejně jako splátkový kalendář a karta půjčky (úrok = zbytek × sazba / 12), 15. 10. → 15. 11. = 1/12.
+function _debtCastRoku(od, doDne, freq) {
+  if (freq === 'weekly' || freq === 'biweekly') return _debtDny(od, doDne) / 365;
+  const [y1, m1, d1] = String(od).slice(0, 10).split('-').map(Number), [y2, m2, d2] = String(doDne).slice(0, 10).split('-').map(Number);
+  if (![y1, m1, d1, y2, m2, d2].every(isFinite)) return 0;
+  const dniM = new Date(Date.UTC(y1, m1, 0)).getUTCDate();
+  return Math.max(0, ((y2 - y1) * 12 + (m2 - m1) + (d2 - d1) / dniM) / 12);
+}
+//  Simulace od kotvy {den, castka} do konce dne `doDne`. Vrací {zbyva, urok, jistina}.
+function debtSimuluj(d, D, kotva, doDne) {
+  const od = String(kotva.den).slice(0, 10);
+  const ud = [];
+  ((D && D.transactions) || []).forEach(t => {
+    if (!t || t.debtId !== d.id || t.splitParent || !t.date) return;
+    const den = String(t.date).slice(0, 10);
+    if (den > od && den <= doDne) ud.push({ den, typ: 'splatka', castka: Math.abs(t.amount || t.amt || 0), por: 1 });
+  });
+  debtZmeny(d).forEach(z => { if (z.den > od && z.den <= doDne && (z.typ === 'mimoradna' || z.typ === 'konsolidace' || z.typ === 'navyseni')) ud.push({ den: z.den, typ: z.typ, castka: z.castka || 0, por: 0 }); });
+  ud.sort((a, b) => a.den.localeCompare(b.den) || a.por - b.por);
+  let zb = Math.max(0, kotva.castka || 0), posl = od, narost = 0, urok = 0, jistina = 0;
+  ud.forEach(u => {
+    const sazba = typeof debtHodnotaKDni === 'function' ? (debtHodnotaKDni(d, 'urok', u.den) || 0) : (d.interest || 0);
+    narost += zb * sazba / 100 * _debtCastRoku(posl, u.den, d.freq); posl = u.den;
+    if (u.typ === 'splatka') {
+      const naUrok = Math.min(u.castka, narost); narost -= naUrok; urok += naUrok;
+      const j = Math.min(zb, u.castka - naUrok); zb -= j; jistina += j;
+    } else if (u.typ === 'navyseni') zb += u.castka;
+    else { const j = Math.min(zb, u.castka); zb -= j; jistina += j; }
+  });
+  const r2 = x => Math.round(x * 100) / 100;
+  return { zbyva: Math.max(0, r2(zb)), urok: r2(urok), jistina: r2(jistina) };
+}
 //  živý dnešní zbytek z „ke dni“
 function debtZiveZbyva(d, D, kotva) {
   const dnes = _debtDnes();
   if (!kotva || !kotva.den || kotva.den >= dnes) return Math.max(0, kotva ? (kotva.castka || 0) : (d.remaining || 0));
-  const r = (kotva.castka || 0) - debtSplatkyMezi(d, D, kotva.den, dnes) + _debtZmenyUcinek(d, kotva.den, dnes);
-  return Math.max(0, Math.round(r * 100) / 100);
+  return debtSimuluj(d, D, kotva, dnes).zbyva;   // v12.30: jen jistina
 }
 //  zbytek ke konci dne `den` (dnes/budoucnost = dnešní)
 function debtZbyvaKDni(d, D, den) {
@@ -1123,9 +1173,47 @@ function debtZbyvaKDni(d, D, den) {
   if (!d) return 0;
   if (!den || den >= dnes) return Math.max(0, d.remaining || 0);
   if (d.vznik && den < d.vznik) return 0;   // konsolidovaná půjčka před vznikem neexistovala
+  const k = d.zbyvaKeDni;
+  if (k && k.den && den >= k.den) return debtSimuluj(d, D, k, den).zbyva;   // v12.30: od kotvy přesně, s úrokem
+  //  před kotvou (nebo bez ní) odhad zpětně z dnešního zbytku – celé splátky (úrok neznáme)
   const r = (d.remaining || 0) + debtSplatkyMezi(d, D, den, dnes) - _debtZmenyUcinek(d, den, dnes);
   return Math.max(0, Math.round(r * 100) / 100);
 }
+//  v12.30: Zbývá vždy dopočítat. Půjčka bez kotvy (založená před v12.01) dostane kotvu = dnešní zbytek
+//  k poslední zapsané splátce (nic se nezmění, další splátky už se počítají s úrokem). Vrací počet změn.
+function debtPrepocitej(d, D) {
+  if (!d || d.consolidatedInto) return false;
+  D = D || (typeof getData === 'function' ? getData() : S);
+  const dnes = _debtDnes();
+  if (!d.zbyvaKeDni || !d.zbyvaKeDni.den) {
+    let posl = '';
+    ((D && D.transactions) || []).forEach(t => { if (t && t.debtId === d.id && !t.splitParent && !t.debtCeka && t.date) { const x = String(t.date).slice(0, 10); if (x <= dnes && x > posl) posl = x; } });
+    //  bez zapsané splátky: kotva o jedno období zpět (první další splátka zaplatí úrok za celé období),
+    //  ne dřív než začátek půjčky
+    if (!posl) {
+      const x = new Date(dnes + 'T12:00:00Z');
+      if (d.freq === 'weekly') x.setUTCDate(x.getUTCDate() - 7); else x.setUTCMonth(x.getUTCMonth() - 1);
+      posl = x.toISOString().slice(0, 10);
+      if (d.startDate && String(d.startDate).slice(0, 10) > posl && String(d.startDate).slice(0, 10) < dnes) posl = String(d.startDate).slice(0, 10);
+    }
+    d.zbyvaKeDni = { den: posl, castka: Math.max(0, d.remaining || 0), auto: true };
+    return true;
+  }
+  let r = debtZiveZbyva(d, D, d.zbyvaKeDni);
+  //  splacená půjčka (Zbývá 0) se neoživí kvůli zbytku z jiného počítání úroku (banka: jiné dny, poplatky) –
+  //  jen když chybí víc než jedna splátka (např. smazaná splátka)
+  if ((d.remaining || 0) <= 0.5 && r > 0 && r <= Math.max(d.payment || 0, (d.total || 0) * 0.01)) r = 0;
+  if (Math.abs((d.remaining || 0) - r) < 0.005) return false;
+  d.remaining = r;
+  return true;
+}
+function debtPrepocitejVse(D) {
+  if (typeof S === 'undefined' || !S || !Array.isArray(S.debts)) return 0;
+  if (typeof viewingUid !== 'undefined' && viewingUid) return 0;   // ne při prohlížení partnera
+  let n = 0; S.debts.forEach(d => { if (debtPrepocitej(d, D || S)) n++; });
+  return n;
+}
+window.debtPrepocitej = debtPrepocitej; window.debtPrepocitejVse = debtPrepocitejVse; window.debtSimuluj = debtSimuluj;
 //  splátka / úrok platné v den `den` (podle změn; před první změnou hodnota „předtím“)
 function debtHodnotaKDni(d, typ, den) {
   const akt = typ === 'urok' ? (d.interest || 0) : (d.payment || 0);
@@ -1254,7 +1342,7 @@ function saveDebt() {
     alertDays:parseInt(document.getElementById('dAlertDays').value)||7,
     penaltyPct:parseFloat(document.getElementById('dPenaltyPct').value)||0,
     penaltyFixed:moneyInRead('dPenaltyFixed'),   // TODO-216
-    startDate:document.getElementById('dStartDate').value||new Date().toISOString().slice(0,10),
+    startDate:document.getElementById('dStartDate').value||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
     dueDate:document.getElementById('dDueDate').value||null,
   };
   //  v12.01: Zbývá · ke dni + změny půjčky → živý dnešní zbytek
@@ -1511,6 +1599,9 @@ function debtPlnyPlan(d, D) {
 function debtAplikujCekajiciSplatky() {
   if (typeof S === 'undefined' || !S) return 0;
   const dnes = _debtDnes(); let n = 0;
+  //  v12.30: půjčka bez kotvy ji dostane DŘÍV, než se splátkám ze šablony smaže příznak čekání (jinak by kotva
+  //  sedla na den té splátky a splátka by Zbývá nesnížila)
+  if (typeof debtPrepocitejVse === 'function') n += debtPrepocitejVse();
   (S.transactions || []).forEach(t => {
     if (!t || !t.debtCeka) return;
     const den = String(t.date || '').slice(0, 10); if (!den || den > dnes) return;
@@ -1518,9 +1609,10 @@ function debtAplikujCekajiciSplatky() {
     if (t.splitParent) return;
     const debt = (S.debts || []).find(x => x.id === t.debtId); if (!debt) return;
     if (debt.zbyvaKeDni && debt.zbyvaKeDni.den && den <= debt.zbyvaKeDni.den) return;   // už ve výpisu
-    debt.remaining = Math.max(0, Math.round(((debt.remaining || 0) - (t.amount || t.amt || 0)) * 100) / 100);
     if (Array.isArray(debt.schedule)) { const u = debt.schedule.find(x => !x.paid); if (u) u.paid = true; }
   });
+  //  v12.30 (body 1 a 20): Zbývá se dopočítá ze všech splátek (s úrokem) – i po smazání či úpravě jinde
+  if (typeof debtPrepocitejVse === 'function') n += debtPrepocitejVse();
   return n;
 }
 window.debtAplikujCekajiciSplatky = debtAplikujCekajiciSplatky; window.debtPlnyPlan = debtPlnyPlan;
@@ -2454,7 +2546,7 @@ function renderDebtFreedomWidget(D) {
     if(!schedule.length) return latest;
     const last = schedule[schedule.length-1].date;
     return last > latest ? last : latest;
-  }, new Date().toISOString().slice(0,10));
+  }, (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)));
   const debtFreeDate = new Date(lastPaymentDate);
   const today = new Date();
   const daysUntilFree = Math.ceil((debtFreeDate - today) / (24*60*60*1000));
@@ -2674,7 +2766,7 @@ function buildDebtSpiralWarnings(D) {
   if(highRpsnDebts.length > 0) warnings.push('🔴 ' + highRpsnDebts.length + ' půjčka s úrokem > 30% p.a. – drahé peníze');
 
   // Signál 6 – po splatnosti
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const overdueDebts = debts.filter(d => d.dueDate && d.dueDate < today && d.remaining > 0);
   if(overdueDebts.length > 0) warnings.push('🔴 ' + overdueDebts.length + ' půjčka po datu splatnosti!');
 
@@ -2754,7 +2846,7 @@ function runConsolidate() {
     remaining: totalRemaining, total: totalRemaining,
     interest: newRate, freq: 'monthly',
     payment: customPayment || calcAnnuity(totalRemaining, newRate, 12, newMonths),
-    startDate: new Date().toISOString().slice(0,10)
+    startDate: (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))
   };
   const consSchedule = generateSchedule(consDebt);
   const consTotalPaid = consSchedule.reduce((a,s) => a+s.payment, 0);
@@ -2827,7 +2919,7 @@ function importConsolidated() {
       od.closed = true;
       od.closedReason = 'consolidated';
       od.consolidatedInto = d.id;
-      od.closedAt = new Date().toISOString().slice(0,10);
+      od.closedAt = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
       closed++;
     }
   });
