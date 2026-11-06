@@ -1,4 +1,4 @@
-// FinanceFlow · v12.29 · admin.js · 2026-11-04
+// FinanceFlow · v12.34 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,58 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.34',
+    datum: '2026-11-06',
+    zmeny: [
+      "🧾 TRANSAKCE Z ÚČTENKY SE UPRAVUJE V EDITORU ÚČTENKY (Milan: „editace v Transakci byla přesměrována na účtenku… nyní edituješ přímo v transakcích, dole vidíš modré tagy, které jsou ve skutečnosti zelené štítky“) · cesta: Transakce → ✎ (počítač) / swipe → Upravit (mobil) / 📷 u transakce z účtenky. Tlačítko ✎ na počítači otevíralo obyčejný formulář transakce – ten zelené štítky položek ukázal jako modré tagy a uložením mohl rozbít vazbu na účtenku. Teď otevře editor účtenky; účtenka se hledá podle pevné vazby, ne první se stejným datem a obchodem. Běžné transakce se upravují jako dřív.",
+      "✂️ ROZDĚLENÍ TRANSAKCE · cesta: Transakce → ✎ → ✂️ Rozdělit. Části začínají kategorií i podkategorií rozdělované platby (dřív první kategorie v seznamu a podkategorie chyběla úplně), každá část má vlastní výběr podkategorie, přebírá název a typ platby. Části se čtou podle svého řádku, takže po odebrání řádku se žádná neztratí.",
+      "🔁 ROZDĚLENÁ PLATBA NENÍ DUPLIKÁT · cesta: Transakce → upozornění „Přesný duplikát“. Části téže rozdělené platby (stejné datum, částka, kategorie) se hlásily jako jasný duplikát jedna druhé a rodič rozdělené platby se porovnával s ostatními. Teď se neporovnávají; skutečné duplikáty se hlásí dál.",
+      "💰 VÝHLED PŘÍJMŮ RESPEKTUJE VÁHU STABILITY (Milan: „jednorázové prodeje ani cashbacky se do průměru výplaty nebo příjmu nepočítají – váha 0 %“) · cesta: Report → Měsíční report → Výhled příjmů. Průměr příjmů mimo šablony teď každou kategorii násobí její váhou z karty (Kategorie → příjmová kategorie → Stabilita příjmu): Jednorázový typ 0 % se nepočítá vůbec, 50 % napůl, Stabilní 100 % celý. Stejnou váhu (catVahaPrijmu) používá základ příjmu pro limity. Když nemáš váhu nastavenou u žádné příjmové kategorie, zůstává prostý průměr.",
+      "🧪 tools/smoke_split_uctenka_edit.js (14) – na v12.33 padá. Chromium 390 px: rozdělení Dárky/Narozeniny → obě části Dárky + Narozeniny, bez upozornění na duplikát; ✎ u transakce z účtenky → editor účtenky; výhled bez prodeje auta (váha 0) – bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.33',
+    datum: '2026-11-06',
+    zmeny: [
+      "🧾 TRANSAKCE JDE S OPRAVENOU ÚČTENKOU (Milan: „jak to, že se mi v transakcích nezobrazuje transakce z naskenované účtenky 1. 10. 2026?“) · cesta: Analýza účtenek → 🧾 Historie → ✎ účtenka → Uložit změny (i ↔ Prohodit den a měsíc). Transakce se k upravené účtence hledala jen podle DATA a OBCHODU. Když se v editoru datum nebo obchod opravily, nenašla se: účtenka měla 1. 10. 2026, transakce zůstala na původně přečteném 10. 1. 2026 (v lednu), dál se jí nepropisovaly položky ani částka – a editor přesto hlásil „změny promítnuty i do transakcí“. Teď se hledá podle pevné vazby (receiptAddedAt, od S25), u starších podle data a obchodu PŘED úpravou; datum a obchod se do transakce propíšou (datum, které sis u transakce změnil sám, a přejmenovaný název zůstanou). Když se transakce nenajde, editor to řekne.",
+      "🩹 JIŽ ROZPOJENÉ DVOJICE · po spuštění appky (a při ukládání) dostane transakce s pevnou vazbou datum a obchod své účtenky – tvoje účtenka Lidl se tak sama vrátí do října.",
+      "🧪 tools/smoke_uctenka_vazba.js (10) – na v12.32 padá. Chromium 390 px (Praha): účtenka přečtená 10. 1. → ✎ → ↔ Prohodit → Uložit: transakce 1. 10. 2026 v říjnu (v12.32: zůstala 10. 1. 2026), bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.32',
+    datum: '2026-11-05',
+    zmeny: [
+      "🧾 NÁZEV POLOŽKY DOSLOVA Z ÚČTENKY (Milan: „na účtence bylo ‚sušenky polom.hořké‘, v editoru ‚sušenky polomáčené hořké‘ – AI pozměnilo název, což vedlo k nepřiřazení známého výrobku… jinak tu bojujeme sami proti sobě“) · cesta: Analýza účtenek → 📷 sken účtenky → editor položek. Čtení účtenky nemělo pravidlo, jak psát název, a AI zkratky „pro čitelnost“ rozepisovalo. Výrobek se ale pozná podle spojení obchod + zkratka – rozepsaný název je pro appku jiná položka. Teď (worker, PRAVIDLO 8) se název opíše doslova se zkratkami a tečkami; výklad zkratky dá AI zvlášť a editor ho ukáže šedě pod názvem („≈ sušenky polomáčené hořké“). Výklad slouží i jako záloha pro zařazení do kategorie a COICOP, do názvu se nepřebírá.",
+      "🔗 ZKRATKA ↔ ROZEPSANÝ NÁZEV · tamtéž. Dřívější účtenky mají názvy rozepsané, nové zkratky – aby se známé výrobky našly i tak: stejný obchod, stejný počet slov, každé slovo stejné nebo jedno začátkem druhého (aspoň 3 písmena), čísla a gramáž přesně, a jen jediný kód. „SUŠENKY POLOM.HOŘKÉ“ = „sušenky polomáčené hořké“; „polotučné“ ≠ „plnotučné“, 150 g ≠ 400 g, jiný obchod ne.",
+      "🧪 tools/smoke_ean_zkratka.js (14) – na v12.31 padá 7. Chromium 390 px: nová účtenka Penny se zkratkou dostala kód z dřívější rozepsané položky, u jogurtu bez kódu šedý výklad, bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.31',
+    datum: '2026-11-04',
+    zmeny: [
+      "💶 AUDIT BOD 3 · INVESTICE Z CIZÍ MĚNY V KČ · cesta: Dashboard → Moje úspory a investice. Vklad 100 € (2 500 Kč) z eurové peněženky se sečetl jako 100 Kč – součet bral částku v měně peněženky. Teď přes txCZK jako všechny ostatní součty.",
+      "📈 AUDIT BOD 4 · VÝHLED PŘÍJMŮ · cesta: Report → 📄 Měsíční report → Výhled příštího měsíce (i AI shrnutí). Jakmile existovala aspoň jedna měsíční šablona příjmu, výhled vzal JEN šablony a průměr příjmů zahodil: výplata 40 000 Kč bez šablony + šablona podnájmu 2 000 Kč → výhled 2 000 Kč a bilance hluboko v mínusu. Teď šablony + průměr 3 měsíců z příjmů, které šablona nepokrývá (podle názvu, kategorie nebo „Auto-šablona“). Pojistka: nikdy víc než větší z (průměr všech příjmů, šablony), aby se příjem bez názvu nebo z importu nesečetl dvakrát. Report vypíše rozpad.",
+      "🎯 AUDIT BOD 6 · JEDEN LIMIT KATEGORIE · cesta: Report → Měsíční report → Rozpočty, Finanční zdraví, Finanční skóre (rozpočet), Úsporné tipy. Report počítal % z prostého průměru VŠECH příjmů za 3 měsíce (i jednorázových), Finanční zdraví % ze ZÁKLADU PŘÍJMU (váhy stability, ADR-044) – stejná kategorie jednou v limitu, jednou přes. Teď všude catLimitVydaju: přísnější z (% základu příjmu, Kč strop); základ ke zvolenému měsíci reportu. Úsporné tipy nově respektují i Kč strop.",
+      "💳 AUDIT BOD 8 · SPLÁTKY V REPORTU · cesta: Report → Měsíční report → Dluhy, AI shrnutí reportu i AI rádce. Brala se jen pevná splátka půjčky – půjčka s rozpisem splátek (installments) měla 0 Kč, skóre přitom počítalo 4 500 Kč. Teď jeden výpočet debtMesicniSplatka (rozpis k měsíci reportu, týdenní × 4,33, splacená 0) pro skóre, Report i AI.",
+      "🧪 tools/smoke_audit_3468.js (17) – na v12.30 padá; smoke_dluhy_zmeny.js doplněn o debtMesicniSplatka. Chromium (Praha, listopad 2026): investice 100 € = 2 500 Kč; limit potravin 20 % = 8 400 Kč v Reportu i ve Finančním zdraví (základ 42 000 Kč, jednorázový prodej se nepočítá; dřív Report 12 000 Kč); splátka úvěru s rozpisem 4 500 Kč v Reportu i skóre; bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.30',
+    datum: '2026-11-04',
+    zmeny: [
+      "💳 AUDIT BOD 1 · SPLÁTKA SNIŽUJE ZBÝVÁ JEN O JISTINU · cesta: Půjčky → karta půjčky → Zbývá (a Dashboard → Čistý majetek, Finanční skóre → zadluženost, Finanční obraz). Dřív se odečetla celá splátka i s úrokem – hypotéka 2 000 000 Kč, 5 %, 12 × 12 000 Kč ukazovala 1 856 000 Kč, správně je 1 954 978 Kč (stejně jako splátkový kalendář). Teď se z každé splátky nejdřív zaplatí úrok za období od předchozí splátky (zbytek × sazba / 12, u týdenních podle dnů; sazba podle změn úroku), Zbývá sníží jen jistina. Mimořádná splátka jde celá na jistinu. Půjčky bez úroku beze změny.",
+      "↩️ AUDIT BOD 20 · SMAZÁNÍ A ÚPRAVA SPLÁTKY · cesta: Transakce → splátka → ✕ / ✎. Zbývá se už jen neodečítá, ale vždy dopočítá z „Zbývá · ke dni“ a navázaných splátek: smazaná splátka vrátí částku, změna částky se promítne, totéž import z banky, Doručené, duplicity i synchronizace z jiného zařízení. Potvrzení smazání splátky to řekne.",
+      "📌 STARÉ PŮJČKY · půjčka založená před v12.01 (bez „Zbývá · ke dni“) dostane při prvním spuštění kotvu = dnešní zbytek k poslední zapsané splátce – Zbývá se nezmění, další splátky už se počítají s úrokem. Půjčky s „Zbývá · ke dni“ se přepočítají od toho dne (přesnější). Přesný zůstatek z výpisu zadáš v ✎ → Zbývá · ke dni. Splacená půjčka (0 Kč) se kvůli drobnému rozdílu v úroku neoživí.",
+      "🔁 AUDIT BOD 19 · PŘEVOD SE MAŽE CELÝ · cesta: Transakce → řádek převodu → ✕ (i v detailu projektu). Dřív smazání jedné poloviny nechalo druhou – po smazání výdaje 1 000 Kč si eurová peněženka nechala 39,53 € a peníze vznikly z ničeho. Teď se smažou obě poloviny a potvrzení vypíše obě peněženky s částkou v jejich měně.",
+      "🕛 AUDIT BOD 2 · DNEŠNÍ DATUM V MÍSTNÍM ČASE · cesta: ＋ Nová transakce, Převod, Opakované šablony → ⚡, vklady do cílů, import, Doručené/SMS, měřidla, vozidla, půjčky, projekty, aktiva. Dnešek se bral v UTC – 1. 11. v 0:30 nabídla nová transakce 31. 10. a platba spadla do minulého měsíce (jiný report, rozpočet, skóre). Teď jedna funkce ffDnes() / ffDatum() (helpers.js) na 56 místech.",
+      "🧪 tools/smoke_dluh_jistina.js (19), smoke_dnes_mistni.js (8) – na v12.29 padají; smoke_dluhy_zmeny.js upraven (počet změn místo počtu splátek). Chromium 390 px, Praha 1. 11. 0:30: nová transakce 2026-11-01; splátka 12 000 Kč hypotéky → Zbývá 1 996 333 Kč (jistina 3 667 jako na kartě), smazání → 2 000 000 Kč; smazání poloviny převodu smaže obě, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.29',
     datum: '2026-11-04',
@@ -10142,16 +10194,34 @@ function openSplitModal(txId) {
   const half = Math.round(_splitTotal/2*100)/100;
   const rest = Math.round((_splitTotal - half)*100)/100;
 
+  //  S28 (v12.34, Milan: „při rozdělení je tam přednastavená kategorie a chybí podkategorie“): první řádek
+  //  dostane kategorii I podkategorii rozdělované platby (dřív se nevybrala – ukázala se první v seznamu,
+  //  „Nákupy potravin“ u Dárků), druhý stejnou kategorii; u každé části výběr podkategorie.
+  _splitParentSub = tx.subcat || '';
   document.getElementById('splitItemsList').innerHTML = `
-    ${buildSplitRow(0, tx.catId||tx.category||'', half, catOptions, false)}
-    ${buildSplitRow(1, '', rest, catOptions, false)}`;
+    ${buildSplitRow(0, tx.catId||tx.category||'', half, catOptions, false, tx.subcat||'')}
+    ${buildSplitRow(1, tx.catId||tx.category||'', rest, catOptions, false, '')}`;
 
   splitAttachListeners();
   splitUpdateSum();
   document.getElementById('modalSplit').classList.add('open');
 }
 
-function buildSplitRow(i, catId, amt, catOptionsHtml, removable) {
+let _splitParentSub = '';
+//  v12.34: podkategorie části – nabídka z vybrané kategorie (+ vlastní text přes datalist)
+function splitSubOptions(catId, sel) {
+  const c = (getData().categories || []).find(x => x.id === catId);
+  const subs = (c && c.subs) || [];
+  const e = v => (typeof escHtml === 'function' ? escHtml(String(v)) : String(v));
+  return `<option value="">– podkategorie –</option>` + subs.map(x => `<option value="${e(x)}"${x === sel ? ' selected' : ''}>${e(x)}</option>`).join('')
+    + (sel && !subs.includes(sel) ? `<option value="${e(sel)}" selected>${e(sel)}</option>` : '');
+}
+function splitCatChange(i) {
+  const c = document.getElementById('split-cat-' + i)?.value || '', sub = document.getElementById('split-sub-' + i);
+  if (sub) sub.innerHTML = splitSubOptions(c, '');
+}
+window.splitCatChange = splitCatChange;
+function buildSplitRow(i, catId, amt, catOptionsHtml, removable, subcat) {
   const isMain = i === 0;
   const border = isMain ? '2px solid #f59e0b' : '1px solid var(--border)';
   const label = isMain
@@ -10164,8 +10234,8 @@ function buildSplitRow(i, catId, amt, catOptionsHtml, removable) {
   return `<div id="split-row-${i}" style="padding:10px;background:var(--surface2);border-radius:8px;border:${border};margin-bottom:10px${isMain?';box-shadow:0 0 0 1px rgba(245,158,11,.2)':''}">
     ${label}
     <div style="display:flex;gap:8px;align-items:center">
-      <select id="split-cat-${i}" class="fi" style="flex:1;font-size:.8rem">
-        ${catOptionsHtml || ''}
+      <select id="split-cat-${i}" class="fi" style="flex:1;font-size:.8rem;min-width:0" onchange="splitCatChange(${i})">
+        ${(catOptionsHtml || '').replace(`value="${catId}"`, `value="${catId}" selected`)}
       </select>
       <input id="split-amt-${i}" type="number" min="0" step="0.01" inputmode="decimal"
         value="${amt}" ${isMain?'readonly':''} 
@@ -10174,6 +10244,7 @@ function buildSplitRow(i, catId, amt, catOptionsHtml, removable) {
       <span style="font-size:.76rem;color:var(--text2);flex-shrink:0">Kč</span>
       ${removable ? `<button onclick="splitRemoveRow(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:0 2px;flex-shrink:0">✕</button>` : '<div style="width:22px"></div>'}
     </div>
+    <select id="split-sub-${i}" class="fi" style="margin-top:6px;font-size:.78rem;width:100%">${splitSubOptions(catId, subcat || '')}</select>
   </div>`;
 }
 
@@ -10237,10 +10308,11 @@ function splitUpdateSum() {
 function splitAddItem() {
   const list = document.getElementById('splitItemsList');
   const existing = list.querySelectorAll('[id^="split-row-"]');
-  const i = existing.length;
+  const i = [...existing].reduce((m, r) => Math.max(m, parseInt(r.id.replace('split-row-', ''), 10) + 1 || 0), 0);   // v12.34: id se neopakuje
   const catOptions = splitGetCatOptions();
   const div = document.createElement('div');
-  div.innerHTML = buildSplitRow(i, '', 0, catOptions, true);
+  const _tx0 = (getData().transactions || []).find(t => t.id == _splitTxId);
+  div.innerHTML = buildSplitRow(i, (_tx0 && (_tx0.catId || _tx0.category)) || '', 0, catOptions, true, '');   // v12.34
   list.appendChild(div.firstElementChild);
   splitAttachListeners();
   splitAutoFill(i); // přepočítej první řádek
@@ -10265,10 +10337,12 @@ function saveSplit() {
   // Sesbírej data z DOM
   const rows = document.querySelectorAll('[id^="split-row-"]');
   const items = [];
-  rows.forEach((row, idx) => {
+  rows.forEach((row) => {
+    const idx = row.id.replace('split-row-', '');   // v12.34: podle id řádku (po odebrání řádku index nesedí)
     const amt = parseFloat(document.getElementById('split-amt-'+idx)?.value)||0;
     const catId = document.getElementById('split-cat-'+idx)?.value||'';
-    if(amt > 0) items.push({amt, catId});
+    const subcat = document.getElementById('split-sub-'+idx)?.value||'';   // v12.34
+    if(amt > 0) items.push({amt, catId, subcat});
   });
 
   if(items.length < 2) { alert('Přidejte alespoň 2 části.'); return; }
@@ -10284,18 +10358,22 @@ function saveSplit() {
 
   items.forEach((it, i) => {
     const catObj = (D.categories||[]).find(c=>c.id===it.catId) || getCat(tx.catId||tx.category, D.categories);
+    //  v12.34: část nese podkategorii a název rozdělované platby (dřív název kategorie a prázdnou podkategorii),
+    //  peněženku dál drží jen rodič (zůstatek se nepočítá dvakrát)
     S.transactions.push({
       id: genTxId(),
-      name: catObj.name || ('Část ' + (i+1)),
+      name: tx.name || catObj.name || ('Část ' + (i+1)),
       amount: it.amt, amt: it.amt,
       type: tx.type,
       date: tx.date,
       catId: it.catId || tx.catId || tx.category,
       category: it.catId || tx.catId || tx.category,
-      subcat: '',
+      subcat: it.subcat || '',
       note: '',
+      ...(tx.payType ? { payType: tx.payType } : {}),
       splitId, splitParent: false,
     });
+    if (it.subcat && typeof ensureSubcat === 'function') ensureSubcat(it.catId || tx.catId, it.subcat);
   });
 
   save();

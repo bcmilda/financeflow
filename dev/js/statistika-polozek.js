@@ -1,4 +1,4 @@
-// FinanceFlow · v12.12 · statistika-polozek.js · 2026-10-26
+// FinanceFlow · v12.32 · statistika-polozek.js · 2026-11-05
 // ══════════════════════════════════════════════════════════════════════
 //  S25 (Milan): STATISTIKA POLOŽEK – statistický nástroj nad Mapou položek
 //  cesta: Analýza účtenek → 📐 Statistika položek
@@ -28,7 +28,7 @@ function spRadky(receipts, mapa, D) {
     const klic = nn(it.name); const m = (kodEan && podleKlice['ean:' + kodEan]) || podleKlice[(typeof mapaSpojeniKam === 'function' && mapaSpojeniKam(klic)) || klic] || podleKlice[klic];   // v12.12: ručně spojené zkratky
     const castka = Math.round(amt(it) * 100) / 100;
     const q = parseFloat(it.qty) || 1;
-    const pg = (typeof productGroupLookup === 'function') ? productGroupLookup(it.name) : null;
+    const pg = (typeof productGroupLookup === 'function') ? (productGroupLookup(it.name) || (it.nazevAI ? productGroupLookup(it.nazevAI) : null)) : null;   // v12.32
     const tax = m && m.z.tax;
     //  S25: kód z taxonomie (bývá hlubší, až 5. úroveň přílohy potravin), jinak z koše ČSÚ
     const kodT = tax && (tax.coicop5 || tax.coicop);   // S25: 5. úroveň, když ji taxonomie má

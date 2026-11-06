@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · helpers.js · 2026-10-23
+// FinanceFlow · v12.31 · helpers.js · 2026-11-04
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -141,7 +141,9 @@ function computeTransferTotals(D){
   txs.forEach(t=>{
     const cid = t.catId||t.category;
     if(!perCat[cid]) return;
-    const amt = (t.amount||t.amt||0);
+    //  S28 (v12.31, audit bod 3): částka v Kč – vklad 100 € z eurové peněženky se dřív sečetl jako 100 Kč
+    //  (t.amount je v měně peněženky). txCZK jako všechny ostatní součty.
+    const amt = (typeof txCZK==='function') ? txCZK(t, D) : (t.amount||t.amt||0);
     const sign = (t.type==='income') ? -1 : 1; // příjem = výběr (mínus), výdaj = vklad (plus)
     perCat[cid].total += sign*amt;
     const d = new Date(t.date);
@@ -425,23 +427,25 @@ function sanitizeUserData(D){
   return D;
 }
 
+//  S28 (v12.31, audit bod 8): měsíční splátka JEDNÉ půjčky k měsíci 'YYYY-MM' – rozpis splátek
+//  (installments, platí poslední s from ≤ měsíc), jinak splátka × frekvence. Sdílí Finanční skóre (DSTI),
+//  Měsíční report i AI shrnutí. Report dřív bral jen d.payment → půjčka s rozpisem splátek měla 0 Kč.
+function debtMesicniSplatka(d, mesic){
+  if(!d) return 0;
+  if(d.remaining != null && !(d.remaining > 0)) return 0;   //  v12.01: splacená / konsolidací uzavřená půjčka
+  if(Array.isArray(d.installments)&&d.installments.length){
+    let cur=d.installments[0].amt||0;
+    for(const inst of d.installments){ if((inst.from||'')<=mesic) cur=inst.amt||cur; }
+    return cur;
+  }
+  const base=d.payment||d.installment||0;
+  const f=d.freq||'monthly';
+  return f==='weekly'?base*4.33:f==='biweekly'?base*2.17:base;
+}
+window.debtMesicniSplatka = debtMesicniSplatka;
 function computeMonthlyDebtPayments(D){
   const nowStr=`${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;
-  return (D.debts||[]).reduce((a,d)=>{
-    //  v12.01: splacená / konsolidací uzavřená půjčka (zbývá 0) už splátku nemá
-    if(d && d.remaining != null && !(d.remaining > 0)) return a;
-    let amt;
-    if(Array.isArray(d.installments)&&d.installments.length){
-      let cur=d.installments[0].amt||0;
-      for(const inst of d.installments){ if((inst.from||'')<=nowStr) cur=inst.amt||cur; }
-      amt=cur;
-    } else {
-      const base=d.payment||d.installment||0;
-      const f=d.freq||'monthly';
-      amt=f==='weekly'?base*4.33:f==='biweekly'?base*2.17:base;
-    }
-    return a+amt;
-  },0);
+  return (D.debts||[]).reduce((a,d)=>a+debtMesicniSplatka(d, nowStr),0);
 }
 // S16 (TODO-160): Příjmová základna pro DTI/DSTI = KLOUZAVÝ PRŮMĚR měsíčního příjmu.
 // Milan: „klouzavé průměry jsou super, necháme je, jen doplníme škálu" → DTI 12M, DSTI 3–12M.
@@ -1360,6 +1364,17 @@ function normKey(text) {
 }
 
 window.normName = normName; window.normQty = normQty; window.normKey = normKey;
+
+//  S28 (v12.30, audit bod 2): MÍSTNÍ datum 'YYYY-MM-DD'. new Date().toISOString() je v UTC → v Praze mezi
+//  půlnocí a 1:00 (v létě 2:00) vyšel VČEREJŠEK – nová transakce, převod, šablona i import 1. 11. v 0:30
+//  dostaly 31. 10. a spadly do minulého měsíce (jiný report, rozpočet, skóre). Jedna funkce pro celou appku.
+function ffDatum(d) {
+  const x = d == null ? new Date() : (d instanceof Date ? d : new Date(d));
+  if (isNaN(x)) return '';
+  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+}
+function ffDnes() { return ffDatum(new Date()); }
+window.ffDatum = ffDatum; window.ffDnes = ffDnes;
 
 //  v12.08 (Milan: „u EVO paliva 67 kg/l a v Detektoru úspor 67 ks – nesedí jednotky“):
 //  jednotka množství JEDNÉ položky účtenky: palivo z tankování = l, vážené zboží = kg / l, jinak ks.

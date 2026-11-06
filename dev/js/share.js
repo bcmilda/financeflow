@@ -1,4 +1,4 @@
-// FinanceFlow · v12.25 · share.js · 2026-11-01
+// FinanceFlow · v12.30 · share.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -128,7 +128,7 @@ async function checkIncomingRef() {
       [`referrals/${ref}/clicks`]: (typeof window._increment === 'function' ? window._increment(1) : 1),
       [`referral_clicks/${Date.now()}_${Math.random().toString(36).slice(2,6)}`]: {
         refCode: ref,
-        date: new Date().toISOString().slice(0,10),
+        date: (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
         converted: false,
       }
     }).catch(() => {});
@@ -253,7 +253,7 @@ window.referralEligible = referralEligible;
 async function trackDailyLogin(){
   if(!window._db || !window._currentUser) return;
   const uid = window._currentUser.uid;
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   try {
     const snap = await _get(_ref(_db, `users/${uid}/activity`));
     const a = snap.exists() ? (snap.val()||{}) : {};

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.28 · ean-sken.js · 2026-11-02
+// FinanceFlow · v12.32 · ean-sken.js · 2026-11-05
 // ══════════════════════════════════════════════════════
 //  S24 (TODO-306 + TODO-308): ČÁROVÝ KÓD K POLOŽCE ÚČTENKY
 //  cesta: Účtenky → 📸 Skenovat → editor účtenky → 📷 u položky
@@ -1585,6 +1585,38 @@ function eanKodZPameti(obchod, nazev, odmitnute) {
   return kody.length === 1 ? { ean: kody[0], zdroj: 'historie' } : null;
 }
 window.eanKodZPameti = eanKodZPameti;
+//  S28 (v12.32): ZKRATKOVÁ SHODA. Dřívější účtenky mohou mít název, který AI rozepsalo („sušenky polomáčené
+//  hořké“), nové mají zkratku doslova („SUŠENKY POLOM.HOŘKÉ“) – a naopak. Spojení obchod + zkratka se
+//  pak nenašlo. Shoda: stejný obchod, stejný počet slov, každé slovo buď stejné, nebo jedno je začátkem
+//  druhého (aspoň 3 písmena), čísla a gramáž přesně, aspoň jedno slovo celé. Použije se jen JEDINÝ kód.
+function _eanZkratkaSedi(a, b) {
+  if (!a.length || a.length !== b.length) return false;
+  let cele = 0;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i], y = b[i];
+    if (x === y) { if (!/^\d/.test(x)) cele++; continue; }
+    if (/\d/.test(x) || /\d/.test(y)) return false;
+    const [k, d] = x.length <= y.length ? [x, y] : [y, x];
+    if (k.length < 3 || !d.startsWith(k)) return false;
+  }
+  return cele >= 1;
+}
+function eanKodPodobny(obchod, nazev, moje, odmitnute) {
+  const klic = _eanKlic(obchod, nazev);
+  if (!klic || eanJeViceDruhu(klic)) return null;
+  const i = klic.indexOf('__'); if (i < 0) return null;
+  const pre = klic.slice(0, i + 2), slova = klic.slice(i + 2).split('_').filter(Boolean);
+  const kody = new Set();
+  const zkus = (k, e) => {
+    if (!k || k === klic || !k.startsWith(pre) || !e || !eanKontrola(String(e))) return;
+    if (_eanOdmitnutoMa(odmitnute, klic, String(e)) || eanJeViceDruhu(k)) return;
+    if (_eanZkratkaSedi(slova, k.slice(pre.length).split('_').filter(Boolean))) kody.add(String(e));
+  };
+  Object.keys(moje || {}).forEach(k => { const v = moje[k]; zkus(k, v && (v.ean || v)); });
+  const h = _eanHistorie(); Object.keys(h).forEach(k => { const e = Object.keys(h[k]); if (e.length === 1) zkus(k, e[0]); });
+  return kody.size === 1 ? { ean: [...kody][0], zdroj: 'zkratka' } : null;
+}
+window.eanKodPodobny = eanKodPodobny;
 //  Doplní kód položkám jednoho seznamu (účtenka nebo receiptItems transakce).
 //  Vrací počet doplněných. nazev(ean) volitelně vrátí název výrobku pro eanNazev.
 function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
@@ -1592,7 +1624,8 @@ function eanDoplnSeznam(items, obchod, moje, komunita, odmitnute, nazev) {
   (items || []).forEach(it => {
     if (!it || !it.name || it.ean) return;
     const v = eanKodProKlic(_eanKlic(obchod, it.name), moje, komunita, odmitnute)
-      || (typeof eanKodZPameti === 'function' ? eanKodZPameti(obchod, it.name, odmitnute) : null);   // v12.28
+      || (typeof eanKodZPameti === 'function' ? eanKodZPameti(obchod, it.name, odmitnute) : null)   // v12.28
+      || (typeof eanKodPodobny === 'function' ? eanKodPodobny(obchod, it.name, moje, odmitnute) : null);   // v12.32: zkratka ↔ rozepsaný název
     if (!v) return;
     it.ean = v.ean;
     const nz = typeof nazev === 'function' ? nazev(v.ean) : '';

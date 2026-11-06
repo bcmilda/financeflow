@@ -1,4 +1,4 @@
-// FinanceFlow · v10.60 · ai.js · 2026-09-12
+// FinanceFlow · v12.31 · ai.js · 2026-11-04
 //  AI RÁDCE
 // ══════════════════════════════════════════════════════
 // Worker URL – sem doplňte URL po vytvoření Workeru
@@ -90,7 +90,8 @@ function buildFinanceContext(){
   // Dluhy
   const debts = D.debts||[];
   const totalDebt = debts.reduce((a,d)=>a+d.remaining,0);
-  const monthlyPayments = debts.reduce((a,d)=>{
+  //  S28 (v12.31, audit bod 8): stejný výpočet jako skóre a Měsíční report (rozpis splátek, splacené = 0)
+  const monthlyPayments = typeof computeMonthlyDebtPayments==='function' ? computeMonthlyDebtPayments(D) : debts.reduce((a,d)=>{
     const freq=d.freq||'monthly';
     return a+(freq==='weekly'?(d.payment||0)*4.33:freq==='biweekly'?(d.payment||0)*2.17:(d.payment||0));
   },0);
@@ -205,7 +206,7 @@ function aiExportChat() {
   }).join('\n\n---\n\n');
   const blob = new Blob([messages], {type:'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='financeflow-ai-chat-'+new Date().toISOString().slice(0,10)+'.txt';
+  const a = document.createElement('a'); a.href=url; a.download='financeflow-ai-chat-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.txt';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }

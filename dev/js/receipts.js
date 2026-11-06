@@ -1,4 +1,4 @@
-// FinanceFlow · v12.28 · receipts.js · 2026-11-02
+// FinanceFlow · v12.34 · receipts.js · 2026-11-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -4570,7 +4570,7 @@ function exportReceiptsCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'financeflow-uctenky-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.download = 'financeflow-uctenky-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
 }
@@ -5380,6 +5380,16 @@ function rcptPobockaNorm(r) {
   const a = t(r.storeAddress, 120), c = t(r.storeCity, 60), k = rcptKraj(r.storeRegion), i = t(r.storeIco, 12).replace(/\D/g, '');
   delete r.storeAddress; delete r.storeCity; delete r.storeRegion; delete r.storeIco;   // žádné prázdné / null do Firebase
   if (a) r.storeAddress = a; if (c) r.storeCity = c; if (k) r.storeRegion = k; if (i.length === 8) r.storeIco = i;
+  //  S28 (v12.32, Milan: „na účtence bylo ‚sušenky polom.hořké‘, v editoru ‚sušenky polomáčené hořké‘ – AI pozměnilo
+  //  název, což vedlo k nepřiřazení známého výrobku“): name = zkratka doslova z účtenky (podle ní se pozná výrobek),
+  //  výklad zkratky od AI zvlášť jako it.nazevAI – jen nápověda a záloha pro zařazení do kategorie.
+  (Array.isArray(r.items) ? r.items : []).forEach(it => {
+    if (!it || typeof it !== 'object') return;
+    const f = typeof it.fullName === 'string' ? it.fullName.trim().slice(0, 80) : '';
+    delete it.fullName;
+    const nn = typeof normName === 'function' ? normName : (x => String(x || '').toLowerCase());
+    if (f && f.toLowerCase() !== 'null' && nn(f) !== nn(it.name || '')) it.nazevAI = f;
+  });
   return r;
 }
 window.RCPT_KRAJE = RCPT_KRAJE; window.rcptKraj = rcptKraj; window.rcptPobockaNorm = rcptPobockaNorm;
@@ -5476,6 +5486,7 @@ function validateReceiptJSON(r) {
         itemCat: it.itemCat || '',
         itemCatId: it.itemCatId || '',
       };
+      if (typeof it.nazevAI === 'string' && it.nazevAI.trim()) o.nazevAI = it.nazevAI.trim().slice(0, 80);   // v12.32: výklad zkratky
       if (isFinite(lt) && lt !== 0) o.lineTotal = Math.round(lt * 100) / 100;
       if (disc) o.discount = disc;
       if (price < 0 || (o.lineTotal != null && o.lineTotal < 0)) {
@@ -5553,13 +5564,13 @@ async function updateItemStats(items, date) {
             count: (existing?.count||0) + 1,
             totalSpent: Math.round(((existing?.totalSpent||0) + price*qty)*100)/100,
             avgPrice: 0,
-            lastDate: date||new Date().toISOString().slice(0,10),
+            lastDate: date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
             catId: it.itemCatId||existing?.catId||'',
             subcat: it.subcat||it.itemSubcat||existing?.subcat||'',
           };
           updated.avgPrice = Math.round(updated.totalSpent/updated.count*100)/100;
           // Historie posledních 24 záznamů (pro trend grafu)
-          const hist = [...(existing?.history||[]), {date:date||new Date().toISOString().slice(0,10), price, qty}].slice(-24);
+          const hist = [...(existing?.history||[]), {date:date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)), price, qty}].slice(-24);
           updated.history = hist;
           return fetch(
             `https://financeflow-a249c-default-rtdb.europe-west1.firebasedatabase.app/users/${uid}/itemStats/${fireKey}.json?auth=${idToken}`,
@@ -5654,6 +5665,8 @@ function rpKodRadekHTML(it, i) {
     const vyb = it.ean ? _rpDruhNazev(String(it.ean), eanDruhy(klic)) : '';
     return `<div id="rp_kn_${i}" style="font-size:.66rem;line-height:1.3;padding-left:2px;color:${vyb ? 'var(--income)' : '#fbbf24'}">${vyb ? '▮▮ ' + escHtml(vyb) : '🔀 Který druh? ↓'}</div>`;
   }
+  //  v12.32: bez kódu ukáže výklad zkratky od AI (šedě) – název v poli zůstává doslova z účtenky
+  if (it && !it.ean && it.nazevAI) return `<div id="rp_kn_${i}" style="font-size:.66rem;color:#a8aec8;line-height:1.3;padding-left:2px" title="Výklad zkratky od AI – do názvu se nepřebírá">≈ ${escHtml(it.nazevAI)}</div>`;
   if (!it || !it.ean) return '';
   const nazev = rpKodNazev(it);
   if (!nazev) {
@@ -6458,16 +6471,20 @@ function rpSave() {
     if(r.id) i = S.receipts.findIndex(x => x && x.id === r.id);
     else if(S.receipts[histIdx] && !S.receipts[histIdx].id) i = histIdx;   // jen úplně stará účtenka bez id
     const cil = i >= 0 ? S.receipts[i] : null;
+    const stare = cil ? { date: cil.date, store: cil.store } : null;   // v12.33: pro starší transakce bez pevné vazby
     const upr = Object.assign({}, r, { updatedAt: Date.now() }); delete upr._historyIdx;
     if(cil) Object.assign(cil, upr); else S.receipts.push(upr);
-    // FIX (Úkol 3): re-sync tagy + receiptItems do propojených transakcí (podle data+obchodu)
-    syncReceiptToTransactions(r);
+    // FIX (Úkol 3): re-sync tagy + receiptItems do propojených transakcí (v12.33: podle pevné vazby, pak data+obchodu)
+    const _nTx = syncReceiptToTransactions(cil || upr, stare);
     save();
     _lastReceiptResult = null;
     const preview = document.getElementById('receiptPreview');
     const status = document.getElementById('receiptStatus');
     if(preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
-    if(status) { status.style.display='block'; status.innerHTML='<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Účtenka byla upravena (změny promítnuty i do transakcí).</div></div>'; }
+    //  v12.33: hlášení podle skutečnosti – dřív „promítnuto do transakcí“, i když se žádná nenašla
+    if(status) { status.style.display='block'; status.innerHTML= _nTx
+      ? '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Účtenka byla upravena (změny promítnuty i do transakce – datum, obchod, položky, částka).</div></div>'
+      : '<div class="insight-item warn"><div class="insight-icon">⚠️</div><div class="insight-text">Účtenka je uložená, ale <b>nenašel jsem k ní transakci</b> – do rozpočtů a reportů se nepočítá. Nejspíš je pod původním datem – najdi ji v Transakcích (obchod a částka, i v jiných měsících) a oprav jí datum ručně.</div></div>'; }
     window._receiptEditorOpen = false; // editor uzavřen → povol re-render
     renderUctenky();
     return;
@@ -6711,7 +6728,7 @@ function addReceiptAsTx(receipt) {
   if(!S.receipts) S.receipts=[];
 
   const items = receipt.items||[];
-  const date = receipt.date||new Date().toISOString().slice(0,10);
+  const date = receipt.date||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const store = receipt.store||'Nákup';
 
   //  Položky s dopočítanou řádkovou cenou (lineTotal má přednost – nese slevu).
@@ -7039,14 +7056,55 @@ function openReceiptInHistory(date, store, primoIdx, polozka) {
   }, 200);
 }
 window.openReceiptInHistory = openReceiptInHistory;
+//  S28 (v12.34, Milan: „editace v Transakci byla přesměrována na účtenku z obchodu a nyní edituješ přímo
+//  v transakcích… dole vidíš modré tagy, které jsou ve skutečnosti zelené štítky“): transakce naskenované
+//  účtenky se upravuje VŽDY v editoru účtenky (položky, kategorie i podkategorie položek, zelené štítky).
+//  Formulář transakce by její zelené štítky uložil jako modré tagy a kategorii položek by nepoznal.
+//  Účtenka se hledá podle pevné vazby (receiptAddedAt), u starších podle data a obchodu.
+function rcptJeTxUctenky(t) { return !!(t && !t.splitParent && ((Array.isArray(t.receiptItems) && t.receiptItems.length) || t.receiptAddedAt)); }
+function openReceiptForTx(id) {
+  const t = (S.transactions || []).find(x => x && x.id == id); if (!t) return false;
+  const R = S.receipts || [];
+  let i = t.receiptAddedAt ? R.findIndex(r => r && r.addedAt === t.receiptAddedAt) : -1;
+  if (i < 0 && typeof rcptNajdiTx === 'function') i = R.findIndex(r => r && rcptNajdiTx(r, S) === t);
+  if (i < 0) i = R.findIndex(r => r && (r.date || '') === (t.receiptDate || '') && String(r.store || '').toLowerCase() === String(t.receiptStore || '').toLowerCase());
+  if (i < 0) return false;
+  openReceiptInHistory(R[i].date, R[i].store, i);
+  return true;
+}
+Object.assign(window, { rcptJeTxUctenky, openReceiptForTx });
 
 // Re-sync tagů + receiptItems z editované účtenky do propojených transakcí
 // (transakce mají receiptDate + receiptStore z addReceiptAsTx)
-function syncReceiptToTransactions(r) {
-  if(!r || !S.transactions) return;
-  const linked = S.transactions.filter(t =>
-    t.receiptDate === r.date && (t.receiptStore||'').toLowerCase() === (r.store||'').toLowerCase());
-  if(!linked.length) return;
+function syncReceiptToTransactions(r, stare) {
+  if(!r || !S.transactions) return 0;
+  //  S28 (v12.33, Milan: „jak to, že se mi v transakcích nezobrazuje transakce z naskenované účtenky 1. 10. 2026?“):
+  //  transakce se k účtence hledala JEN podle data a obchodu. Když se v editoru datum nebo obchod opravily
+  //  (↔ Prohodit den a měsíc, překlep v názvu obchodu), už se nenašla – účtenka měla nové datum, transakce
+  //  zůstala se starým (třeba v lednu místo v říjnu) a dál se jí nic nepropsalo, přestože editor hlásil
+  //  „změny promítnuty i do transakcí“. Teď: 1) pevná vazba receiptAddedAt = addedAt účtenky (od S25),
+  //  2) u starších transakcí datum + obchod PŘED úpravou (stare), 3) nakonec nové datum + obchod.
+  //  Datum a obchod se do transakce propíšou.
+  const lc = x => String(x || '').toLowerCase();
+  let linked = r.addedAt ? S.transactions.filter(t => t && t.receiptAddedAt === r.addedAt) : [];
+  //  záloha podle data a obchodu: jen transakce bez pevné vazby (nebo účtenka bez addedAt) – ne transakce JINÉ účtenky
+  const volna = t => t && (!t.receiptAddedAt || !r.addedAt);
+  if(!linked.length && stare) linked = S.transactions.filter(t => volna(t) && t.receiptDate === stare.date && lc(t.receiptStore) === lc(stare.store));
+  if(!linked.length) linked = S.transactions.filter(t => volna(t) && t.receiptDate === r.date && lc(t.receiptStore) === lc(r.store));
+  if(!linked.length) return 0;
+  linked.forEach(t => {
+    const stDatum = t.receiptDate || t.date, stObchod = t.receiptStore || '';
+    if(r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) {
+      //  datum transakce jde s účtenkou – jen když si ho uživatel v transakci nezměnil sám
+      if(!t.date || t.date === stDatum) t.date = r.date;
+      t.receiptDate = r.date;
+    }
+    if(r.store) {
+      if(!t.name || t.name === stObchod) t.name = r.store;   // název transakce = obchod, pokud nebyl přepsán
+      t.receiptStore = r.store;
+    }
+    if(r.addedAt && !t.receiptAddedAt) t.receiptAddedAt = r.addedAt;   // starší transakce dostane pevnou vazbu
+  });
   //  FIX (audit S22): DVĚ VADY, OBĚ DŮSLEDEK PŘECHODU NA JEDNU TRANSAKCI (v10.73).
   //
   //  1) Filtr `it.itemCatId === t.catId` pocházel z doby, kdy každá transakce
@@ -7086,8 +7144,30 @@ function syncReceiptToTransactions(r) {
       t.amount = nova; t.amt = nova;
     }
   });
+  return linked.length;
 }
 window.syncReceiptToTransactions = syncReceiptToTransactions;
+//  S28 (v12.33): oprava už rozpojených dvojic. Účtenka, které se v editoru změnilo datum nebo obchod, měla
+//  transakci dál se starým datem (Milan: účtenka Lidl 1. 10. 2026 v Transakcích chyběla). Transakce s pevnou
+//  vazbou (receiptAddedAt) dostane datum a obchod účtenky – jen když si datum transakce nikdo nezměnil sám
+//  (t.date = t.receiptDate). Idempotentní, volá se při ukládání (save).
+function rcptOpravVazby(D) {
+  D = D || (typeof S !== 'undefined' ? S : null);
+  if (!D || !Array.isArray(D.receipts) || !Array.isArray(D.transactions)) return 0;
+  if (typeof viewingUid !== 'undefined' && viewingUid) return 0;
+  const podle = {};
+  D.receipts.forEach(r => { if (r && r.addedAt) podle[r.addedAt] = r; });
+  let n = 0;
+  D.transactions.forEach(t => {
+    const r = t && t.receiptAddedAt ? podle[t.receiptAddedAt] : null;
+    if (!r || !r.date || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return;
+    const stD = t.receiptDate || t.date;
+    if (t.receiptDate !== r.date && t.date === stD) { t.date = r.date; t.receiptDate = r.date; n++; }
+    if (r.store && t.receiptStore !== r.store) { if (!t.name || t.name === t.receiptStore) t.name = r.store; t.receiptStore = r.store; n++; }
+  });
+  return n;
+}
+window.rcptOpravVazby = rcptOpravVazby;
 
 // S17.13 (Milan): multifiltr položek v záložce Zdražování
 function pricePickToggle(n){
@@ -7399,7 +7479,7 @@ async function rrOdeslat(){
     }
 
     const zaznam = {
-      date: r.date || new Date().toISOString().slice(0,10),
+      date: r.date || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
       store: r.store || '',
       printedTotal: (r.printedTotal != null ? r.printedTotal : (r.total || 0)),
       itemsSum: c ? c.sum : null,

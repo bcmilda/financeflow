@@ -1,4 +1,4 @@
-//  FinanceFlow · v12.04 · duplicates.js · 2026-10-23
+//  FinanceFlow · v12.34 · duplicates.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -94,13 +94,17 @@ function dupPorovnej(a, b, amtA, amtB) {
 }
 //  Všechny podezřelé páry: [{a, b, type, score, reason}] (a = dřív přidaná)
 function dupPary(transactions) {
-  const txs = (transactions || []).filter(t => t && !DUP_CONFIG.IGNORE_CATS.includes(t.catId) && !DUP_CONFIG.IGNORE_CATS.includes(t.category) && !_dupIgnored[t.id])
+  //  S28 (v12.34, Milan: „při rozdělení transakce vyskočilo upozornění na jasný duplikát“): rodič rozdělené
+  //  platby se neporovnává (jeho částku nesou části – stejně jako přehled Podezřelé, ř. ~266) a části
+  //  TÉŽE platby nejsou duplikáty jedna druhé (10 + 10 Kč ve stejné kategorii ze 20 Kč).
+  const txs = (transactions || []).filter(t => t && !t.splitParent && !DUP_CONFIG.IGNORE_CATS.includes(t.catId) && !DUP_CONFIG.IGNORE_CATS.includes(t.category) && !_dupIgnored[t.id])
     .map(t => ({ t, amt: dupCastka(t) })).filter(x => x.amt).sort((x, y) => x.amt - y.amt);
   const out = [];
   for (let i = 0; i < txs.length; i++) {
     for (let j = i + 1; j < txs.length && txs[j].amt - txs[i].amt <= 1; j++) {
       const A = txs[i], B = txs[j];
       if (dupJeNeni(A.t.id, B.t.id)) continue;
+      if (A.t.splitId && A.t.splitId === B.t.splitId) continue;   // v12.34: části téže rozdělené platby
       const r = dupPorovnej(A.t, B.t, A.amt, B.amt); if (!r) continue;
       const [a, b] = dupPridano(A.t) <= dupPridano(B.t) ? [A.t, B.t] : [B.t, A.t];
       out.push(Object.assign({ a, b }, r));

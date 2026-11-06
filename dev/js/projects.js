@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · projects.js · 2026-10-23
+// FinanceFlow · v12.34 · projects.js · 2026-11-06
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -75,7 +75,7 @@ function renderProjectGrid() {
       </div>
       <div style="display:flex;gap:16px;font-size:.78rem;margin-bottom:10px;padding:8px;background:var(--surface2);border-radius:8px">
         <div><span style="color:var(--text3)">Zahájení:</span> <strong>${p.start||'–'}</strong></div>
-        <div><span style="color:var(--text3)">Ukončení:</span> <strong>${p.end||p.closed?p.end||new Date().toISOString().slice(0,10):'–'}</strong></div>
+        <div><span style="color:var(--text3)">Ukončení:</span> <strong>${p.end||p.closed?p.end||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)):'–'}</strong></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px">
         <span style="color:var(--expense)">Výdaje: <strong>${fmtB(spent)}</strong></span>
@@ -345,8 +345,13 @@ function editTxFromProject(txId, projectId) {
 }
 
 function deleteTxFromProject(txId, projectId) {
-  if(!confirm('Smazat transakci?')) return;
-  S.transactions = S.transactions.filter(t => t.id != txId);
+  //  v12.30 (audit body 19 a 20): převod se maže celý (obě poloviny), smazaná splátka vrátí Zbývá půjčky
+  const _t = (S.transactions||[]).find(t => t.id == txId);
+  const _ids = new Set(_t && _t.transferId ? S.transactions.filter(x => x && x.transferId === _t.transferId).map(x => x.id) : [_t ? _t.id : txId]);
+  if(!confirm(_ids.size > 1 ? 'Smazat celý převod? Smažou se obě poloviny (z jedné i do druhé peněženky).' : 'Smazat transakci?')) return;
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // kotva půjček před změnou
+  S.transactions = S.transactions.filter(t => !_ids.has(t.id));
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();
   save();
   renderProjectDetail(projectId);
 }
@@ -365,7 +370,7 @@ function openProjectModal() {
   ['editProjectId','projectName','projectDesc','projectBudget','projectEnd'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('projectType').value='vacation';
   document.getElementById('projectColor').value='#06b6d4';
-  document.getElementById('projectStart').value=new Date().toISOString().slice(0,10);
+  document.getElementById('projectStart').value=(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   document.getElementById('projectModalTitle').textContent='Nový projekt';
   document.getElementById('modalProject').classList.add('open');
 }
@@ -413,7 +418,7 @@ function toggleProjectClosed(id) {
   const p=(S.projects||[]).find(x=>x.id===id); if(!p) return;
   p.closed=!p.closed;
   if(p.closed && !p.end) {
-    p.end = new Date().toISOString().slice(0,10); // auto-set end date
+    p.end = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)); // auto-set end date
   }
   save(); renderProjectGrid();
 }
@@ -452,20 +457,31 @@ function populateTxTransferWallets() {
 // ══════════════════════════════════════════════════════
 
 // Výpočet stabilního základního příjmu – průměr 3 měsíce
-function computeBaseIncome(D) {
+//  ADR-044: váha stability příjmové kategorie (karta kategorie → Typ příjmu: pravidelný 100 %, …,
+//  jednorázový 0 %). Uložená stabilityWeight má přednost, legacy stable:true = 1, neoznačené = 0.
+function catVahaPrijmu(cat) {
+  if (!cat) return 0;
+  if (cat.stabilityWeight !== undefined && cat.stabilityWeight !== null) return Number(cat.stabilityWeight) || 0;
+  return cat.stable === true ? 1 : 0;
+}
+window.catVahaPrijmu = catVahaPrijmu;
+function computeBaseIncome(D, mes, rok) {
+  //  S28 (v12.31, audit bod 6): volitelně pro zadaný měsíc (Měsíční report za vybraný měsíc) – jinak
+  //  jako dřív 3 měsíce před zobrazeným měsícem (S.curMonth).
   // ADR-044 (Session 9): Vážený základ příjmu
   // Každá příjmová kategorie má stabilityWeight (0.0–1.0).
   // baseIncome = Σ(průměr_3M_kategorie × weight)
   // Neoznačené kategorie (weight undefined/null nebo 0) se nezapočítávají.
   // Fallback (jen pokud ŽÁDNÁ kategorie nemá weight > 0): průměr všech příjmů za 3M.
   D = D || getData();
+  const _bm = Number.isInteger(mes) ? mes : S.curMonth, _by = Number.isInteger(rok) ? rok : S.curYear;
   const incCats = (D.categories||[]).filter(c => c.type==='income' || c.type==='both');
 
   // Spočítej průměr příjmů za poslední 3 měsíce pro každou kategorii
   const catAvgs = incCats.map(cat => {
     let total = 0;
     for(let i=1;i<=3;i++){
-      let m=S.curMonth-i, y=S.curYear; if(m<0){m+=12;y--;}
+      let m=_bm-i, y=_by; if(m<0){m+=12;y--;}
       const txs=getTx(m,y,D);
       const monthInc=txs.filter(t=>t.type==='income'&&(t.catId||t.category)===cat.id)
                         .reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A: základ příjmu vstupuje do S1/DTI/DSTI/S3/S4
@@ -473,15 +489,7 @@ function computeBaseIncome(D) {
     }
     const avg=total/3;
     // Urči váhu: uložená stabilityWeight má přednost, jinak výchozí z incomeChar
-    let weight;
-    if(cat.stabilityWeight!==undefined && cat.stabilityWeight!==null){
-      weight=cat.stabilityWeight;
-    } else if(cat.stable===true){
-      // Legacy: stable:true bez nové váhy → 1.0
-      weight=1.0;
-    } else {
-      weight=0; // neoznačené = 0 (ADR-044)
-    }
+    const weight = catVahaPrijmu(cat);   // v12.34: sdílené s výhledem příjmů v Měsíčním reportu
     return {catId:cat.id, avg, weight};
   });
 
@@ -492,12 +500,26 @@ function computeBaseIncome(D) {
   // Fallback: žádná kategorie s váhou > 0 → průměr všech příjmů za 3M
   let incTotal=0, incMonths=0;
   for(let i=1;i<=3;i++){
-    let m=S.curMonth-i, y=S.curYear; if(m<0){m+=12;y--;}
+    let m=_bm-i, y=_by; if(m<0){m+=12;y--;}
     const mi=incSum(getTx(m,y,D));
     if(mi>0){incTotal+=mi;incMonths++;}
   }
   return incMonths>0 ? Math.round(incTotal/incMonths) : 0;
 }
+
+//  S28 (v12.31, audit bod 6): JEDEN výpočet limitu výdajové kategorie pro celou appku (Měsíční report →
+//  Rozpočty, Finanční zdraví, Finanční skóre, Úsporné tipy). Platí PŘÍSNĚJŠÍ (nižší) z: % ze ZÁKLADU PŘÍJMU
+//  (computeBaseIncome – váhy stability příjmů, ADR-044) a Kč stropu. 0 = bez limitu.
+//  Dřív Report bral % z prostého průměru VŠECH příjmů za 3 měsíce (i nepravidelných) → jiný limit
+//  než Finanční zdraví (20 % potravin: Report 12 000 Kč, Finanční zdraví 8 000 Kč).
+function catLimitVydaju(cat, baseIncome) {
+  if (!cat) return 0;
+  const lp = (cat.healthPct > 0 && baseIncome > 0) ? baseIncome * cat.healthPct / 100 : Infinity;
+  const la = cat.healthAmt > 0 ? cat.healthAmt : Infinity;
+  const l = Math.min(lp, la);
+  return l === Infinity ? 0 : l;
+}
+window.catLimitVydaju = catLimitVydaju;
 
 // Výpočet zdraví jedné kategorie (0-100)
 function computeCatHealth(cat, spent, baseIncome) {
@@ -5943,7 +5965,7 @@ function fxLossDetailHTML(fx, txs, D){
   const expCats = (D.categories||[]).filter(c=>c.healthPct&&(c.type==='expense'||c.type==='both'));
   expCats.forEach(cat=>{
     const spent = subTxs.filter(t=>(t.catId||t.category)===cat.id).reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A + FIX-254
-    const limit = baseIncome>0?baseIncome*cat.healthPct/100:0;
+    const limit = catLimitVydaju(cat, baseIncome);   // v12.31 (bod 6): i Kč strop, stejně jako Finanční zdraví
     if(spent>limit*1.2 && limit>0) {
       const over = Math.round(spent-limit);
       suggestions.push({

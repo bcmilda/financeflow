@@ -1,4 +1,4 @@
-// FinanceFlow · v12.16 · vozidla.js · 2026-10-27
+// FinanceFlow · v12.30 · vozidla.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -205,7 +205,7 @@ window.tankZUctenky = tankZUctenky;
 function tankUctenkyBez(D) {
   D = D || getData();
   if (typeof dupUctenkaPro !== 'function') return [];
-  const od = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+  const od = (typeof ffDatum === 'function' ? ffDatum(new Date(Date.now() - 365 * 864e5)) : new Date(new Date(Date.now() - 365 * 864e5)).toISOString().slice(0, 10));   // v12.30: místní datum
   return (D.transactions || []).filter(t => t && t.type === 'expense' && !t.tank && (t.date || '') >= od && (t.receiptAddedAt || t.receiptStore || String(t.note || '').startsWith('📸')))
     .map(t => { const u = dupUctenkaPro(t); const p = u && tankZUctenky(u.r); return p ? { t, r: u.r, p } : null; }).filter(Boolean)
     .sort((a, b) => (b.t.date || '').localeCompare(a.t.date || ''));
@@ -700,7 +700,7 @@ function vozPrispevekForm(id) {
   if (!o) { o = document.createElement('div'); o.id = 'vozOkno';
     o.style.cssText = 'position:fixed;inset:0;z-index:10070;background:rgba(8,10,20,.85);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:16px 12px';
     o.addEventListener('click', e => { if (e.target === o) vozidlaZavri(); }); document.body.appendChild(o); }
-  const dnes = new Date().toISOString().slice(0, 10);
+  const dnes = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   o.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;width:100%;max-width:420px">
     <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800;font-size:1rem;color:var(--text)">🤝 Příspěvek na cestu</div>
       <button onclick="vozidlaZavri()" style="background:none;border:none;color:#a8aec8;font-size:1.3rem;cursor:pointer">✕</button></div>

@@ -1,4 +1,4 @@
-// FinanceFlow · v11.39 · settings.js · 2026-10-07
+// FinanceFlow · v12.30 · settings.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  NASTAVENÍ – FinanceFlow v6.47
 //  Wallet-style sekce, PIN, Dark/Light mode,
@@ -1112,7 +1112,7 @@ function exportUserData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `financeflow-zaloha-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `financeflow-zaloha-${(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   if (typeof showToast === 'function') showToast('📤 Export stažen');

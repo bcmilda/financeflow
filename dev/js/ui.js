@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · ui.js · 2026-11-01
+// FinanceFlow · v12.34 · ui.js · 2026-11-06
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -274,14 +274,14 @@ function showNotificationPanel(items) {
 function snoozeNotifications() {
   // Ulož snooze do localStorage – nezobrazovat znovu dnes
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-  localStorage.setItem('ff_notif_snooze', tomorrow.toISOString().slice(0,10));
+  localStorage.setItem('ff_notif_snooze', (typeof ffDatum === 'function' ? ffDatum(tomorrow) : new Date(tomorrow).toISOString().slice(0, 10)));   // v12.30: místní datum
   _notifShownThisSession = true;
 }
 
 function checkNotifSnooze() {
   const snoozeDate = localStorage.getItem('ff_notif_snooze');
   if(!snoozeDate) return false;
-  const today = new Date().toISOString().slice(0,10);
+  const today = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   if(snoozeDate > today) { _notifShownThisSession = true; return true; }
   localStorage.removeItem('ff_notif_snooze');
   return false;
@@ -2103,7 +2103,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
       return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${it.name||'–'}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
     }).join('');
     return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
       ${(typeof txChranenaUctenkou==='function'&&txChranenaUctenkou(t)) ? '' : `<button class="btn btn-sm" style="font-size:.72rem;background:rgba(248,113,113,.12);color:var(--expense);border:1px solid rgba(248,113,113,.3)" onclick="event.stopPropagation();deleteTx('${t.id}')">🗑 Smazat transakci${typeof dupUctenkaPro==='function'&&dupUctenkaPro(t)?' (kopie účtenky)':''}</button>`}</div>`}</div>`;
     //  v11.74 (Milan): tlačítko jen u transakce bez účtenky nebo u kopie – originál se maže přes účtenku
     //  S26 (v11.73, Milan: „z Transakcí ji smazat nemůžu“): na telefonu měla účtenková transakce jen „Upravit“
@@ -2148,7 +2148,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     const _mobOut = (!ro && hasReceiptItems)
       ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden">
           <div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6)">
-            <button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
+            <button onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
           </div>
           ${_mobCard}
         </div>`
@@ -2209,11 +2209,11 @@ function buildTxRow(t, D, ro, dupMap={}) {
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
       ${isVirtualTransfer?`<span style="font-size:.66rem;color:#a8aec8" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_coarse
         ? (_swipeRow?`<span style="font-size:.66rem;color:#a8aec8" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')
-        : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
+        : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
     </div>
   </div>`;
   const _wrapped = _swipeRow
-    ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden"><div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6);z-index:0"><button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.1rem">✎</span>Upravit</button></div>${_rowHTML}</div>`
+    ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden"><div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6);z-index:0"><button onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.1rem">✎</span>Upravit</button></div>${_rowHTML}</div>`
     : _rowHTML;
   return `${_wrapped}${_tagsRow}
   ${receiptItemsHtml}
@@ -2225,18 +2225,40 @@ function deleteTx(id){
   //  v11.74 (Milan): transakce účtenky, která zůstává, se maže jen přes účtenku (🔒)
   const _t=(S.transactions||[]).find(t=>t.id==id);
   if(_t&&typeof txChranenaHlaska==='function'&&txChranenaHlaska(_t)) return;
+  //  S28 (v12.30, audit bod 19): převod = DVA řádky se stejným transferId (výdaj z jedné peněženky, příjem
+  //  do druhé). Smazání jedné poloviny nechalo druhou – po smazání výdaje 1 000 Kč si eurová peněženka
+  //  nechala 39,53 € a peníze vznikly z ničeho. Teď se maže vždy celý převod.
+  const _par=_t&&_t.transferId?(S.transactions||[]).filter(x=>x&&x.transferId===_t.transferId):[];
+  if(_par.length>1){
+    const _w=id=>(S.wallets||[]).find(v=>v.id===id)||{};
+    const _cast=x=>{ const m=_w(x.wallet).currency; return (Math.round((x.amount||0)*100)/100).toLocaleString('cs-CZ')+' '+(!m||m==='CZK'?'Kč':m); };   // v měně peněženky
+    const _popis=_par.map(x=>(x.type==='income'?'＋ ':'− ')+(_w(x.wallet).name||'peněženka')+' '+_cast(x)).join('\n');
+    if(!confirm('Smazat celý převod?\n\nSmažou se obě poloviny, aby peníze nezůstaly jen v jedné peněžence:\n'+_popis)) return;
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // kotva půjček před změnou
+    _par.forEach(x=>{ if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(x.id); });
+    const _ids=new Set(_par.map(x=>x.id));
+    S.transactions=S.transactions.filter(t=>!_ids.has(t.id));
+    if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();
+    save();renderPage();
+    return;
+  }
   const _u=_t&&typeof dupUctenkaPro==='function'?dupUctenkaPro(_t):null;
-  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')))return;
-  if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ save(); renderPage(); } return; }
+  const _spl=_t&&_t.debtId?(S.debts||[]).find(d=>d.id===_t.debtId):null;   // v12.30 (bod 20)
+  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')+(_spl?'\n\n💳 Splátka půjčky „'+_spl.name+'“ – Zbývá se přepočítá (částka se vrátí).':'')))return;
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30: půjčka bez kotvy ji dostane PŘED smazáním
+  if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ if(typeof debtPrepocitejVse==='function') debtPrepocitejVse(); save(); renderPage(); } return; }
   // Pokud je to vklad do cíle (transfer s párovým vkladem) → smaž i vklad v cíli
   if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(id);
   S.transactions=S.transactions.filter(t=>t.id!=id);
+  if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30 (bod 20): smazaná splátka vrátí Zbývá
   save();renderPage();
 }
 function editTx(id){
   if(viewingUid)return;
   const D=getData();
   const t=(D.transactions||[]).find(x=>x.id==id);if(!t)return;
+  //  S28 (v12.34): transakce z naskenované účtenky → editor účtenky (ne formulář transakce)
+  if(typeof rcptJeTxUctenky==='function' && rcptJeTxUctenky(t) && typeof openReceiptForTx==='function' && openReceiptForTx(id)) return;
   document.getElementById('editTxId').value=id;
   document.getElementById('txName').value=t.name||'';
   document.getElementById('txAmt').value=t.amount||t.amt||'';

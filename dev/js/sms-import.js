@@ -1,4 +1,4 @@
-// FinanceFlow · v12.15 · sms-import.js · 2026-10-27
+// FinanceFlow · v12.30 · sms-import.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  SMS / NOTIFIKACE IMPORT – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -440,7 +440,7 @@ function parseBankNotification(text) {
           catId:    catId || '',
           catName:  cat?.name || '',
           catIcon:  cat?.icon || '📋',
-          date:     new Date().toISOString().slice(0, 10),
+          date:     (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
           uncertain: result.uncertain || false,
           vyber:    result.vyber || false,   // S28 (v12.15): výběr z bankomatu → Doručené nabídnou přesun
           raw:      text.trim().slice(0, 200),

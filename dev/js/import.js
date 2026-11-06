@@ -1,4 +1,4 @@
-// FinanceFlow · v12.26 · import.js · 2026-11-01
+// FinanceFlow · v12.30 · import.js · 2026-11-04
 //  IMPORT DAT
 // ══════════════════════════════════════════════════════
 function renderImport() {
@@ -712,7 +712,7 @@ function confirmImportInner(filename, openEditor) {
   // Ulož historii importu
   if(!S.importHistory) S.importHistory = [];
   S.importHistory.unshift({
-    filename, date: new Date().toISOString().slice(0,10),
+    filename, date: (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
     count: imported, duplicates: skipped,
     bank: _importBank || 'auto'
   });
@@ -968,7 +968,7 @@ async function handlePdfFile(file) {
 
     showImportPreview(allTransactions.map(t => ({
       // FIX-069 (Session 8): executionDate = datum provedení (primární), date = datum zaúčtování (fallback)
-      date: parseImportDate(t.executionDate||'') || parseImportDate(t.date||'') || new Date().toISOString().slice(0,10),
+      date: parseImportDate(t.executionDate||'') || parseImportDate(t.date||'') || (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
       dateAccounting: parseImportDate(t.date||''), // datum zaúčtování pro referenci
       amount: Math.abs(parseFloat(t.amount)||0),
       type: parseFloat(t.amount||0) < 0 ? 'expense' : 'income',
@@ -1002,7 +1002,7 @@ function downloadImportTemplate() {
 function exportData(){
   const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='financeflow-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const a=document.createElement('a');a.href=url;a.download='financeflow-'+(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10))+'.json';document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 // ══════════════════════════════════════════════════════
