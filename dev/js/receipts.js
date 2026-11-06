@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · receipts.js · 2026-11-06
+// FinanceFlow · v12.35 · receipts.js · 2026-11-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2223,7 +2223,7 @@ function updatePriceSlider(pi, val, dates) {
 function rcptNajdiTx(r, D, vynech) {
   const txs = (D || S).transactions || []; vynech = vynech || new Set();
   if (r && r.addedAt) { const t = txs.find(t => t.receiptAddedAt === r.addedAt && !vynech.has(t)); if (t) return t; }
-  return txs.find(t => !vynech.has(t) && !t.receiptAddedAt && t.type === 'expense'
+  return txs.find(t => !vynech.has(t) && !t.receiptAddedAt && !t.rcptCast && t.type === 'expense'
     && (t.receiptStore || '') === (r.store || '') && (t.receiptDate || t.date) === r.date
     && Math.abs((t.amount || 0) - (r.total || 0)) < 0.01 && String(t.note || '').startsWith('📸')) || null;
 }
@@ -6476,6 +6476,9 @@ function rpSave() {
     if(cil) Object.assign(cil, upr); else S.receipts.push(upr);
     // FIX (Úkol 3): re-sync tagy + receiptItems do propojených transakcí (v12.33: podle pevné vazby, pak data+obchodu)
     const _nTx = syncReceiptToTransactions(cil || upr, stare);
+    //  v12.35: kolik částí podle kategorií položek transakce má
+    const _rod = (cil || upr).addedAt ? (S.transactions || []).find(t => t && t.rcptSplit && t.receiptAddedAt === (cil || upr).addedAt) : null;
+    const _nCast = _rod && typeof rcptCastiTx === 'function' ? rcptCastiTx(S, _rod).length : 0;
     save();
     _lastReceiptResult = null;
     const preview = document.getElementById('receiptPreview');
@@ -6483,7 +6486,7 @@ function rpSave() {
     if(preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
     //  v12.33: hlášení podle skutečnosti – dřív „promítnuto do transakcí“, i když se žádná nenašla
     if(status) { status.style.display='block'; status.innerHTML= _nTx
-      ? '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Účtenka byla upravena (změny promítnuty i do transakce – datum, obchod, položky, částka).</div></div>'
+      ? '<div class="insight-item good"><div class="insight-icon">✅</div><div class="insight-text">Účtenka byla upravena (změny promítnuty i do transakce – datum, obchod, položky, částka' + (_nCast ? `; rozdělená na ${_nCast} ${_nCast < 5 ? "části" : "částí"} podle kategorií položek` : '') + ').</div></div>'
       : '<div class="insight-item warn"><div class="insight-icon">⚠️</div><div class="insight-text">Účtenka je uložená, ale <b>nenašel jsem k ní transakci</b> – do rozpočtů a reportů se nepočítá. Nejspíš je pod původním datem – najdi ji v Transakcích (obchod a částka, i v jiných měsících) a oprav jí datum ručně.</div></div>'; }
     window._receiptEditorOpen = false; // editor uzavřen → povol re-render
     renderUctenky();
@@ -6716,7 +6719,7 @@ function rpFixReceiptTxWallets(){
   if(ws.length !== 1 || !Array.isArray(S.transactions)) return 0;
   let n = 0;
   S.transactions.forEach(t => {
-    if(t && !t.wallet && (t.receiptItems || t.receiptStore) && t.type==='expense'){ t.wallet = ws[0].id; n++; }
+    if(t && !t.wallet && !t.rcptCast && (t.receiptItems || t.receiptStore) && t.type==='expense'){ t.wallet = ws[0].id; n++; }   // v12.35: části rozdělené účtenky peněženku nemají
   });
   return n;
 }
@@ -7061,9 +7064,14 @@ window.openReceiptInHistory = openReceiptInHistory;
 //  účtenky se upravuje VŽDY v editoru účtenky (položky, kategorie i podkategorie položek, zelené štítky).
 //  Formulář transakce by její zelené štítky uložil jako modré tagy a kategorii položek by nepoznal.
 //  Účtenka se hledá podle pevné vazby (receiptAddedAt), u starších podle data a obchodu.
-function rcptJeTxUctenky(t) { return !!(t && !t.splitParent && ((Array.isArray(t.receiptItems) && t.receiptItems.length) || t.receiptAddedAt)); }
+function rcptJeTxUctenky(t) {
+  if (!t) return false;
+  if (t.rcptCast || t.rcptSplit) return true;   // v12.35: rozdělená transakce účtenky (rodič i části)
+  return !t.splitParent && !!((Array.isArray(t.receiptItems) && t.receiptItems.length) || t.receiptAddedAt);
+}
 function openReceiptForTx(id) {
-  const t = (S.transactions || []).find(x => x && x.id == id); if (!t) return false;
+  let t = (S.transactions || []).find(x => x && x.id == id); if (!t) return false;
+  if (t.rcptCast) t = rcptRodicTx(S, t) || t;   // v12.35: část rozdělené účtenky → účtenka jejího rodiče
   const R = S.receipts || [];
   let i = t.receiptAddedAt ? R.findIndex(r => r && r.addedAt === t.receiptAddedAt) : -1;
   if (i < 0 && typeof rcptNajdiTx === 'function') i = R.findIndex(r => r && rcptNajdiTx(r, S) === t);
@@ -7086,9 +7094,10 @@ function syncReceiptToTransactions(r, stare) {
   //  2) u starších transakcí datum + obchod PŘED úpravou (stare), 3) nakonec nové datum + obchod.
   //  Datum a obchod se do transakce propíšou.
   const lc = x => String(x || '').toLowerCase();
-  let linked = r.addedAt ? S.transactions.filter(t => t && t.receiptAddedAt === r.addedAt) : [];
+  let linked = r.addedAt ? S.transactions.filter(t => t && !t.rcptCast && t.receiptAddedAt === r.addedAt) : [];
   //  záloha podle data a obchodu: jen transakce bez pevné vazby (nebo účtenka bez addedAt) – ne transakce JINÉ účtenky
-  const volna = t => t && (!t.receiptAddedAt || !r.addedAt);
+  //  v12.35: ani části rozdělené účtenky – ty skládá rcptRozdelTx z rodiče
+  const volna = t => t && !t.rcptCast && (!t.receiptAddedAt || !r.addedAt);
   if(!linked.length && stare) linked = S.transactions.filter(t => volna(t) && t.receiptDate === stare.date && lc(t.receiptStore) === lc(stare.store));
   if(!linked.length) linked = S.transactions.filter(t => volna(t) && t.receiptDate === r.date && lc(t.receiptStore) === lc(r.store));
   if(!linked.length) return 0;
@@ -7143,10 +7152,154 @@ function syncReceiptToTransactions(r, stare) {
       const nova = Math.round(r.total*100)/100;
       t.amount = nova; t.amt = nova;
     }
+    //  v12.35: kategorie a podkategorie položek → části transakce (rozdělení podle kategorií)
+    if (typeof rcptRozdelTx === 'function') rcptRozdelTx(S, t);
   });
   return linked.length;
 }
 window.syncReceiptToTransactions = syncReceiptToTransactions;
+
+// ══════════════════════════════════════════════════════
+//  S28 (v12.35, Milan: „v editu účtenky může být více kategorií i podkategorií a Statistiky a další funkce
+//  s tím musí počítat… proč se to nepřenese do Transakcí?“ → „ano, proveď… u starých i nových účtenek“).
+//  ROZDĚLENÍ TRANSAKCE ÚČTENKY PODLE KATEGORIÍ POLOŽEK. Transakce účtenky měla jednu kategorii (tu
+//  s nejvíc penězi) a rozpočty, Statistiky, reporty a limity četly jen ji – potraviny z účtenky s dárky se
+//  počítaly do Dárků. Teď se transakce rozdělí stejně jako ruční ✂️ Rozdělit: rodič (splitParent) drží
+//  zaplacenou částku, peněženku, vazbu na účtenku a tankování, části (rcptCast) nesou kategorii +
+//  podkategorii a položky své skupiny. Rozdělené platby už všechny součty počítají správně (rodič se
+//  vylučuje, části počítají), peněženka se odečte jednou (části peněženku nemají).
+//   • skupina = kategorie + podkategorie položky; položka bez kategorie jde podle kategorie transakce,
+//   • částka = zaplaceno (zaokrouhlení, vratné obaly a slevy rozpočítané poměrem k položkám, haléře sedí),
+//     skupina bez kladné částky (jen vratná záloha) jde do největší,
+//   • jedna skupina = žádné rozdělení, transakce dostane kategorii a podkategorii položek,
+//   • id částí jsou odvozená z rodiče a skupiny → stejná na telefonu i na počítači, přepočet se neopakuje,
+//   • přepočítává se při uložení účtenky a při každém uložení dat (staré účtenky, změny kategorií položek
+//     v Mapě položek, oprava data), části bez rodiče se smažou.
+//  Ruční rozdělení (bez rcptSplit) se nemění. Úprava a mazání jde přes účtenku (✎ / 📷 u části).
+// ══════════════════════════════════════════════════════
+const RCPT_CAST_POLE = ['payType', 'projectId', 'currency'];   // drží rodič, části je mají vždy stejné
+const RCPT_CAST_START = ['priority', 'temata', 'temataNe'];      // část je dostane při vzniku, pak jsou její (hodnocení, ⭐ téma)
+const _rcptKc2 = x => Math.round((parseFloat(x) || 0) * 100) / 100;
+const _rcptItKc = it => (it && it.lineTotal != null && isFinite(it.lineTotal)) ? (parseFloat(it.lineTotal) || 0) : ((parseFloat(it && it.price) || 0) * (parseFloat(it && it.qty) || 1));
+function _rcptHash(s) { let h = 5381; s = String(s); for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
+function rcptCastiTx(D, p, index) {
+  if (!p || !p.splitId) return [];
+  if (index) return index[p.splitId] || [];
+  return ((D && D.transactions) || []).filter(x => x && x.splitId === p.splitId && !x.splitParent);
+}
+function rcptRodicTx(D, t) {
+  if (!t || !t.rcptCast || !t.splitId) return null;
+  return ((D && D.transactions) || []).find(x => x && x.splitParent && x.splitId === t.splitId) || null;
+}
+//  Transakce účtenky, kterou appka smí rozdělit: výdaj s položkami, nebo už rozdělený rodič účtenky.
+function rcptJeRozdelitelna(t) {
+  if (!t || t.type !== 'expense' || t.rcptCast || t.isBalancing) return false;
+  if (t.splitParent || t.splitId) return !!(t.rcptSplit && t.splitParent);   // ruční rozdělení se nemění
+  return Array.isArray(t.receiptItems) && t.receiptItems.length > 0;
+}
+//  Rozdělí (nebo sjednotí) jednu transakci účtenky. Vrací true, když se něco změnilo.
+function rcptRozdelTx(D, p, index) {
+  D = D || (typeof S !== 'undefined' ? S : null);
+  if (!D || !Array.isArray(D.transactions) || !rcptJeRozdelitelna(p)) return false;
+  const pred = JSON.stringify(p);
+  const casti = p.rcptSplit ? rcptCastiTx(D, p, index) : [];
+  const predCasti = casti.map(c => JSON.stringify(c)).join('\n');
+  //  položky: rodič (právě promítnutá účtenka nebo nerozdělená transakce), jinak jeho části v pořadí účtenky
+  const bez = it => { const o = Object.assign({}, it); delete o.ri; return o; };
+  let pol = (Array.isArray(p.receiptItems) && p.receiptItems.length)
+    ? p.receiptItems.filter(Boolean).map(bez)
+    : casti.reduce((a, c) => a.concat((c.receiptItems || []).filter(Boolean)), []).sort((a, b) => (a.ri || 0) - (b.ri || 0)).map(bez);
+  if (!pol.length) return false;
+  const zakl = p.catId || p.category || '', zaklSub = p.subcat || '';
+  const mapa = new Map();
+  pol.forEach((it, i) => {
+    const c = it.itemCatId || zakl, s = it.itemCatId ? (it.itemSubcat || '') : zaklSub;
+    const k = c + '|' + s;
+    if (!mapa.has(k)) mapa.set(k, { k, catId: c, subcat: s, pol: [], kc: 0 });
+    const g = mapa.get(k); g.pol.push(Object.assign(it, { ri: i })); g.kc += _rcptItKc(it);
+  });
+  let sk = [...mapa.values()].sort((a, b) => b.kc - a.kc);
+  const celkem = _rcptKc2(p.amount || p.amt);
+  const czkP = typeof txCZK === 'function' ? txCZK(p, D) : celkem;
+  const cizi = Math.abs(czkP - celkem) > 0.005;
+  //  skupiny bez kladné částky (vratná záloha, samostatná sleva) a drobky, které by vyšly na 0 Kč → do největší
+  const slouc = () => {
+    for (let opak = 0; opak < 50 && sk.length > 1; opak++) {
+      const soucet = sk.reduce((a, g) => a + g.kc, 0);
+      const mala = sk.slice(1).find(g => !(g.kc > 0.004) || !(soucet > 0) || _rcptKc2(celkem * g.kc / soucet) < 0.01);
+      if (!mala) break;
+      sk[0].pol = sk[0].pol.concat(mala.pol); sk[0].kc += mala.kc; sk = sk.filter(g => g !== mala);
+    }
+  };
+  slouc();
+  const soucet = sk.reduce((a, g) => a + g.kc, 0);
+  const tagy = list => [...new Set(list.map(it => it.tag).filter(Boolean))].join(' ');
+  if (sk.length < 2 || !(celkem > 0) || !(soucet > 0) || !(sk[0].kc > 0)) {
+    //  JEDNA SKUPINA (nebo nejde poměrem rozdělit): transakce bez rozdělení s položkami a kategorií položek
+    if (p.rcptSplit) {
+      const ids = new Set(casti.map(c => c.id));
+      D.transactions = D.transactions.filter(t => !ids.has(t.id));
+      delete p.splitId; delete p.splitParent; delete p.rcptSplit;
+    }
+    p.receiptItems = pol.map(bez);
+    p.tags = tagy(pol);
+    if (sk.length === 1 && sk[0].catId) {
+      //  kategorie položek; podkategorie transakce zůstane, když ji položky nemají (ručně zadaná)
+      const g = sk[0];
+      if (p.catId !== g.catId) { p.catId = g.catId; p.category = g.catId; p.subcat = g.subcat; }
+      else if (g.subcat && (p.subcat || '') !== g.subcat) p.subcat = g.subcat;
+    }
+    return JSON.stringify(p) !== pred || casti.length > 0;
+  }
+  //  ROZDĚLENÍ: částky poměrem, zbytek haléřů na největší skupinu
+  let zb = celkem, zbC = _rcptKc2(czkP);
+  sk.forEach((g, i) => { if (!i) return; g.amt = _rcptKc2(celkem * g.kc / soucet); zb -= g.amt; if (cizi) { g.czk = _rcptKc2(czkP * g.kc / soucet); zbC -= g.czk; } });
+  sk[0].amt = _rcptKc2(zb); if (cizi) sk[0].czk = _rcptKc2(zbC);
+  const splitId = p.splitId || ('rsplit_' + String(p.id).replace(/[^A-Za-z0-9_-]/g, ''));
+  p.splitId = splitId; p.splitParent = true; p.rcptSplit = true;
+  delete p.receiptItems; p.tags = '';
+  const stare = {}; casti.forEach(c => { stare[c.id] = c; });
+  const nove = new Set();
+  sk.forEach(g => {
+    const id = String(p.id) + 'c' + _rcptHash(g.k);
+    nove.add(id);
+    let c = stare[id];
+    if (!c) {
+      c = { id, note: '' };
+      RCPT_CAST_START.forEach(k => { if (p[k] != null && p[k] !== '') c[k] = JSON.parse(JSON.stringify(p[k])); });
+      D.transactions.push(c);
+    }
+    Object.assign(c, {
+      name: p.name || p.receiptStore || 'Nákup', amount: g.amt, amt: g.amt, type: 'expense', date: p.date,
+      catId: g.catId, category: g.catId, subcat: g.subcat, tags: tagy(g.pol),
+      receiptItems: g.pol, receiptStore: p.receiptStore || '', receiptDate: p.receiptDate || '',
+      splitId, splitParent: false, rcptCast: true,
+    });
+    delete c.wallet;   // peněženku drží jen rodič – zůstatek se odečte jednou
+    RCPT_CAST_POLE.forEach(k => { if (p[k] != null && p[k] !== '') c[k] = JSON.parse(JSON.stringify(p[k])); else delete c[k]; });
+    if (cizi) c.amtCZK = g.czk; else delete c.amtCZK;
+  });
+  const pryc = casti.filter(c => !nove.has(c.id));
+  if (pryc.length) { const ids = new Set(pryc.map(c => c.id)); D.transactions = D.transactions.filter(t => !ids.has(t.id)); }
+  const poCasti = D.transactions.filter(x => x && x.splitId === splitId && !x.splitParent).map(c => JSON.stringify(c)).join('\n');
+  return JSON.stringify(p) !== pred || poCasti !== predCasti;
+}
+//  Všechny transakce účtenek (staré i nové). Idempotentní – volá se při každém uložení dat a po spuštění.
+function rcptRozdelVse(D) {
+  D = D || (typeof S !== 'undefined' ? S : null);
+  if (!D || !Array.isArray(D.transactions)) return 0;
+  if (typeof viewingUid !== 'undefined' && viewingUid) return 0;
+  const index = {};
+  D.transactions.forEach(t => { if (t && t.splitId && !t.splitParent) (index[t.splitId] = index[t.splitId] || []).push(t); });
+  let n = 0;
+  D.transactions.slice().forEach(t => { if (rcptJeRozdelitelna(t) && rcptRozdelTx(D, t, index)) n++; });
+  //  části, jejichž rodič zmizel (smazaná transakce nebo účtenka), nesmí zůstat ve výdajích
+  const rodice = new Set(D.transactions.filter(t => t && t.splitParent && t.splitId).map(t => t.splitId));
+  const pocet = D.transactions.length;
+  D.transactions = D.transactions.filter(t => !(t && t.rcptCast && !rodice.has(t.splitId)));
+  return n + (pocet - D.transactions.length);
+}
+Object.assign(window, { rcptRozdelTx, rcptRozdelVse, rcptRodicTx, rcptCastiTx, rcptJeRozdelitelna });
 //  S28 (v12.33): oprava už rozpojených dvojic. Účtenka, které se v editoru změnilo datum nebo obchod, měla
 //  transakci dál se starým datem (Milan: účtenka Lidl 1. 10. 2026 v Transakcích chyběla). Transakce s pevnou
 //  vazbou (receiptAddedAt) dostane datum a obchod účtenky – jen když si datum transakce nikdo nezměnil sám

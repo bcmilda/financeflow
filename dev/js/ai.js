@@ -1,4 +1,4 @@
-// FinanceFlow · v12.31 · ai.js · 2026-11-04
+// FinanceFlow · v12.37 · ai.js · 2026-11-06
 //  AI RÁDCE
 // ══════════════════════════════════════════════════════
 // Worker URL – sem doplňte URL po vytvoření Workeru
@@ -12,14 +12,14 @@ function renderAiPage() {
   if(isLoggedIn) {
     banner.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--income-bg);border:1px solid rgba(74,222,128,.3);border-radius:10px;font-size:.8rem;color:var(--text2)">
       <span style="font-size:1.1rem">✅</span>
-      <span>AI poradce aktivní · Přihlášen jako <strong>${window._currentUser.email||'uživatel'}</strong></span>
+      <span>AI rádce aktivní · Přihlášen jako <strong>${window._currentUser.email||'uživatel'}</strong></span>
     </div>`;
     // Spusť proaktivní kontrolu
     setTimeout(()=>aiProactiveCheck(), 1000);
   } else {
     banner.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--debt-bg);border:1px solid rgba(251,191,36,.3);border-radius:10px;font-size:.8rem;color:var(--text2)">
       <span style="font-size:1.1rem">⚠️</span>
-      <span>AI poradce vyžaduje přihlášení přes Google. <strong>Přihlaste se</strong> v Nastavení.</span>
+      <span>AI rádce vyžaduje přihlášení přes Google. <strong>Přihlaste se</strong> v Nastavení.</span>
     </div>`;
   }
 }
@@ -36,7 +36,7 @@ async function getAuthToken() {
 async function callClaude(userMessage, systemExtra='') {
   const token = await getAuthToken();
   if(!token) {
-    addAiMsg('assistant', '⚠️ Pro AI poradce se musíte přihlásit přes Google účet.');
+    addAiMsg('assistant', '⚠️ Pro AI rádce se musíte přihlásit přes Google účet.');
     return null;
   }
   const ctx = buildFinanceContext();
@@ -340,7 +340,33 @@ Poraď mi ohledně finančních cílů:
 }
 
 // Proaktivní analýza po přihlášení
+//  S28 (v12.37, audit bod 21, Milan: „nechci zbytečně plýtvat penězi a AI voláním“): tip se ptá AI nejvýš
+//  JEDNOU DENNĚ a uloží se (uiCfg.aiTip – synchronizuje se, takže telefon a počítač se neptají každý zvlášť).
+//  Dřív se AI volala při KAŽDÉM otevření AI rádce a výsledek se kvůli dvěma prvkům se stejným id zapsal
+//  na Dashboard, takže na stránce AI rádce nebyl vidět. Text od AI se vkládá jako text, ne jako HTML (escHtml).
+function _aiTipHTML(reply) {
+  const low = String(reply || '').toLowerCase();
+  const isWarning = ['pozor','překro','příliš','varov','riziko','nízk','chyb'].some(w => low.includes(w));
+  const e = s => (typeof escHtml === 'function') ? escHtml(String(s)) : String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return `<div style="background:${isWarning?'var(--debt-bg)':'var(--income-bg)'};border:1px solid ${isWarning?'rgba(251,191,36,.3)':'rgba(74,222,128,.2)'};border-radius:12px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:1.2rem;flex-shrink:0">${isWarning?'⚠️':'💡'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.72rem;font-weight:700;color:var(--text3);margin-bottom:2px">AI RÁDCE · DNEŠNÍ TIP</div>
+          <div style="font-size:.82rem;color:var(--text2);overflow-wrap:anywhere">${e(reply)}</div>
+        </div>
+      </div>`;
+}
 async function aiProactiveCheck() {
+  const alertEl = document.getElementById('aiProactiveAlert');
+  if(!alertEl) return;
+  const dnes = (typeof ffDnes === 'function') ? ffDnes() : new Date().toISOString().slice(0, 10);
+  const ulozeny = S.uiCfg && S.uiCfg.aiTip;
+  if(ulozeny && ulozeny.den === dnes && ulozeny.text) { alertEl.innerHTML = _aiTipHTML(ulozeny.text); return; }   // dnes už se AI ptala
+  if(typeof viewingUid !== 'undefined' && viewingUid) return;   // prohlížení partnera – AI se neptá a nic neukládá
+  if(window._aiTipBezi) return; window._aiTipBezi = true;
+  try { await _aiProactiveZeptej(alertEl, dnes); } finally { window._aiTipBezi = false; }
+}
+async function _aiProactiveZeptej(alertEl, dnes) {
   const token = await getAuthToken();
   if(!token) return;
   const D = getData();
@@ -349,8 +375,6 @@ async function aiProactiveCheck() {
 
   const ctx = buildFinanceContext();
   const score = computeFinancialScore(D);
-  const alertEl = document.getElementById('aiProactiveAlert');
-  if(!alertEl) return;
 
   try {
     const reply = await callClaude(
@@ -358,15 +382,9 @@ async function aiProactiveCheck() {
       'Odpověz maximálně 2 větami. Buď velmi konkrétní s čísly.'
     );
     if(reply && alertEl) {
-      const isWarning = reply.toLowerCase().includes('pozor')||reply.toLowerCase().includes('překro')||reply.toLowerCase().includes('příliš')||reply.toLowerCase().includes('varován');
-      alertEl.innerHTML = `<div style="background:${isWarning?'var(--debt-bg)':'var(--income-bg)'};border:1px solid ${isWarning?'rgba(251,191,36,.3)':'rgba(74,222,128,.2)'};border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start;cursor:pointer" onclick="showPageByName('ai')">
-        <span style="font-size:1.2rem;flex-shrink:0">${isWarning?'⚠️':'💡'}</span>
-        <div style="flex:1">
-          <div style="font-size:.72rem;font-weight:700;color:var(--text3);margin-bottom:2px">AI PORADCE</div>
-          <div style="font-size:.82rem;color:var(--text2)">${reply}</div>
-        </div>
-        <span style="font-size:.72rem;color:var(--text3);flex-shrink:0">Více →</span>
-      </div>`;
+      S.uiCfg = S.uiCfg || {}; S.uiCfg.aiTip = { den: dnes, text: String(reply).slice(0, 600) };
+      if(typeof save === 'function') save();
+      alertEl.innerHTML = _aiTipHTML(reply);
     }
   } catch(e) { console.log('Proactive check failed:', e); }
 }

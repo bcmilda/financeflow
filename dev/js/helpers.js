@@ -1,4 +1,4 @@
-// FinanceFlow · v12.31 · helpers.js · 2026-11-04
+// FinanceFlow · v12.37 · helpers.js · 2026-11-06
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -477,7 +477,8 @@ const isCur=(m,y)=>{const n=new Date();return m===n.getMonth()&&y===n.getFullYea
 const getTxByRange=(fromDate,toDate,data)=>{const D=data||getData();const from=new Date(fromDate);const to=new Date(toDate);to.setHours(23,59,59,999);return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d>=from&&d<=to;});};
 // Vrátí pole {m, y} objektů pro každý měsíc v rozsahu
 function getMonthsInRange(fromDate,toDate){const result=[];const from=new Date(fromDate);const to=new Date(toDate);let m=from.getMonth(),y=from.getFullYear();while(y<to.getFullYear()||(y===to.getFullYear()&&m<=to.getMonth())){result.push({m,y});if(++m>11){m=0;y++;}}return result;}
-function getCurInst(debt){const now=`${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;let a=debt.installments[0]?.amt||0;for(const i of debt.installments)if(i.from<=now)a=i.amt;return a;}
+//  S28 (v12.37, audit bod 23): getCurInst smazána – byla tu i v debts.js a nikdo ji nevolal (aktuální splátku
+//  půjčky počítá debtMesicniSplatka / computeMonthlyDebtPayments).
 
 // ══════════════════════════════════════════════════════
 //  PREDICTION ENGINE
@@ -618,10 +619,24 @@ function fxLossSummary(txs, D){
 //   plošné `!t.splitParent` by zahodilo i rodiče bez dětí, což je normální výdaj.
 //   ⚠️ isTransferTx se ZÁMĚRNĚ nefiltruje ani zde, ani v getActual() – obě funkce musí
 //   zůstat zrcadlové. Přesuny uvnitř kategorií typu 'both' řeší TODO-212 pro OBĚ najednou.
-function getHistAvg(catId,sub,forM,forY,data,type){
+//  S28 (v12.36, audit bod 5): průměr za POSLEDNÍCH 12 MĚSÍCŮ a dělí se počtem SLEDOVANÝCH měsíců, ne jen
+//  měsíců, kdy se v kategorii něco utratilo. Dřív: roční pojistka 12 000 Kč v březnu = průměr 12 000 / 1 měsíc
+//  → odhad listopadu 13 440 Kč (× sezóna 1,12), i když v listopadu nic nepřijde; lékař 500 Kč 3× ročně = 500
+//  měsíčně; televize 15 000 Kč před dvěma lety = 15 000 každý měsíc navždy. Teď 12 000 / 12 = 1 000 Kč (rezerva),
+//  500 × 3 / 12 = 125 Kč a nákup starší než rok se nepočítá.
+//  Sledované měsíce = od PRVNÍHO výdaje v kategorii (nová kategorie s pravidelnou platbou se nepodhodnotí),
+//  nejvýš 12. Kategorie bez výdaje za 12 měsíců → 0 (dřív průměr z dávné historie).
+//  Běžící (nedokončený) měsíc se do okna nebere – 6 dní listopadu by se počítalo jako celý měsíc s malou útratou.
+//  opts.vynechat(t) – transakce, které volající počítá zvlášť (Příští měsíc: čtvrtletní a roční šablony).
+function getHistAvg(catId,sub,forM,forY,data,type,opts){
   type = type || 'expense';
   const D=data||getData();
   const txs=D.transactions||[];
+  const _vyn=opts&&typeof opts.vynechat==='function'?opts.vynechat:null;
+  const _dnes=String(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
+  const _bezi=(+_dnes.slice(0,4))*12+(+_dnes.slice(5,7))-1;   // index běžícího měsíce
+  const _konec=Math.min(forY*12+forM,isFinite(_bezi)?_bezi:Infinity), _zacatek=_konec-12;
+  let _prvni=Infinity;
   const splitIdsWithChildren=new Set(txs.filter(t=>t&&t.splitId&&t.splitParent).map(t=>t.splitId)
     .filter(sid=>txs.some(c=>c&&c.splitId===sid&&!c.splitParent)));
   const askedForTransferCat=!!(window._transferCatIds&&window._transferCatIds.has(catId));
@@ -636,17 +651,21 @@ function getHistAvg(catId,sub,forM,forY,data,type){
     if(dy>forY||(dy===forY&&dm>=forM))return false;
     return true;
   }).forEach(t=>{
-    const d=new Date(t.date);const k=`${d.getFullYear()}-${d.getMonth()}`;
-    byMonth[k]=(byMonth[k]||0)+txCZK(t,D);
+    const d=new Date(t.date);const i=d.getFullYear()*12+d.getMonth();
+    if(!isFinite(i))return;
+    if(i<_prvni)_prvni=i;
+    if(i<_zacatek||i>=_konec||(_vyn&&_vyn(t)))return;
+    byMonth[i]=(byMonth[i]||0)+txCZK(t,D);
   });
-  const vals=Object.values(byMonth);
-  if(!vals.length)return null;
-  return vals.reduce((a,b)=>a+b,0)/vals.length;
+  if(_prvni===Infinity)return null;
+  const _mesicu=_konec-Math.max(_zacatek,_prvni);
+  if(_mesicu<=0)return null;
+  return Object.values(byMonth).reduce((a,b)=>a+b,0)/_mesicu;
 }
-function predictCat(catId,sub,m,y,data,type){
+function predictCat(catId,sub,m,y,data,type,opts){
   type = type || 'expense';
   const D=data||getData();
-  let avg=getHistAvg(catId,sub,m,y,D,type);
+  let avg=getHistAvg(catId,sub,m,y,D,type,opts);
   if(avg===null){
     // FIX-252: i fallback (kategorie bez historie) musí přes txCZK a bez vyrovnání
     const curExp=getActual(catId,sub,S.curMonth,S.curYear,D,type);

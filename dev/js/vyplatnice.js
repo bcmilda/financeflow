@@ -1,4 +1,4 @@
-// FinanceFlow · v12.08 · vyplatnice.js · 2026-10-23
+// FinanceFlow · v12.38 · vyplatnice.js · 2026-11-06
 // ══════════════════════════════════════════════════════════════════════
 //  VÝPLATNICE – FÁZE 1 (TODO-257, S21 · Milan)
 //  Evidence výplatních pásek měsíc po měsíci. Model ověřený na čtyřech
@@ -103,7 +103,14 @@ function vyplDopocet(z) {
   const o = z.odvody || {};
   const zp  = o.zp  != null ? +o.zp  : _ceil(hruba * 0.045);
   const sp  = o.sp  != null ? +o.sp  : _ceil(hruba * 0.071);
-  const danPred = _ceil(hruba / 100) * 100 * 0.15;
+  //  S28 (v12.38, audit bod 11): záloha na daň 15 % jen do 3× průměrné mzdy měsíčně (36× ročně / 12; 2026: 146 901 Kč),
+  //  z části nad ní 23 % – stejně jako roční zúčtování (vyplRocniZuctovani). Dřív vždy 15 %: hrubá 200 000 Kč → záloha
+  //  o 4 248 Kč nižší, čistá mzda o tolik vyšší. Záloha se zaokrouhluje na celé koruny nahoru.
+  const _zakl = _ceil(hruba / 100) * 100;
+  const _rokP = parseInt(String(z.m || '').slice(0, 4), 10) || new Date().getFullYear();
+  const _par = typeof _vyplRzParam === 'function' ? _vyplRzParam(_rokP) : null;
+  const _hr23 = _par && _par.prumMzda > 0 ? 3 * _par.prumMzda : Infinity;
+  const danPred = _ceil(Math.min(_zakl, _hr23) * 0.15 + Math.max(0, _zakl - _hr23) * 0.23);
   const slevy = (+o.slevaZak || 0) + (+o.slevaDet || 0);
   const dan = o.dan != null ? +o.dan : Math.max(0, danPred - slevy);
 

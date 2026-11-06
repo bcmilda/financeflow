@@ -40,7 +40,7 @@ t('druhý řádek i přidaná část začínají kategorií rozdělované platby
 t('části se čtou podle id řádku (po odebrání řádku se neztratí)', /row\.id\.replace\('split-row-', ''\)/.test(sv));
 const c3 = { S: { uiCfg: {} }, _dupIgnored: {}, DUP_CONFIG: { IGNORE_CATS: [], FUZZY_DAYS: 3, NAME_SIM_THR: 0.9 }, fmt: x => x, Math, Date, String, Object, Number };
 c3.window = c3; vm.createContext(c3);
-vm.runInContext(['dupNeniKlic', 'dupJeNeni', 'dupCastka', 'dupPorovnej', 'dupPary', 'dupPridano', 'nameSim', 'jaroWinkler'].map(n => vyber(DU, n)).join('\n')
+vm.runInContext(['dupZastupuje', 'dupNeniKlic', 'dupJeNeni', 'dupCastka', 'dupPorovnej', 'dupPary', 'dupPridano', 'nameSim', 'jaroWinkler'].map(n => vyber(DU, n)).join('\n')
   + '\nfunction dupParyPolozka(){return [];}', c3);
 const txs = [{ id: 'p', type: 'expense', amount: 20, date: '2026-10-18', catId: 'cat23', splitId: 's1', splitParent: true, name: 'Dárek' },
   { id: 'c1', type: 'expense', amount: 10, date: '2026-10-18', catId: 'cat23', splitId: 's1', name: 'Dárek' },

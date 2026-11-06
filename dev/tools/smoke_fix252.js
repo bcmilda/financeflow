@@ -76,7 +76,8 @@ check('KLÍČOVÉ: getHistAvg a getActual dají nad jedním měsícem stejné č
   // vyrob data JEN za červen, ať průměr = jeden měsíc
   DATA.transactions=DATA.transactions.filter(t=>t.date.startsWith('2026-06'));
   _syncTransferCats();
-  const hist=vm.runInContext('getHistAvg("c1",null,7,2026,getData())',sb);
+  //  v12.36 (audit bod 5): průměr se dělí sledovanými měsíci → predikce na ČERVENEC (jediný sledovaný měsíc = červen)
+  const hist=vm.runInContext('getHistAvg("c1",null,6,2026,getData())',sb);
   const act =vm.runInContext('getActual("c1",null,5,2026,getData())',sb);
   assert(Math.round(hist)===Math.round(act),`predikce ${Math.round(hist)} != skutečnost ${Math.round(act)} – sloupec odchylky by lhal`);
 });

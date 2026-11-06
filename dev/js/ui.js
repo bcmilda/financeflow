@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · ui.js · 2026-11-06
+// FinanceFlow · v12.38 · ui.js · 2026-11-06
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -329,121 +329,9 @@ function renderSummaryCards(){
 //  DASHBOARD
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════
-//  TODO-234: ONBOARDING KROK 1 – uvítací nastavení (S20)
-//  Jednorázový modal pro NOVÉHO uživatele. Krok 2 je karta „Dokonči nastavení"
-//  níže, krok 3 bude tutoriál v uživatelském menu (TODO-233).
-//
-//  Proč to vzniklo (FIX-264 + TODO-227):
-//   · nový uživatel měl prázdné rozbalovátko peněženek a nevěděl proč
-//   · `_settings.hasDebts` čte Finanční skóre (premium.js), ale NEBYLO KDE HO ZADAT –
-//     „nemám dluh" a „ještě jsem ho nezadal" vypadá v datech stejně, takže se
-//     uživateli bez dluhu složka S2 do skóre vůbec nezapočítala
-//
-//  ⚠️ Zobrazuje se jen tomu, kdo ho opravdu nevidel. Absence `onboarded` u
-//  STÁVAJÍCÍHO uživatele neznamená „nový uživatel" (SKILL 31) – proto se
-//  kontroluje i to, že nemá žádné transakce, a stávajícím se příznak tiše dopíše.
-// ══════════════════════════════════════════════════════
-function maybeShowOnboarding(D){
-  if(viewingUid) return;                      // prohlížím cizí účet, nic nenastavuju
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(!st) return;                             // nastavení ještě nedoběhlo z Firebase
-  if(st.onboarded) return;
-  const hasData = ((D&&D.transactions)||[]).length > 0;
-  if(hasData){
-    // Stávající uživatel bez příznaku – NEotravovat, jen si tiše poznamenat.
-    st.onboarded = true;
-    if(typeof persistSettings==='function') persistSettings();
-    return;
-  }
-  obFillDefaults();
-  const el = document.getElementById('modalOnboard');
-  if(el) el.classList.add('open');
-}
-// Naplní rozbalovátka aktuálními hodnotami (a dny 1–28 pro den výplaty).
-function obFillDefaults(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : {};
-  const fd = document.getElementById('obFirstDay');
-  if(fd && !fd.options.length){
-    let html = '<option value="0">🤖 Automaticky (z transakcí)</option>';
-    for(let d=1; d<=28; d++) html += `<option value="${d}">${d}. den</option>`;
-    fd.innerHTML = html;
-  }
-  const set = (id,val)=>{ const e=document.getElementById(id); if(e && val!=null) e.value=val; };
-  set('obLang', st.lang||'cs');
-  set('obCurrency', st.currency||'CZK');
-  set('obDateFmt', st.dateFmt||'cs');
-  set('obPayFreq', st.payFreq||'monthly');
-  set('obFirstDay', st.firstDay||0);
-  obToggleFirstDay();
-  obSetDebts(null);
-}
-// Den v měsíci dává smysl jen u měsíční a půlměsíční výplaty.
-function obToggleFirstDay(){
-  const f = document.getElementById('obPayFreq');
-  const w = document.getElementById('obFirstDayWrap');
-  if(!f || !w) return;
-  const show = (f.value==='monthly' || f.value==='semimonthly');
-  w.style.display = show ? '' : 'none';
-}
-// null = nezodpovězeno (výchozí). Vědomé „ne" je jiná informace než ticho.
-let _obHasDebts = null;
-function obSetDebts(v){
-  _obHasDebts = v;
-  const y=document.getElementById('obDebtYes'), n=document.getElementById('obDebtNo');
-  if(!y||!n) return;
-  y.className = (v===true)  ? 'btn btn-accent' : 'btn btn-ghost';
-  n.className = (v===false) ? 'btn btn-accent' : 'btn btn-ghost';
-}
-function skipOnboarding(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(st){ st.onboarded = true; if(typeof persistSettings==='function') persistSettings(); }
-  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
-  if(typeof showToast==='function') showToast('Nastavení najdeš kdykoliv v ⚙️ Nastavení');
-}
-function saveOnboarding(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(!st){ skipOnboarding(); return; }
-  const val = id => (document.getElementById(id)||{}).value;
-
-  st.lang     = val('obLang')     || 'cs';
-  st.currency = val('obCurrency') || 'CZK';
-  st.dateFmt  = val('obDateFmt')  || 'cs';
-  st.payFreq  = val('obPayFreq')  || 'monthly';
-  st.firstDay = parseInt(val('obFirstDay')) || 0;
-  // Nezodpovězeno se NEUKLÁDÁ jako false – to by skóre přiznalo body za bezdlužnost,
-  // kterou uživatel nepotvrdil (TODO-227).
-  if(_obHasDebts !== null) st.hasDebts = _obHasDebts;
-  st.onboarded = true;
-
-  // Peněženka: přejmenovat tu, kterou založila ensureBaseData, ne zakládat druhou.
-  const wName = (val('obWalletName')||'').trim();
-  if(wName && Array.isArray(S.wallets) && S.wallets.length === 1) S.wallets[0].name = wName;
-
-  // Typ platby: nový uživatel má S.payTypes prázdné, takže se založí ten vybraný
-  // a rovnou se nastaví jako výchozí pro novou transakci.
-  const ptName = (val('obPayType')||'').trim();
-  if(ptName){
-    if(!Array.isArray(S.payTypes)) S.payTypes = [];
-    let pt = S.payTypes.find(p => p && p.name === ptName);
-    if(!pt){
-      const icons = {'Karta':'💳','Hotovost':'💵','Převod':'🏦'};
-      pt = { id:(typeof uid==='function'?uid():'pt'+Date.now().toString(36)), name:ptName, icon:icons[ptName]||'💳' };
-      S.payTypes.push(pt);
-    }
-    st.defPayType = pt.id;
-  }
-  if(Array.isArray(S.wallets) && S.wallets.length === 1) st.defWallet = S.wallets[0].id;
-
-  if(typeof persistSettings==='function') persistSettings();
-  if(typeof save==='function') save();
-  if(typeof applySettings==='function') applySettings();
-  if(typeof applyLanguage==='function') applyLanguage();
-
-  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
-  if(typeof showToast==='function') showToast('✅ Hotovo – můžeš zapsat první transakci');
-  if(typeof forceRender==='function') forceRender();
-}
+//  S28 (v12.38, audit bod 23 – Milan: „můžeš“): staré uvítací okno ze S20 (TODO-234 v ui.js: obFillDefaults,
+//  obToggleFirstDay, obSetDebts, skipOnboarding, saveOnboarding a #modalOnboard v app.html) smazáno – nikdy se
+//  neotevíralo, protože maybeShowOnboarding z onboarding.js ho přepsala. Uvítání nového uživatele = onboarding.js.
 
 // ══════════════════════════════════════════════════════
 //  S12.1b: ONBOARDING PRŮVODCE (Dokonči nastavení X/5)
@@ -1883,9 +1771,9 @@ function renderTx(){
   //   = zdroj VŠECHNY transakce, ostatní filtry (kategorie, projekt…) se aplikují normálně.
   let txs;
   if (_txDateFilter && _txDateFilter.active) {
-    txs = (D.transactions||[]).filter(t=>!t.splitParent && _txDatePass(t.date));
+    txs = (D.transactions||[]).filter(t=>_txDatePass(t.date));   // v12.35: i rodiče rozdělených plateb (jinak by se rozdělená platba neukázala vůbec)
   } else if (searchAllMonths) {
-    txs = (D.transactions||[]).filter(t=>!t.splitParent);
+    txs = (D.transactions||[]).slice();
   } else {
     txs = getTx(S.curMonth, S.curYear, D);
   }
@@ -1935,7 +1823,7 @@ function renderTx(){
   const totalExp = txs.filter(t=>t.type==='expense'&&_statTx(t)).reduce((a,t)=>a+txCZK(t,D),0);
   const badge = document.getElementById('txSummaryBadge');
   if(badge) badge.innerHTML = txs.length ?
-    `<span style="color:var(--income)">+${fmtB(totalInc)}</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmtB(totalExp)}</span> <span style="color:var(--text3)">· ${txs.length} záznamů</span>` : '';
+    `<span style="color:var(--income)">+${fmtB(totalInc)}</span> <span style="color:var(--text3)">·</span> <span style="color:var(--expense)">−${fmtB(totalExp)}</span> <span style="color:var(--text3)">· ${txs.filter(t=>!t.splitId||t.splitParent||(t.rcptCast&&!txs.some(x=>x.splitParent&&x.splitId===t.splitId))).length} záznamů</span>` : '';   // v12.35: rozdělená platba = 1 záznam
   // S21: tabulka si drží stav i po překreslení seznamu (přepnutí měsíce apod.)
   if(typeof renderTxMonthTable === 'function' && _txTableOpen) renderTxMonthTable();
 
@@ -1983,6 +1871,8 @@ function renderTx(){
 
   let html = _planHTML;
 
+  const _vidRodic = new Set(_txAll.filter(t=>t.splitParent&&t.splitId).map(t=>t.splitId));   // celý seznam, ne jen načtená stránka
+  const _txZobrazit = t => !t.splitId || t.splitParent || (t.rcptCast && !_vidRodic.has(t.splitId));
   if(groupByDate) {
     const byDate = {};
     txs.forEach(t => { if(!byDate[t.date]) byDate[t.date]=[]; byDate[t.date].push(t); });
@@ -1998,10 +1888,11 @@ function renderTx(){
         <span style="color:${daySaldo>=0?'var(--income)':'var(--expense)'};font-size:.76rem">${daySaldo>=0?'+':''}${fmtB(daySaldo)}</span>
       </div>`;
       // Split children se zobrazují uvnitř parent řádku – nezobrazuj je samostatně
-      dayTxs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
+      //  v12.35: část rozdělené účtenky, jejíž rodič filtrem vypadl (filtr kategorie Nákupy potravin), jako vlastní řádek
+      dayTxs.filter(_txZobrazit).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}, !(!t.splitId||t.splitParent)); });
     });
   } else {
-    txs.filter(t=>!t.splitId||t.splitParent).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}); });
+    txs.filter(_txZobrazit).forEach(t => { html += buildTxRow(t, D, ro, _dupMap||{}, !(!t.splitId||t.splitParent)); });
   }
 
   if(_txMore) html += `<div id="txMoreSentinel" style="padding:16px;text-align:center;color:#a8aec8;font-size:.76rem">⏳ Načítám další… (zbývá ${_txAll.length - window._txShown})</div>`;
@@ -2033,7 +1924,7 @@ if (!window._txResizeBound) {
   });
 }
 
-function buildTxRow(t, D, ro, dupMap={}) {
+function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   const cat = getCat(t.catId||t.category, D.categories);
   const amt = t.amount || t.amt || 0;
   const isTransfer = t.catId==='transfer'||t.category==='transfer';
@@ -2059,7 +1950,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
 
   // Split logika
   const isSplitParent = t.splitId && t.splitParent;
-  const isSplitChild  = t.splitId && !t.splitParent;
+  const isSplitChild  = t.splitId && !t.splitParent && !samostatne;   // v12.35: samostatně = část účtenky bez rodiče v seznamu
   const splitChildren = isSplitParent ? (D.transactions||[]).filter(x=>x.splitId===t.splitId&&!x.splitParent) : [];
   const rowClass = isSplitParent ? 'tx-table-row split-parent-row' : isSplitChild ? 'tx-table-row split-child-row' : 'tx-table-row';
 
@@ -2072,6 +1963,21 @@ function buildTxRow(t, D, ro, dupMap={}) {
   }
 
   // Pokud je child, zobraz zjednodušeně
+  //  v12.35: na telefonu jako malá karta (tabulkový řádek se do 390 px nevešel – částka „−1…“)
+  if(isSplitChild && window.innerWidth <= 820) {
+    const _pol = t.rcptCast && Array.isArray(t.receiptItems) ? t.receiptItems.map(it=>it&&it.name).filter(Boolean) : [];
+    return `<div class="${rowClass}" style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);opacity:.95">
+      <div style="flex-shrink:0;width:24px;text-align:center;font-size:1rem">${cat.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${t.subcat?`<span style="font-size:.7rem;color:var(--text3)"> · ${t.subcat}</span>`:''}</div>
+        ${_pol.length?`<div style="font-size:.68rem;color:#a8aec8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📷 ${_pol.length} pol.: ${escHtml(_pol.join(', '))}</div>`:''}
+      </div>
+      <div style="flex-shrink:0;font-weight:700;font-size:.84rem;color:${amtColor};white-space:nowrap">${amtSign}${fmtP(amt)} ${curLabel}</div>
+      ${ro?'':t.rcptCast
+        ? `<button class="btn btn-ghost btn-icon btn-sm" title="Upravit účtenku (kategorie položek)" aria-label="Upravit účtenku" style="flex-shrink:0;min-width:36px;min-height:36px" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))">📷</button>`
+        : `<button class="btn btn-danger btn-icon btn-sm" aria-label="Smazat část" style="flex-shrink:0;min-width:36px;min-height:36px" onclick="event.stopPropagation();deleteSplitChild('${t.id}')">✕</button>`}
+    </div>`;
+  }
   if(isSplitChild) {
     return `<div class="${rowClass}" style="opacity:.92">
       <div class="tx-table-cell" style="color:var(--text3);font-size:.7rem;padding-left:8px">└</div>
@@ -2082,13 +1988,15 @@ function buildTxRow(t, D, ro, dupMap={}) {
         </div>
       </div>
       <div class="tx-table-cell tx-col-subcat" style="font-size:.74rem;color:var(--text3)">${t.subcat||'–'}</div>
-      <div class="tx-table-cell"><span style="font-size:.78rem;color:var(--text2)">${t.name||''}</span></div>
+      <div class="tx-table-cell"><span style="font-size:.78rem;color:var(--text2)">${t.name||''}</span>${t.rcptCast&&Array.isArray(t.receiptItems)?`<span style="font-size:.66rem;color:#a8aec8;display:block;overflow-wrap:anywhere">📷 ${t.receiptItems.length} pol.: ${escHtml(t.receiptItems.map(it=>it&&it.name).filter(Boolean).slice(0,4).join(', '))}${t.receiptItems.length>4?'…':''}</span>`:''}</div>
       <div class="tx-table-cell tx-col-project"></div>
       <div class="tx-table-cell tx-col-paytype"></div>
       <div class="tx-table-cell tx-col-wallet"></div>
       <div class="tx-table-cell" style="text-align:right;font-weight:700;color:${amtColor};font-size:.82rem">${amtSign}${fmtP(amt)} ${curLabel}</div>
       <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end">
-        ${!ro?`<button class="btn btn-danger btn-icon btn-sm" onclick="deleteSplitChild('${t.id}')">✕</button>`:''}
+        ${ro?'':t.rcptCast
+          ? `<button class="btn btn-ghost btn-icon btn-sm" title="Upravit účtenku (kategorie položek)" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))">📷</button>`
+          : `<button class="btn btn-danger btn-icon btn-sm" onclick="deleteSplitChild('${t.id}')">✕</button>`}
       </div>
     </div>`;
   }
@@ -2122,7 +2030,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
       (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
       : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
       : '';
-    const badgeM = (isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">✂️ ${splitChildren.length}× ▾</span>`
+    const badgeM = (isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">${t.rcptSplit?'📷 ':''}✂️ ${splitChildren.length}× ▾</span>`
                 : hasReceiptItems ? ` <span style="font-size:.66rem;color:#a8aec8">📷 ${t.receiptItems.length} ▾</span>` : '')
                 + (Array.isArray(t.propojeno) && t.propojeno.length ? ' <span style="font-size:.66rem" title="Propojeno s jinou transakcí">🔗</span>' : '');   // v12.17
     const subM = t.subcat ? `<span style="font-size:.72rem;color:var(--text3)"> · ${t.subcat}</span>` : '';
@@ -2209,7 +2117,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
       ${isVirtualTransfer?`<span style="font-size:.66rem;color:#a8aec8" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_coarse
         ? (_swipeRow?`<span style="font-size:.66rem;color:#a8aec8" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')
-        : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
+        : `${!ro&&!t.splitId&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
     </div>
   </div>`;
   const _wrapped = _swipeRow
@@ -2223,7 +2131,9 @@ function deleteTx(id){
   if(viewingUid)return;
   //  S26 (v11.73): transakce z naskenované účtenky – kopie účtenky se smaže s ní, jinak se zeptá
   //  v11.74 (Milan): transakce účtenky, která zůstává, se maže jen přes účtenku (🔒)
-  const _t=(S.transactions||[]).find(t=>t.id==id);
+  let _t=(S.transactions||[]).find(t=>t.id==id);
+  //  v12.35: část rozdělené účtenky → celá transakce účtenky
+  if(_t&&_t.rcptCast&&typeof rcptRodicTx==='function'){ const _p=rcptRodicTx(S,_t); if(_p){ _t=_p; id=_p.id; } }
   if(_t&&typeof txChranenaHlaska==='function'&&txChranenaHlaska(_t)) return;
   //  S28 (v12.30, audit bod 19): převod = DVA řádky se stejným transferId (výdaj z jedné peněženky, příjem
   //  do druhé). Smazání jedné poloviny nechalo druhou – po smazání výdaje 1 000 Kč si eurová peněženka
@@ -2244,12 +2154,14 @@ function deleteTx(id){
   }
   const _u=_t&&typeof dupUctenkaPro==='function'?dupUctenkaPro(_t):null;
   const _spl=_t&&_t.debtId?(S.debts||[]).find(d=>d.id===_t.debtId):null;   // v12.30 (bod 20)
-  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')+(_spl?'\n\n💳 Splátka půjčky „'+_spl.name+'“ – Zbývá se přepočítá (částka se vrátí).':'')))return;
+  if(!confirm('Smazat transakci?'+(_u?'\n\n📷 Smaže se i kopie naskenované účtenky (originál zůstane).':'')+(_spl?'\n\n💳 Splátka půjčky „'+_spl.name+'“ – Zbývá se přepočítá (částka se vrátí).':'')+(_t&&_t.splitParent?'\n\n✂️ Rozdělená platba – smažou se i všechny její části.':'')))return;
   if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30: půjčka bez kotvy ji dostane PŘED smazáním
   if(_t&&typeof txSmazSUctenkou==='function'){ if(txSmazSUctenkou(_t)){ if(typeof debtPrepocitejVse==='function') debtPrepocitejVse(); save(); renderPage(); } return; }
   // Pokud je to vklad do cíle (transfer s párovým vkladem) → smaž i vklad v cíli
   if(typeof reverseGoalDepositForTx==='function') reverseGoalDepositForTx(id);
-  S.transactions=S.transactions.filter(t=>t.id!=id);
+  //  v12.35: rozdělená platba se maže celá – části bez rodiče by se dál počítaly do výdajů
+  const _sid=_t&&_t.splitParent&&_t.splitId?_t.splitId:null;
+  S.transactions=S.transactions.filter(t=>t.id!=id&&!(_sid&&t.splitId===_sid));
   if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30 (bod 20): smazaná splátka vrátí Zbývá
   save();renderPage();
 }

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · admin.js · 2026-11-06
+// FinanceFlow · v12.38 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,56 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.38',
+    datum: '2026-11-06',
+    zmeny: [
+      "🧾 AUDIT BOD 11 · ZÁLOHA NA DAŇ 23 % · cesta: Výplatnice → dopočet výplaty (když páska nemá částku daně). Do 3× průměrné mzdy měsíčně (2026: 146 901 Kč) 15 %, z části nad ní 23 % – stejně jako roční zúčtování; hranice podle roku pásky. Dřív vždy 15 %: hrubá 200 000 Kč → záloha 30 000 místo 34 248 Kč, čistá mzda o 4 248 Kč vyšší. Mzdy pod hranicí beze změny.",
+      "👥 AUDIT BOD 16 · KOMUNITNÍ PRŮMĚR PODLE VELIKOSTI DOMÁCNOSTI (Milan: „aplikace počet lidí v domácnosti zná – máme to v nastavení“) · cesta: Komunita → Já vs. komunita, Já vs. ČSÚ (bar 👥 Komunita). Příspěvek nese OECD ekvivalent ze Nastavení → Složení domácnosti (jen číslo, např. 2,1), worker počítá průměr na spotřební jednotku a každý ho vidí přepočtený na SVOU domácnost (v režimu Na osobu na jednotku). Rodina 9 000 Kč (2,1) a jednotlivec 3 000 Kč → 3 643 Kč na jednotku, pro rodinu 7 650 Kč. Průměr dál jen z lidí, kteří ve skupině utrácejí – nově s popiskem „průměr lidí, kteří za to utrácejí · 2 z 10“. Opravený popisek „Medián“ u kategorií – je to průměr. Projeví se po nasazení workeru a jakmile přispěvatelé otevřou novou verzi; do té doby se ukazuje původní průměr.",
+      "🇨🇿 INFLACE · cesta: Inflace → Tvoje inflace vs. oficiální. Appka se na /inflace ptá bez cache prohlížeče – odpověď workeru měla 24h platnost, a tak karta po nasazení nového workeru ukazovala den starou odpověď bez průměrné roční míry („meziročně (orientačně)“).",
+      "🧹 AUDIT BOD 23 – DOKONČENÍ · smazané staré uvítací okno ze S20 (#modalOnboard a obFillDefaults, obToggleFirstDay, obSetDebts, skipOnboarding, saveOnboarding v ui.js) – nikdy se neotevíralo; uvítání nového uživatele je onboarding.js. Smazaná i druhá showToast v duplicates.js (Milan: „ponech novější verzi“ – platila vždy ta z nakup.js). Chování appky se nemění.",
+      "☁️ WORKER v12.38 – komunitní agregát s průměrem na spotřební jednotku. Nasadit ručně. Rules beze změny.",
+      "🧪 tools/smoke_audit_11_16.js (14) – na v12.37 padá; smoke_rocni_zuctovani a smoke_audit_10_23 upravené na nový kód. Chromium 390 px: páska 200 000 Kč → záloha 34 248, po slevě 31 678 Kč; Výplatnice, Komunita, Nastavení, AI rádce, Inflace bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.37',
+    datum: '2026-11-06',
+    zmeny: [
+      "💸 AUDIT BOD 12 · SKUTEČNÉ RPSN (Milan: „přidat na kartu půjčky poplatky a pojištění a počítat skutečné RPSN“) · cesta: Dluhy → ➕ / ✎ půjčka → 💸 Poplatky a pojištění; Dluhy → 📋 Splátkový kalendář (RPSN), Simulace splácení. Nová pole: poplatek za sjednání (jednorázově), vedení úvěru a povinné pojištění (měsíčně). RPSN podle zákona 257/2016 Sb. § 133 = sazba, při které se vyplacená částka rovná splátkám + všem poplatkům. Dřív jen splátky = efektivní úroková sazba. Úvěr 300 000 Kč, 12 %, 60 měsíců: 12,7 % bez poplatků, s poplatkem 3 000 Kč 13,2 %. RPSN se počítá podle smlouvy (celá jistina), takže u rozjeté půjčky jde započítat i jednorázový poplatek; pod číslem je vidět „vč. poplatků“ nebo „bez poplatků – doplň je na kartě“. Konsolidace ukazuje efektivní sazbu (poplatky nové půjčky appka nezná).",
+      "🔥 AUDIT BOD 14 · CENA PLYNU (Milan: „orientační přepočet koeficientem 10,55… může tam být i přepočet pro kWh s cenou za jednotku“) · cesta: Energie a voda → plynoměr → ⚙️ Nastavení. Pole se jmenuje „Cena za m³ (Kč)“ (podle jednotky měřidla) a u plynu přibyla cena z ceníku za kWh + koeficient kWh v 1 m³ (předvyplněno 10,55, přesný je na faktuře) – cenu za m³ appka dopočte sama. Po zapsání vyúčtování se cena dál počítá z něj (celkem Kč ÷ spotřeba). Detail plynoměru ukazuje i ≈ Kč/kWh a spotřebu letos v kWh. Dřív kdo opsal 2,50 Kč/kWh, měl odhad nákladů ~10× menší.",
+      "🎯 AUDIT BOD 10 · BONUS ZA SOUSTAVNOST · cesta: Dashboard → Finanční skóre → Konzistentní trend. U běžícího měsíce řetěz „výdaje klesají“ začíná minulým (dokončeným) měsícem – 6 dní listopadu mělo skoro vždy nižší výdaje než celý říjen a bonus dostal měsíc navíc.",
+      "🤖 AUDIT BOD 21 · AI RÁDCE · cesta: AI rádce → nahoře „AI RÁDCE · DNEŠNÍ TIP“. Tip se ptá AI nejvýš jednou denně a uloží se (synchronizuje se, telefon a počítač se neptají zvlášť); dřív se AI volala při KAŽDÉM otevření AI rádce. Kvůli dvěma prvkům se stejným označením se tip kreslil na Dashboard a na stránce AI rádce nebyl – teď jen na AI rádci. Text od AI se vkládá jako text (escapování), ne jako kód stránky. „AI poradce“ přejmenován na „AI rádce“ (tip, karta, chat, doporučení appky).",
+      "🔔 AUDIT BOD 22 · ODZNAK · cesta: O aplikaci → Oznámení. Řádek nastavení notifikací měl odznak se stejným označením jako menu, takže se nikdy neukázal – odstraněn (nepřečtené ukazuje řádek Zprávy a menu).",
+      "🧹 AUDIT BOD 23 · DVAKRÁT DEFINOVANÉ FUNKCE · smazány mrtvé kopie: getCurInst (helpers.js i debts.js – nikdo ji nevolal), maybeShowOnboarding v ui.js (platí onboarding.js), confirmDeleteAllData v premium.js (stará verze bez potvrzovacího slova SMAZAT; platí settings.js). showToast zatím zůstává obojí – Milan chce vidět srovnání. Chování appky se nemění.",
+      "☁️ WORKER v12.37 – …/inflace?obnovit=1 načte data od ČSÚ znovu (po úpravě výběru v DataStatu se nečeká 24 h na cache). Nasadit ručně.",
+      "🧪 tools/smoke_audit_10_23.js (24) – na v12.36 padá. Chromium 390 px: RPSN v náhledu formuláře 13,2 % vč. poplatků, plynoměr 2,45 Kč/kWh × 10,55 = 25,85 Kč za m³, AI rádce otevřen 4× → 1 volání AI, tip s HTML jako text – bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.36',
+    datum: '2026-11-06',
+    zmeny: [
+      "💼 AUDIT BOD 9 · ZÁKLAD PŘÍJMU BEZ VYROVNÁNÍ · cesta: Finanční zdraví, Finanční skóre (míra spoření, DTI/DSTI), Dluhy, Měsíční report → Rozpočty (limity kategorií). Vážený základ příjmu (váhy stability, ADR-044) sčítal v kategorii všechny příjmy včetně vyrovnání z importu výpisu (VYR.), rodičů rozdělených plateb (rozdělený příjem dvakrát) a přesunů. Výplata 3 × 40 000 + vyrovnání 30 000 Kč v kategorii Výplata → základ 50 000 místo 40 000 Kč, limity kategorií vyšší, zadluženost lepší, než je. Teď stejné vyřazení jako ve všech součtech příjmů.",
+      "📅 AUDIT BOD 7 · MĚSÍČNÍ REPORT A ŠABLONY · cesta: Report → Měsíční report → Pravidelné platby, Pevné platby v příštím měsíci, Výhled. Report počítal šablony po svém: v příštím měsíci jen MĚSÍČNÍ (roční pojistka splatná 15. 11. chyběla, obrazovka Příští měsíc ji měla) a všude pevnou částku místo rozpisu záloh. Teď stejné výskyty jako Budoucí platby a Příští měsíc (frekvence + první splatnost) a částka zálohy platná v den platby. Výhled výdajů = průměr bez čtvrtletních a ročních plateb + jejich skutečné výskyty v příštím měsíci (zvlášť řádek „Čtvrtletní, roční a jednorázové platby“), čtvrtletní / roční příjem ze šablony se přičte navíc.",
+      "📉 AUDIT BOD 5 · ODHAD NEPRAVIDELNÝCH VÝDAJŮ · cesta: Příští měsíc → Odhad běžných výdajů, Predikce a přehledy z ní. Průměr kategorie se dělil jen měsíci, kdy se v ní něco utratilo, z celé historie: roční pojistka 12 000 Kč = odhad listopadu 13 440 Kč, lékař 500 Kč 3× ročně = 500 měsíčně, televize před dvěma lety = 15 000 každý měsíc. Teď posledních 12 DOKONČENÝCH měsíců (běžící měsíc se nebere) a dělí se sledovanými měsíci od prvního výdaje v kategorii: pojistka 1 000 Kč (rezerva), lékař 125 Kč, stará televize 0. V Příštím měsíci se platby čtvrtletních a ročních šablon do odhadu nepočítají (mají vlastní řádek v měsíci splatnosti) a už se od něj neodečítají. Odhady nepravidelných kategorií proto klesnou.",
+      "🇨🇿 AUDIT BOD 13 · INFLACE SROVNATELNÁ S TVOJÍ · cesta: Inflace → Tvoje inflace vs. oficiální; Finanční obraz (reálný růst). Tvoje inflace = ceny položek za posledních 12 měsíců proti předchozím 12 (obdoba PRŮMĚRNÉ ROČNÍ míry ČSÚ), graf ji ale srovnával s MEZIROČNÍ inflací (září 2026: 2,0 % vs. 2,5 %) – při stejných cenách vycházelo „zdražuje ti to méně než průměru“. Chybu jsem udělal při návrhu karty v S23 (v10.93). Worker teď počítá průměrnou roční míru z meziročních indexů ČSÚ (celkem i po oddílech) a karta i Finanční obraz s ní srovnávají; meziroční zůstává pro informaci v dlaždici. Bez nového workeru karta napíše, že srovnání je jen orientační. Opravený i popis výpočtu tvé inflace.",
+      "☁️ WORKER v12.36 – nasadit ručně (Cloudflare → misty-limit-0523 → Edit code → Deploy). Pro 13 bodů grafu průměrné roční míry potřebuje výběr DataStatu (CSU_VYBER_URL) 24 měsíců meziročního indexu; kolik jich má, ukáže /inflace v poli mesicuVeVyberu.",
+      "🧪 tools/smoke_audit_57913.js (19) – na v12.35 padá. Upravené testy na novou metodiku: smoke_fix252 (predikce na měsíc po jediném sledovaném), smoke_s23c (běžící měsíc mimo průměr), smoke_inflace_oficialni (+3: orientačně bez průměrné roční, srovnání s ní). Chromium 390 px: základ 40 000 s vyrovnáním, report října ukáže pojistku 9 000 v listopadu, report listopadu zálohu 1 800 z rozpisu od prosince, karta inflace s průměrnou roční mírou – bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.35',
+    datum: '2026-11-06',
+    zmeny: [
+      "✂️ TRANSAKCE ÚČTENKY SE ROZDĚLÍ PODLE KATEGORIÍ POLOŽEK (Milan: „v editu účtenky může být více kategorií i podkategorií a Statistiky a další funkce s tím musí počítat… proč se to nepřenese do Transakcí?“ → „ano, proveď… u starých i nových účtenek“) · cesta: Transakce → řádek účtenky (📷 ✂️ N× ▾). Transakce účtenky měla jednu kategorii (tu s nejvíc penězi) a rozpočty, Statistiky, reporty, limity i Přehled četly jen ji – potraviny z účtenky s dárky se počítaly do Dárků. Teď se rozdělí stejně jako ✂️ Rozdělit: hlavní řádek drží zaplacenou částku, peněženku a vazbu na účtenku, části nesou kategorii + podkategorii a položky své skupiny. Zaokrouhlení hotovosti, vratné zálohy a slevy se rozpočítají poměrem, haléře sedí, peněženka se odečte jednou. Účtenka s jedinou kategorií položek se nedělí (dostane kategorii položek).",
+      "🔁 STARÉ ÚČTENKY · po spuštění appky se rozdělí všechny dosavadní transakce účtenek (jednou – pak už se nic nemění, id částí jsou stejná na telefonu i počítači). Přepočítává se i při každém uložení: změna kategorie položky v editoru účtenky nebo v 🗺️ Mapě položek (Přeřadit staré účtenky) se hned promítne. Ruční rozdělení zůstávají, jak jsou.",
+      "📷 ÚPRAVA A MAZÁNÍ · cesta: Transakce → část účtenky → 📷. Kategorie části se mění v editoru účtenky (u položek), ne v transakci – místo ✕ má část 📷. Smazání části nebo hlavního řádku jde přes ochranu účtenky (originál se maže v Historii, kopie i se svými částmi). Na telefonu má část vlastní kartu (dřív se částka nevešla).",
+      "🔎 FILTR KATEGORIE · cesta: Transakce → Filtr → kategorie. Část účtenky, jejíž hlavní řádek do filtru nepatří, se ukáže samostatně (filtr Jídlo & Nákupy ukáže potraviny z účtenky s dárky). Počet záznamů v hlavičce počítá rozdělenou platbu jednou. Filtr Období a hledání ve všech měsících ukazují i rozdělené platby (dřív zmizely).",
+      "🛡️ NAVAZUJÍCÍ FUNKCE · Podezřelé (duplicity) a Doručené (notifikace z banky) porovnávají celou účtenku (hlavní řádek), ne její části; tankování z účtenky, kalkulačka zlozvyku a doplnění peněženky nepočítají nic dvakrát; Dotazy počítají rozdělenou účtenku jako jeden nákup; ⭐ téma u položky části se zapíše na správnou položku účtenky. Smazání ručně rozdělené platby smaže i její části (dřív zůstaly ve výdajích).",
+      "🧪 tools/smoke_uctenka_rozdeleni.js (33) – na v12.34 padá. Chromium 1280 i 390 px: účtenka Lidl 268,10 (dárky + potraviny) po spuštění → Dárky›Narozeniny 189,70 · Jídlo›Ovoce 50 · Jídlo 28,40, výdaje měsíce i zůstatek peněženky beze změny, ✎ u části → editor účtenky, filtr Jídlo & Nákupy ukáže obě potravinové části – bez chyb.",
+    ],
+  },
   {
     verze: 'v12.34',
     datum: '2026-11-06',
@@ -9392,13 +9442,17 @@ async function publishCommunityStats(D) {
         });
       } catch (e) { console.warn('[community] agregace:', e); }
     };
-    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), {
+    //  S28 (v12.38, audit bod 16, Milan: „velikost domácnosti aplikace zná – máme to v nastavení“): spolu s výdaji
+    //  se posílá OECD ekvivalent domácnosti (Nastavení → Složení domácnosti), worker z něj počítá průměr na
+    //  spotřební jednotku a každý ho vidí přepočtený na SVOU domácnost. Jen číslo 1–10, žádné jméno ani věk.
+    const _eq = (typeof calcOECD === 'function') ? calcOECD(_settings?.household_adults||2, _settings?.household_ch013||0, _settings?.household_ch14||0) : null;
+    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), Object.assign({
       cats: catStats,
       income: Math.round(baseIncome),
       totalExp: Math.round(totalExp),
       savingRate,
       updatedAt: Date.now()
-    });
+    }, (_eq >= 1 && _eq <= 10) ? { eq: _eq } : {}));
     // FIX-307: odstranit starý záznam klíčovaný uid, pokud po migraci zbyl
     if (typeof dropLegacyCommunityRecord === 'function') await dropLegacyCommunityRecord(monthKey);
     await _requestAgg();   // S20 (TODO-235): přepočet agregátu na serveru
@@ -9559,7 +9613,9 @@ async function _renderKomunitaImpl(el) {
           return {
             cat: _grp ? `${_grp.icon||''} ${_grp.name}` : `COICOP ${coicopId}`,
             coicopId: Number(coicopId),
-            avg: o.avg || 0, count: o.n || 0
+            avg: o.avg || 0, count: o.n || 0,
+            //  v12.38 (audit bod 16): průměr na spotřební jednotku (OECD) – kdo má poslané složení domácnosti
+            avgJ: o.avgJ || 0, countJ: o.nJ || 0
           };
         }).filter(Boolean).sort((a,b)=>b.avg-a.avg)
       };
@@ -9628,13 +9684,16 @@ async function _renderKomunitaImpl(el) {
               const _c = (communityData && Array.isArray(communityData.cats))
                 ? communityData.cats.find(x=>Number(x.coicopId)===Number(g.id)) : null;
               if(!_c || !(_c.avg>0)) return '';
-              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+              //  v12.38 (audit bod 16): na osobu = průměr na spotřební jednotku, domácnost = × tvůj OECD ekvivalent
+              const _kv = _c.avgJ > 0 ? Math.round(_csuMode==='osoba' ? _c.avgJ : _c.avgJ*oecd) : _c.avg;
+              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px" title="Průměr lidí, kteří za to utrácejí · ${_c.count} z ${communityData.count}${_c.avgJ>0?' · přepočteno na složení domácnosti (OECD)':''}">
                 <span style="font-size:.64rem;color:#a8aec8;width:74px;flex-shrink:0">👥 Komunita</span>
                 <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
-                  <div style="height:100%;width:${Math.round(Math.min(_c.avg/maxVal,1)*100)}%;background:#8b7cf6;border-radius:3px"></div>
+                  <div style="height:100%;width:${Math.round(Math.min(_kv/maxVal,1)*100)}%;background:#8b7cf6;border-radius:3px"></div>
                 </div>
-                <span style="font-size:.68rem;color:#b9aefc;width:64px;flex-shrink:0;text-align:right">${fmt(_c.avg)} Kč</span>
-              </div>`;
+                <span style="font-size:.68rem;color:#b9aefc;width:64px;flex-shrink:0;text-align:right">${fmt(_kv)} Kč</span>
+              </div>
+              <div style="font-size:.6rem;color:#8b93ad;margin:-1px 0 3px 80px">průměr lidí, kteří za to utrácejí · ${_c.count} z ${communityData.count}</div>`;
             })()}
             ${myAmt>0?`<div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:.64rem;color:#a8aec8;width:74px;flex-shrink:0">Vy</span>
@@ -9834,7 +9893,11 @@ async function _renderKomunitaImpl(el) {
         <div class="card">
           <div class="card-header"><span class="card-title">📊 Výdaje dle kategorie – uživatelé aplikace</span></div>
           <div class="card-body">
-            ${(()=>{ const {cats:_myCoicop}=computeCoicopAggregates(myTxs,D); return communityData.cats.slice(0,10).map(({cat,coicopId,avg,count})=>{
+            ${(()=>{ const {cats:_myCoicop}=computeCoicopAggregates(myTxs,D);
+              //  v12.38 (audit bod 16): průměr přepočtený na TVOU domácnost (spotřební jednotky OECD z Nastavení)
+              const _myEq = (typeof calcOECD==='function') ? calcOECD(_settings?.household_adults||2, _settings?.household_ch013||0, _settings?.household_ch14||0) : 1;
+              return communityData.cats.slice(0,10).map(({cat,coicopId,avg:_avgRaw,count,avgJ})=>{
+              const avg = avgJ > 0 ? Math.round(avgJ * _myEq) : _avgRaw;
               // Tvoje výdaje pro tuto COICOP divizi (stejný základ jako komunita)
               const myAmt=Math.round(_myCoicop[coicopId]||0);
               const diff=myAmt-avg;
@@ -9872,8 +9935,9 @@ async function _renderKomunitaImpl(el) {
                 ${barHtml}
                 <div style="display:flex;justify-content:space-between;font-size:.66rem;margin-top:3px">
                   <span style="color:var(--income)">${myAmt>0?'Vy: '+fmt(myAmt)+' Kč':''}</span>
-                  <span style="color:var(--bank)">Medián: ${fmtB(avg)}</span>
+                  <span style="color:var(--bank)">Průměr: ${fmtB(avg)}</span>
                 </div>
+                <div style="font-size:.62rem;color:#8b93ad;margin-top:2px">průměr lidí, kteří za to utrácejí · ${count} z ${communityData.count}${avgJ > 0 ? ` · přepočteno na tvou domácnost (OECD ${String(_myEq).replace('.', ',')})` : ''}</div>
               </div>`;
             }).join(''); })()}
           </div>
@@ -10386,9 +10450,11 @@ function toggleSplitChildren(splitId) {
 }
 
 function deleteSplitChild(childId) {
-  if(!confirm('Smazat tuto část splitu?')) return;
   const child = S.transactions.find(t=>t.id==childId);
   if(!child) return;
+  //  v12.35: část rozdělené účtenky = kategorie položek → mění se v editoru účtenky, ne smazáním
+  if(child.rcptCast) { if(typeof openReceiptForTx === 'function') openReceiptForTx(childId); return; }
+  if(!confirm('Smazat tuto část splitu?')) return;
   const splitId = child.splitId;
   // Smaž child
   S.transactions = S.transactions.filter(t=>t.id!=childId);

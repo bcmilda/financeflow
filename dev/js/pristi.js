@@ -1,4 +1,4 @@
-// FinanceFlow · v12.19 · pristi.js · 2026-10-28
+// FinanceFlow · v12.36 · pristi.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  PŘÍŠTÍ MĚSÍC (TODO-211) – predikce příjmů + kalendář jednoho měsíce dopředu.
 //  Tarif: FREE. Horizont: JEN příští měsíc (delší výhled řeší „Kam směřuju").
@@ -256,6 +256,8 @@ function pristiIncomeRows(D, W, cfg) {
   return { inc, nHist };
 }
 
+//  v12.36: šablona, jejíž platby nejsou každý měsíc (čtvrtletní, roční, jednorázová)
+function _pristiNeMes(s) { return ['quarterly', 'halfyearly', 'yearly', 'once'].includes((s && s.freq) || 'monthly'); }
 function pristiBuildData(D) {
   D = D || getData();
   const C = pristiCalWindow();
@@ -288,6 +290,11 @@ function pristiBuildData(D) {
           name: it.name || 'Platba', amount: Math.abs(it.amount || 0), date: d,
           note: it.note || '', src: (typeof budouciSourceLabel === 'function' ? budouciSourceLabel(it.source) : it.source),
         };
+        //  v12.36 (audit bod 5): platba čtvrtletní / roční / jednorázové šablony – v odhadu běžných výdajů není
+        if (it.source === 'sablona') {
+          const sb = (D.sablony || []).find(s => s && String(it.id).startsWith('sablona-' + s.id + '-'));
+          if (sb && _pristiNeMes(sb)) row.neMes = true;
+        }
         if (it.source === 'goal' || it.isTransfer) sav.push(row); else exp.push(row);
       });
       planLoaded = true;
@@ -307,14 +314,20 @@ function pristiBuildData(D) {
   // ── 4) ODHAD BĚŽNÝCH VÝDAJŮ ───────────────────────────────────
   //  predictCat() zahrnuje i platby, které už máme výše s konkrétním datem
   //  (nájem, splátky) → musíme je odečíst, jinak by se počítaly DVAKRÁT.
+  //  S28 (v12.36, audit bod 5): čtvrtletní, roční a jednorázové šablony mají vlastní řádek v měsíci splatnosti,
+  //  proto se jejich platby z historie vynechají a od odhadu se neodečítají (dřív se roční pojistka rozpustila do
+  //  každého měsíce a v měsíci splatnosti se pak odečetla celá – z odhadu ostatních kategorií).
+  const _neMesNazvy = new Set((D.sablony || []).filter(s => s && s.type !== 'income' && _pristiNeMes(s))
+    .map(s => String(s.name || '').trim().toLowerCase()).filter(Boolean));
+  const _predOpts = _neMesNazvy.size ? { vynechat: t => _neMesNazvy.has(String(t.name || '').trim().toLowerCase()) } : undefined;
   let predTotal = 0, predHit = 0;
   if (typeof predictCat === 'function') {
     (D.categories || []).filter(c => c.type === 'expense' || c.type === 'both').forEach(c => {
-      const v = predictCat(c.id, null, W.m, W.y, D);
+      const v = predictCat(c.id, null, W.m, W.y, D, undefined, _predOpts);
       if (typeof v === 'number' && isFinite(v) && v > 0) { predTotal += v; predHit++; }
     });
   }
-  const knownExp = exp.reduce((a, r) => a + r.amount, 0);
+  const knownExp = exp.filter(r => !r.neMes).reduce((a, r) => a + r.amount, 0);
   const estRaw = Math.max(0, predTotal - knownExp);
 
   // ── 5) Aplikace ručních úprav ─────────────────────────────────

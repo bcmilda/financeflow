@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · meridla.js · 2026-11-04
+// FinanceFlow · v12.37 · meridla.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -120,6 +120,16 @@ function merPrumerDenni(den) {
 }
 //  Cena za jednotku: z posledního vyúčtování (celková cena / spotřeba – obsahuje
 //  i stálé platby a DPH), jinak zadaný tarif.
+//  S28 (v12.37, audit bod 14, Milan: „orientační přepočet koeficientem 10,55… aby to aplikace sama spočítala
+//  ze spotřeby + platby za m³; může tam být i přepočet pro kWh s cenou za jednotku“): plynoměr měří m³, ceníky
+//  dodavatelů jsou v Kč/kWh (1 m³ ≈ 10,55 kWh = objemový koeficient × spalné teplo z faktury). Cena v appce je vždy
+//  za jednotku MĚŘIDLA (Kč/m³); u plynu jde zadat i cena z ceníku za kWh, appka ji přepočte koeficientem.
+//  Dřív pole „Cena za jednotku (Kč)“ – kdo opsal 2,50 Kč/kWh, měl odhad nákladů ~10× menší.
+const MER_KWH_NA_M3 = 10.55;
+function merKoef(m) {
+  if (!m || m.druh !== 'plyn' || (m.jednotka || 'm³') !== 'm³') return null;
+  const k = parseFloat(m.koef); return k > 0 ? k : MER_KWH_NA_M3;
+}
 function merCena(m) {
   const v = Object.values(m.vyuctovani || {}).filter(x => x && x.castka > 0 && x.spotreba > 0).sort((a, b) => (b.do || '').localeCompare(a.do || ''))[0];
   if (v) return { cena: v.castka / v.spotreba, zdroj: 'vyuctovani' };
@@ -267,7 +277,7 @@ function merNavrhZalohy(kcObdobi, zaplaceno, platby) {
   if (!(kc > (platby[0].kc || 0))) return null;
   return { od: platby[0].d, kc, plateb: platby.length, nedoplatekBez: Math.round(chybi - plan) };
 }
-Object.assign(window, { merZalohyRozpis, merZalohaKDni, merDnyPlateb, merNavrhZalohy, merIntervaly, merDenne, merMesicne, merPrumerDenni, merCena, merZalohy, merOdhad, merSezonniFaktor, _merPlusMesice });
+Object.assign(window, { merKoef, merPrepoctiKwh, merZalohyRozpis, merZalohaKDni, merDnyPlateb, merNavrhZalohy, merIntervaly, merDenne, merMesicne, merPrumerDenni, merCena, merZalohy, merOdhad, merSezonniFaktor, _merPlusMesice });
 
 // ══════════════════════════════════════════════════════
 //  v11.84 (Milan): KARTA MÍSTO VYSKAKOVACÍCH OKEN
@@ -484,15 +494,30 @@ function _merNastaveniHTML(m) {
         <select class="fi" id="merCat" data-mer onchange="merZmenKat()"><option value="">— nenapojovat —</option>${cats.map(c => `<option value="${_merEsc(c.id)}"${c.id === vych.catId ? ' selected' : ''}>${_merEsc((c.icon || '') + ' ' + c.name)}</option>`).join('')}</select>
         <select class="fi" id="merSub" data-mer><option value="">všechny podkategorie</option>${(cat?.subs || []).map(s => `<option${s === vych.subcat ? ' selected' : ''}>${_merEsc(s)}</option>`).join('')}</select></div>`,
       'Odsud appka čte zaplacené zálohy. Nic se nepřepisuje.')}
-    ${_merPole('Cena za jednotku (Kč)', `<input class="fi" id="merCena" data-mer inputmode="decimal" placeholder="nepovinné" value="${m && m.cena ? _merEsc(m.cena) : ''}">`, 'jen než zapíšeš vyúčtování')}
+    ${_merPole(`Cena za <span id="merCenaJed">${_merEsc(m ? (m.jednotka || dr.jed) : dr.jed)}</span> (Kč)`, `<input class="fi" id="merCena" data-mer inputmode="decimal" placeholder="nepovinné" value="${m && m.cena ? _merEsc(m.cena) : ''}">`, 'jen než zapíšeš vyúčtování – potom se cena počítá sama z vyúčtování (celkem Kč ÷ spotřeba)')}
+    <div id="merKwhRadek" style="display:${druh === 'plyn' ? 'block' : 'none'}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${_merPole('nebo cena z ceníku za kWh (Kč)', `<input class="fi" id="merCenaKwh" data-mer inputmode="decimal" placeholder="např. 2,45" value="${m && m.cenaKwh ? _merEsc(m.cenaKwh) : ''}" oninput="merPrepoctiKwh()">`)}
+        ${_merPole('kWh v 1 m³', `<input class="fi" id="merKoef" data-mer inputmode="decimal" value="${_merEsc(String(m && m.koef > 0 ? m.koef : MER_KWH_NA_M3).replace('.', ','))}" oninput="merPrepoctiKwh()">`)}
+      </div>
+      <div style="font-size:.64rem;color:#8b93ad;margin-top:3px">Ceníky plynu jsou v Kč/kWh, plynoměr měří m³. Přesný koeficient (objemový koeficient × spalné teplo) je na faktuře, orientačně 10,55 kWh na 1 m³. Cenu za m³ appka dopočte sama.</div>
+    </div>
     ${_merZalohaBlokHTML(m)}
     <button class="btn btn-primary" style="width:100%;margin-top:14px;background:#22c55e;color:#06210f;font-weight:700;border:none" onclick="merUlozMeridlo('${m ? _merEsc(m.id) : ''}')">💾 Uložit</button>
     ${m ? `<button class="btn" style="width:100%;margin-top:8px;background:#dc2626;color:#fff;font-weight:700;border:none" onclick="merSmazMeridlo('${_merEsc(m.id)}')">🗑 Smazat měřidlo</button>` : ''}`;
+}
+//  v12.37: cena z ceníku v Kč/kWh × koeficient → cena za m³ do pole Cena
+function merPrepoctiKwh() {
+  const kwh = _merCislo((document.getElementById('merCenaKwh') || {}).value), k = _merCislo((document.getElementById('merKoef') || {}).value);
+  const el = document.getElementById('merCena');
+  if (el && kwh > 0 && k > 0) el.value = String(Math.round(kwh * k * 100) / 100).replace('.', ',');
 }
 function merZmenDruh() {
   const d = document.getElementById('merDruh').value;
   document.getElementById('merNazev').value = MER_DRUHY[d].n;
   document.getElementById('merJed').value = MER_DRUHY[d].jed || 'kWh';
+  const _cj = document.getElementById('merCenaJed'); if (_cj) _cj.textContent = MER_DRUHY[d].jed || 'kWh';
+  const _kr = document.getElementById('merKwhRadek'); if (_kr) _kr.style.display = d === 'plyn' ? 'block' : 'none';
   const tr = document.getElementById('merTarifRadek'); if (tr) tr.style.display = d === 'elektrina' ? 'block' : 'none';
   const v = merVychoziKategorie(d);
   document.getElementById('merCat').value = v.catId; merZmenKat(); document.getElementById('merSub').value = v.subcat;
@@ -514,6 +539,11 @@ async function merUlozMeridlo(id) {
   if (m.druh === 'elektrina' && document.getElementById('merTarif')?.value === '2') m.dvoutarif = true; else delete m.dvoutarif;   // dvoutarif jen u elektřiny
   const c = _merCislo(document.getElementById('merCena').value), z = _merCislo(document.getElementById('merZaloha').value);
   if (c > 0) m.cena = c; else delete m.cena;
+  //  v12.37: plyn – cena z ceníku za kWh a koeficient (pro zobrazení Kč/kWh a příští úpravu)
+  const _ck = _merCislo(document.getElementById('merCenaKwh')?.value), _kf = _merCislo(document.getElementById('merKoef')?.value);
+  if (m.druh === 'plyn' && _ck > 0) m.cenaKwh = _ck; else delete m.cenaKwh;
+  if (m.druh === 'plyn' && _kf > 0 && Math.abs(_kf - MER_KWH_NA_M3) > 1e-9) m.koef = _kf; else delete m.koef;
+  if (m.druh === 'plyn' && _ck > 0 && _kf > 0 && !(c > 0)) m.cena = Math.round(_ck * _kf * 100) / 100;
   if (z > 0) m.zaloha = z; else delete m.zaloha;
   //  v11.86: záloha jako opakovaná platba (šablona → každý měsíc transakce s vazbou na měřidlo)
   //  S28 (v12.29, Milan: „proč mám u záloh na plyn a elektřinu ‚auto‘?“): tři stavy místo dvou –
@@ -963,7 +993,7 @@ function merDetail(id) {
 function _merDetailHTML(m, D) {
   const id = m.id, dnes = (typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const dr = MER_DRUHY[m.druh] || MER_DRUHY.jine, jed = m.jednotka || dr.jed;
-  const us = merUseky(m), o = merOdhad(m, D, dnes), den = merDenne(m), c = merCena(m);
+  const us = merUseky(m), o = merOdhad(m, D, dnes), den = merDenne(m), c = merCena(m), _kf = merKoef(m);   // v12.37: m³ → kWh u plynu
   const posl = us[us.length - 1];
   const rok = dnes.slice(0, 4); let letos = 0; Object.keys(den).forEach(d => { if (d.startsWith(rok)) letos += den[d]; });
   const pr = merPrumerDenni(den);
@@ -1038,8 +1068,8 @@ function _merDetailHTML(m, D) {
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin-top:10px">
       ${dl('Poslední odečet', posl ? (dvou && posl.vt != null ? 'VT ' + _merDes(posl.vt, 0) + ' · NT ' + _merDes(posl.nt, 0) : _merDes(posl.stav, 1)) : '—', posl ? _merDatumCz(posl.datum) : '')}
       ${dl('Průměr denně', pr != null ? _merDes(pr, 2) + ' ' + J : '—', pr != null ? '≈ ' + _merDes(pr * 30.44, 0) + ' ' + J + ' měsíčně' : '')}
-      ${dl('Letos', _merDes(letos, 0) + ' ' + J, c ? '≈ ' + _merKc(letos * c.cena) : '')}
-      ${dl('Cena za ' + J, c ? _merDes(c.cena, 2) + ' Kč' : '—', c ? (c.zdroj === 'vyuctovani' ? 'z vyúčtování' : 'tarif') : 'zapiš vyúčtování')}
+      ${dl('Letos', _merDes(letos, 0) + ' ' + J, [_kf ? '≈ ' + _merDes(letos * _kf, 0) + ' kWh' : '', c ? '≈ ' + _merKc(letos * c.cena) : ''].filter(Boolean).join(' · '))}
+      ${dl('Cena za ' + J, c ? _merDes(c.cena, 2) + ' Kč' : '—', c ? (c.zdroj === 'vyuctovani' ? 'z vyúčtování' : 'tarif') + (_kf ? ` · ≈ ${_merDes(c.cena / _kf, 2)} Kč/kWh` : '') : 'zapiš vyúčtování')}
       ${o && o.saldoObdobi != null ? dl('Odhad období', `<span style="color:${o.saldoObdobi >= 0 ? 'var(--income)' : '#f87171'}">${o.saldoObdobi >= 0 ? 'přeplatek ' : 'doplatek '}${_merKc(Math.abs(o.saldoObdobi))}</span>`, 'k ' + _merDatumCz(_merPlusDni(o.konec, -1))) : ''}
     </div>
     ${graf ? nad('Vývoj spotřeby po měsících' + (dvou ? ' · <span style="color:#fbbf24">■ VT</span> <span style="color:#818cf8">■ NT</span>' : '')) + graf : ''}

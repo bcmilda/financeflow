@@ -1,4 +1,4 @@
-// FinanceFlow · v11.96 · dotazy.js · 2026-10-21
+// FinanceFlow · v12.35 · dotazy.js · 2026-11-06
 // ══════════════════════════════════════════════════════════════════════
 //  🔎 ZEPTEJ SE SVÝCH DAT (Session 27, Milan: „najdi mi, kolik utrácím za kávu – kavárny, restaurace,
 //  nákup kávy v obchodě, zelené tagy káva/kafe“, „jak často chodím do obchodu“, „kolik kupuju pečiva“,
@@ -89,10 +89,12 @@ function dotRozsah(obdobi, dnes) {
 }
 //  Nejčastější štítky a obchody (pro AI – jen názvy, ne částky).
 function dotSlovnik(D) {
-  const st = {}, ob = {};
+  const st = {}, ob = {}, uct = new Set();
   (D.transactions || []).forEach(t => {
     if (!_dotStat(t)) return;
-    const o = String(t.receiptStore || '').trim(); if (o) ob[o] = (ob[o] || 0) + 1;
+    //  v12.35: rozdělená účtenka (části podle kategorií) = jeden nákup v obchodě
+    const jedna = !(t.rcptCast && t.splitId) || !uct.has(t.splitId); if (t.rcptCast && t.splitId) uct.add(t.splitId);
+    const o = String(t.receiptStore || '').trim(); if (o && jedna) ob[o] = (ob[o] || 0) + 1;
     (typeof parseTxTags === 'function' ? parseTxTags(t) : []).forEach(x => { st[x] = (st[x] || 0) + 1; });
     (t.receiptItems || []).forEach(it => { if (it && it.tag) st[it.tag] = (st[it.tag] || 0) + 1; });
   });
@@ -113,14 +115,17 @@ function dotazSpocitej(D, plan, dnes) {
   const vyp = new Set(plan.vypnout || []);
   const katSedi = (c, s) => kat.has(c + '|') || (s && kat.has(c + '|' + s));
   const zaznamy = [], zdroje = {}, pojmyNalez = {};
+  //  v12.35: části rozdělené účtenky jsou jeden nákup (počet nákupů, „ks“ u celé platby)
+  const _nak = new Set(), _ksTx = n => _nak.has(n) ? 0 : (_nak.add(n), 1);
   const pridej = (z) => { if (vyp.has(z.zdroj)) return false; zaznamy.push(z); zdroje[z.zdroj] = (zdroje[z.zdroj] || 0) + 1; if (z.proc) pojmyNalez[z.proc] = (pojmyNalez[z.proc] || 0) + 1; return true; };
   (D.transactions || []).forEach(t => {
     if (!_dotStat(t)) return;
     const d = _dotDen(t.date); if (isNaN(d) || d > roz.do || (roz.od && d < roz.od)) return;
     const obchod = String(t.receiptStore || t.name || '').trim();
     const kc = _dotCZK(t, D), polozky = Array.isArray(t.receiptItems) ? t.receiptItems : [];
-    const zaklad = { d, obchod, txId: t.id, nazev: t.name || obchod };
-    if (plan.vse) { pridej(Object.assign({ kc, ks: 1, zdroj: 'vse' }, zaklad)); return; }
+    const nakup = t.rcptCast && t.splitId ? 's:' + t.splitId : t.id;
+    const zaklad = { d, obchod, txId: t.id, nakup, nazev: t.name || obchod };
+    if (plan.vse) { pridej(Object.assign({ kc, ks: _ksTx(nakup), zdroj: 'vse' }, zaklad)); return; }
     //  1) transakce celá
     const c = t.catId || t.category;
     let zdroj = '', proc = '';
@@ -129,7 +134,7 @@ function dotazSpocitej(D, plan, dnes) {
     else if (hledej.length && t.receiptStore && (proc = dotSedi(t.receiptStore, hledej))) zdroj = 'obchod';
     else if (hledej.length && Array.isArray(t.tags) && (proc = t.tags.map(x => dotSedi(x, hledej)).find(Boolean) || '')) zdroj = 'stitek';
     else if (hledej.length && !polozky.length && (proc = dotSedi((t.name || '') + ' ' + (t.note || ''), hledej))) zdroj = 'transakce';
-    if (zdroj && pridej(Object.assign({ kc, ks: 1, zdroj, proc }, zaklad))) return;
+    if (zdroj && pridej(Object.assign({ kc, ks: _ksTx(nakup), zdroj, proc }, zaklad))) return;
     if (zdroj) return;   // vypnutý zdroj – položky se nepřebírají (transakce sedí celá)
     //  2) jen sedící položky účtenky
     if (!polozky.length) return;
@@ -142,7 +147,7 @@ function dotazSpocitej(D, plan, dnes) {
       else if (hledej.length && (p = dotSedi(it.name + ' ' + _dotEanNazev(it), hledej))) z = 'polozka';
       if (!z) return;
       const ks = Math.abs(parseFloat(it.qty) || 1);
-      pridej({ d, obchod, txId: t.id, nazev: it.name, kc: _dotLine(it) * fx, ks: /^(kg|l)$/i.test(String(it.unit || '')) ? 1 : ks, zdroj: z, proc: p });
+      pridej({ d, obchod, txId: t.id, nakup, nazev: it.name, kc: _dotLine(it) * fx, ks: /^(kg|l)$/i.test(String(it.unit || '')) ? 1 : ks, zdroj: z, proc: p });
     });
   });
   return { zaznamy, zdroje, pojmyNalez, rozsah: roz };
@@ -157,7 +162,7 @@ function _dotEanNazev(it) {
 function dotazSouhrn(v, rozpad, dnes) {
   const z = v.zaznamy;
   const kc = z.reduce((a, x) => a + x.kc, 0), ks = z.reduce((a, x) => a + x.ks, 0);
-  const nakupu = new Set(z.map(x => x.txId)).size;
+  const nakupu = new Set(z.map(x => x.nakup || x.txId)).size;
   dnes = _dotDen(dnes || new Date());
   const prvni = z.length ? new Date(Math.min.apply(null, z.map(x => +x.d))) : null;
   const od = v.rozsah.od || prvni || dnes;
@@ -165,7 +170,7 @@ function dotazSouhrn(v, rozpad, dnes) {
   const mesicu = Math.max(1, dni / 30.44), tydnu = Math.max(1, dni / 7);
   const skup = (klic) => {
     const o = {};
-    z.forEach(x => { const k = klic(x); const s = o[k] || (o[k] = { klic: k, kc: 0, ks: 0, tx: new Set() }); s.kc += x.kc; s.ks += x.ks; s.tx.add(x.txId); });
+    z.forEach(x => { const k = klic(x); const s = o[k] || (o[k] = { klic: k, kc: 0, ks: 0, tx: new Set() }); s.kc += x.kc; s.ks += x.ks; s.tx.add(x.nakup || x.txId); });
     return Object.values(o).map(s => ({ klic: s.klic, kc: s.kc, ks: s.ks, pocet: s.tx.size }));
   };
   let radky;

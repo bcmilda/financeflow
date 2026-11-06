@@ -1,4 +1,4 @@
-// FinanceFlow · v12.20 · temata.js · 2026-10-28
+// FinanceFlow · v12.35 · temata.js · 2026-11-06
 // ══════════════════════════════════════════════════════════════════════
 //  S28 (v12.20, Milan): ⭐ SLEDOVANÁ TÉMATA – káva, pivo, Mac, kebab…
 //  „Hlavní je označit položku a přiřadit ji k tématu“ · „AI paměť by se hodila“ ·
@@ -128,8 +128,12 @@ function temaPrepniPolozku(txId, i, id) {
   if (typeof viewingUid !== 'undefined' && viewingUid) return;
   const t = (S.transactions || []).find(x => x.id == txId); const it = t && (t.receiptItems || [])[i]; if (!it) return;
   const zap = _temaPrepni(it, id, 'temataPamet');
-  const r = (S.receipts || []).find(x => x && x.date === t.receiptDate && (x.store || '').toLowerCase() === (t.receiptStore || '').toLowerCase());
-  const ri = r && (r.items || [])[i];
+  //  v12.35: část rozdělené účtenky – účtenka podle rodiče, položka podle svého pořadí na účtence (it.ri)
+  const _rod = t.rcptCast && typeof rcptRodicTx === 'function' ? rcptRodicTx(S, t) : null;
+  const _vaz = (_rod || t).receiptAddedAt;
+  const r = (_vaz && (S.receipts || []).find(x => x && x.addedAt === _vaz))
+    || (S.receipts || []).find(x => x && x.date === t.receiptDate && (x.store || '').toLowerCase() === (t.receiptStore || '').toLowerCase());
+  const ri = r && (r.items || [])[it.ri != null ? it.ri : i];
   if (ri && ri.name === it.name) { if (it.temata) ri.temata = it.temata.slice(); else delete ri.temata; if (it.temataNe) ri.temataNe = it.temataNe.slice(); else delete ri.temataNe; }
   if (typeof save === 'function') save();
   return zap;

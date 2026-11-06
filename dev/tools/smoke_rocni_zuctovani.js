@@ -19,7 +19,7 @@ t('zálohy 12 × (4 500 − 2 570) = 23 160 → přeplatek 0',r.zalohy===23160&&
 //  Nástup v březnu: sleva na poplatníka jen za 10 měsíců → v ročním zúčtování celá → přeplatek 2 × 2 570.
 r=c.vyplRocniZuctovani(2025,rok.slice(2),ted);
 t('nástup v březnu: přeplatek 5 140 Kč (sleva za leden a únor)',r.vysledek===5140&&r.zSlevy===5140,r);
-t('základ zaokrouhlený DOLŮ na stovky (roční), záloha nahoru (měsíční)',/Math\.floor\(\(prijmy - odpocty\) \/ 100\) \* 100/.test(src)&&/_ceil\(hruba \/ 100\) \* 100 \* 0\.15/.test(src));
+t('základ zaokrouhlený DOLŮ na stovky (roční), záloha nahoru (měsíční)',/Math\.floor\(\(prijmy - odpocty\) \/ 100\) \* 100/.test(src)&&/const _zakl = _ceil\(hruba \/ 100\) \* 100/.test(src));   // v12.38: + 23 % nad 3× průměrnou mzdu
 c.S.uiCfg.rz={2025:{odpocty:20000}};
 r=c.vyplRocniZuctovani(2025,rok,ted);
 t('odpočty 20 000 → daň o 3 000 nižší → přeplatek 3 000',r.zaklad===340000&&r.vysledek===3000,r.vysledek);

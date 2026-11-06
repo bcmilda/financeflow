@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · vozidla.js · 2026-11-04
+// FinanceFlow · v12.35 · vozidla.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -206,7 +206,7 @@ function tankUctenkyBez(D) {
   D = D || getData();
   if (typeof dupUctenkaPro !== 'function') return [];
   const od = (typeof ffDatum === 'function' ? ffDatum(new Date(Date.now() - 365 * 864e5)) : new Date(new Date(Date.now() - 365 * 864e5)).toISOString().slice(0, 10));   // v12.30: místní datum
-  return (D.transactions || []).filter(t => t && t.type === 'expense' && !t.tank && (t.date || '') >= od && (t.receiptAddedAt || t.receiptStore || String(t.note || '').startsWith('📸')))
+  return (D.transactions || []).filter(t => t && t.type === 'expense' && !t.tank && !t.rcptCast && (t.date || '') >= od && (t.receiptAddedAt || t.receiptStore || String(t.note || '').startsWith('📸')))
     .map(t => { const u = dupUctenkaPro(t); const p = u && tankZUctenky(u.r); return p ? { t, r: u.r, p } : null; }).filter(Boolean)
     .sort((a, b) => (b.t.date || '').localeCompare(a.t.date || ''));
 }

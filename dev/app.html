@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.34</title>
+<title>FinanceFlow v12.38</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -89,7 +89,7 @@
           <li><span class="fi">📥</span> Import CSV / Excel výpisů</li>
           <li><span class="fi">📊</span> Základní grafy a tagy</li>
           <li><span class="fi">📄</span> Měsíční report (1 měsíc)</li>
-          <li class="off"><span class="fi">🤖</span> AI Poradce a analýzy</li>
+          <li class="off"><span class="fi">🤖</span> AI rádce a analýzy</li>
           <li class="off"><span class="fi">🧾</span> Sken účtenek + statistiky</li>
           <li class="off"><span class="fi">🔮</span> Predikce a tempo utrácení</li>
           <li class="off"><span class="fi">👨‍👩‍👧</span> Sdílení s partnerem</li>
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.34 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.38 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -429,7 +429,7 @@
     <div id="transferOverviewCard"></div>
     <div id="networthCard"></div>
     <div id="financialScoreCard" style="margin-bottom:14px"></div>
-    <div id="aiProactiveAlert" style="margin-bottom:14px"></div>
+    <!-- S28 (v12.37, audit bod 21): #aiProactiveAlert patří jen na stránku AI rádce (dvě stejná id → tip se kreslil sem) -->
     <div id="emptyMonthBanner" style="display:none"></div>
     <div id="summaryCards"></div>
     <div id="bdayAlert"></div>
@@ -907,11 +907,11 @@
     <div class="grid2" style="margin-bottom:16px">
       <!-- Worker status -->
       <div class="card">
-        <div class="card-header"><span class="card-title">🤖 AI Poradce</span></div>
+        <div class="card-header"><span class="card-title">🤖 AI rádce</span></div>
         <div class="card-body">
           <div id="aiKeyBanner"></div>
           <div style="font-size:.78rem;color:var(--text2);margin-top:8px;line-height:1.6">
-            AI poradce je dostupný pro všechny přihlášené uživatele zdarma.
+            AI rádce je dostupný pro všechny přihlášené uživatele zdarma.
             Používá Claude AI přes zabezpečený server.
           </div>
         </div>
@@ -938,7 +938,7 @@
     <!-- Chat -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-header">
-        <span class="card-title">💬 Chat s AI poradcem</span>
+        <span class="card-title">💬 Chat s AI rádcem</span>
         <div style="display:flex;gap:6px">
           <button class="btn btn-ghost btn-sm" onclick="aiExportChat()">📥 Export</button>
           <button class="btn btn-ghost btn-sm" onclick="clearAiChat()">🗑 Vymazat</button>
@@ -1102,7 +1102,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.34</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.38</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -1122,7 +1122,7 @@
         <!-- Oznámení = nastavení push notifikací -->
         <div onclick="openNotifSettings()" style="display:flex;align-items:center;gap:12px;padding:12px 8px;cursor:pointer;border-radius:10px;transition:background .15s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'">
           <span style="font-size:1.2rem">🔔</span>
-          <div style="flex:1"><div style="font-size:.88rem;font-weight:600">Oznámení <span id="navAnnounceBadge" style="display:none;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;background:var(--bank);color:#fff;border-radius:9px;font-size:.62rem;font-weight:700"></span></div><div style="font-size:.72rem;color:var(--text3)">Push notifikace, cenové alerty, novinky</div></div>
+          <div style="flex:1"><div style="font-size:.88rem;font-weight:600">Oznámení<!-- v12.37 (audit bod 22): odznak nepřečtených je u Zpráv a v menu; nastavení notifikací nemá co „nepřečíst“ --></div><div style="font-size:.72rem;color:var(--text3)">Push notifikace, cenové alerty, novinky</div></div>
           <span style="margin-left:auto;color:var(--text3)">›</span>
         </div>
         <div style="height:1px;background:var(--border);margin:0 8px"></div>
@@ -1198,90 +1198,7 @@
 <!-- FAB -->
 <button class="fab" id="mainFab" onclick="openAddTx()">+</button>
 
-<!-- MODAL: Onboarding krok 1 (TODO-234) – jednorázové uvítací nastavení pro nové uživatele.
-     Záměrně JEDNA stránka: rozdělení do kroků zvyšuje počet lidí, kteří odpadnou uprostřed.
-     Vše má rozumnou výchozí hodnotu, takže „Nastavit později" je plnohodnotná volba. -->
-<div class="overlay" id="modalOnboard">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-head"><h3>👋 Vítej ve FinanceFlow</h3></div>
-    <div class="modal-body">
-      <div style="font-size:.82rem;color:#a8aec8;line-height:1.5;margin-bottom:14px">
-        Pár údajů, aby ti aplikace počítala správně. Všechno jde kdykoliv změnit v Nastavení.
-      </div>
-
-      <div class="frow">
-        <div class="fg"><label>Jazyk</label>
-          <select class="fi" id="obLang">
-            <option value="cs">🇨🇿 Čeština</option>
-            <option value="sk">🇸🇰 Slovenčina</option>
-            <option value="en">🇬🇧 English</option>
-          </select>
-        </div>
-        <div class="fg"><label>Základní měna</label>
-          <select class="fi" id="obCurrency">
-            <option value="CZK">🇨🇿 CZK – Koruna</option>
-            <option value="EUR">🇪🇺 EUR – Euro</option>
-            <option value="USD">🇺🇸 USD – Dolar</option>
-            <option value="GBP">🇬🇧 GBP – Libra</option>
-            <option value="PLN">🇵🇱 PLN – Zlotý</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="fg"><label>Formát data</label>
-        <select class="fi" id="obDateFmt">
-          <option value="cs">DD.MM.YYYY (česky)</option>
-          <option value="iso">YYYY-MM-DD (ISO)</option>
-          <option value="us">MM/DD/YYYY (US)</option>
-        </select>
-      </div>
-
-      <div class="fg"><label>Kam si zapisuješ peníze</label>
-        <input class="fi" id="obWalletName" placeholder="Můj účet" maxlength="40">
-        <div style="font-size:.7rem;color:#a8aec8;margin-top:4px;line-height:1.45">Peněženka = účet nebo hotovost, ze které platíš. Další můžeš přidat později.</div>
-      </div>
-
-      <div class="fg"><label>Jak nejčastěji platíš</label>
-        <select class="fi" id="obPayType">
-          <option value="Karta">💳 Kartou</option>
-          <option value="Hotovost">💵 Hotově</option>
-          <option value="Převod">🏦 Převodem</option>
-          <option value="">– nevybírat –</option>
-        </select>
-      </div>
-
-      <div class="frow">
-        <div class="fg"><label>Jak často ti chodí příjem</label>
-          <select class="fi" id="obPayFreq" onchange="obToggleFirstDay()">
-            <option value="monthly">📅 Měsíčně</option>
-            <option value="biweekly">📆 Každých 14 dní</option>
-            <option value="weekly">🗓️ Týdně</option>
-            <option value="semimonthly">🔂 2× měsíčně</option>
-            <option value="irregular">🎲 Nepravidelně (OSVČ)</option>
-          </select>
-        </div>
-        <div class="fg" id="obFirstDayWrap"><label>Který den v měsíci</label>
-          <select class="fi" id="obFirstDay"></select>
-        </div>
-      </div>
-
-      <div class="fg" style="background:var(--surface2);border-radius:10px;padding:10px 12px">
-        <label style="display:block;margin-bottom:6px">Máš půjčku nebo hypotéku?</label>
-        <div style="display:flex;gap:8px">
-          <button type="button" class="btn btn-ghost" id="obDebtYes" onclick="obSetDebts(true)" style="flex:1">Ano</button>
-          <button type="button" class="btn btn-ghost" id="obDebtNo" onclick="obSetDebts(false)" style="flex:1">Ne</button>
-        </div>
-        <div style="font-size:.7rem;color:#a8aec8;margin-top:6px;line-height:1.45">
-          Bez odpovědi appka nepozná rozdíl mezi „nemám dluh" a „ještě jsem ho nezadal" — a část Finančního skóre se ti nezapočítá.
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="skipOnboarding()">Nastavit později</button>
-      <button class="btn btn-accent" onclick="saveOnboarding()">Uložit a začít</button>
-    </div>
-  </div>
-</div>
+<!-- S28 (v12.38): staré uvítací okno #modalOnboard (S20) smazáno – nikdy se neotevíralo; uvítání = #modalOnboarding (onboarding.js) -->
 
 <!-- MODAL: Projekt -->
 <div class="overlay" id="modalProject">
@@ -2010,6 +1927,16 @@
         <div class="fg"><label>Bezúročné období (dní)</label><input class="fi" id="dGrace" type="number" placeholder="0" min="0"></div>
         <div class="fg"><label>Priorita</label><select class="fs" id="dPriority"><option value="high">🔴 Vysoká</option><option value="mid" selected>🟡 Střední</option><option value="low">🟢 Nízká</option></select></div>
       </div>
+      <!-- S28 (v12.37, audit bod 12): náklady úvěru → skutečné RPSN -->
+      <div style="background:var(--surface3);border-radius:10px;padding:12px;margin:4px 0 10px">
+        <div style="font-size:.74rem;font-weight:600;color:var(--text2);margin-bottom:4px">💸 Poplatky a pojištění (pro RPSN, volitelné)</div>
+        <div style="font-size:.68rem;color:var(--text3);margin-bottom:8px;line-height:1.45">Najdeš je ve smlouvě nebo v předsmluvních informacích. Splátka z pole výše je bez nich.</div>
+        <div class="frow">
+          <div class="fg"><label>Poplatek za sjednání (Kč)</label><input class="fi" id="dFeeOnce" type="number" inputmode="decimal" placeholder="0" min="0" oninput="generateSchedulePreview()"></div>
+          <div class="fg"><label>Vedení úvěru (Kč/měsíc)</label><input class="fi" id="dFeeMonthly" type="number" inputmode="decimal" placeholder="0" min="0" oninput="generateSchedulePreview()"></div>
+        </div>
+        <div class="fg"><label>Povinné pojištění (Kč/měsíc)</label><input class="fi" id="dInsMonthly" type="number" inputmode="decimal" placeholder="0" min="0" oninput="generateSchedulePreview()"></div>
+      </div>
       <!-- Sankce -->
       <div style="background:var(--surface3);border-radius:10px;padding:12px;margin-top:4px">
         <div style="font-size:.74rem;font-weight:600;color:var(--text2);margin-bottom:8px">⚠️ Sankce za prodlení (volitelné)</div>
@@ -2284,54 +2211,54 @@ window.addEventListener('error', function(e){
   }
 }, true);
 </script>
-<script src="js/app.js?v=a89235775fa603fc" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
-<script src="js/helpers.js?v=cc965114542803a6" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
+<script src="js/app.js?v=c29e53ef400396aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
+<script src="js/helpers.js?v=8b8cb90ae89cf28e" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
 <script src="js/ikony.js?v=c06d5167d73df290" onerror="window._ffScriptFail&&window._ffScriptFail('js/ikony.js')"></script>
-<script src="js/ui.js?v=737a2e398db6da7a" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/ui.js?v=5ba5102b24583176" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
 <script src="js/transactions.js?v=b10ee7e9ff97de5a" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
 <script src="js/report.js?v=9ea06828a966440d" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
 <script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
-<script src="js/inflace.js?v=2725f5f5832ad987" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
+<script src="js/inflace.js?v=704ac86c7f02b944" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
 <script src="js/charts.js?v=278b9667b9ec0f6b" onerror="window._ffScriptFail&&window._ffScriptFail('js/charts.js')"></script>
 <script src="js/stats.js?v=89abcbde05a8dc30" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
-<script src="js/debts.js?v=ffa80335fde43501" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
-<script src="js/ai.js?v=87d0e0e6e6cd03d8" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
-<script src="js/dotazy.js?v=74f815619b9401f9" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
+<script src="js/debts.js?v=6d58d0b470a9cec6" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
+<script src="js/ai.js?v=1b7d2cf5b34444aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
+<script src="js/dotazy.js?v=3f240c078407c641" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
-<script src="js/premium.js?v=b6772f5b969d1458" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=defeff24ae2b3595" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
-<script src="js/projects.js?v=654bebbee4bb2173" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
+<script src="js/projects.js?v=9ee0dfaecb7d1284" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
 <script src="js/taxonomie.js?v=72dee07513064b77" onerror="window._ffScriptFail&&window._ffScriptFail('js/taxonomie.js')"></script>
 <script src="js/ceny-kraje.js?v=efd74792830fe7ac" onerror="window._ffScriptFail&&window._ffScriptFail('js/ceny-kraje.js')"></script>
 <script src="js/statistika-polozek.js?v=9cd80b61f6c953ba" onerror="window._ffScriptFail&&window._ffScriptFail('js/statistika-polozek.js')"></script>
-<script src="js/receipts.js?v=1805c4812debc40e" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/receipts.js?v=281d66c245f58233" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
 <script src="js/ean-sken.js?v=141fc8a9ab2fcd1e" onerror="window._ffScriptFail&&window._ffScriptFail('js/ean-sken.js')"></script>
 <script src="js/offline-sync.js?v=11672e9dbe7c620d" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
 <script src="js/settings.js?v=f4828be04ce0ade0" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
-<script src="js/share.js?v=64a84796d09d9572" onerror="window._ffScriptFail&&window._ffScriptFail('js/share.js')"></script>
+<script src="js/share.js?v=f34a98358d177d6e" onerror="window._ffScriptFail&&window._ffScriptFail('js/share.js')"></script>
 <script src="js/sms-import.js?v=4928f056fcad641f" onerror="window._ffScriptFail&&window._ffScriptFail('js/sms-import.js')"></script>
-<script src="js/inbox.js?v=835c4346002d00fa" onerror="window._ffScriptFail&&window._ffScriptFail('js/inbox.js')"></script>
-<script src="js/duplicates.js?v=819c29c48154f70c" onerror="window._ffScriptFail&&window._ffScriptFail('js/duplicates.js')"></script>
+<script src="js/inbox.js?v=3ac425cf1b94cc4b" onerror="window._ffScriptFail&&window._ffScriptFail('js/inbox.js')"></script>
+<script src="js/duplicates.js?v=1940c4e988fbb21b" onerror="window._ffScriptFail&&window._ffScriptFail('js/duplicates.js')"></script>
 <script src="js/nakup.js?v=1c0178f35b2d851f" onerror="window._ffScriptFail&&window._ffScriptFail('js/nakup.js')"></script>
 <script src="js/product-db.js?v=4a47b1dd1d1d86d2" onerror="window._ffScriptFail&&window._ffScriptFail('js/product-db.js')"></script>
 <script src="js/coicop.js?v=d8d73396438eaa50" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop.js')"></script>
 <script src="js/budouci.js?v=66d71c078f2ba010" onerror="window._ffScriptFail&&window._ffScriptFail('js/budouci.js')"></script>
-<script src="js/pristi.js?v=0e426d27cf019ba5" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
-<script src="js/vozidla.js?v=ecbb1affbb0a98c3" onerror="window._ffScriptFail&&window._ffScriptFail('js/vozidla.js')"></script>
-<script src="js/meridla.js?v=fd023dcef0a09f82" onerror="window._ffScriptFail&&window._ffScriptFail('js/meridla.js')"></script>
+<script src="js/pristi.js?v=5495dc7f228b1ee1" onerror="window._ffScriptFail&&window._ffScriptFail('js/pristi.js')"></script>
+<script src="js/vozidla.js?v=bc8915b6a77b1fef" onerror="window._ffScriptFail&&window._ffScriptFail('js/vozidla.js')"></script>
+<script src="js/meridla.js?v=dbe60d0e1e04485f" onerror="window._ffScriptFail&&window._ffScriptFail('js/meridla.js')"></script>
 <script src="js/coicop-ai.js?v=869df69a057e66a8" onerror="window._ffScriptFail&&window._ffScriptFail('js/coicop-ai.js')"></script>
-<script src="js/report-mesicni.js?v=32c2118fa757242d" onerror="window._ffScriptFail&&window._ffScriptFail('js/report-mesicni.js')"></script>
+<script src="js/report-mesicni.js?v=2f390260e8d012cd" onerror="window._ffScriptFail&&window._ffScriptFail('js/report-mesicni.js')"></script>
 <script src="js/assets.js?v=1586918184d87b41" onerror="window._ffScriptFail&&window._ffScriptFail('js/assets.js')"></script>
 <script src="js/advisor.js?v=dab3896c82038bc7" onerror="window._ffScriptFail&&window._ffScriptFail('js/advisor.js')"></script>
 <script src="js/kalendar.js?v=374f4548133bd6da" onerror="window._ffScriptFail&&window._ffScriptFail('js/kalendar.js')"></script>
-<script src="js/vyplatnice.js?v=78c8bdbce8e1d727" onerror="window._ffScriptFail&&window._ffScriptFail('js/vyplatnice.js')"></script>
-<script src="js/kalkulacky.js?v=b5cafc0d8f9ff22b" onerror="window._ffScriptFail&&window._ffScriptFail('js/kalkulacky.js')"></script>
+<script src="js/vyplatnice.js?v=1db560db967da1c9" onerror="window._ffScriptFail&&window._ffScriptFail('js/vyplatnice.js')"></script>
+<script src="js/kalkulacky.js?v=74f769ad90cd5622" onerror="window._ffScriptFail&&window._ffScriptFail('js/kalkulacky.js')"></script>
 <script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
-<script src="js/temata.js?v=4150ad900d109908" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
-<script src="js/admin.js?v=f7d9b2959b82f8c6" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/temata.js?v=4367c782fc8b58cc" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
+<script src="js/admin.js?v=a19ac685fa93c0da" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=abded4e6e640c8ab" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

@@ -24,7 +24,14 @@ T('13 měsíců na ose',(h.match(/<circle[^>]*fill="#60a5fa"/g)||[]).length===13
 T('oddíly COICOP s názvy z appky',/🛒 Potraviny a nealkoholické nápoje/.test(h)&&/🏠 Bydlení/.test(h));
 T('oddíl potraviny: ČSÚ +4,1 %, ty +10 %',/\+4,1 %/.test(h)&&/\+10 %/.test(h));
 T('oddíl bez tvých položek ukáže „–"',(h.match(/title="Málo srovnatelných položek v tomto oddílu"/g)||[]).length===1);
-T('rozdíl: zdražuje ti to víc než průměru',/zdražuje ti to víc než průměru/.test(h));
+//  v12.36 (audit bod 13): bez průměrné roční míry (starší worker) je rozdíl proti meziroční jen orientační
+T('bez průměrné roční míry: rozdíl jen orientačně',/orientačně – oficiální číslo je meziroční/.test(h)&&/meziročně \(orientačně\)/.test(h));
+S.cnbInflaceRadaPrumer=rada.map(x=>({obd:x.obd,inflace:Math.round((x.inflace-0.5)*10)/10}));
+S.cnbInflaceOddilyPrumer={'01':{mira:3.6,nazev:'Potraviny'},'04':{mira:2.5,nazev:'Bydlení'}};
+const h2=_inflOficialniCard(obs);
+T('rozdíl: zdražuje ti to víc než průměru (proti průměrné roční míře)',/zdražuje ti to víc než průměru/.test(h2)&&/průměrná roční míra/.test(h2)&&/\+1,5 %/.test(h2));
+T('oddíly se srovnávají s průměrnou roční mírou',/\+3,6 %/.test(h2)&&!/\+4,1 %/.test(h2));
+delete S.cnbInflaceRadaPrumer; delete S.cnbInflaceOddilyPrumer;
 // málo položek → osobní čára se nekreslí a poradí se proč
 const malo=obs.slice(0,4);h=_inflOficialniCard(malo);
 T('pod 5 položek: bez osobní čáry + vysvětlení',!/stroke="#fb923c"/.test(h)&&/aspoň 5 stejných položek/.test(h));

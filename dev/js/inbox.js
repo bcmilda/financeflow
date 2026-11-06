@@ -1,4 +1,4 @@
-// FinanceFlow · v12.15 · inbox.js · 2026-10-27
+// FinanceFlow · v12.35 · inbox.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  S27 (Milan): 📲 FINANCEFLOW INBOX – NOTIFIKACE Z BANKY Z TELEFONU
 //  cesta: Import z banky (BETA) → 📲 Telefon
@@ -187,7 +187,7 @@ const _inboxKlicText = k => String(k || '').replace('karta:', 'karta ****').repl
 function inboxUctenkaK(p, D) {
   if (!p || p.type !== 'expense' || typeof dupUctenkaPro !== 'function') return null;
   const dny = (a, b) => Math.abs((Date.parse(a + 'T12:00:00') - Date.parse(b + 'T12:00:00')) / 864e5);
-  return ((D || getData()).transactions || []).filter(t => t && t.type === 'expense' && !t.splitParent && !t.zNotifikace
+  return ((D || getData()).transactions || []).filter(t => t && t.type === 'expense' && (!t.splitParent || t.rcptSplit) && !t.rcptCast && !t.zNotifikace   // v12.35: rozdělená účtenka = rodič
       && Math.abs((parseFloat(t.amount || t.amt) || 0) - p.amount) <= INBOX_UCTENKA_KC && dny(t.date || '', p.date) <= INBOX_UCTENKA_DNI && dupUctenkaPro(t))
     .sort((a, b) => dny(a.date, p.date) - dny(b.date, p.date))[0] || null;
 }
