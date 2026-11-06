@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · admin.js · 2026-11-06
+// FinanceFlow · v12.35 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.35',
+    datum: '2026-11-06',
+    zmeny: [
+      "✂️ TRANSAKCE ÚČTENKY SE ROZDĚLÍ PODLE KATEGORIÍ POLOŽEK (Milan: „v editu účtenky může být více kategorií i podkategorií a Statistiky a další funkce s tím musí počítat… proč se to nepřenese do Transakcí?“ → „ano, proveď… u starých i nových účtenek“) · cesta: Transakce → řádek účtenky (📷 ✂️ N× ▾). Transakce účtenky měla jednu kategorii (tu s nejvíc penězi) a rozpočty, Statistiky, reporty, limity i Přehled četly jen ji – potraviny z účtenky s dárky se počítaly do Dárků. Teď se rozdělí stejně jako ✂️ Rozdělit: hlavní řádek drží zaplacenou částku, peněženku a vazbu na účtenku, části nesou kategorii + podkategorii a položky své skupiny. Zaokrouhlení hotovosti, vratné zálohy a slevy se rozpočítají poměrem, haléře sedí, peněženka se odečte jednou. Účtenka s jedinou kategorií položek se nedělí (dostane kategorii položek).",
+      "🔁 STARÉ ÚČTENKY · po spuštění appky se rozdělí všechny dosavadní transakce účtenek (jednou – pak už se nic nemění, id částí jsou stejná na telefonu i počítači). Přepočítává se i při každém uložení: změna kategorie položky v editoru účtenky nebo v 🗺️ Mapě položek (Přeřadit staré účtenky) se hned promítne. Ruční rozdělení zůstávají, jak jsou.",
+      "📷 ÚPRAVA A MAZÁNÍ · cesta: Transakce → část účtenky → 📷. Kategorie části se mění v editoru účtenky (u položek), ne v transakci – místo ✕ má část 📷. Smazání části nebo hlavního řádku jde přes ochranu účtenky (originál se maže v Historii, kopie i se svými částmi). Na telefonu má část vlastní kartu (dřív se částka nevešla).",
+      "🔎 FILTR KATEGORIE · cesta: Transakce → Filtr → kategorie. Část účtenky, jejíž hlavní řádek do filtru nepatří, se ukáže samostatně (filtr Jídlo & Nákupy ukáže potraviny z účtenky s dárky). Počet záznamů v hlavičce počítá rozdělenou platbu jednou. Filtr Období a hledání ve všech měsících ukazují i rozdělené platby (dřív zmizely).",
+      "🛡️ NAVAZUJÍCÍ FUNKCE · Podezřelé (duplicity) a Doručené (notifikace z banky) porovnávají celou účtenku (hlavní řádek), ne její části; tankování z účtenky, kalkulačka zlozvyku a doplnění peněženky nepočítají nic dvakrát; Dotazy počítají rozdělenou účtenku jako jeden nákup; ⭐ téma u položky části se zapíše na správnou položku účtenky. Smazání ručně rozdělené platby smaže i její části (dřív zůstaly ve výdajích).",
+      "🧪 tools/smoke_uctenka_rozdeleni.js (33) – na v12.34 padá. Chromium 1280 i 390 px: účtenka Lidl 268,10 (dárky + potraviny) po spuštění → Dárky›Narozeniny 189,70 · Jídlo›Ovoce 50 · Jídlo 28,40, výdaje měsíce i zůstatek peněženky beze změny, ✎ u části → editor účtenky, filtr Jídlo & Nákupy ukáže obě potravinové části – bez chyb.",
+    ],
+  },
   {
     verze: 'v12.34',
     datum: '2026-11-06',
@@ -10386,9 +10398,11 @@ function toggleSplitChildren(splitId) {
 }
 
 function deleteSplitChild(childId) {
-  if(!confirm('Smazat tuto část splitu?')) return;
   const child = S.transactions.find(t=>t.id==childId);
   if(!child) return;
+  //  v12.35: část rozdělené účtenky = kategorie položek → mění se v editoru účtenky, ne smazáním
+  if(child.rcptCast) { if(typeof openReceiptForTx === 'function') openReceiptForTx(childId); return; }
+  if(!confirm('Smazat tuto část splitu?')) return;
   const splitId = child.splitId;
   // Smaž child
   S.transactions = S.transactions.filter(t=>t.id!=childId);

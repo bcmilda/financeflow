@@ -1,4 +1,4 @@
-// FinanceFlow · v12.33 · premium.js · 2026-11-06
+// FinanceFlow · v12.35 · premium.js · 2026-11-06
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1356,6 +1356,8 @@ function processAutoSablony() {
   try { if (typeof debtAplikujCekajiciSplatky === 'function' && debtAplikujCekajiciSplatky()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
   //  S28 (v12.33): po spuštění srovnat datum/obchod transakcí s jejich naskenovanou účtenkou (opravené v editoru)
   try { if (typeof rcptOpravVazby === 'function' && rcptOpravVazby()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
+  //  S28 (v12.35): staré účtenky se po spuštění rozdělí podle kategorií položek (jednou – pak už se nic nemění)
+  try { if (typeof rcptRozdelVse === 'function' && rcptRozdelVse()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
   //  S23: transakce z účtenek vznikaly BEZ peněženky → zůstatek je neviděl.
   //  Doplní se jen při jediné peněžence (viz rpFixReceiptTxWallets v receipts.js).
   try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }

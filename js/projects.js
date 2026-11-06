@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · projects.js · 2026-11-06
+// FinanceFlow · v12.35 · projects.js · 2026-11-06
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -347,6 +347,8 @@ function editTxFromProject(txId, projectId) {
 function deleteTxFromProject(txId, projectId) {
   //  v12.30 (audit body 19 a 20): převod se maže celý (obě poloviny), smazaná splátka vrátí Zbývá půjčky
   const _t = (S.transactions||[]).find(t => t.id == txId);
+  //  v12.35: rozdělená účtenka (část i rodič) se maže celá a přes ochranu účtenky – jako v Transakcích
+  if(_t && (_t.rcptCast || _t.rcptSplit) && typeof deleteTx === 'function') { deleteTx(txId); if(typeof renderProjectDetail === 'function') renderProjectDetail(projectId); return; }
   const _ids = new Set(_t && _t.transferId ? S.transactions.filter(x => x && x.transferId === _t.transferId).map(x => x.id) : [_t ? _t.id : txId]);
   if(!confirm(_ids.size > 1 ? 'Smazat celý převod? Smažou se obě poloviny (z jedné i do druhé peněženky).' : 'Smazat transakci?')) return;
   if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // kotva půjček před změnou

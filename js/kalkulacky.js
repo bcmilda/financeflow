@@ -1,4 +1,4 @@
-// FinanceFlow · v11.91 · kalkulacky.js · 2026-10-20
+// FinanceFlow · v12.35 · kalkulacky.js · 2026-11-06
 // ══════════════════════════════════════════════════════════════════════
 //  🧮 KALKULAČKY (TODO-356 + TODO-355, Session 27)
 //  cesta: menu → Nástroje → 🧮 Kalkulačky
@@ -211,6 +211,7 @@ function kalkZlozvykMoznosti(D, dnes) {
     if (p.d < od || !p.cat) return;
     const tc = p.tx ? (p.tx.catId || p.tx.category) : '';
     if (p.tx && !p.tx.splitParent && tc === p.cat) return;   // už je v transakci se stejnou kategorií
+    if (p.tx && p.tx.rcptSplit) return;   // v12.35: rozdělená účtenka – položky už nesou její části (kategorie položek)
     pridej(p.cat, p.sub, p.kc);
   });
   return Object.keys(sum).map(k => {

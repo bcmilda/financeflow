@@ -1,4 +1,4 @@
-//  FinanceFlow · v12.34 · duplicates.js · 2026-11-06
+//  FinanceFlow · v12.35 · duplicates.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -93,11 +93,13 @@ function dupPorovnej(a, b, amtA, amtB) {
   return null;
 }
 //  Všechny podezřelé páry: [{a, b, type, score, reason}] (a = dřív přidaná)
+function dupZastupuje(t) { return (!t.splitParent || !!t.rcptSplit) && !t.rcptCast; }
 function dupPary(transactions) {
   //  S28 (v12.34, Milan: „při rozdělení transakce vyskočilo upozornění na jasný duplikát“): rodič rozdělené
   //  platby se neporovnává (jeho částku nesou části – stejně jako přehled Podezřelé, ř. ~266) a části
   //  TÉŽE platby nejsou duplikáty jedna druhé (10 + 10 Kč ve stejné kategorii ze 20 Kč).
-  const txs = (transactions || []).filter(t => t && !t.splitParent && !DUP_CONFIG.IGNORE_CATS.includes(t.catId) && !DUP_CONFIG.IGNORE_CATS.includes(t.category) && !_dupIgnored[t.id])
+  //  v12.35: rozdělenou účtenku zastupuje rodič (celá zaplacená částka) – jako před rozdělením podle kategorií
+  const txs = (transactions || []).filter(t => t && dupZastupuje(t) && !DUP_CONFIG.IGNORE_CATS.includes(t.catId) && !DUP_CONFIG.IGNORE_CATS.includes(t.category) && !_dupIgnored[t.id])
     .map(t => ({ t, amt: dupCastka(t) })).filter(x => x.amt).sort((x, y) => x.amt - y.amt);
   const out = [];
   for (let i = 0; i < txs.length; i++) {
@@ -121,7 +123,7 @@ function dupPary(transactions) {
 function dupParyPolozka(transactions) {
   const R = (typeof S !== 'undefined' && S.receipts) || [];
   if (!R.length || typeof dupUctenkaPro !== 'function') return [];
-  const txs = (transactions || []).filter(t => t && t.type === 'expense' && !t.splitParent && !DUP_CONFIG.IGNORE_CATS.includes(t.catId || t.category));
+  const txs = (transactions || []).filter(t => t && t.type === 'expense' && dupZastupuje(t) && !DUP_CONFIG.IGNORE_CATS.includes(t.catId || t.category));
   const sUct = [], bez = [];
   txs.forEach(t => { const u = dupUctenkaPro(t); if (u && (u.r.items || []).length > 1) sUct.push({ t, r: u.r }); else if (!u) bez.push(t); });
   const out = [];
@@ -218,6 +220,7 @@ function dupUctenkaKlic(r) { return `${typeof normalizeStoreName === 'function' 
 function dupUctenkaPro(t) {
   const R = (typeof S !== 'undefined' && S.receipts) || [];
   if (!t) return null;
+  if (t.rcptCast && typeof rcptRodicTx === 'function') { const p = rcptRodicTx(S, t); if (p) t = p; }   // v12.35: část rozdělené účtenky
   let i = t.receiptAddedAt ? R.findIndex(r => r && r.addedAt === t.receiptAddedAt) : -1;
   if (i < 0 && typeof rcptNajdiTx === 'function' && (t.receiptStore || String(t.note || '').startsWith('📸')))   // starší transakce bez vazby
     i = R.findIndex(r => r && rcptNajdiTx(r, S) === t);
@@ -248,7 +251,8 @@ function txSmazSUctenkou(t) {
   if (!t || txChranenaUctenkou(t)) return false;
   const u = dupUctenkaPro(t);
   if (typeof reverseGoalDepositForTx === 'function') reverseGoalDepositForTx(t.id);
-  S.transactions = S.transactions.filter(x => x !== t && x.id != t.id);
+  const sid = t.splitParent && t.splitId ? t.splitId : null;   // v12.35: rozdělená účtenka i se svými částmi
+  S.transactions = S.transactions.filter(x => x !== t && x.id != t.id && !(sid && x.splitId === sid));
   if (u) {   // sem se dostane jen kopie (chráněná vypadla výš)
     if (u.r.photoKey && typeof rpFotky === 'function' && typeof archivSmaz === 'function') rpFotky(u.r).forEach(k => archivSmaz(k));
     S.receipts = S.receipts.filter(x => x !== u.r);
@@ -267,7 +271,7 @@ function dupParyVse() {
   const n = (S.uiCfg && S.uiCfg.dupNeni) ? Object.keys(S.uiCfg.dupNeni).length : 0;
   const podpis = tx.length + '|' + (tx.length ? tx[tx.length - 1].id : '') + '|' + tx.reduce((a, t) => a + (t.amount || t.amt || 0), 0) + '|' + n + '|' + Object.keys(_dupIgnored).length;
   if (_dupVseCache && _dupVseCache.podpis === podpis) return _dupVseCache.pary;
-  const pary = dupPary(tx.filter(t => !t.splitParent)).sort((x, y) => (x.type === 'exact' ? 0 : 1) - (y.type === 'exact' ? 0 : 1) || String(y.b.date).localeCompare(String(x.b.date)));
+  const pary = dupPary(tx.filter(dupZastupuje)).sort((x, y) => (x.type === 'exact' ? 0 : 1) - (y.type === 'exact' ? 0 : 1) || String(y.b.date).localeCompare(String(x.b.date)));
   _dupVseCache = { podpis, pary };
   return pary;
 }

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.33 · app.js · 2026-11-06
+// FinanceFlow · v12.35 · app.js · 2026-11-06
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -2290,6 +2290,8 @@ function save() {
   if(typeof debtPrepocitejVse === 'function') { try { debtPrepocitejVse(); } catch(e) { console.warn(e); } }
   //  S28 (v12.33): transakce naskenované účtenky jde s jejím datem a obchodem (oprava v editoru účtenky)
   if(typeof rcptOpravVazby === 'function') { try { rcptOpravVazby(); } catch(e) { console.warn(e); } }
+  //  S28 (v12.35): transakce účtenky rozdělená podle kategorií a podkategorií položek (staré i nové účtenky)
+  if(typeof rcptRozdelVse === 'function') { try { rcptRozdelVse(); } catch(e) { console.warn(e); } }
   // FIX (S11): každé uložení = uživatelská akce → vynuť příští render (anti-flicker
   // guard v renderPage by jinak přeskočil změny které _dataSig nezachytí: wallet
   // balance, virtuální cíle, tagy, podkategorie, receipt edity).
