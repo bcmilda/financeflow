@@ -79,7 +79,7 @@ vm.createContext(c21); vm.runInContext(['_aiTipHTML', 'aiProactiveCheck', '_aiPr
   t('getCurInst smazaná všude (nikdo ji nevolal)', def('getCurInst').length === 0 && !Object.values(JS).some(s => /getCurInst\(/.test(s)), def('getCurInst'));
   t('maybeShowOnboarding jen v onboarding.js', JSON.stringify(def('maybeShowOnboarding')) === '["onboarding.js"]', def('maybeShowOnboarding'));
   t('confirmDeleteAllData jen v settings.js (s potvrzovacím slovem SMAZAT)', JSON.stringify(def('confirmDeleteAllData')) === '["settings.js"]', def('confirmDeleteAllData'));
-  t('showToast zatím obě kopie (Milan je chce vidět)', def('showToast').length === 2);
+  t('showToast jen jednou – platná kopie z nakup.js (v12.38, Milan: „ponech novější verzi“)', JSON.stringify(def('showToast')) === '["nakup.js"]', def('showToast'));
 
   console.log('── worker ──');
   t('/inflace?obnovit=1 načte ČSÚ znovu bez 24h cache', /searchParams\.get\('obnovit'\)/.test(WK) && /if \(cache && !_obnovit\)/.test(WK) && /handleInflace\(corsHeaders, env, request\)/.test(WK));

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.37 · ui.js · 2026-11-06
+// FinanceFlow · v12.38 · ui.js · 2026-11-06
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -329,108 +329,9 @@ function renderSummaryCards(){
 //  DASHBOARD
 // ══════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════
-//  TODO-234: ONBOARDING KROK 1 – uvítací nastavení (S20)
-//  Jednorázový modal pro NOVÉHO uživatele. Krok 2 je karta „Dokonči nastavení"
-//  níže, krok 3 bude tutoriál v uživatelském menu (TODO-233).
-//
-//  Proč to vzniklo (FIX-264 + TODO-227):
-//   · nový uživatel měl prázdné rozbalovátko peněženek a nevěděl proč
-//   · `_settings.hasDebts` čte Finanční skóre (premium.js), ale NEBYLO KDE HO ZADAT –
-//     „nemám dluh" a „ještě jsem ho nezadal" vypadá v datech stejně, takže se
-//     uživateli bez dluhu složka S2 do skóre vůbec nezapočítala
-//
-//  ⚠️ Zobrazuje se jen tomu, kdo ho opravdu nevidel. Absence `onboarded` u
-//  STÁVAJÍCÍHO uživatele neznamená „nový uživatel" (SKILL 31) – proto se
-//  kontroluje i to, že nemá žádné transakce, a stávajícím se příznak tiše dopíše.
-// ══════════════════════════════════════════════════════
-//  S28 (v12.37, audit bod 23): maybeShowOnboarding(D) smazána – stejně pojmenovaná funkce v onboarding.js
-//  (načítá se později) ji vždy přepsala, takže se nikdy nespustila. Uvítací okno ukazuje onboarding.js
-//  (#modalOnboarding). Okno #modalOnboard a obFillDefaults níže tím zůstaly bez volajícího.
-// Naplní rozbalovátka aktuálními hodnotami (a dny 1–28 pro den výplaty).
-function obFillDefaults(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : {};
-  const fd = document.getElementById('obFirstDay');
-  if(fd && !fd.options.length){
-    let html = '<option value="0">🤖 Automaticky (z transakcí)</option>';
-    for(let d=1; d<=28; d++) html += `<option value="${d}">${d}. den</option>`;
-    fd.innerHTML = html;
-  }
-  const set = (id,val)=>{ const e=document.getElementById(id); if(e && val!=null) e.value=val; };
-  set('obLang', st.lang||'cs');
-  set('obCurrency', st.currency||'CZK');
-  set('obDateFmt', st.dateFmt||'cs');
-  set('obPayFreq', st.payFreq||'monthly');
-  set('obFirstDay', st.firstDay||0);
-  obToggleFirstDay();
-  obSetDebts(null);
-}
-// Den v měsíci dává smysl jen u měsíční a půlměsíční výplaty.
-function obToggleFirstDay(){
-  const f = document.getElementById('obPayFreq');
-  const w = document.getElementById('obFirstDayWrap');
-  if(!f || !w) return;
-  const show = (f.value==='monthly' || f.value==='semimonthly');
-  w.style.display = show ? '' : 'none';
-}
-// null = nezodpovězeno (výchozí). Vědomé „ne" je jiná informace než ticho.
-let _obHasDebts = null;
-function obSetDebts(v){
-  _obHasDebts = v;
-  const y=document.getElementById('obDebtYes'), n=document.getElementById('obDebtNo');
-  if(!y||!n) return;
-  y.className = (v===true)  ? 'btn btn-accent' : 'btn btn-ghost';
-  n.className = (v===false) ? 'btn btn-accent' : 'btn btn-ghost';
-}
-function skipOnboarding(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(st){ st.onboarded = true; if(typeof persistSettings==='function') persistSettings(); }
-  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
-  if(typeof showToast==='function') showToast('Nastavení najdeš kdykoliv v ⚙️ Nastavení');
-}
-function saveOnboarding(){
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(!st){ skipOnboarding(); return; }
-  const val = id => (document.getElementById(id)||{}).value;
-
-  st.lang     = val('obLang')     || 'cs';
-  st.currency = val('obCurrency') || 'CZK';
-  st.dateFmt  = val('obDateFmt')  || 'cs';
-  st.payFreq  = val('obPayFreq')  || 'monthly';
-  st.firstDay = parseInt(val('obFirstDay')) || 0;
-  // Nezodpovězeno se NEUKLÁDÁ jako false – to by skóre přiznalo body za bezdlužnost,
-  // kterou uživatel nepotvrdil (TODO-227).
-  if(_obHasDebts !== null) st.hasDebts = _obHasDebts;
-  st.onboarded = true;
-
-  // Peněženka: přejmenovat tu, kterou založila ensureBaseData, ne zakládat druhou.
-  const wName = (val('obWalletName')||'').trim();
-  if(wName && Array.isArray(S.wallets) && S.wallets.length === 1) S.wallets[0].name = wName;
-
-  // Typ platby: nový uživatel má S.payTypes prázdné, takže se založí ten vybraný
-  // a rovnou se nastaví jako výchozí pro novou transakci.
-  const ptName = (val('obPayType')||'').trim();
-  if(ptName){
-    if(!Array.isArray(S.payTypes)) S.payTypes = [];
-    let pt = S.payTypes.find(p => p && p.name === ptName);
-    if(!pt){
-      const icons = {'Karta':'💳','Hotovost':'💵','Převod':'🏦'};
-      pt = { id:(typeof uid==='function'?uid():'pt'+Date.now().toString(36)), name:ptName, icon:icons[ptName]||'💳' };
-      S.payTypes.push(pt);
-    }
-    st.defPayType = pt.id;
-  }
-  if(Array.isArray(S.wallets) && S.wallets.length === 1) st.defWallet = S.wallets[0].id;
-
-  if(typeof persistSettings==='function') persistSettings();
-  if(typeof save==='function') save();
-  if(typeof applySettings==='function') applySettings();
-  if(typeof applyLanguage==='function') applyLanguage();
-
-  const el=document.getElementById('modalOnboard'); if(el) el.classList.remove('open');
-  if(typeof showToast==='function') showToast('✅ Hotovo – můžeš zapsat první transakci');
-  if(typeof forceRender==='function') forceRender();
-}
+//  S28 (v12.38, audit bod 23 – Milan: „můžeš“): staré uvítací okno ze S20 (TODO-234 v ui.js: obFillDefaults,
+//  obToggleFirstDay, obSetDebts, skipOnboarding, saveOnboarding a #modalOnboard v app.html) smazáno – nikdy se
+//  neotevíralo, protože maybeShowOnboarding z onboarding.js ho přepsala. Uvítání nového uživatele = onboarding.js.
 
 // ══════════════════════════════════════════════════════
 //  S12.1b: ONBOARDING PRŮVODCE (Dokonči nastavení X/5)

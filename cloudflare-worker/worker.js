@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v12.37 · 2026-11-06  (S28: /inflace?obnovit=1, průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v12.38 · 2026-11-06  (S28: komunita na spotřební jednotku; /inflace?obnovit=1, průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -2503,6 +2503,8 @@ async function handleCommunityAgg(request, env, corsHeaders) {
 
     const incomes = [], expenses = [], rates = [];
     const catSums = {}, catCounts = {};
+    //  S28 (v12.38, audit bod 16): průměr na spotřební jednotku (OECD ekvivalent domácnosti, appka posílá eq 1–10)
+    const catSumsJ = {}, catCountsJ = {};
     let k = 0;
     for (const uid of Object.keys(users)) {
       const u = users[uid] || {};
@@ -2512,11 +2514,13 @@ async function handleCommunityAgg(request, env, corsHeaders) {
       if (typeof u.totalExp === 'number') expenses.push(u.totalExp);
       if (typeof u.savingRate === 'number') rates.push(u.savingRate);
       const cats = u.cats || {};
+      const eq = (typeof u.eq === 'number' && u.eq >= 1 && u.eq <= 10) ? u.eq : null;
       for (const c of Object.keys(cats)) {
         const v = cats[c];
         if (typeof v !== 'number' || !isFinite(v)) continue;
         catSums[c] = (catSums[c] || 0) + v;
         catCounts[c] = (catCounts[c] || 0) + 1;
+        if (eq) { catSumsJ[c] = (catSumsJ[c] || 0) + v / eq; catCountsJ[c] = (catCountsJ[c] || 0) + 1; }
       }
     }
 
@@ -2531,6 +2535,7 @@ async function handleCommunityAgg(request, env, corsHeaders) {
     const cats = {};
     for (const c of Object.keys(catSums)) {
       cats[c] = { avg: Math.round(catSums[c] / catCounts[c]), n: catCounts[c] };
+      if (catCountsJ[c]) { cats[c].avgJ = Math.round(catSumsJ[c] / catCountsJ[c]); cats[c].nJ = catCountsJ[c]; }
     }
 
     const aggregate = {

@@ -1,4 +1,4 @@
-//  FinanceFlow · v12.35 · duplicates.js · 2026-11-06
+//  FinanceFlow · v12.38 · duplicates.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -510,26 +510,7 @@ function openDupDetail(txId) {
 // ══════════════════════════════════════════════════════
 //  TOAST HELPER (pokud není definován jinde)
 // ══════════════════════════════════════════════════════
-function showToast(msg) {
-  let el = document.getElementById('ffToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'ffToast';
-    el.style.cssText = `
-      position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
-      background:var(--surface2);border:1px solid var(--border);border-radius:10px;
-      padding:10px 18px;font-size:.82rem;font-weight:600;color:var(--text);
-      z-index:9999;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
-      box-shadow:0 4px 20px rgba(0,0,0,.3);white-space:nowrap`;
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.style.opacity = '1';
-  el.style.transform = 'translateX(-50%) translateY(0)';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(-50%) translateY(20px)';
-  }, 2500);
-}
+//  S28 (v12.38, audit bod 23 – Milan: „rozdíly jsou malé, ponech novější verzi“): showToast smazána – platila vždy
+//  kopie z nakup.js (načítá se později), tahle se nikdy nespustila.
+
 

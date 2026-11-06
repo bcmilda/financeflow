@@ -1,4 +1,4 @@
-// FinanceFlow · v12.37 · admin.js · 2026-11-06
+// FinanceFlow · v12.38 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.38',
+    datum: '2026-11-06',
+    zmeny: [
+      "🧾 AUDIT BOD 11 · ZÁLOHA NA DAŇ 23 % · cesta: Výplatnice → dopočet výplaty (když páska nemá částku daně). Do 3× průměrné mzdy měsíčně (2026: 146 901 Kč) 15 %, z části nad ní 23 % – stejně jako roční zúčtování; hranice podle roku pásky. Dřív vždy 15 %: hrubá 200 000 Kč → záloha 30 000 místo 34 248 Kč, čistá mzda o 4 248 Kč vyšší. Mzdy pod hranicí beze změny.",
+      "👥 AUDIT BOD 16 · KOMUNITNÍ PRŮMĚR PODLE VELIKOSTI DOMÁCNOSTI (Milan: „aplikace počet lidí v domácnosti zná – máme to v nastavení“) · cesta: Komunita → Já vs. komunita, Já vs. ČSÚ (bar 👥 Komunita). Příspěvek nese OECD ekvivalent ze Nastavení → Složení domácnosti (jen číslo, např. 2,1), worker počítá průměr na spotřební jednotku a každý ho vidí přepočtený na SVOU domácnost (v režimu Na osobu na jednotku). Rodina 9 000 Kč (2,1) a jednotlivec 3 000 Kč → 3 643 Kč na jednotku, pro rodinu 7 650 Kč. Průměr dál jen z lidí, kteří ve skupině utrácejí – nově s popiskem „průměr lidí, kteří za to utrácejí · 2 z 10“. Opravený popisek „Medián“ u kategorií – je to průměr. Projeví se po nasazení workeru a jakmile přispěvatelé otevřou novou verzi; do té doby se ukazuje původní průměr.",
+      "🇨🇿 INFLACE · cesta: Inflace → Tvoje inflace vs. oficiální. Appka se na /inflace ptá bez cache prohlížeče – odpověď workeru měla 24h platnost, a tak karta po nasazení nového workeru ukazovala den starou odpověď bez průměrné roční míry („meziročně (orientačně)“).",
+      "🧹 AUDIT BOD 23 – DOKONČENÍ · smazané staré uvítací okno ze S20 (#modalOnboard a obFillDefaults, obToggleFirstDay, obSetDebts, skipOnboarding, saveOnboarding v ui.js) – nikdy se neotevíralo; uvítání nového uživatele je onboarding.js. Smazaná i druhá showToast v duplicates.js (Milan: „ponech novější verzi“ – platila vždy ta z nakup.js). Chování appky se nemění.",
+      "☁️ WORKER v12.38 – komunitní agregát s průměrem na spotřební jednotku. Nasadit ručně. Rules beze změny.",
+      "🧪 tools/smoke_audit_11_16.js (14) – na v12.37 padá; smoke_rocni_zuctovani a smoke_audit_10_23 upravené na nový kód. Chromium 390 px: páska 200 000 Kč → záloha 34 248, po slevě 31 678 Kč; Výplatnice, Komunita, Nastavení, AI rádce, Inflace bez chyb.",
+    ],
+  },
   {
     verze: 'v12.37',
     datum: '2026-11-06',
@@ -9430,13 +9442,17 @@ async function publishCommunityStats(D) {
         });
       } catch (e) { console.warn('[community] agregace:', e); }
     };
-    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), {
+    //  S28 (v12.38, audit bod 16, Milan: „velikost domácnosti aplikace zná – máme to v nastavení“): spolu s výdaji
+    //  se posílá OECD ekvivalent domácnosti (Nastavení → Složení domácnosti), worker z něj počítá průměr na
+    //  spotřební jednotku a každý ho vidí přepočtený na SVOU domácnost. Jen číslo 1–10, žádné jméno ani věk.
+    const _eq = (typeof calcOECD === 'function') ? calcOECD(_settings?.household_adults||2, _settings?.household_ch013||0, _settings?.household_ch14||0) : null;
+    await _set(_ref(_db, `community/${monthKey}/users/${pid}`), Object.assign({
       cats: catStats,
       income: Math.round(baseIncome),
       totalExp: Math.round(totalExp),
       savingRate,
       updatedAt: Date.now()
-    });
+    }, (_eq >= 1 && _eq <= 10) ? { eq: _eq } : {}));
     // FIX-307: odstranit starý záznam klíčovaný uid, pokud po migraci zbyl
     if (typeof dropLegacyCommunityRecord === 'function') await dropLegacyCommunityRecord(monthKey);
     await _requestAgg();   // S20 (TODO-235): přepočet agregátu na serveru
@@ -9597,7 +9613,9 @@ async function _renderKomunitaImpl(el) {
           return {
             cat: _grp ? `${_grp.icon||''} ${_grp.name}` : `COICOP ${coicopId}`,
             coicopId: Number(coicopId),
-            avg: o.avg || 0, count: o.n || 0
+            avg: o.avg || 0, count: o.n || 0,
+            //  v12.38 (audit bod 16): průměr na spotřební jednotku (OECD) – kdo má poslané složení domácnosti
+            avgJ: o.avgJ || 0, countJ: o.nJ || 0
           };
         }).filter(Boolean).sort((a,b)=>b.avg-a.avg)
       };
@@ -9666,13 +9684,16 @@ async function _renderKomunitaImpl(el) {
               const _c = (communityData && Array.isArray(communityData.cats))
                 ? communityData.cats.find(x=>Number(x.coicopId)===Number(g.id)) : null;
               if(!_c || !(_c.avg>0)) return '';
-              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+              //  v12.38 (audit bod 16): na osobu = průměr na spotřební jednotku, domácnost = × tvůj OECD ekvivalent
+              const _kv = _c.avgJ > 0 ? Math.round(_csuMode==='osoba' ? _c.avgJ : _c.avgJ*oecd) : _c.avg;
+              return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px" title="Průměr lidí, kteří za to utrácejí · ${_c.count} z ${communityData.count}${_c.avgJ>0?' · přepočteno na složení domácnosti (OECD)':''}">
                 <span style="font-size:.64rem;color:#a8aec8;width:74px;flex-shrink:0">👥 Komunita</span>
                 <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden">
-                  <div style="height:100%;width:${Math.round(Math.min(_c.avg/maxVal,1)*100)}%;background:#8b7cf6;border-radius:3px"></div>
+                  <div style="height:100%;width:${Math.round(Math.min(_kv/maxVal,1)*100)}%;background:#8b7cf6;border-radius:3px"></div>
                 </div>
-                <span style="font-size:.68rem;color:#b9aefc;width:64px;flex-shrink:0;text-align:right">${fmt(_c.avg)} Kč</span>
-              </div>`;
+                <span style="font-size:.68rem;color:#b9aefc;width:64px;flex-shrink:0;text-align:right">${fmt(_kv)} Kč</span>
+              </div>
+              <div style="font-size:.6rem;color:#8b93ad;margin:-1px 0 3px 80px">průměr lidí, kteří za to utrácejí · ${_c.count} z ${communityData.count}</div>`;
             })()}
             ${myAmt>0?`<div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:.64rem;color:#a8aec8;width:74px;flex-shrink:0">Vy</span>
@@ -9872,7 +9893,11 @@ async function _renderKomunitaImpl(el) {
         <div class="card">
           <div class="card-header"><span class="card-title">📊 Výdaje dle kategorie – uživatelé aplikace</span></div>
           <div class="card-body">
-            ${(()=>{ const {cats:_myCoicop}=computeCoicopAggregates(myTxs,D); return communityData.cats.slice(0,10).map(({cat,coicopId,avg,count})=>{
+            ${(()=>{ const {cats:_myCoicop}=computeCoicopAggregates(myTxs,D);
+              //  v12.38 (audit bod 16): průměr přepočtený na TVOU domácnost (spotřební jednotky OECD z Nastavení)
+              const _myEq = (typeof calcOECD==='function') ? calcOECD(_settings?.household_adults||2, _settings?.household_ch013||0, _settings?.household_ch14||0) : 1;
+              return communityData.cats.slice(0,10).map(({cat,coicopId,avg:_avgRaw,count,avgJ})=>{
+              const avg = avgJ > 0 ? Math.round(avgJ * _myEq) : _avgRaw;
               // Tvoje výdaje pro tuto COICOP divizi (stejný základ jako komunita)
               const myAmt=Math.round(_myCoicop[coicopId]||0);
               const diff=myAmt-avg;
@@ -9910,8 +9935,9 @@ async function _renderKomunitaImpl(el) {
                 ${barHtml}
                 <div style="display:flex;justify-content:space-between;font-size:.66rem;margin-top:3px">
                   <span style="color:var(--income)">${myAmt>0?'Vy: '+fmt(myAmt)+' Kč':''}</span>
-                  <span style="color:var(--bank)">Medián: ${fmtB(avg)}</span>
+                  <span style="color:var(--bank)">Průměr: ${fmtB(avg)}</span>
                 </div>
+                <div style="font-size:.62rem;color:#8b93ad;margin-top:2px">průměr lidí, kteří za to utrácejí · ${count} z ${communityData.count}${avgJ > 0 ? ` · přepočteno na tvou domácnost (OECD ${String(_myEq).replace('.', ',')})` : ''}</div>
               </div>`;
             }).join(''); })()}
           </div>

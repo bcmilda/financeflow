@@ -1,4 +1,4 @@
-// FinanceFlow · v12.36 · projects.js · 2026-11-06
+// FinanceFlow · v12.38 · projects.js · 2026-11-06
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -6852,7 +6852,10 @@ async function nactiInflaciCSU(){
     //  Adresa workeru přes sdílenou konstantu – natvrdo zapsaná adresa se při
     //  příštím přesunu tiše rozbije (přesně to se stalo u FIX-057).
     const wu = (typeof WORKER_URL !== 'undefined') ? WORKER_URL : 'https://misty-limit-0523.bc-milda.workers.dev';
-    const r = await fetch(wu + '/inflace');
+    //  S28 (v12.38, Milan: karta ukazovala „meziročně (orientačně)“ i po nasazení nového workeru): odpověď nese
+    //  Cache-Control 24 h, takže prohlížeč držel starou odpověď bez průměrné roční míry. no-cache = prohlížeč se
+    //  vždy zeptá workeru (ten má vlastní 24h cache, ČSÚ se kvůli tomu neptá častěji).
+    const r = await fetch(wu + '/inflace', { cache: 'no-cache' });
     if(!r.ok){ S.cnbInflaceChyba = Date.now(); if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace(); return; }
     const d = await r.json();
     if(!d || typeof d.inflace !== 'number' || !isFinite(d.inflace)) return;
