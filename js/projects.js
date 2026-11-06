@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · projects.js · 2026-11-06
+// FinanceFlow · v12.36 · projects.js · 2026-11-06
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -485,7 +485,11 @@ function computeBaseIncome(D, mes, rok) {
     for(let i=1;i<=3;i++){
       let m=_bm-i, y=_by; if(m<0){m+=12;y--;}
       const txs=getTx(m,y,D);
-      const monthInc=txs.filter(t=>t.type==='income'&&(t.catId||t.category)===cat.id)
+      //  S28 (v12.36, audit bod 9): stejné vyřazení jako incSum – vyrovnání (VYR. z importu výpisu), rodič
+      //  rozdělené platby (jinak se rozdělený příjem počítá dvakrát) a přesuny mezi peněženkami nejsou příjem.
+      //  Dřív: výplata 3 × 40 000 + vyrovnání +30 000 v kategorii Výplata → základ 50 000 místo 40 000 Kč.
+      const monthInc=txs.filter(t=>t.type==='income'&&(t.catId||t.category)===cat.id&&!t.isBalancing&&!t.splitParent
+                          &&!(typeof isTransferTx==='function'&&isTransferTx(t)))
                         .reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A: základ příjmu vstupuje do S1/DTI/DSTI/S3/S4
       total+=monthInc;
     }
@@ -6860,6 +6864,11 @@ async function nactiInflaciCSU(){
     S.cnbInflaceRada = Array.isArray(d.rada) ? d.rada : null;
     S.cnbInflaceRadaOddily = d.radaOddily || null;
     S.cnbInflaceNeuplna = !!d.radaNeuplna;   // S23: záložní zdroj ČSÚ umí jen poslední měsíc
+    //  S28 (v12.36, audit bod 13): průměrná roční míra (12 měsíců proti předchozím 12) – stejná metoda jako
+    //  osobní inflace z účtenek, proto se s ní srovnává. Starší worker ji nevrací → null (karta to řekne).
+    S.cnbInflacePrumer = (typeof d.prumerRocni === 'number' && isFinite(d.prumerRocni)) ? d.prumerRocni : null;
+    S.cnbInflaceRadaPrumer = Array.isArray(d.radaPrumer) && d.radaPrumer.length ? d.radaPrumer : null;
+    S.cnbInflaceOddilyPrumer = d.oddilyPrumer && Object.keys(d.oddilyPrumer).length ? d.oddilyPrumer : null;
     if(typeof curPage!=='undefined' && curPage==='inflace' && typeof renderInflace==='function') renderInflace();
     //  ZÁMĚRNĚ SE NEUKLÁDÁ do Firebase a NENÍ v _DW_META (TODO-257).
     //  Je to veřejný údaj, který jde kdykoli stáhnout znovu – ukládat ho ke
@@ -6881,7 +6890,13 @@ function obrazInflaceRef(){
     }
   }catch(e){ /* účtenky nejsou, jde se dál */ }
 
-  //  2) ČNB/ČSÚ – hák pro budoucí napojení přes Worker (routa /inflace)
+  //  2) ČSÚ (worker /inflace). v12.36 (audit bod 13): přednostně PRŮMĚRNÁ ROČNÍ míra – stejná metoda jako
+  //  osobní inflace v bodě 1, takže zdroj čísla se nemění podle toho, kolik máš účtenek.
+  if(typeof S!=='undefined' && S && typeof S.cnbInflacePrumer === 'number' && isFinite(S.cnbInflacePrumer)){
+    const obd = S.cnbInflaceObd ? ` (${S.cnbInflaceObd})` : '';
+    return { hodnota: S.cnbInflacePrumer, zdroj: 'csu',
+             popis: `oficiální průměrná roční inflace ČSÚ${obd}` };
+  }
   if(typeof S!=='undefined' && S && typeof S.cnbInflace === 'number' && isFinite(S.cnbInflace)){
     const obd = S.cnbInflaceObd ? ` (${S.cnbInflaceObd})` : '';
     return { hodnota: S.cnbInflace, zdroj: 'csu',

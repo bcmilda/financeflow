@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v12.32 · 2026-11-05  (S28: účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v12.36 · 2026-11-06  (S28: /inflace + průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -2059,7 +2059,7 @@ function csuRozeber(txt) {
 //      Předdefinovaný výběr má jen 13 měsíců → spočítá se jen poslední měsíc.
 function csuInflaceZRadku(rows) {
   const ir = rows.filter(r => r.typ === 'IR');
-  if (ir.length) return { zdroj: 'IR', body: ir.map(r => ({ obd: r.obd, kod: r.kod, nazev: r.nazev, mira: Math.round((r.hod - 100) * 10) / 10 })) };
+  if (ir.length) return { zdroj: 'IR', body: ir.map(r => ({ obd: r.obd, kod: r.kod, nazev: r.nazev, mira: Math.round((r.hod - 100) * 10) / 10, raw: r.hod - 100 })) };
   const baz = ['IZ2025', 'IZ2015'].map(t => rows.filter(r => r.typ === t)).find(x => x.length);
   if (!baz) return { zdroj: null, body: [] };
   const mapa = {}; baz.forEach(r => { (mapa[r.kod] = mapa[r.kod] || {})[r.obd] = r; });
@@ -2115,11 +2115,33 @@ function csuZdroje(env) {
   return z;
 }
 
+//  S28 (v12.36, audit bod 13): PRŮMĚRNÁ ROČNÍ MÍRA INFLACE (ČSÚ: průměr cen za posledních 12 měsíců proti
+//  průměru předchozích 12). Osobní inflace v appce se počítá stejně (12 měsíců proti předchozím 12), meziroční
+//  index (měsíc proti stejnému měsíci loni) s ní srovnatelný není – při změně trendu se liší až o půl roku.
+//  Z meziročních indexů: Σ I(t) / Σ I(t−12) − 1 = průměr 12 meziročních měr vážený cenovou hladinou před rokem;
+//  hladina se během roku mění o jednotky %, takže prostý průměr 12 měr sedí s ČSÚ na desetiny procenta.
+//  Pro bod v měsíci t potřebuje 12 měsíců (t−11 … t); 13 bodů grafu = 24 měsíců ve výběru DataStatu.
+function csuPrumerRocni(body) {
+  const mapa = {};
+  body.forEach(b => { (mapa[b.kod] = mapa[b.kod] || {})[b.obd] = b; });
+  const zpet = (o, k) => { let [y, m] = o.split('-').map(Number); m -= k; while (m < 1) { m += 12; y--; } return `${y}-${String(m).padStart(2, '0')}`; };
+  const out = {};
+  Object.keys(mapa).forEach(kod => {
+    const r = [];
+    Object.keys(mapa[kod]).sort().forEach(o => {
+      const okno = []; for (let k = 0; k < 12; k++) { const b = mapa[kod][zpet(o, k)]; if (!b) return; okno.push(b.raw != null ? b.raw : b.mira); }
+      r.push({ obd: o, mira: Math.round(okno.reduce((a, x) => a + x, 0) / 12 * 10) / 10 });
+    });
+    out[kod] = r.slice(-13);
+  });
+  return out;
+}
+
 async function handleInflace(cors, env) {
   //  Cache 24 h přes Cache API; klíč obsahuje zdroj, aby se po vložení
   //  vlastního výběru hned použil a nečekalo se na vypršení staré odpovědi.
   const zdroje = csuZdroje(env);
-  const CKEY = new Request('https://cache.financeflow.internal/inflace-v5/' + encodeURIComponent(zdroje[0].url));
+  const CKEY = new Request('https://cache.financeflow.internal/inflace-v6/' + encodeURIComponent(zdroje[0].url));   // v12.36: + průměrná roční míra
   const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
   try {
     if (cache) { const hit = await cache.match(CKEY); if (hit) { const t = await hit.text(); return new Response(t, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400', 'X-FF-Cache': 'HIT' } }); } }
@@ -2148,9 +2170,22 @@ async function handleInflace(cors, env) {
       if (b.obd === posledni) oddily[b.kod] = { mira: b.mira, nazev: b.nazev };
     });
     Object.keys(radaOddily).forEach(k => { radaOddily[k].sort((a, b) => a.obd < b.obd ? -1 : 1); radaOddily[k] = radaOddily[k].slice(-13); });
+    //  v12.36 (audit bod 13): průměrná roční míra – celkem i po oddílech (jen kde je 12 měsíců za sebou)
+    const PR = csuPrumerRocni(body);
+    const radaPrumer = (PR['0'] || []).map(x => ({ obd: x.obd, inflace: x.mira }));
+    const oddilyPrumer = {}, radaOddilyPrumer = {};
+    Object.keys(PR).filter(k => k !== '0').forEach(k => {
+      radaOddilyPrumer[k] = PR[k];
+      const p = PR[k].find(x => x.obd === posledni); if (p) oddilyPrumer[k] = { mira: p.mira, nazev: (oddily[k] || {}).nazev || '' };
+    });
     const out = JSON.stringify({
       inflace: rada[rada.length - 1].inflace, rok: +posledni.slice(0, 4), mesic: +posledni.slice(5, 7), obdobi: posledni,
       oddily, rada, radaOddily, zdroj: pouzity, typIndexu: V.zdroj,
+      //  v12.36: průměrná roční míra (srovnatelná s osobní inflací z účtenek); prumerMesicu = kolik bodů grafu
+      //  šlo spočítat – 13 chce výběr DataStatu s 24 měsíci meziročního indexu.
+      prumerRocni: radaPrumer.length && radaPrumer[radaPrumer.length - 1].obd === posledni ? radaPrumer[radaPrumer.length - 1].inflace : null,
+      radaPrumer, oddilyPrumer, radaOddilyPrumer, prumerMesicu: radaPrumer.length,
+      mesicuVeVyberu: obdobi.length,
       //  S23: i při úspěchu vrátit, co selhalo – záloha nesmí tiše zakrýt
       //  nefunkční vlastní výběr (přesně to se stalo při prvním nastavení).
       vlastniVyber: zdroje.diag || (pokusy.some(p => /^U/.test(p.zdroj)) ? 'selhal – viz pokusy' : (/^U/.test(pouzity) ? 'ok' : '')),

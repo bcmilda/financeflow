@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · admin.js · 2026-11-06
+// FinanceFlow · v12.36 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.36',
+    datum: '2026-11-06',
+    zmeny: [
+      "💼 AUDIT BOD 9 · ZÁKLAD PŘÍJMU BEZ VYROVNÁNÍ · cesta: Finanční zdraví, Finanční skóre (míra spoření, DTI/DSTI), Dluhy, Měsíční report → Rozpočty (limity kategorií). Vážený základ příjmu (váhy stability, ADR-044) sčítal v kategorii všechny příjmy včetně vyrovnání z importu výpisu (VYR.), rodičů rozdělených plateb (rozdělený příjem dvakrát) a přesunů. Výplata 3 × 40 000 + vyrovnání 30 000 Kč v kategorii Výplata → základ 50 000 místo 40 000 Kč, limity kategorií vyšší, zadluženost lepší, než je. Teď stejné vyřazení jako ve všech součtech příjmů.",
+      "📅 AUDIT BOD 7 · MĚSÍČNÍ REPORT A ŠABLONY · cesta: Report → Měsíční report → Pravidelné platby, Pevné platby v příštím měsíci, Výhled. Report počítal šablony po svém: v příštím měsíci jen MĚSÍČNÍ (roční pojistka splatná 15. 11. chyběla, obrazovka Příští měsíc ji měla) a všude pevnou částku místo rozpisu záloh. Teď stejné výskyty jako Budoucí platby a Příští měsíc (frekvence + první splatnost) a částka zálohy platná v den platby. Výhled výdajů = průměr bez čtvrtletních a ročních plateb + jejich skutečné výskyty v příštím měsíci (zvlášť řádek „Čtvrtletní, roční a jednorázové platby“), čtvrtletní / roční příjem ze šablony se přičte navíc.",
+      "📉 AUDIT BOD 5 · ODHAD NEPRAVIDELNÝCH VÝDAJŮ · cesta: Příští měsíc → Odhad běžných výdajů, Predikce a přehledy z ní. Průměr kategorie se dělil jen měsíci, kdy se v ní něco utratilo, z celé historie: roční pojistka 12 000 Kč = odhad listopadu 13 440 Kč, lékař 500 Kč 3× ročně = 500 měsíčně, televize před dvěma lety = 15 000 každý měsíc. Teď posledních 12 DOKONČENÝCH měsíců (běžící měsíc se nebere) a dělí se sledovanými měsíci od prvního výdaje v kategorii: pojistka 1 000 Kč (rezerva), lékař 125 Kč, stará televize 0. V Příštím měsíci se platby čtvrtletních a ročních šablon do odhadu nepočítají (mají vlastní řádek v měsíci splatnosti) a už se od něj neodečítají. Odhady nepravidelných kategorií proto klesnou.",
+      "🇨🇿 AUDIT BOD 13 · INFLACE SROVNATELNÁ S TVOJÍ · cesta: Inflace → Tvoje inflace vs. oficiální; Finanční obraz (reálný růst). Tvoje inflace = ceny položek za posledních 12 měsíců proti předchozím 12 (obdoba PRŮMĚRNÉ ROČNÍ míry ČSÚ), graf ji ale srovnával s MEZIROČNÍ inflací (září 2026: 2,0 % vs. 2,5 %) – při stejných cenách vycházelo „zdražuje ti to méně než průměru“. Chybu jsem udělal při návrhu karty v S23 (v10.93). Worker teď počítá průměrnou roční míru z meziročních indexů ČSÚ (celkem i po oddílech) a karta i Finanční obraz s ní srovnávají; meziroční zůstává pro informaci v dlaždici. Bez nového workeru karta napíše, že srovnání je jen orientační. Opravený i popis výpočtu tvé inflace.",
+      "☁️ WORKER v12.36 – nasadit ručně (Cloudflare → misty-limit-0523 → Edit code → Deploy). Pro 13 bodů grafu průměrné roční míry potřebuje výběr DataStatu (CSU_VYBER_URL) 24 měsíců meziročního indexu; kolik jich má, ukáže /inflace v poli mesicuVeVyberu.",
+      "🧪 tools/smoke_audit_57913.js (19) – na v12.35 padá. Upravené testy na novou metodiku: smoke_fix252 (predikce na měsíc po jediném sledovaném), smoke_s23c (běžící měsíc mimo průměr), smoke_inflace_oficialni (+3: orientačně bez průměrné roční, srovnání s ní). Chromium 390 px: základ 40 000 s vyrovnáním, report října ukáže pojistku 9 000 v listopadu, report listopadu zálohu 1 800 z rozpisu od prosince, karta inflace s průměrnou roční mírou – bez chyb.",
+    ],
+  },
   {
     verze: 'v12.35',
     datum: '2026-11-06',

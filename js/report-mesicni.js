@@ -1,4 +1,4 @@
-// FinanceFlow · v12.34 · report-mesicni.js · 2026-11-06
+// FinanceFlow · v12.36 · report-mesicni.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -78,13 +78,36 @@ function mesReportData(D, m, y) {
     .map(t => { const c = (D.categories || []).find(x => x.id === (t.catId || t.category)); return { d: t.date, n: t.name || (c && c.name) || 'Výdaj', k: c ? c.name : '', v: txCZK(t, D) }; })
     .sort((a, b) => b.v - a.v).slice(0, 5);
   // pravidelné platby (šablony) + příští měsíc
+  //  S28 (v12.36, audit bod 7): výskyty a částky šablon STEJNĚ jako Budoucí platby a Příští měsíc –
+  //  budouciGetOccurrences (frekvence + první splatnost) a sablonaCastka (rozpis záloh z měřidla).
+  //  Dřív „Příští měsíc“ v reportu bral jen MĚSÍČNÍ šablony (roční pojistka 9 000 Kč 15. 11. chyběla, obrazovka
+  //  Příští měsíc ji měla) a všude pevnou částku šablony místo zálohy platné v daném měsíci.
   const sab = (D.sablony || []).filter(s => s && !s.paused && (!s.endDate || new Date(s.endDate) >= new Date(y, m, 1)));
   const fN = { weekly: 52 / 12, biweekly: 26 / 12, monthly: 1, quarterly: 1 / 3, halfyearly: 1 / 6, yearly: 1 / 12, once: 0 };
-  const pravidelne = sab.filter(s => s.type !== 'income').map(s => ({ n: s.name || 'Platba', v: s.amount || 0, mes: (s.amount || 0) * (fN[s.freq || 'monthly'] ?? 1), den: s.den || 1, freq: s.freq || 'monthly' }))
+  const _iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const _kc = (s, d) => (typeof sablonaCastka === 'function' ? sablonaCastka(s, _iso(d)) : s.amount) || 0;
+  const _vyskyty = (s, od, dO) => {
+    const f = s.freq || 'monthly';
+    if (s.endDate && new Date(s.endDate) < od) return [];
+    if (f === 'once') {
+      const x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s.onceDate || '')); if (!x || s.done) return [];
+      const d = new Date(+x[1], +x[2] - 1, +x[3]); return d >= od && d <= dO ? [d] : [];
+    }
+    if (typeof budouciGetOccurrences !== 'function')
+      return f === 'monthly' ? [new Date(od.getFullYear(), od.getMonth(), Math.min(s.den || 1, new Date(od.getFullYear(), od.getMonth() + 1, 0).getDate()))] : [];
+    return budouciGetOccurrences(f, s.den || 1, new Date(od.getTime() - 86400000), dO, s.prvni)
+      .filter(d => d >= od && d <= dO && (!s.endDate || d <= new Date(s.endDate)));
+  };
+  const _konecM = new Date(y, m + 1, 0);
+  const pravidelne = sab.filter(s => s.type !== 'income' && (s.freq || 'monthly') !== 'once')
+    .map(s => { const v = _kc(s, _konecM); return { n: s.name || 'Platba', v, mes: v * (fN[s.freq || 'monthly'] ?? 1), den: s.den || 1, freq: s.freq || 'monthly' }; })
     .sort((a, b) => b.mes - a.mes);
   const [nm, ny] = [m === 11 ? 0 : m + 1, m === 11 ? y + 1 : y];
-  const pristi = sab.filter(s => (s.freq || 'monthly') === 'monthly').map(s => ({ d: Math.min(s.den || 1, new Date(ny, nm + 1, 0).getDate()), n: s.name || '', v: (s.type === 'income' ? 1 : -1) * (s.amount || 0) }))
-    .sort((a, b) => a.d - b.d);
+  const _odN = new Date(ny, nm, 1), _doN = new Date(ny, nm + 1, 0);
+  const pristi = [];
+  sab.forEach(s => _vyskyty(s, _odN, _doN).forEach(d => pristi.push({ d: d.getDate(), n: s.name || '', v: (s.type === 'income' ? 1 : -1) * _kc(s, d),
+    freq: s.freq || 'monthly', typ: s.type || 'expense' })));
+  pristi.sort((a, b) => a.d - b.d);
   // skóre
   let skore = null, skoreMM = null;
   try { const sc = computeFinancialScore(D, m, y); const z = scoreZobrazeni(sc); skore = { tot: z.tot, max: z.max, comps: sc.components, grade: sc.grade };
@@ -124,7 +147,11 @@ function mesReportData(D, m, y) {
   // výhled příštího měsíce (pravidla): příjmy ze šablon / průměr, výdaje průměr 3M, pásmo = výkyv 6 měsíců
   const v6 = rok.slice(-6).map(x => x.v), mean6 = v6.reduce((a, b) => a + b, 0) / 6;
   const sd = Math.sqrt(v6.reduce((a, b) => a + (b - mean6) ** 2, 0) / 6);
-  const sabPrij = pristi.filter(x => x.v > 0).reduce((a, x) => a + x.v, 0);
+  //  v12.36: měsíční šablony příjmů jdou přes strop proti dvojímu započtení, čtvrtletní / roční příjem šablony
+  //  (prémie, dividenda) se přičte navíc – v průměru 3 měsíců obvykle není.
+  const sabPrijMes = pristi.filter(x => x.v > 0 && x.freq === 'monthly').reduce((a, x) => a + x.v, 0);
+  const sabPrijJine = pristi.filter(x => x.v > 0 && x.freq !== 'monthly').reduce((a, x) => a + x.v, 0);
+  const sabPrij = sabPrijMes;
   //  S28 (v12.31, audit bod 4): příjmy příštího měsíce = šablony příjmů + průměr OSTATNÍCH příjmů.
   //  Dřív: jakmile existovala aspoň jedna šablona příjmu, výhled vzal JEN šablony a průměr zahodil –
   //  výplata 40 000 Kč bez šablony + šablona podnájmu 2 000 Kč → výhled příjmů 2 000 Kč, bilance hluboko
@@ -134,7 +161,7 @@ function mesReportData(D, m, y) {
   //  výhled nikdy nepřesáhne větší z (průměr všech příjmů, šablony) – šablona tak buď doplní jiné příjmy,
   //  nebo nahradí příjem, který už v průměru je.
   const _sabPrij = sab.filter(s => s.type === 'income' && (s.freq || 'monthly') === 'monthly');
-  const _sabPrijNazvy = new Set(_sabPrij.map(s => String(s.name || '').trim().toLowerCase()).filter(Boolean));
+  const _sabPrijNazvy = new Set(sab.filter(s => s.type === 'income').map(s => String(s.name || '').trim().toLowerCase()).filter(Boolean));
   const _sabPrijKat = new Set(_sabPrij.map(s => s.catId).filter(Boolean));
   const _zeSablony = t => t && t.type === 'income' && (_sabPrijNazvy.has(String(t.name || '').trim().toLowerCase())
     || _sabPrijKat.has(t.catId || t.category) || /Auto-šablona/.test(String(t.note || '')));
@@ -148,10 +175,18 @@ function mesReportData(D, m, y) {
   const avgPBezSab = a3.reduce((a, x) => a + x.tx.filter(t => t.type === 'income' && !t.isBalancing && !t.splitParent
     && !(typeof isTransferTx === 'function' && isTransferTx(t)) && !_zeSablony(t)).reduce((b, t) => b + txCZK(t, D) * _vaha(t), 0), 0) / 3;
   const _fcSoucet = sabPrij + avgPBezSab, _fcStrop = Math.max(avg.p, sabPrij);
-  const fcP = Math.min(_fcSoucet, _fcStrop), fcV = (vyd + avg.v * 2) / 3;
+  //  v12.36 (audit bod 7): výdaje = vážený průměr BEZ plateb čtvrtletních / ročních / jednorázových šablon
+  //  + jejich skutečné výskyty v příštím měsíci (roční pojistka v listopadu se do výhledu listopadu přičte,
+  //  v ostatních měsících se do průměru nerozpustí).
+  const _neMes = new Set(sab.filter(s => s.type !== 'income' && s.type !== 'transfer' && (s.freq || 'monthly') !== 'monthly' && (s.freq || 'monthly') !== 'weekly' && (s.freq || 'monthly') !== 'biweekly')
+    .map(s => String(s.name || '').trim().toLowerCase()).filter(Boolean));
+  const _bezNeMes = list => _neMes.size ? list.filter(t => !(t.type === 'expense' && _neMes.has(String(t.name || '').trim().toLowerCase()))) : list;
+  const _vydB = expSum(_bezNeMes(tx), D), _avgVB = a3.reduce((a, x) => a + expSum(_bezNeMes(x.tx), D), 0) / 3;
+  const vNeMes = pristi.filter(x => x.v < 0 && x.typ !== 'transfer' && x.freq !== 'monthly' && x.freq !== 'weekly' && x.freq !== 'biweekly').reduce((a, x) => a - x.v, 0);
+  const fcP = Math.min(_fcSoucet, _fcStrop) + sabPrijJine, fcV = (_vydB + _avgVB * 2) / 3 + vNeMes;
   return { m, y, nm, ny, inc, vyd, bil, mira: inc ? bil / inc * 100 : 0, pm, avg, ly, rok, karty, prijmy, dni, dV, dP, kumNet, zust,
     rozp, nejvetsi, pravidelne, pristi, skore, skoreMM, penezenky, dluhy, cile, ucet,
-    fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05), pSab: sabPrij, pOst: avgPBezSab, pStrop: _fcSoucet > _fcStrop }, txN: tx.length };
+    fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05), pSab: sabPrij, pOst: avgPBezSab, pStrop: _fcSoucet > _fcStrop, pJine: sabPrijJine, vNeMes }, txN: tx.length };
 }
 window.mesReportData = mesReportData;
 
@@ -555,7 +590,7 @@ function _rpPro4(rd) {
   return `<section class="page dense" aria-label="Premium strana ${rd._stran}">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · výhled a doporučení`, true)}
   <div class="c12 sec"><h2>${RP_MES[rd.nm].charAt(0).toUpperCase() + RP_MES[rd.nm].slice(1)}: odhad bilance ${_rpKcz(f.b)} (${_rpKcz(f.b - f.pasmo)} až ${_rpKcz(f.b + f.pasmo)})</h2><div class="sub">${rd.ai && rd.ai.vyhled ? '✨ ' + _rpE(rd.ai.vyhled) : 'Graf 4.1 · Bilance posledních 6 měsíců a odhad příštího s pásmem nejistoty'}</div>${_rpFc(rd)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:1.6mm;font-size:7.8pt"><div><b>Z čeho odhad vychází</b><ul class="list">
-      <li><span>Příjmy ${f.pSab > 0 ? (f.pStrop ? `(průměr 3 měsíců, šablony ${_rpKc(f.pSab)} už v něm jsou)` : `(šablony ${_rpKc(f.pSab)} + průměr ostatních ${_rpKc(f.pOst || 0)})`) : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
+      <li><span>Příjmy ${f.pSab > 0 ? (f.pStrop ? `(průměr 3 měsíců, šablony ${_rpKc(f.pSab)} už v něm jsou)` : `(šablony ${_rpKc(f.pSab)} + průměr ostatních ${_rpKc(f.pOst || 0)})`) : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p - (f.pJine || 0))}</span></li>${f.pJine > 0 ? `<li><span>Čtvrtletní a roční příjmy ze šablon</span><span class="up">${_rpKcz(f.pJine)}</span></li>` : ''}<li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-(f.v - (f.vNeMes || 0)))}</span></li>${f.vNeMes > 0 ? `<li><span>Čtvrtletní, roční a jednorázové platby</span><span>${_rpKcz(-f.vNeMes)}</span></li>` : ''}<li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
       <div><b>Pevné platby v ${RP_MES6[rd.nm]}</b><ul class="list">${rd.pristi.filter(x => x.v < 0).slice(0, 4).map(x => `<li><span>${x.d}. ${_rpE(x.n)}</span><span>${_rpKcz(x.v)}</span></li>`).join('') || '<li><span class="faint">žádné šablony</span><span></span></li>'}</ul></div></div></div>
   <div class="c6 sec"><h2>Cíle</h2><div class="sub">Průběh spoření na cíle</div>
     ${rd.cile.length ? rd.cile.map(c => `<div style="padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><div style="display:flex;justify-content:space-between"><b>${_rpE(c.n)}</b><span>${_rpKc(c.ma)} / ${_rpKc(c.cil)}</span></div><div class="bar" style="margin-top:1.2mm"><i style="width:${Math.min(100, c.ma / c.cil * 100)}%;background:#16A34A"></i></div></div>`).join('') : '<div class="faint" style="font-size:8pt">Žádné cíle. Založíš je v Nákupním seznamu / cílech.</div>'}</div>

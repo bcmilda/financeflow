@@ -5,6 +5,7 @@ const H=fs.readFileSync('helpers.js','utf8'), TR=fs.readFileSync('transactions.j
 
 // ── A) predikční funkce umí příjmy ──
 global.S={curMonth:8,curYear:2026};
+global.ffDnes=()=>'2026-09-15';   // v12.36: běžící měsíc (září) se do průměru nebere
 global.window={};
 global.isTransferTx=()=>false;
 global.txCZK=t=>t.amount;
@@ -17,6 +18,7 @@ const D={categories:[{id:'e1',name:'Jídlo',type:'expense'},{id:'i1',name:'Výpl
     {date:'2026-08-10',type:'income', catId:'i1',amount:36000},
     {date:'2026-06-15',type:'expense',catId:'e1',amount:5000},
     {date:'2026-07-15',type:'expense',catId:'e1',amount:5000},
+    {date:'2026-08-15',type:'expense',catId:'e1',amount:5000},   // v12.36: průměr dělí všemi sledovanými měsíci
   ]};
 global.getData=()=>D;
 eval(cut(H,'getActual','const ').replace('const getActual','global.getActual'));

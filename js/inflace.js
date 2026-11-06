@@ -1,4 +1,4 @@
-// FinanceFlow · v12.05 · inflace.js · 2026-10-23
+// FinanceFlow · v12.36 · inflace.js · 2026-11-06
 // S19 (TODO-219, Milan): částky se přepočítávají do základní měny, ale symbol
 //   se NEOPAKUJE v každé buňce – je jednou v popisku karty. Výjimka: sloupec
 //   „Za kg/l" symbol nese, protože je to JINÁ JEDNOTKA (cena za kilo, ne za kus)
@@ -265,10 +265,15 @@ function _inflByStore(obs) {
 //  Po oddílech COICOP: oficiální vs. tvoje (od 3 položek v oddílu).
 // ══════════════════════════════════════════════════════
 const INFL_MIN_POLOZEK = 5, INFL_MIN_ODDIL = 3;
+//  S28 (v12.36, audit bod 13): tvoje inflace = medián ceny položky za posledních 12 měsíců proti předchozím 12
+//  → odpovídá PRŮMĚRNÉ ROČNÍ MÍŘE ČSÚ, ne meziroční inflaci (měsíc proti stejnému měsíci loni). Dřív graf kreslil
+//  meziroční: září 2026 ČSÚ 2,5 % meziročně vs. 2,0 % průměrná roční – při stejných cenách by vyšlo „zdražuje ti to
+//  méně než průměru“. Teď se srovnává s průměrnou roční mírou (worker v12.36); bez ní meziroční jen orientačně.
 function _inflOficialniCard(allObs) {
-  const rada = S.cnbInflaceRada;
+  const _pr = Array.isArray(S.cnbInflaceRadaPrumer) && S.cnbInflaceRadaPrumer.length ? S.cnbInflaceRadaPrumer : null;
+  const rada = _pr || S.cnbInflaceRada;
   const f1 = v => v == null ? '–' : (v > 0 ? '+' : '') + (Math.round(v * 10) / 10).toLocaleString('cs-CZ') + ' %';
-  const hlav = `<div class="card-header"><span class="card-title">🇨🇿 Tvoje inflace vs. oficiální</span><span style="font-size:.7rem;color:#a8aec8">ČSÚ · meziročně</span></div>`;
+  const hlav = `<div class="card-header"><span class="card-title">🇨🇿 Tvoje inflace vs. oficiální</span><span style="font-size:.7rem;color:#a8aec8">${_pr ? 'ČSÚ · průměrná roční míra' : 'ČSÚ · meziročně (orientačně)'}</span></div>`;
   if (!Array.isArray(rada) || !rada.length) {
     if (!S.cnbInflaceChyba && typeof nactiInflaciCSU === 'function') nactiInflaciCSU();
     return `<div class="card" style="margin-bottom:14px">${hlav}<div class="card-body"><div style="font-size:.78rem;color:#a8aec8;line-height:1.55">
@@ -307,8 +312,8 @@ function _inflOficialniCard(allObs) {
   const svg = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><svg viewBox="0 0 ${W} ${Hh}" style="width:100%;min-width:420px;height:auto;display:block" role="img" aria-label="Oficiální a osobní inflace za 13 měsíců">
     ${mrizka}${nula}${cara('oficialni', '#60a5fa', 2.4)}${cara('osobni', '#fb923c', 2.2, true)}${popisky}</svg></div>`;
 
-  // ── oddíly ──
-  const odd = S.cnbInflaceOddily || {};
+  // ── oddíly ── (v12.36: průměrná roční míra, když ji worker dal)
+  const odd = (_pr && S.cnbInflaceOddilyPrumer) || S.cnbInflaceOddily || {};
   const nazevOdd = n => { const g = (typeof COICOP_GROUPS_DEF !== 'undefined' ? COICOP_GROUPS_DEF : []).find(x => x.id === n); return g ? `${g.icon} ${g.name}` : ((odd[String(n).padStart(2, '0')] || {}).nazev || `Oddíl ${n}`); };
   const radkyOdd = Object.keys(odd).map(k => {
     const n = parseInt(k, 10);
@@ -330,25 +335,27 @@ function _inflOficialniCard(allObs) {
   const tile = (lab, val, sub, col) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;min-width:0">
       <div style="font-size:.66rem;color:#a8aec8">${lab}</div><div class="stat-value-h" style="color:${col}">${val}</div><div style="font-size:.64rem;color:#a8aec8">${sub}</div></div>`;
   const [py, pm] = posl.obd.split('-').map(Number);
+  const _mzPosl = (S.cnbInflaceRada || []).find(x => x.obd === posl.obd);   // meziroční ke stejnému měsíci (pro informaci)
   return `<div class="card" style="margin-bottom:14px">${hlav}<div class="card-body">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px">
-      ${tile('Oficiální inflace ČSÚ', f1(posl.oficialni), `${MES[pm - 1]} ${py} proti ${MES[pm - 1]} ${py - 1}`, '#60a5fa')}
-      ${tile('Tvoje inflace', f1(ted), ted == null ? 'málo srovnatelných položek' : `${tedC.yoyCount} položek z účtenek`, ted == null ? 'var(--text3)' : '#fb923c')}
-      ${tile('Rozdíl', rozdil == null ? '–' : f1(rozdil), rozdil == null ? 'až bude tvoje inflace' : rozdil > 0 ? 'zdražuje ti to víc než průměru' : 'zdražuje ti to méně než průměru', rozdil == null ? 'var(--text3)' : rozdil > 0 ? 'var(--expense)' : 'var(--income)')}
+      ${tile('Oficiální inflace ČSÚ', f1(posl.oficialni), _pr ? `průměrná roční · ${MES[pm - 1]} ${py}${_mzPosl ? ` (meziročně ${f1(_mzPosl.inflace)})` : ''}` : `${MES[pm - 1]} ${py} proti ${MES[pm - 1]} ${py - 1}`, '#60a5fa')}
+      ${tile('Tvoje inflace', f1(ted), ted == null ? 'málo srovnatelných položek' : `${tedC.yoyCount} položek · 12 měsíců proti předchozím 12`, ted == null ? 'var(--text3)' : '#fb923c')}
+      ${tile('Rozdíl', rozdil == null ? '–' : f1(rozdil), rozdil == null ? 'až bude tvoje inflace' : !_pr ? 'orientačně – oficiální číslo je meziroční' : rozdil > 0 ? 'zdražuje ti to víc než průměru' : 'zdražuje ti to méně než průměru', rozdil == null ? 'var(--text3)' : !_pr ? '#a8aec8' : rozdil > 0 ? 'var(--expense)' : 'var(--income)')}
     </div>
     ${kratka ? `<div style="background:var(--surface2);border-radius:10px;padding:12px 14px;font-size:.74rem;color:#a8aec8;line-height:1.55">
-      📉 Vývoj za 13 měsíců se ukáže, jakmile appka dostane od ČSÚ celou řadu — teď má k dispozici jen poslední měsíc.
+      📉 ${_pr ? `Vývoj průměrné roční míry za 13 měsíců se ukáže, až bude ve výběru ČSÚ 24 měsíců – teď jde spočítat ${body.length} ${body.length === 1 ? 'měsíc' : 'měsíce'}.` : 'Vývoj za 13 měsíců se ukáže, jakmile appka dostane od ČSÚ celou řadu — teď má k dispozici jen poslední měsíc.'}
     </div>` : svg}
+    ${_pr ? '' : `<div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin:6px 0 2px">ℹ️ Tvoje inflace porovnává 12 měsíců s předchozími 12 (jako průměrná roční míra ČSÚ), oficiální číslo je meziroční (měsíc proti stejnému měsíci loni). Při zrychlování nebo zpomalování cen se liší, rozdíl ber orientačně.</div>`}
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.68rem;color:#a8aec8;margin:6px 0 4px;${kratka?'display:none':''}">
-      <span><span style="display:inline-block;width:16px;border-top:2.4px solid #60a5fa;vertical-align:middle"></span> oficiální (ČSÚ)</span>
+      <span><span style="display:inline-block;width:16px;border-top:2.4px solid #60a5fa;vertical-align:middle"></span> oficiální (ČSÚ${_pr ? ', průměrná roční' : ', meziroční'})</span>
       <span><span style="display:inline-block;width:16px;border-top:2.2px dashed #fb923c;vertical-align:middle"></span> tvoje z účtenek</span>
     </div>
-    ${maOsobni ? '' : `<div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin-top:4px">Tvoje čára se objeví, až budeš mít ceny aspoň ${INFL_MIN_POLOZEK} stejných položek s ročním odstupem – meziroční inflace porovnává stejný nákup dnes a před rokem.</div>`}
+    ${maOsobni ? '' : `<div style="font-size:.7rem;color:#a8aec8;line-height:1.5;margin-top:4px">Tvoje čára se objeví, až budeš mít ceny aspoň ${INFL_MIN_POLOZEK} stejných položek za posledních 12 měsíců i za 12 měsíců před nimi – tvoje inflace porovnává ceny stejných položek v obou obdobích.</div>`}
     ${tabOdd ? `<div style="font-size:.78rem;font-weight:700;color:#c9cede;margin:14px 0 4px">Po skupinách výdajů (COICOP)</div>
       <div style="display:grid;grid-template-columns:minmax(0,1.5fr) 1fr 62px 62px;gap:8px;font-size:.64rem;color:#a8aec8;padding-bottom:4px">
         <span>Skupina</span><span></span><span style="text-align:right">ČSÚ</span><span style="text-align:right">Ty</span></div>
       ${tabOdd}` : ''}
-    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Zdroj: ČSÚ, sada CEN0101E (COICOP 2018), meziroční index – o kolik jsou ceny dražší než ve stejném měsíci před rokem. ČSÚ vydává nová čísla kolem 10. dne za předchozí měsíc. Tvoje inflace: vážený průměr změn cen položek z tvých účtenek, váha = kolik za položku utrácíš.</div>
+    <div style="font-size:.64rem;color:#8b93ad;margin-top:8px;line-height:1.5">Zdroj: ČSÚ, sada CEN0101E (COICOP 2018). ${_pr ? 'Průměrná roční míra inflace – o kolik byly ceny za posledních 12 měsíců v průměru vyšší než za předchozích 12 (spočítaná z meziročních indexů ČSÚ).' : 'Meziroční index – o kolik jsou ceny dražší než ve stejném měsíci před rokem.'} ČSÚ vydává nová čísla kolem 10. dne za předchozí měsíc. Tvoje inflace: medián ceny každé položky z tvých účtenek za posledních 12 měsíců proti předchozím 12, vážený tím, kolik za položku utrácíš – stejná metoda jako průměrná roční míra.</div>
   </div></div>`;
 }
 
