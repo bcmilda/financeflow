@@ -8,7 +8,7 @@ const pick=(s,n)=>{let i=s.indexOf('function '+n+'(');if(i<0)throw new Error('ch
 let ok=0,bad=0;const t=(n,c,i)=>{if(c){ok++;console.log('  ✅',n)}else{bad++;console.log('  ❌',n,i===undefined?'':JSON.stringify(i))}};
 const c={console,S:{curMonth:9,curYear:2025}}; vm.createContext(c);
 c.calcAnnuity=()=>0; c.getSplatkaCat=()=>({id:'catSpl'});
-vm.runInContext(['debtStartStr','debtDatumSplatky','_debtDnes','debtZmeny','debtSplatkyMezi','_debtZmenyUcinek','debtZiveZbyva','debtZbyvaKDni','debtHodnotaKDni','debtKDni','debtOcekavanyZbytek','generateSchedule','debtPlnyPlan','debtAplikujCekajiciSplatky'].map(n=>pick(ds,n)).join('\n')+'\n'+pick(hp,'computeMonthlyDebtPayments')+'\n'+pick(pr,'_sablonaSplatka'),c);
+vm.runInContext(['debtStartStr','debtDatumSplatky','_debtDnes','debtZmeny','debtSplatkyMezi','_debtZmenyUcinek','_debtDny','_debtCastRoku','debtSimuluj','debtZiveZbyva','debtPrepocitej','debtPrepocitejVse','debtZbyvaKDni','debtHodnotaKDni','debtKDni','debtOcekavanyZbytek','generateSchedule','debtPlnyPlan','debtAplikujCekajiciSplatky'].map(n=>pick(ds,n)).join('\n')+'\n'+pick(hp,'debtMesicniSplatka')+'\n'+pick(hp,'computeMonthlyDebtPayments')+'\n'+pick(pr,'_sablonaSplatka'),c);
 
 //  Půjčka 100 000 od 15. 1. 2025, podle výpisu ke 30. 6. zbývá 70 000.
 //  Navázané splátky: 15. 6. (už ve výpisu), 15. 7., 15. 8. po 5 000. Mimořádná 10 000 (1. 8.),
@@ -86,7 +86,8 @@ const n=c.debtAplikujCekajiciSplatky();
 t('splátka, jejíž den nastal, sníží Zbývá (50 000 → 47 000) a označí splátku v kalendáři',c.S.debts[0].remaining===47000&&c.S.debts[0].schedule[0].paid===true&&!c.S.transactions[0].debtCeka,c.S.debts[0]);
 t('budoucí splátka ze šablony čeká (Zbývá se zatím nemění)',c.S.transactions[1].debtCeka===true);
 t('splátka s datem do „Zbývá · ke dni“ zbytek nesníží (už ve výpisu)',c.S.debts[1].remaining===9000&&!c.S.transactions[2].debtCeka);
-t('ruční splátka (bez příznaku) se znovu neodečte; podruhé nic',n===2&&c.debtAplikujCekajiciSplatky()===0&&c.S.debts[0].remaining===47000);
+//  v12.30: návratová hodnota = počet změn (uplatněné splátky + přepočtené/nově ukotvené půjčky), ne jen splátek
+t('ruční splátka (bez příznaku) se znovu neodečte; podruhé nic',n>=2&&c.debtAplikujCekajiciSplatky()===0&&c.S.debts[0].remaining===47000);
 
 console.log('── napojení ──');
 const bd=fs.readFileSync(najdi('budouci.js','../js/budouci.js'),'utf8');

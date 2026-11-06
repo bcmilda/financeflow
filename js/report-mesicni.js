@@ -1,4 +1,4 @@
-// FinanceFlow · v12.14 · report-mesicni.js · 2026-10-26
+// FinanceFlow · v12.31 · report-mesicni.js · 2026-11-04
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -63,8 +63,13 @@ function mesReportData(D, m, y) {
     }
   } catch (e) { zust = null; }
   // rozpočty (limit finančního zdraví)
+  //  S28 (v12.31, audit bod 6): limit stejně jako Finanční zdraví a skóre – % ze ZÁKLADU PŘÍJMU (váhy stability),
+  //  ne z prostého průměru všech příjmů. Základ ke zvolenému měsíci reportu.
+  const _zaklad = typeof computeBaseIncome === 'function' ? computeBaseIncome(D, m, y) : avg.p;
+  const _lim = c => typeof catLimitVydaju === 'function' ? catLimitVydaju(c, _zaklad)
+    : (c.healthAmt > 0 ? (c.healthPct > 0 ? Math.min(c.healthAmt, c.healthPct / 100 * _zaklad) : c.healthAmt) : c.healthPct / 100 * _zaklad);
   const rozp = (D.categories || []).filter(c => (c.type === 'expense' || c.type === 'both') && (c.healthAmt > 0 || c.healthPct > 0)).map(c => {
-    const lim = c.healthAmt > 0 ? (c.healthPct > 0 ? Math.min(c.healthAmt, c.healthPct / 100 * avg.p) : c.healthAmt) : c.healthPct / 100 * avg.p;
+    const lim = _lim(c);
     const v = tx.filter(t => t.type === 'expense' && (t.catId || t.category) === c.id && !t.isBalancing && !t.splitParent && !isTransferTx(t)).reduce((a, t) => a + txCZK(t, D), 0);
     return { n: c.name, ikona: c.icon || '', c: c.color || '#1E293B', lim, v };
   }).filter(r => r.lim > 0).sort((a, b) => (b.v / b.lim) - (a.v / a.lim)).slice(0, 6);
@@ -89,7 +94,11 @@ function mesReportData(D, m, y) {
   //  eura s korunami: 100 € + 10 000 Kč = „10 100 Kč“).
   const penezenky = (typeof getWallets === 'function' ? getWallets(D) : []).map(w => { let b = 0; try { b = computeWalletBalance(w.id, D); } catch (e) {}
     const cur = w.currency || 'CZK'; return { n: w.name, b, cur, bk: cur !== 'CZK' && typeof toCZK === 'function' ? toCZK(b, cur) : b }; });
-  const dluhy = (D.debts || []).filter(d => (d.remaining || 0) > 0).map(d => ({ n: d.name || d.creditor || 'Půjčka', zb: d.remaining || 0, puv: d.total || d.remaining || 0, spl: d.payment || 0, urok: d.interest || 0 }));
+  //  S28 (v12.31, audit bod 8): splátka přes sdílený výpočet (rozpis splátek, týdenní frekvence) – dřív jen
+  //  d.payment, takže půjčka se splátkami v rozpisu měla v Reportu i AI shrnutí 0 Kč (skóre počítalo 4 500 Kč).
+  const _mesR = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const dluhy = (D.debts || []).filter(d => (d.remaining || 0) > 0).map(d => ({ n: d.name || d.creditor || 'Půjčka', zb: d.remaining || 0, puv: d.total || d.remaining || 0,
+    spl: typeof debtMesicniSplatka === 'function' ? debtMesicniSplatka(d, _mesR) : (d.payment || 0), urok: d.interest || 0 }));
   const cile = (D.wishes || []).filter(w => w && !w.done && (w.price || w.target)).map(w => ({ n: w.name || 'Cíl', ma: w.savedAmount || 0, cil: w.price || w.target })).slice(0, 3);
   // účtenky
   const pref = `${y}-${String(m + 1).padStart(2, '0')}`;
@@ -116,10 +125,25 @@ function mesReportData(D, m, y) {
   const v6 = rok.slice(-6).map(x => x.v), mean6 = v6.reduce((a, b) => a + b, 0) / 6;
   const sd = Math.sqrt(v6.reduce((a, b) => a + (b - mean6) ** 2, 0) / 6);
   const sabPrij = pristi.filter(x => x.v > 0).reduce((a, x) => a + x.v, 0);
-  const fcP = sabPrij > 0 ? sabPrij : avg.p, fcV = (vyd + avg.v * 2) / 3;
+  //  S28 (v12.31, audit bod 4): příjmy příštího měsíce = šablony příjmů + průměr OSTATNÍCH příjmů.
+  //  Dřív: jakmile existovala aspoň jedna šablona příjmu, výhled vzal JEN šablony a průměr zahodil –
+  //  výplata 40 000 Kč bez šablony + šablona podnájmu 2 000 Kč → výhled příjmů 2 000 Kč, bilance hluboko
+  //  v mínusu (i v AI shrnutí). Teď se z průměru 3 měsíců vynechají jen příjmy, které šablona pokrývá
+  //  (stejný název nebo kategorie jako aktivní měsíční šablona příjmu, nebo zápis „Auto-šablona“), a šablony se
+  //  přičtou. Pojistka proti dvojímu započtení (příjem bez názvu / z importu banky se šabloně nepřiřadí):
+  //  výhled nikdy nepřesáhne větší z (průměr všech příjmů, šablony) – šablona tak buď doplní jiné příjmy,
+  //  nebo nahradí příjem, který už v průměru je.
+  const _sabPrij = sab.filter(s => s.type === 'income' && (s.freq || 'monthly') === 'monthly');
+  const _sabPrijNazvy = new Set(_sabPrij.map(s => String(s.name || '').trim().toLowerCase()).filter(Boolean));
+  const _sabPrijKat = new Set(_sabPrij.map(s => s.catId).filter(Boolean));
+  const _zeSablony = t => t && t.type === 'income' && (_sabPrijNazvy.has(String(t.name || '').trim().toLowerCase())
+    || _sabPrijKat.has(t.catId || t.category) || /Auto-šablona/.test(String(t.note || '')));
+  const avgPBezSab = a3.reduce((a, x) => a + incSum(x.tx.filter(t => !_zeSablony(t)), D), 0) / 3;
+  const _fcSoucet = sabPrij + avgPBezSab, _fcStrop = Math.max(avg.p, sabPrij);
+  const fcP = Math.min(_fcSoucet, _fcStrop), fcV = (vyd + avg.v * 2) / 3;
   return { m, y, nm, ny, inc, vyd, bil, mira: inc ? bil / inc * 100 : 0, pm, avg, ly, rok, karty, prijmy, dni, dV, dP, kumNet, zust,
     rozp, nejvetsi, pravidelne, pristi, skore, skoreMM, penezenky, dluhy, cile, ucet,
-    fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05) }, txN: tx.length };
+    fc: { p: fcP, v: fcV, b: fcP - fcV, pasmo: Math.max(sd, fcV * 0.05), pSab: sabPrij, pOst: avgPBezSab, pStrop: _fcSoucet > _fcStrop }, txN: tx.length };
 }
 window.mesReportData = mesReportData;
 
@@ -523,7 +547,7 @@ function _rpPro4(rd) {
   return `<section class="page dense" aria-label="Premium strana ${rd._stran}">${_rpTop(rd, `${RP_MES[rd.m]} ${rd.y} · výhled a doporučení`, true)}
   <div class="c12 sec"><h2>${RP_MES[rd.nm].charAt(0).toUpperCase() + RP_MES[rd.nm].slice(1)}: odhad bilance ${_rpKcz(f.b)} (${_rpKcz(f.b - f.pasmo)} až ${_rpKcz(f.b + f.pasmo)})</h2><div class="sub">${rd.ai && rd.ai.vyhled ? '✨ ' + _rpE(rd.ai.vyhled) : 'Graf 4.1 · Bilance posledních 6 měsíců a odhad příštího s pásmem nejistoty'}</div>${_rpFc(rd)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:1.6mm;font-size:7.8pt"><div><b>Z čeho odhad vychází</b><ul class="list">
-      <li><span>Příjmy ${rd.pristi.some(x => x.v > 0) ? '(šablony)' : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
+      <li><span>Příjmy ${f.pSab > 0 ? (f.pStrop ? `(průměr 3 měsíců, šablony ${_rpKc(f.pSab)} už v něm jsou)` : `(šablony ${_rpKc(f.pSab)} + průměr ostatních ${_rpKc(f.pOst || 0)})`) : '(průměr 3 měsíců)'}</span><span class="up">${_rpKcz(f.p)}</span></li><li><span>Výdaje (vážený průměr)</span><span>${_rpKcz(-f.v)}</span></li><li><span>Pásmo podle výkyvů 6 měsíců</span><span>±${_rpKc(f.pasmo)}</span></li></ul></div>
       <div><b>Pevné platby v ${RP_MES6[rd.nm]}</b><ul class="list">${rd.pristi.filter(x => x.v < 0).slice(0, 4).map(x => `<li><span>${x.d}. ${_rpE(x.n)}</span><span>${_rpKcz(x.v)}</span></li>`).join('') || '<li><span class="faint">žádné šablony</span><span></span></li>'}</ul></div></div></div>
   <div class="c6 sec"><h2>Cíle</h2><div class="sub">Průběh spoření na cíle</div>
     ${rd.cile.length ? rd.cile.map(c => `<div style="padding:1.8mm 0;border-bottom:1px solid #F0F3F7"><div style="display:flex;justify-content:space-between"><b>${_rpE(c.n)}</b><span>${_rpKc(c.ma)} / ${_rpKc(c.cil)}</span></div><div class="bar" style="margin-top:1.2mm"><i style="width:${Math.min(100, c.ma / c.cil * 100)}%;background:#16A34A"></i></div></div>`).join('') : '<div class="faint" style="font-size:8pt">Žádné cíle. Založíš je v Nákupním seznamu / cílech.</div>'}</div>

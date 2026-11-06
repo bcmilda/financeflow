@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · projects.js · 2026-11-04
+// FinanceFlow · v12.31 · projects.js · 2026-11-04
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -457,20 +457,23 @@ function populateTxTransferWallets() {
 // ══════════════════════════════════════════════════════
 
 // Výpočet stabilního základního příjmu – průměr 3 měsíce
-function computeBaseIncome(D) {
+function computeBaseIncome(D, mes, rok) {
+  //  S28 (v12.31, audit bod 6): volitelně pro zadaný měsíc (Měsíční report za vybraný měsíc) – jinak
+  //  jako dřív 3 měsíce před zobrazeným měsícem (S.curMonth).
   // ADR-044 (Session 9): Vážený základ příjmu
   // Každá příjmová kategorie má stabilityWeight (0.0–1.0).
   // baseIncome = Σ(průměr_3M_kategorie × weight)
   // Neoznačené kategorie (weight undefined/null nebo 0) se nezapočítávají.
   // Fallback (jen pokud ŽÁDNÁ kategorie nemá weight > 0): průměr všech příjmů za 3M.
   D = D || getData();
+  const _bm = Number.isInteger(mes) ? mes : S.curMonth, _by = Number.isInteger(rok) ? rok : S.curYear;
   const incCats = (D.categories||[]).filter(c => c.type==='income' || c.type==='both');
 
   // Spočítej průměr příjmů za poslední 3 měsíce pro každou kategorii
   const catAvgs = incCats.map(cat => {
     let total = 0;
     for(let i=1;i<=3;i++){
-      let m=S.curMonth-i, y=S.curYear; if(m<0){m+=12;y--;}
+      let m=_bm-i, y=_by; if(m<0){m+=12;y--;}
       const txs=getTx(m,y,D);
       const monthInc=txs.filter(t=>t.type==='income'&&(t.catId||t.category)===cat.id)
                         .reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A: základ příjmu vstupuje do S1/DTI/DSTI/S3/S4
@@ -497,12 +500,26 @@ function computeBaseIncome(D) {
   // Fallback: žádná kategorie s váhou > 0 → průměr všech příjmů za 3M
   let incTotal=0, incMonths=0;
   for(let i=1;i<=3;i++){
-    let m=S.curMonth-i, y=S.curYear; if(m<0){m+=12;y--;}
+    let m=_bm-i, y=_by; if(m<0){m+=12;y--;}
     const mi=incSum(getTx(m,y,D));
     if(mi>0){incTotal+=mi;incMonths++;}
   }
   return incMonths>0 ? Math.round(incTotal/incMonths) : 0;
 }
+
+//  S28 (v12.31, audit bod 6): JEDEN výpočet limitu výdajové kategorie pro celou appku (Měsíční report →
+//  Rozpočty, Finanční zdraví, Finanční skóre, Úsporné tipy). Platí PŘÍSNĚJŠÍ (nižší) z: % ze ZÁKLADU PŘÍJMU
+//  (computeBaseIncome – váhy stability příjmů, ADR-044) a Kč stropu. 0 = bez limitu.
+//  Dřív Report bral % z prostého průměru VŠECH příjmů za 3 měsíce (i nepravidelných) → jiný limit
+//  než Finanční zdraví (20 % potravin: Report 12 000 Kč, Finanční zdraví 8 000 Kč).
+function catLimitVydaju(cat, baseIncome) {
+  if (!cat) return 0;
+  const lp = (cat.healthPct > 0 && baseIncome > 0) ? baseIncome * cat.healthPct / 100 : Infinity;
+  const la = cat.healthAmt > 0 ? cat.healthAmt : Infinity;
+  const l = Math.min(lp, la);
+  return l === Infinity ? 0 : l;
+}
+window.catLimitVydaju = catLimitVydaju;
 
 // Výpočet zdraví jedné kategorie (0-100)
 function computeCatHealth(cat, spent, baseIncome) {
@@ -5948,7 +5965,7 @@ function fxLossDetailHTML(fx, txs, D){
   const expCats = (D.categories||[]).filter(c=>c.healthPct&&(c.type==='expense'||c.type==='both'));
   expCats.forEach(cat=>{
     const spent = subTxs.filter(t=>(t.catId||t.category)===cat.id).reduce((a,t)=>a+txCZK(t,D),0);  // FIX-252/A + FIX-254
-    const limit = baseIncome>0?baseIncome*cat.healthPct/100:0;
+    const limit = catLimitVydaju(cat, baseIncome);   // v12.31 (bod 6): i Kč strop, stejně jako Finanční zdraví
     if(spent>limit*1.2 && limit>0) {
       const over = Math.round(spent-limit);
       suggestions.push({

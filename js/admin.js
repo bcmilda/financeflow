@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · admin.js · 2026-11-04
+// FinanceFlow · v12.31 · admin.js · 2026-11-04
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.31',
+    datum: '2026-11-04',
+    zmeny: [
+      "💶 AUDIT BOD 3 · INVESTICE Z CIZÍ MĚNY V KČ · cesta: Dashboard → Moje úspory a investice. Vklad 100 € (2 500 Kč) z eurové peněženky se sečetl jako 100 Kč – součet bral částku v měně peněženky. Teď přes txCZK jako všechny ostatní součty.",
+      "📈 AUDIT BOD 4 · VÝHLED PŘÍJMŮ · cesta: Report → 📄 Měsíční report → Výhled příštího měsíce (i AI shrnutí). Jakmile existovala aspoň jedna měsíční šablona příjmu, výhled vzal JEN šablony a průměr příjmů zahodil: výplata 40 000 Kč bez šablony + šablona podnájmu 2 000 Kč → výhled 2 000 Kč a bilance hluboko v mínusu. Teď šablony + průměr 3 měsíců z příjmů, které šablona nepokrývá (podle názvu, kategorie nebo „Auto-šablona“). Pojistka: nikdy víc než větší z (průměr všech příjmů, šablony), aby se příjem bez názvu nebo z importu nesečetl dvakrát. Report vypíše rozpad.",
+      "🎯 AUDIT BOD 6 · JEDEN LIMIT KATEGORIE · cesta: Report → Měsíční report → Rozpočty, Finanční zdraví, Finanční skóre (rozpočet), Úsporné tipy. Report počítal % z prostého průměru VŠECH příjmů za 3 měsíce (i jednorázových), Finanční zdraví % ze ZÁKLADU PŘÍJMU (váhy stability, ADR-044) – stejná kategorie jednou v limitu, jednou přes. Teď všude catLimitVydaju: přísnější z (% základu příjmu, Kč strop); základ ke zvolenému měsíci reportu. Úsporné tipy nově respektují i Kč strop.",
+      "💳 AUDIT BOD 8 · SPLÁTKY V REPORTU · cesta: Report → Měsíční report → Dluhy, AI shrnutí reportu i AI rádce. Brala se jen pevná splátka půjčky – půjčka s rozpisem splátek (installments) měla 0 Kč, skóre přitom počítalo 4 500 Kč. Teď jeden výpočet debtMesicniSplatka (rozpis k měsíci reportu, týdenní × 4,33, splacená 0) pro skóre, Report i AI.",
+      "🧪 tools/smoke_audit_3468.js (17) – na v12.30 padá; smoke_dluhy_zmeny.js doplněn o debtMesicniSplatka. Chromium (Praha, listopad 2026): investice 100 € = 2 500 Kč; limit potravin 20 % = 8 400 Kč v Reportu i ve Finančním zdraví (základ 42 000 Kč, jednorázový prodej se nepočítá; dřív Report 12 000 Kč); splátka úvěru s rozpisem 4 500 Kč v Reportu i skóre; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.30',
     datum: '2026-11-04',

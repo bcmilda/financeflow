@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · ai.js · 2026-11-04
+// FinanceFlow · v12.31 · ai.js · 2026-11-04
 //  AI RÁDCE
 // ══════════════════════════════════════════════════════
 // Worker URL – sem doplňte URL po vytvoření Workeru
@@ -90,7 +90,8 @@ function buildFinanceContext(){
   // Dluhy
   const debts = D.debts||[];
   const totalDebt = debts.reduce((a,d)=>a+d.remaining,0);
-  const monthlyPayments = debts.reduce((a,d)=>{
+  //  S28 (v12.31, audit bod 8): stejný výpočet jako skóre a Měsíční report (rozpis splátek, splacené = 0)
+  const monthlyPayments = typeof computeMonthlyDebtPayments==='function' ? computeMonthlyDebtPayments(D) : debts.reduce((a,d)=>{
     const freq=d.freq||'monthly';
     return a+(freq==='weekly'?(d.payment||0)*4.33:freq==='biweekly'?(d.payment||0)*2.17:(d.payment||0));
   },0);
