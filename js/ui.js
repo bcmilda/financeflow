@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · ui.js · 2026-11-04
+// FinanceFlow · v12.34 · ui.js · 2026-11-06
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2103,7 +2103,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
       return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${it.name||'–'}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
     }).join('');
     return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
+      <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
       ${(typeof txChranenaUctenkou==='function'&&txChranenaUctenkou(t)) ? '' : `<button class="btn btn-sm" style="font-size:.72rem;background:rgba(248,113,113,.12);color:var(--expense);border:1px solid rgba(248,113,113,.3)" onclick="event.stopPropagation();deleteTx('${t.id}')">🗑 Smazat transakci${typeof dupUctenkaPro==='function'&&dupUctenkaPro(t)?' (kopie účtenky)':''}</button>`}</div>`}</div>`;
     //  v11.74 (Milan): tlačítko jen u transakce bez účtenky nebo u kopie – originál se maže přes účtenku
     //  S26 (v11.73, Milan: „z Transakcí ji smazat nemůžu“): na telefonu měla účtenková transakce jen „Upravit“
@@ -2148,7 +2148,7 @@ function buildTxRow(t, D, ro, dupMap={}) {
     const _mobOut = (!ro && hasReceiptItems)
       ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden">
           <div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6)">
-            <button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
+            <button onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.7rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.15rem">✎</span>Upravit</button>
           </div>
           ${_mobCard}
         </div>`
@@ -2209,11 +2209,11 @@ function buildTxRow(t, D, ro, dupMap={}) {
     <div class="tx-table-cell" style="display:flex;gap:3px;justify-content:flex-end;align-items:center">
       ${isVirtualTransfer?`<span style="font-size:.66rem;color:#a8aec8" title="Spravuj v sekci Cíle">🎯 cíl</span>`:(_coarse
         ? (_swipeRow?`<span style="font-size:.66rem;color:#a8aec8" title="Potáhni doleva pro úpravu účtenky">‹ swipe</span>`:'')
-        : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
+        : `${!ro&&!isSplitParent&&!hasReceiptItems?`<button class="btn btn-ghost btn-icon btn-sm" title="Rozdělit" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️</button>`:''}${hasReceiptItems&&!isSplitParent?`<button class="btn btn-ghost btn-icon btn-sm" title="Zobrazit účtenku v Historii" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="font-size:.8rem">📷</button>`:''}${!ro?`<button class="btn btn-edit btn-icon btn-sm" onclick="event.stopPropagation();editTx('${t.id}')">✎</button><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();deleteTx('${t.id}')">✕</button>`:''}`)}
     </div>
   </div>`;
   const _wrapped = _swipeRow
-    ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden"><div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6);z-index:0"><button onclick="event.stopPropagation();openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.1rem">✎</span>Upravit</button></div>${_rowHTML}</div>`
+    ? `<div class="tx-swipe-wrap" style="position:relative;overflow:hidden"><div class="tx-swipe-action" style="position:absolute;top:0;right:0;bottom:0;width:84px;display:flex;align-items:center;justify-content:center;background:var(--bank,#3b82f6);z-index:0"><button onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')" style="background:none;border:none;color:#fff;font-weight:700;font-size:.72rem;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;line-height:1.1"><span style="font-size:1.1rem">✎</span>Upravit</button></div>${_rowHTML}</div>`
     : _rowHTML;
   return `${_wrapped}${_tagsRow}
   ${receiptItemsHtml}
@@ -2257,6 +2257,8 @@ function editTx(id){
   if(viewingUid)return;
   const D=getData();
   const t=(D.transactions||[]).find(x=>x.id==id);if(!t)return;
+  //  S28 (v12.34): transakce z naskenované účtenky → editor účtenky (ne formulář transakce)
+  if(typeof rcptJeTxUctenky==='function' && rcptJeTxUctenky(t) && typeof openReceiptForTx==='function' && openReceiptForTx(id)) return;
   document.getElementById('editTxId').value=id;
   document.getElementById('txName').value=t.name||'';
   document.getElementById('txAmt').value=t.amount||t.amt||'';

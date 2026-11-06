@@ -1,4 +1,4 @@
-// FinanceFlow · v12.33 · receipts.js · 2026-11-06
+// FinanceFlow · v12.34 · receipts.js · 2026-11-06
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -7056,6 +7056,23 @@ function openReceiptInHistory(date, store, primoIdx, polozka) {
   }, 200);
 }
 window.openReceiptInHistory = openReceiptInHistory;
+//  S28 (v12.34, Milan: „editace v Transakci byla přesměrována na účtenku z obchodu a nyní edituješ přímo
+//  v transakcích… dole vidíš modré tagy, které jsou ve skutečnosti zelené štítky“): transakce naskenované
+//  účtenky se upravuje VŽDY v editoru účtenky (položky, kategorie i podkategorie položek, zelené štítky).
+//  Formulář transakce by její zelené štítky uložil jako modré tagy a kategorii položek by nepoznal.
+//  Účtenka se hledá podle pevné vazby (receiptAddedAt), u starších podle data a obchodu.
+function rcptJeTxUctenky(t) { return !!(t && !t.splitParent && ((Array.isArray(t.receiptItems) && t.receiptItems.length) || t.receiptAddedAt)); }
+function openReceiptForTx(id) {
+  const t = (S.transactions || []).find(x => x && x.id == id); if (!t) return false;
+  const R = S.receipts || [];
+  let i = t.receiptAddedAt ? R.findIndex(r => r && r.addedAt === t.receiptAddedAt) : -1;
+  if (i < 0 && typeof rcptNajdiTx === 'function') i = R.findIndex(r => r && rcptNajdiTx(r, S) === t);
+  if (i < 0) i = R.findIndex(r => r && (r.date || '') === (t.receiptDate || '') && String(r.store || '').toLowerCase() === String(t.receiptStore || '').toLowerCase());
+  if (i < 0) return false;
+  openReceiptInHistory(R[i].date, R[i].store, i);
+  return true;
+}
+Object.assign(window, { rcptJeTxUctenky, openReceiptForTx });
 
 // Re-sync tagů + receiptItems z editované účtenky do propojených transakcí
 // (transakce mají receiptDate + receiptStore z addReceiptAsTx)

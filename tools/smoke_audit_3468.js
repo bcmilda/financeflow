@@ -20,7 +20,7 @@ const c = { console, S, Math, JSON, Object, Array, String, Number, Date, isFinit
   navigator: {}, localStorage: { getItem: () => null, setItem() {} }, setTimeout, clearTimeout };
 c.window = c; vm.createContext(c);
 vm.runInContext(H, c);
-vm.runInContext(['catLimitVydaju', 'computeCatHealth', 'computeBaseIncome'].map(n => vyber(PJ, n)).join('\n')
+vm.runInContext(['catVahaPrijmu', 'catLimitVydaju', 'computeCatHealth', 'computeBaseIncome'].map(n => vyber(PJ, n)).join('\n')
   + (/(const|function|let|var) getData\b/.test(H) ? '' : '\nvar getData = () => S;'), c);
 
 console.log('── bod 3: investice z eurové peněženky ──');

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.31 · projects.js · 2026-11-04
+// FinanceFlow · v12.34 · projects.js · 2026-11-06
 //  PROJEKTY
 // ══════════════════════════════════════════════════════
 
@@ -457,6 +457,14 @@ function populateTxTransferWallets() {
 // ══════════════════════════════════════════════════════
 
 // Výpočet stabilního základního příjmu – průměr 3 měsíce
+//  ADR-044: váha stability příjmové kategorie (karta kategorie → Typ příjmu: pravidelný 100 %, …,
+//  jednorázový 0 %). Uložená stabilityWeight má přednost, legacy stable:true = 1, neoznačené = 0.
+function catVahaPrijmu(cat) {
+  if (!cat) return 0;
+  if (cat.stabilityWeight !== undefined && cat.stabilityWeight !== null) return Number(cat.stabilityWeight) || 0;
+  return cat.stable === true ? 1 : 0;
+}
+window.catVahaPrijmu = catVahaPrijmu;
 function computeBaseIncome(D, mes, rok) {
   //  S28 (v12.31, audit bod 6): volitelně pro zadaný měsíc (Měsíční report za vybraný měsíc) – jinak
   //  jako dřív 3 měsíce před zobrazeným měsícem (S.curMonth).
@@ -481,15 +489,7 @@ function computeBaseIncome(D, mes, rok) {
     }
     const avg=total/3;
     // Urči váhu: uložená stabilityWeight má přednost, jinak výchozí z incomeChar
-    let weight;
-    if(cat.stabilityWeight!==undefined && cat.stabilityWeight!==null){
-      weight=cat.stabilityWeight;
-    } else if(cat.stable===true){
-      // Legacy: stable:true bez nové váhy → 1.0
-      weight=1.0;
-    } else {
-      weight=0; // neoznačené = 0 (ADR-044)
-    }
+    const weight = catVahaPrijmu(cat);   // v12.34: sdílené s výhledem příjmů v Měsíčním reportu
     return {catId:cat.id, avg, weight};
   });
 

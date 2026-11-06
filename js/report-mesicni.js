@@ -1,4 +1,4 @@
-// FinanceFlow · v12.31 · report-mesicni.js · 2026-11-04
+// FinanceFlow · v12.34 · report-mesicni.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  S24 (v11.27, TODO-317 F2, Milan): MĚSÍČNÍ REPORT NA SKUTEČNÝCH DATECH
 //  cesta: Report (🗂️) → „📄 Měsíční report"   (matice kategorií = druhá záložka)
@@ -138,7 +138,15 @@ function mesReportData(D, m, y) {
   const _sabPrijKat = new Set(_sabPrij.map(s => s.catId).filter(Boolean));
   const _zeSablony = t => t && t.type === 'income' && (_sabPrijNazvy.has(String(t.name || '').trim().toLowerCase())
     || _sabPrijKat.has(t.catId || t.category) || /Auto-šablona/.test(String(t.note || '')));
-  const avgPBezSab = a3.reduce((a, x) => a + incSum(x.tx.filter(t => !_zeSablony(t)), D), 0) / 3;
+  //  v12.34 (Milan: „jednorázové prodeje ani cashbacky se do průměru výplaty nebo příjmu nepočítají – má to být
+  //  definováno v kartě: jednorázový typ, váha 0 %“): ostatní příjmy se váží VÁHOU STABILITY jejich kategorie
+  //  (stejně jako základ příjmu, ADR-044) – prodej auta ani cashback s váhou 0 výhled nezvednou. Když žádná
+  //  kategorie váhu nemá, platí prostý průměr (jako u základu příjmu).
+  const _cats = D.categories || [];
+  const _vahy = typeof catVahaPrijmu === 'function' && _cats.some(c => (c.type === 'income' || c.type === 'both') && catVahaPrijmu(c) > 0);
+  const _vaha = t => { if (!_vahy) return 1; const c = _cats.find(x => x.id === (t.catId || t.category)); return catVahaPrijmu(c); };
+  const avgPBezSab = a3.reduce((a, x) => a + x.tx.filter(t => t.type === 'income' && !t.isBalancing && !t.splitParent
+    && !(typeof isTransferTx === 'function' && isTransferTx(t)) && !_zeSablony(t)).reduce((b, t) => b + txCZK(t, D) * _vaha(t), 0), 0) / 3;
   const _fcSoucet = sabPrij + avgPBezSab, _fcStrop = Math.max(avg.p, sabPrij);
   const fcP = Math.min(_fcSoucet, _fcStrop), fcV = (vyd + avg.v * 2) / 3;
   return { m, y, nm, ny, inc, vyd, bil, mira: inc ? bil / inc * 100 : 0, pm, avg, ly, rok, karty, prijmy, dni, dV, dP, kumNet, zust,
