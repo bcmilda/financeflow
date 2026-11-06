@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · receipts.js · 2026-11-04
+// FinanceFlow · v12.32 · receipts.js · 2026-11-05
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -5380,6 +5380,16 @@ function rcptPobockaNorm(r) {
   const a = t(r.storeAddress, 120), c = t(r.storeCity, 60), k = rcptKraj(r.storeRegion), i = t(r.storeIco, 12).replace(/\D/g, '');
   delete r.storeAddress; delete r.storeCity; delete r.storeRegion; delete r.storeIco;   // žádné prázdné / null do Firebase
   if (a) r.storeAddress = a; if (c) r.storeCity = c; if (k) r.storeRegion = k; if (i.length === 8) r.storeIco = i;
+  //  S28 (v12.32, Milan: „na účtence bylo ‚sušenky polom.hořké‘, v editoru ‚sušenky polomáčené hořké‘ – AI pozměnilo
+  //  název, což vedlo k nepřiřazení známého výrobku“): name = zkratka doslova z účtenky (podle ní se pozná výrobek),
+  //  výklad zkratky od AI zvlášť jako it.nazevAI – jen nápověda a záloha pro zařazení do kategorie.
+  (Array.isArray(r.items) ? r.items : []).forEach(it => {
+    if (!it || typeof it !== 'object') return;
+    const f = typeof it.fullName === 'string' ? it.fullName.trim().slice(0, 80) : '';
+    delete it.fullName;
+    const nn = typeof normName === 'function' ? normName : (x => String(x || '').toLowerCase());
+    if (f && f.toLowerCase() !== 'null' && nn(f) !== nn(it.name || '')) it.nazevAI = f;
+  });
   return r;
 }
 window.RCPT_KRAJE = RCPT_KRAJE; window.rcptKraj = rcptKraj; window.rcptPobockaNorm = rcptPobockaNorm;
@@ -5476,6 +5486,7 @@ function validateReceiptJSON(r) {
         itemCat: it.itemCat || '',
         itemCatId: it.itemCatId || '',
       };
+      if (typeof it.nazevAI === 'string' && it.nazevAI.trim()) o.nazevAI = it.nazevAI.trim().slice(0, 80);   // v12.32: výklad zkratky
       if (isFinite(lt) && lt !== 0) o.lineTotal = Math.round(lt * 100) / 100;
       if (disc) o.discount = disc;
       if (price < 0 || (o.lineTotal != null && o.lineTotal < 0)) {
@@ -5654,6 +5665,8 @@ function rpKodRadekHTML(it, i) {
     const vyb = it.ean ? _rpDruhNazev(String(it.ean), eanDruhy(klic)) : '';
     return `<div id="rp_kn_${i}" style="font-size:.66rem;line-height:1.3;padding-left:2px;color:${vyb ? 'var(--income)' : '#fbbf24'}">${vyb ? '▮▮ ' + escHtml(vyb) : '🔀 Který druh? ↓'}</div>`;
   }
+  //  v12.32: bez kódu ukáže výklad zkratky od AI (šedě) – název v poli zůstává doslova z účtenky
+  if (it && !it.ean && it.nazevAI) return `<div id="rp_kn_${i}" style="font-size:.66rem;color:#a8aec8;line-height:1.3;padding-left:2px" title="Výklad zkratky od AI – do názvu se nepřebírá">≈ ${escHtml(it.nazevAI)}</div>`;
   if (!it || !it.ean) return '';
   const nazev = rpKodNazev(it);
   if (!nazev) {

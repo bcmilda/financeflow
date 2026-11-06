@@ -1,4 +1,4 @@
-// FinanceFlow · v12.31 · admin.js · 2026-11-04
+// FinanceFlow · v12.32 · admin.js · 2026-11-05
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.32',
+    datum: '2026-11-05',
+    zmeny: [
+      "🧾 NÁZEV POLOŽKY DOSLOVA Z ÚČTENKY (Milan: „na účtence bylo ‚sušenky polom.hořké‘, v editoru ‚sušenky polomáčené hořké‘ – AI pozměnilo název, což vedlo k nepřiřazení známého výrobku… jinak tu bojujeme sami proti sobě“) · cesta: Analýza účtenek → 📷 sken účtenky → editor položek. Čtení účtenky nemělo pravidlo, jak psát název, a AI zkratky „pro čitelnost“ rozepisovalo. Výrobek se ale pozná podle spojení obchod + zkratka – rozepsaný název je pro appku jiná položka. Teď (worker, PRAVIDLO 8) se název opíše doslova se zkratkami a tečkami; výklad zkratky dá AI zvlášť a editor ho ukáže šedě pod názvem („≈ sušenky polomáčené hořké“). Výklad slouží i jako záloha pro zařazení do kategorie a COICOP, do názvu se nepřebírá.",
+      "🔗 ZKRATKA ↔ ROZEPSANÝ NÁZEV · tamtéž. Dřívější účtenky mají názvy rozepsané, nové zkratky – aby se známé výrobky našly i tak: stejný obchod, stejný počet slov, každé slovo stejné nebo jedno začátkem druhého (aspoň 3 písmena), čísla a gramáž přesně, a jen jediný kód. „SUŠENKY POLOM.HOŘKÉ“ = „sušenky polomáčené hořké“; „polotučné“ ≠ „plnotučné“, 150 g ≠ 400 g, jiný obchod ne.",
+      "🧪 tools/smoke_ean_zkratka.js (14) – na v12.31 padá 7. Chromium 390 px: nová účtenka Penny se zkratkou dostala kód z dřívější rozepsané položky, u jogurtu bez kódu šedý výklad, bez chyb.",
+    ],
+  },
   {
     verze: 'v12.31',
     datum: '2026-11-04',

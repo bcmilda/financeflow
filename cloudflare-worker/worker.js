@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v11.61 · 2026-10-10  (S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v12.32 · 2026-11-05  (S28: účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -1619,7 +1619,7 @@ Buď stručný (max 300 slov pokud není požadováno jinak).`,
                 type: 'text',
                 text: `${multiNote}
 Analyzuj účtenku a vrať POUZE validní JSON bez jakéhokoli dalšího textu:
-{"store":"název obchodu","storeAddress":"adresa pobočky z hlavičky (ulice, PSČ město) nebo null","storeCity":"město pobočky nebo null","storeRegion":"kraj pobočky – přesně jeden z: Praha, Středočeský, Jihočeský, Plzeňský, Karlovarský, Ústecký, Liberecký, Královéhradecký, Pardubický, Vysočina, Jihomoravský, Olomoucký, Zlínský, Moravskoslezský; mimo ČR název státu; nebo null","storeIco":"IČO obchodu nebo null","date":"YYYY-MM-DD nebo null","total":číslo,"currency":"CZK","items":[{"name":"název","price":CENA,"qty":množství,"unit":"ks nebo kg nebo g nebo l","lineTotal":CELKOVA_CENA_RADKU}],"category":"Jídlo & Nákupy nebo Drogerie nebo Elektronika nebo Restaurace nebo Benzín nebo Jiné"}
+{"store":"název obchodu","storeAddress":"adresa pobočky z hlavičky (ulice, PSČ město) nebo null","storeCity":"město pobočky nebo null","storeRegion":"kraj pobočky – přesně jeden z: Praha, Středočeský, Jihočeský, Plzeňský, Karlovarský, Ústecký, Liberecký, Královéhradecký, Pardubický, Vysočina, Jihomoravský, Olomoucký, Zlínský, Moravskoslezský; mimo ČR název státu; nebo null","storeIco":"IČO obchodu nebo null","date":"YYYY-MM-DD nebo null","total":číslo,"currency":"CZK","items":[{"name":"TEXT ŘÁDKU PŘESNĚ JAK JE NATIŠTĚNÝ","fullName":"čitelný český název, když je name zkrácený, jinak null","price":CENA,"qty":množství,"unit":"ks nebo kg nebo g nebo l","lineTotal":CELKOVA_CENA_RADKU}],"category":"Jídlo & Nákupy nebo Drogerie nebo Elektronika nebo Restaurace nebo Benzín nebo Jiné"}
 
 !!! KRITICKÁ PRAVIDLA !!!
 
@@ -1669,7 +1669,15 @@ odshora dolů JEN kvůli záporným částkám: počet záznamů v negativeLines
 záporných řádků na účtence. Kaufland tiskne slevu jako "Tvoje cena s Kaufland Card  -49,90"
 malým písmem pod položkou – snadno se přehlédne. Když žádný záporný řádek není, vrať [].
 
-PRAVIDLO 6 – Nezahrnuj do items: záhlaví, daňové řádky (DPH, 21%), platební způsoby, věrnostní body.`
+PRAVIDLO 6 – Nezahrnuj do items: záhlaví, daňové řádky (DPH, 21%), platební způsoby, věrnostní body.
+
+PRAVIDLO 8 – NÁZEV POLOŽKY OPIŠ DOSLOVA. "name" = text řádku přesně tak, jak je natištěný: se zkratkami,
+tečkami, gramáží, velkými písmeny i bez diakritiky, když ji účtenka nemá. NIC nerozepisuj, neopravuj ani
+nepřekládej – appka podle té zkratky pozná výrobek, který už zná (stejný obchod tiskne stejnou zkratku).
+- "SUŠENKY POLOM.HOŘKÉ" → name:"SUŠENKY POLOM.HOŘKÉ" (NE "sušenky polomáčené hořké")
+- "Smet.jogurt bílý 1kg KK" → name:"Smet.jogurt bílý 1kg KK"
+Výklad zkratky dej ZVLÁŠŤ do "fullName" ("sušenky polomáčené hořké", "smetanový jogurt bílý 1 kg").
+Když name zkrácený není, fullName:null.`
               }
             ]
           }]
