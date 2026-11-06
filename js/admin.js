@@ -1,4 +1,4 @@
-// FinanceFlow · v12.32 · admin.js · 2026-11-05
+// FinanceFlow · v12.33 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.33',
+    datum: '2026-11-06',
+    zmeny: [
+      "🧾 TRANSAKCE JDE S OPRAVENOU ÚČTENKOU (Milan: „jak to, že se mi v transakcích nezobrazuje transakce z naskenované účtenky 1. 10. 2026?“) · cesta: Analýza účtenek → 🧾 Historie → ✎ účtenka → Uložit změny (i ↔ Prohodit den a měsíc). Transakce se k upravené účtence hledala jen podle DATA a OBCHODU. Když se v editoru datum nebo obchod opravily, nenašla se: účtenka měla 1. 10. 2026, transakce zůstala na původně přečteném 10. 1. 2026 (v lednu), dál se jí nepropisovaly položky ani částka – a editor přesto hlásil „změny promítnuty i do transakcí“. Teď se hledá podle pevné vazby (receiptAddedAt, od S25), u starších podle data a obchodu PŘED úpravou; datum a obchod se do transakce propíšou (datum, které sis u transakce změnil sám, a přejmenovaný název zůstanou). Když se transakce nenajde, editor to řekne.",
+      "🩹 JIŽ ROZPOJENÉ DVOJICE · po spuštění appky (a při ukládání) dostane transakce s pevnou vazbou datum a obchod své účtenky – tvoje účtenka Lidl se tak sama vrátí do října.",
+      "🧪 tools/smoke_uctenka_vazba.js (10) – na v12.32 padá. Chromium 390 px (Praha): účtenka přečtená 10. 1. → ✎ → ↔ Prohodit → Uložit: transakce 1. 10. 2026 v říjnu (v12.32: zůstala 10. 1. 2026), bez chyb.",
+    ],
+  },
   {
     verze: 'v12.32',
     datum: '2026-11-05',

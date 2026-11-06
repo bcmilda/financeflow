@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · app.js · 2026-11-04
+// FinanceFlow · v12.33 · app.js · 2026-11-06
 var _auth, _db, _provider;
 
 // ── TODO-006: Globální error handler ──
@@ -2288,6 +2288,8 @@ function save() {
   //  S28 (v12.30, audit body 1 a 20): Zbývá u půjček dopočítat ze splátek (idempotentní) – jakákoli změna
   //  splátky (smazání, úprava, import z banky, Doručené, duplicity) se tak promítne hned.
   if(typeof debtPrepocitejVse === 'function') { try { debtPrepocitejVse(); } catch(e) { console.warn(e); } }
+  //  S28 (v12.33): transakce naskenované účtenky jde s jejím datem a obchodem (oprava v editoru účtenky)
+  if(typeof rcptOpravVazby === 'function') { try { rcptOpravVazby(); } catch(e) { console.warn(e); } }
   // FIX (S11): každé uložení = uživatelská akce → vynuť příští render (anti-flicker
   // guard v renderPage by jinak přeskočil změny které _dataSig nezachytí: wallet
   // balance, virtuální cíle, tagy, podkategorie, receipt edity).

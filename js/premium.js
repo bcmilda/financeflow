@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · premium.js · 2026-11-04
+// FinanceFlow · v12.33 · premium.js · 2026-11-06
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1354,6 +1354,8 @@ function processAutoSablony() {
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
   //  v12.02: splátky ze šablon, jejichž den už nastal → snížit Zbývá u půjčky
   try { if (typeof debtAplikujCekajiciSplatky === 'function' && debtAplikujCekajiciSplatky()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
+  //  S28 (v12.33): po spuštění srovnat datum/obchod transakcí s jejich naskenovanou účtenkou (opravené v editoru)
+  try { if (typeof rcptOpravVazby === 'function' && rcptOpravVazby()) { save(); if (typeof renderPage === 'function') renderPage(); } } catch (e) {}
   //  S23: transakce z účtenek vznikaly BEZ peněženky → zůstatek je neviděl.
   //  Doplní se jen při jediné peněžence (viz rpFixReceiptTxWallets v receipts.js).
   try{ if(typeof rpFixReceiptTxWallets==='function'){ const _n=rpFixReceiptTxWallets(); if(_n){ save(); if(typeof renderPage==='function') renderPage(); console.log('[S23] doplněna peněženka u',_n,'transakcí z účtenek'); } } }catch(e){ console.warn(e); }
