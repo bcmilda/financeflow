@@ -1,4 +1,4 @@
-// FinanceFlow · v12.36 · helpers.js · 2026-11-06
+// FinanceFlow · v12.37 · helpers.js · 2026-11-06
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -477,7 +477,8 @@ const isCur=(m,y)=>{const n=new Date();return m===n.getMonth()&&y===n.getFullYea
 const getTxByRange=(fromDate,toDate,data)=>{const D=data||getData();const from=new Date(fromDate);const to=new Date(toDate);to.setHours(23,59,59,999);return(D.transactions||[]).filter(t=>{const d=new Date(t.date);return d>=from&&d<=to;});};
 // Vrátí pole {m, y} objektů pro každý měsíc v rozsahu
 function getMonthsInRange(fromDate,toDate){const result=[];const from=new Date(fromDate);const to=new Date(toDate);let m=from.getMonth(),y=from.getFullYear();while(y<to.getFullYear()||(y===to.getFullYear()&&m<=to.getMonth())){result.push({m,y});if(++m>11){m=0;y++;}}return result;}
-function getCurInst(debt){const now=`${S.curYear}-${String(S.curMonth+1).padStart(2,'0')}`;let a=debt.installments[0]?.amt||0;for(const i of debt.installments)if(i.from<=now)a=i.amt;return a;}
+//  S28 (v12.37, audit bod 23): getCurInst smazána – byla tu i v debts.js a nikdo ji nevolal (aktuální splátku
+//  půjčky počítá debtMesicniSplatka / computeMonthlyDebtPayments).
 
 // ══════════════════════════════════════════════════════
 //  PREDICTION ENGINE
@@ -632,7 +633,7 @@ function getHistAvg(catId,sub,forM,forY,data,type,opts){
   const D=data||getData();
   const txs=D.transactions||[];
   const _vyn=opts&&typeof opts.vynechat==='function'?opts.vynechat:null;
-  const _dnes=String(typeof ffDnes==='function'?ffDnes():new Date().toISOString().slice(0,10));
+  const _dnes=String(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
   const _bezi=(+_dnes.slice(0,4))*12+(+_dnes.slice(5,7))-1;   // index běžícího měsíce
   const _konec=Math.min(forY*12+forM,isFinite(_bezi)?_bezi:Infinity), _zacatek=_konec-12;
   let _prvni=Infinity;

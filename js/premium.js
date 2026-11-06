@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · premium.js · 2026-11-06
+// FinanceFlow · v12.37 · premium.js · 2026-11-06
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1644,13 +1644,8 @@ function importDataPrompt() {
   };
   inp.click();
 }
-function confirmDeleteAllData() {
-  if(!confirm('⚠️ Opravdu smazat VŠECHNA data? Tato akce je nevratná!'))return;
-  if(!confirm('Jste si 100% jisti? Všechny transakce, dluhy a nastavení budou smazány.'))return;
-  S={transactions:[],debts:[],categories:[],bank:{startBalance:0},birthdays:[],wishes:[],wallets:[],payTypes:[],sablony:[]};
-  S.curMonth=new Date().getMonth();S.curYear=new Date().getFullYear();
-  save();renderPage();alert('✅ Všechna data smazána.');
-}
+//  S28 (v12.37, audit bod 23): stará confirmDeleteAllData (bez potvrzovacího slova SMAZAT) smazána – platí
+//  verze v settings.js, která se načítá později; kdyby settings.js někdy selhal, nebezpečnější kopie by ožila.
 function exportCSV() {
   const from=document.getElementById('exportFrom')?.value;
   const to=document.getElementById('exportTo')?.value;
@@ -2279,7 +2274,12 @@ function computeFinancialScore(D, _m, _y, _cfg) {
   // v2: strop 12 měsíců (dřív 6) – kotva bonusu jde až na 12 měsíců (viz níže).
   let cm=0;
   {
+    //  S28 (v12.37, audit bod 10): běžící měsíc se nesrovnává – 6 dní listopadu má skoro vždy nižší výdaje
+    //  než celý říjen, a řetěz „výdaje klesají“ tak dostal měsíc navíc bez skutečného zlepšení. U běžícího
+    //  měsíce řetěz začíná minulým (dokončeným) měsícem.
     let m=_M, y=_Y;
+    const _dn=String(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10));
+    if(+_dn.slice(0,4)===y && (+_dn.slice(5,7)-1)===m){ m--; if(m<0){m=11;y--;} }
     for(let i=0;i<12;i++){
       let pmm=m-1,pyy=y;if(pmm<0){pmm=11;pyy--;}
       const curT=getTx(m,y,D), prvT=getTx(pmm,pyy,D);

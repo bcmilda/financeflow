@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · share.js · 2026-11-04
+// FinanceFlow · v12.37 · share.js · 2026-11-06
 // ══════════════════════════════════════════════════════
 //  SDÍLENÍ & REFERRAL SYSTÉM – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -462,14 +462,14 @@ function getShareMessage(platform) {
   const messages = {
     whatsapp: `Ahoj! Používám FinanceFlow na sledování rodinných financí a je to super 💚\n\nMá to:\n✅ Přehled příjmů & výdajů\n📸 Skenování účtenek\n🤖 AI finanční poradce\n👨‍👩‍👧 Sdílení s partnerem\n\nZkus to zdarma: ${url}`,
     sms:      `Tip na appku: FinanceFlow – rodinné finance pod kontrolou. Zkus zdarma: ${url}`,
-    signal:   `Ahoj! Tip na skvělou appku na rodinné finance 💚 FinanceFlow – příjmy, výdaje, AI poradce, sdílení s partnerem. Zkus zdarma: ${url}`,
-    telegram: `Ahoj! Doporučuji FinanceFlow – chytrá správa rodinných financí 💚\n✅ Příjmy & výdaje s grafy\n📸 Skenování účtenek\n🤖 AI poradce\n👨‍👩‍👧 Sdílení s partnerem\n\nZkus zdarma: ${url}`,
+    signal:   `Ahoj! Tip na skvělou appku na rodinné finance 💚 FinanceFlow – příjmy, výdaje, AI rádce, sdílení s partnerem. Zkus zdarma: ${url}`,
+    telegram: `Ahoj! Doporučuji FinanceFlow – chytrá správa rodinných financí 💚\n✅ Příjmy & výdaje s grafy\n📸 Skenování účtenek\n🤖 AI rádce\n👨‍👩‍👧 Sdílení s partnerem\n\nZkus zdarma: ${url}`,
     email_subject: 'Tip: FinanceFlow – správa rodinných financí',
     email_body: `Ahoj,\n\nchci ti doporučit aplikaci FinanceFlow, kterou používám pro správu rodinných financí.\n\nCo umí:\n• Přehled příjmů a výdajů s grafy\n• Skenování účtenek pomocí AI\n• AI finanční poradce\n• Sdílení s partnerem\n• Predikce výdajů na další měsíce\n• A mnoho dalšího...\n\nVyzkoušej zdarma (30 dní Premium): ${url}\n\nPozdravuje ${name}`,
     copy:     url,
     native:   {
       title: 'FinanceFlow – rodinné finance',
-      text:  'Správa rodinných financí – příjmy, výdaje, AI poradce, sdílení s partnerem',
+      text:  'Správa rodinných financí – příjmy, výdaje, AI rádce, sdílení s partnerem',
       url,
     },
   };

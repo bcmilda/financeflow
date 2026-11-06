@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v12.36 · 2026-11-06  (S28: /inflace + průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v12.37 · 2026-11-06  (S28: /inflace?obnovit=1, průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -1441,7 +1441,7 @@ export default {
     //  vrátil holou 500 bez CORS → prohlížeč hlásil „chybí Access-Control-Allow-Origin".
     //  Oficiální inflace se proto od S22 nenačítala vůbec.
     if (request.method === 'GET' && new URL(request.url).pathname === '/inflace') {
-      return handleInflace(corsHeaders, env);
+      return handleInflace(corsHeaders, env, request);
     }
 
     // S14: ČNB denní kurzovní lístek (veřejný, bez klíče) – proxy s denní cache + CORS
@@ -2137,14 +2137,17 @@ function csuPrumerRocni(body) {
   return out;
 }
 
-async function handleInflace(cors, env) {
+async function handleInflace(cors, env, request) {
   //  Cache 24 h přes Cache API; klíč obsahuje zdroj, aby se po vložení
   //  vlastního výběru hned použil a nečekalo se na vypršení staré odpovědi.
   const zdroje = csuZdroje(env);
   const CKEY = new Request('https://cache.financeflow.internal/inflace-v6/' + encodeURIComponent(zdroje[0].url));   // v12.36: + průměrná roční míra
   const cache = (typeof caches !== 'undefined' && caches.default) ? caches.default : null;
+  //  v12.37: …/inflace?obnovit=1 načte data od ČSÚ znovu (po úpravě výběru v DataStatu se nečeká 24 h na cache)
+  let _obnovit = false;
+  try { _obnovit = !!(request && new URL(request.url).searchParams.get('obnovit')); } catch (e) {}
   try {
-    if (cache) { const hit = await cache.match(CKEY); if (hit) { const t = await hit.text(); return new Response(t, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400', 'X-FF-Cache': 'HIT' } }); } }
+    if (cache && !_obnovit) { const hit = await cache.match(CKEY); if (hit) { const t = await hit.text(); return new Response(t, { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400', 'X-FF-Cache': 'HIT' } }); } }
     const pokusy = [];
     let V = null, pouzity = null;
     for (const z of zdroje) {

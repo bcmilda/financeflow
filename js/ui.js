@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · ui.js · 2026-11-06
+// FinanceFlow · v12.37 · ui.js · 2026-11-06
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -344,22 +344,9 @@ function renderSummaryCards(){
 //  STÁVAJÍCÍHO uživatele neznamená „nový uživatel" (SKILL 31) – proto se
 //  kontroluje i to, že nemá žádné transakce, a stávajícím se příznak tiše dopíše.
 // ══════════════════════════════════════════════════════
-function maybeShowOnboarding(D){
-  if(viewingUid) return;                      // prohlížím cizí účet, nic nenastavuju
-  const st = (typeof _settings!=='undefined' && _settings) ? _settings : null;
-  if(!st) return;                             // nastavení ještě nedoběhlo z Firebase
-  if(st.onboarded) return;
-  const hasData = ((D&&D.transactions)||[]).length > 0;
-  if(hasData){
-    // Stávající uživatel bez příznaku – NEotravovat, jen si tiše poznamenat.
-    st.onboarded = true;
-    if(typeof persistSettings==='function') persistSettings();
-    return;
-  }
-  obFillDefaults();
-  const el = document.getElementById('modalOnboard');
-  if(el) el.classList.add('open');
-}
+//  S28 (v12.37, audit bod 23): maybeShowOnboarding(D) smazána – stejně pojmenovaná funkce v onboarding.js
+//  (načítá se později) ji vždy přepsala, takže se nikdy nespustila. Uvítací okno ukazuje onboarding.js
+//  (#modalOnboarding). Okno #modalOnboard a obFillDefaults níže tím zůstaly bez volajícího.
 // Naplní rozbalovátka aktuálními hodnotami (a dny 1–28 pro den výplaty).
 function obFillDefaults(){
   const st = (typeof _settings!=='undefined' && _settings) ? _settings : {};

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.36 · admin.js · 2026-11-06
+// FinanceFlow · v12.37 · admin.js · 2026-11-06
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,20 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.37',
+    datum: '2026-11-06',
+    zmeny: [
+      "💸 AUDIT BOD 12 · SKUTEČNÉ RPSN (Milan: „přidat na kartu půjčky poplatky a pojištění a počítat skutečné RPSN“) · cesta: Dluhy → ➕ / ✎ půjčka → 💸 Poplatky a pojištění; Dluhy → 📋 Splátkový kalendář (RPSN), Simulace splácení. Nová pole: poplatek za sjednání (jednorázově), vedení úvěru a povinné pojištění (měsíčně). RPSN podle zákona 257/2016 Sb. § 133 = sazba, při které se vyplacená částka rovná splátkám + všem poplatkům. Dřív jen splátky = efektivní úroková sazba. Úvěr 300 000 Kč, 12 %, 60 měsíců: 12,7 % bez poplatků, s poplatkem 3 000 Kč 13,2 %. RPSN se počítá podle smlouvy (celá jistina), takže u rozjeté půjčky jde započítat i jednorázový poplatek; pod číslem je vidět „vč. poplatků“ nebo „bez poplatků – doplň je na kartě“. Konsolidace ukazuje efektivní sazbu (poplatky nové půjčky appka nezná).",
+      "🔥 AUDIT BOD 14 · CENA PLYNU (Milan: „orientační přepočet koeficientem 10,55… může tam být i přepočet pro kWh s cenou za jednotku“) · cesta: Energie a voda → plynoměr → ⚙️ Nastavení. Pole se jmenuje „Cena za m³ (Kč)“ (podle jednotky měřidla) a u plynu přibyla cena z ceníku za kWh + koeficient kWh v 1 m³ (předvyplněno 10,55, přesný je na faktuře) – cenu za m³ appka dopočte sama. Po zapsání vyúčtování se cena dál počítá z něj (celkem Kč ÷ spotřeba). Detail plynoměru ukazuje i ≈ Kč/kWh a spotřebu letos v kWh. Dřív kdo opsal 2,50 Kč/kWh, měl odhad nákladů ~10× menší.",
+      "🎯 AUDIT BOD 10 · BONUS ZA SOUSTAVNOST · cesta: Dashboard → Finanční skóre → Konzistentní trend. U běžícího měsíce řetěz „výdaje klesají“ začíná minulým (dokončeným) měsícem – 6 dní listopadu mělo skoro vždy nižší výdaje než celý říjen a bonus dostal měsíc navíc.",
+      "🤖 AUDIT BOD 21 · AI RÁDCE · cesta: AI rádce → nahoře „AI RÁDCE · DNEŠNÍ TIP“. Tip se ptá AI nejvýš jednou denně a uloží se (synchronizuje se, telefon a počítač se neptají zvlášť); dřív se AI volala při KAŽDÉM otevření AI rádce. Kvůli dvěma prvkům se stejným označením se tip kreslil na Dashboard a na stránce AI rádce nebyl – teď jen na AI rádci. Text od AI se vkládá jako text (escapování), ne jako kód stránky. „AI poradce“ přejmenován na „AI rádce“ (tip, karta, chat, doporučení appky).",
+      "🔔 AUDIT BOD 22 · ODZNAK · cesta: O aplikaci → Oznámení. Řádek nastavení notifikací měl odznak se stejným označením jako menu, takže se nikdy neukázal – odstraněn (nepřečtené ukazuje řádek Zprávy a menu).",
+      "🧹 AUDIT BOD 23 · DVAKRÁT DEFINOVANÉ FUNKCE · smazány mrtvé kopie: getCurInst (helpers.js i debts.js – nikdo ji nevolal), maybeShowOnboarding v ui.js (platí onboarding.js), confirmDeleteAllData v premium.js (stará verze bez potvrzovacího slova SMAZAT; platí settings.js). showToast zatím zůstává obojí – Milan chce vidět srovnání. Chování appky se nemění.",
+      "☁️ WORKER v12.37 – …/inflace?obnovit=1 načte data od ČSÚ znovu (po úpravě výběru v DataStatu se nečeká 24 h na cache). Nasadit ručně.",
+      "🧪 tools/smoke_audit_10_23.js (24) – na v12.36 padá. Chromium 390 px: RPSN v náhledu formuláře 13,2 % vč. poplatků, plynoměr 2,45 Kč/kWh × 10,55 = 25,85 Kč za m³, AI rádce otevřen 4× → 1 volání AI, tip s HTML jako text – bez chyb.",
+    ],
+  },
   {
     verze: 'v12.36',
     datum: '2026-11-06',

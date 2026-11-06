@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · debts.js · 2026-11-04
+// FinanceFlow · v12.37 · debts.js · 2026-11-06
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 function openAddTx(){
@@ -958,16 +958,26 @@ function generateSchedule(debt) {
   return schedule;
 }
 
-function calcRPSN(principal, schedule) {
+//  S28 (v12.37, audit bod 12, Milan: „přidat na kartu půjčky poplatky a pojištění a počítat skutečné RPSN“):
+//  RPSN podle zákona 257/2016 Sb. (§ 133) = roční sazba, při které se vyplacená částka rovná všem platbám
+//  dlužníka: splátky + poplatek za sjednání (jednorázově, při čerpání) + poplatek za vedení a povinné pojištění
+//  (měsíčně, po celou dobu splácení). Dřív se počítaly jen splátky – to je efektivní úroková sazba.
+//  Úvěr 300 000 Kč, 12 %, 60 měsíců: efektivní sazba 12,7 %, s poplatkem 3 000 Kč za sjednání RPSN 13,2 %.
+//  naklady = { jednorazovy: Kč, mesicne: Kč za měsíc } – bez nich výsledek = efektivní sazba (jako dřív).
+function calcRPSN(principal, schedule, naklady) {
   if(!schedule.length || !principal || principal <= 0) return 0;
-  const totalPaid = schedule.reduce((a,s) => a + s.payment, 0);
-  if(totalPaid <= principal) return 0;
+  const _k = naklady || {}, _jedn = Math.max(0, +_k.jednorazovy || 0), _mes = Math.max(0, +_k.mesicne || 0);
+  const _cisty = principal - _jedn;   // co dlužník skutečně dostane
+  if(_cisty <= 0) return 0;
+  const totalPaid = schedule.reduce((a,s) => a + s.payment, 0) + _mes * schedule.length;
+  if(totalPaid <= _cisty) return 0;
 
   // Detekuj frekvenci
   const freq = schedule.length > 1
     ? Math.round((new Date(schedule[1].date) - new Date(schedule[0].date)) / (24*60*60*1000))
     : 30;
   const periodsPerYear = freq <= 8 ? 52 : freq <= 16 ? 26 : 12;
+  const _zaPer = _mes * 12 / periodsPerYear;   // měsíční poplatky přepočtené na jednu splátku
 
   // Použij jen prvních 360 splátek pro výpočet (výkon) – RPSN se nemění po 30 letech
   const sched = schedule.slice(0, 360);
@@ -979,13 +989,14 @@ function calcRPSN(principal, schedule) {
   let r = Math.max(0.0001, (totalInterest / principal) / (n / 2) / periodsPerYear);
 
   for(let iter = 0; iter < 200; iter++) {
-    let npv = -principal;
+    let npv = -_cisty;
     let dnpv = 0;
     sched.forEach((s, i) => {
       const t = i + 1;
       const disc = Math.pow(1 + r, t);
-      npv += s.payment / disc;
-      dnpv -= t * s.payment / (disc * (1 + r));
+      const pl = s.payment + _zaPer;
+      npv += pl / disc;
+      dnpv -= t * pl / (disc * (1 + r));
     });
     if(Math.abs(npv) < 0.001) break;
     if(Math.abs(dnpv) < 1e-10) break;
@@ -1000,6 +1011,21 @@ function calcRPSN(principal, schedule) {
   return Math.round(annualRate * 10) / 10;
 }
 
+//  v12.37: náklady úvěru z karty půjčky (pro RPSN)
+function debtNaklady(d) {
+  const n = x => Math.max(0, parseFloat(x) || 0);
+  return { jednorazovy: n(d && d.poplatekSjednani), mesicne: n(d && d.poplatekMesicni) + n(d && d.pojisteniMesicni) };
+}
+function debtMaPoplatky(d) { const k = debtNaklady(d); return k.jednorazovy > 0 || k.mesicne > 0; }
+//  RPSN půjčky podle smlouvy: celá jistina od začátku, dnešní úrok a splátka, poplatky a pojištění z karty.
+//  (Dřív detail počítal ze zbývající jistiny – u rozjeté půjčky by se jednorázový poplatek nedal započítat.)
+function debtRPSN(d) {
+  const P = (d && (d.total || d.remaining)) || 0;
+  if(!(P > 0)) return 0;
+  const sch = generateSchedule(Object.assign({}, d, { remaining: P, startDate: _debtDnes() }));
+  return calcRPSN(P, sch, debtNaklady(d));
+}
+const _debtRpsnPozn = d => debtMaPoplatky(d) ? 'vč. poplatků a pojištění' : 'bez poplatků – doplň je na kartě půjčky';
 function generateSchedulePreview() {
   const el = document.getElementById('schedulePreview'); if(!el) return;
   const total = moneyInRead('dTotal');   // TODO-216
@@ -1015,17 +1041,19 @@ function generateSchedulePreview() {
   if(!schedule.length) { el.innerHTML = '<div class="insight-item bad"><div class="insight-icon">⚠️</div><div class="insight-text">Splátka nepokrývá úroky! Zvyšte splátku.</div></div>'; return; }
   const totalPaid = schedule.reduce((a,s)=>a+s.payment,0);
   const totalInterest = schedule.reduce((a,s)=>a+s.interest,0);
-  const rpsn = calcRPSN(total, schedule);
+  //  v12.37: RPSN podle smlouvy (celá jistina) + poplatky a pojištění z formuláře
+  const _fNak = { poplatekSjednani: moneyInRead('dFeeOnce'), poplatekMesicni: moneyInRead('dFeeMonthly'), pojisteniMesicni: moneyInRead('dInsMonthly') };
+  const rpsn = debtRPSN(Object.assign({}, tempDebt, _fNak, { total }));
   const ppy = freq==='weekly'?52:freq==='biweekly'?26:12;
   const years = Math.floor(schedule.length/ppy);
   const rem = schedule.length%ppy;
-  el.innerHTML = '<div style="background:var(--surface3);border-radius:10px;padding:12px;font-size:.78rem"><div style="font-weight:600;color:var(--text2);margin-bottom:8px">📊 Přehled splácení</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><span style="color:var(--text3)">Počet splátek:</span> <strong>'+schedule.length+' × '+(freq==='weekly'?'týdně':freq==='biweekly'?'2 týdny':'měsíčně')+'</strong></div><div><span style="color:var(--text3)">Doba:</span> <strong>'+(years>0?years+'r ':'')+rem+'m</strong></div><div><span style="color:var(--text3)">Ještě zaplatíte:</span> <strong style="color:var(--expense)">'+fmtB(Math.round(totalPaid))+'</strong></div><div style="grid-column:1/-1"><span style="color:var(--text3)">Celý úvěr vás vyjde na (plán, bez sankcí):</span> <strong style="color:var(--expense)">'+fmtB(Math.round(alreadyPaid+totalPaid))+'</strong>'+(alreadyPaid>0?' <span style="color:#8b90a8">(už splaceno '+fmtB(Math.round(alreadyPaid))+')</span>':'')+'</div><div><span style="color:var(--text3)">Z toho úroky:</span> <strong style="color:var(--debt)">'+fmtB(Math.round(totalInterest))+'</strong></div>'+(rpsn>0?'<div style="grid-column:1/-1"><span style="color:var(--text3)">RPSN:</span> <strong style="color:'+(rpsn>50?'var(--expense)':rpsn>20?'var(--debt)':'var(--income)')+'">'+rpsn+'%</strong> '+(rpsn>50?'⚠️ Velmi vysoké!':rpsn>20?'⚠️ Vysoké':'')+'</div>':'')+'</div></div>';
+  el.innerHTML = '<div style="background:var(--surface3);border-radius:10px;padding:12px;font-size:.78rem"><div style="font-weight:600;color:var(--text2);margin-bottom:8px">📊 Přehled splácení</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><span style="color:var(--text3)">Počet splátek:</span> <strong>'+schedule.length+' × '+(freq==='weekly'?'týdně':freq==='biweekly'?'2 týdny':'měsíčně')+'</strong></div><div><span style="color:var(--text3)">Doba:</span> <strong>'+(years>0?years+'r ':'')+rem+'m</strong></div><div><span style="color:var(--text3)">Ještě zaplatíte:</span> <strong style="color:var(--expense)">'+fmtB(Math.round(totalPaid))+'</strong></div><div style="grid-column:1/-1"><span style="color:var(--text3)">Celý úvěr vás vyjde na (plán, bez sankcí):</span> <strong style="color:var(--expense)">'+fmtB(Math.round(alreadyPaid+totalPaid))+'</strong>'+(alreadyPaid>0?' <span style="color:#8b90a8">(už splaceno '+fmtB(Math.round(alreadyPaid))+')</span>':'')+'</div><div><span style="color:var(--text3)">Z toho úroky:</span> <strong style="color:var(--debt)">'+fmtB(Math.round(totalInterest))+'</strong></div>'+(rpsn>0?'<div style="grid-column:1/-1"><span style="color:var(--text3)">RPSN:</span> <strong style="color:'+(rpsn>50?'var(--expense)':rpsn>20?'var(--debt)':'var(--income)')+'">'+rpsn+'%</strong> '+(rpsn>50?'⚠️ Velmi vysoké!':rpsn>20?'⚠️ Vysoké':'')+' <span style="color:var(--text3);font-size:.7rem">'+_debtRpsnPozn(_fNak)+'</span></div>':'')+'</div></div>';
 }
 
 function openDebtModal() {
   if(viewingUid) return;
   document.getElementById('editDebtId').value = '';
-  ['dName','dCreditor','dTotal','dRemaining','dPayment','dPenaltyPct','dPenaltyFixed','dDueDate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['dName','dCreditor','dTotal','dRemaining','dPayment','dPenaltyPct','dPenaltyFixed','dDueDate','dFeeOnce','dFeeMonthly','dInsMonthly'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('dInterest').value='0';
   document.getElementById('dGrace').value='0';
   document.getElementById('dAlertDays').value='7';
@@ -1062,6 +1090,7 @@ function editDebt(id) {
   document.getElementById('dAlertDays').value=d.alertDays||'7';
   document.getElementById('dPenaltyPct').value=d.penaltyPct||'';
   moneyInFill('dPenaltyFixed', d.penaltyFixed);   // TODO-216
+  moneyInFill('dFeeOnce', d.poplatekSjednani); moneyInFill('dFeeMonthly', d.poplatekMesicni); moneyInFill('dInsMonthly', d.pojisteniMesicni);   // v12.37: RPSN
   document.getElementById('dStartDate').value=d.startDate||'';
   document.getElementById('dDueDate').value=d.dueDate||'';
   document.getElementById('dType').value=d.type||'personal';
@@ -1342,6 +1371,8 @@ function saveDebt() {
     alertDays:parseInt(document.getElementById('dAlertDays').value)||7,
     penaltyPct:parseFloat(document.getElementById('dPenaltyPct').value)||0,
     penaltyFixed:moneyInRead('dPenaltyFixed'),   // TODO-216
+    //  v12.37 (audit bod 12): náklady úvěru pro skutečné RPSN
+    poplatekSjednani:moneyInRead('dFeeOnce'), poplatekMesicni:moneyInRead('dFeeMonthly'), pojisteniMesicni:moneyInRead('dInsMonthly'),
     startDate:document.getElementById('dStartDate').value||(typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10)),
     dueDate:document.getElementById('dDueDate').value||null,
   };
@@ -1389,7 +1420,8 @@ function runDebtSim() {
   const simInterest=simSchedule.reduce((a,s)=>a+s.interest,0);
 
   // RPSN počítáme ze simSchedule s aktuální zbývající jistinou
-  const rpsn=calcRPSN(simDebt.remaining, simSchedule);
+  //  v12.37: měsíční poplatky a pojištění se platí dál (jednorázový poplatek už je zaplacený)
+  const rpsn=calcRPSN(simDebt.remaining, simSchedule, { jednorazovy: 0, mesicne: debtNaklady(d).mesicne });
 
   const freq=d.freq||'monthly';
   const fl=freq==='weekly'?'týdně':freq==='biweekly'?'2 týdny':'měsíčně';
@@ -1629,7 +1661,7 @@ function showDebtSchedule(id) {
   const today=_debtDnes();
   const totalPaid=schedule.reduce((a,s)=>a+s.payment,0);
   const totalInterest=schedule.reduce((a,s)=>a+s.interest,0);
-  const rpsn=calcRPSN(d.remaining||d.total,schedule);
+  const rpsn=debtRPSN(d);   // v12.37: podle smlouvy, s poplatky a pojištěním
   //  v12.02: odplaceno = jistina (+ navýšení) − dnešní zbytek; splátky zapsané v appce (navázané)
   const navys=debtZmeny(d).filter(z=>z.typ==='navyseni').reduce((a,z)=>a+(z.castka||0),0);
   const pujceno=(d.total||0)+navys, odpl=Math.max(0,pujceno-(d.remaining||0)), pct=pujceno>0?Math.round(odpl/pujceno*100):0;
@@ -1646,7 +1678,7 @@ function showDebtSchedule(id) {
   const pruh='<div style="margin:0 0 14px"><div style="display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:5px"><span>Odplaceno <b>'+fmtB(odpl)+'</b> z '+fmtB(pujceno)+'</span><b>'+pct+' %</b></div>'
     +'<div style="height:8px;background:var(--surface3);border-radius:6px;overflow:hidden"><div style="height:100%;width:'+Math.min(100,pct)+'%;background:var(--income)"></div></div>'
     +'<div style="font-size:.7rem;color:var(--text3);margin-top:5px">Za sebou '+plan.minule.length+' splátek podle plánu · v appce zapsáno '+zapsano.length+' · zbývá '+schedule.length+' splátek</div></div>';
-  document.getElementById('scheduleContent').innerHTML=pruh+'<div class="sched-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px"><div class="stat-card expense"><div class="stat-label">Ještě zaplatíte</div><div class="stat-value down">'+fmt(Math.round(totalPaid))+' Kč</div></div><div class="stat-card debt"><div class="stat-label">Z toho úroky</div><div class="stat-value warn">'+fmt(Math.round(totalInterest))+' Kč</div></div><div class="stat-card income"><div class="stat-label">Zbývá splátek</div><div class="stat-value up">'+schedule.length+'</div></div><div class="stat-card bank"><div class="stat-label">RPSN</div><div class="stat-value '+(rpsn>50?'down':rpsn>20?'warn':'up')+'">'+rpsn+'%</div></div></div>'
+  document.getElementById('scheduleContent').innerHTML=pruh+'<div class="sched-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px"><div class="stat-card expense"><div class="stat-label">Ještě zaplatíte</div><div class="stat-value down">'+fmt(Math.round(totalPaid))+' Kč</div></div><div class="stat-card debt"><div class="stat-label">Z toho úroky</div><div class="stat-value warn">'+fmt(Math.round(totalInterest))+' Kč</div></div><div class="stat-card income"><div class="stat-label">Zbývá splátek</div><div class="stat-value up">'+schedule.length+'</div></div><div class="stat-card bank"><div class="stat-label">RPSN</div><div class="stat-value '+(rpsn>50?'down':rpsn>20?'warn':'up')+'">'+rpsn+'%</div><div style="font-size:.64rem;color:var(--text3);margin-top:2px">'+_debtRpsnPozn(d)+'</div></div></div>'
     +'<div class="debt-schedule-row header"><span>Datum</span><span style="text-align:right">Splátka</span><span style="text-align:right">Jistina</span><span style="text-align:right">Úrok</span><span style="text-align:right">Zbývá</span><span>Stav</span></div>'
     +'<div id="schedScroll" style="max-height:380px;overflow-y:auto">'+(plan.minule.length?'<div style="font-size:.68rem;color:var(--text3);padding:6px 8px">Minulé splátky podle plánu (✅ = v měsíci je zapsaná splátka)</div>':'')+minRows+dnesRow+budRows+'</div>'
     +(schedule.length>120?'<div style="text-align:center;padding:8px;font-size:.74rem;color:var(--text3)">Zobrazeno dalších 120 z '+schedule.length+' splátek</div>':'');
@@ -1664,7 +1696,7 @@ function populateTxDebtSelect() {
   sel.innerHTML='<option value="">– vyberte půjčku –</option>'+(S.debts||[]).map(d=>'<option value="'+d.id+'">'+d.name+' – zbývá '+fmt(d.remaining)+' Kč</option>').join('');
 }
 
-function getCurInst(d) { return d?.payment || 0; }
+//  v12.37 (audit bod 23): getCurInst smazána – nikdo ji nevolal (druhá kopie byla v helpers.js).
 
 // ══════════════════════════════════════════════════════
 //  WIDGET: KALKULAČKA DLUHOVÉ REALITY
@@ -2874,7 +2906,7 @@ function runConsolidate() {
         <div style="font-size:.82rem;margin-bottom:3px;color:${monthlyDiff>=0?'var(--income)':'var(--expense)'}">Splátka: <strong>${fmtB(Math.round(consMonthly))}/měs</strong></div>
         <div style="font-size:.82rem;margin-bottom:3px;color:var(--debt)">Celkem zaplatíte: <strong>${fmtB(Math.round(consTotalPaid))}</strong></div>
         <div style="font-size:.82rem;color:var(--debt)">Úroky celkem: <strong>${fmtB(Math.round(consInterest))}</strong></div>
-        <div style="font-size:.78rem;color:var(--text3);margin-top:3px">Doba: ${consSchedule.length} měs · RPSN: ${rpsn}%</div>
+        <div style="font-size:.78rem;color:var(--text3);margin-top:3px">Doba: ${consSchedule.length} měs · efektivní sazba ${rpsn}% <span title="RPSN nové půjčky závisí na jejích poplatcích – ty sem doplň, až budeš mít nabídku">(bez poplatků nové půjčky)</span></div>
       </div>
     </div>
     ${saving > 0 ? `<div class="insight-item good"><div class="insight-icon">💰</div><div class="insight-text">Konsolidací ušetříte <strong>${fmtB(Math.round(saving))}</strong> na úrocích!</div></div>` : ''}
