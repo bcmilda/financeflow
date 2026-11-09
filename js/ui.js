@@ -1,4 +1,4 @@
-// FinanceFlow · v12.39 · ui.js · 2026-11-07
+// FinanceFlow · v12.40 · ui.js · 2026-11-08
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2199,6 +2199,7 @@ function deleteTx(id){
 function editTx(id, bezUctenky){
   if(viewingUid)return;
   window._inboxPoUlozeni = null;   // v12.39: úprava jiné transakce nevyřizuje notifikaci z Doručených
+  if(typeof _txNactiKurzDne==='function') setTimeout(_txNactiKurzDne, 0);   // v12.40: kurz ČNB ke dni transakce (pro ↻ Přepočítat)
   const D=getData();
   const t=(D.transactions||[]).find(x=>x.id==id);if(!t)return;
   //  S28 (v12.34): transakce z naskenované účtenky → editor účtenky (ne formulář transakce)

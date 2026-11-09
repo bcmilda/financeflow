@@ -1,4 +1,4 @@
-// FinanceFlow · v12.39 · debts.js · 2026-11-07
+// FinanceFlow · v12.40 · debts.js · 2026-11-08
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 //  v12.39: akce po úspěšném uložení formuláře (✎ Zapsat ručně z Doručených označí notifikaci jako vyřízenou
@@ -7,6 +7,7 @@ function _txPoUlozeni(){ const f = window._inboxPoUlozeni; window._inboxPoUlozen
 function openAddTx(){
   if(viewingUid)return;
   window._inboxPoUlozeni = null;
+  _txKurzDne = null;   // v12.40: kurz ke dni transakce se načte znovu podle data ve formuláři
   document.getElementById('editTxId').value='';
   document.getElementById('txName').value='';
   document.getElementById('txAmt').value='';
@@ -130,6 +131,26 @@ function _txSelWalletCur(){
   const w=(S.wallets||[]).find(x=>x.id===id);
   return (w&&w.currency)?w.currency:'CZK';
 }
+//  v12.40 (Milan: „co když zadám platbu v cizí měně zpětně? Přepočítá se kurzem toho data, nebo dnešního?“):
+//  dřív DNEŠNÍM – pole „Skutečně v Kč“ se předvyplnilo dnešním kurzem ČNB a kurzem ke dni platby se doplnil jen
+//  referenční údaj (fxRef). Teď: datum transakce v minulosti → stáhne se kurzovní lístek ČNB toho dne
+//  (fxRatesForDate, kurzy.js) a předvyplní se jím. Nápověda říká, ze kterého dne kurz je.
+let _txKurzDne = null;   // { iso, rates, date }
+function _txKurz(cur){
+  const iso = document.getElementById('txDate')?.value || '';
+  if(_txKurzDne && _txKurzDne.iso === iso && _txKurzDne.rates && _txKurzDne.rates[cur]) return { rate: _txKurzDne.rates[cur], datum: _txKurzDne.date || null };
+  return { rate: _FX_RATES[cur] || 1, datum: null };
+}
+async function _txNactiKurzDne(){
+  const iso = document.getElementById('txDate')?.value || '';
+  const dnes = typeof ffDnes === 'function' ? ffDnes() : new Date().toISOString().slice(0, 10);
+  if(!iso || iso >= dnes || typeof fxRatesForDate !== 'function'){ _txKurzDne = null; if(typeof updateTxCzkField === 'function') updateTxCzkField(); return; }
+  let h = null; try { h = await fxRatesForDate(iso); } catch(e) {}
+  if((document.getElementById('txDate')?.value || '') !== iso) return;   // mezitím jiné datum
+  _txKurzDne = (h && h.rates) ? { iso, rates: h.rates, date: h.date } : null;
+  if(typeof updateTxCzkField === 'function') updateTxCzkField();
+}
+window._txNactiKurzDne = _txNactiKurzDne;
 function updateTxCzkField(){
   const row=document.getElementById('txCzkRow'); if(!row) return;
   const cur=_txEntryCur(); // v8.62: měna zadávání (peněženka, nebo základní měna u výchozí)
@@ -137,7 +158,7 @@ function updateTxCzkField(){
   if(cur==='CZK'){ row.style.display='none'; return; }
   row.style.display='block';
   const amt=parseFloat(document.getElementById('txAmt')?.value)||0;
-  const rate=_FX_RATES[cur]||1;
+  const _k=_txKurz(cur), rate=_k.rate, _kdy=_k.datum?` ze dne ${_k.datum}`:'';
   if(!_czkTouched){
     const f=document.getElementById('txAmtCZK');
     if(f) f.value = amt>0 ? String(Math.round(amt*rate*100)/100) : '';
@@ -150,8 +171,8 @@ function updateTxCzkField(){
     //   nechá předvyplněný kurz ČNB, rozdíl vyjde nula a kurzová ztráta se nikde
     //   neukáže. Přesně na tohle narazil při prvním testu.
     h.textContent = wid
-      ? `Předvyplněno kurzem ČNB (1 ${cur} = ${rate} Kč). Přepiš podle výpisu z banky – z rozdílu appka spočítá, kolik tě směna stála navíc. Necháš-li to tak, kurzová ztráta vyjde nula.`
-      : `Částku zadáváš v ${cur} (základní měna). Uloží se přepočet v Kč kurzem ČNB (1 ${cur} = ${rate} Kč) – přepiš podle výpisu, ať je vidět skutečná cena směny.`;
+      ? `Předvyplněno kurzem ČNB${_kdy} (1 ${cur} = ${rate} Kč). Přepiš podle výpisu z banky – z rozdílu appka spočítá, kolik tě směna stála navíc. Necháš-li to tak, kurzová ztráta vyjde nula.`
+      : `Částku zadáváš v ${cur} (základní měna). Uloží se přepočet v Kč kurzem ČNB${_kdy} (1 ${cur} = ${rate} Kč) – přepiš podle výpisu, ať je vidět skutečná cena směny.`;
   }
 }
 // FIX-259 (S19, nahlásil Milan): pole „Skutečně v Kč" se při EDITACI nepřepočítávalo.
@@ -164,8 +185,8 @@ function recalcTxCzk(){
   if(typeof updateTxCzkField==='function') updateTxCzkField();
   if(typeof showToast==='function'){
     const cur=(typeof _txEntryCur==='function')?_txEntryCur():'CZK';
-    const rate=(typeof _FX_RATES!=='undefined'&&_FX_RATES[cur])||1;
-    showToast(`↻ Přepočteno kurzem ČNB (1 ${cur} = ${rate} Kč)`);
+    const _k=_txKurz(cur);
+    showToast(`↻ Přepočteno kurzem ČNB${_k.datum?' ze dne '+_k.datum:''} (1 ${cur} = ${_k.rate} Kč)`);
   }
 }
 window.recalcTxCzk = recalcTxCzk;
@@ -177,7 +198,7 @@ function _readTxCzk(walletId, amt){
   const cur=(typeof _txEntryCur==='function')?_txEntryCur():'CZK';
   if(cur==='CZK') return null;
   const v=parseFloat(document.getElementById('txAmtCZK')?.value);
-  const rate=_FX_RATES[cur]||1;
+  const rate=_txKurz(cur).rate;   // v12.40: kurz ke dni transakce, je-li stažený
   const out=(isFinite(v)&&v>0)?v:amt*rate;
   return Math.round(out*100)/100;
 }
@@ -215,7 +236,7 @@ let _fxRestamp = false;
 //  orientační průměry z _FX_RATES — zapsat je jako „referenční ČNB" by byla lež.
 // Doplní referenční kurz k DATU TRANSAKCE (TODO-215, v9.97). Běží až po uložení,
 // aby zápis nečekal na síť; když se kurz nepodaří získat, zůstane ten z doby zápisu.
-async function _fxRefBackfill(txId, cur, isoDate){
+async function _fxRefBackfill(txId, cur, isoDate, prepocitatKc){
   try{
     if(!txId || !cur || cur==='CZK' || typeof fxRatesForDate!=='function') return;
     const h = await fxRatesForDate(isoDate);
@@ -224,8 +245,10 @@ async function _fxRefBackfill(txId, cur, isoDate){
     if(!r || !isFinite(r) || r<=0) return;
     const t = (S.transactions||[]).find(x=>x.id==txId);
     if(!t || t.currency!==cur) return;
-    if(t.fxRef===r && t.fxRefDate===h.date) return;   // beze změny → neukládej znovu
+    const _kc = prepocitatKc ? Math.round(Math.abs(parseFloat(t.amount || t.amt) || 0) * r * 100) / 100 : null;
+    if(t.fxRef===r && t.fxRefDate===h.date && (_kc == null || t.amtCZK === _kc)) return;   // beze změny → neukládej znovu
     t.fxRef = r; t.fxRefDate = h.date;
+    if(_kc != null && _kc > 0) t.amtCZK = _kc;   // v12.40: Kč kurzem ke dni transakce (nikdo je nepřepsal)
     if(typeof save==='function') save();
   }catch(e){ /* zpřesnění navíc, nesmí nic shodit */ }
 }
@@ -641,6 +664,7 @@ function saveTx(){
   const payTypeId = document.getElementById('txPayTypeId')?.value||'';
   if(walletId) txObj.wallet = walletId;
   if(payTypeId) txObj.payType = payTypeId;
+  let _kcPrepocet = false;   // v12.40: přepočítat Kč kurzem ke dni transakce po stažení lístku
   const _eCzk=_entryAmtCZK(walletId,amt); // v8.62: výchozí peněženka + základní měna ≠ CZK → zadáno v základní měně
   if(_eCzk!=null){ txObj.amount=_eCzk; txObj.amt=_eCzk; txObj.amtCZK=null; txObj.currency=null; }
   else {
@@ -656,6 +680,7 @@ function saveTx(){
     //   tři měsíce staré transakce přerazila kurz na dnešní a srovnání ztratilo smysl.
     if(txObj.currency){
       const _prev = eid ? (S.transactions||[]).find(x=>x.id==eid) : null;
+      if(!_prev && !_czkUserTyped) _kcPrepocet = true;   // v12.40
       // FIX-261: amtCZK a fxRef tvoří PÁR – oba musí popisovat TÝŽ stav transakce.
       //   Milan právem namítl, že se dají rozejít dvěma cestami:
       //     a) uživatel v editaci změní částku z 20 € na 25 €, ale zapomene
@@ -678,8 +703,9 @@ function saveTx(){
         //   Platí i pro ruční „↻ Přepočítat" (_fxRestamp): tam se sice pole v UI
         //   překreslí, ale spoléhat se na to nesmíme – kdyby uživatel stiskl tlačítko
         //   a hned uložil, zůstala by stará částka u nového referenčního kurzu.
+        if((_zmena || _fxRestamp) && !_czkUserTyped) _kcPrepocet = true;   // v12.40
         if((_zmena || _fxRestamp) && !_czkUserTyped && _fx){
-          txObj.amtCZK = Math.round(amt * _fx.rate * 100) / 100;
+          txObj.amtCZK = Math.round(amt * _txKurz(txObj.currency).rate * 100) / 100;   // v12.40: kurz ke dni transakce
         }
       }
     } else { txObj.fxRef=null; txObj.fxRefDate=null; }
@@ -694,7 +720,9 @@ function saveTx(){
   // v9.97 (TODO-215): dohledej kurz ČNB k DATU TRANSAKCE. Bez await – uložení
   //   ani zavření modalu nesmí čekat na síť; když se nepovede, zůstane kurz
   //   z doby zápisu (fxRefDate pak prozradí, ke kterému dni patří).
-  if(txObj.currency) _fxRefBackfill(_savedId, txObj.currency, txObj.date);
+  //  v12.40: Kč nikdo nepřepsal (nová transakce, nebo změněná částka / ↻ Přepočítat) → po stažení kurzovního
+  //  lístku ke dni transakce se Kč přepočtou jím (kurz dne se do uložení nemusel stihnout stáhnout)
+  if(txObj.currency) _fxRefBackfill(_savedId, txObj.currency, txObj.date, _kcPrepocet);
   save(); _txPoUlozeni(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
 }
 // S14: ── DLUH / SPLÁTKA – pomocné funkce (f2,f3,f4) ──────────────────

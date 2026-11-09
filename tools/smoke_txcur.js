@@ -17,7 +17,7 @@ const sb={console,Object,Math,Set,Number,parseFloat,isFinite,Array,
   updateTxCzkField:()=>{},updateTxConverter:()=>{}};
 sb.window=sb;vm.createContext(sb);
 vm.runInContext('let _txCzkTouched=false;'+pick(dsrc,'_txCurBase')+'\n'+pick(dsrc,'_txEntryCur')+'\n'
-  +pick(dsrc,'renderTxCurSel')+'\n'+pick(dsrc,'setTxCurOverride')+'\n'+pick(dsrc,'_readTxCzk')+'\n'
+  +pick(dsrc,'renderTxCurSel')+'\n'+pick(dsrc,'setTxCurOverride')+'\n'+'let _txKurzDne=null;\n'+pick(dsrc,'_txKurz')+'\n'+pick(dsrc,'_readTxCzk')+'\n'
   +'let _txCurOverride=null;',sb);
 vm.runInContext(pick(usrc,'txCurOf'),sb);
 

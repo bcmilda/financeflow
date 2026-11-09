@@ -1,4 +1,4 @@
-// FinanceFlow · v12.39 · receipts.js · 2026-11-07
+// FinanceFlow · v12.40 · receipts.js · 2026-11-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2452,7 +2452,12 @@ function buildHistoryTab(receipts) {
       <option value="total-desc">💰 Nejvyšší</option>
       <option value="total-asc">💰 Nejnižší</option>
     </select>
-    <div style="font-size:.78rem;color:var(--text2);font-weight:500;flex-shrink:0">${receipts.length} účtenek</div>
+    <!-- v12.40 (Milan): filtr ceny – částka účtenky od / do -->
+    <input id="histAmtMin" type="number" inputmode="decimal" min="0" step="any" placeholder="💰 od Kč" aria-label="Částka účtenky od" oninput="filterHistory()"
+      style="flex:0 0 84px;width:84px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
+    <input id="histAmtMax" type="number" inputmode="decimal" min="0" step="any" placeholder="💰 do Kč" aria-label="Částka účtenky do" oninput="filterHistory()"
+      style="flex:0 0 84px;width:84px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;color:var(--text2)">
+    <div id="histPocet" data-celkem="${receipts.length}" style="font-size:.78rem;color:var(--text2);font-weight:500;flex-shrink:0">${receipts.length} účtenek</div>
     <div style="display:flex;gap:4px;flex-shrink:0">
       <button class="btn btn-ghost btn-sm" onclick="exportReceiptsCSV()">📊</button>
       <button class="btn btn-ghost btn-sm" style="color:var(--expense)" onclick="deleteAllReceipts()">🗑️</button>
@@ -2461,7 +2466,12 @@ function buildHistoryTab(receipts) {
   <div id="histList">`;
 
   const D = getData();
+  //  v12.40 (Milan: „oddělovač měsíců ve formě žluté čáry s názvem měsíce, pro rychlejší orientaci“)
+  const _mes = histMesice(sorted.map(r => ({ date: r.date || '', total: parseFloat(r.total) || 0 })));
+  let _mesPred = null;
   sorted.forEach(r => {
+    const _m = String(r.date || '').slice(0, 7);
+    if (_m !== _mesPred) { _mesPred = _m; html += histOddelovacHTML(_m, _mes[_m]); }
     const idx = r._origIdx;
     const catGroups = {};
     (r.items||[]).forEach(it=>{
@@ -2542,21 +2552,43 @@ function rcptHistorieObnov(zprava) {
 window.rcptHistorieObnov = rcptHistorieObnov;
 
 // Filtrování a řazení v historii
+//  v12.40 (Milan): ŽLUTÝ ODDĚLOVAČ MĚSÍCŮ v Historii účtenek – název měsíce, počet a součet viditelných účtenek.
+//  Jen při řazení podle data (u řazení podle částky by se měsíce střídaly a čára by nic neoddělovala).
+const HIST_MESICE = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+function histMesice(rows) {
+  const out = {};
+  (rows || []).forEach(r => { const m = String(r.date || '').slice(0, 7); const o = out[m] || (out[m] = { n: 0, kc: 0 }); o.n++; o.kc += parseFloat(r.total) || 0; });
+  return out;
+}
+function histOddelovacHTML(m, info) {
+  const nazev = /^\d{4}-\d{2}$/.test(m) ? HIST_MESICE[+m.slice(5) - 1] + ' ' + m.slice(0, 4) : 'Bez data';
+  const n = info ? info.n : 0, kc = info ? info.kc : 0;
+  const slovo = n === 1 ? 'účtenka' : (n >= 2 && n <= 4) ? 'účtenky' : 'účtenek';
+  return `<div class="hist-mesic" data-mesic="${m}" style="display:flex;align-items:center;gap:8px;margin:14px 2px 7px;font-size:.78rem">
+    <span style="color:#fbbf24;font-weight:800;white-space:nowrap">${nazev}</span>
+    <span style="flex:1;height:2px;background:#fbbf24;opacity:.55;border-radius:1px"></span>
+    <span style="color:var(--text3);white-space:nowrap">${n} ${slovo} · ${kc.toLocaleString('cs-CZ',{minimumFractionDigits:2,maximumFractionDigits:2})} Kč</span>
+  </div>`;
+}
 function filterHistory() {
   const storeFilter = (document.getElementById('histStoreFilter')?.value||'').toLowerCase();
   const sortOrder = document.getElementById('histSortOrder')?.value||'date-desc';
-  const rows = document.querySelectorAll('.hist-row');
-  const arr = [...rows];
+  //  v12.40 (Milan): filtr ceny – částka účtenky od / do (prázdné = bez omezení)
+  const cislo = id => { const n = parseFloat(String(document.getElementById(id)?.value || '').replace(/\s/g, '').replace(',', '.')); return isFinite(n) && n >= 0 ? n : null; };
+  const od = cislo('histAmtMin'), d0 = cislo('histAmtMax');
+  const list = document.getElementById('histList');
+  if(!list) return;
+  list.querySelectorAll('.hist-mesic').forEach(x => x.remove());
+  const arr = [...list.querySelectorAll('.hist-row')];
 
   // Skryj/zobraz dle filtru
   arr.forEach(row => {
-    const store = row.dataset.store||'';
-    row.style.display = (!storeFilter || store.includes(storeFilter)) ? '' : 'none';
+    const store = row.dataset.store||'', kc = Math.abs(parseFloat(row.dataset.total) || 0);
+    const ok = (!storeFilter || store.includes(storeFilter)) && (od == null || kc >= od - 0.005) && (d0 == null || kc <= d0 + 0.005);
+    row.style.display = ok ? '' : 'none';
   });
 
   // Řazení
-  const list = document.getElementById('histList');
-  if(!list) return;
   const visible = arr.filter(r=>r.style.display!=='none');
   visible.sort((a,b) => {
     const [field, dir] = sortOrder.split('-');
@@ -2564,8 +2596,21 @@ function filterHistory() {
     const vb = field==='date' ? (b.dataset.date||'') : parseFloat(b.dataset.total||0);
     return dir==='desc' ? (vb>va?1:-1) : (va>vb?1:-1);
   });
-  visible.forEach(r => list.appendChild(r));
+  const podleData = sortOrder.startsWith('date');
+  const mes = podleData ? histMesice(visible.map(r => ({ date: r.dataset.date, total: r.dataset.total }))) : null;
+  let pred = null;
+  visible.forEach(r => {
+    if (podleData) {
+      const m = String(r.dataset.date || '').slice(0, 7);
+      if (m !== pred) { pred = m; list.insertAdjacentHTML('beforeend', histOddelovacHTML(m, mes[m])); }
+    }
+    list.appendChild(r);
+  });
+  arr.filter(r => r.style.display === 'none').forEach(r => list.appendChild(r));   // skryté na konec (mezi oddělovači by nepřekážely, ale ať je pořadí čisté)
+  const p = document.getElementById('histPocet');
+  if (p) { const c = +p.dataset.celkem || arr.length; p.textContent = visible.length === c ? `${c} účtenek` : `${visible.length} z ${c} účtenek`; }
 }
+Object.assign(window, { histMesice, histOddelovacHTML });
 
 // ── Analýza účtenek – stav záložky ──
 let _activeUctenkyTab = 'scan'; // výchozí záložka
@@ -7124,10 +7169,12 @@ function syncReceiptToTransactions(r, stare) {
   if(!linked.length) linked = S.transactions.filter(t => volna(t) && t.receiptDate === r.date && lc(t.receiptStore) === lc(r.store));
   if(!linked.length) return 0;
   linked.forEach(t => {
-    const stDatum = t.receiptDate || t.date, stObchod = t.receiptStore || '';
+    const stObchod = t.receiptStore || '';
     if(r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) {
-      //  datum transakce jde s účtenkou – jen když si ho uživatel v transakci nezměnil sám
-      if(!t.date || t.date === stDatum) t.date = r.date;
+      //  v12.40 (Milan: „transakce byla 29. 9., ale vidím ji 2. 10., i když účtenka hovoří jasně“): datum
+      //  transakce jde s účtenkou VŽDY – doklad je pravda. Dřív jen když t.date = staré datum účtenky, takže
+      //  jednou rozjeté datum už se nikdy nesrovnalo.
+      t.date = r.date;
       t.receiptDate = r.date;
     }
     if(r.store) {
@@ -7333,13 +7380,35 @@ function rcptOpravVazby(D) {
   const podle = {};
   D.receipts.forEach(r => { if (r && r.addedAt) podle[r.addedAt] = r; });
   let n = 0;
+  //  v12.40 (Milan: účtenka z 29. 9. 2026 – transakce v Transakcích 2. 10.): 1) datum transakce = datum účtenky
+  //  VŽDY (dřív jen když transakce měla pořád staré datum účtenky – jednou rozjeté se už nesrovnalo);
+  //  2) transakce, jejíž účtenka chybí (vazba vede na neexistující účtenku nebo žádná není), se znovu napojí
+  //  na účtenku ze STEJNÉHO obchodu se STEJNOU částkou do ±7 dní, ke které žádná transakce nepatří – jen když
+  //  je taková účtenka jediná. Pak dostane její datum, obchod a položky (syncReceiptToTransactions).
   D.transactions.forEach(t => {
-    const r = t && t.receiptAddedAt ? podle[t.receiptAddedAt] : null;
+    const r = t && !t.rcptCast && t.receiptAddedAt ? podle[t.receiptAddedAt] : null;
     if (!r || !r.date || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return;
-    const stD = t.receiptDate || t.date;
-    if (t.receiptDate !== r.date && t.date === stD) { t.date = r.date; t.receiptDate = r.date; n++; }
+    if (t.date !== r.date || t.receiptDate !== r.date) { t.date = r.date; t.receiptDate = r.date; n++; }
     if (r.store && t.receiptStore !== r.store) { if (!t.name || t.name === t.receiptStore) t.name = r.store; t.receiptStore = r.store; n++; }
   });
+  const ns = x => typeof normalizeStoreName === 'function' ? normalizeStoreName(x) : String(x || '').toLowerCase().trim();
+  const dny = (a, b) => Math.abs((Date.parse(String(a) + 'T12:00:00') - Date.parse(String(b) + 'T12:00:00')) / 864e5);
+  const suma = r => r.total != null && isFinite(r.total) ? +r.total : (r.items || []).reduce((a, it) => a + (parseFloat(it.lineTotal) || 0), 0);
+  const navazane = new Set(D.transactions.filter(t => t && !t.rcptCast && t.receiptAddedAt && podle[t.receiptAddedAt]).map(t => t.receiptAddedAt));
+  const znovu = [];
+  D.transactions.forEach(t => {
+    if (!t || t.rcptCast || t.type !== 'expense' || (t.receiptAddedAt && podle[t.receiptAddedAt])) return;
+    if (!t.receiptAddedAt && !t.receiptStore && !t.receiptDate) return;   // ruční transakce bez stopy účtenky se nepáruje
+    const obchod = ns(t.receiptStore || t.name), kc = parseFloat(t.amount || t.amt) || 0;
+    if (!obchod || !kc) return;
+    const kand = D.receipts.filter(r => r && r.addedAt && !navazane.has(r.addedAt) && /^\d{4}-\d{2}-\d{2}$/.test(r.date || '')
+      && ns(r.store) === obchod && Math.abs(suma(r) - kc) <= 0.01 && dny(r.date, t.date) <= 7);
+    if (kand.length !== 1) return;
+    const r = kand[0];
+    t.receiptAddedAt = r.addedAt; t.date = r.date; t.receiptDate = r.date; if (r.store) t.receiptStore = r.store;
+    navazane.add(r.addedAt); znovu.push(r); n++;
+  });
+  if (znovu.length && typeof syncReceiptToTransactions === 'function' && D === S) znovu.forEach(r => { try { syncReceiptToTransactions(r); } catch (e) {} });
   return n;
 }
 window.rcptOpravVazby = rcptOpravVazby;

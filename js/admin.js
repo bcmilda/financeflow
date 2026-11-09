@@ -1,4 +1,4 @@
-// FinanceFlow · v12.39 · admin.js · 2026-11-07
+// FinanceFlow · v12.40 · admin.js · 2026-11-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.40',
+    datum: '2026-11-08',
+    zmeny: [
+      "💱 DORUČENÉ – CIZÍ MĚNA KURZEM ČNB (Milan: „proč se platba z Doručených přepočítává pevným kurzem, když máme kurzy od ČNB? Mám peněženku v eurech“) · cesta: Import z banky → 📥 Doručené → ✅ Přidat do Transakcí. Dřív 20 € = pevně 500 Kč a uložilo se jako korunová platba i do eurové peněženky. Teď jako ve formuláři: částka zůstává v měně platby (20 EUR) a Kč se spočtou kurzem ČNB ke dni platby (když lístek nejde stáhnout, aktuálním kurzem z appky). Přesun mezi peněženkami zůstává v Kč.",
+      "📅 ZPĚTNĚ ZADANÁ PLATBA V CIZÍ MĚNĚ (Milan: „přepočítá se kurzem toho data, nebo dnešního?“) · cesta: Transakce → + → peněženka/měna EUR → Datum v minulosti → pole „Skutečně v Kč“. Dřív dnešním kurzem (kurz dne se ukládal jen jako referenční údaj). Teď se po změně data stáhne kurzovní lístek ČNB toho dne, pole se jím předvyplní a nápověda řekne „kurzem ČNB ze dne 29.09.2026“. Když lístek do uložení nedorazí, Kč se přepočtou po uložení. Ručně přepsané Kč podle výpisu zůstávají.",
+      "🧾 DATUM ÚČTENKY JE PRAVDA (Milan: účtenka z 29. 9. 2026, transakce v Transakcích 2. 10.) · cesta: Transakce / Analýza účtenek → Historie. Transakce účtenky má vždy datum účtenky – dřív se srovnalo, jen když transakce měla pořád staré datum účtenky, takže jednou rozjeté datum už zůstalo. Transakce, jejíž účtenka chybí (vazba vede na neuloženou účtenku), se po spuštění znovu napojí na účtenku stejného obchodu se stejnou částkou do ±7 dní, ke které žádná transakce nepatří – jen když je jediná; dostane její datum a položky.",
+      "📋 HISTORIE ÚČTENEK – FILTR CENY A ODDĚLOVAČ MĚSÍCŮ · cesta: Analýza účtenek → 📋 Historie. Pole 💰 od Kč / 💰 do Kč a počet „2 z 63 účtenek“. Při řazení podle data žlutá čára s názvem měsíce, počtem a součtem viditelných účtenek („Září 2026 ── 2 účtenky · 449,70 Kč“).",
+      "🧪 tools/smoke_v1240.js (29) – na v12.39 padá. smoke_txcur a smoke_uctenka_vazba upravené na nový kód (kurz ke dni, datum účtenky vždy). Chromium 390 px: transakce 2. 10. se napojila na účtenku 29. 9.; Historie 3 oddělovače, filtr 200–300 Kč = 2 z 5; 20 € zpětně 29. 9. = 488,40 Kč kurzem toho dne; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.39',
     datum: '2026-11-07',

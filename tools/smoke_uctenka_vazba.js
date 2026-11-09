@@ -36,7 +36,8 @@ n = c.syncReceiptToTransactions(uct(), { date: '2026-01-10', store: 'Lidl' });
 t('najde se podle data a obchodu PŘED úpravou, dostane nové datum i pevnou vazbu', n === 1 && c.S.transactions[0].date === '2026-10-01' && c.S.transactions[0].receiptAddedAt === 1700);
 c.S.transactions = [tx({ date: '2026-02-03', receiptDate: '2026-01-10' })];
 c.syncReceiptToTransactions(uct(), { date: '2026-01-10', store: 'Lidl' });
-t('datum, které sis v transakci změnil sám, se nepřepíše', c.S.transactions[0].date === '2026-02-03' && c.S.transactions[0].receiptDate === '2026-10-01');
+//  v12.40 (Milan: „transakce byla 29. 9., ale vidím ji 2. 10., i když účtenka hovoří jasně“): datum účtenky platí VŽDY
+t('rozjeté datum transakce se srovná s účtenkou (v12.40 – doklad je pravda)', c.S.transactions[0].date === '2026-10-01' && c.S.transactions[0].receiptDate === '2026-10-01');
 c.S.transactions = [];
 t('bez transakce vrátí 0 (editor pak varuje, místo „promítnuto do transakcí“)', c.syncReceiptToTransactions(uct(), null) === 0
   && /nenašel jsem k ní transakci/.test(vyber(RC, 'rpSave')) && /_nTx = syncReceiptToTransactions\(cil \|\| upr, stare\)/.test(vyber(RC, 'rpSave')));
