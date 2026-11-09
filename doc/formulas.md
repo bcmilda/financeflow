@@ -1599,3 +1599,90 @@ věk dnes = rok dneška − rok − (letošní datum ještě nebylo ? 1 : 0)
 ```
 výsledek = částka × kurz(z) ÷ kurz(do)     kurz = Kč za 1 jednotku, CZK = 1
 ```
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+### Zbývá u půjčky (v12.30, ADR-261)
+```
+úrok období = zůstatek × roční sazba / 12        (týdně / 52, po 2 týdnech / 26)
+jistina splátky = min(splátka − úrok, zůstatek)
+Zbývá = kotva zbyvaKeDni − Σ jistin splátek po kotvě ± změny půjčky
+```
+
+### RPSN (v12.37, ADR-268, zákon 257/2016 Sb. § 133)
+```
+(jistina − poplatek za sjednání) = Σ_t (splátka_t + měsíční náklady × 12/p) / (1 + r)^t
+RPSN = (1 + r)^p − 1           p = splátek za rok, r řešeno Newtonovou metodou
+300 000 Kč, 12 %, 60 m.: bez poplatků 12,7 % · poplatek 3 000 Kč 13,2 % · + 150 Kč měsíčně 14,3 %
+```
+
+### Záloha na daň ze mzdy (v12.38, audit bod 11)
+```
+základ = hrubá zaokrouhlená nahoru na 100 Kč
+hranice = 3 × průměrná mzda roku (2026: 3 × 48 967 = 146 901 Kč)
+záloha před slevami = ⌈15 % × min(základ, hranice) + 23 % × max(0, základ − hranice)⌉
+200 000 Kč → 34 248 Kč (dřív 30 000)
+```
+
+### Základ příjmu (v12.31, v12.36, ADR-262)
+```
+základ = Σ_kategorie Ø(příjmy kategorie za 3 měsíce před) × váha stability   (bez vyrovnání, rodičů splitů, přesunů)
+limit kategorie = min(% × základ, Kč strop)
+výhled příjmů = min(měsíční šablony + Ø ostatních × váha, max(Ø všech, šablony)) + čtvrtletní / roční šablony v měsíci
+```
+
+### Predikce kategorie (v12.36, ADR-266)
+```
+okno = 12 měsíců před běžícím (běžící se nepočítá)
+Ø = Σ výdajů v okně ÷ (konec okna − max(začátek okna, první výdaj v kategorii))
+predikce = Ø × sezónní koeficient (+ dárky k narozeninám)
+roční pojistka 12 000 Kč → 1 000 Kč měsíčně (dřív 12 000)
+```
+
+### Výhled výdajů v Měsíčním reportu (v12.36)
+```
+vážený průměr = (výdaje měsíce + 2 × Ø 3 měsíců) / 3      bez plateb čtvrtletních / ročních / jednorázových šablon
+výhled = vážený průměr + jejich výskyty v příštím měsíci (sablonaCastka v den platby)
+```
+
+### Průměrná roční míra inflace (v12.36, ADR-267)
+```
+ČSÚ: Σ I(t−11 … t) / Σ I(t−23 … t−12) − 1
+z meziročních indexů: Ø 12 meziročních měr (vážení cenovou hladinou před rokem – rozdíl v setinách %)
+1 bod = 12 měsíců výběru; 13 bodů grafu = 24 měsíců
+```
+
+### Rozdělení transakce účtenky (v12.35, ADR-265)
+```
+skupina = (kategorie položky || kategorie transakce, podkategorie)
+skupina_kc = Σ lineTotal (|| cena × množství); skupina ≤ 0 Kč → do největší
+část = zaplaceno × skupina_kc / Σ skupin (haléře na 2 místa, zbytek na největší)
+cizí měna: amtCZK části = Kč rodiče × podíl
+```
+
+### Komunitní průměr kategorie (v12.38, ADR-270)
+```
+eq = 1 + 0,5 × (dospělí − 1) + 0,5 × děti 14+ + 0,3 × děti 0–13      (OECD, Nastavení)
+avgJ = Ø (výdaj ÷ eq) přes přispěvatele, kteří v kategorii utratili
+zobrazeno = avgJ × eq prohlížejícího (režim Na osobu: avgJ)
+rodina 9 000 Kč (2,1) + jednotlivec 3 000 Kč → 3 643 Kč na jednotku → 7 650 Kč pro domácnost 2,1
+```
+
+### Plyn (v12.37, ADR-271)
+```
+Kč/m³ = Kč/kWh × kWh v 1 m³ (výchozí 10,55, přesně z faktury: objemový koeficient × spalné teplo)
+po vyúčtování: Kč/m³ = celkem Kč ÷ spotřeba m³;   ≈ Kč/kWh = Kč/m³ ÷ koeficient
+```
+
+
+---
+
+# Session 28 · dodatek · v12.39 → v12.42 **(Session 28)**
+
+- **Tag v Tagy (v12.42):** tag ruční nebo celého nákupu = celá částka transakce (`txCZK`). Tag položky (zelený druh `it.tag` i modrý `it.tagy`) = `částka transakce × Σ ceny položek s tagem ÷ Σ ceny všech položek`.
+- **Sleva položky (v12.42):** `lineTotal = cena × počet − sleva`; původní cena = `lineTotal + sleva`; ušetřeno = Σ `discount`.
+- **Úprava rozdělené platby (v12.41):** nová částka rodiče `P`, části `c_i` → `c_i' = ⌊c_i × P / Σc⌋` (v haléřích), zbytek na největší část.
+- **Kurz cizí měny (v12.40):** `amtCZK = částka × kurz ČNB ke dni transakce` (lístek `fxRatesForDate`), záložně aktuální kurz; přesun z Doručených v Kč stejným kurzem.

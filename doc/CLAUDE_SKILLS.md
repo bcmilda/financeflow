@@ -886,3 +886,52 @@ Bublina grafu byla na telefonu 9× větší (FIX-493): `draw()` už udělal `sca
 
 ### SKILL 107 · Na stránce s měsícem nahoře počítá všechno od vybraného měsíce, nebo říká, že ne **(Session 27)**
 Analýza účtenek měla šipky měsíce, ale karty počítaly od dneška nebo z celé historie bez popisku (ADR-248). Každá karta buď končí vybraným měsícem, nebo má viditelný přepínač / popisek „celá historie“. „Tento měsíc“ = vybraný měsíc, ne dnešní.
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+### SKILL 108 · Srovnávat jen stejné veličiny – ověřit definici obou stran **(Session 28)**
+V S23 jsem osobní inflaci (medián cen 12 měsíců proti předchozím 12 = obdoba průměrné roční míry) nakreslil vedle meziroční inflace ČSÚ. Ověřil jsem, že oficiální čísla sedí, ne že jsou srovnatelná – při zrychlující inflaci to vypadalo, že Milanovi „zdražuje méně“. Před každým „ty vs. oficiální / průměr“ napsat definici obou čísel (období, základ, jednotka) a srovnat je. Totéž: komunitní průměr bez přepočtu na velikost domácnosti, „míra úspor“ čtyřmi vzorci.
+
+### SKILL 109 · AI nesmí přepsat údaj, podle kterého se páruje **(Session 28)**
+Worker kázal AI „rozepsat zkratky“ – „sušenky polom.hořké“ se uložilo jako „sušenky polomáčené hořké“ a známý výrobek se už nenašel (Milan: „bojujeme sami proti sobě“). Zdrojová data (název z účtenky, kód, datum) ukládat doslova, výklad AI vedle (`nazevAI`, šedě). Párování stavět na doslovném údaji.
+
+### SKILL 110 · Stejné id v app.html nebo stejné jméno funkce ve dvou souborech = tichá kolize **(Session 28)**
+`getElementById` vrátí první prvek: AI tip se kreslil na Dashboard, odznak oznámení se nikdy neukázal. U funkcí platí ta z později načteného souboru: celé staré uvítací okno (S20) se nikdy neotevřelo a hezčí `showToast` byla mrtvá. Před přidáním id nebo funkce `grep` na jméno ve VŠECH souborech; kontrola duplicit je součást auditu.
+
+### SKILL 111 · Odvozená data: deterministické id a idempotentní přepočet **(Session 28)**
+Části rozdělené účtenky vznikají automaticky na telefonu i na počítači. S náhodným id by se po synchronizaci zdvojily. Id = rodič + hash skupiny, přepočet porovná stav a nic nemění, když sedí; osiřelé části maže. Test: druhé spuštění = 0 změn, dvě „zařízení“ = stejná id.
+
+### SKILL 112 · Odpověď s Cache-Control drží prohlížeč – po změně formátu se nová data neukážou **(Session 28)**
+Worker `/inflace` posílal `max-age=86400`; po nasazení nové verze karta den ukazovala starou odpověď bez průměrné roční míry. U dat, jejichž formát měním, `fetch(…, { cache: 'no-cache' })` (worker má vlastní cache) nebo nový klíč v adrese. Ověřit v prohlížeči, ne jen přímým otevřením adresy.
+
+### SKILL 113 · Co v odpovědi slíbím, jde hned do seznamu úkolů **(Session 28)**
+V přehledu bodů 10–23 jsem napsal „body 11, 14, 15, 21, 22 udělám podle návrhů“ – bod 11 jsem pak vynechal a Milan se musel ptát. Každý slib z odpovědi zapsat do TaskCreate a před odevzdáním projít, co z odsouhlaseného seznamu chybí.
+
+### SKILL 114 · Jedna akce má víc vstupů – opravit a otestovat všechny **(Session 28)**
+Přesměrování úpravy transakce z účtenky do editoru účtenky fungovalo na mobilu (swipe), ale ✎ na počítači otevíralo formulář transakce (zelené štítky jako modré tagy). U každé akce vypsat všechny cesty: ✎ počítač, swipe mobil, 📷, detail projektu, Podezřelé, a test na každou.
+
+### SKILL 115 · Text od AI (a od uživatelů) vkládat jako text **(Session 28)**
+AI tip se vkládal přes `innerHTML` bez escapování. Cokoli, co nevzniklo v kódu appky, jde přes `escHtml` / `textContent`. Test s `<img onerror>` v odpovědi.
+
+### SKILL 116 · Průměr nepravidelného jevu dělit sledovaným obdobím, běžící měsíc vynechat **(Session 28)**
+`getHistAvg` dělil jen měsíci, kdy se něco utratilo: roční pojistka = 12 000 Kč každý měsíc. Konzistenční bonus i komunita brali rozběhnutý měsíc jako celý. Jmenovatel = počet sledovaných měsíců (okno 12, od prvního výskytu), běžící měsíc se do srovnání „měsíc proti měsíci“ nebere.
+
+
+---
+
+# Session 28 · dodatek (2026-11-07 až 2026-11-08) **(Session 28)**
+
+### SKILL 117 · Strážce „nepřekreslovat při psaní“ musí poznat, co je textové pole **(Session 28, v12.42)**
+`rpRender` nepřekresloval, když byl fokus v `<input>` kromě `type="number"`. Nové zaškrtávátko výběru je taky `<input>` → výběr se nepřekreslil („Pro 0 vybraných“). Vyjmenovat netextové typy (`checkbox`, `radio`, `button`, `number`) a ověřit v prohlížeči klepnutím, ne jen voláním funkce.
+
+### SKILL 118 · Dvě různé věci v jednom poli = nové pole vedle, ne místo **(Session 28, v12.42)**
+`t.tags` je u účtenkové transakce text (zelené druhy) a u ruční pole (modré tagy) – řádek ukazoval jen jedno z obou. Modré tagy celého nákupu proto žijí v `tagyNakup`, položek v `it.tagy`, a všichni čtenáři jdou přes jednu funkci (`parseTxTags`, `txVsechnyTagy`).
+
+### SKILL 119 · Než opravím „neodečítá se“, ověřit na datech, co uživatel vidí **(Session 28)**
+U eurové peněženky i u přesunu do investic výpočet odečítal správně – rozhodlo datum „zůstatek ke dni“, resp. průběžný zůstatek na screenu klesal. Nasimulovat přesně jeho situaci (zůstatek, datum, peněženka), ukázat výsledek a zeptat se, kde vidí rozdíl – teprve pak měnit kód.
+
+### SKILL 120 · Pevná konstanta místo dat, která appka má, je chyba **(Session 28, v12.40)**
+Doručené přepočítávaly 25 Kč/€, i když appka stahuje kurzy ČNB (i ke dni). Při psaní nového modulu hledat existující zdroj (`fxRatesForDate`, `_FX_RATES`, `txCZK`) dřív, než napíšu číslo.

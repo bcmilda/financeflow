@@ -1930,3 +1930,117 @@ Milan: „porovnání s minulým měsícem + 3 největší celkové nákupy a 3 
 ### ADR-251 · Narozeniny: druh a rok, věk se neukládá **(Session 27, v12.11, Milan)**
 - **Rozhodnutí:** `b.druh` = narozeniny | svátek | výročí (bez druhu = narozeniny), `b.rok` nepovinný (1900 až letos, u svátku ne). Věk / počet let se počítá z roku k dnešku (`bdayVek`) a k nejbližšímu výskytu (`bdayVekPristi`), takže každý rok sám přibude.
 - **Status:** ✅ v12.11
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+### ADR-252 · Přesun mezi peněženkami s různou měnou: připsat kurzem ČNB dne zápisu **(Session 28, v12.13, FIX-494)**
+- **Rozhodnutí:** cílová peněženka v jiné měně dostane částku přepočtenou kurzem ČNB v den přesunu (i u šablon přesunu); skutečně připsanou částku jde opravit úpravou příchozí poloviny.
+- **Status:** ✅ v12.13
+
+### ADR-253 · Rozpis záloh v období **(Session 28, v12.17, Milan: „postav rozpis záloh na aktuální období“)**
+- **Rozhodnutí:** šablona zálohy nese `s.rozpis = [{od:'YYYY-MM-DD', kc}]`; částka v den d = `sablonaCastka(s, d)` (poslední změna s `od ≤ d`, jinak `s.amount`). Stejnou funkci používají Budoucí platby, Příští měsíc, zápis transakce i Měsíční report (od v12.36).
+- **Status:** ✅ v12.17
+
+### ADR-254 · Propojení transakcí bez vlivu na statistiky **(Session 28, v12.17)**
+- **Rozhodnutí:** `t.propojeno` jen ukazuje souvislost (vrácení peněz k výdaji apod.); součty, report ani statistiky se nemění.
+- **Status:** ✅ v12.17
+
+### ADR-255 · První splatnost u čtvrtletní, roční a týdenní šablony **(Session 28, v12.19, Milan)**
+- **Rozhodnutí:** `s.prvni` (datum první platby); výskyty počítá `ffKotvaVyskyty` od ní, ne od dneška. Bez `s.prvni` zůstává staré chování (čtvrtletní / roční „od dneška“).
+- **Status:** ✅ v12.19
+
+### ADR-256 · Sledovaná témata jsou značka, ne kategorie **(Session 28, v12.20, Milan: „káva, pivo, Mac…“)**
+- **Rozhodnutí:** téma u položky nebo celé platby; kategorie, COICOP, rozpočty, report ani ČSÚ se nemění, témata se nesčítají do výdajů. AI paměť podle názvu. Celá platba v tématu se počítá celá, jinak jen označené položky – nikdy obojí.
+- **Status:** ✅ v12.20
+
+### ADR-257 · Karta výrobku – srovnání s ČSÚ: jeden výpočet, oddíl zvlášť, období od první účtenky **(Session 28, v12.22–v12.28, Milan)**
+Milan: „nemůžeš v jedné kartě používat 2 různé výpočty… manipulace dat“ → „vrať porovnání útraty za oddíl“.
+- **Rozhodnutí:** ① podíl na všech výdajích proti váze koše ČSÚ (váha oddílu × podíl), ② podíl uvnitř oddílu – dva samostatné bloky, žádný přepínač základu. Období se ořízne od měsíce první účtenky (`mapaPrvniMesicUctenek`). Procenta pod 1 % na dvě desetinná místa.
+- **Status:** ✅ v12.24 · v12.28
+
+### ADR-258 · Sdílené uzly v databázi: zápis jen na úrovni položky, čítač AI mimo data uživatele **(Session 28, v12.25, audit body 17 + 18)**
+- **Rozhodnutí:** `.write` jen na `$entry` (nový záznam nebo vlastník), mazání sdílených uzlů zakázáno; trial jen jednou; `aiUsage/{uid}/{YYYY-MM}` zapisuje jen worker; kliky doporučení atomické +1 na serveru.
+- **Status:** ✅ v12.25 (pravidla v12.26)
+
+### ADR-259 · Opakovaná platba se zapíše v den splatnosti; přidaná po splatnosti se zapíše i v aktuálním měsíci **(Session 28, v12.26 → v12.27)**
+- **Rozhodnutí:** automatická šablona zapisuje až v den splatnosti (ne 1. v měsíci). FIX-210 v2 obnoven: šablona přidaná po dni splatnosti zapíše platbu za aktuální měsíc.
+- **Status:** ✅ v12.27
+
+### ADR-260 · Hlas komunity: jeden na uživatele a položku **(Session 28, v12.26)**
+- **Rozhodnutí:** `community/itemTagVotes/{položka}/{uid} = štítek`, změna hlas přepíše; staré počty jen ke čtení.
+- **Status:** ✅ v12.26
+
+### ADR-261 · Zbývá u půjčky se dopočítává, neodečítá **(Session 28, v12.30, audit body 1 + 20)**
+- **Rozhodnutí:** Zbývá = kotva `zbyvaKeDni` → jistina navázaných splátek (splátka − úrok zůstatek × sazba / 12) a změn půjčky (`debtSimuluj`, `debtPrepocitej`). Smazaná / upravená splátka se promítne sama. Staré půjčky dostanou kotvu = dnešní zbytek k poslední splátce (Zbývá se nezmění); splacená půjčka se neoživí.
+- **Status:** ✅ v12.30
+
+### ADR-262 · Jeden základ příjmu a jeden limit kategorie pro celou appku **(Session 28, v12.31 + v12.34 + v12.36, audit body 4, 6, 9)**
+- **Rozhodnutí:** `computeBaseIncome(D, m, y)` (vážený průměr 3 měsíců podle `catVahaPrijmu`, bez vyrovnání, rodičů splitů a přesunů), `catLimitVydaju(cat, základ)` = přísnější z % a Kč stropu. Výhled příjmů v Měsíčním reportu = měsíční šablony příjmů + průměr ostatních příjmů vážený stabilitou (Jednorázový 0 % se nepočítá), strop proti dvojímu započtení; čtvrtletní / roční příjem ze šablony navíc.
+- **Status:** ✅ v12.31 · v12.34 · v12.36
+
+### ADR-263 · Název položky doslova z účtenky, výklad zkratky jen vedle **(Session 28, v12.32, Milan)**
+- **Rozhodnutí:** worker (PRAVIDLO 8) vrací `name` doslova a `fullName` (výklad) → `it.nazevAI`, v editoru šedě „≈ …“. Zkratka ↔ rozepsaný název se páruje (`_eanZkratkaSedi`: stejný obchod, počet slov, slova shodná nebo začátkem).
+- **Status:** ✅ v12.32 · navazuje TODO-375 (oddělení zkratky a vlastního názvu)
+
+### ADR-264 · Pevná vazba účtenka ↔ transakce; transakce z účtenky se upravuje jen v editoru účtenky **(Session 28, v12.33–v12.34)**
+- **Rozhodnutí:** `t.receiptAddedAt = r.addedAt`; uložení účtenky přenese datum, obchod, název (pokud ho uživatel nepřepsal), položky a částku. ✎, swipe i 📷 u transakce z účtenky otevřou editor účtenky (správnou podle vazby).
+- **Status:** ✅ v12.33 · v12.34
+
+### ADR-265 · Transakce účtenky rozdělená podle kategorií a podkategorií položek **(Session 28, v12.35, Milan: „ano, proveď… u starých i nových účtenek“)**
+- **Rozhodnutí:** stejný model jako ruční ✂️ Rozdělit (rodič `splitParent`, části bez peněženky), navíc `rcptSplit` / `rcptCast`. Skupina = kategorie + podkategorie položky (bez kategorie = kategorie transakce); částka poměrem k položkám, zbytek haléřů na největší, skupina bez kladné částky do největší; jedna skupina = bez rozdělení. Přepočet při každém uložení dat i po spuštění (staré účtenky). Duplicity a Doručené porovnávají rodiče, ostatní statistiky části.
+- **Status:** ✅ v12.35
+
+### ADR-266 · Predikce výdajů: 12 dokončených měsíců, dělí se sledovanými měsíci **(Session 28, v12.36, audit bod 5)**
+- **Rozhodnutí:** `getHistAvg` – okno 12 měsíců před běžícím, jmenovatel = měsíce od prvního výdaje v kategorii (max 12). Příští měsíc vynechá platby čtvrtletních / ročních / jednorázových šablon z historie i z odečtu (mají vlastní řádek v měsíci splatnosti).
+- **Status:** ✅ v12.36
+
+### ADR-267 · Osobní inflace se srovnává s průměrnou roční mírou ČSÚ **(Session 28, v12.36, audit bod 13)**
+- **Rozhodnutí:** worker počítá průměrnou roční míru z meziročních indexů (průměr 12 měsíců; 13 bodů grafu = 24 měsíců ve výběru DataStatu). Karta i Finanční obraz s ní srovnávají; meziroční zůstává v dlaždici pro informaci; bez ní karta píše „orientačně“.
+- **Status:** ✅ v12.36 (worker v12.37: `?obnovit=1`; appka v12.38: bez cache prohlížeče)
+
+### ADR-268 · RPSN podle smlouvy s poplatky a pojištěním **(Session 28, v12.37, audit bod 12)**
+- **Rozhodnutí:** karta půjčky `poplatekSjednani`, `poplatekMesicni`, `pojisteniMesicni`; RPSN = IRR (vyplaceno − jednorázový poplatek) proti splátkám + měsíčním nákladům, z celé jistiny od začátku (`debtRPSN`). Simulace počítá s měsíčními náklady, konsolidace ukazuje efektivní sazbu.
+- **Status:** ✅ v12.37
+
+### ADR-269 · AI tip v AI rádci nejvýš jednou denně, uložený **(Session 28, v12.37, audit bod 21)**
+- **Rozhodnutí:** `S.uiCfg.aiTip = {den, text}` (synchronizuje se); při prohlížení partnera se AI neptá; text se escapuje. „AI poradce“ → „AI rádce“ všude.
+- **Status:** ✅ v12.37
+
+### ADR-270 · Komunitní průměr kategorie na spotřební jednotku, jen z lidí, kteří za to utrácejí **(Session 28, v12.38, audit bod 16, Milan)**
+Milan: „Proč bych porovnával výdaje s někým, kdo za danou věc neutrácí?“ + „velikost domácnosti aplikace zná – máme to v nastavení“.
+- **Rozhodnutí:** příspěvek nese `eq` (OECD ekvivalent z Nastavení → Složení domácnosti); worker vrací `avgJ` / `nJ` (průměr na jednotku), appka ho násobí vlastním `eq`. Průměr dál jen z přispěvatelů se skupinou, popisek „průměr lidí, kteří za to utrácejí · n z k“. Aritmetický průměr, práh 1 a rozběhnutý měsíc ponechány (Milan).
+- **Status:** ✅ v12.38
+
+### ADR-271 · Plyn: cena za jednotku měřidla, ceník v kWh přepočtem **(Session 28, v12.37, audit bod 14)**
+- **Rozhodnutí:** pole „Cena za m³“; u plynu volitelně cena za kWh × koeficient (výchozí 10,55, `m.koef`), appka dopočte Kč/m³. Po vyúčtování cena z vyúčtování. Detail ukazuje i ≈ Kč/kWh a kWh.
+- **Status:** ✅ v12.37
+
+
+---
+
+# Session 28 · dodatek (2026-11-07 až 2026-11-08) · v12.39 → v12.42 **(Session 28)**
+
+### ADR-272 · Datum účtenky je pravda **(Session 28, v12.40, Milan)**
+- **Rozhodnutí:** datum transakce z účtenky = datum účtenky vždy (dřív jen když transakce měla pořád staré datum účtenky – pravidlo „uživatel ho v transakci změnil“ z v12.33 zrušeno; transakce účtenky se v transakci stejně neupravuje). Rozpojená transakce se po spuštění napojí na jedinou účtenku stejného obchodu a částky do ± 7 dní, ke které žádná transakce nepatří.
+- **Status:** ✅ v12.40
+
+### ADR-273 · Cizí měna z Doručených = měna platby + kurz ČNB dne **(Session 28, v12.40)**
+- **Rozhodnutí:** stejně jako formulář: `amount` v měně platby, `currency`, `amtCZK` kurzem ČNB ke dni platby (záložně aktuální kurz appky), `fxRef` / `fxRefDate`. Přesun mezi peněženkami z Doručených dál v Kč. Ve formuláři se při datu v minulosti stáhne lístek toho dne.
+- **Status:** ✅ v12.40
+
+### ADR-274 · Nový editor účtenky – data položky a celého nákupu **(Session 28, v12.42, TODO-374, Milan)**
+- **Milan:** varianta B (vývoj dnešního editoru) + sleva z B4; tři názvy (z účtenky, upravený AI / uživatelem, z karty výrobku); modré tagy a poznámka k vybraným položkám i k celému nákupu; zelený tag = „Druh“; tag položky v Tagy jen částkou položky; poznámka jde najít.
+- **Rozhodnutí:**
+  - `it.name` zůstává doslova z účtenky (páruje se podle něj – paměť kategorií, kódy, ceny, SKILL 109), v editoru „🧾 z účtenky“ – opravuje se jen překlep čtení.
+  - Vlastní název `it.nazev` (prázdné = návrh AI `it.nazevAI`). Zobrazuje se v editoru a v rozpisu položek transakce.
+  - Sleva `it.discount`, `lineTotal = cena × počet − sleva` (zaplaceno), přeškrtnutá původní cena jen u zlevněné položky.
+  - Modré tagy položky `it.tagy` [], poznámka `it.poznamka`; celý nákup `r.tagy` [] / `r.poznamka` → transakce `tagyNakup` / `poznamkaNakup` (zelené druhy dál v textu `t.tags` – modré nemohou žít v témže poli, SKILL 118).
+  - `parseTxTags` vrací i `tagyNakup`; `txTagyPolozek`, `txVsechnyTagy`, `txHledanyText` (helpers.js). `getAllTags`: tag položky = podíl ceny položek s tagem, tag ruční / celého nákupu = celá částka.
+- **Status:** ✅ v12.42
+
+### ADR-275 · „Položka účtenky“ v Podezřelých ponechat s podmínkou názvu **(Session 28, v12.39, Milan 8. 11.)**
+- Shoda ceny nestačí: podobný název položky nebo obchodu, nebo transakce bez vlastního názvu ve stejné kategorii za ≥ 100 Kč (případ benzínky z S26). Milan zvolil „nechat jako ve v12.39“ (ne vypnout, ne jen název).
+- **Status:** ✅ v12.39

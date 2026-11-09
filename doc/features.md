@@ -1650,3 +1650,78 @@ SVG sada (13 oblastí, 12 podkategorií, ikony karty výrobku a akcí). Ikona se
 - **📄 Report → strana 🏪 Obchody** (v12.12): obchody měsíce, 3 největší a 3 nejmenší nákupy, srovnání s minulým měsícem, trend od ledna.
 - **💱 Převodník** (v12.11) – `cesta: Kurzy měn`: částka, z / do, ⇅ Prohodit, kurz ČNB.
 - **🎂 Narozeniny, svátky a výročí** (v12.11) – `cesta: Narozeniny & přání → + Přidat`: druh, rok → věk („40 let“, „bude 41 let“), druh i na Dashboardu a v Budoucích platbách.
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+## 👛 Peněženky a převody
+- **Přesun mezi měnami kurzem ČNB** (v12.13) – `cesta: Peněženky → 🔄 Převod`, i šablony přesunu; zůstatky hned.
+- **Smazání převodu maže celý pár** (v12.30) – `cesta: Transakce → převod → ✕`.
+
+## 📲 Doručené (v12.15)
+- `cesta: Import z banky → 📲 Doručené`: příchozí platba jako příjem, zapamatované karty a účty (🧠, ✕ zapomenout), typ platby předvyplněný.
+
+## 📟 Energie a voda
+- **📅 Rozpis záloh, 💡 srovnání záloh se spotřebou a návrh zálohy, přepínač měřidel** (v12.17) – `cesta: Majetek → 📟 Energie a voda`.
+- **Záloha ze šablony: ne / jen připomínat / zapisovat** (v12.29), štítek „⚙️ zapíše se samo“ místo „auto“.
+- **Plyn: Cena za m³ + ceník v Kč/kWh s koeficientem** (v12.37) – `cesta: plynoměr → ⚙️ Nastavení`; detail ≈ Kč/kWh a kWh.
+
+## 🔄 Opakované šablony
+- **První splatnost** čtvrtletní / roční / týdenní (v12.19), **zápis v den splatnosti** (v12.26), **formulář jako Transakce** (podkategorie, typ platby, tagy, v12.27).
+
+## 🧾 Účtenky
+- **⭐ Sledovaná témata** (v12.20) – `cesta: Statistiky → ⭐ Sledovaná témata`, ⭐ u položky / platby, AI paměť.
+- **Oprava přiřazeného kódu, výběr položky bez limitu, druhá cesta po skenu** (v12.21).
+- **Karta výrobku – srovnání s ČSÚ ① celkem ② uvnitř oddílu, od první účtenky** (v12.22–v12.28), 🚫 Bez živin.
+- **Známé položky po skenu** (spojení obchod + zkratka, historie, v12.28), **název doslova + šedý výklad** (v12.32).
+- **Transakce jde s opravenou účtenkou** (datum, obchod, v12.33), **úprava transakce z účtenky jen v editoru účtenky** (v12.34).
+- **✂️ Transakce účtenky rozdělená podle kategorií položek** (v12.35) – `cesta: Transakce → řádek účtenky (📷 ✂️ N× ▾)`; část 📷 otevře editor; filtr kategorie ukáže i část.
+- **🧭 Za co utrácíš → rozklik po měsících** (v12.19, TODO-372).
+
+## ✂️ Rozdělení transakce (v12.34)
+- Části s kategorií i podkategorií rozdělované platby, části nejsou duplikáty; smazání rozdělené platby maže i části (v12.35).
+
+## 💳 Půjčky
+- **Zbývá jen o jistinu, smazání / úprava splátky se promítne** (v12.30).
+- **💸 Poplatky a pojištění → skutečné RPSN** (v12.37) – `cesta: Dluhy → ➕ / ✎ půjčka`.
+
+## 📄 Report, predikce, skóre
+- Výhled příjmů (šablony + vážený průměr), jeden limit kategorie, splátky s rozpisem (v12.31–v12.34); šablony podle frekvence a rozpisu záloh, čtvrtletní a roční platby ve výhledu (v12.36); odhad nepravidelných výdajů (v12.36); bonus soustavnosti bez běžícího měsíce (v12.37).
+
+## 🇨🇿 Inflace a 👥 Komunita
+- **Tvoje inflace vs. průměrná roční míra ČSÚ** (v12.36–v12.38).
+- **Komunita přepočtená na tvou domácnost**, popisek „průměr lidí, kteří za to utrácejí · n z k“ (v12.38).
+
+## 🤖 AI rádce (v12.37)
+- **Dnešní tip** jednou denně (uložený), přejmenováno z „AI poradce“.
+
+## 🧾 Výplatnice (v12.38)
+- Dopočet zálohy na daň s 23 % nad 3× průměrnou mzdu.
+
+
+---
+
+# Session 28 · dodatek (2026-11-07 až 2026-11-08) · v12.39 → v12.42 **(Session 28)**
+
+## 🧾 Nový editor účtenky (v12.42)
+- Položka jako karta (bez posouvání do stran): **Název** (návrh AI / tvůj, „vrátit návrh AI“), **🧾 z účtenky** (doslova), **▮▮ karta výrobku**, kategorie a podkategorie, ks × cena, balení.
+- **Sleva** jen u zlevněné položky (zaplaceno + přeškrtnutá původní cena), „+ sleva“, nahoře „ušetřeno na slevách“.
+- Zelené pole **Druh** s nápovědou.
+- **# modrý tag a poznámka** u položky, **☑ Vybrat** víc položek najednou.
+- **Celý nákup:** modré tagy, poznámka, **Kam se účtenka zapíše** (části podle kategorií, tagy, ušetřeno).
+- Tagy: tag položky jen částkou položky. Hledání a filtr tagu v Transakcích vidí položky i poznámku nákupu.
+
+## 📋 Transakce (v12.39–v12.41)
+- Swipe se zámkem směru, **filtr ceny** (od / do), ⚠️ a „Není duplikát“ na mobilu, přesnější „Položka účtenky“.
+- **Rozdělenou platbu jde upravit**: ✎ Upravit platbu, ✂️ Upravit rozdělení, ↩ Zrušit rozdělení; části jdou s platbou.
+- Platba v cizí měně zpětně kurzem ČNB toho dne.
+
+## 📲 Doručené (v12.39–v12.40)
+- Revolut „Vám posílá 20 €“ = příjem; ✎ Zapsat ručně otevře předvyplněný formulář.
+- Cizí měna kurzem ČNB ke dni, částka v měně platby (eurová peněženka dostane eura).
+
+## 📋 Historie účtenek (v12.40)
+- Filtr ceny a žlutý oddělovač měsíců s počtem a součtem.
+- Datum transakce = datum účtenky, rozpojené transakce se znovu napojí.

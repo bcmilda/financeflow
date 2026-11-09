@@ -2936,3 +2936,97 @@ U skoro všech účtenek „Jídlo & Nákupy“. Teď podle kategorií položek.
 
 ### Report strana 3 přetékala A4 **(Session 27, v12.12)**
 - Strana Účtenky měla s obchody 1 200 px při výšce stránky 1 123 px (už před přidáním nákupů). Obchody, nákupy a trend jsou teď na vlastní straně 4 (ADR-250).
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+## Opravy mimo audit
+- **FIX-494** (v12.13) · Přesun 2 530 Kč na EUR účet připsal +2 530 € (i u šablon přesunu); zůstatky se překreslily až po překliknutí. → ADR-252.
+- **FIX-495** (v12.14) · Zůstatek EUR peněženky ukazoval „200 Kč“; Měsíční report sčítal eura s korunami.
+- **FIX-496** (v12.15) · Příchozí platba z oznámení KB+ se četla jako výdaj (Doručené).
+- **FIX-497** (v12.16) · Popisky sloupců v grafu měřidla se na telefonu překrývaly.
+- **FIX-498** (v12.18) · Budoucí platby od v6.49 vynechávaly nejbližší měsíční platbu (počítadlo měsíce o jeden napřed); 29.–31. v kratším měsíci = poslední den. Týkalo se Radaru, Příštího měsíce, Kalkulaček.
+- **FIX-499** (v12.21) · Špatně přiřazený kód výrobku nešel opravit; výběr položky jen z 12 účtenek.
+- **FIX-500** (v12.22) · Váha ČSÚ v kartě výrobku ~3× menší (+1 316 % za kapesníky).
+- **FIX-501** (v12.32, Milan) · AI rozepisovala zkratky z účtenky („sušenky polom.hořké“ → „polomáčené“) a známý výrobek se nenašel. → ADR-263.
+- **FIX-502** (v12.33, Milan: „jak to, že se mi v transakcích nezobrazuje transakce z naskenované účtenky 1. 10. 2026?“) · transakce se k upravené účtence hledala jen podle data a obchodu → po ↔ Prohodit den a měsíc zůstala 10. 1. a editor přesto hlásil „promítnuto“. Milan: „zásadní a vážná chyba“. → ADR-264, `rcptOpravVazby` opravil i staré dvojice.
+- **FIX-503** (v12.34) · ✎ u transakce z účtenky na počítači otevíral formulář transakce (zelené štítky jako modré tagy, jedna kategorie). → ADR-264.
+- **FIX-504** (v12.34) · ✂️ Rozdělit: přednastavená první kategorie seznamu, chyběla podkategorie, po odebrání řádku se část ztratila.
+- **FIX-505** (v12.34) · Části rozdělené platby se hlásily jako „Přesný duplikát“ jedna druhé.
+- **FIX-506** (v12.35) · Smazání ručně rozdělené platby nechalo části ve výdajích; filtr Období a hledání ve všech měsících rozdělené platby skrývaly.
+- **FIX-507** (v12.38) · Karta Inflace den po nasazení workeru ukazovala starou odpověď (Cache-Control 24 h v prohlížeči). → SKILL 112.
+
+## Audit výpočtů S28 (Projekt `claude/AUDIT-vypocty-S28.md`) – stav
+| Bod | Co | Verze |
+|---|---|---|
+| 1, 20 | Splátka snižovala Zbývá i o úrok; smazání / úprava splátky Zbývá nevracela | v12.30 (ADR-261) |
+| 2 | Dnešní datum v UTC (0:00–1:00 / 2:00 včerejšek) | v12.30 (`ffDnes`) |
+| 3 | Investice z cizí měny na Dashboardu jako Kč | v12.31 |
+| 4 | Výhled příjmů nahradil průměr šablonou | v12.31, v12.34 (váhy) |
+| 5 | Odhad nepravidelných výdajů (roční platba každý měsíc) | v12.36 (ADR-266) |
+| 6 | Dva výpočty limitu kategorie | v12.31 (ADR-262) |
+| 7 | Report bez čtvrtletních / ročních plateb a rozpisu záloh | v12.36 |
+| 8 | Splátky v reportu 0 u rozpisu splátek | v12.31 |
+| 9 | Vyrovnání v základu příjmu | v12.36 |
+| 10 | Konzistenční bonus počítal běžící měsíc | v12.37 |
+| 11 | Záloha na daň jen 15 % (chybělo 23 % nad 146 901 Kč) | v12.38 |
+| 12 | „RPSN“ bez poplatků | v12.37 (ADR-268) |
+| 13 | Osobní inflace proti meziroční místo průměrné roční | v12.36 (ADR-267) – chyba návrhu z S23 |
+| 14 | Plyn Kč/m³ vs. Kč/kWh | v12.37 (ADR-271) |
+| 15 | Čtyři „míry spoření“ | ⏸ Milan chce nejdřív pochopit (TODO-378) |
+| 16 | Komunitní průměr kategorie | v12.38 (ADR-270) |
+| 17, 18 | Pravidla DB: mazání sdílených uzlů, nekonečný trial | v12.25 (ADR-258) |
+| 19 | Smazání jedné poloviny převodu | v12.30 |
+| 21 | AI tip na Dashboardu, AI volání při každém otevření | v12.37 (ADR-269) |
+| 22 | Odznak oznámení (dvojí id) | v12.37 |
+| 23 | Dvakrát definované funkce | v12.37 + v12.38 (i staré uvítací okno a druhá `showToast`) |
+| 24 | Repo: stará kopie pravidel v `.github/workflows/`, `ai_memory/` veřejně | ⏸ TODO-379 (`vyplatnice-import.json` Milan smazal) |
+
+## Známé, neopravené
+- **Export CSV:** část rozdělené účtenky nemá peněženku (drží ji rodič) – TODO-383.
+- **Komunita:** přepočet na domácnost platí jen pro příspěvky z v12.38+; starší se ukazují bez přepočtu, dokud přispěvatel neotevře novou verzi.
+- **Inflace z účtenek – výpočet** (čtení balení z názvu, medián, slevy, váhy, minimum položek) neprošel auditem (TODO-377).
+
+
+---
+
+# Session 28 · dodatek (2026-11-07 až 2026-11-08) · v12.39 → v12.42 **(Session 28)**
+
+### FIX-508 · Swipe v Transakcích hýbal stránkou a zpožďoval se **(v12.39)**
+- **Milan:** „při swipu se pohne obrazovka a pohyb je s delayem“. Směr se posuzoval u každého pohybu prstu znovu a `touchmove` byl pasivní – stránka se posouvala s kartou.
+- **Oprava:** zámek směru po 8 px, vodorovný tah `preventDefault` (nepasivní posluchač), `touch-action: pan-y`, posun po snímcích (`requestAnimationFrame`, `will-change`), otevřenou kartu jde zavřít tahem doprava. Test `smoke_v1239.js`.
+
+### FIX-509 · Transakci z účtenky nešlo upravit – „Účtenka nebyla v historii nalezena“ **(v12.39)**
+- **Milan:** platba 2. 10. za 196,30 Kč. Historie ukazuje dvojité kopie účtenky jen jednou (`rcptUnikatni`), transakce patřila ke skryté kopii → řádek `rcpt_hist_<i>` neexistoval.
+- **Oprava:** `rcptSlotPro` otevře skrytou kopii v řádku viditelné, čekání na vykreslení (8 × 180 ms), jinak formulář transakce (`editTx(id, true)`).
+
+### FIX-510 · Podezřelé „Položka účtenky“ hlásilo nesouvisející platby **(v12.39)**
+- **Milan:** „na pohled tam je jiný obchod, datum i cena“. Stačila shoda ceny s jednou položkou cizí účtenky (Jabka Dobra 30 Kč = Piz.Marg 30 Kč).
+- **Oprava:** `dupPolozkaSedi` – podobný název položky / obchodu, nebo transakce bez vlastního názvu ve stejné kategorii za ≥ 100 Kč. Milan 8. 11.: ponechat takto.
+
+### FIX-511 · Na mobilu chyběl štítek ⚠️ a „Není duplikát“ **(v12.39)**
+- Mobilní karta neměla `buildDupBadge` ani `buildDupActions`; banner sliboval „označené ⚠️“. Gramatika „1 podezřelý pár / 2 podezřelé páry / 5 podezřelých párů“.
+
+### FIX-512 · Revolut „Vám posílá 20 €“ nerozpoznáno a ✎ Zapsat ručně notifikaci zahodil **(v12.39)**
+- **Oprava:** pravidla pro příchozí platbu (`Vám posílá/poslala`, `sent you`), ✎ Zapsat ručně otevře předvyplněný formulář (`inboxOdhad`) a notifikaci vyřídí až uložení (`_inboxPoUlozeni`, `_txPoUlozeni`).
+
+### FIX-513 · Doručené přepočítávaly cizí měnu pevným kurzem 25 Kč/€ **(v12.40)**
+- **Milan:** „proč pevným kurzem, když máme kurzy od ČNB? Mám peněženku v eurech.“ Moje chyba z doby psaní Doručených. 20 € se uložilo jako 500 Kč i do eurové peněženky.
+- **Oprava:** částka v měně platby + `amtCZK` kurzem ČNB ke dni (`fxRatesForDate`), `fxRef`. ADR-273.
+
+### FIX-514 · Zpětně zadaná platba v cizí měně dnešním kurzem **(v12.40)**
+- Pole „Skutečně v Kč“ se předvyplnilo dnešním kurzem. **Oprava:** `_txKurz` / `_txNactiKurzDne` – kurz ČNB ke dni transakce, nápověda s datem lístku, po uložení přepočet (`_fxRefBackfill(…, prepocitatKc)`), ručně přepsané Kč zůstávají.
+
+### FIX-515 · Transakce účtenky s jiným datem než účtenka (29. 9. vs. 2. 10.) **(v12.40)**
+- **Milan:** „transakce byla 29. 9., ale vidím ji 2. 10., i když screen hovoří jasně – chyba s propojením“. Datum se srovnávalo jen když transakce měla pořád staré datum účtenky; transakce vedla na neuloženou účtenku.
+- **Oprava:** datum transakce = datum účtenky vždy (`syncReceiptToTransactions`, `rcptOpravVazby`), rozpojená transakce se znovu napojí (stejný obchod + částka ± 7 dní, jediná kandidátka). ADR-272.
+
+### FIX-516 · Rozdělenou platbu nešlo upravit **(v12.41)**
+- **Milan:** „rozdělenou transakci nemohu editovat! To je chyba.“ Na mobilu klepnutí jen rozbalilo části (✕). Na počítači ✎ upravilo rodiče, ale části zůstaly se starým datem a částkou.
+- **Oprava:** lišta ✎ Upravit platbu / ✂️ Upravit rozdělení / ↩ Zrušit rozdělení, klepnutí na část, `splitSyncDeti` (datum, typ, způsob platby, projekt, název, částka poměrem), `openSplitModal` s dosavadními částmi, `zrusitRozdeleni`.
+
+### Ověřeno (bez opravy)
+- Rozdělené platby se ve statistikách, rozpočtech, predikci a součtech počítají **po částech** ve svých kategoriích (rodič s částmi vyřazen – `getActual`, `getHistAvg`, `expSum`); peněženka jen přes rodiče.
+- Eurová peněženka neodečítala platbu z 3. 10.: zůstatek 0 € „ke dni“ po 3. 10. – podle návrhu (`_walletTxPoStavu`), ne chyba výpočtu. TODO-387.

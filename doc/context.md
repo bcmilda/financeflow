@@ -558,3 +558,19 @@ v `Summary_s25.md`.
 - **Data rozumí uživateli:** „Zeptej se svých dat“ odpoví na otázku vlastními slovy (káva, pečivo, jak často do obchodu), čísla počítá appka.
 - **Méně automatiky, víc rychlé ruční opravy:** Milan odmítl slučovat výrobky podle obecného názvu („není brambor jako brambor“) – oprava názvu a zařazení přímo v kartě, chybné zařazení jako „past“ v datech.
 - **Google Play:** web je v interním testování (TWA), Inbox (Android) funguje mimo Play.
+
+
+## Session 28 (2026-10-26 až 2026-11-06) **(Session 28)**
+
+- **Audit výpočtů:** 22 z 24 bodů opraveno (v12.25–v12.38): dluhy počítají jen jistinu, dnešek v místním čase, jeden limit a jeden základ příjmu, predikce bez „roční platby každý měsíc“, report se šablonami jako Příští měsíc, RPSN s poplatky, inflace proti průměrné roční míře ČSÚ, komunita přepočtená na velikost domácnosti, bezpečnost pravidel DB. Otevřené: míry spoření (bod 15), repo (bod 24).
+- **Účtenka je zdroj pravdy pro svou transakci:** úprava jen v editoru účtenky, datum a obchod se přenášejí, transakce se rozdělí podle kategorií položek – statistiky, rozpočty a reporty počítají každou kategorii zvlášť.
+- **Data z účtenky doslova:** AI zkratky nerozepisuje (výklad jen vedle), známé výrobky se poznají podle obchodu + zkratky i proti starším rozepsaným názvům.
+- **Šetrnost k AI:** tip v AI rádci jednou denně, ne při každém otevření.
+- **Příště:** editor účtenky (varianta B – vývoj dnešního), pokračování auditu (inflace z účtenek, Vozidla, AI texty, Komunita).
+
+
+---
+
+## Session 28 · dodatek (7.–8. 11. 2026) **(Session 28)**
+- Milan schválil a dostal **nový editor účtenky** (varianta B, v12.42). Zelený tag se jmenuje **Druh**.
+- Na příští session: přesun do investic vs. zůstatek peněženky (TODO-384, nejdřív probrat), Cashback „Propojit s transakcí“ (TODO-385), „Opakovaná platba“ u běžné transakce (TODO-386), upozornění u zůstatku „ke dni“ (TODO-387), pokračování auditu (TODO-377).

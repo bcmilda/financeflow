@@ -2334,3 +2334,80 @@ TODO-301 · TODO-318 (vodopád v appce) · TODO-319 (⏸) · TODO-320 (⏸) · T
 - Z vybraného měsíce: Dashboard, Transakce, Statistiky (stránka), Grafy, Report, Analýza účtenek (od v12.11–v12.12).
 - Záměrně od dneška: Kalkulačky (šipky skryté), Budoucí platby, Radar → Do výplaty, Příští měsíc, Narozeniny (odpočet dní).
 - Celá historie (záměr): Mapa položek, Zdražování, Doklady, Historie, Moje výrobky, „Co se aplikace naučila“, Pravidelně nakupuješ.
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+- [x] TODO-372 🧭 Za co utrácíš → rozklik po měsících – **(Session 28, v12.19)**
+- [x] Audit výpočtů S28 body 1–14, 16–23 – **(Session 28, v12.25–v12.38)**, přehled v `bugs.md`
+- [x] Rozpis záloh, návrh zálohy, přepínač měřidel, propojení transakcí – **(v12.17)**; první splatnost šablon – **(v12.19)**; Sledovaná témata – **(v12.20)**
+- [x] Transakce účtenky rozdělená podle kategorií položek (staré i nové účtenky) – **(v12.35)**, ADR-265
+
+### TODO-374 · Editor naskenované účtenky – varianta B (vývoj dnešního editoru) · P1 · Milan (6. 11.)
+- **Cesta:** Analýza účtenek → sken / 🧾 Historie → ✎ účtenka.
+- Návrh v Design artefaktu „Editor účtenky – návrh“ (řádek B: B1 editor, B2 názvy, B3 platba; B4 = nový návrh 6. 11.). Milan: „spíše varianta B“, zachovat podstatu a funkce, obohatit (modré tagy celé účtenky, téma celé účtenky, „kam se účtenka zapíše“).
+- **Otázka Milana:** v tabulce položek ukázat slevu a částku po slevě – ale nepřeplnit. Návrh B4: sleva jen u zlevněné položky jako druhý řádek (původní cena přeškrtnutá, −sleva, zaplaceno).
+- **Hotovo, když:** Milan schválí návrh, pak stavba po částech s testy (žádná funkce dnešního editoru se neztratí).
+
+### TODO-375 · Zkratka z účtenky vs. vlastní název položky; vybledlá účtenka · P2 · čeká na Milana
+- Návrh B2: zkratka doslova (zamčená, páruje), název položky volně přepisovatelný (vazba zůstává), výrobek podle kódu. Prázdný název = zkratka.
+- Vybledlá účtenka: AI přečte zkratku špatně → nabídka „podobná známá položka“ (`eanKodPodobny`) a ruční oprava zkratky s pamětí opravy.
+
+### TODO-376 · Úpravy, které se dnes nepropisují · P2 · čeká na Milana
+- Datum transakce z účtenky změněné v transakci → zpět do účtenky (dnes jen účtenka → transakce).
+- Úprava jedné poloviny převodu (částka / datum) → druhá polovina.
+- Úprava rodiče ručně rozdělené platby (částka) → části.
+
+### TODO-377 · Pokračování auditu · P1 · příští session (Milan: „zbylý podrobný audit v další session“)
+- Inflace z účtenek – samotný výpočet (`_inflCollect`, `_inflCompute`: balení z názvu, medián, slevy, váhy, minimum položek) – vzorec, oficiální metodika, ověření na zkušebních datech.
+- Vozidla (mimo spotřebu), AI texty (podklady a ověřování čísel), Komunita (mimo bod 16).
+
+### TODO-378 · Čtyři „míry spoření“ (audit bod 15) · P3 · Milan to chce nejdřív pochopit
+- Report (příjmy − výdaje) ÷ příjmy · Skóre převody do spoření ÷ základ · AI rádce kladný zůstatek ÷ příjmy · Komunita (základ − výdaje) ÷ základ. Návrh: „Zbylo z příjmu“ vs. „Aktivně odloženo“.
+
+### TODO-379 · Repo (audit bod 24) · P2
+- `.github/workflows/database.rules.json` – stará kopie pravidel (liší se od skutečných), smazat se souhlasem.
+- `ai_memory/` (Obsidian, .specstory) ve veřejném repu – rozhodnout, zda přesunout.
+
+### TODO-380 · NutriDatabáze · P2
+- Plán v Projektu `claude/PLAN-NUTRIDATABAZE.md` – 4 otázky na Milana + e-mail ÚZEI (podmínky použití dat).
+
+### TODO-381 · Uvítání pro všechny uživatele · P3 · nápad Milana (6. 11.)
+- Staré uvítací okno smazáno (v12.38). Nové: jednorázové okno s verzí (`_settings.uvitaniVerze`) nebo oznámení všem. Navrhnout, až bude chtít.
+
+### TODO-382 · Doplnění chybějících zápisů ze šablon za minulé měsíce · P3 · nabídnuto u v12.27, čeká na rozhodnutí
+
+### TODO-383 · Export CSV a rozdělená účtenka · P3
+- Část nemá peněženku (drží ji rodič) – v exportu doplnit peněženku rodiče.
+
+
+---
+
+# Session 28 · dodatek (2026-11-07 až 2026-11-08) · v12.39 → v12.42 **(Session 28)**
+
+- [x] **TODO-374** Editor naskenované účtenky – varianta B – **(Session 28, v12.42)**. Karta položky bez posouvání, tři názvy, sleva u zlevněné položky, „Druh“, modré tagy a poznámka položky, ☑ Vybrat, Celý nákup (tagy, poznámka), Kam se účtenka zapíše. ADR-274.
+- [x] **TODO-375** (část) Zkratka z účtenky vs. vlastní název – **(v12.42)**: `it.name` zůstává doslova z účtenky (páruje), vlastní název `it.nazev` zvlášť, návrh AI `it.nazevAI`. **Zbývá:** vybledlá účtenka („podobná známá položka“, oprava zkratky s pamětí).
+- [x] **TODO-376** (část) – **(v12.40–v12.41)**: datum transakce = datum účtenky vždy (ADR-272); úprava rodiče ručně rozdělené platby → části (datum, typ, způsob platby, projekt, název, částka poměrem). **Zbývá:** úprava jedné poloviny převodu → druhá.
+- [x] Swipe v Transakcích, filtr ceny v Transakcích i v Historii účtenek, oddělovač měsíců v Historii, Není duplikát na mobilu, Revolut „Vám posílá“, ✎ Zapsat ručně do formuláře, cizí měna z Doručených a zpětné platby kurzem ČNB dne, rozdělenou platbu jde upravit – **(v12.39–v12.41)**, FIX-508 až FIX-516.
+
+### TODO-384 · Přesun do investic a zůstatek peněženky · P1 · Milan (8. 11.) – nejdřív probrat
+- **Cesta:** Transakce → + → Přesun → 📈 Do investic & spoření.
+- Milan 8. 11. ve 21:02: „peníze mi nezmizí, ale z mého účtu (peněženky) ano, tím pádem se bude rozcházet zůstatek ke dni“. Ve 21:44: „když dám Přesun → Investice, neodečte se mi částka z peněženky“ (screen: Penzijko 2× 200 Kč 8. 11.).
+- Zjištěno: přesun se ukládá jako jedna transakce v přesunové kategorii s `wallet` = „Z peněženky“ (`txAssetFrom`); zůstatek peněženky ho odečte (průběžný zůstatek na screenu klesá −6 466,60 → −6 666,60 → −6 866,60), do výdajů měsíce se nepočítá (záměr – peníze zůstávají tvoje). Když pole „Z peněženky“ zůstane prázdné, neodečte se nikde.
+- **Příště:** na jeho datech zjistit, kde vidí neodečtenou částku (Peněženky? Dashboard?), jestli peníze reálně odcházejí z bankovního účtu a jestli investice mají být vlastní peněženka. Neopravovat bez rozhovoru.
+
+### TODO-385 · Cashback – „Propojit s transakcí“ až po uložení · P2 · Milan (8. 11.)
+- Tlačítko se objeví až po uložení transakce, má být k dispozici už při zápisu.
+
+### TODO-386 · „Opakovaná platba“ u běžné transakce · P2 · Milan (8. 11.)
+- Dnes jen u Dluh / Splátka.
+
+### TODO-387 · Peněženka se zůstatkem „ke dni“ – starší platby se tiše neodečítají · P2 · nabídnuto (8. 11.), čeká na Milana
+- Eurová peněženka: zůstatek 0 € ke dni po 3. 10. → platba 3. 10. (Google Play −22,33 €) je „už v zůstatku“. Návrh: upozornění při uložení peněženky („N starších transakcí se nepromítne“) + šedý průběžný zůstatek „už v zůstatku ke dni“.
+
+### TODO-388 · Editor účtenky – co se do v12.42 nevešlo · P3
+- ⭐ Sledované téma pro celou účtenku najednou (dnes ⭐ u každé položky zvlášť).
+- Název „Druh“ i jinde, kde se mluví o zeleném tagu (Mapa položek, nápověda, Statistika položek).
+- Modré tagy položek v exportu CSV a v reportu.

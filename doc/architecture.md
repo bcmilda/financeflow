@@ -2031,3 +2031,63 @@ Modul `js/inbox.js` (za `sms-import.js`). Android appka: repo `financeflow-nativ
 | `fxPrevod(castka, z, na, rates)`, `fxPrevodHTML` (kurzy.js) | převodník; stav `localStorage` `ff_fxPrevod` |
 | `b.druh`, `b.rok`; `BDAY_DRUHY`, `bdayDruh`, `bdayVek`, `bdayVekPristi`, `_bdayLet` (charts.js) | druh a věk u narozenin |
 | Canvas bubliny | `setTransform(dpr,…)` (receipts.js `drawStoreTrendChart`, assets.js) |
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+## Nová pole v datech
+| Kde | Co |
+|---|---|
+| `sablona.rozpis` `[{od, kc}]`, `sablona.prvni` | rozpis záloh (ADR-253), první splatnost (ADR-255); `sablonaCastka(s, den)` (premium.js), `ffKotvaVyskyty(freq, prvni, od, do)` |
+| `meridlo.merZalAuto` 0/2/1, `zalohaDen`, `zalohaWallet`; `m.cenaKwh`, `m.koef` | záloha jako šablona (ne / připomínat / zapisovat), plyn: ceník v Kč/kWh a kWh v 1 m³ (`merKoef`, `MER_KWH_NA_M3 = 10.55`, `merPrepoctiKwh`) |
+| `t.propojeno` | propojení transakcí (ADR-254) |
+| `t.temata` / `temataNe`, `it.temata` / `temataNe`; `S.uiCfg.temata`, `temataPamet`, `temataPametTx` | Sledovaná témata (temata.js, ADR-256) – ručně ano / ne, AI paměť podle názvu položky a platby |
+| `t.receiptAddedAt` | pevná vazba na `receipt.addedAt` (ADR-264) |
+| `t.rcptSplit` (rodič), `t.rcptCast` (část), `it.ri` | rozdělení transakce účtenky (ADR-265); id části = `rodič.id + 'c' + _rcptHash(kat|pod)`, `splitId = 'rsplit_' + rodič.id` |
+| `it.nazevAI` | výklad zkratky z workeru (`fullName`), zobrazení šedě |
+| `debt.zbyvaKeDni {den, castka}`, `debt.poplatekSjednani`, `poplatekMesicni`, `pojisteniMesicni` | kotva Zbývá (ADR-261), náklady pro RPSN (ADR-268) |
+| `S.uiCfg.aiTip {den, text}` | AI tip 1× denně (ADR-269) |
+| `community/{měsíc}/users/{pid}.eq` | OECD ekvivalent domácnosti (1–10), worker → `aggregate.cats[c].avgJ / nJ` (ADR-270) |
+| `community/itemTagVotes/{položka}/{uid}` | jeden hlas na uživatele (ADR-260) |
+| `aiUsage/{uid}/{YYYY-MM}` | čítač AI mimo data uživatele, zapisuje jen worker (ADR-258) |
+
+## Nové / změněné funkce
+| Kde | Co |
+|---|---|
+| `ffDnes()`, `ffDatum(d)` (helpers.js) | místní dnešek 'YYYY-MM-DD' – jediný povolený zdroj „dneška“ |
+| `syncReceiptToTransactions(r, stare)`, `rcptOpravVazby(D)`, `rcptNajdiTx`, `rcptJeTxUctenky`, `openReceiptForTx` (receipts.js) | vazba účtenka ↔ transakce, úprava přes editor účtenky |
+| `rcptRozdelTx(D, p, index)`, `rcptRozdelVse(D)`, `rcptRodicTx`, `rcptCastiTx`, `rcptJeRozdelitelna` | rozdělení podle kategorií položek; volá `save()` (app.js) a `processAutoSablony` (premium.js) |
+| `dupZastupuje(t)` (duplicates.js) | v duplicitách zastupuje rozdělenou účtenku rodič, ne části |
+| `buildTxRow(t, D, ro, dupMap, samostatne)` (ui.js) | část účtenky bez rodiče ve filtru jako vlastní řádek; na telefonu karta části |
+| `debtSimuluj`, `debtPrepocitej(Vse)`, `debtZiveZbyva`, `debtZbyvaKDni`, `debtMesicniSplatka`, `debtNaklady`, `debtRPSN`, `calcRPSN(principal, schedule, naklady)` (debts.js) | Zbývá dopočtem, RPSN s náklady |
+| `computeBaseIncome(D, m, y)`, `catVahaPrijmu(cat)`, `catLimitVydaju(cat, zaklad)` (projects.js) | jeden základ a limit (ADR-262) |
+| `getHistAvg(..., opts)`, `predictCat(..., opts)` (helpers.js) | 12 dokončených měsíců, `opts.vynechat` (ADR-266) |
+| `mesReportData` (report-mesicni.js) | šablony přes `budouciGetOccurrences` + `sablonaCastka`; `fc.vNeMes`, `fc.pJine` |
+| `_pristiNeMes(s)` (pristi.js) | čtvrtletní / roční / jednorázová šablona mimo odhad běžných výdajů |
+| `csuPrumerRocni(body)` (worker), `S.cnbInflacePrumer`, `cnbInflaceRadaPrumer`, `cnbInflaceOddilyPrumer` | průměrná roční míra (ADR-267); `fetch(…/inflace, {cache:'no-cache'})`; worker `/inflace?obnovit=1` |
+| `_aiTipHTML`, `aiProactiveCheck`, `_aiProactiveZeptej` (ai.js) | AI tip; `#aiProactiveAlert` jen na stránce AI rádce |
+| `eanKodZPameti`, `_eanZkratkaSedi`, `eanKodPodobny` (ean-sken.js) | známé položky podle spojení obchod + zkratka a historie, zkratka ↔ rozepsaný název |
+| `mapaPrvniMesicUctenek`, `mapaOddilZTransakci` (receipts.js) | srovnání s ČSÚ v kartě výrobku (ADR-257) |
+
+## Smazáno (mrtvý kód, audit bod 23)
+`getCurInst` (helpers.js, debts.js), `maybeShowOnboarding(D)` + `obFillDefaults`, `obToggleFirstDay`, `obSetDebts`, `skipOnboarding`, `saveOnboarding` (ui.js) a `#modalOnboard` (app.html), `confirmDeleteAllData` (premium.js), `showToast` (duplicates.js). Platné kopie: onboarding.js, settings.js, nakup.js.
+
+## Testy
+- Celá sada: kopie `js/*.js`, `tools/*.js`, `*.html`, `sw.js`, `css`, `data`, workeru a pravidel do ploché složky, `node smoke_*.js` + `t/smoke.js`, pak `check_tdz.js`.
+- Každý nový test má negativní kontrolu (na předchozí verzi padá). Testy vyřezávají jednotlivé funkce (SKILL 36) → při nové závislosti doplnit `typeof` guard nebo funkci do výřezu.
+
+
+---
+
+# Session 28 · dodatek · v12.39 → v12.42 **(Session 28)**
+
+- **receipts.js:** `rcptUnikKlic`, `rcptSlotPro` (skrytá kopie v Historii), `openReceiptInHistory(…, naNenalezeno)`, `editReceiptFromHistory(index, klic, slotPrimo)`; Historie `histMesice`, `histOddelovacHTML`, `filterHistory` (cena, oddělovače, `histPocet`); `rcptOpravVazby` (datum vždy z účtenky + napojení rozpojených).
+  Nový editor (v12.42): `rpRender` = karta položky; obsluha `rpItemNazev`, `rpItemNazevAI`, `rpSlevaOtevri`, `rpItemSleva`, `rpItemPanel`, `rpItemTagPridej/Odeber`, `rpItemPozn`, výběr `rpVyberPrepni/Polozku/Vse/Pouzij` (`window._rpVyber` Set), panely `window._rpPanely`, celý nákup `rpNakupTag/TagOdeber/Pozn`, `rpKamSkupiny`, `rpKamHTML`, `rpNakupHTML`. Id polí `rp_name_`, `rp_cat_`, `rp_subcat_`, `rp_qty_`, `rp_price_`, `rp_bal_`, `rp_tag_` beze změny; nová `rp_nazev_`, `rp_disc_`, `rp_itag_`, `rp_ipozn_`, `rp_vyb_`, `rp_ntag`, `rp_npozn`, `rp_kam`, `rp_usetreno`, `rp_vyber_btn`.
+- **Data položky účtenky / `receiptItems`:** + `nazev`, `tagy` [], `poznamka`. **Transakce:** + `tagyNakup` [], `poznamkaNakup`.
+- **helpers.js:** `parseTxTags` (+ `tagyNakup`), `txTagyPolozek`, `txVsechnyTagy`, `txHledanyText`.
+- **ui.js:** swipe (zámek směru, `touch-action: pan-y`), `_txStitky` (modré + zelené), lišta rozdělené platby, `editTx(id, bezUctenky)`, filtr `txAmtMin/Max`.
+- **admin.js:** `splitSyncDeti`, `zrusitRozdeleni`, `openSplitModal` / `saveSplit` pro úpravu rozdělení, `getAllTags` (tagy položek).
+- **debts.js:** `_txKurz`, `_txNactiKurzDne`, `_fxRefBackfill(…, prepocitatKc)`, `_txPoUlozeni` / `window._inboxPoUlozeni`.
+- **inbox.js:** `inboxOdhad`, `inboxRucne` → formulář; `inboxPrijmout` s kurzem ČNB dne. **sms-import.js:** Revolut „Vám posílá“, „sent you“.

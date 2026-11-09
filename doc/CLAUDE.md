@@ -633,3 +633,52 @@ TODO-365 (vyzkoušet v11.90–v12.10 na skutečných datech) · TODO-363 (Google
 - **Canvas:** bublinu nad hotovým grafem kreslit se `setTransform(dpr,…)`, testovat i s `device_scale_factor=3` (SKILL 106).
 - **Mapa položek:** klíč karty může přesměrovat `S.uiCfg.spojeni` (ADR-249) – kdo seskupuje položky podle názvu, má použít `mapaSpojeniKam`.
 - **Report:** s obchody 5 stran (ADR-250); čísla stran brát z `rd._stran`, ne natvrdo.
+
+
+---
+
+# Session 28 (2026-10-26 až 2026-11-06) · v12.13 → v12.38 **(Session 28)**
+
+## Stav
+- **Verze v12.38**, **52 JS modulů**, 217 sad `tools/smoke_*` + `smoke.js` (vše prochází, i `check_tdz`). Celá sada se spouští v ploché složce (testy čtou soubory vedle sebe).
+- **Worker v12.38** (komunita na spotřební jednotku, `/inflace` s průměrnou roční mírou a `?obnovit=1`, název položky doslova + `fullName`, čítač AI v `aiUsage/{uid}`) – Milan nasadil.
+- **Pravidla DB v12.26** (zápis sdílených uzlů jen na úrovni položky, bez mazání; `itemTagVotes`; `aiUsage` zapisuje jen worker). Test pravidel `tools/test_pravidla_firebase.js` (117 případů, simulátor targaryen) – spustit před každým nasazením pravidel.
+- **DataStat ČSÚ:** vlastní výběr (`CSU_VYBER_URL`) má „Vždy zobrazit položky za posledních **24** období“ (meziroční index) → `/inflace` vrací `mesicuVeVyberu: 24`, `prumerMesicu: 13` (ověřil Milan 6. 11.).
+- **GitHub `dev`:** Milan nahrává sám přes GitHub Desktop z `/mnt/user-data/outputs/vX.YY/` (každá verze vlastní složka, jen změněné soubory, posílat jednotlivě – **žádné zipy**). Claude **nepushuje**. Kód v12.38 na GitHubu = lokální (ověřeno `git diff`), chyběly jen testy `smoke_dluh_jistina.js`, `smoke_dnes_mistni.js` a nový `smoke_inbox.js` (posláno s dokumentací).
+- `vyplatnice-import.json` a `doc/todo(6).md` jsou z GitHubu smazané (Milan).
+- Přehled: `doc/Summary_s28.md`. Plán: `doc/PLAN-SESSION-29.md`. Audit výpočtů: Projekt `claude/AUDIT-vypocty-S28.md` (stav oprav doplněn).
+
+## Co se změnilo v jádře
+- **Účtenka ↔ transakce:** pevná vazba `receiptAddedAt` = `receipt.addedAt`; `syncReceiptToTransactions(r, stare)` přenese datum, obchod, název, položky, částku a vrací počet (0 = editor varuje). `rcptOpravVazby` opraví už rozpojené dvojice. Transakce z účtenky se upravuje **jen v editoru účtenky** (`rcptJeTxUctenky`, `openReceiptForTx` – i ✎ na počítači).
+- **Rozdělení transakce účtenky podle kategorií položek** (`rcptRozdelTx`, `rcptRozdelVse`, ADR-265): rodič `splitParent + rcptSplit` (částka, peněženka, vazba, tankování), části `rcptCast` (kategorie + podkategorie + položky s `ri`), id částí `rodič.id + 'c' + hash(skupiny)`. Běží při každém `save()` a po spuštění, idempotentně; části bez rodiče se smažou. Ruční ✂️ rozdělení se nemění.
+- **Dnešní datum:** `ffDnes()` / `ffDatum()` v `helpers.js` – nikdy `new Date().toISOString().slice(0,10)` (hlídá `smoke_dnes_mistni.js`; přípustný jen záložní tvar `typeof ffDnes === 'function' ? ffDnes() : …`).
+- **Dluhy:** Zbývá se nedekrementuje, ale dopočítá z kotvy `zbyvaKeDni` a navázaných splátek (`debtPrepocitej(Vse)`, úrok měsíčně = zůstatek × sazba / 12). `debtMesicniSplatka`, `debtRPSN` (RPSN s poplatky podle smlouvy).
+- **Základ příjmu a limity:** `computeBaseIncome(D, mes, rok)` (bez vyrovnání, rodičů splitů a přesunů), `catVahaPrijmu`, `catLimitVydaju` – jeden limit pro celou appku.
+- **Predikce:** `getHistAvg` = posledních 12 **dokončených** měsíců, dělí se sledovanými měsíci od prvního výdaje v kategorii; `opts.vynechat` (Příští měsíc vynechá čtvrtletní / roční šablony).
+- **Šablony:** `s.prvni` (první splatnost, `ffKotvaVyskyty`), `s.rozpis` (rozpis záloh, `sablonaCastka(s, den)`), zápis v den splatnosti, `merZalAuto` 0/2/1.
+- **Měsíční report** používá `budouciGetOccurrences` + `sablonaCastka` jako Příští měsíc.
+
+## Pravidla pro práci (S28)
+- **Soubory posílat jednotlivě**, každá verze do `/mnt/user-data/outputs/vX.YY/`, nikdy zip (Milan).
+- **U každé změny uvést cestu v appce** (obrazovka → karta).
+- **Co v odpovědi slíbím, patří do seznamu úkolů** – bod 11 auditu jsem slíbil a vynechal (SKILL 113).
+- **Srovnávat jen stejné veličiny** (SKILL 108), **AI nesmí přepsat údaj, podle kterého se páruje** (SKILL 109), **stejné id / stejné jméno funkce = tichá kolize** (SKILL 110).
+- **Odvozená data s deterministickým id a idempotentním přepočtem** (SKILL 111), **odpověď s Cache-Control drží prohlížeč** (SKILL 112).
+- Milan je neprogramátor: chyby říkat přímo, vlastní chyby přiznat i zpětně (inflace v S23 byla moje).
+
+## Nasazuje se zvlášť
+- Worker v12.38 (nasazeno). Pravidla v12.26 (nasazeno). Nic dalšího nečeká.
+
+## Otevřené P1
+TODO-374 (editor účtenky – varianta B, návrh čeká na Milana) · TODO-377 (pokračování auditu: inflace z účtenek, Vozidla, AI texty, Komunita) · TODO-375 (zkratka vs. název položky, vybledlá účtenka).
+
+
+---
+
+## Session 28 · dodatek v12.39–v12.42 (2026-11-07 až 2026-11-08) **(Session 28)**
+- **Verze v12.42**, 52 JS modulů, 222 sad `tools/smoke_*` (vše prochází, i `check_tdz`). Worker ani pravidla DB se neměnily (worker v12.38, pravidla v12.26).
+- **Nový editor účtenky** (ADR-274): `it.name` = doslova z účtenky (páruje se podle něj, nepřepisovat AI ani zobrazovaným názvem), vlastní název `it.nazev`, návrh AI `it.nazevAI`; modré tagy `it.tagy` / `tagyNakup`, poznámky `it.poznamka` / `poznamkaNakup`. Tagy transakce číst přes `parseTxTags` / `txVsechnyTagy`, hledání přes `txHledanyText`.
+- **Datum účtenky je pravda** (ADR-272), **cizí měna kurzem ČNB dne** i z Doručených (ADR-273).
+- **Rozdělená platba:** úprava rodiče jde do částí (`splitSyncDeti`), úprava rozdělení `openSplitModal` nad existujícími částmi.
+- Před změnou „neodečítá se / nepočítá se“ nejdřív nasimulovat uživatelova data (SKILL 119).
+- Plán další session: `doc/PLAN-SESSION-29.md` (sekce 5–6).
