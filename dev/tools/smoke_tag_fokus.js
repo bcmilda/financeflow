@@ -43,8 +43,9 @@ c.event={type:'click'}; c.rpRender(); c.event=undefined; t('klepnutí na tlačí
 posl.focusout({target:{closest:()=>null}}); tik(); t('fokus mimo editor bez čekajícího kreslení nic nedělá',K()===4);
 
 console.log('── pole tagu ──');
-const tag=rc.slice(rc.indexOf('<input id="rp_tag_${i}"'),rc.indexOf("onblur=\"if(!this.value)this.placeholder='🏷️ tag'\""));
-t('pole tagu větší (118 px, písmo .84rem)',/width:118px/.test(tag)&&/font-size:\.84rem/.test(tag));
+//  v12.42 (nový editor): pole „Druh“ (dřív zelený tag) přes celou šířku karty, písmo .86rem
+const tag=rc.slice(rc.indexOf('<input id="rp_tag_${i}"'),rc.indexOf('list="rp_tag_suggestions"',rc.indexOf('<input id="rp_tag_${i}"')));
+t('pole Druh přes šířku karty (flex:1), písmo .86rem',/flex:1;min-width:0;width:100%/.test(rc.slice(rc.indexOf('<input id="rp_tag_${i}"'),rc.indexOf('<input id="rp_tag_${i}"')+400))&&/font-size:\.86rem/.test(rc.slice(rc.indexOf('<input id="rp_tag_${i}"'),rc.indexOf('<input id="rp_tag_${i}"')+500)));
 t('tag escapovaný',/value="\$\{escHtml\(it\.tag\|\|''\)\}"/.test(tag));
-t('řádek editoru o rozšíření tagu širší',/min-width:726px/.test(rc));
+t('editor bez posouvání do stran (karta položky)',!/min-width:726px/.test(rc));
 console.log(`\n${ok} ✅  ${bad} ❌`); process.exit(bad?1:0);

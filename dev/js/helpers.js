@@ -1,4 +1,4 @@
-// FinanceFlow · v12.37 · helpers.js · 2026-11-06
+// FinanceFlow · v12.42 · helpers.js · 2026-11-08
 //  HELPERS
 // ══════════════════════════════════════════════════════
 const fmt=n=>new Intl.NumberFormat('cs-CZ',{maximumFractionDigits:0}).format(n||0);
@@ -208,13 +208,33 @@ const expSum=(txs,data)=>txs.filter(t=>t.type==='expense'&&!t.isBalancing&&!t.sp
 
 // ── parseTxTags: bezpečně převede t.tags na array (string nebo array vstup)
 // addReceiptAsTx ukládá tags jako STRING ("sladkost nákup"), editace transakce jako ARRAY
+//  v12.42 (TODO-374): + modré tagy CELÉHO nákupu z editoru účtenky (t.tagyNakup). Účtenková transakce
+//  má v t.tags zelené druhy z položek (text) – modré tagy proto žijí vedle nich, ne místo nich.
 function parseTxTags(t) {
-  if (!t || !t.tags) return [];
-  if (Array.isArray(t.tags)) return t.tags;
-  if (typeof t.tags === 'string') return t.tags.split(/[\s,]+/).filter(Boolean);
-  return [];
+  if (!t) return [];
+  let out = [];
+  if (Array.isArray(t.tags)) out = t.tags.slice();
+  else if (typeof t.tags === 'string' && t.tags) out = t.tags.split(/[\s,]+/).filter(Boolean);
+  if (Array.isArray(t.tagyNakup) && t.tagyNakup.length) out = [...new Set([...out, ...t.tagyNakup])];
+  return out;
 }
 window.parseTxTags = parseTxTags;
+//  v12.42: modré tagy položek účtenky (it.tagy) – zvlášť, protože se v Tagy počítají jen částkou položky
+function txTagyPolozek(t) {
+  const out = new Set();
+  (t && Array.isArray(t.receiptItems) ? t.receiptItems : []).forEach(it => (it && Array.isArray(it.tagy) ? it.tagy : []).forEach(g => g && out.add(g)));
+  return [...out];
+}
+//  Všechny tagy transakce pro hledání a filtr: zelené druhy, ruční / celého nákupu i tagy položek
+function txVsechnyTagy(t) { return [...new Set([...parseTxTags(t), ...txTagyPolozek(t)])]; }
+//  Text, ve kterém hledá pole „🔍 Název / poznámka“: název, poznámka, poznámka nákupu, názvy a poznámky položek
+function txHledanyText(t) {
+  if (!t) return '';
+  const pol = Array.isArray(t.receiptItems) ? t.receiptItems : [];
+  return [t.name, t.note, t.poznamkaNakup, ...pol.map(it => it && [it.name, it.nazev, it.poznamka].filter(Boolean).join(' '))]
+    .filter(Boolean).join(' \n ').toLowerCase();
+}
+Object.assign(window, { txTagyPolozek, txVsechnyTagy, txHledanyText });
 
 // TODO-212 (S19, v9.81): PŘESUNY se do výdajů kategorie NEPOČÍTAJÍ – peníze neodešly,
 //   jen se přesunuly. Dřív je getActual() zahrnovala, takže součet řádků po kategoriích

@@ -70,6 +70,6 @@ console.log('── načtení názvů: jednou, bez smyčky ──');
   rr.items[1].name='Můj název'; cil.hotovo('222',PROD['222']);
   t('ručně napsaný název se nepřepíše',rr.items[1].name==='Můj název');
   t('tlačítko „📷 Přidat skenem“ jen u ruční účtenky',/\$\{r\.rucne \? `<button class="btn btn-ghost btn-sm" onclick="rpPridatSkenem\(\)"/.test(rc));
-  t('editor kreslí řádek pod názvem a dočítá názvy',/\$\{rpKodRadekHTML\(it, i\)\}/.test(rc)&&/rpKodNazvyNacti\(r\);/.test(rc));
+  t('editor kreslí řádek pod názvem a dočítá názvy',/const kodRadek = \(!it\.ean && it\.nazevAI && !_rpDruhKlic\(it\)\) \? '' : rpKodRadekHTML\(it, i\);/.test(rc)&&/\$\{kodRadek\}/.test(rc)&&/rpKodNazvyNacti\(r\);/.test(rc));   // v12.42: výklad AI je v poli Název
   console.log(`\n${ok} ✅  ${bad} ❌`); process.exit(bad?1:0);
 })();

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.38 · admin.js · 2026-11-06
+// FinanceFlow · v12.42 · admin.js · 2026-11-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,51 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.42',
+    datum: '2026-11-08',
+    zmeny: [
+      "🧾 NOVÝ EDITOR ÚČTENKY (TODO-374, varianta B – vývoj dnešního editoru, návrh C1–C4) · cesta: Analýza účtenek → 📋 Historie → ✎ (i po skenu a z Transakce → klepnutí na účtenku). Položka je teď karta pod sebou, bez posouvání do stran. Tři názvy: Název (návrh AI, nebo tvůj – „upraveno tebou“, „vrátit návrh AI“), 🧾 z účtenky (text řádku doslova – podle něj appka pozná výrobek příště, opravuje se jen překlep) a ▮▮ karta výrobku z kódu.",
+      "🏷️ SLEVA U POLOŽKY · cesta: editor účtenky → položka. Jen u zlevněné položky: vpravo zaplacená částka, pod ní přeškrtnutá původní cena, zelený pruh „Sleva −X Kč · zaplaceno“ (jde upravit). U ostatních malé „+ sleva“. Nahoře pod Celkem „ušetřeno na slevách“, u skupiny „−X“.",
+      "🌿 ZELENÝ TAG = „DRUH“ (Milan potvrdil) · cesta: editor účtenky → položka → pole Druh. Nápověda: druh zboží obecně (Čokoláda, Pečivo) – podle něj se porovnávají ceny a počítá inflace. Modrý #tag je jen tvoje třídění.",
+      "# MODRÉ TAGY A POZNÁMKA K POLOŽCE · cesta: editor účtenky → položka → #. ☑ Vybrat označí víc položek a přidá jim jeden tag nebo poznámku najednou. Dole „Celý nákup“: modré tagy a poznámka k celé účtence, „Kam se účtenka zapíše“ (rozdělení podle kategorií, tagy, ušetřeno).",
+      "📊 TAGY ČÁSTKOU POLOŽKY (Milan: „jen částkou té položky, ne celá účtenka“) · cesta: Statistiky → Tagy. Tag položky = jen ceny položek s tímto tagem; tag celého nákupu = celá účtenka. Transakce → Filtr: tag i 🔍 hledání vidí tagy, názvy a poznámky položek i poznámku nákupu; řádek ukazuje modré i zelené štítky a 📝 poznámku nákupu.",
+      "🧪 tools/smoke_editor_uctenky_b.js (34) – na v12.41 padá; 5 starších testů upraveno na nové rozložení (gramaz, karta_vyrobku, kod_nazev, tag_fokus, vratky). Chromium 390 px: Penny 5 položek – přejmenování, sleva 5 Kč u Tatranek (263,10), #mamka u 3 položek (Tagy 189,70), #oslava celého nákupu (263,10), poznámka najde hledání; bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.41',
+    datum: '2026-11-08',
+    zmeny: [
+      "✂️ ROZDĚLENOU PLATBU JDE UPRAVIT (Milan: „rozdělenou transakci nemohu editovat! To je chyba.“) · cesta: Transakce → klepnout na rozdělenou platbu (✂️ 2× ▾). Na telefonu klepnutí jen rozbalilo části a ty šly jen smazat (✕). Teď nad částmi lišta: ✎ Upravit platbu (formulář – datum, částka, peněženka, tagy…), ✂️ Upravit rozdělení (kategorie, podkategorie a částky částí; otevře se s dosavadními částmi), ↩ Zrušit rozdělení. Klepnutí na část otevře Upravit rozdělení, ✕ dál maže jen tu část. Ve formuláři je u rozdělené platby tlačítko „✂️ Upravit rozdělení“.",
+      "🔗 ČÁSTI JDOU S PLATBOU · cesta: Transakce → rozdělená platba → ✎ Upravit platbu. Změna data, typu, způsobu platby, projektu a názvu se propíše do částí; změněná částka se rozpočítá poměrem (haléřový zbytek na největší část). Dřív zůstaly části se starým datem (v jiném měsíci) a součtem, který neseděl. Rozdělené účtenky se dál mění v editoru účtenky (📷 Upravit účtenku v liště).",
+      "🧪 tools/smoke_v1241.js (12) – na v12.40 padá. Chromium 390 px: lišta 3 tlačítek, klepnutí na část otevře úpravu s 496 / 49 (Restaurace / Pivo), změna na 445 / 100 nahradí části, ✎ datum 4. 10. a 600 Kč → části 489,91 + 110,09 ze 4. 10., zrušení nechá jednu platbu; bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.40',
+    datum: '2026-11-08',
+    zmeny: [
+      "💱 DORUČENÉ – CIZÍ MĚNA KURZEM ČNB (Milan: „proč se platba z Doručených přepočítává pevným kurzem, když máme kurzy od ČNB? Mám peněženku v eurech“) · cesta: Import z banky → 📥 Doručené → ✅ Přidat do Transakcí. Dřív 20 € = pevně 500 Kč a uložilo se jako korunová platba i do eurové peněženky. Teď jako ve formuláři: částka zůstává v měně platby (20 EUR) a Kč se spočtou kurzem ČNB ke dni platby (když lístek nejde stáhnout, aktuálním kurzem z appky). Přesun mezi peněženkami zůstává v Kč.",
+      "📅 ZPĚTNĚ ZADANÁ PLATBA V CIZÍ MĚNĚ (Milan: „přepočítá se kurzem toho data, nebo dnešního?“) · cesta: Transakce → + → peněženka/měna EUR → Datum v minulosti → pole „Skutečně v Kč“. Dřív dnešním kurzem (kurz dne se ukládal jen jako referenční údaj). Teď se po změně data stáhne kurzovní lístek ČNB toho dne, pole se jím předvyplní a nápověda řekne „kurzem ČNB ze dne 29.09.2026“. Když lístek do uložení nedorazí, Kč se přepočtou po uložení. Ručně přepsané Kč podle výpisu zůstávají.",
+      "🧾 DATUM ÚČTENKY JE PRAVDA (Milan: účtenka z 29. 9. 2026, transakce v Transakcích 2. 10.) · cesta: Transakce / Analýza účtenek → Historie. Transakce účtenky má vždy datum účtenky – dřív se srovnalo, jen když transakce měla pořád staré datum účtenky, takže jednou rozjeté datum už zůstalo. Transakce, jejíž účtenka chybí (vazba vede na neuloženou účtenku), se po spuštění znovu napojí na účtenku stejného obchodu se stejnou částkou do ±7 dní, ke které žádná transakce nepatří – jen když je jediná; dostane její datum a položky.",
+      "📋 HISTORIE ÚČTENEK – FILTR CENY A ODDĚLOVAČ MĚSÍCŮ · cesta: Analýza účtenek → 📋 Historie. Pole 💰 od Kč / 💰 do Kč a počet „2 z 63 účtenek“. Při řazení podle data žlutá čára s názvem měsíce, počtem a součtem viditelných účtenek („Září 2026 ── 2 účtenky · 449,70 Kč“).",
+      "🧪 tools/smoke_v1240.js (29) – na v12.39 padá. smoke_txcur a smoke_uctenka_vazba upravené na nový kód (kurz ke dni, datum účtenky vždy). Chromium 390 px: transakce 2. 10. se napojila na účtenku 29. 9.; Historie 3 oddělovače, filtr 200–300 Kč = 2 z 5; 20 € zpětně 29. 9. = 488,40 Kč kurzem toho dne; bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.39',
+    datum: '2026-11-07',
+    zmeny: [
+      "👆 SWIPE V TRANSAKCÍCH (Milan: „při swipu se pohne obrazovka a pohyb je se zpožděním“) · cesta: Transakce → karta naskenované účtenky → potáhnout doleva (✎ Upravit). Směr tahu se rozhodne jednou po prvních 8 px: svisle = jen posun stránky, do strany = jen karta a stránka stojí. Dřív se o směru rozhodovalo u každého pohybu prstu znovu a stránka se při tahu do strany posouvala s ním. Karta jde s prstem po snímcích (bez zpoždění), otevřená se zavře tahem doprava.",
+      "📷 UPRAVIT TRANSAKCI Z ÚČTENKY, KTERÁ V HISTORII CHYBÍ (Milan: transakce 2. 10. za 196,30 Kč – „nebyla nalezena v historii“) · cesta: Transakce → ✎ / klepnutí na platbu → Analýza účtenek → Historie. Historie ukazuje dvojité kopie účtenky (stejný obchod, den, částka, počet položek) jen jednou; transakce patřila ke skryté kopii, a tak se editor neotevřel. Teď se skrytá kopie otevře v řádku viditelné, na pomalém telefonu se na Historii počká a když tam účtenka opravdu není, otevře se formulář transakce (dřív nešla upravit vůbec).",
+      "💰 FILTR CENY · cesta: Transakce → ⚙️ Filtr → 💰 Částka od / 💰 Částka do. Bere částku, jak je vidět v seznamu (bez znaménka, v měně transakce). Aktivní filtr je vidět jako štítek „💰 100 – 500“ s ✕; ✕ Vymazat ho zruší.",
+      "🧾 PODEZŘELÉ – POLOŽKA ÚČTENKY (Milan: „proč se mi zobrazují možné duplicity, na pohled jiný obchod, datum i cena“) · cesta: Transakce → ⚠️ Podezřelé → 🔎 Všechny měsíce. Stačila shoda ceny s jednou položkou cizí účtenky („Jabka Dobra 30 Kč“ = „Piz.Marg.300gSF 30 Kč“ z Penny). Teď musí sedět i název (položky nebo obchodu), nebo jde o transakci bez vlastního názvu ve stejné kategorii za aspoň 100 Kč (případ benzínky, kvůli kterému pravidlo vzniklo).",
+      "⚠️ NENÍ DUPLIKÁT NA MOBILU (Milan: „nechybí tam rámeček Není duplikát?“) · cesta: Transakce (telefon) → podezřelá transakce. Mobilní karta neukazovala štítek 🟡 Možný duplikát ani tlačítka 🗑 Smazat duplikát / ✅ Zachovat tento / 👍 Není duplikát – banner sliboval „označené ⚠️“, ale nic označeno nebylo. Banner píše správně „1 podezřelý pár / 2 podezřelé páry / 5 podezřelých párů“.",
+      "📲 REVOLUT – PŘÍCHOZÍ PLATBA (Milan: „notifikace pro Revolut mi nedovoluje zapsat transakci“) · cesta: Import z banky → 📥 Doručené. „DAVID SIMOTA Vám posílá 20 €“ se rozpozná jako příjem 20 EUR (i „vám poslala €12,50“, anglicky „sent you €15“). ✎ Zapsat ručně u nerozpoznané notifikace dřív text jen vložil do pole „Vložit notifikaci“ (kde ho stejný parser zase nepoznal) a notifikaci zahodil; teď otevře formulář nové transakce předvyplněný z notifikace a notifikace zmizí z Doručených až po uložení.",
+      "🧪 tools/smoke_v1239.js (33) – na v12.38 padá. Chromium 390 px (dotyk): tah do strany posune kartu, stránka se nehne (scrollY 0); filtr 100–500 Kč; skrytá kopie účtenky se otevře v editoru; Zapsat ručně otevře formulář; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.38',
     datum: '2026-11-06',
@@ -9995,23 +10040,27 @@ function parseTags(input) {
 function getAllTags(D) {
   const D2 = D || getData();
   const tagMap = {};
+  const kcPol = it => Math.abs((it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1)));
   (D2.transactions||[]).forEach(t => {
     const castka = (typeof txCZK==='function') ? Math.abs(txCZK(t, D2))
                                               : Math.abs(t.amount||t.amt||0);
     const polozky = Array.isArray(t.receiptItems) ? t.receiptItems : [];
-    const soucetPolozek = polozky.reduce((a,it)=>a + Math.abs(
-      (it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1))), 0);
+    const soucetPolozek = polozky.reduce((a,it)=>a + kcPol(it), 0);
+    //  v12.42 (Milan: modrý tag položky se počítá „jen částkou té položky, ne celá účtenka“): kromě
+    //  zeleného druhu (it.tag) nese položka i modré tagy (it.tagy). Tag ruční / celého nákupu
+    //  (pole t.tags, t.tagyNakup) se vztahuje na celou transakci → plná částka.
+    const celeTx = new Set([...(Array.isArray(t.tags) ? t.tags : []), ...(Array.isArray(t.tagyNakup) ? t.tagyNakup : [])]);
+    const vsechny = [...new Set([...parseTxTags(t), ...(typeof txTagyPolozek === 'function' ? txTagyPolozek(t) : [])])];
 
-    parseTxTags(t).forEach(tag => {
+    vsechny.forEach(tag => {
       if(!tagMap[tag]) tagMap[tag] = {name:tag, count:0, total:0, txs:[]};
       tagMap[tag].count++;
 
       let castkaTagu = castka;
-      if(polozky.length && soucetPolozek > 0){
-        const sTagem = polozky.filter(it => it && it.tag === tag);
+      if(!celeTx.has(tag) && polozky.length && soucetPolozek > 0){
+        const sTagem = polozky.filter(it => it && (it.tag === tag || (Array.isArray(it.tagy) && it.tagy.includes(tag))));
         if(sTagem.length){
-          const cast = sTagem.reduce((a,it)=>a + Math.abs(
-            (it.lineTotal != null) ? it.lineTotal : ((it.price||0)*(it.qty||1))), 0);
+          const cast = sTagem.reduce((a,it)=>a + kcPol(it), 0);
           //  Podíl z celku – drží to i při zaokrouhlení a cizí měně.
           castkaTagu = castka * (cast / soucetPolozek);
         }
@@ -10183,7 +10232,7 @@ function clearTxFilters() {
   ['txCatFilter','txSubFilter','txProjectFilter','txWalletFilter','txPayTypeFilter','txCurFilter'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  ['txTagFilter','txSearchFilter'].forEach(id => {
+  ['txTagFilter','txSearchFilter','txAmtMin','txAmtMax'].forEach(id => {   // v12.39: i filtr ceny
     const el = document.getElementById(id); if(el) el.value = '';
   });
   //  S27 (v11.86): „Vymazat“ ruší i „Hledat ve všech měsících“ (dřív zůstalo zaškrtnuté)
@@ -10241,6 +10290,8 @@ function openSplitModal(txId) {
   const D = getData();
   const tx = (D.transactions||[]).find(t=>t.id==txId);
   if(!tx) return;
+  //  v12.41: účtenka se dělí podle kategorií položek – mění se v editoru účtenky
+  if(tx.rcptSplit) { if(typeof openReceiptForTx === 'function') openReceiptForTx(txId); return; }
   _splitTxId = txId;
   _splitTotal = Math.round((tx.amount||tx.amt||0)*100)/100;
 
@@ -10262,6 +10313,16 @@ function openSplitModal(txId) {
   //  dostane kategorii I podkategorii rozdělované platby (dřív se nevybrala – ukázala se první v seznamu,
   //  „Nákupy potravin“ u Dárků), druhý stejnou kategorii; u každé části výběr podkategorie.
   _splitParentSub = tx.subcat || '';
+  //  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): už rozdělená platba se otevře s DOSAVADNÍMI
+  //  částmi (kategorie, podkategorie, částky) a uložení je nahradí – dřív šlo rozdělení jen smazat po částech.
+  const _deti = tx.splitParent && tx.splitId ? (D.transactions||[]).filter(t => t.splitId === tx.splitId && !t.splitParent) : [];
+  const _h3 = document.querySelector('#modalSplit h3'), _btn = document.querySelector('#modalSplit .modal-foot .btn-accent');
+  if (_h3) _h3.textContent = _deti.length ? '✂️ Upravit rozdělení' : '✂️ Rozdělit transakci';
+  if (_btn) _btn.textContent = _deti.length ? '✂️ Uložit rozdělení' : '✂️ Rozdělit';
+  if (_deti.length >= 2) {
+    document.getElementById('splitItemsList').innerHTML = _deti.map((ch, i) =>
+      buildSplitRow(i, ch.catId || ch.category || '', Math.round((ch.amount || ch.amt || 0) * 100) / 100, catOptions, i >= 2, ch.subcat || '')).join('');
+  } else
   document.getElementById('splitItemsList').innerHTML = `
     ${buildSplitRow(0, tx.catId||tx.category||'', half, catOptions, false, tx.subcat||'')}
     ${buildSplitRow(1, tx.catId||tx.category||'', rest, catOptions, false, '')}`;
@@ -10416,7 +10477,9 @@ function saveSplit() {
     return;
   }
 
-  const splitId = 'split_' + Date.now();
+  //  v12.41: úprava existujícího rozdělení – staré části pryč, splitId zůstává
+  const splitId = (tx.splitParent && tx.splitId) ? tx.splitId : 'split_' + Date.now();
+  if (tx.splitParent && tx.splitId) S.transactions = S.transactions.filter(t => !(t.splitId === splitId && !t.splitParent));
   tx.splitId = splitId;
   tx.splitParent = true;
 
@@ -10469,6 +10532,45 @@ function deleteSplitChild(childId) {
   }
   save(); renderPage();
 }
+
+//  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): zrušit rozdělení = části pryč, platba zase jedna
+function zrusitRozdeleni(splitId) {
+  if (viewingUid) return;
+  const p = S.transactions.find(t => t.splitId === splitId && t.splitParent); if (!p) return;
+  if (p.rcptSplit) { if (typeof openReceiptForTx === 'function') openReceiptForTx(p.id); return; }
+  if (!confirm('Zrušit rozdělení?\n\nČásti se smažou a platba ' + fmtP(p.amount || p.amt || 0) + ' Kč zůstane jako jedna v kategorii „' + (getCat(p.catId || p.category, S.categories).name || '') + '“.')) return;
+  S.transactions = S.transactions.filter(t => !(t.splitId === splitId && !t.splitParent));
+  delete p.splitId; delete p.splitParent;
+  save(); renderPage();
+  if (typeof showToast === 'function') showToast('↩ Rozdělení zrušeno');
+}
+//  v12.41: po úpravě rozdělené platby ve formuláři (✎) jdou části s ní – datum, typ, způsob platby, projekt
+//  a název; změněná částka se rozpočítá poměrem (haléřový zbytek na největší část). Dřív zůstaly části
+//  se starým datem i částkou – v jiném měsíci a se součtem, který nesedí.
+function splitSyncDeti(p) {
+  if (!p || !p.splitParent || !p.splitId || p.rcptSplit) return 0;
+  const deti = S.transactions.filter(t => t.splitId === p.splitId && !t.splitParent);
+  if (!deti.length) return 0;
+  const cil = Math.round((parseFloat(p.amount || p.amt) || 0) * 100);
+  const suma = deti.reduce((a, t) => a + Math.round((parseFloat(t.amount || t.amt) || 0) * 100), 0);
+  if (cil > 0 && suma > 0 && cil !== suma) {
+    let zbyva = cil, nejv = deti[0];
+    deti.forEach(t => {
+      const h = Math.floor(Math.round((parseFloat(t.amount || t.amt) || 0) * 100) * cil / suma);
+      t.amount = t.amt = h / 100; zbyva -= h;
+      if ((t.amount || 0) > (nejv.amount || 0)) nejv = t;
+    });
+    nejv.amount = nejv.amt = Math.round((nejv.amount * 100 + zbyva)) / 100;
+  }
+  deti.forEach(t => {
+    t.date = p.date; t.type = p.type;
+    if (p.payType) t.payType = p.payType; else delete t.payType;
+    if (p.projectId) t.projectId = p.projectId; else delete t.projectId;
+    if (p.name) t.name = p.name;
+  });
+  return deti.length;
+}
+Object.assign(window, { zrusitRozdeleni, splitSyncDeti });
 
 // Filtruj split children ze součtů (počítáme jen parenty)
 function getTxForSummary(txs) {

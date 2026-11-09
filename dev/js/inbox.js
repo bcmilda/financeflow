@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · inbox.js · 2026-11-06
+// FinanceFlow · v12.40 · inbox.js · 2026-11-08
 // ══════════════════════════════════════════════════════
 //  S27 (Milan): 📲 FINANCEFLOW INBOX – NOTIFIKACE Z BANKY Z TELEFONU
 //  cesta: Import z banky (BETA) → 📲 Telefon
@@ -229,8 +229,19 @@ async function inboxPrijmout(id) {
   const wallet = document.getElementById('ib_wal_' + id)?.value || '';
   const _payEl = document.getElementById('ib_pay_' + id);   // S28 (v12.15): typ platby
   const payType = _payEl ? (_payEl.value || '') : inboxTypPlatby(x, p);
-  let amt = p.amount;
-  if (p.currency === 'EUR') amt = Math.round(amt * 25); else if (p.currency === 'USD') amt = Math.round(amt * 23); else if (p.currency === 'GBP') amt = Math.round(amt * 29);
+  //  v12.40 (Milan: „proč se platba z Doručených přepočítává pevným kurzem, když máme kurzy od ČNB? Mám
+  //  peněženku v eurech, takže se částka nebude převádět“): dřív 20 € → 500 Kč (pevně 25 Kč/€) a uložilo se
+  //  jako korunová platba – i do eurové peněženky. Teď jako ve formuláři transakce: částka zůstává v měně
+  //  platby (amount 20, currency EUR) a Kč (amtCZK) se spočtou kurzem ČNB ke dni platby (fxRatesForDate);
+  //  když lístek nejde stáhnout, dnešním kurzem z appky. Eurová peněženka tak dostane 20 €, korunová
+  //  20 € s přepočtem na Kč. Přesun mezi peněženkami zůstává v Kč (jako ruční Přesun).
+  let amt = p.amount, cur = (p.currency && p.currency !== 'CZK') ? p.currency : null, amtCZK = null, fxRef = null, fxRefDate = null;
+  if (cur) {
+    let h = null; try { h = typeof fxRatesForDate === 'function' ? await fxRatesForDate(p.date) : null; } catch (e) {}
+    const zListku = h && h.rates && h.rates[cur];
+    const r = zListku || (typeof _FX_RATES !== 'undefined' && _FX_RATES[cur]) || null;
+    if (r) { amtCZK = Math.round(amt * r * 100) / 100; if (zListku) { fxRef = zListku; fxRefDate = h.date || null; } }
+  }
   const novyId = () => (typeof genTxId === 'function') ? genTxId() : (typeof uid === 'function' ? uid() : String(Date.now() * 16 + Math.floor(Math.random() * 16)));
   const zN = { id, bank: p.bank, postedAt: x.postedAt || 0 };
   const note = `📲 z notifikace ${p.bank}${p.currency !== 'CZK' ? ` (${p.amount} ${p.currency})` : ''}`;
@@ -244,13 +255,15 @@ async function inboxPrijmout(id) {
     if (druha === wallet) { alert('Přesun musí jít mezi dvěma různými peněženkami.'); return; }
     const [z, na] = p.type === 'income' ? [druha, wallet] : [wallet, druha];
     const transferId = typeof uid === 'function' ? uid() : String(Date.now());
-    const out = { id: novyId(), name, amount: amt, amt, type: 'expense', date: p.date, wallet: z, note, transferId, category: 'transfer', catId: 'transfer', zNotifikace: zN };
-    const inn = { id: novyId(), name, amount: amt, amt, type: 'income', date: p.date, wallet: na, note, transferId, category: 'transfer', catId: 'transfer' };
+    const kc = amtCZK != null ? amtCZK : amt;
+    const out = { id: novyId(), name, amount: kc, amt: kc, type: 'expense', date: p.date, wallet: z, note, transferId, category: 'transfer', catId: 'transfer', zNotifikace: zN };
+    const inn = { id: novyId(), name, amount: kc, amt: kc, type: 'income', date: p.date, wallet: na, note, transferId, category: 'transfer', catId: 'transfer' };
     if (inn.id === out.id) inn.id = out.id + '1';
     if (payType) { out.payType = payType; inn.payType = payType; }
     S.transactions.push(out, inn); txId = out.id;
   } else {
     const tx = { id: novyId(), type: p.type, name, amount: amt, amt, catId, category: catId, date: p.date, note, zNotifikace: zN };
+    if (cur) { tx.currency = cur; if (amtCZK != null) tx.amtCZK = amtCZK; if (fxRef) { tx.fxRef = fxRef; tx.fxRefDate = fxRefDate; } }
     if (wallet) tx.wallet = wallet;
     if (payType) tx.payType = payType;
     S.transactions.push(tx); txId = tx.id;
@@ -424,11 +437,39 @@ function inboxRender() {
     <div style="font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:4px 0 8px">📥 Doručené (${cekaji.length})</div>
     ${cekaji.length ? cekaji.map(karta).join('') : `<div style="font-size:.78rem;color:#8b93ad;margin-bottom:12px">${zar.length ? 'Zatím nic nového z telefonu.' : 'Propoj telefon – v appce FinanceFlow Inbox klepni na „Propojit s FinanceFlow“ a kód opiš sem.'}</div>`}`;
 }
-//  Nerozpoznaný text → do ručního pole importu (stávající ruční parser) a zahodit z Doručených.
+//  v12.39 (Milan: „notifikace pro Revolut mi nedovoluje zapsat transakci“): ✎ Zapsat ručně dřív text jen
+//  vložil do pole „Vložit notifikaci z banky“ a notifikaci ZAHODIL – tam ho ale rozpoznával stejný parser,
+//  který ho už nepoznal, takže nešlo nic zapsat a notifikace byla pryč. Teď se otevře formulář nové
+//  transakce předvyplněný z notifikace (typ, částka, měna, datum, název, poznámka s textem) a notifikace
+//  se označí jako vyřízená až po uložení. Zavřený formulář ji nechá v Doručených.
+function inboxOdhad(x) {
+  const t = String((x && (x.text || x.title)) || '').replace(/\s+/g, ' ').trim(), cele = inboxText(x || {});
+  const mena = c => ({ '€': 'EUR', '$': 'USD', '£': 'GBP', 'Kč': 'CZK', 'kč': 'CZK' })[c] || String(c || 'CZK').toUpperCase();
+  const m = cele.match(/([€$£])\s*(\d[\d\s]*(?:[.,]\d{1,2})?)/) || cele.match(/(\d[\d\s]*(?:[.,]\d{1,2})?)\s*(Kč|kč|CZK|€|EUR|\$|USD|£|GBP)(?![A-Za-z])/);
+  let amount = 0, currency = 'CZK';
+  if (m) {
+    const [cislo, cur] = /^[€$£]$/.test(m[1]) ? [m[2], m[1]] : [m[1], m[2]];
+    amount = parseFloat(String(cislo).replace(/\s/g, '').replace(',', '.')) || 0; currency = mena(cur);
+  }
+  const type = /posílá|poslal|zaslal|přijat|příchozí|obdržel|připsán|received|sent you|refund|vrácen/i.test(cele) ? 'income' : 'expense';
+  const name = t.replace(/^[^:]{1,25}:\s*/, '').split(/[.!]\s/)[0].slice(0, 60).trim();
+  return { amount, currency, type, name, date: _inboxDatum(x && x.postedAt) };
+}
 function inboxRucne(id) {
   const x = (_inbox || {})[id]; if (!x) return;
-  const t = document.getElementById('smsInput'); if (t) { t.value = inboxText(x); t.scrollIntoView && t.scrollIntoView({ block: 'center' }); }
-  inboxZahodit(id);
+  if (typeof openAddTx !== 'function') { const t = document.getElementById('smsInput'); if (t) t.value = inboxText(x); return; }
+  const o = inboxOdhad(x);
+  openAddTx();
+  if (typeof setTxType === 'function') setTxType(o.type);
+  if (typeof renderCatPicker === 'function') renderCatPicker();
+  const nastav = (el, v) => { const e = document.getElementById(el); if (e && v != null && v !== '') e.value = v; };
+  nastav('txName', o.name); nastav('txDate', o.date);
+  if (o.amount > 0) nastav('txAmt', String(o.amount));   // pole typu number – desetinná tečka
+  ['updateTxConverter', 'updateTxCzkField'].forEach(f => { if (typeof window[f] === 'function') window[f](); });
+  nastav('txNote', ('📲 z notifikace ' + (x.app || '') + ': ' + inboxText(x)).slice(0, 200));
+  if (o.currency !== 'CZK' && typeof setTxCurOverride === 'function') setTxCurOverride(o.currency);
+  if (typeof _txNactiKurzDne === 'function') _txNactiKurzDne();   // v12.40: kurz ČNB ke dni notifikace
+  window._inboxPoUlozeni = async () => { await _inboxStav(id, { stav: 'prijato', rucne: true }); await _inboxDupyVyrid(id); if (document.getElementById('inboxBox')) inboxRender(); };
 }
 Object.assign(window, { inboxTypPlatby, inboxNavrh, inboxZapamatovane, inboxZapomen, inboxDuplikaty, inboxIdent, inboxBankaZAppky, inboxObchodnik, inboxProtiucet, inboxNacti, inboxRender, inboxParuj, inboxOdpoj, inboxOdpojVse, inboxPrijmout, inboxSpojitSUctenkou, inboxZahodit, inboxPrevzit, inboxRucne,
-  inboxRozpoznej, inboxUctenkaK, inboxMoznaZapsano, inboxPrevzetiUctenkou, inboxText });
+  inboxRozpoznej, inboxUctenkaK, inboxMoznaZapsano, inboxPrevzetiUctenkou, inboxText, inboxOdhad });

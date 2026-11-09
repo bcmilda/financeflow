@@ -1,4 +1,4 @@
-// FinanceFlow · v12.38 · ui.js · 2026-11-06
+// FinanceFlow · v12.42 · ui.js · 2026-11-08
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1578,32 +1578,49 @@ function updateTxDateChip(){
 window.toggleTxDateFilter=toggleTxDateFilter; window.applyTxDateFilter=applyTxDateFilter; window.clearTxDateFilter=clearTxDateFilter; window.txDateMonthsAll=txDateMonthsAll;
 
 // ── Swipe-to-edit pro účtenkové karty (mobil) – registruje se jednou ──
+//  v12.39 (Milan: „při swipu se pohne obrazovka a pohyb je se zpožděním“): směr se dřív posuzoval
+//  u každého pohybu prstu znovu a stránka se při tahu do strany zároveň posouvala nahoru/dolů.
+//  Teď: směr se rozhodne JEDNOU po prvních ~8 px. Svisle = jen scroll stránky (karta se nehne),
+//  vodorovně = jen karta (posun stránky se zastaví). Karta se posouvá v rytmu snímků (requestAnimationFrame)
+//  a s will-change, takže jde s prstem bez zpoždění. Řádky mají touch-action: pan-y (prohlížeč sám do strany neposouvá).
 (function(){
   if (window._txSwipeInit) return; window._txSwipeInit = true;
-  const OPEN = -84, THRESH = -36;
-  let el=null, x0=0, y0=0, dx=0, openEl=null;
-  function reset(e){ if(e){ e.style.transition='transform .2s'; e.style.transform='translateX(0)'; } }
+  const OPEN = -84, THRESH = -36, ZAMEK = 8;
+  let el=null, x0=0, y0=0, dx=0, openEl=null, smer='', raf=0, base=0;
+  function reset(e){ if(e){ e.style.transition='transform .18s ease-out'; e.style.transform='translateX(0)'; } }
+  function kresli(){ raf=0; if(el) el.style.transform='translateX(' + Math.min(0, Math.max(OPEN, base + dx)) + 'px)'; }
   document.addEventListener('touchstart', function(ev){
     const fg = ev.target.closest && ev.target.closest('.tx-swipe-fg[data-swipe="1"]');
     if (openEl && openEl!==fg) { reset(openEl); openEl=null; }
-    if (!fg) return;
-    el=fg; x0=ev.touches[0].clientX; y0=ev.touches[0].clientY; dx=0;
-    fg.style.transition='none';
+    if (!fg) { el=null; return; }
+    el=fg; x0=ev.touches[0].clientX; y0=ev.touches[0].clientY; dx=0; smer='';
+    base = (openEl===fg) ? OPEN : 0;          // otevřenou kartu jde zase zavřít tahem doprava
+    fg.style.transition='none'; fg.style.willChange='transform';
   }, {passive:true});
   document.addEventListener('touchmove', function(ev){
     if(!el) return;
     const cx=ev.touches[0].clientX, cy=ev.touches[0].clientY;
-    if(Math.abs(cy-y0) > Math.abs(cx-x0)) return; // vertikální scroll – neotáčet
+    if(!smer){
+      const ax=Math.abs(cx-x0), ay=Math.abs(cy-y0);
+      if(ax < ZAMEK && ay < ZAMEK) return;
+      smer = ax > ay ? 'x' : 'y';
+      if(smer==='y'){ el.style.willChange=''; el=null; return; }   // svislý scroll – karty se netýká
+    }
+    if(ev.cancelable) ev.preventDefault();     // vodorovný tah: stránka stojí
     dx = cx - x0;
-    el.style.transform = 'translateX(' + Math.min(0, Math.max(OPEN, dx)) + 'px)';
-  }, {passive:true});
-  document.addEventListener('touchend', function(){
+    if(!raf) raf = requestAnimationFrame(kresli);
+  }, {passive:false});
+  function konec(){
     if(!el) return;
-    el.style.transition='transform .2s';
-    if(dx < THRESH){ el.style.transform='translateX('+OPEN+'px)'; openEl=el; }
+    if(raf){ window.cancelAnimationFrame(raf); raf=0; }
+    el.style.transition='transform .18s ease-out'; el.style.willChange='';
+    const poz = base + dx;
+    if(smer==='x' && poz < THRESH){ el.style.transform='translateX('+OPEN+'px)'; openEl=el; }
     else { el.style.transform='translateX(0)'; if(openEl===el) openEl=null; }
-    el=null;
-  }, {passive:true});
+    el=null; smer='';
+  }
+  document.addEventListener('touchend', konec, {passive:true});
+  document.addEventListener('touchcancel', konec, {passive:true});
 })();
 
 function renderTxPage(){
@@ -1680,6 +1697,8 @@ function _txFiltryUkaz(D, f){
   if(f.curFilter) ch.push(['💱 ' + f.curFilter, "txFiltrZrus('txCurFilter')"]);
   if(f.tagFilter) ch.push(['🏷️ ' + f.tagFilter, "txFiltrZrus('txTagFilter')"]);
   if(f.searchFilter) ch.push(['🔍 „' + f.searchFilter + '“', "txFiltrZrus('txSearchFilter')"]);
+  if(f.amtMin != null || f.amtMax != null) ch.push(['💰 ' + (f.amtMin != null && f.amtMax != null ? fmtP(f.amtMin) + ' – ' + fmtP(f.amtMax)
+    : f.amtMin != null ? 'od ' + fmtP(f.amtMin) : 'do ' + fmtP(f.amtMax)), "txFiltrZrus('amt')"]);
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   if(box){
     box.style.display = ch.length ? 'flex' : 'none';
@@ -1695,6 +1714,7 @@ function _txFiltryUkaz(D, f){
 }
 function txFiltrZrus(co){
   if(co === 'all'){ const a = document.getElementById('txSearchAllMonths'); if(a) a.checked = false; }
+  else if(co === 'amt'){ ['txAmtMin','txAmtMax'].forEach(id => { const e = document.getElementById(id); if(e) e.value = ''; }); }
   else { const e = document.getElementById(co); if(e) e.value = ''; if(co === 'txCatFilter'){ const s2 = document.getElementById('txSubFilter'); if(s2) s2.value = ''; } }
   renderTx();
 }
@@ -1760,10 +1780,14 @@ function renderTx(){
   const tagFilter = document.getElementById('txTagFilter')?.value.replace(/^#+/,'').trim().toLowerCase() || '';
   const searchFilter = document.getElementById('txSearchFilter')?.value.trim().toLowerCase() || '';
   const searchAllMonths = document.getElementById('txSearchAllMonths')?.checked || false;
+  //  v12.39 (Milan: „chtěl bych do filtru přidat i filtr ceny“): částka od / do. Porovnává se částka,
+  //  jak je vidět v seznamu (bez znaménka, v měně transakce); prázdné pole = bez omezení.
+  const _cislo = id => { const v = String(document.getElementById(id)?.value || '').replace(/\s/g, '').replace(',', '.'); const n = parseFloat(v); return isFinite(n) && n >= 0 ? n : null; };
+  const amtMin = _cislo('txAmtMin'), amtMax = _cislo('txAmtMax');
 
   // S16.8: postupné vykreslování – velké seznamy nezamrazí mobil (chunk 120 řádků,
   // další se přinačtou při doscrollování; při změně měsíce/filtru/řazení se resetuje)
-  const _txKey = [S.curMonth,S.curYear,catFilter,subFilter,projectFilter,walletFilter,payTypeFilter,curFilter,tagFilter,searchFilter,searchAllMonths,_txTypeFilter,_txSort,_txSortDir,(_txDateFilter&&_txDateFilter.active)?'D':''].join('|');
+  const _txKey = [S.curMonth,S.curYear,catFilter,subFilter,projectFilter,walletFilter,payTypeFilter,curFilter,tagFilter,searchFilter,searchAllMonths,amtMin,amtMax,_txTypeFilter,_txSort,_txSortDir,(_txDateFilter&&_txDateFilter.active)?'D':''].join('|');
   if(window._txChunkKey !== _txKey){ window._txChunkKey = _txKey; window._txShown = 120; }
 
   // S16.15 (FIX-206, Milan): checkbox sliboval „ignoruje zvolený měsíc", ale fungoval JEN
@@ -1788,17 +1812,18 @@ function renderTx(){
   if(walletFilter) txs = txs.filter(t => t.wallet===walletFilter);
   if(payTypeFilter) txs = txs.filter(t => t.payType===payTypeFilter);
   if(curFilter) txs = txs.filter(t => txCurOf(t,D)===curFilter);   // v9.86 (TODO-214)
-  if(tagFilter) txs = txs.filter(t => parseTxTags(t).some(tag => tag.includes(tagFilter)));
-  if(searchFilter) txs = txs.filter(t =>
-    (t.name||'').toLowerCase().includes(searchFilter) ||
-    (t.note||'').toLowerCase().includes(searchFilter)
-  );
+  //  v12.42 (TODO-374): filtr tagu i hledání vidí i tagy a poznámky položek účtenky a celého nákupu
+  if(tagFilter) txs = txs.filter(t => (typeof txVsechnyTagy === 'function' ? txVsechnyTagy(t) : parseTxTags(t)).some(tag => tag.includes(tagFilter)));
+  if(searchFilter) txs = txs.filter(t => typeof txHledanyText === 'function' ? txHledanyText(t).includes(searchFilter)
+    : ((t.name||'').toLowerCase().includes(searchFilter) || (t.note||'').toLowerCase().includes(searchFilter)));
+  if(amtMin != null) txs = txs.filter(t => Math.abs(t.amount || t.amt || 0) >= amtMin - 0.005);
+  if(amtMax != null) txs = txs.filter(t => Math.abs(t.amount || t.amt || 0) <= amtMax + 0.005);
   if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
     //  v12.04 (FIX-489): žádný podezřelý pár → filtr vypnout, jinak by zůstal prázdný seznam bez vypínače
     if(!Object.keys(_dupMap||{}).length && typeof setDupFilter === 'function') setDupFilter(false);
     else txs = txs.filter(t => (_dupMap||{})[t.id]?.length > 0);
   }
-  _txFiltryUkaz(D, { catFilter, subFilter, projectFilter, walletFilter, payTypeFilter, curFilter, tagFilter, searchFilter, searchAllMonths });
+  _txFiltryUkaz(D, { catFilter, subFilter, projectFilter, walletFilter, payTypeFilter, curFilter, tagFilter, searchFilter, searchAllMonths, amtMin, amtMax });
 
   // Sort
   txs.sort((a,b) => {
@@ -1924,6 +1949,13 @@ if (!window._txResizeBound) {
   });
 }
 
+//  v12.42 (TODO-374): štítky řádku transakce – modré (ruční, celého nákupu, položek účtenky) a zelené (druhy)
+function _txStitky(t) {
+  const modre = [...new Set([...(Array.isArray(t.tags) ? t.tags : []), ...(Array.isArray(t.tagyNakup) ? t.tagyNakup : []),
+    ...(typeof txTagyPolozek === 'function' ? txTagyPolozek(t) : [])])];
+  const zelene = (typeof t.tags === 'string' && t.tags) ? t.tags.split(/[\s,]+/).filter(Boolean) : [];
+  return { modre, zelene };
+}
 function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   const cat = getCat(t.catId||t.category, D.categories);
   const amt = t.amount || t.amt || 0;
@@ -1957,7 +1989,17 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   // Parent row – zobraz accordion s dětmi
   let childRows = '';
   if(isSplitParent && splitChildren.length) {
-    childRows = `<div id="split-children-${t.splitId}" style="display:none">` +
+    //  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): na telefonu klepnutí na rozdělenou platbu jen
+    //  rozbalilo části a ty šly jen smazat (✕) – upravit nešlo nic. Teď nad částmi lišta: ✎ Upravit platbu
+    //  (formulář; části jdou s ní), ✂️ Upravit rozdělení (kategorie a částky částí), ↩ Zrušit rozdělení.
+    const _lista = ro ? '' : t.rcptSplit
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))">📷 Upravit účtenku</button></div>`
+      : `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();editTx('${t.id}')">✎ Upravit platbu</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️ Upravit rozdělení</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px;color:var(--expense)" onclick="event.stopPropagation();zrusitRozdeleni('${t.splitId}')">↩ Zrušit rozdělení</button></div>`;
+    childRows = `<div id="split-children-${t.splitId}" style="display:none">` + _lista +
       splitChildren.map(ch => buildTxRow(ch, D, ro)).join('') +
       '</div>';
   }
@@ -1966,7 +2008,8 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   //  v12.35: na telefonu jako malá karta (tabulkový řádek se do 390 px nevešel – částka „−1…“)
   if(isSplitChild && window.innerWidth <= 820) {
     const _pol = t.rcptCast && Array.isArray(t.receiptItems) ? t.receiptItems.map(it=>it&&it.name).filter(Boolean) : [];
-    return `<div class="${rowClass}" style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);opacity:.95">
+    const _rodic = (!ro && !t.rcptCast) ? (D.transactions||[]).find(x=>x.splitId===t.splitId&&x.splitParent) : null;   // v12.41: klepnutí na část = upravit rozdělení
+    return `<div class="${rowClass}" ${_rodic?`onclick="openSplitModal('${_rodic.id}')"`:''} style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);opacity:.95${_rodic?';cursor:pointer':''}">
       <div style="flex-shrink:0;width:24px;text-align:center;font-size:1rem">${cat.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${t.subcat?`<span style="font-size:.7rem;color:var(--text3)"> · ${t.subcat}</span>`:''}</div>
@@ -2008,7 +2051,7 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
     const rows = t.receiptItems.map(it => {
       const itTotal = it.lineTotal!=null ? parseFloat(it.lineTotal) : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1);
       const qtyStr = (it.qty&&it.qty!==1) ? `${it.qty}\u00a0${it.unit||'ks'}` : '';
-      return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${it.name||'–'}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
+      return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${escHtml(it.nazev||it.name||'–')}${(Array.isArray(it.tagy)?it.tagy:[]).map(g=>`<span style="color:#93c5fd;font-size:.68rem"> #${escHtml(g)}</span>`).join('')}${it.poznamka?`<span style="display:block;font-size:.66rem;color:#a8aec8">📝 ${escHtml(it.poznamka)}</span>`:''}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
     }).join('');
     return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
@@ -2026,17 +2069,22 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
       : hasReceiptItems
         ? `onclick="const el=document.getElementById('rcpt-items-${t.id}');if(el)el.style.display=el.style.display==='none'?'block':'none'"`
         : (!ro && !isVirtualTransfer ? `onclick="editTx('${t.id}')"` : '');
-    const tagsHtmlM =
-      (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
-      : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
-      : '';
+    //  v12.42 (TODO-374): modré tagy = ruční (pole t.tags) + celého nákupu (t.tagyNakup) + tagy položek účtenky,
+    //  zelené = druhy z položek (text t.tags). Dřív se ukázal jen jeden z obou druhů.
+    const _tgM = _txStitky(t);
+    const tagsHtmlM = (_tgM.modre.length || _tgM.zelene.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${_tgM.modre.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${escHtml(tag)}</span>`).join('')}${_tgM.zelene.map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${escHtml(tag)}</span>`).join('')}</div>` : '';
     const badgeM = (isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">${t.rcptSplit?'📷 ':''}✂️ ${splitChildren.length}× ▾</span>`
                 : hasReceiptItems ? ` <span style="font-size:.66rem;color:#a8aec8">📷 ${t.receiptItems.length} ▾</span>` : '')
                 + (Array.isArray(t.propojeno) && t.propojeno.length ? ' <span style="font-size:.66rem" title="Propojeno s jinou transakcí">🔗</span>' : '');   // v12.17
     const subM = t.subcat ? `<span style="font-size:.72rem;color:var(--text3)"> · ${t.subcat}</span>` : '';
     const balM = (window._txBalMap&&window._txBalMap[t.id]!==undefined) ? `<div style="font-size:.64rem;color:var(--income);opacity:.85">(${fmtP(window._txBalMap[t.id])} ${curLabel})</div>` : '';
     const descM = customName || t.name || t.note || (t.receiptStore||'') || '–';
-    const _mobCard = `<div class="tx-mob-row ${rowClass}${(!ro && hasReceiptItems)?' tx-swipe-fg':''}" ${tapAttr}${(!ro && hasReceiptItems)?' data-swipe="1"':''} style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:${(isSplitParent||hasReceiptItems||!ro)?'pointer':'default'}${(!ro && hasReceiptItems)?';background:var(--surface,#1a1d27);position:relative;z-index:1':''}">
+    //  v12.39 (Milan: „nechybí tam rámeček Není duplikát?“): na mobilu chyběl u podezřelé transakce štítek ⚠️
+    //  i tlačítka Smazat duplikát / Zachovat tento / Není duplikát – banner sliboval „označené ⚠️“, ale nic označeno nebylo.
+    const _dupJe = !!(dupMap && dupMap[t.id] && dupMap[t.id].length);
+    const dupBadgeM = _dupJe && typeof buildDupBadge==='function' ? `<div style="margin-top:4px">${buildDupBadge(t, dupMap)}</div>` : '';
+    const dupRowM = _dupJe && typeof buildDupActions==='function' ? `<div style="padding:0 14px 10px 58px;border-bottom:1px solid var(--border);margin-top:-6px">${buildDupActions(t, dupMap, ro)}</div>` : '';
+    const _mobCard = `<div class="tx-mob-row ${rowClass}${(!ro && hasReceiptItems)?' tx-swipe-fg':''}" ${tapAttr}${(!ro && hasReceiptItems)?' data-swipe="1"':''} style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:${(isSplitParent||hasReceiptItems||!ro)?'pointer':'default'}${(!ro && hasReceiptItems)?';background:var(--surface,#1a1d27);position:relative;z-index:1;touch-action:pan-y':''}">
       <div style="flex-shrink:0;width:34px;text-align:center">
         <div style="font-size:1.15rem;line-height:1">${cat.icon}</div>
         <div style="font-size:.66rem;color:#a8aec8;margin-top:2px">${d.getDate()}.${d.getMonth()+1}.</div>
@@ -2044,7 +2092,8 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${subM}</div>
         <div style="font-size:.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${descM}${badgeM}</div>
-        ${tagsHtmlM}
+        ${t.poznamkaNakup ? `<div style="font-size:.68rem;color:#a8aec8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📝 ${escHtml(t.poznamkaNakup)}</div>` : ''}${/* v12.42: poznámka celého nákupu */''}
+        ${tagsHtmlM}${dupBadgeM}
       </div>
       <div style="flex-shrink:0;text-align:right">
         <div style="font-weight:800;font-size:.92rem;color:${amtColor};white-space:nowrap">${amtSign}${fmtP(amt)} ${curLabel}</div>
@@ -2061,7 +2110,7 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
           ${_mobCard}
         </div>`
       : _mobCard;
-    return `${_mobOut}
+    return `${_mobOut}${dupRowM}
     ${receiptItemsHtml}
     ${childRows}`;
   }
@@ -2071,13 +2120,13 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   const _normalEditable = _coarse && !ro && !isSplitParent && !isVirtualTransfer && !hasReceiptItems; // jen dotyk: normální → tap edituje
   const _expandJs = (hasReceiptItems && !isSplitParent) ? `event.stopPropagation();const el=document.getElementById('rcpt-items-${t.id}');if(el)el.style.display=el.style.display==='none'?'block':'none'` : '';
   const _rowAttrs = isSplitParent ? `onclick="toggleSplitChildren('${t.splitId}')" style="cursor:pointer"`
-    : _swipeRow ? `onclick="${_expandJs}" style="cursor:pointer;background:var(--surface);position:relative;z-index:1"`
+    : _swipeRow ? `onclick="${_expandJs}" style="cursor:pointer;background:var(--surface);position:relative;z-index:1;touch-action:pan-y"`
     : _normalEditable ? `onclick="editTx('${t.id}')" style="cursor:pointer"`
     : (hasReceiptItems && !isSplitParent) ? `onclick="${_expandJs}" style="cursor:pointer"`
     : '';
   // Landscape: tagy jako pruh přes celou šířku pod řádkem (v úzké buňce „Název" se orezavaly na 1 písmeno)
-  const _tagsArr = Array.isArray(t.tags) ? t.tags : (typeof t.tags==='string'&&t.tags ? t.tags.split(/[\s,]+/).filter(Boolean) : []);
-  const _tagsRow = _tagsArr.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 7px 82px">${_tagsArr.map(tag=>Array.isArray(t.tags)?`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:700">#${tag}</span>`:`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>` : '';
+  const _tgD = _txStitky(t);   // v12.42: modré i zelené vedle sebe
+  const _tagsRow = (_tgD.modre.length || _tgD.zelene.length) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 7px 82px">${_tgD.modre.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:700">#${escHtml(tag)}</span>`).join('')}${_tgD.zelene.map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:600">🏷️ ${escHtml(tag)}</span>`).join('')}</div>` : '';
   const _rowHTML = `<div class="${rowClass}${_swipeRow?' tx-swipe-fg':''}"${_swipeRow?' data-swipe="1"':''} ${_rowAttrs}>
     <div class="tx-table-cell" style="color:var(--text3);font-size:.76rem">
       <div style="font-weight:600;color:var(--text2)">${d.getDate()}. ${CZ_M[d.getMonth()].slice(0,3)}</div>
@@ -2165,12 +2214,15 @@ function deleteTx(id){
   if(typeof debtPrepocitejVse==='function') debtPrepocitejVse();   // v12.30 (bod 20): smazaná splátka vrátí Zbývá
   save();renderPage();
 }
-function editTx(id){
+function editTx(id, bezUctenky){
   if(viewingUid)return;
+  window._inboxPoUlozeni = null;   // v12.39: úprava jiné transakce nevyřizuje notifikaci z Doručených
+  if(typeof _txNactiKurzDne==='function') setTimeout(_txNactiKurzDne, 0);   // v12.40: kurz ČNB ke dni transakce (pro ↻ Přepočítat)
   const D=getData();
   const t=(D.transactions||[]).find(x=>x.id==id);if(!t)return;
   //  S28 (v12.34): transakce z naskenované účtenky → editor účtenky (ne formulář transakce)
-  if(typeof rcptJeTxUctenky==='function' && rcptJeTxUctenky(t) && typeof openReceiptForTx==='function' && openReceiptForTx(id)) return;
+  //  v12.39: bezUctenky = účtenka v Historii chybí → formulář transakce (jinak by nešla upravit vůbec)
+  if(!bezUctenky && typeof rcptJeTxUctenky==='function' && rcptJeTxUctenky(t) && typeof openReceiptForTx==='function' && openReceiptForTx(id)) return;
   document.getElementById('editTxId').value=id;
   document.getElementById('txName').value=t.name||'';
   document.getElementById('txAmt').value=t.amount||t.amt||'';
@@ -2242,7 +2294,10 @@ function editTx(id){
   const _bd=document.getElementById('btnTxDelete');
   if(_bd) _bd.style.display='inline-flex';
   const _bs=document.getElementById('btnTxSplit');
-  if(_bs) _bs.style.display=(!t.splitId && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
+  //  v12.41: u rozdělené platby (ne z účtenky) tlačítko „✂️ Upravit rozdělení“
+  if(_bs){ const _jeRozd = !!(t.splitParent && t.splitId && !t.rcptSplit);
+    _bs.style.display=((_jeRozd || !t.splitId) && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
+    _bs.textContent = _jeRozd ? '✂️ Upravit rozdělení' : '✂️ Rozdělit'; }
   window._modalTxId=id;
   if(typeof txPropojRender==='function'){ _txPropOtevreno=false; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
   if(typeof temaTxRender==='function') temaTxRender(id);   // S28 (v12.20): ⭐ sledované téma
