@@ -1,4 +1,4 @@
-// FinanceFlow · v12.40 · admin.js · 2026-11-08
+// FinanceFlow · v12.41 · admin.js · 2026-11-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,15 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.41',
+    datum: '2026-11-08',
+    zmeny: [
+      "✂️ ROZDĚLENOU PLATBU JDE UPRAVIT (Milan: „rozdělenou transakci nemohu editovat! To je chyba.“) · cesta: Transakce → klepnout na rozdělenou platbu (✂️ 2× ▾). Na telefonu klepnutí jen rozbalilo části a ty šly jen smazat (✕). Teď nad částmi lišta: ✎ Upravit platbu (formulář – datum, částka, peněženka, tagy…), ✂️ Upravit rozdělení (kategorie, podkategorie a částky částí; otevře se s dosavadními částmi), ↩ Zrušit rozdělení. Klepnutí na část otevře Upravit rozdělení, ✕ dál maže jen tu část. Ve formuláři je u rozdělené platby tlačítko „✂️ Upravit rozdělení“.",
+      "🔗 ČÁSTI JDOU S PLATBOU · cesta: Transakce → rozdělená platba → ✎ Upravit platbu. Změna data, typu, způsobu platby, projektu a názvu se propíše do částí; změněná částka se rozpočítá poměrem (haléřový zbytek na největší část). Dřív zůstaly části se starým datem (v jiném měsíci) a součtem, který neseděl. Rozdělené účtenky se dál mění v editoru účtenky (📷 Upravit účtenku v liště).",
+      "🧪 tools/smoke_v1241.js (12) – na v12.40 padá. Chromium 390 px: lišta 3 tlačítek, klepnutí na část otevře úpravu s 496 / 49 (Restaurace / Pivo), změna na 445 / 100 nahradí části, ✎ datum 4. 10. a 600 Kč → části 489,91 + 110,09 ze 4. 10., zrušení nechá jednu platbu; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.40',
     datum: '2026-11-08',
@@ -10265,6 +10274,8 @@ function openSplitModal(txId) {
   const D = getData();
   const tx = (D.transactions||[]).find(t=>t.id==txId);
   if(!tx) return;
+  //  v12.41: účtenka se dělí podle kategorií položek – mění se v editoru účtenky
+  if(tx.rcptSplit) { if(typeof openReceiptForTx === 'function') openReceiptForTx(txId); return; }
   _splitTxId = txId;
   _splitTotal = Math.round((tx.amount||tx.amt||0)*100)/100;
 
@@ -10286,6 +10297,16 @@ function openSplitModal(txId) {
   //  dostane kategorii I podkategorii rozdělované platby (dřív se nevybrala – ukázala se první v seznamu,
   //  „Nákupy potravin“ u Dárků), druhý stejnou kategorii; u každé části výběr podkategorie.
   _splitParentSub = tx.subcat || '';
+  //  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): už rozdělená platba se otevře s DOSAVADNÍMI
+  //  částmi (kategorie, podkategorie, částky) a uložení je nahradí – dřív šlo rozdělení jen smazat po částech.
+  const _deti = tx.splitParent && tx.splitId ? (D.transactions||[]).filter(t => t.splitId === tx.splitId && !t.splitParent) : [];
+  const _h3 = document.querySelector('#modalSplit h3'), _btn = document.querySelector('#modalSplit .modal-foot .btn-accent');
+  if (_h3) _h3.textContent = _deti.length ? '✂️ Upravit rozdělení' : '✂️ Rozdělit transakci';
+  if (_btn) _btn.textContent = _deti.length ? '✂️ Uložit rozdělení' : '✂️ Rozdělit';
+  if (_deti.length >= 2) {
+    document.getElementById('splitItemsList').innerHTML = _deti.map((ch, i) =>
+      buildSplitRow(i, ch.catId || ch.category || '', Math.round((ch.amount || ch.amt || 0) * 100) / 100, catOptions, i >= 2, ch.subcat || '')).join('');
+  } else
   document.getElementById('splitItemsList').innerHTML = `
     ${buildSplitRow(0, tx.catId||tx.category||'', half, catOptions, false, tx.subcat||'')}
     ${buildSplitRow(1, tx.catId||tx.category||'', rest, catOptions, false, '')}`;
@@ -10440,7 +10461,9 @@ function saveSplit() {
     return;
   }
 
-  const splitId = 'split_' + Date.now();
+  //  v12.41: úprava existujícího rozdělení – staré části pryč, splitId zůstává
+  const splitId = (tx.splitParent && tx.splitId) ? tx.splitId : 'split_' + Date.now();
+  if (tx.splitParent && tx.splitId) S.transactions = S.transactions.filter(t => !(t.splitId === splitId && !t.splitParent));
   tx.splitId = splitId;
   tx.splitParent = true;
 
@@ -10493,6 +10516,45 @@ function deleteSplitChild(childId) {
   }
   save(); renderPage();
 }
+
+//  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): zrušit rozdělení = části pryč, platba zase jedna
+function zrusitRozdeleni(splitId) {
+  if (viewingUid) return;
+  const p = S.transactions.find(t => t.splitId === splitId && t.splitParent); if (!p) return;
+  if (p.rcptSplit) { if (typeof openReceiptForTx === 'function') openReceiptForTx(p.id); return; }
+  if (!confirm('Zrušit rozdělení?\n\nČásti se smažou a platba ' + fmtP(p.amount || p.amt || 0) + ' Kč zůstane jako jedna v kategorii „' + (getCat(p.catId || p.category, S.categories).name || '') + '“.')) return;
+  S.transactions = S.transactions.filter(t => !(t.splitId === splitId && !t.splitParent));
+  delete p.splitId; delete p.splitParent;
+  save(); renderPage();
+  if (typeof showToast === 'function') showToast('↩ Rozdělení zrušeno');
+}
+//  v12.41: po úpravě rozdělené platby ve formuláři (✎) jdou části s ní – datum, typ, způsob platby, projekt
+//  a název; změněná částka se rozpočítá poměrem (haléřový zbytek na největší část). Dřív zůstaly části
+//  se starým datem i částkou – v jiném měsíci a se součtem, který nesedí.
+function splitSyncDeti(p) {
+  if (!p || !p.splitParent || !p.splitId || p.rcptSplit) return 0;
+  const deti = S.transactions.filter(t => t.splitId === p.splitId && !t.splitParent);
+  if (!deti.length) return 0;
+  const cil = Math.round((parseFloat(p.amount || p.amt) || 0) * 100);
+  const suma = deti.reduce((a, t) => a + Math.round((parseFloat(t.amount || t.amt) || 0) * 100), 0);
+  if (cil > 0 && suma > 0 && cil !== suma) {
+    let zbyva = cil, nejv = deti[0];
+    deti.forEach(t => {
+      const h = Math.floor(Math.round((parseFloat(t.amount || t.amt) || 0) * 100) * cil / suma);
+      t.amount = t.amt = h / 100; zbyva -= h;
+      if ((t.amount || 0) > (nejv.amount || 0)) nejv = t;
+    });
+    nejv.amount = nejv.amt = Math.round((nejv.amount * 100 + zbyva)) / 100;
+  }
+  deti.forEach(t => {
+    t.date = p.date; t.type = p.type;
+    if (p.payType) t.payType = p.payType; else delete t.payType;
+    if (p.projectId) t.projectId = p.projectId; else delete t.projectId;
+    if (p.name) t.name = p.name;
+  });
+  return deti.length;
+}
+Object.assign(window, { zrusitRozdeleni, splitSyncDeti });
 
 // Filtruj split children ze součtů (počítáme jen parenty)
 function getTxForSummary(txs) {

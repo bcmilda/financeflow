@@ -1,4 +1,4 @@
-// FinanceFlow · v12.40 · debts.js · 2026-11-08
+// FinanceFlow · v12.41 · debts.js · 2026-11-08
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 //  v12.39: akce po úspěšném uložení formuláře (✎ Zapsat ručně z Doručených označí notifikaci jako vyřízenou
@@ -715,7 +715,7 @@ function saveTx(){
   const tags = parseTags(tagsRaw);
   txObj.tags = tags; // vždy (i prázdné) – aby se smazání tagů propsalo
   let _savedId = eid;
-  if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) Object.assign(t,txObj); }
+  if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) { Object.assign(t,txObj); if(t.splitParent && typeof splitSyncDeti==='function') splitSyncDeti(t); } }   // v12.41: části rozdělené platby jdou s ní
   else { _savedId = genTxId(); S.transactions.push({id:_savedId,...txObj}); }
   // v9.97 (TODO-215): dohledej kurz ČNB k DATU TRANSAKCE. Bez await – uložení
   //   ani zavření modalu nesmí čekat na síť; když se nepovede, zůstane kurz

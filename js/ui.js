@@ -1,4 +1,4 @@
-// FinanceFlow · v12.40 · ui.js · 2026-11-08
+// FinanceFlow · v12.41 · ui.js · 2026-11-08
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1983,7 +1983,17 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   // Parent row – zobraz accordion s dětmi
   let childRows = '';
   if(isSplitParent && splitChildren.length) {
-    childRows = `<div id="split-children-${t.splitId}" style="display:none">` +
+    //  v12.41 (Milan: „rozdělenou transakci nemohu editovat!“): na telefonu klepnutí na rozdělenou platbu jen
+    //  rozbalilo části a ty šly jen smazat (✕) – upravit nešlo nic. Teď nad částmi lišta: ✎ Upravit platbu
+    //  (formulář; části jdou s ní), ✂️ Upravit rozdělení (kategorie a částky částí), ↩ Zrušit rozdělení.
+    const _lista = ro ? '' : t.rcptSplit
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))">📷 Upravit účtenku</button></div>`
+      : `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();editTx('${t.id}')">✎ Upravit platbu</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px" onclick="event.stopPropagation();openSplitModal('${t.id}')">✂️ Upravit rozdělení</button>
+          <button class="btn btn-ghost btn-sm" style="font-size:.74rem;min-height:36px;color:var(--expense)" onclick="event.stopPropagation();zrusitRozdeleni('${t.splitId}')">↩ Zrušit rozdělení</button></div>`;
+    childRows = `<div id="split-children-${t.splitId}" style="display:none">` + _lista +
       splitChildren.map(ch => buildTxRow(ch, D, ro)).join('') +
       '</div>';
   }
@@ -1992,7 +2002,8 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   //  v12.35: na telefonu jako malá karta (tabulkový řádek se do 390 px nevešel – částka „−1…“)
   if(isSplitChild && window.innerWidth <= 820) {
     const _pol = t.rcptCast && Array.isArray(t.receiptItems) ? t.receiptItems.map(it=>it&&it.name).filter(Boolean) : [];
-    return `<div class="${rowClass}" style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);opacity:.95">
+    const _rodic = (!ro && !t.rcptCast) ? (D.transactions||[]).find(x=>x.splitId===t.splitId&&x.splitParent) : null;   // v12.41: klepnutí na část = upravit rozdělení
+    return `<div class="${rowClass}" ${_rodic?`onclick="openSplitModal('${_rodic.id}')"`:''} style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 30px;border-bottom:1px solid var(--border);opacity:.95${_rodic?';cursor:pointer':''}">
       <div style="flex-shrink:0;width:24px;text-align:center;font-size:1rem">${cat.icon}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${t.subcat?`<span style="font-size:.7rem;color:var(--text3)"> · ${t.subcat}</span>`:''}</div>
@@ -2276,7 +2287,10 @@ function editTx(id, bezUctenky){
   const _bd=document.getElementById('btnTxDelete');
   if(_bd) _bd.style.display='inline-flex';
   const _bs=document.getElementById('btnTxSplit');
-  if(_bs) _bs.style.display=(!t.splitId && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
+  //  v12.41: u rozdělené platby (ne z účtenky) tlačítko „✂️ Upravit rozdělení“
+  if(_bs){ const _jeRozd = !!(t.splitParent && t.splitId && !t.rcptSplit);
+    _bs.style.display=((_jeRozd || !t.splitId) && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
+    _bs.textContent = _jeRozd ? '✂️ Upravit rozdělení' : '✂️ Rozdělit'; }
   window._modalTxId=id;
   if(typeof txPropojRender==='function'){ _txPropOtevreno=false; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
   if(typeof temaTxRender==='function') temaTxRender(id);   // S28 (v12.20): ⭐ sledované téma
