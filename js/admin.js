@@ -1,4 +1,4 @@
-// FinanceFlow · v12.41 · admin.js · 2026-11-08
+// FinanceFlow · v12.42 · admin.js · 2026-11-08
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,18 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.42',
+    datum: '2026-11-08',
+    zmeny: [
+      "🧾 NOVÝ EDITOR ÚČTENKY (TODO-374, varianta B – vývoj dnešního editoru, návrh C1–C4) · cesta: Analýza účtenek → 📋 Historie → ✎ (i po skenu a z Transakce → klepnutí na účtenku). Položka je teď karta pod sebou, bez posouvání do stran. Tři názvy: Název (návrh AI, nebo tvůj – „upraveno tebou“, „vrátit návrh AI“), 🧾 z účtenky (text řádku doslova – podle něj appka pozná výrobek příště, opravuje se jen překlep) a ▮▮ karta výrobku z kódu.",
+      "🏷️ SLEVA U POLOŽKY · cesta: editor účtenky → položka. Jen u zlevněné položky: vpravo zaplacená částka, pod ní přeškrtnutá původní cena, zelený pruh „Sleva −X Kč · zaplaceno“ (jde upravit). U ostatních malé „+ sleva“. Nahoře pod Celkem „ušetřeno na slevách“, u skupiny „−X“.",
+      "🌿 ZELENÝ TAG = „DRUH“ (Milan potvrdil) · cesta: editor účtenky → položka → pole Druh. Nápověda: druh zboží obecně (Čokoláda, Pečivo) – podle něj se porovnávají ceny a počítá inflace. Modrý #tag je jen tvoje třídění.",
+      "# MODRÉ TAGY A POZNÁMKA K POLOŽCE · cesta: editor účtenky → položka → #. ☑ Vybrat označí víc položek a přidá jim jeden tag nebo poznámku najednou. Dole „Celý nákup“: modré tagy a poznámka k celé účtence, „Kam se účtenka zapíše“ (rozdělení podle kategorií, tagy, ušetřeno).",
+      "📊 TAGY ČÁSTKOU POLOŽKY (Milan: „jen částkou té položky, ne celá účtenka“) · cesta: Statistiky → Tagy. Tag položky = jen ceny položek s tímto tagem; tag celého nákupu = celá účtenka. Transakce → Filtr: tag i 🔍 hledání vidí tagy, názvy a poznámky položek i poznámku nákupu; řádek ukazuje modré i zelené štítky a 📝 poznámku nákupu.",
+      "🧪 tools/smoke_editor_uctenky_b.js (34) – na v12.41 padá; 5 starších testů upraveno na nové rozložení (gramaz, karta_vyrobku, kod_nazev, tag_fokus, vratky). Chromium 390 px: Penny 5 položek – přejmenování, sleva 5 Kč u Tatranek (263,10), #mamka u 3 položek (Tagy 189,70), #oslava celého nákupu (263,10), poznámka najde hledání; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.41',
     datum: '2026-11-08',
@@ -10028,23 +10040,27 @@ function parseTags(input) {
 function getAllTags(D) {
   const D2 = D || getData();
   const tagMap = {};
+  const kcPol = it => Math.abs((it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1)));
   (D2.transactions||[]).forEach(t => {
     const castka = (typeof txCZK==='function') ? Math.abs(txCZK(t, D2))
                                               : Math.abs(t.amount||t.amt||0);
     const polozky = Array.isArray(t.receiptItems) ? t.receiptItems : [];
-    const soucetPolozek = polozky.reduce((a,it)=>a + Math.abs(
-      (it && it.lineTotal != null) ? it.lineTotal : ((it&&it.price||0)*(it&&it.qty||1))), 0);
+    const soucetPolozek = polozky.reduce((a,it)=>a + kcPol(it), 0);
+    //  v12.42 (Milan: modrý tag položky se počítá „jen částkou té položky, ne celá účtenka“): kromě
+    //  zeleného druhu (it.tag) nese položka i modré tagy (it.tagy). Tag ruční / celého nákupu
+    //  (pole t.tags, t.tagyNakup) se vztahuje na celou transakci → plná částka.
+    const celeTx = new Set([...(Array.isArray(t.tags) ? t.tags : []), ...(Array.isArray(t.tagyNakup) ? t.tagyNakup : [])]);
+    const vsechny = [...new Set([...parseTxTags(t), ...(typeof txTagyPolozek === 'function' ? txTagyPolozek(t) : [])])];
 
-    parseTxTags(t).forEach(tag => {
+    vsechny.forEach(tag => {
       if(!tagMap[tag]) tagMap[tag] = {name:tag, count:0, total:0, txs:[]};
       tagMap[tag].count++;
 
       let castkaTagu = castka;
-      if(polozky.length && soucetPolozek > 0){
-        const sTagem = polozky.filter(it => it && it.tag === tag);
+      if(!celeTx.has(tag) && polozky.length && soucetPolozek > 0){
+        const sTagem = polozky.filter(it => it && (it.tag === tag || (Array.isArray(it.tagy) && it.tagy.includes(tag))));
         if(sTagem.length){
-          const cast = sTagem.reduce((a,it)=>a + Math.abs(
-            (it.lineTotal != null) ? it.lineTotal : ((it.price||0)*(it.qty||1))), 0);
+          const cast = sTagem.reduce((a,it)=>a + kcPol(it), 0);
           //  Podíl z celku – drží to i při zaokrouhlení a cizí měně.
           castkaTagu = castka * (cast / soucetPolozek);
         }

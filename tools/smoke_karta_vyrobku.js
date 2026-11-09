@@ -11,7 +11,7 @@ vm.runInContext(['rpVazene','rpVazJed','lineAmt','mapaKartaKatalog'].map(pick).j
 console.log('── S25 · vážené zboží ──');
 t('0,192 kg je vážené, 1 ks ne, unit kg ano',sb.rpVazene({qty:0.192})&&!sb.rpVazene({qty:1})&&sb.rpVazene({qty:1,unit:'kg'}));
 t('jednotka l / kg',sb.rpVazJed({unit:'l'})==='l'&&sb.rpVazJed({qty:.2})==='kg');
-t('editor ukazuje částku za položku a cenu za kg zvlášť',rc.includes("value=\"${vaz ? (Math.round(lineAmt(it) * 100) / 100) : (it.price||0)}\"")&&rc.includes('id="rp_pkg_${i}"'));
+t('editor ukazuje částku za položku a cenu za kg zvlášť',rc.includes("value=\"${vaz ? (Math.round(kc * 100) / 100) : (it.price||0)}\"")&&rc.includes('const kc = lineAmt(it);')&&rc.includes('id="rp_pkg_${i}"'));   // v12.42: kc = lineAmt(it)
 t('změna váhy drží částku z účtenky, cena/kg se dopočítá',rc.includes('const tot = lineAmt(r.items[i]); r.items[i].qty = v; r.items[i].lineTotal = tot; r.items[i].price = Math.round(tot / v * 100) / 100'));
 console.log('── S25 · karta výrobku ──');
 const radek=(l,v)=>`[${l}:${v}]`;

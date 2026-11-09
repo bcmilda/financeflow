@@ -1,4 +1,4 @@
-// FinanceFlow · v12.41 · ui.js · 2026-11-08
+// FinanceFlow · v12.42 · ui.js · 2026-11-08
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -1812,11 +1812,10 @@ function renderTx(){
   if(walletFilter) txs = txs.filter(t => t.wallet===walletFilter);
   if(payTypeFilter) txs = txs.filter(t => t.payType===payTypeFilter);
   if(curFilter) txs = txs.filter(t => txCurOf(t,D)===curFilter);   // v9.86 (TODO-214)
-  if(tagFilter) txs = txs.filter(t => parseTxTags(t).some(tag => tag.includes(tagFilter)));
-  if(searchFilter) txs = txs.filter(t =>
-    (t.name||'').toLowerCase().includes(searchFilter) ||
-    (t.note||'').toLowerCase().includes(searchFilter)
-  );
+  //  v12.42 (TODO-374): filtr tagu i hledání vidí i tagy a poznámky položek účtenky a celého nákupu
+  if(tagFilter) txs = txs.filter(t => (typeof txVsechnyTagy === 'function' ? txVsechnyTagy(t) : parseTxTags(t)).some(tag => tag.includes(tagFilter)));
+  if(searchFilter) txs = txs.filter(t => typeof txHledanyText === 'function' ? txHledanyText(t).includes(searchFilter)
+    : ((t.name||'').toLowerCase().includes(searchFilter) || (t.note||'').toLowerCase().includes(searchFilter)));
   if(amtMin != null) txs = txs.filter(t => Math.abs(t.amount || t.amt || 0) >= amtMin - 0.005);
   if(amtMax != null) txs = txs.filter(t => Math.abs(t.amount || t.amt || 0) <= amtMax + 0.005);
   if(typeof getDupFilterActive === 'function' && getDupFilterActive()) {
@@ -1950,6 +1949,13 @@ if (!window._txResizeBound) {
   });
 }
 
+//  v12.42 (TODO-374): štítky řádku transakce – modré (ruční, celého nákupu, položek účtenky) a zelené (druhy)
+function _txStitky(t) {
+  const modre = [...new Set([...(Array.isArray(t.tags) ? t.tags : []), ...(Array.isArray(t.tagyNakup) ? t.tagyNakup : []),
+    ...(typeof txTagyPolozek === 'function' ? txTagyPolozek(t) : [])])];
+  const zelene = (typeof t.tags === 'string' && t.tags) ? t.tags.split(/[\s,]+/).filter(Boolean) : [];
+  return { modre, zelene };
+}
 function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
   const cat = getCat(t.catId||t.category, D.categories);
   const amt = t.amount || t.amt || 0;
@@ -2045,7 +2051,7 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
     const rows = t.receiptItems.map(it => {
       const itTotal = it.lineTotal!=null ? parseFloat(it.lineTotal) : (parseFloat(it.price)||0)*(parseFloat(it.qty)||1);
       const qtyStr = (it.qty&&it.qty!==1) ? `${it.qty}\u00a0${it.unit||'ks'}` : '';
-      return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${it.name||'–'}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
+      return `<div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.04)"><span style="font-size:.78rem;color:var(--text)">${escHtml(it.nazev||it.name||'–')}${(Array.isArray(it.tagy)?it.tagy:[]).map(g=>`<span style="color:#93c5fd;font-size:.68rem"> #${escHtml(g)}</span>`).join('')}${it.poznamka?`<span style="display:block;font-size:.66rem;color:#a8aec8">📝 ${escHtml(it.poznamka)}</span>`:''}</span><span style="text-align:right;font-size:.78rem;font-weight:700;color:var(--expense)">${fmtP(itTotal)}\u00a0Kč</span><span style="text-align:right;font-size:.68rem;color:#a8aec8">${qtyStr}</span></div>`;
     }).join('');
     return `<div id="rcpt-items-${t.id}" style="display:none;background:var(--surface2);border-top:1px solid var(--border);padding:8px 16px 10px"><div style="display:grid;grid-template-columns:1fr 72px 52px;gap:4px 8px;padding:2px 0 4px;font-size:.62rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)"><span>Položka</span><span style="text-align:right">Kč</span><span style="text-align:right">Mn.</span></div>${rows}${ro ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-ghost btn-sm" style="font-size:.72rem" onclick="event.stopPropagation();(typeof openReceiptForTx==='function'&&openReceiptForTx('${t.id}'))||openReceiptInHistory('${t.receiptDate||''}','${(t.receiptStore||'').replace(/'/g,'')}')">✎ Upravit účtenku</button>
@@ -2063,10 +2069,10 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
       : hasReceiptItems
         ? `onclick="const el=document.getElementById('rcpt-items-${t.id}');if(el)el.style.display=el.style.display==='none'?'block':'none'"`
         : (!ro && !isVirtualTransfer ? `onclick="editTx('${t.id}')"` : '');
-    const tagsHtmlM =
-      (Array.isArray(t.tags)&&t.tags.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${tag}</span>`).join('')}</div>`
-      : (typeof t.tags==='string'&&t.tags) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${t.tags.split(/[\s,]+/).filter(Boolean).map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>`
-      : '';
+    //  v12.42 (TODO-374): modré tagy = ruční (pole t.tags) + celého nákupu (t.tagyNakup) + tagy položek účtenky,
+    //  zelené = druhy z položek (text t.tags). Dřív se ukázal jen jeden z obou druhů.
+    const _tgM = _txStitky(t);
+    const tagsHtmlM = (_tgM.modre.length || _tgM.zelene.length) ? `<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${_tgM.modre.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:1px 7px;border-radius:8px;font-size:.62rem;font-weight:700">#${escHtml(tag)}</span>`).join('')}${_tgM.zelene.map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:1px 5px;border-radius:8px;font-size:.62rem;font-weight:600">🏷️ ${escHtml(tag)}</span>`).join('')}</div>` : '';
     const badgeM = (isSplitParent ? ` <span style="font-size:.66rem;color:var(--bank)">${t.rcptSplit?'📷 ':''}✂️ ${splitChildren.length}× ▾</span>`
                 : hasReceiptItems ? ` <span style="font-size:.66rem;color:#a8aec8">📷 ${t.receiptItems.length} ▾</span>` : '')
                 + (Array.isArray(t.propojeno) && t.propojeno.length ? ' <span style="font-size:.66rem" title="Propojeno s jinou transakcí">🔗</span>' : '');   // v12.17
@@ -2086,6 +2092,7 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cat.name}${subM}</div>
         <div style="font-size:.72rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${descM}${badgeM}</div>
+        ${t.poznamkaNakup ? `<div style="font-size:.68rem;color:#a8aec8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📝 ${escHtml(t.poznamkaNakup)}</div>` : ''}${/* v12.42: poznámka celého nákupu */''}
         ${tagsHtmlM}${dupBadgeM}
       </div>
       <div style="flex-shrink:0;text-align:right">
@@ -2118,8 +2125,8 @@ function buildTxRow(t, D, ro, dupMap={}, samostatne=false) {
     : (hasReceiptItems && !isSplitParent) ? `onclick="${_expandJs}" style="cursor:pointer"`
     : '';
   // Landscape: tagy jako pruh přes celou šířku pod řádkem (v úzké buňce „Název" se orezavaly na 1 písmeno)
-  const _tagsArr = Array.isArray(t.tags) ? t.tags : (typeof t.tags==='string'&&t.tags ? t.tags.split(/[\s,]+/).filter(Boolean) : []);
-  const _tagsRow = _tagsArr.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 7px 82px">${_tagsArr.map(tag=>Array.isArray(t.tags)?`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:700">#${tag}</span>`:`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:600">🏷️ ${tag}</span>`).join('')}</div>` : '';
+  const _tgD = _txStitky(t);   // v12.42: modré i zelené vedle sebe
+  const _tagsRow = (_tgD.modre.length || _tgD.zelene.length) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 7px 82px">${_tgD.modre.map(tag=>`<span style="background:rgba(30,58,138,.7);border:1px solid rgba(59,130,246,.5);color:#fff;padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:700">#${escHtml(tag)}</span>`).join('')}${_tgD.zelene.map(tag=>`<span style="background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:var(--income);padding:2px 8px;border-radius:8px;font-size:.66rem;font-weight:600">🏷️ ${escHtml(tag)}</span>`).join('')}</div>` : '';
   const _rowHTML = `<div class="${rowClass}${_swipeRow?' tx-swipe-fg':''}"${_swipeRow?' data-swipe="1"':''} ${_rowAttrs}>
     <div class="tx-table-cell" style="color:var(--text3);font-size:.76rem">
       <div style="font-weight:600;color:var(--text2)">${d.getDate()}. ${CZ_M[d.getMonth()].slice(0,3)}</div>

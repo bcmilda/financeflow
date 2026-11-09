@@ -1,4 +1,4 @@
-// FinanceFlow · v12.40 · receipts.js · 2026-11-08
+// FinanceFlow · v12.42 · receipts.js · 2026-11-08
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -5127,6 +5127,7 @@ function buildReceiptPreviewHTML(receipt, n) {
   }
   if(typeof rpApplyNegativeLines==='function') rpApplyNegativeLines(receipt);   // S23
   window._editReceipt = JSON.parse(JSON.stringify(receipt));
+  window._rpVyber = null; window._rpPanely = new Set();   // v12.42: výběr a otevřené panely patří k jedné účtence
   //  S27 (v11.95, FIX-486): rozpracovaná NOVÁ účtenka – výsledek skenu ukazuje na živou (upravovanou)
   //  kopii. Každé obnovení editoru (překreslení po synchronizaci, návrat na záložku) ji tak postaví
   //  s úpravami, ne z původního skenu (dřív zmizely kategorie, názvy i kódy).
@@ -5142,13 +5143,14 @@ function buildReceiptPreviewHTML(receipt, n) {
   //  Bez toho není proti čemu součet položek porovnávat.
   if(r.printedTotal == null && r.total != null) r.printedTotal = r.total;
 
-  return `<div id="receiptEditForm" onclick="event.stopPropagation()" style="background:var(--surface);border:2px solid rgba(74,222,128,.3);border-radius:14px;padding:16px;margin-top:12px;box-shadow:0 4px 24px rgba(0,0,0,.3)">
+  return `<div id="receiptEditForm" onclick="event.stopPropagation()" style="background:var(--surface);border:2px solid rgba(74,222,128,.3);border-radius:14px;padding:clamp(10px,3vw,16px);margin-top:12px;box-shadow:0 4px 24px rgba(0,0,0,.3)">
 
     <!-- Hlavička · S26 (v11.70, Milan): Celkem NAD poli, ať mají pole celou šířku -->
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
       <div style="font-size:.78rem;color:var(--text2)">Celkem</div>
       <div style="text-align:right">
         <div id="rp_total_display" style="font-family:Syne,sans-serif;font-size:1.4rem;font-weight:800;color:var(--expense);white-space:nowrap">−${fmtP(r.total||0)} Kč</div>
+        <div id="rp_usetreno" style="font-size:.74rem;color:var(--income);margin-top:2px;${receiptSavings(r) > 0 ? '' : 'display:none'}">🏷️ ušetřeno na slevách ${fmtP(receiptSavings(r))} Kč</div>
         ${(()=>{ const nv = rcptZaokrouhleniNavrh(r);
           if(nv != null) return `<div id="rp_zaokr" style="font-size:.7rem;color:var(--text2);margin-top:4px">Na účtence je i <b>${fmtP(r.subtotal)} Kč</b>.
             <button class="btn btn-ghost btn-sm" style="font-size:.7rem;padding:2px 8px;margin-left:4px" onclick="rpZaplacenoCele()">Zaplaceno bylo ${fmtP(nv)} Kč</button></div>`;
@@ -5219,10 +5221,10 @@ function buildReceiptPreviewHTML(receipt, n) {
     <!-- Položky -->
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:.76rem;font-weight:600;color:var(--text2)">Položky <span style="font-size:.62rem;color:var(--text3);font-weight:400">· ← potáhni do stran →</span></span>
-        <span style="display:flex;gap:6px">${r.rucne ? `<button class="btn btn-ghost btn-sm" onclick="rpPridatSkenem()" style="font-size:.72rem">📷 Přidat skenem</button>` : ''}<button class="btn btn-ghost btn-sm" onclick="rpAddItem()" style="font-size:.72rem">➕ Přidat</button></span>
+        <span style="font-size:.8rem;font-weight:700;color:var(--text2)">Položky <span style="font-size:.66rem;color:var(--text3);font-weight:400">· ${(r.items||[]).length}</span></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${r.rucne ? `<button class="btn btn-ghost btn-sm" onclick="rpPridatSkenem()" style="font-size:.72rem">📷 Přidat skenem</button>` : ''}<button id="rp_vyber_btn" class="btn btn-ghost btn-sm" onclick="rpVyberPrepni()" title="Vybrat víc položek a přidat jim modrý tag nebo poznámku" style="font-size:.72rem;color:#93c5fd;border-color:rgba(96,165,250,.5)">${window._rpVyber ? '✓ Hotovo' : '☑ Vybrat'}</button><button class="btn btn-ghost btn-sm" onclick="rpAddItem()" style="font-size:.72rem">➕ Přidat</button></span>
       </div>
-      <div id="rp_items" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px"></div>
+      <div id="rp_items" style="padding-bottom:4px"></div>
     </div>
 
     <!-- Akce -->
@@ -5913,13 +5915,162 @@ function _rpDohnatPrekresleni() {
   rpRender();
 }
 
+//  ══════════════════════════════════════════════════════
+//  v12.42 (S28, TODO-374): NOVÝ EDITOR ÚČTENKY – obsluha karty položky, výběru a celého nákupu.
+//  Data položky: it.nazev (tvůj název; prázdné = návrh AI it.nazevAI), it.name (doslova z účtenky – páruje se
+//  podle něj), it.discount (sleva v Kč; lineTotal = cena × počet − sleva), it.tagy [] (modré tagy položky),
+//  it.poznamka. Celý nákup: r.tagy [] a r.poznamka → transakce tagyNakup / poznamkaNakup.
+//  ══════════════════════════════════════════════════════
+const RP_DRUH_NAPOVEDA = 'Druh zboží – co to je, obecně (Čokoláda, Pečivo, Benzín). Podle druhu se porovnávají ceny mezi obchody a počítá tvoje inflace. Modrý #tag je jen tvoje třídění (proč nebo pro koho).';
+function _rpUvolni() { const a = document.activeElement; if (a && a.blur && a.closest && a.closest('#receiptEditForm')) a.blur(); }   // jinak by překreslení čekalo na odchod z pole
+function _rpIt(i) { const r = rpEditor(); return r && r.items ? r.items[i] : null; }
+function _rpTagy(v) { return typeof parseTags === 'function' ? parseTags(String(v || '')) : String(v || '').split(/[\s,]+/).map(t => t.replace(/^#+/, '').trim().toLowerCase()).filter(t => t && t.length <= 30); }
+function rpItemNazev(i, v) {
+  const it = _rpIt(i); if (!it) return;
+  _rpUvolni();
+  v = String(v || '').trim().slice(0, 120);
+  if (!v || v === (it.nazevAI || '')) delete it.nazev; else it.nazev = v;
+  rpRender();
+}
+function rpItemNazevAI(i) { const it = _rpIt(i); if (!it) return; delete it.nazev; rpRender(); }
+function rpSlevaOtevri(i) {
+  const it = _rpIt(i); if (!it) return; it._slevaOtevrena = true; rpRender();
+  setTimeout(() => { const e = document.getElementById('rp_disc_' + i); if (e) e.focus(); }, 30);
+}
+function rpItemSleva(i, v) {
+  const it = _rpIt(i); if (!it) return;
+  const stara = parseFloat(it.discount) || 0;
+  let d = Math.abs(parseFloat(String(v || '').replace(',', '.')) || 0);
+  const zaklad = Math.round((lineAmt(it) + stara) * 100) / 100;   // cena před slevou
+  if (d > Math.abs(zaklad)) d = Math.abs(zaklad);
+  d = Math.round(d * 100) / 100;
+  if (d > 0) it.discount = d; else { delete it.discount; delete it._slevaOtevrena; }
+  it.lineTotal = Math.round((zaklad - d) * 100) / 100;
+  rpUpdateTotal(); rpRender();
+}
+function rpItemPanel(i) {
+  const p = window._rpPanely || (window._rpPanely = new Set());
+  if (p.has(i)) p.delete(i); else p.add(i);
+  rpRender();
+  if (p.has(i)) setTimeout(() => { const e = document.getElementById('rp_itag_' + i); if (e) e.focus(); }, 30);
+}
+function rpItemTagPridej(i, v) {
+  const it = _rpIt(i); if (!it) return;
+  _rpUvolni();
+  const nove = _rpTagy(v); if (!nove.length) return;
+  it.tagy = [...new Set([...(Array.isArray(it.tagy) ? it.tagy : []), ...nove])];
+  (window._rpPanely || (window._rpPanely = new Set())).add(i);
+  rpRender();
+}
+function rpItemTagOdeber(i, k) {
+  const it = _rpIt(i); if (!it || !Array.isArray(it.tagy)) return;
+  it.tagy.splice(k, 1); if (!it.tagy.length) delete it.tagy;
+  rpRender();
+}
+function rpItemPozn(i, v) {
+  const it = _rpIt(i); if (!it) return;
+  v = String(v || '').trim().slice(0, 300);
+  if (v) it.poznamka = v; else delete it.poznamka;
+}
+//  Režim „Vybrat“: zaškrtnout víc položek a přidat jim jeden modrý tag nebo poznámku najednou (návrh C2).
+function rpVyberPrepni() {
+  window._rpVyber = window._rpVyber ? null : new Set();
+  const b = document.getElementById('rp_vyber_btn'); if (b) b.textContent = window._rpVyber ? '✓ Hotovo' : '☑ Vybrat';
+  rpRender();
+}
+function rpVyberPolozku(i, on) { if (!window._rpVyber) return; if (on) window._rpVyber.add(i); else window._rpVyber.delete(i); rpRender(); }
+function rpVyberVse() {
+  const r = rpEditor(); if (!r || !window._rpVyber) return;
+  if (window._rpVyber.size === r.items.length) window._rpVyber.clear(); else r.items.forEach((x, i) => window._rpVyber.add(i));
+  rpRender();
+}
+function rpVyberPouzij() {
+  const r = rpEditor(); const v = window._rpVyber; if (!r || !v || !v.size) return;
+  const tagy = _rpTagy(document.getElementById('rp_vtag')?.value);
+  const pozn = String(document.getElementById('rp_vpozn')?.value || '').trim().slice(0, 300);
+  if (!tagy.length && !pozn) { if (typeof showToast === 'function') showToast('Napiš modrý tag nebo poznámku'); return; }
+  const n = v.size;
+  v.forEach(i => { const it = r.items[i]; if (!it) return;
+    if (tagy.length) it.tagy = [...new Set([...(Array.isArray(it.tagy) ? it.tagy : []), ...tagy])];
+    if (pozn) it.poznamka = pozn; });
+  window._rpVyber = null;
+  const b = document.getElementById('rp_vyber_btn'); if (b) b.textContent = '☑ Vybrat';
+  rpRender();
+  if (typeof showToast === 'function') showToast(`✓ Přidáno k ${n} ${n === 1 ? 'položce' : 'položkám'}`);
+}
+//  Celý nákup (návrh C4): modré tagy a poznámka platí pro celou účtenku.
+function rpNakupTag(v) { const r = rpEditor(); if (!r) return; _rpUvolni(); const nove = _rpTagy(v); if (!nove.length) return;
+  r.tagy = [...new Set([...(Array.isArray(r.tagy) ? r.tagy : []), ...nove])]; rpRender(); }
+function rpNakupTagOdeber(k) { const r = rpEditor(); if (!r || !Array.isArray(r.tagy)) return; r.tagy.splice(k, 1); if (!r.tagy.length) delete r.tagy; rpRender(); }
+function rpNakupPozn(v) { const r = rpEditor(); if (!r) return; v = String(v || '').trim().slice(0, 500); if (v) r.poznamka = v; else delete r.poznamka; }
+//  Kam se účtenka zapíše: stejné skupiny jako rcptRozdelTx (kategorie + podkategorie položky).
+function rpKamSkupiny(r, D) {
+  D = D || getData(); const m = new Map();
+  (r.items || []).forEach(it => { const k = (it.itemCatId || '') + '|' + (it.itemSubcat || '');
+    const o = m.get(k) || { catId: it.itemCatId || '', sub: it.itemSubcat || '', kc: 0, n: 0 }; o.kc += lineAmt(it); o.n++; m.set(k, o); });
+  return [...m.values()].map(o => { const c = (D.categories || []).find(x => x.id === o.catId);
+    return { ...o, kc: Math.round(o.kc * 100) / 100, nazev: (c ? c.name : 'Nákup') + (o.sub ? ' › ' + o.sub : ''), barva: (c && c.color) || '#6b7280', ikona: (c && c.icon) || '📦' }; })
+    .sort((a, b) => b.kc - a.kc);
+}
+function rpKamHTML(r, D) {
+  D = D || getData();
+  const sk = rpKamSkupiny(r, D);
+  const w = (S.wallets || []).find(x => x.id === r.wallet);
+  const sl = typeof receiptSavings === 'function' ? receiptSavings(r) : 0;
+  const tagyPol = {};
+  (r.items || []).forEach(it => (Array.isArray(it.tagy) ? it.tagy : []).forEach(t => { tagyPol[t] = (tagyPol[t] || 0) + lineAmt(it); }));
+  return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:.8rem">Transakce${w ? ' · ' + escHtml(w.name) : ''}</span>
+      <b style="color:var(--expense);font-size:.88rem;white-space:nowrap">−${fmtP(r.total || 0)} Kč</b></div>
+    ${sk.length > 1 ? `<div style="font-size:.72rem;color:#a8aec8">rozdělená na ${sk.length} ${sk.length < 5 ? 'části' : 'částí'} podle kategorií položek:</div>` : ''}
+    ${sk.map(o => `<div style="display:flex;align-items:center;gap:8px;font-size:.8rem"><span style="width:4px;height:20px;border-radius:2px;background:${o.barva};flex-shrink:0"></span>
+      <span style="flex:1;min-width:0">${o.ikona} ${escHtml(o.nazev)} <span style="color:#8b93ad;font-size:.7rem">· ${o.n} pol.</span></span><b style="white-space:nowrap">${fmtP(o.kc)}</b></div>`).join('')}
+    ${sk.length > 1 ? '<div style="font-size:.7rem;color:#8b93ad;line-height:1.45">Statistiky, rozpočty a reporty počítají každou část ve své kategorii. Peněženka odečte celou částku jednou.</div>' : ''}
+    ${Object.keys(tagyPol).length ? Object.entries(tagyPol).map(([t, kc]) => `<div style="display:flex;justify-content:space-between;font-size:.76rem;color:#93c5fd"><span>#${escHtml(t)} v Tagy</span><span>${fmtP(kc)} Kč</span></div>`).join('') : ''}
+    ${(Array.isArray(r.tagy) ? r.tagy : []).map(t => `<div style="display:flex;justify-content:space-between;font-size:.76rem;color:#93c5fd"><span>#${escHtml(t)} v Tagy (celý nákup)</span><span>${fmtP(r.total || 0)} Kč</span></div>`).join('')}
+    ${sl > 0 ? `<div style="display:flex;justify-content:space-between;font-size:.76rem;color:var(--income);border-top:1px solid var(--border);padding-top:5px"><span>ušetřeno na slevách</span><span>${fmtP(sl)} Kč</span></div>` : ''}`;
+}
+function rpNakupHTML(r, D) {
+  const nadpis = t => `<div style="font-size:.68rem;font-weight:700;color:#a8aec8;letter-spacing:.05em;margin:12px 0 6px">${t}</div>`;
+  const pol = (r.items || []).map((it, i) => ({ it, i })).filter(({ it }) => (Array.isArray(it.tagy) && it.tagy.length) || it.poznamka);
+  const v = window._rpVyber;
+  let h = '';
+  if (pol.length) {
+    h += nadpis('TAGY A POZNÁMKY U POLOŽEK') + `<div style="display:flex;flex-direction:column;gap:5px;background:var(--surface2);border-radius:10px;padding:8px 10px">` +
+      pol.map(({ it }) => `<div style="font-size:.76rem;line-height:1.4"><b style="color:var(--text)">${escHtml(it.nazev || it.nazevAI || it.name || '')}</b>
+        ${(Array.isArray(it.tagy) ? it.tagy : []).map(t => `<span style="color:#93c5fd"> #${escHtml(t)}</span>`).join('')}${it.poznamka ? `<span style="color:#c9cede"> · 📝 ${escHtml(it.poznamka)}</span>` : ''}</div>`).join('') + '</div>';
+  }
+  h += `<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:4px">` + nadpis('CELÝ NÁKUP · MODRÉ TAGY') +
+    `<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 8px">
+      ${(Array.isArray(r.tagy) ? r.tagy : []).map((t, k) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.76rem;padding:3px 4px 3px 9px;border-radius:12px;background:rgba(96,165,250,.16);border:1px solid #60a5fa;color:#93c5fd">#${escHtml(t)}<button onclick="rpNakupTagOdeber(${k})" aria-label="Odebrat tag" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:.8rem;padding:0 3px">✕</button></span>`).join('')}
+      <input id="rp_ntag" placeholder="+ tag celého nákupu (např. chalupa)" aria-label="Modrý tag celého nákupu" onchange="rpNakupTag(this.value)"
+        style="flex:1;min-width:120px;background:transparent;border:none;color:var(--text);font-size:.8rem;padding:5px 2px" autocomplete="off">
+    </div>` + nadpis('POZNÁMKA K CELÉMU NÁKUPU') +
+    `<textarea id="rp_npozn" rows="2" aria-label="Poznámka k celému nákupu" placeholder="např. nákup na oslavu" onchange="rpNakupPozn(this.value)"
+      style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font:inherit;font-size:.84rem;padding:8px 10px;resize:vertical">${escHtml(r.poznamka || '')}</textarea>` +
+    nadpis('KAM SE ÚČTENKA ZAPÍŠE') + `<div id="rp_kam" style="display:flex;flex-direction:column;gap:6px;background:var(--surface2);border-radius:10px;padding:10px 12px">${rpKamHTML(r, D)}</div></div>`;
+  if (v) {
+    h += `<div id="rp_vyber_panel" style="position:sticky;bottom:0;z-index:5;margin-top:12px;background:var(--surface);border:1px solid #60a5fa;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;box-shadow:0 -8px 24px rgba(0,0,0,.4)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:.84rem">Pro ${v.size} ${v.size === 1 ? 'vybranou položku' : v.size >= 2 && v.size <= 4 ? 'vybrané položky' : 'vybraných položek'}</b>
+        <button class="btn btn-ghost btn-sm" onclick="rpVyberVse()" style="font-size:.72rem">${v.size === (r.items || []).length ? 'Zrušit výběr' : 'Vybrat vše'}</button></div>
+      <input id="rp_vtag" placeholder="Modrý tag, např. mamka" aria-label="Modrý tag pro vybrané položky" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:#93c5fd;font-size:.84rem;padding:8px 10px" autocomplete="off">
+      <input id="rp_vpozn" placeholder="📝 Poznámka k vybraným" aria-label="Poznámka k vybraným položkám" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:.84rem;padding:8px 10px" autocomplete="off">
+      <div style="display:flex;gap:8px"><button class="btn btn-accent" style="flex:1" ${v.size ? '' : 'disabled'} onclick="rpVyberPouzij()">Přidat k ${v.size} ${v.size === 1 ? 'položce' : 'položkám'}</button>
+        <button class="btn btn-ghost" onclick="rpVyberPrepni()">Zrušit</button></div>
+    </div>`;
+  }
+  return h;
+}
+Object.assign(window, { rpItemNazev, rpItemNazevAI, rpSlevaOtevri, rpItemSleva, rpItemPanel, rpItemTagPridej, rpItemTagOdeber, rpItemPozn,
+  rpVyberPrepni, rpVyberPolozku, rpVyberVse, rpVyberPouzij, rpNakupTag, rpNakupTagOdeber, rpNakupPozn, rpKamSkupiny, rpKamHTML, rpNakupHTML });
+
 function rpRender() {
   const el = document.getElementById('rp_items'); if(!el) return;
   // FIX: Nepřekreslovat pokud je fokusovaný input (způsobuje blikání a ztrátu hodnoty na mobilu)
   const focused = document.activeElement;
   // FIX: Blokuj re-render jen pro TEXT inputy (zabraňuje ztrátě kurzoru při psaní).
   // SELECT a ostatní prvky NEVYLUČUJ – jinak se nevykreslí subkat po změně kategorie.
-  const isTextInput = focused && (focused.tagName==='INPUT' && focused.type!=='number') && focused.closest('#rp_items');
+  //  v12.42: zaškrtávátko výběru (Vybrat) není textové pole – dřív se výběr kvůli němu nepřekreslil
+  const isTextInput = focused && (focused.tagName==='INPUT' && !['number','checkbox','radio','button'].includes(focused.type)) && focused.closest('#rp_items');
   if(isTextInput) { _rpPrekreslitPozdeji(); return; }
   //  v11.97 (FIX-487, Milan: „při úpravě zeleného tagu mi občas uskočí kurzor“): přechod z pole
   //  (Balení, Název) do jiného spustí „change“ ještě PŘED fokusem nového pole – aktivní je chvíli
@@ -5959,6 +6110,24 @@ function rpRender() {
     groups[key].items.push({it, i});
   });
 
+  //  ══════════════════════════════════════════════════════
+  //  v12.42 (S28, TODO-374 – NOVÝ EDITOR ÚČTENKY, varianta B, návrh C1–C4 na plátně „Editor účtenky – návrh“).
+  //  Milan: „varianta B úprava stávajícího je lepší, protože zachovává známý koncept, k tomu přidáme slevu
+  //  z B4 a musí zůstat i názvy – z účtenky a upravené AI (uživatelem) a z EANu (karty)“; „modře otaguju
+  //  vybrané položky nebo k nim přidám poznámku, nebo dám poznámku obecnou za celý nákup“; zelený tag
+  //  = „Druh“ (potvrdil 8. 11.); tag položky se v Tagy počítá jen částkou položky; poznámka jde najít.
+  //  Řádek položky je teď KARTA (pod sebou, bez posouvání do stran – dřív min-width 726 px):
+  //    1) Název (it.nazev = tvůj, jinak návrh AI it.nazevAI) + částka (u slevy pod ní přeškrtnutá původní),
+  //    2) „z účtenky: “ = it.name – doslova z účtenky, podle něj se páruje (paměť kategorií, kódy, ceny),
+  //       proto zůstává zvlášť a jen se v něm opravují překlepy čtení; ▮▮ karta výrobku z kódu,
+  //    3) kategorie / podkategorie, 4) ks × cena, balení, „+ sleva“, 5) zelený pruh slevy (jen se slevou),
+  //    6) Druh + 📷/✅ kód + ⭐ téma + # modrý tag a poznámka + ✕, 7) modré tagy a poznámka položky.
+  //  Id polí (rp_name_, rp_cat_, rp_subcat_, rp_qty_, rp_price_, rp_bal_, rp_tag_) se nemění – posluchače níž.
+  //  ══════════════════════════════════════════════════════
+  const _vyber = window._rpVyber || null;   // Set indexů v režimu „Vybrat“, jinak null
+  const _panely = window._rpPanely || (window._rpPanely = new Set());
+  const _esc = x => escHtml(String(x == null ? '' : x));
+  const _pole = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text)';
   let html = '';
   for(const [key, group] of Object.entries(groups)) {
     const cat = userCats.find(c=>c.id===key);
@@ -5966,78 +6135,111 @@ function rpRender() {
     const icon = cat?.icon || '📦';
     const color = cat?.color || '#6b7280';
     const catTotal = group.items.reduce((a,{it})=>a+lineAmt(it),0);
+    const catSleva = group.items.reduce((a,{it})=>a+(parseFloat(it.discount)||0),0);
     html += `
       <div style="margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:2px solid ${color}44;margin-bottom:4px">
-          <span style="font-size:.9rem">${icon}</span>
-          <span style="font-weight:700;font-size:.82rem;flex:1;color:var(--text)">${group.label}</span>
-          <span style="font-size:.76rem;color:var(--expense);font-weight:600">${fmtP(catTotal)} Kč</span>
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:2px solid ${color};margin-bottom:2px">
+          <span style="font-size:.95rem">${icon}</span>
+          <span style="font-weight:700;font-size:.92rem;flex:1;color:var(--text)">${_esc(group.label)}</span>
+          ${catSleva > 0 ? `<span style="font-size:.7rem;color:var(--income)">−${fmtP(catSleva)}</span>` : ''}
+          <span style="font-size:.8rem;color:var(--expense);font-weight:700">${fmtP(catTotal)} Kč</span>
         </div>`;
     group.items.forEach(({it, i}) => {
       //  S24: 🗺️ = návrh z komunitní mapy. Jen předvyplněno – potvrdit stačí
       //  nechat, změnit = změnit kategorii (tím vznikne vlastní volba).
       const _mp = it._fromMap && it._mapa;
-      const fromMem = it._fromMemory ? `<span title="Tvoje volba z dřívějška" style="font-size:.55rem;color:var(--income);margin-left:2px">🧠</span>`
-        : _mp ? `<span title="${escHtml((it._mapa.zdrojTax==='nazev' ? 'Podle názvu v taxonomii' : 'Návrh z komunitní Mapy položek') + ': ' + rpTaxRetez(it._mapa) + (it._mapa.konkretni && it._mapa.tax ? ' · ' + it._mapa.konkretni : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.6rem;color:#60a5fa;margin-left:2px">${it._mapa.zdrojTax==='nazev'?'🧭':'🗺️'}</span>` : '';
+      const fromMem = it._fromMemory ? `<span title="Tvoje volba z dřívějška" style="font-size:.6rem;color:var(--income)">🧠</span>`
+        : _mp ? `<span title="${escHtml((it._mapa.zdrojTax==='nazev' ? 'Podle názvu v taxonomii' : 'Návrh z komunitní Mapy položek') + ': ' + rpTaxRetez(it._mapa) + (it._mapa.konkretni && it._mapa.tax ? ' · ' + it._mapa.konkretni : '') + '. Když nesedí, změň kategorii – zapamatuje se jako tvoje volba.')}" style="font-size:.66rem;color:#60a5fa">${it._mapa.zdrojTax==='nazev'?'🧭':'🗺️'}</span>` : '';
+      const vaz = rpVazene(it);
+      const disc = parseFloat(it.discount) || 0;
+      const kc = lineAmt(it);
+      const puvodne = disc > 0 ? Math.round((kc + disc) * 100) / 100 : null;
+      const nazev = it.nazev || it.nazevAI || '';
+      const puvod = it.nazev ? `<span style="color:#fbbf24">upraveno tebou</span>${it.nazevAI ? ` · <button onclick="rpItemNazevAI(${i})" style="background:none;border:none;padding:0;color:#a8aec8;font-size:inherit;text-decoration:underline;cursor:pointer">vrátit návrh AI</button>` : ''}`
+        : it.nazevAI ? '<span style="color:#a8aec8">navrhla AI · klepni a uprav</span>' : '';
+      const kodRadek = (!it.ean && it.nazevAI && !_rpDruhKlic(it)) ? '' : rpKodRadekHTML(it, i);   // výklad AI už je v Názvu
+      const tagy = Array.isArray(it.tagy) ? it.tagy : [];
+      const maPanel = tagy.length || it.poznamka || _panely.has(i);
+      const g = vaz ? null : gramazPolozky(it);
+      const balTit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
+                       : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
+      const vybrano = _vyber && _vyber.has(i);
       html += `
-        <div style="display:flex;align-items:center;gap:5px;padding:5px 2px;border-bottom:1px solid var(--border)" id="rp_item_${i}">
-          <div style="flex:1;min-width:130px;display:flex;flex-direction:column;gap:2px">
-          <input id="rp_name_${i}"
-            value="${(it.name||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
-            placeholder="Název položky"
-            title="${rpIsGenericName(it.name)?'Obecný název (oddělení, ne výrobek) – do sledování cen se nepočítá. Přepiš na konkrétní výrobek s gramáží.':''}"
-            style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'solid var(--border)'};border-radius:7px;padding:6px 8px;color:var(--text);font-size:.78rem"
-            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          ${rpKodRadekHTML(it, i)}
+        <div id="rp_item_${i}" class="rp-karta" style="display:flex;flex-direction:column;gap:7px;padding:10px 2px 11px;border-bottom:1px solid var(--border)${vybrano ? ';background:rgba(96,165,250,.09);border-radius:8px' : ''}">
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            ${_vyber ? `<input type="checkbox" id="rp_vyb_${i}" ${vybrano ? 'checked' : ''} onchange="rpVyberPolozku(${i},this.checked)" aria-label="Vybrat položku" style="width:22px;height:22px;margin-top:8px;accent-color:#60a5fa;flex-shrink:0">` : ''}
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <input id="rp_nazev_${i}" value="${_esc(nazev)}" placeholder="${_esc(it.name || 'Název položky')}" aria-label="Název položky"
+                onchange="rpItemNazev(${i},this.value)" style="${_pole};padding:8px 10px;font-size:.88rem;width:100%;box-sizing:border-box"
+                autocomplete="off" autocorrect="off" spellcheck="false">
+              ${puvod ? `<span style="font-size:.66rem;padding-left:4px">${puvod}</span>` : ''}
+            </div>
+            <div style="flex-shrink:0;text-align:right;min-width:64px;padding-top:7px">
+              <div id="rp_sum_${i}" title="Celkem za položku${disc > 0 ? ' (po slevě ' + fmtP(disc) + ' Kč)' : ''}" style="font-size:.9rem;font-weight:700;white-space:nowrap;color:${kc < 0 ? 'var(--income)' : 'var(--text)'}">${kc < 0 ? '♻️ ' : ''}${fmtP(kc)}</div>
+              ${puvodne != null ? `<div id="rp_puv_${i}" style="font-size:.7rem;color:#8b93ad;text-decoration:line-through;white-space:nowrap">${fmtP(puvodne)}</div>` : ''}
+            </div>
           </div>
-          <div style="position:relative;flex-shrink:0;display:flex;gap:3px;align-items:center">
-            <select id="rp_cat_${i}"
-              style="background:var(--surface2);border:1px solid ${it.itemCatId?color:'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.68rem;width:100px">
+          <div style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.18);border-radius:8px;padding:6px 8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#a8aec8">
+              <span style="white-space:nowrap">🧾 z účtenky:</span>
+              <input id="rp_name_${i}" value="${(it.name||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" placeholder="text řádku z účtenky"
+                title="${rpIsGenericName(it.name)?'Obecný název (oddělení, ne výrobek) – do sledování cen se nepočítá.':'Text řádku přesně z účtenky – podle něj appka pozná výrobek příště. Oprav jen překlep ve čtení.'}"
+                style="flex:1;min-width:0;background:transparent;border:none;border-bottom:1px ${rpIsGenericName(it.name)?'dashed #60a5fa':'dotted #4b5674'};color:var(--text);font-size:.74rem;font-weight:600;letter-spacing:.02em;padding:2px 0"
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </label>
+            ${kodRadek}
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px;gap:6px;align-items:center">
+            <select id="rp_cat_${i}" aria-label="Kategorie" style="${_pole};border:1.5px solid ${it.itemCatId?color:'var(--border)'};padding:8px 6px;font-size:.78rem;min-width:0">
               ${catOptionsAll.replace(`value="${it.itemCatId||''}"`,`value="${it.itemCatId||''}" selected`)}
             </select>
-            <select id="rp_subcat_${i}"
-              style="background:var(--surface2);border:1.5px solid ${it.itemCatId?color+'66':'var(--border)'};border-radius:7px;padding:5px 4px;color:var(--text2);font-size:.7rem;width:90px;font-weight:500${!it.itemCatId?';opacity:.4':''}">
+            <select id="rp_subcat_${i}" aria-label="Podkategorie" style="${_pole};border:1.5px solid ${it.itemCatId?color+'99':'var(--border)'};padding:8px 6px;font-size:.78rem;min-width:0${!it.itemCatId?';opacity:.4':''}">
               ${rpItemSubcatOptions(it.itemCatId||'').replace(`value="${it.itemSubcat||''}"`,`value="${it.itemSubcat||''}" selected`)}
             </select>
-            <span style="width:14px;flex-shrink:0;text-align:center">${fromMem}</span>
+            <span style="text-align:center">${fromMem}</span>
           </div>
-          ${(() => { const vaz = rpVazene(it);   // S25: vážené zboží – v poli ČÁSTKA Z ÚČTENKY, ne cena za kg
-            return `<input id="rp_qty_${i}" type="number"
-            value="${it.qty||1}" min="${vaz ? '0.001' : '1'}" step="${vaz ? 'any' : '1'}"
-            style="width:54px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.78rem;text-align:center"
-            inputmode="decimal">
-          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:20px">${vaz ? escHtml(rpVazJed(it)) : 'ks'}</span>
-          <input id="rp_price_${i}" type="number"
-            value="${vaz ? (Math.round(lineAmt(it) * 100) / 100) : (it.price||0)}" step="0.01"
-            title="${vaz ? 'Částka za položku, jak je na účtence' : 'Cena za kus'}"
-            style="width:68px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 6px;color:var(--text);font-size:.82rem;text-align:right;-moz-appearance:textfield"
-            inputmode="decimal">
-          <span style="font-size:.68rem;color:var(--text2);flex-shrink:0;width:46px;line-height:1.1;text-align:left">Kč${vaz ? `<br><span id="rp_pkg_${i}" style="font-size:.58rem;color:#a8aec8;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>
-          ${/* S26 (v11.76, Milan): sloupec s celkovou cenou položky (po slevě; vratka zeleně se mínusem) */''}
-          <span id="rp_sum_${i}" title="Celkem za položku${it.discount > 0 ? ' (po slevě ' + fmtP(it.discount) + ' Kč)' : ''}" style="width:70px;flex-shrink:0;text-align:right;font-size:.8rem;font-weight:700;white-space:nowrap;color:${lineAmt(it) < 0 ? 'var(--income)' : 'var(--text)'}">${lineAmt(it) < 0 ? '♻️ ' : ''}${fmtP(lineAmt(it))}</span>`; })()}
-          ${(() => { if (rpVazene(it)) return '<span style="width:76px;flex-shrink:0" aria-hidden="true"></span>';   // S26 (v11.66): pole Balení – u váženého zboží nedává smysl; v11.69: prázdné místo stejné šířky, ať řádek „neodskočí“
-            const g = gramazPolozky(it);
-            const tit = g ? ('Balení ' + (typeof baleniTextCely === 'function' ? baleniTextCely(g) : '') + ' – ' + (GRAMAZ_ZDROJ[g.zdroj] || '') + '. Přepiš, když nesedí (např. 500 g, 1,5 l, 6x0,5 l); prázdné = automaticky.')
-                              : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
-            //  Hodnota je vidět vždy, bez barev (Milan: „nechci to komplikovat“) – odkud je, řekne jen
-            //  nápověda. Ukládá se jen změna (událost change), takže pouhé zobrazení nic nepřepíše.
-            return `<input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}"
-              placeholder="g / ml" title="${escHtml(tit)}" aria-label="Balení"
-              style="width:76px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 4px;color:var(--text);font-size:.72rem;text-align:center"
-              autocomplete="off" inputmode="text">`; })()}
-          <input id="rp_tag_${i}" type="text"
-            value="${escHtml(it.tag||'')}"
-            placeholder="🏷️ tag"
-            style="width:118px;flex-shrink:0;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 8px;color:var(--income);font-size:.84rem;font-style:italic"
-            list="rp_tag_suggestions"
-            title="Vlastní tag (např. Kafe, Jogurt, Svačina...)"
-            onfocus="this.placeholder=''"
-            onblur="if(!this.value)this.placeholder='🏷️ tag'">
-          ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
-          <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}"
-            style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:7px;cursor:pointer;font-size:.8rem;padding:4px 0;width:32px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
-          ${typeof rpTemaTlacitko === 'function' ? rpTemaTlacitko(it, i) : ''}${/* S28 (v12.20): ⭐ sledované téma */''}
-          <button onclick="rpRemoveItem(${i})" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0">✕</button>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:.74rem;color:#a8aec8">
+            <input id="rp_qty_${i}" type="number" value="${it.qty||1}" min="${vaz ? '0.001' : '1'}" step="${vaz ? 'any' : '1'}" aria-label="Množství"
+              style="${_pole};width:52px;padding:7px 4px;font-size:.82rem;text-align:center" inputmode="decimal">
+            <span>${vaz ? escHtml(rpVazJed(it)) : 'ks'} ×</span>
+            <input id="rp_price_${i}" type="number" value="${vaz ? (Math.round(kc * 100) / 100) : (it.price||0)}" step="0.01" aria-label="${vaz ? 'Částka za položku' : 'Cena za kus'}"
+              title="${vaz ? 'Částka za položku, jak je na účtence' : 'Cena za kus'}"
+              style="${_pole};width:72px;padding:7px 6px;font-size:.84rem;text-align:right;-moz-appearance:textfield" inputmode="decimal">
+            <span>Kč${vaz ? ` <span id="rp_pkg_${i}" style="font-size:.66rem;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>
+            ${disc > 0 || it._slevaOtevrena ? '' : `<button onclick="rpSlevaOtevri(${i})" title="Přidat slevu k položce" style="background:none;border:1px dashed rgba(74,222,128,.45);border-radius:14px;color:var(--income);font-size:.7rem;padding:4px 9px;cursor:pointer">+ sleva</button>`}
+            ${vaz ? '' : `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:auto"><span>balení</span><input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}" placeholder="g / ml" title="${escHtml(balTit)}" aria-label="Balení"
+              style="${_pole};width:66px;padding:7px 4px;font-size:.76rem;text-align:center" autocomplete="off" inputmode="text"></span>`}
+          </div>
+          ${disc > 0 || it._slevaOtevrena ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.76rem;color:var(--income);background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3);border-radius:9px;padding:5px 8px">
+            <span>🏷️</span><label for="rp_disc_${i}">Sleva</label>
+            <input id="rp_disc_${i}" type="number" min="0" step="0.01" value="${disc > 0 ? disc : ''}" placeholder="0" inputmode="decimal" onchange="rpItemSleva(${i},this.value)"
+              style="background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:7px;color:var(--income);width:70px;padding:5px 6px;font-size:.84rem;text-align:right">
+            <span>Kč</span><span style="flex:1"></span>
+            <span style="color:#a8aec8">zaplaceno <b id="rp_zapl_${i}" style="color:var(--text)">${fmtP(kc)}</b></span>
+          </div>` : ''}
+          <div style="display:flex;gap:5px;align-items:center">
+            <label title="${escHtml(RP_DRUH_NAPOVEDA)}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:8px;padding:0 0 0 9px">
+              <span style="font-size:.7rem;font-weight:700;color:var(--income);white-space:nowrap">Druh</span>
+              <input id="rp_tag_${i}" type="text" value="${escHtml(it.tag||'')}" placeholder="např. Čokoláda" aria-label="Druh zboží"
+                list="rp_tag_suggestions" style="flex:1;min-width:0;width:100%;background:transparent;border:none;color:var(--income);font-size:.86rem;font-style:italic;padding:8px 6px 8px 0">
+            </label>
+            ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
+            <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}" aria-label="${it.ean ? 'Kód přiřazen' : 'Vyfotit čárový kód'}"
+              style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:8px;cursor:pointer;font-size:.86rem;width:34px;height:36px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
+            ${typeof rpTemaTlacitko === 'function' ? rpTemaTlacitko(it, i) : ''}${/* S28 (v12.20): ⭐ sledované téma */''}
+            <button onclick="rpItemPanel(${i})" title="Modrý tag a poznámka k položce" aria-label="Modrý tag a poznámka k položce"
+              style="background:${maPanel?'rgba(96,165,250,.18)':'var(--surface2)'};border:1px solid ${maPanel?'#60a5fa':'var(--border)'};border-radius:8px;cursor:pointer;color:#93c5fd;font-weight:800;font-size:.95rem;width:34px;height:36px;flex-shrink:0">#</button>
+            <button onclick="rpRemoveItem(${i})" aria-label="Odebrat položku" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;width:26px;height:36px;flex-shrink:0">✕</button>
+          </div>
+          ${maPanel ? `<div style="display:flex;flex-direction:column;gap:6px;border-left:3px solid #60a5fa;padding:2px 0 2px 9px">
+            <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+              ${tagy.map((t, k) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.74rem;padding:3px 4px 3px 9px;border-radius:12px;background:rgba(96,165,250,.16);border:1px solid #60a5fa;color:#93c5fd">#${_esc(t)}<button onclick="rpItemTagOdeber(${i},${k})" aria-label="Odebrat tag" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:.8rem;padding:0 3px">✕</button></span>`).join('')}
+              <input id="rp_itag_${i}" placeholder="+ modrý tag" aria-label="Přidat modrý tag k položce" onchange="rpItemTagPridej(${i},this.value)"
+                style="background:transparent;border:1px dashed #4b5674;border-radius:12px;color:#93c5fd;font-size:.76rem;padding:4px 9px;width:110px" autocomplete="off">
+            </div>
+            <input id="rp_ipozn_${i}" value="${_esc(it.poznamka || '')}" placeholder="📝 Poznámka k položce" aria-label="Poznámka k položce" onchange="rpItemPozn(${i},this.value)"
+              style="${_pole};padding:7px 9px;font-size:.8rem" autocomplete="off">
+          </div>` : ''}
         </div>${rpDruhyPodRadkem(it, i)}${typeof rpTemaPodRadkem === 'function' ? rpTemaPodRadkem(it, i) : ''}`;
     });
     html += '</div>';
@@ -6049,7 +6251,7 @@ function rpRender() {
     '<div style="display:flex;gap:8px;align-items:flex-start;background:#60a5fa14;border:1px solid #60a5fa44;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:.74rem;line-height:1.45;color:var(--text);max-width:600px">'
     + '<span>📷</span><span style="flex:1"><b>Tip:</b> klepni na 📷 u položky a vyfoť čárový kód z obalu. Appka zjistí přesný název, značku, složení a Nutri-Score a pozná stejný výrobek i v jiných obchodech.</span>'
     + '<button onclick="try{localStorage.setItem(\'ff_eanTipSkryt\',\'1\')}catch(e){};this.parentNode.remove()" style="background:none;border:1px solid var(--border);border-radius:6px;color:#a8aec8;font-size:.68rem;padding:2px 7px;cursor:pointer">Rozumím</button></div>'; } catch(e) {}
-  el.innerHTML = _eanTip + '<div style="min-width:726px">' + html + '</div>';   // v11.97: +46 px širší pole tagu
+  el.innerHTML = _eanTip + html + rpNakupHTML(r, D);   // v12.42: bez min-width – karta se vejde na šířku telefonu
   //  S27 (v11.93): názvy výrobků k položkám s kódem, které ještě nejsou načtené → načíst a překreslit
   rpKodNazvyNacti(r);
 
@@ -6273,6 +6475,12 @@ function rpUpdateTotal() {
     e.textContent = (a < 0 ? '♻️ ' : '') + fmtP(a); e.style.color = a < 0 ? 'var(--income)' : 'var(--text)'; });
   const el = document.getElementById('rp_total_display');
   if(el) el.textContent = '−' + fmtP(r.total||0) + ' Kč';
+  //  v12.42: sleva u položky (zaplaceno, přeškrtnutá původní cena), „ušetřeno“ a Kam se účtenka zapíše
+  (r.items || []).forEach((it, i) => { const a = lineAmt(it), d = parseFloat(it.discount) || 0;
+    const z = document.getElementById('rp_zapl_' + i); if (z) z.textContent = fmtP(a);
+    const pv = document.getElementById('rp_puv_' + i); if (pv && d > 0) pv.textContent = fmtP(Math.round((a + d) * 100) / 100); });
+  const us = document.getElementById('rp_usetreno'); if (us) { const sl = receiptSavings(r); us.style.display = sl > 0 ? '' : 'none'; us.textContent = '🏷️ ušetřeno na slevách ' + fmtP(sl) + ' Kč'; }
+  const kam = document.getElementById('rp_kam'); if (kam && typeof rpKamHTML === 'function') kam.innerHTML = rpKamHTML(r);
   if(typeof rpRenderCheck==='function') rpRenderCheck();
 }
 
@@ -6292,6 +6500,7 @@ function rpAddItem() {
 function rpRemoveItem(i) {
   if(!rpEditor()) return;   // v11.95
   window._editReceipt.items.splice(i,1);
+  window._rpPanely = new Set(); if (window._rpVyber) window._rpVyber = new Set();   // v12.42: indexy se posunuly
   rpRender();
 }
 
@@ -6846,8 +7055,13 @@ function addReceiptAsTx(receipt) {
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
+      ...(it.nazev ? { nazev: it.nazev } : {}),   // v12.42: tvůj název položky (it.name zůstává doslova z účtenky)
+      ...(Array.isArray(it.tagy) && it.tagy.length ? { tagy: it.tagy.slice() } : {}),   // v12.42: modré tagy položky
+      ...(it.poznamka ? { poznamka: it.poznamka } : {}),   // v12.42: poznámka k položce
     })),
     receiptDate: receipt.date || '',
+    ...(Array.isArray(receipt.tagy) && receipt.tagy.length ? { tagyNakup: receipt.tagy.slice() } : {}),   // v12.42: modré tagy celého nákupu
+    ...(receipt.poznamka ? { poznamkaNakup: String(receipt.poznamka) } : {}),                            // v12.42: poznámka k celému nákupu
     receiptStore: receipt.store || '',
     //  Zaokrouhlení si držíme zvlášť, ať je při zpětné kontrole jasné, proč
     //  částka nesedí na součet položek na haléř.
@@ -7213,7 +7427,13 @@ function syncReceiptToTransactions(r, stare) {
       ...(it.ean ? { ean: it.ean } : {}),     // S24 (TODO-308)
       ...(it.baleni ? { baleni: it.baleni } : {}),   // S25: gramáž zvlášť
       ...(it.baleniZdroj ? { baleniZdroj: it.baleniZdroj } : {}),   // S26: odkud gramáž je (ruční má přednost)
+      ...(it.nazev ? { nazev: it.nazev } : {}),   // v12.42: tvůj název položky (it.name zůstává doslova z účtenky)
+      ...(Array.isArray(it.tagy) && it.tagy.length ? { tagy: it.tagy.slice() } : {}),   // v12.42: modré tagy položky
+      ...(it.poznamka ? { poznamka: it.poznamka } : {}),   // v12.42: poznámka k položce
     }));
+    //  v12.42: modré tagy a poznámka CELÉHO nákupu (smazané v editoru musí zmizet i z transakce)
+    if (Array.isArray(r.tagy) && r.tagy.length) t.tagyNakup = r.tagy.slice(); else delete t.tagyNakup;
+    if (r.poznamka) t.poznamkaNakup = String(r.poznamka); else delete t.poznamkaNakup;
     //  S23: peněženka – uživatelova volba v editoru, jinak doplnit chybějící.
     if(r.wallet && (S.wallets||[]).some(w=>w.id===r.wallet)) t.wallet = r.wallet;
     else if(!t.wallet && typeof rpDefaultWalletId==='function'){ const dw = rpDefaultWalletId(); if(dw) t.wallet = dw; }
