@@ -1,4 +1,4 @@
-// FinanceFlow · v12.38 · admin.js · 2026-11-06
+// FinanceFlow · v12.39 · admin.js · 2026-11-07
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.39',
+    datum: '2026-11-07',
+    zmeny: [
+      "👆 SWIPE V TRANSAKCÍCH (Milan: „při swipu se pohne obrazovka a pohyb je se zpožděním“) · cesta: Transakce → karta naskenované účtenky → potáhnout doleva (✎ Upravit). Směr tahu se rozhodne jednou po prvních 8 px: svisle = jen posun stránky, do strany = jen karta a stránka stojí. Dřív se o směru rozhodovalo u každého pohybu prstu znovu a stránka se při tahu do strany posouvala s ním. Karta jde s prstem po snímcích (bez zpoždění), otevřená se zavře tahem doprava.",
+      "📷 UPRAVIT TRANSAKCI Z ÚČTENKY, KTERÁ V HISTORII CHYBÍ (Milan: transakce 2. 10. za 196,30 Kč – „nebyla nalezena v historii“) · cesta: Transakce → ✎ / klepnutí na platbu → Analýza účtenek → Historie. Historie ukazuje dvojité kopie účtenky (stejný obchod, den, částka, počet položek) jen jednou; transakce patřila ke skryté kopii, a tak se editor neotevřel. Teď se skrytá kopie otevře v řádku viditelné, na pomalém telefonu se na Historii počká a když tam účtenka opravdu není, otevře se formulář transakce (dřív nešla upravit vůbec).",
+      "💰 FILTR CENY · cesta: Transakce → ⚙️ Filtr → 💰 Částka od / 💰 Částka do. Bere částku, jak je vidět v seznamu (bez znaménka, v měně transakce). Aktivní filtr je vidět jako štítek „💰 100 – 500“ s ✕; ✕ Vymazat ho zruší.",
+      "🧾 PODEZŘELÉ – POLOŽKA ÚČTENKY (Milan: „proč se mi zobrazují možné duplicity, na pohled jiný obchod, datum i cena“) · cesta: Transakce → ⚠️ Podezřelé → 🔎 Všechny měsíce. Stačila shoda ceny s jednou položkou cizí účtenky („Jabka Dobra 30 Kč“ = „Piz.Marg.300gSF 30 Kč“ z Penny). Teď musí sedět i název (položky nebo obchodu), nebo jde o transakci bez vlastního názvu ve stejné kategorii za aspoň 100 Kč (případ benzínky, kvůli kterému pravidlo vzniklo).",
+      "⚠️ NENÍ DUPLIKÁT NA MOBILU (Milan: „nechybí tam rámeček Není duplikát?“) · cesta: Transakce (telefon) → podezřelá transakce. Mobilní karta neukazovala štítek 🟡 Možný duplikát ani tlačítka 🗑 Smazat duplikát / ✅ Zachovat tento / 👍 Není duplikát – banner sliboval „označené ⚠️“, ale nic označeno nebylo. Banner píše správně „1 podezřelý pár / 2 podezřelé páry / 5 podezřelých párů“.",
+      "📲 REVOLUT – PŘÍCHOZÍ PLATBA (Milan: „notifikace pro Revolut mi nedovoluje zapsat transakci“) · cesta: Import z banky → 📥 Doručené. „DAVID SIMOTA Vám posílá 20 €“ se rozpozná jako příjem 20 EUR (i „vám poslala €12,50“, anglicky „sent you €15“). ✎ Zapsat ručně u nerozpoznané notifikace dřív text jen vložil do pole „Vložit notifikaci“ (kde ho stejný parser zase nepoznal) a notifikaci zahodil; teď otevře formulář nové transakce předvyplněný z notifikace a notifikace zmizí z Doručených až po uložení.",
+      "🧪 tools/smoke_v1239.js (33) – na v12.38 padá. Chromium 390 px (dotyk): tah do strany posune kartu, stránka se nehne (scrollY 0); filtr 100–500 Kč; skrytá kopie účtenky se otevře v editoru; Zapsat ručně otevře formulář; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.38',
     datum: '2026-11-06',
@@ -10183,7 +10196,7 @@ function clearTxFilters() {
   ['txCatFilter','txSubFilter','txProjectFilter','txWalletFilter','txPayTypeFilter','txCurFilter'].forEach(id => {
     const el = document.getElementById(id); if(el) el.value = '';
   });
-  ['txTagFilter','txSearchFilter'].forEach(id => {
+  ['txTagFilter','txSearchFilter','txAmtMin','txAmtMax'].forEach(id => {   // v12.39: i filtr ceny
     const el = document.getElementById(id); if(el) el.value = '';
   });
   //  S27 (v11.86): „Vymazat“ ruší i „Hledat ve všech měsících“ (dřív zůstalo zaškrtnuté)

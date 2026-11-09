@@ -1,4 +1,4 @@
-//  FinanceFlow · v12.38 · duplicates.js · 2026-11-06
+//  FinanceFlow · v12.39 · duplicates.js · 2026-11-07
 // ══════════════════════════════════════════════════════
 //  DETEKCE DUPLIKÁTŮ – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -134,12 +134,33 @@ function dupParyPolozka(transactions) {
       if (b === a || dupJeNeni(a.id, b.id)) return;
       const dd = Math.abs((new Date(a.date) - new Date(b.date)) / 86400000); if (dd > 1) return;
       const amtB = dupCastka(b); if (!(amtB > 0) || Math.abs(amtB - celkem) <= 1) return;
-      const it = (r.items || []).find(x => Math.abs(kc(x) - amtB) <= 0.5);
+      const it = (r.items || []).find(x => Math.abs(kc(x) - amtB) <= 0.5 && dupPolozkaSedi(x, b, a, r));
       if (!it) return;
       out.push({ a, b, type: 'polozka', score: 0.75, reason: `Položka účtenky „${it.name || it.raw || '?'}“ ${fmt(kc(it))} Kč = tato transakce (${a.date === b.date ? 'stejný den' : 'vedlejší den'})` });
     });
   });
   return out;
+}
+//  v12.39 (Milan: „nerozumím, proč se mi zobrazují možné duplicity, na pohled jiný obchod, datum i cena“):
+//  stačila SHODA ČÁSTKY – „Jabka Dobra 30 Kč“ se hlásila jako položka „Piz.Marg.300gSF 30 Kč“ z Penny,
+//  „Hospoda & Bar – Pivo 120 Kč“ jako „YO čer.bez. 0,7 l 120 Kč“ z Kauflandu. Levných položek je na
+//  účtenkách hodně, takže shoda samotné ceny skoro nic neznamená. Teď musí sedět ještě něco:
+//   1) název transakce (nebo poznámka) je podobný názvu položky nebo obchodu z účtenky (Jaro-Winkler ≥ 0,72), NEBO
+//   2) transakce nemá vlastní název (jen kategorie), je ve STEJNÉ kategorii jako položka a jde aspoň o 100 Kč
+//      – případ, kvůli kterému pravidlo vzniklo: účtenka z benzínky 1 022,40 (benzín 988,40 + káva) a ručně „Auto · Palivo 988,40“.
+const DUP_POLOZKA_BEZ_NAZVU_KC = 100;
+function dupPolozkaSedi(it, b, a, r) {
+  const nazevIt = String((it && (it.name || it.raw)) || '').trim();
+  const katB = b.catId || b.category, catIt = (it && it.itemCatId) || a.catId || a.category;
+  const kat = (typeof getData === 'function' ? (getData().categories || []) : []).find(c => c.id === katB);
+  const n = x => String(x || '').toLowerCase().replace(/[·–\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const nb = n(b.name);
+  const obecny = !nb || (kat && (nb === n(kat.name) || nb === n(kat.name + ' ' + (b.subcat || '')))) || (b.subcat && nb === n(b.subcat));
+  if (nazevIt && !obecny && nameSim(nazevIt, b.name) >= DUP_CONFIG.NAME_SIM_THR) return true;
+  if (nazevIt && b.note && nameSim(nazevIt, b.note) >= DUP_CONFIG.NAME_SIM_THR) return true;
+  const obchod = (r && r.store) || a.receiptStore || '';
+  if (obchod && !obecny && nameSim(obchod, b.name) >= DUP_CONFIG.NAME_SIM_THR) return true;   // „MOL 988,40“ vedle účtenky z MOL
+  return !!(obecny && catIt === katB && dupCastka(b) >= DUP_POLOZKA_BEZ_NAZVU_KC);
 }
 //  Kdy byla transakce přidaná: účtenka (receiptAddedAt) nebo čas zakódovaný v id (genTxId = čas × 16)
 function dupPridano(t) {
@@ -385,7 +406,7 @@ function renderDupBanner(dupMap) {
       <span style="font-size:1.1rem">⚠️</span>
       <div style="flex:1;min-width:0">
         <span style="font-size:.84rem;font-weight:600;color:var(--debt)">
-          ${pairCount} podezřelých ${pairCount===1?'pár':'párů'}
+          ${pairCount} ${pairCount===1?'podezřelý pár':pairCount<5?'podezřelé páry':'podezřelých párů'}
         </span>
         <span style="font-size:.78rem;color:var(--text3);margin-left:8px">
           ${exactCount > 0 ? `${Math.round(exactCount)} přesných duplikátů · ` : ''}

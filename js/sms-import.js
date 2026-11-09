@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · sms-import.js · 2026-11-04
+// FinanceFlow · v12.39 · sms-import.js · 2026-11-07
 // ══════════════════════════════════════════════════════
 //  SMS / NOTIFIKACE IMPORT – FinanceFlow v6.37
 // ══════════════════════════════════════════════════════
@@ -68,6 +68,26 @@ const BANK_PARSERS = [
           amount: parseCzNum(m[2]),
           currency: normCurrency(m[1]),
           merchant: m[3].trim(),
+        })
+      },
+      //  v12.39 (Milan, notifikace 6. 11.: „Revolut: DAVID SIMOTA Vám posílá 20 €. Klepnutím poděkujte 💰“):
+      //  příchozí platba od člověka – částka i s měnou ZA číslem (20 €) nebo PŘED ním (€20), i anglicky „sent you“.
+      {
+        re: /(?:Revolut:\s*)?([^:]+?)\s+(?:Vám|vám|Ti|ti)\s+(?:posílá|poslal[ao]?|zaslal[ao]?)\s+(?:([€$£])\s*)?([\d\s,.]*\d)\s*(€|\$|£|CZK|Kč|EUR|USD|GBP)?(?![A-Za-z])/,
+        parse: m => (m[2] || m[4]) ? ({
+          type: 'income',
+          amount: parseCzNum(m[3]),
+          currency: normCurrency(m[2] || m[4]),
+          merchant: m[1].trim(),
+        }) : null
+      },
+      {
+        re: /(?:Revolut:\s*)?([^:]+?)\s+(?:has\s+)?sent\s+you\s+([€$£]|CZK|EUR|USD|GBP)\s*([\d,.]*\d)/i,
+        parse: m => ({
+          type: 'income',
+          amount: parseCzNum(m[3]),
+          currency: normCurrency(m[2]),
+          merchant: m[1].trim(),
         })
       },
       {

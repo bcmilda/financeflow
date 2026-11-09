@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · inbox.js · 2026-11-06
+// FinanceFlow · v12.39 · inbox.js · 2026-11-07
 // ══════════════════════════════════════════════════════
 //  S27 (Milan): 📲 FINANCEFLOW INBOX – NOTIFIKACE Z BANKY Z TELEFONU
 //  cesta: Import z banky (BETA) → 📲 Telefon
@@ -424,11 +424,38 @@ function inboxRender() {
     <div style="font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#a8aec8;margin:4px 0 8px">📥 Doručené (${cekaji.length})</div>
     ${cekaji.length ? cekaji.map(karta).join('') : `<div style="font-size:.78rem;color:#8b93ad;margin-bottom:12px">${zar.length ? 'Zatím nic nového z telefonu.' : 'Propoj telefon – v appce FinanceFlow Inbox klepni na „Propojit s FinanceFlow“ a kód opiš sem.'}</div>`}`;
 }
-//  Nerozpoznaný text → do ručního pole importu (stávající ruční parser) a zahodit z Doručených.
+//  v12.39 (Milan: „notifikace pro Revolut mi nedovoluje zapsat transakci“): ✎ Zapsat ručně dřív text jen
+//  vložil do pole „Vložit notifikaci z banky“ a notifikaci ZAHODIL – tam ho ale rozpoznával stejný parser,
+//  který ho už nepoznal, takže nešlo nic zapsat a notifikace byla pryč. Teď se otevře formulář nové
+//  transakce předvyplněný z notifikace (typ, částka, měna, datum, název, poznámka s textem) a notifikace
+//  se označí jako vyřízená až po uložení. Zavřený formulář ji nechá v Doručených.
+function inboxOdhad(x) {
+  const t = String((x && (x.text || x.title)) || '').replace(/\s+/g, ' ').trim(), cele = inboxText(x || {});
+  const mena = c => ({ '€': 'EUR', '$': 'USD', '£': 'GBP', 'Kč': 'CZK', 'kč': 'CZK' })[c] || String(c || 'CZK').toUpperCase();
+  const m = cele.match(/([€$£])\s*(\d[\d\s]*(?:[.,]\d{1,2})?)/) || cele.match(/(\d[\d\s]*(?:[.,]\d{1,2})?)\s*(Kč|kč|CZK|€|EUR|\$|USD|£|GBP)(?![A-Za-z])/);
+  let amount = 0, currency = 'CZK';
+  if (m) {
+    const [cislo, cur] = /^[€$£]$/.test(m[1]) ? [m[2], m[1]] : [m[1], m[2]];
+    amount = parseFloat(String(cislo).replace(/\s/g, '').replace(',', '.')) || 0; currency = mena(cur);
+  }
+  const type = /posílá|poslal|zaslal|přijat|příchozí|obdržel|připsán|received|sent you|refund|vrácen/i.test(cele) ? 'income' : 'expense';
+  const name = t.replace(/^[^:]{1,25}:\s*/, '').split(/[.!]\s/)[0].slice(0, 60).trim();
+  return { amount, currency, type, name, date: _inboxDatum(x && x.postedAt) };
+}
 function inboxRucne(id) {
   const x = (_inbox || {})[id]; if (!x) return;
-  const t = document.getElementById('smsInput'); if (t) { t.value = inboxText(x); t.scrollIntoView && t.scrollIntoView({ block: 'center' }); }
-  inboxZahodit(id);
+  if (typeof openAddTx !== 'function') { const t = document.getElementById('smsInput'); if (t) t.value = inboxText(x); return; }
+  const o = inboxOdhad(x);
+  openAddTx();
+  if (typeof setTxType === 'function') setTxType(o.type);
+  if (typeof renderCatPicker === 'function') renderCatPicker();
+  const nastav = (el, v) => { const e = document.getElementById(el); if (e && v != null && v !== '') e.value = v; };
+  nastav('txName', o.name); nastav('txDate', o.date);
+  if (o.amount > 0) nastav('txAmt', String(o.amount));   // pole typu number – desetinná tečka
+  ['updateTxConverter', 'updateTxCzkField'].forEach(f => { if (typeof window[f] === 'function') window[f](); });
+  nastav('txNote', ('📲 z notifikace ' + (x.app || '') + ': ' + inboxText(x)).slice(0, 200));
+  if (o.currency !== 'CZK' && typeof setTxCurOverride === 'function') setTxCurOverride(o.currency);
+  window._inboxPoUlozeni = async () => { await _inboxStav(id, { stav: 'prijato', rucne: true }); await _inboxDupyVyrid(id); if (document.getElementById('inboxBox')) inboxRender(); };
 }
 Object.assign(window, { inboxTypPlatby, inboxNavrh, inboxZapamatovane, inboxZapomen, inboxDuplikaty, inboxIdent, inboxBankaZAppky, inboxObchodnik, inboxProtiucet, inboxNacti, inboxRender, inboxParuj, inboxOdpoj, inboxOdpojVse, inboxPrijmout, inboxSpojitSUctenkou, inboxZahodit, inboxPrevzit, inboxRucne,
-  inboxRozpoznej, inboxUctenkaK, inboxMoznaZapsano, inboxPrevzetiUctenkou, inboxText });
+  inboxRozpoznej, inboxUctenkaK, inboxMoznaZapsano, inboxPrevzetiUctenkou, inboxText, inboxOdhad });

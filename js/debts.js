@@ -1,8 +1,12 @@
-// FinanceFlow · v12.37 · debts.js · 2026-11-06
+// FinanceFlow · v12.39 · debts.js · 2026-11-07
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
+//  v12.39: akce po úspěšném uložení formuláře (✎ Zapsat ručně z Doručených označí notifikaci jako vyřízenou
+//  až po uložení – zavřený formulář ji nechá v Doručených). Každé nové otevření formuláře ji zruší.
+function _txPoUlozeni(){ const f = window._inboxPoUlozeni; window._inboxPoUlozeni = null; if(typeof f === 'function') { try { f(); } catch(e) {} } }
 function openAddTx(){
   if(viewingUid)return;
+  window._inboxPoUlozeni = null;
   document.getElementById('editTxId').value='';
   document.getElementById('txName').value='';
   document.getElementById('txAmt').value='';
@@ -531,7 +535,7 @@ function saveTx(){
       const aTagsRaw=document.getElementById('txTags')?.value||'';aObj.tags=parseTags(aTagsRaw);
       if(eid){const t=S.transactions.find(x=>x.id==eid);if(t)Object.assign(t,aObj);}
       else{if(!S.transactions)S.transactions=[];S.transactions.push({id:genTxId(),...aObj});}
-      save();closeModal('modalAdd');{const pid=selProjectId;selProjectId='';if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();}}
+      save();_txPoUlozeni();closeModal('modalAdd');{const pid=selProjectId;selProjectId='';if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();}}
       return;
     }
     // Handle transfer
@@ -560,7 +564,7 @@ function saveTx(){
     const txIn={id:uid(),name:txName,amount:inAmt,amt:inAmt,type:'income',date,wallet:to,note:note||'Přesun',transferId,category:'transfer',catId:'transfer',payType:_tPay||undefined,projectId:projectId||undefined,amtCZK:_tCzk};
     if(!S.transactions)S.transactions=[];
     S.transactions.push(txOut,txIn);
-    save();closeModal('modalAdd');{ const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
+    save();_txPoUlozeni();closeModal('modalAdd');{ const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
     return;
   }
   if(!amt||!date){alert('Vyplň částku a datum');return;}
@@ -604,7 +608,7 @@ function saveTx(){
         if(typeof generateSchedule==='function') debt.schedule = generateSchedule(debt);
       }
     }
-    save(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
+    save(); _txPoUlozeni(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
     return;
   }
   const type = curTxType;
@@ -691,7 +695,7 @@ function saveTx(){
   //   ani zavření modalu nesmí čekat na síť; když se nepovede, zůstane kurz
   //   z doby zápisu (fxRefDate pak prozradí, ke kterému dni patří).
   if(txObj.currency) _fxRefBackfill(_savedId, txObj.currency, txObj.date);
-  save(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
+  save(); _txPoUlozeni(); closeModal('modalAdd'); { const pid=selProjectId; selProjectId=''; if(pid&&curPage==='projektDetail'){renderProjectDetail(pid);}else{renderPage();} }
 }
 // S14: ── DLUH / SPLÁTKA – pomocné funkce (f2,f3,f4) ──────────────────
 // f4: najdi reálnou kategorii „Splátka" (default cat35) – splátky se kategorizují sem.

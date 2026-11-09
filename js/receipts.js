@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · receipts.js · 2026-11-06
+// FinanceFlow · v12.39 · receipts.js · 2026-11-07
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -2502,11 +2502,12 @@ function buildHistoryTab(receipts) {
 
 //  Deduplikace pro zobrazení – identifikátor: obchod|datum|suma|počet položek.
 //  Vrací TYTÉŽ objekty jako S.receipts (filter nekopíruje) – indexOf na ně proto platí.
+function rcptUnikKlic(r) { return `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`; }
 function rcptUnikatni(receipts) {
   const _seen = new Set();
   return (receipts || []).filter(r => {
     if(!r) return false;
-    const key = `${normalizeStoreName(r.store)}|${r.date}|${Math.round((r.total||0)*100)}|${(r.items||[]).length}`;
+    const key = rcptUnikKlic(r);
     if(_seen.has(key)) return false;
     _seen.add(key); return true;
   });
@@ -2525,7 +2526,7 @@ function rcptNajdiPos(idx, k) {
   if(sedi(R[idx])) return idx;
   return R.findIndex(sedi);
 }
-window.rcptKlic = rcptKlic; window.rcptNajdiPos = rcptNajdiPos; window.rcptUnikatni = rcptUnikatni;
+window.rcptKlic = rcptKlic; window.rcptNajdiPos = rcptNajdiPos; window.rcptUnikatni = rcptUnikatni; window.rcptUnikKlic = rcptUnikKlic;
 
 //  Přestaví jen záložku Historie (např. po přidání účtenky ze skenu, kdy je vidět záložka Skenovat –
 //  dřív Historie zůstala stará: nová účtenka v ní nebyla a pozice nesedily).
@@ -4582,8 +4583,8 @@ function deleteAllReceipts() {
   renderUctenky();
 }
 
-function editReceiptFromHistory(index, klic) {
-  const slotIdx = index;
+function editReceiptFromHistory(index, klic, slotPrimo) {
+  const slotIdx = slotPrimo != null ? slotPrimo : index;   // v12.39: dvojitá kopie účtenky se otevře v řádku viditelné kopie
   const pos = rcptNajdiPos(index, klic);
   if(pos < 0) { rcptHistorieObnov('Účtenka se mezitím změnila – seznam jsem obnovil, zkus to znovu.'); return; }
   index = pos;
@@ -7030,7 +7031,20 @@ function drawStoreTrendChart(id, data){
 
 // Otevři konkrétní účtenku v Historii podle data+obchodu (z transakce s 📷)
 //  v12.08: volitelně přímo index účtenky (z karty výrobku) a název položky, která se v editoru zvýrazní.
-function openReceiptInHistory(date, store, primoIdx, polozka) {
+//  v12.39 (Milan: „transakce z 2. 10. za 196,30 Kč – dal jsem upravit, ale nebyla nalezena v historii“):
+//  Historie ukazuje každou účtenku JEN JEDNOU (rcptUnikatni – stejný obchod, den, částka a počet položek).
+//  Transakce ale mohla patřit k druhé, skryté kopii → řádek rcpt_hist_<pozice> v Historii nebyl a appka
+//  jen hlásila „nenalezena“. Teď: 1) skrytá kopie se otevře v řádku viditelné kopie (upravuje se ta,
+//  ke které transakce patří), 2) na pomalém telefonu se na vykreslení Historie počká (až ~1,5 s),
+//  3) když účtenka v Historii opravdu není, zavolá se naNenalezeno (transakce se otevře ve formuláři).
+function rcptSlotPro(idx) {
+  if(document.getElementById('rcpt_hist_' + idx)) return idx;
+  const R = S.receipts || [], r = R[idx]; if(!r) return -1;
+  const k = rcptUnikKlic(r);
+  const j = R.findIndex(x => x && rcptUnikKlic(x) === k);
+  return (j >= 0 && document.getElementById('rcpt_hist_' + j)) ? j : -1;
+}
+function openReceiptInHistory(date, store, primoIdx, polozka, naNenalezeno) {
   // Najdi index PŘEDEM
   const idx = primoIdx != null && (S.receipts||[])[primoIdx] ? primoIdx : (S.receipts||[]).findIndex(r =>
     (r.date||'')===date && (r.store||'').toLowerCase()===(store||'').toLowerCase());
@@ -7040,22 +7054,25 @@ function openReceiptInHistory(date, store, primoIdx, polozka) {
   setTimeout(() => {
     const histBtn = document.getElementById('utab-history');
     if(histBtn) switchUctenkyTab('history', histBtn);
-    setTimeout(() => {
-      if(idx >= 0) {
-        // Otevři editor té účtenky (slot existuje po renderu history)
-        const slot = document.getElementById('rcpt_hist_'+idx);
-        if(slot) {
-          editReceiptFromHistory(idx, typeof rcptKlic === 'function' ? rcptKlic(S.receipts[idx]) : undefined);
-          setTimeout(()=>{ const s2=document.getElementById('rcpt_hist_'+idx); if(!s2) return;
-            //  v12.08: položka z karty výrobku – najít ji v editoru, zvýraznit a posunout na ni
-            const pol = polozka ? [...s2.querySelectorAll('input')].find(x => x.value === polozka) : null;
-            if(pol) { pol.scrollIntoView({behavior:'smooth', block:'center'}); pol.style.outline = '2px solid #fbbf24'; pol.style.outlineOffset = '1px'; }
-            else s2.scrollIntoView({behavior:'smooth', block:'center'}); }, 150);
-        } else if(typeof showToast==='function') {
-          showToast('Účtenka nebyla v historii nalezena');
-        }
+    let pokus = 0;
+    const otevri = () => {
+      if(idx < 0) { if(typeof naNenalezeno === 'function') naNenalezeno(); return; }
+      const slotIdx = rcptSlotPro(idx);
+      if(slotIdx < 0) {
+        if(++pokus < 8) { setTimeout(otevri, 180); return; }   // Historie se ještě kreslí
+        if(typeof naNenalezeno === 'function') naNenalezeno();
+        else if(typeof showToast==='function') showToast('Účtenka nebyla v historii nalezena');
+        return;
       }
-    }, 250);
+      // Otevři editor té účtenky (v řádku její viditelné kopie, je-li sama skrytá)
+      editReceiptFromHistory(idx, typeof rcptKlic === 'function' ? rcptKlic(S.receipts[idx]) : undefined, slotIdx);
+      setTimeout(()=>{ const s2=document.getElementById('rcpt_hist_'+slotIdx); if(!s2) return;
+        //  v12.08: položka z karty výrobku – najít ji v editoru, zvýraznit a posunout na ni
+        const pol = polozka ? [...s2.querySelectorAll('input')].find(x => x.value === polozka) : null;
+        if(pol) { pol.scrollIntoView({behavior:'smooth', block:'center'}); pol.style.outline = '2px solid #fbbf24'; pol.style.outlineOffset = '1px'; }
+        else s2.scrollIntoView({behavior:'smooth', block:'center'}); }, 150);
+    };
+    setTimeout(otevri, 250);
   }, 200);
 }
 window.openReceiptInHistory = openReceiptInHistory;
@@ -7077,10 +7094,15 @@ function openReceiptForTx(id) {
   if (i < 0 && typeof rcptNajdiTx === 'function') i = R.findIndex(r => r && rcptNajdiTx(r, S) === t);
   if (i < 0) i = R.findIndex(r => r && (r.date || '') === (t.receiptDate || '') && String(r.store || '').toLowerCase() === String(t.receiptStore || '').toLowerCase());
   if (i < 0) return false;
-  openReceiptInHistory(R[i].date, R[i].store, i);
+  //  v12.39: účtenka v Historii není → otevře se formulář transakce (dřív jen hláška a nešlo nic upravit)
+  openReceiptInHistory(R[i].date, R[i].store, i, undefined, () => {
+    if (typeof showPage === 'function') showPage('transakce');
+    if (typeof showToast === 'function') showToast('Účtenku k této platbě jsem v Historii nenašel – otevírám transakci');
+    if (typeof editTx === 'function') setTimeout(() => editTx(t.id, true), 120);
+  });
   return true;
 }
-Object.assign(window, { rcptJeTxUctenky, openReceiptForTx });
+Object.assign(window, { rcptJeTxUctenky, openReceiptForTx, rcptSlotPro });
 
 // Re-sync tagů + receiptItems z editované účtenky do propojených transakcí
 // (transakce mají receiptDate + receiptStore z addReceiptAsTx)

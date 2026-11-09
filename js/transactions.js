@@ -1,4 +1,4 @@
-// FinanceFlow · v12.30 · transactions.js · 2026-11-04
+// FinanceFlow · v12.39 · transactions.js · 2026-11-07
 //  BANK
 // ══════════════════════════════════════════════════════
 function renderBank(){
@@ -41,7 +41,7 @@ function predOtevriTx(catId, subEnc, m, y) {
   S.curMonth = m; S.curYear = y; if (typeof updateMLabel === 'function') updateMLabel();
   if (typeof _txDateFilter !== 'undefined') _txDateFilter = { active: false, year: 'all', months: new Set() };
   if (typeof _txTypeFilter !== 'undefined') _txTypeFilter = 'all';
-  ['txProjectFilter','txWalletFilter','txPayTypeFilter','txCurFilter','txTagFilter','txSearchFilter'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  ['txProjectFilter','txWalletFilter','txPayTypeFilter','txCurFilter','txTagFilter','txSearchFilter','txAmtMin','txAmtMax'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });   // v12.39: i filtr ceny
   const all = document.getElementById('txSearchAllMonths'); if (all) all.checked = false;
   showPage('transakce', document.querySelector('.nav-item[onclick*="transakce"]'));
   const cs = document.getElementById('txCatFilter'); if (cs) cs.value = catId;
