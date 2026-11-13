@@ -1,4 +1,4 @@
-// FinanceFlow · v12.43 · receipts.js · 2026-11-12
+// FinanceFlow · v12.47 · receipts.js · 2026-11-13
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3882,11 +3882,16 @@ function mapaUzivKartaHTML(i, produkt) {
   { const h = hodnotaPole('alergeny');
     if (h.t) h.html = `<span style="color:#fbbf24">${e(h.t)}</span>`;
     bal += pRadek('alergeny', h); }
-  const zivN = (p && (p.nutriceObal || p.nutrice)) || lok.nutrice || null;
+  //  v12.47 (S29): 3. zdroj 🥕 NutriDatabáze – výrobek bez čárového kódu nebo s kódem obchodu (2…), jehož
+  //  obecný název má potvrzený pár. Ruční zápis / fotka / Open Food Facts mají přednost.
+  const zivNutri = !((p && (p.nutriceObal || p.nutrice)) || lok.nutrice) && !lok.bezZivin && z.tax && typeof nutriBezKodu === 'function' && nutriBezKodu(z.ean)
+    ? nutriProTax(z.tax.id) : null;
+  const zivN = (p && (p.nutriceObal || p.nutrice)) || lok.nutrice || zivNutri || null;
   const zivKlic = z.ean || mapaKartaKlic(z);   // bez kódu = osobní karta (eanZivinyForm to pozná podle „n…“)
   const zivZdroj = p && p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + (p.nutriceObal.kdy ? ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : '')
     : p && p.nutrice ? 'z databáze Open Food Facts'
-    : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '') : '';
+    : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '')
+    : zivNutri && typeof nutriZdrojHTML === 'function' ? nutriZdrojHTML(zivNutri) : '';
   //  S28 (v12.22, Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“)
   const netyka = !zivN && !!lok.bezZivin;
   const ziv = netyka
@@ -3896,7 +3901,7 @@ function mapaUzivKartaHTML(i, produkt) {
     : zivN
     ? `<div class="mk-box" style="margin-top:8px;padding:10px 12px"><div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 ${zivN.na === 'ml' ? 'ml' : 'g'}</div>${typeof eanNutriceHTML === 'function' ? eanNutriceHTML(zivN) : ''}
         <div style="font-size:.64rem;color:#8b93ad;margin-top:6px">${zivZdroj}
-        <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div></div>`
+        <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">${zivNutri ? '✍️ Zadat podle obalu' : '✍️ Opravit ručně'}</button></div></div>`
     : `<div class="mk-box mk-pozn" style="margin-top:8px;color:#a8aec8"><div style="display:flex;justify-content:space-between;gap:8px"><span>Nutriční hodnoty na 100 g</span>${MK_PRAZDNE}</div>
         <div style="font-size:.72rem;margin-top:3px">${z.ean ? 'Živiny databáze zatím nemá.' : 'Bez čárového kódu je opíšeš z obalu ručně (uloží se jen tobě).'}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${z.ean ? `<button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button>
@@ -3978,10 +3983,14 @@ async function mapaUzivDetail(i) {
       ${mapaUzivKartaHTML(i, prod)}</div>`;
     if (typeof cenyDoKarty === 'function') cenyDoKarty(i); };   // S25: sdílené ceny v kraji
   kresli(null);
+  let _prod = null;
   if(z.ean && typeof eanNactiProdukt === 'function') {
-    const prod = await eanNactiProdukt(z.ean);
-    if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(prod);
+    _prod = await eanNactiProdukt(z.ean);
+    if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(_prod);
   }
+  //  v12.47: 🥕 živiny z NutriDatabáze se dotáhnou na pozadí (výrobek bez kódu / s kódem obchodu)
+  if(z.tax && typeof nutriNactiAKresli === 'function' && nutriBezKodu(z.ean))
+    nutriNactiAKresli(() => { if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(_prod); });
 }
 function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivDetail(_mapaKartaI); }
 window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
@@ -4237,11 +4246,13 @@ const DNA_ZIVINY = [
 const DNA_NUTRI = { a: '#038141', b: '#85bb2f', c: '#fecb02', d: '#ee8100', e: '#e63e11' };
 
 //  Živiny na 100 g/ml a Nutri-Score položky: karta podle kódu, jinak osobní karta.
-function dnaKartaPolozky(it, produkt, kartaLok) {
+//  v12.47 (S29): 3. zdroj 🥕 NutriDatabáze – jen položka bez čárového kódu / s kódem obchodu (nutri.js rozhodne).
+function dnaKartaPolozky(it, produkt, kartaLok, nutri) {
   let n = null, ns = '';
   const p = it.ean && typeof produkt === 'function' ? produkt(it.ean) : null;
   if (p && p.stav === 'nalezeno') { n = p.nutriceObal || p.nutrice || null; ns = String(p.nutriscore || '').toLowerCase(); }
   if (!n && typeof kartaLok === 'function') { const k = kartaLok(it); if (k && k.nutrice) n = k.nutrice; }
+  if (!n && typeof nutri === 'function') n = nutri(it) || null;
   return { n: (n && typeof n === 'object') ? n : null, ns: /^[a-e]$/.test(ns) ? ns : '' };
 }
 //  Kolik gramů (mililitrů) se koupilo: vážené = váha, balené = gramáž × kusy.
@@ -4259,11 +4270,11 @@ function dnaJeJidlo(it, maZiviny) {
 }
 
 //  Čistý výpočet (testuje tools/smoke_dna_ziviny.js).
-function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
+function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin, nutri) {
   const sum = {}; DNA_ZIVINY.forEach(([k]) => { sum[k] = 0; });
   const ns = { a: 0, b: 0, c: 0, d: 0, e: 0 }; let nsUtrata = 0;
   const prispevek = { cukry: {}, sul: {} };
-  let jidloUtrata = 0, pokrytaUtrata = 0, jidloPolozek = 0, pokrytoPolozek = 0, gramu = 0;
+  let jidloUtrata = 0, pokrytaUtrata = 0, jidloPolozek = 0, pokrytoPolozek = 0, gramu = 0, zNutri = 0;
   const chybi = {};
   const seen = new Set();
   (receipts || []).forEach(r => {
@@ -4276,14 +4287,17 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
       if (!it || !it.name) return;
       const utrata = (typeof lineAmt === 'function') ? lineAmt(it) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
       if (!(utrata > 0)) return;
-      const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok);
+      const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok, nutri);
       if (!n && typeof bezZivin === 'function' && bezZivin(it)) return;    // v12.22: 🚫 bez živin (pivo) nesnižuje pokrytí
       if (!dnaJeJidlo(it, !!n)) return;
       jidloUtrata += utrata; jidloPolozek++;
       if (znamka) { ns[znamka] += utrata; nsUtrata += utrata; }
-      const g = n ? dnaMnozstvi(it) : null;
+      //  v12.47: NutriDatabáze udává hodnoty na 100 g JEDLÉHO podílu → koupená váha × jedlý podíl (banán 64 %)
+      const g0 = n ? dnaMnozstvi(it) : null;
+      const g = g0 && n.zdroj === 'nutri' && n.jedle > 0 && n.jedle < 1 ? g0 * n.jedle : g0;
       if (!n || !g) { const k = it.name; chybi[k] = (chybi[k] || 0) + utrata; return; }
       pokrytaUtrata += utrata; pokrytoPolozek++; gramu += g;
+      if (n.zdroj === 'nutri') zNutri++;
       DNA_ZIVINY.forEach(([k]) => { const v = parseFloat(n[k]); if (isFinite(v) && v >= 0) sum[k] += v * g / 100; });
       ['cukry', 'sul'].forEach(k => {
         const v = parseFloat(n[k]); if (!(v > 0)) return;
@@ -4295,7 +4309,7 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
   const top = k => Object.entries(prispevek[k]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nazev, g]) => ({ nazev, g }));
   const na100 = {}; DNA_ZIVINY.forEach(([k]) => { na100[k] = gramu > 0 ? sum[k] / gramu * 100 : null; });
   return {
-    sum, na100, gramu, jidloUtrata, pokrytaUtrata, jidloPolozek, pokrytoPolozek,
+    sum, na100, gramu, jidloUtrata, pokrytaUtrata, jidloPolozek, pokrytoPolozek, zNutri,
     pokryti: jidloUtrata > 0 ? Math.round(pokrytaUtrata / jidloUtrata * 100) : 0,
     nutri: nsUtrata > 0 ? Object.fromEntries(Object.entries(ns).map(([k, v]) => [k, Math.round(v / nsUtrata * 100)])) : null,
     topCukry: top('cukry'), topSul: top('sul'),
@@ -4345,7 +4359,7 @@ function dnaZivinyHTML(d, m, y) {
     ${(d.topCukry.length || d.topSul.length) ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">${topBlok(d.topCukry, 'Nejvíc cukru přinesly')}${topBlok(d.topSul, 'Nejvíc soli přinesly')}</div>` : ''}
     <div style="font-size:.7rem;color:#a8aec8;line-height:1.55;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
       Na den = za ${dni} ${dni === 1 ? 'den' : dni < 5 ? 'dny' : 'dní'} měsíce, za celou domácnost. Tečka u hodnoty na 100 g je britský semafor FSA (nízký / střední / vysoký obsah) – jen orientace, ne hodnocení.
-      Položky bez živin nebo bez gramáže se nepočítají (nejsou nula).</div>
+      Položky bez živin nebo bez gramáže se nepočítají (nejsou nula).${d.zNutri ? `<br>🥕 ${d.zNutri} ${d.zNutri === 1 ? 'položka bez čárového kódu má' : d.zNutri < 5 ? 'položky bez čárového kódu mají' : 'položek bez čárového kódu má'} orientační hodnoty z NutriDatabáze (na jedlý podíl). ${typeof nutriCitaceHTML === 'function' ? nutriCitaceHTML() : ''}` : ''}</div>
     ${d.pokryti < 60 ? jak : ''}
   </div></div>`;
 }
@@ -4357,8 +4371,10 @@ async function dnaZivinyKresli() {
   const produkt = e => (typeof eanProduktZCache === 'function') ? eanProduktZCache(e) : null;
   const kartaLok = it => (it.ean || typeof mapaKartaLok !== 'function' || typeof normName !== 'function') ? null : mapaKartaLok({ klic: normName(it.name || '') });
   const bezZivin = it => typeof mapaBezZivin === 'function' && mapaBezZivin(it.ean ? { ean: it.ean } : { klic: typeof normName === 'function' ? normName(it.name || '') : it.name });
-  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin), m, y); };
+  const nutri = it => typeof nutriProPolozku === 'function' ? nutriProPolozku(it) : null;   // v12.47: 🥕 NutriDatabáze
+  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin, nutri), m, y); };
   kresli();
+  if (typeof nutriNactiAKresli === 'function') nutriNactiAKresli(kresli);
   try {
     const eany = [];
     (S.receipts || []).forEach(r => { const d = new Date(String(r && r.date || '').slice(0, 10) + 'T12:00:00');

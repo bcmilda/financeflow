@@ -1,5 +1,5 @@
 /**
- * FinanceFlow · Cloudflare Worker · v12.38 · 2026-11-06  (S28: komunita na spotřební jednotku; /inflace?obnovit=1, průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
+ * FinanceFlow · Cloudflare Worker · v12.47 · 2026-11-13  (S29: 🥕 NutriDatabáze – /nutri, /nutri-mapa, /nutri-nahrat, /nutri-mapa-uloz, data jen v R2 · S28: komunita na spotřební jednotku; /inflace?obnovit=1, průměrná roční míra; účtenka – název doslova + fullName; AI čítač v aiUsage/{uid}; S17.33: číslování sjednoceno s appkou – dřív vlastní řada v8.x)
  * Proxy pro Claude API – ověřuje Firebase token, rate limiting (ADR-041), volá Claude
  * Změny v6: Firebase Admin SDK (JWT/WebCrypto), per-type měsíční kvóty Free/Trial/Premium
  *
@@ -461,6 +461,100 @@ async function handleMassMail(request, env, corsHeaders) {
     return json({ ok: true, odeslano, celkem: to.length, chyby: chyby.slice(0, 10) }, 200, corsHeaders);
   } catch (e) {
     return json({ error: 'Hromadná zpráva selhala: ' + ((e && e.message) || e) }, 500, corsHeaders);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  S29 (v12.47, Milan): 🥕 NUTRIDATABÁZE (ÚZEI) – živiny nebalených potravin
+//  Licence NutriDatabaze.cz čl. 5: datový soubor se nesmí postoupit třetí osobě ani zčásti → leží jen
+//  tady v R2 (soukromý bucket ARCHIV), do repa ani na web nejde. Appka dostane hodnoty JEN potravin,
+//  které právě potřebuje (max NUTRI_MAX_KODU na požadavek), celý soubor nikdy. Citace čl. 6 jde s daty.
+//   POST /nutri            {kody:[…]}           → {verze, citace, potraviny:{kod:{n,e,kcal,…}}}   (přihlášený)
+//   POST /nutri-mapa       {}                   → {verze, mapa:{obecnyId:kod}} jen jisté/potvrzené  (přihlášený)
+//                          {vse:true} (admin)   → celá mapa (jistota, alternativy) + názvy potravin
+//   POST /nutri-nahrat     {verze, potraviny, mapa, prepsatMapu?}  (admin) – nahrání převedeného CSV
+//   POST /nutri-mapa-uloz  {tax, k|null}        (admin) – potvrzení / změna / zrušení páru
+// ══════════════════════════════════════════════════════
+const NUTRI_DATA = 'nutri/data.json', NUTRI_MAPA = 'nutri/mapa.json', NUTRI_MAX_KODU = 60;
+const NUTRI_POLE = ['kcal', 'tuky', 'nasycene', 'sacharidy', 'cukry', 'vlaknina', 'bilkoviny', 'sul'];
+const NUTRI_KOD = /^[0-9A-Za-z]{1,8}$/;
+let _nutriCache = null;
+async function nutriData(env, znovu) {
+  if (!znovu && _nutriCache && Date.now() - _nutriCache.t < 600000) return _nutriCache.data;
+  const o = await env.ARCHIV.get(NUTRI_DATA);
+  const data = o ? await o.json() : null;
+  _nutriCache = { t: Date.now(), data };
+  return data;
+}
+async function nutriMapa(env) { const o = await env.ARCHIV.get(NUTRI_MAPA); return o ? await o.json() : null; }
+function nutriPotravina(v) {   // jen známá pole, čísla 0–1000, název do 200 znaků
+  if (!v || typeof v !== 'object') return null;
+  const out = { n: String(v.n || '').slice(0, 200), e: Math.min(1, Math.max(0, Number(v.e) || 1)) };
+  NUTRI_POLE.forEach(k => { const x = Number(v[k]); if (v[k] !== null && v[k] !== undefined && v[k] !== '' && isFinite(x) && x >= 0 && x <= 1000) out[k] = x; });
+  return out.n ? out : null;
+}
+async function handleNutri(request, env, cors, path) {
+  try {
+    if (!env.ARCHIV) return json({ error: 'Úložiště R2 (ARCHIV) není napojené' }, 500, cors);
+    const a = await archivAuth(request);
+    if (a.err) return json({ error: 'Nepřihlášený uživatel' }, 401, cors);
+    const admin = ADMIN_UIDS.includes(a.uid);
+    const body = await request.json().catch(() => ({}));
+    if (path === '/nutri') {
+      const d = await nutriData(env);
+      if (!d) return json({ verze: null, potraviny: {} }, 200, cors);
+      const kody = (Array.isArray(body.kody) ? body.kody : []).map(String).filter(k => NUTRI_KOD.test(k)).slice(0, NUTRI_MAX_KODU);
+      const potraviny = {}; kody.forEach(k => { if (d.potraviny[k]) potraviny[k] = d.potraviny[k]; });
+      return json({ verze: d.verze, citace: d.citace, potraviny }, 200, cors);
+    }
+    if (path === '/nutri-mapa') {
+      const m = await nutriMapa(env);
+      if (admin && body.vse) {
+        const d = await nutriData(env), nazvy = {};
+        if (d) Object.entries(d.potraviny).forEach(([k, v]) => { nazvy[k] = v.n; });
+        return json({ verze: m ? m.verze : null, mapa: m ? m.mapa : {}, nazvy, pocet: d ? Object.keys(d.potraviny).length : 0, nahrano: d ? d.nahrano : null }, 200, cors);
+      }
+      const mapa = {};
+      if (m) Object.entries(m.mapa || {}).forEach(([t, v]) => { if (v && v.k && (v.j === 'jista' || v.j === 'ok')) mapa[t] = v.k; });
+      return json({ verze: m ? m.verze : null, mapa }, 200, cors);
+    }
+    if (!admin) return json({ error: 'Jen pro admina' }, 403, cors);
+    if (path === '/nutri-nahrat') {
+      const vstup = body.potraviny && typeof body.potraviny === 'object' ? Object.entries(body.potraviny) : [];
+      if (!vstup.length || vstup.length > 5000) return json({ error: 'Žádné nebo příliš mnoho potravin' }, 400, cors);
+      const potraviny = {};
+      vstup.forEach(([k, v]) => { const p = nutriPotravina(v); if (NUTRI_KOD.test(k) && p) potraviny[k] = p; });
+      const verze = String(body.verze || '').slice(0, 20) || '?';
+      const data = { verze, nahrano: new Date().toISOString(), citace: `Na základě dat z NutriDatabaze.cz, verze ${verze}, ÚZEI, Praha`, potraviny };
+      await env.ARCHIV.put(NUTRI_DATA, JSON.stringify(data), { httpMetadata: { contentType: 'application/json' } });
+      _nutriCache = { t: Date.now(), data };
+      let mapaUlozena = false;
+      const stara = await nutriMapa(env);
+      if (body.mapa && typeof body.mapa === 'object' && (!stara || body.prepsatMapu)) {
+        const mapa = {};
+        Object.entries(body.mapa).forEach(([t, v]) => { if (t.length < 80 && v && NUTRI_KOD.test(String(v.k || '')) && potraviny[v.k])
+          mapa[t] = { k: String(v.k), j: v.j === 'jista' ? 'jista' : 'navrh', ...(Array.isArray(v.a) ? { a: v.a.map(String).filter(x => potraviny[x]).slice(0, 5) } : {}) }; });
+        await env.ARCHIV.put(NUTRI_MAPA, JSON.stringify({ verze, mapa }), { httpMetadata: { contentType: 'application/json' } });
+        mapaUlozena = true;
+      }
+      return json({ ok: true, verze, potravin: Object.keys(potraviny).length, mapaUlozena }, 200, cors);
+    }
+    if (path === '/nutri-mapa-uloz') {
+      const tax = String(body.tax || '').slice(0, 80);
+      if (!tax) return json({ error: 'Chybí obecný název' }, 400, cors);
+      const m = (await nutriMapa(env)) || { verze: null, mapa: {} };
+      if (body.k === null || body.k === undefined || body.k === '') m.mapa[tax] = { ...(m.mapa[tax] || {}), j: 'ne' };
+      else {
+        const k = String(body.k), d = await nutriData(env);
+        if (!NUTRI_KOD.test(k) || !d || !d.potraviny[k]) return json({ error: 'Neznámý kód potraviny' }, 400, cors);
+        m.mapa[tax] = { ...(m.mapa[tax] || {}), k, j: 'ok' };
+      }
+      await env.ARCHIV.put(NUTRI_MAPA, JSON.stringify(m), { httpMetadata: { contentType: 'application/json' } });
+      return json({ ok: true, tax, polozka: m.mapa[tax] }, 200, cors);
+    }
+    return json({ error: 'Neznámá akce' }, 404, cors);
+  } catch (e) {
+    return json({ error: String(e && e.message || e) }, 500, cors);
   }
 }
 
@@ -1510,6 +1604,10 @@ export default {
 
     {
       const _p = new URL(request.url).pathname;
+      //  S29 (v12.47): 🥕 NutriDatabáze (hodnoty jen vyžádaných potravin, admin nahrání a páry)
+      if (request.method === 'POST' && (_p === '/nutri' || _p === '/nutri-mapa' || _p === '/nutri-nahrat' || _p === '/nutri-mapa-uloz')) {
+        return handleNutri(request, env, corsHeaders, _p);
+      }
       if (request.method === 'POST' && _p.startsWith('/archiv/')) {
         return handleArchiv(request, env, corsHeaders, _p.slice('/archiv/'.length));
       }
