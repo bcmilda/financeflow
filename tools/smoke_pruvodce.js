@@ -3,7 +3,7 @@
 // Hlídá, že každá kapitola má všechny části, odkazy „Navazuje“ vedou na existující kapitoly, každé „Otevřít“
 // míří na existující stránku / funkci / cílový prvek, hledání funguje bez diakritiky, přečtené se ukládají do
 // S.uiCfg (synchronizuje se), karta 🚀 Začínáme odkazuje na kapitoly a Průvodce je nahoře v Přehledu.
-// Negativní kontrola: na v12.44 padá (pruvodce.js neexistuje).
+// Negativní kontrola: na v12.44 padá (pruvodce.js neexistuje), na v12.45 padá počet kapitol (oddíly 5–8).
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const najdi = (...c) => c.map(p => path.join(__dirname, p)).find(p => fs.existsSync(p));
 const R = (...c) => fs.readFileSync(najdi(...c), 'utf8');
@@ -19,7 +19,7 @@ vm.runInContext(PR + '\nthis._prVse=_prVse;this._prKapitolaHTML=_prKapitolaHTML;
 const vse = c._prVse();
 
 console.log('── obsah kapitol ──');
-t('4 oddíly, 18 kapitol', c.PRUVODCE.length === 4 && vse.length === 18, vse.length);
+t('8 oddílů, 32 kapitol (v12.46: + Auto a domácnost, Přehledy, Rodina, Nástroje)', c.PRUVODCE.length === 8 && vse.length === 32, vse.length);
 t('id kapitol jsou jedinečná', new Set(vse.map(k => k.id)).size === vse.length);
 const neuplne = vse.filter(k => !(k.nazev && k.cesta && k.co && k.proc && k.priklad && k.priklad.text && (k.kroky || []).length >= 2 && (k.otevrit || []).length && (k.navazuje || []).length));
 t('každá kapitola má popis, proč, příklad, kroky, Otevřít a Navazuje', !neuplne.length, neuplne.map(k => k.id));
@@ -27,7 +27,7 @@ const spatneOdkazy = vse.flatMap(k => k.navazuje.filter(n => !c._prKap(n) || n =
 t('Navazuje vede jen na existující jiné kapitoly', !spatneOdkazy.length, spatneOdkazy);
 
 console.log('── Otevřít: stránky, funkce a cílové prvky existují ──');
-const strankyUi = new Set([...UI.matchAll(/curPage==='([a-zA-Z]+)'/g)].map(m => m[1]));
+const strankyUi = new Set([...UI.matchAll(/curPage==='([a-zA-Z0-9]+)'/g)].map(m => m[1]));
 const chyby = [];
 vse.forEach(k => k.otevrit.forEach((b, j) => {
   if (!b.page && typeof b.akce !== 'function') chyby.push(k.id + ': bez cíle');
@@ -54,6 +54,7 @@ t('Zapsat vklad: formulář → Přesun → Do investic & spoření', log.join()
 t('typy a režimy z akcí existují ve formuláři', ['income', 'expense', 'debt', 'transfer'].every(x => H.includes(`setTxType('${x}')`)) && /mode==='assets'/.test(DEB) && /mode==='wallets'/.test(DEB));
 
 console.log('── hledání a přečtené ──');
+t('„tankování“ najde Vozidla, „živiny“ Nákupní DNA', c.pruvodceHledej('tankovani')[0].id === 'vozidla' && c.pruvodceHledej('ziviny').some(k => k.id === 'dna'));
 t('„bankomat“ najde Výběr z bankomatu jako první (shoda v názvu)', c.pruvodceHledej('bankomat')[0].id === 'bankomat' && c.pruvodceHledej('bankomat').length > 1);
 t('bez diakritiky: „zaloha“ najde šablony, „splatka“ splátky', c.pruvodceHledej('zaloha').some(k => k.id === 'sablony') && c.pruvodceHledej('splatka').some(k => k.id === 'splatky'));
 t('víc slov = všechna musí sedět, nesmysl nic', c.pruvodceHledej('eur peněženka').some(k => k.id === 'mena') && !c.pruvodceHledej('xyzzy').length);
@@ -69,7 +70,7 @@ c.viewingUid = null;
 console.log('── vzhled ──');
 c.pruvodceOznac('penezenky', true);
 const roz = c._prRozcestnikHTML();
-t('rozcestník: všechny kapitoly, hledání, přečtená zeleně se ✓', vse.every(k => roz.includes(`pruvodceKapitola('${k.id}')`)) && /id="pruvodceHledat"/.test(roz) && /✓ Peněženky a zůstatek ke dni/.test(roz) && /1 z 5 přečteno/.test(roz));
+t('rozcestník: všechny kapitoly, hledání, přečtená zeleně se ✓', vse.every(k => roz.includes(`pruvodceKapitola('${k.id}')`)) && /id="pruvodceHledat"/.test(roz) && /✓ Peněženky a zůstatek ke dni/.test(roz) && /1 z 5 přečteno/.test(roz) && !/přibudou v další verzi/.test(roz));
 const kap = c._prKapitolaHTML(c._prKap('investice'));
 t('kapitola: CO TO JE, PROČ, PŘÍKLAD, JAK NA TO, ČASTÉ CHYBY, NAVAZUJE, dvě tlačítka Otevřít, Další', ['CO TO JE', 'PROČ', 'PŘÍKLAD', 'JAK NA TO', 'ČASTÉ CHYBY', 'NAVAZUJE'].every(x => kap.includes(x)) && /pruvodceOtevri\('investice',0\)/.test(kap) && /pruvodceOtevri\('investice',1\)/.test(kap) && /Další: Cizí měna/.test(kap));
 t('lišta Zpět do návodu: nad tlačítkem +, pod formuláři', /#pruvodceLista\{position:fixed;[^}]*z-index:300/.test(CSS) && /\.fab\{[^}]*z-index:200/.test(CSS) && /\.overlay\{[^}]*z-index:400/.test(CSS));

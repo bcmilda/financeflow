@@ -1,4 +1,4 @@
-// FinanceFlow · v12.45 · admin.js · 2026-11-13
+// FinanceFlow · v12.46 · admin.js · 2026-11-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.46',
+    datum: '2026-11-13',
+    zmeny: [
+      "🧭 PRŮVODCE – ODDÍLY 5–8 (Milan: „Dodělej teď oddíly 5–8“) · cesta: Přehled → 🧭 Průvodce. Přibylo 14 kapitol, celkem 8 oddílů a 32 kapitol. Auto a domácnost: Vozidla a tankování (⛽ u transakce Auto › Palivo, spotřeba z tachometru), Energie a voda (odhad vyúčtování, zálohy z transakcí). Přehledy: Dashboard a Finanční skóre (0–310, pět složek), Měsíční report a 🗂️ Report, Grafy a Statistiky, Finanční obraz, Detektor úspor, Tvoje inflace, Nákupní DNA a živiny. Rodina: Sdílení a partneři (🔗 pozvánka), Rodinný souhrn. Nástroje: Kalkulačky, Simulace života (A neinvestuji / B investuji / C splatím dluh dřív), Kurzy měn.",
+      "📖 Každá nová kapitola má stejnou stavbu: Co to je · Proč · Příklad s čísly · Jak na to · Otevřít (Premium stránky – Grafy, 🗂️ Report, Inflace, Analýza účtenek, Sdílení, Rodinný souhrn – se otevírají stejně jako z menu) · Časté chyby · Navazuje. Hledání najde i nové kapitoly („tankovani“, „ziviny“). Poznámka „další oddíly přibudou“ z rozcestníku zmizela.",
+      "🧊 OPRAVA ZAMRZNUTÍ · cesta: Měřidla → 🚗 Vozidla a tankování, Měřidla → 📟 Energie a voda, formulář transakce (⛽ Tankování, záloha na měřidlo). Když se vozidla nebo měřidla nepodařilo načíst (uživatel ještě nepřihlášený nebo bez tokenu), appka se je snažila načíst znovu a znovu bez přestávky a stránka zamrzla. Teď se po neúspěšném pokusu nic neopakuje. Nalezeno při proklikávání Průvodce v Chromiu.",
+      "🧪 tools/smoke_pruvodce.js (23) – na v12.45 padá (18 kapitol); tools/smoke_nacitani_smycka.js (4) – na v12.45 zamrzne. Chromium 390 px a 1350 px: všech 39 tlačítek Otevřít (stránka aktivní nebo formulář s typem, lišta Zpět do návodu), bez chyb a bez přetečení do stran.",
+    ],
+  },
   {
     verze: 'v12.45',
     datum: '2026-11-13',
