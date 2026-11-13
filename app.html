@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.42</title>
+<title>FinanceFlow v12.43</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -27,7 +27,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=5982960634bcf0ed">
+<link rel="stylesheet" href="css/styles.css?v=133b83923e76e2f2">
 
 <style>
 .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.42 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.43 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -1655,6 +1655,26 @@
           </div>
         </div>
       </div>
+      <!-- v12.43 (TODO-386): 🔁 opakovaná platba u příjmu a výdaje → založí Opakovanou šablonu (debts.js txOpakZaloz) -->
+      <div class="fg" id="txOpakBox" style="display:none">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--text);font-weight:600;margin:0">
+            <input type="checkbox" id="txOpak" onchange="txOpakPrepni()" style="width:16px;height:16px;cursor:pointer">
+            🔁 Opakovaná platba
+          </label>
+          <div id="txOpakOpts" style="display:none;margin-top:8px">
+            <label for="txOpakFreq" style="color:#a8aec8;font-weight:500;font-size:.74rem">Frekvence</label>
+            <select class="fi" id="txOpakFreq">
+              <option value="monthly">Měsíčně</option>
+              <option value="quarterly">Čtvrtletně</option>
+              <option value="yearly">Ročně</option>
+              <option value="biweekly">Každé 2 týdny</option>
+              <option value="weekly">Týdně</option>
+            </select>
+            <div style="font-size:.7rem;color:#a8aec8;margin-top:5px;line-height:1.4">Po uložení vznikne <strong>Opakovaná šablona</strong> se stejnou částkou, kategorií a peněženkou. Tahle transakce je první platba, další uvidíš v sekci <strong>Budoucí platby</strong>.</div>
+          </div>
+        </div>
+      </div>
       <div class="fg"><label style="color:var(--bank);font-weight:700;font-size:.78rem;letter-spacing:.04em">POZNÁMKA</label>
         <div style="position:relative">
           <input class="fi" id="txNote" placeholder="Volitelná poznámka..." oninput="txShowNoteSuggest(this.value)" onblur="txHideNoteSuggest()" autocomplete="off">
@@ -2219,14 +2239,14 @@ window.addEventListener('error', function(e){
 <script src="js/app.js?v=c29e53ef400396aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
 <script src="js/helpers.js?v=3c290ad1c6ac91ae" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
 <script src="js/ikony.js?v=c06d5167d73df290" onerror="window._ffScriptFail&&window._ffScriptFail('js/ikony.js')"></script>
-<script src="js/ui.js?v=cda17705703c0450" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/ui.js?v=431ec0b2e3027522" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
 <script src="js/transactions.js?v=c9ad657ef34d004b" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
 <script src="js/report.js?v=9ea06828a966440d" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
 <script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
 <script src="js/inflace.js?v=704ac86c7f02b944" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
 <script src="js/charts.js?v=278b9667b9ec0f6b" onerror="window._ffScriptFail&&window._ffScriptFail('js/charts.js')"></script>
 <script src="js/stats.js?v=89abcbde05a8dc30" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
-<script src="js/debts.js?v=241467fc606f1fd0" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
+<script src="js/debts.js?v=77b22bdb7ae6b632" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
 <script src="js/ai.js?v=1b7d2cf5b34444aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/dotazy.js?v=3f240c078407c641" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
@@ -2237,7 +2257,7 @@ window.addEventListener('error', function(e){
 <script src="js/taxonomie.js?v=72dee07513064b77" onerror="window._ffScriptFail&&window._ffScriptFail('js/taxonomie.js')"></script>
 <script src="js/ceny-kraje.js?v=efd74792830fe7ac" onerror="window._ffScriptFail&&window._ffScriptFail('js/ceny-kraje.js')"></script>
 <script src="js/statistika-polozek.js?v=9cd80b61f6c953ba" onerror="window._ffScriptFail&&window._ffScriptFail('js/statistika-polozek.js')"></script>
-<script src="js/receipts.js?v=f7a8db7304e663d0" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
+<script src="js/receipts.js?v=526424c0e1476886" onerror="window._ffScriptFail&&window._ffScriptFail('js/receipts.js')"></script>
 <script src="js/ean-sken.js?v=141fc8a9ab2fcd1e" onerror="window._ffScriptFail&&window._ffScriptFail('js/ean-sken.js')"></script>
 <script src="js/offline-sync.js?v=11672e9dbe7c620d" onerror="window._ffScriptFail&&window._ffScriptFail('js/offline-sync.js')"></script>
 <script src="js/settings.js?v=f4828be04ce0ade0" onerror="window._ffScriptFail&&window._ffScriptFail('js/settings.js')"></script>
@@ -2263,7 +2283,7 @@ window.addEventListener('error', function(e){
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
 <script src="js/temata.js?v=4367c782fc8b58cc" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
-<script src="js/admin.js?v=f6d6c103a1dd5c98" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=04fc85bf8bc35014" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=abded4e6e640c8ab" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

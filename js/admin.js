@@ -1,4 +1,4 @@
-// FinanceFlow · v12.42 · admin.js · 2026-11-08
+// FinanceFlow · v12.43 · admin.js · 2026-11-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,19 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.43',
+    datum: '2026-11-12',
+    zmeny: [
+      "🧾 EDITOR ÚČTENKY – DOLADĚNÍ PODLE NÁVRHU D1/D2 (Milan, 11.–12. 11.: „u částky 35 a 29 chybí Kč“, „mezery mezi číslem a šipkami“, „na PC je to roztahané“, „horní řádek je šedý a nevýrazný“, „přeškrtnuté číslo je moc malinké“) · cesta: Analýza účtenek → 📋 Historie → ✎ → Položky. Každá položka má vlastní rámeček s číslem v kroužku. Název je bíle a tučně; když ho AI nenavrhla, ukáže se text z účtenky v plné barvě s popiskem „název z účtenky · klepni a pojmenuj po svém“ (dřív šedý předepsaný text). Tři názvy zůstávají: Název (AI / tvůj), 🧾 z účtenky (klíč párování, jde opravit), karta výrobku z kódu. Částka vždy na dvě desetinná místa a s Kč.",
+      "🏷️ SLEVA ČITELNĚ · cesta: editor účtenky → zlevněná položka. Pod zaplacenou částkou větší přeškrtnutá cena před slevou a zelený štítek s procentem (sleva ÷ cena před slevou, např. 1,52 z 19,58 = −8 %). V zeleném řádku „ušetřeno X Kč“ místo opakované zaplacené částky. Přepočítá se při psaní.",
+      "🔢 ČÍSLA BEZ ŠIPEK · cesta: editor účtenky → položka → množství, cena, sleva. Šipky nahoru/dolů jsou pryč, pole jsou širší (vejde se 1,518 kg) a číslo je zarovnané vpravo.",
+      "🖥️ POČÍTAČ: POLOŽKA NA DVA ŘÁDKY · cesta: editor účtenky na široké obrazovce. Řádek 1: číslo, název, kategorie a podkategorie, množství × cena, balení, částka. Řádek 2: z účtenky a karta výrobku, Druh, sleva, 📷 ⭐ # ✕. Řídí se šířkou editoru (od 980 px), na telefonu zůstává karta pod sebou bez posouvání do stran. Hlavička účtenky (obchod, město, kraj, datum, kategorie všem, peněženka, doklad) beze změny.",
+      "🔗 PROPOJIT S TRANSAKCÍ UŽ PŘI ZÁPISU (TODO-385, Milan 8. 11.: „u Cashbacku se objeví až po uložení“) · cesta: Transakce → + → Příjem / Výdaj → 🔗 Propojit s jinou transakcí. Tlačítko je vidět hned u nové transakce; vybraná protistrana se zapíše na obě strany při uložení, zrušený zápis nic nezanechá. U přesunu a splátky se nenabízí. Statistiky ani report se nemění.",
+      "🔁 OPAKOVANÁ PLATBA U BĚŽNÉ TRANSAKCE (TODO-386, Milan 8. 11.: „je jen u Dluh/Splátka“) · cesta: Transakce → + (nebo Upravit) → Výdaj / Příjem → 🔁 Opakovaná platba → Frekvence. Po uložení vznikne Opakovaná šablona se stejným názvem, částkou, kategorií, podkategorií, peněženkou, typem platby a tagy. Právě zapsaná transakce je první platba – měsíční šablona ten měsíc nezapíše podruhé, u ostatních frekvencí je první splatnost datum transakce. Stejná šablona se nezaloží dvakrát.",
+      "🧪 tools/smoke_v1243.js (33) – na v12.42 padá. Opraveny testy smoke_inbox.js (pravidla inboxu mají od v12.26 i zápis vlastníka), smoke_vratky.js (částka s Kč), smoke_propojeni.js (🔗 už při zápisu). Chromium 390 px, 1350 px a 1700 px: 4 položky (kód, bez názvu AI, vážené se slevou −8 %, sleva −67 % s #tagem) bez přetečení a chyb; nový příjem Cashback 500 Kč propojen s výdajem 500 Kč až po uložení a založena měsíční šablona.",
+    ],
+  },
   {
     verze: 'v12.42',
     datum: '2026-11-08',

@@ -1,4 +1,4 @@
-/* FinanceFlow · v11.28 · styles.css · 2026-10-04 */
+/* FinanceFlow · v12.43 · styles.css · 2026-11-12 */
 :root{
   --bg:#0f1117;--bg2:#151820;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;
   --border:#2e3347;--border2:#3a4158;
@@ -761,4 +761,42 @@ img, svg, canvas { max-width: 100%; }
   .pristi-tbl tfoot td:nth-child(1){grid-column:1}
   .pristi-tbl tfoot td:nth-child(2){grid-column:2/-1}
   .pristi-tbl tfoot td:nth-child(3){display:none}
+}
+
+/* ── v12.43 (S29) · Editor účtenky – karta položky podle návrhu D1/D2 ──
+   Telefon: karta pod sebou. Široký editor (počítač): položka na dva řádky.
+   Šířku hlídá kontejner skupiny (.rp-polozky), ne okno – editor může být vedle postranního panelu. */
+.rp-polozky{container-type:inline-size}
+.rp-karta{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px 8px;align-items:start;padding:10px;margin-top:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px}
+.rp-karta.rp-vybrana{background:rgba(96,165,250,.09);border-color:#60a5fa}
+.rp-k-num{display:flex;align-items:center;gap:6px;padding-top:3px}
+.rp-k-cislo{width:24px;height:24px;border-radius:12px;background:var(--surface3);color:var(--text);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rp-k-nazev{min-width:0;display:flex;flex-direction:column;gap:3px}
+.rp-k-suma{text-align:right;padding-top:4px}
+.rp-k-nazvy,.rp-k-kat,.rp-k-mnoz,.rp-k-sleva,.rp-k-dolni,.rp-k-panel{grid-column:1/-1;min-width:0}
+.rp-k-dolni{display:flex;gap:5px;align-items:center}
+.rp-k-druh{flex:1;min-width:0}
+.rp-k-akce{display:flex;gap:5px;align-items:center;flex-shrink:0}
+/* šipky u čísel pryč – mezi číslem a šipkami byla mezera a na 3 desetinná místa nezbylo místo */
+.rp-karta input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.rp-karta input[type=number]::-webkit-outer-spin-button,.rp-karta input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.rp-sleva-pc{display:none}
+@container (min-width:700px) and (max-width:979.98px){
+  .rp-karta{max-width:720px}
+}
+@container (min-width:980px){
+  .rp-karta{grid-template-columns:auto minmax(0,1fr) minmax(250px,26%) 322px 150px;gap:6px 10px;align-items:center;padding:8px 10px}
+  .rp-k-num{grid-column:1;grid-row:1;padding-top:0}
+  .rp-k-nazev{grid-column:2;grid-row:1}
+  .rp-k-kat{grid-column:3;grid-row:1}
+  .rp-k-mnoz{grid-column:4;grid-row:1;flex-wrap:nowrap !important}
+  .rp-k-suma{grid-column:5;grid-row:1;padding-top:0}
+  .rp-k-nazvy{grid-column:2;grid-row:2}
+  .rp-k-dolni{display:contents}
+  .rp-k-druh{grid-column:3;grid-row:2}
+  .rp-k-sleva{grid-column:4;grid-row:2}
+  .rp-k-akce{grid-column:5;grid-row:2;justify-content:flex-end}
+  .rp-k-panel{grid-column:2/-1;grid-row:3}
+  .rp-sleva-tel{display:none}
+  .rp-sleva-pc{display:block}
 }

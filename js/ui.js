@@ -1,4 +1,4 @@
-// FinanceFlow · v12.42 · ui.js · 2026-11-08
+// FinanceFlow · v12.43 · ui.js · 2026-11-12
 //  RENDER ROUTER
 // ══════════════════════════════════════════════════════
 // TODO-093 (Session 10): stav pro centrální debounce (deklarováno před renderPage
@@ -2299,7 +2299,8 @@ function editTx(id, bezUctenky){
     _bs.style.display=((_jeRozd || !t.splitId) && !(t.receiptItems&&t.receiptItems.length)) ? 'inline-flex' : 'none';
     _bs.textContent = _jeRozd ? '✂️ Upravit rozdělení' : '✂️ Rozdělit'; }
   window._modalTxId=id;
-  if(typeof txPropojRender==='function'){ _txPropOtevreno=false; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
+  if(typeof txPropojRender==='function'){ _txPropOtevreno=false; _txPropNove=[]; txPropojRender(id); }   // S28 (v12.17): 🔗 propojení (hledání zavřené)
+  if(typeof txOpakReset==='function') txOpakReset();   // v12.43: 🔁 opakovaná platba – při úpravě nezaškrtnuto
   if(typeof temaTxRender==='function') temaTxRender(id);   // S28 (v12.20): ⭐ sledované téma
   document.getElementById('modalAdd').classList.add('open');
 }
@@ -2331,8 +2332,34 @@ function txPropojKandidati(t, D, q) {
     .map(x => ({ x, stejna: Math.abs((parseFloat(x.amount || x.amt) || 0) - castka) < 0.5 ? 0 : 1, dni: Math.abs((Date.parse((x.date || '') + 'T12:00:00') || 0) - d0) }))
     .sort((a, b) => a.stejna - b.stejna || a.dni - b.dni).slice(0, 8).map(o => o.x);
 }
+//  v12.43 (S29, TODO-385, Milan: „Propojit s transakcí u Cashbacku se objeví až po uložení“):
+//  propojit jde už při ZÁPISU nové transakce. Nová transakce ještě nemá id → vybrané protistrany se drží
+//  v _txPropNove a zapíšou se na obě strany až při uložení (txPropojUloz). Zrušený zápis nic nezanechá.
+let _txPropNove = [];
+function txPropojKoncept() {
+  const typ = typeof curTxType !== 'undefined' ? curTxType : '';
+  if (typ !== 'income' && typ !== 'expense') return null;   // přesun a splátka se nepropojují
+  const g = id => { const e = document.getElementById(id); return e ? e.value : ''; };
+  return { id: '', type: typ, date: g('txDate') || (typeof ffDnes === 'function' ? ffDnes() : ''), amount: parseFloat(String(g('txAmt')).replace(',', '.')) || 0, propojeno: _txPropNove.slice() };
+}
+function txPropojNovaReset() { _txPropNove = []; _txPropOtevreno = false; txPropojRender(''); }
+function txPropojUloz(idNove) {
+  const a = (S.transactions || []).find(x => x.id == idNove), ids = _txPropNove.slice(); _txPropNove = [];
+  if (!a || !ids.length) return 0;
+  let n = 0;
+  ids.forEach(idB => { const b = (S.transactions || []).find(x => _txPropId(x.id) === _txPropId(idB)); if (!b) return;
+    const pridej = (t, id) => { const l = (Array.isArray(t.propojeno) ? t.propojeno : []).map(_txPropId); if (!l.includes(_txPropId(id))) l.push(_txPropId(id)); t.propojeno = l; };
+    pridej(a, b.id); pridej(b, a.id); n++; });
+  return n;
+}
 function txPropoj(idA, idB) {
   if (viewingUid) return;
+  if (idA === '' || idA == null) {   // nová, ještě neuložená transakce
+    if (!_txPropNove.includes(_txPropId(idB))) _txPropNove.push(_txPropId(idB));
+    txPropojRender('');
+    if (typeof showToast === 'function') showToast('🔗 Propojí se po uložení transakce');
+    return;
+  }
   const a = (S.transactions || []).find(x => x.id == idA), b = (S.transactions || []).find(x => x.id == idB); if (!a || !b) return;
   const pridej = (t, id) => { const l = (Array.isArray(t.propojeno) ? t.propojeno : []).map(_txPropId); if (!l.includes(_txPropId(id))) l.push(_txPropId(id)); t.propojeno = l; };
   pridej(a, b.id); pridej(b, a.id);
@@ -2341,6 +2368,7 @@ function txPropoj(idA, idB) {
 }
 function txOdpoj(idA, idB) {
   if (viewingUid) return;
+  if (idA === '' || idA == null) { _txPropNove = _txPropNove.filter(v => v !== _txPropId(idB)); txPropojRender(''); return; }
   [[idA, idB], [idB, idA]].forEach(([p, q]) => { const t = (S.transactions || []).find(x => x.id == p); if (!t || !Array.isArray(t.propojeno)) return;
     t.propojeno = t.propojeno.filter(v => _txPropId(v) !== _txPropId(q)); if (!t.propojeno.length) delete t.propojeno; });
   save(); txPropojRender(idA);
@@ -2348,14 +2376,16 @@ function txOdpoj(idA, idB) {
 let _txPropOtevreno = false;
 function txPropojRender(id, q) {
   const box = document.getElementById('txPropojBox'); if (!box) return;
-  const D = getData(), t = (D.transactions || []).find(x => x.id == id);
+  const nova = id === '' || id == null;   // v12.43: nová transakce – koncept z formuláře
+  const D = getData(), t = nova ? txPropojKoncept() : (D.transactions || []).find(x => x.id == id);
   if (!t || viewingUid) { box.style.display = 'none'; box.innerHTML = ''; return; }
   const esc = s => (typeof escHtml === 'function') ? escHtml(s) : String(s == null ? '' : s);
   const pop = x => `${esc(x.name || x.note || '–')} · ${x.type === 'income' ? '+' : '−'}${fmtP(x.amount || x.amt || 0)} Kč · ${esc(new Date((x.date || '') + 'T12:00:00').toLocaleDateString('cs-CZ'))}`;
   const sp = txPropojene(t, D);
   const idS = esc(_txPropId(t.id)).replace(/'/g, '');
   let h = sp.map(x => `<div style="display:flex;align-items:center;gap:6px;font-size:.76rem;padding:6px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;margin-bottom:4px">
-      <span style="flex:1;min-width:0;cursor:pointer;color:var(--text)" title="Otevřít" onclick="editTx('${esc(_txPropId(x.id)).replace(/'/g, '')}')">🔗 ${pop(x)}</span>
+      ${nova ? `<span style="flex:1;min-width:0;color:var(--text)">🔗 ${pop(x)}</span>`   /* v12.43: z rozepsané transakce se neodchází */
+        : `<span style="flex:1;min-width:0;cursor:pointer;color:var(--text)" title="Otevřít" onclick="editTx('${esc(_txPropId(x.id)).replace(/'/g, '')}')">🔗 ${pop(x)}</span>`}
       <button class="btn btn-ghost btn-sm" style="font-size:.68rem;padding:2px 7px" title="Zrušit propojení" onclick="txOdpoj('${idS}','${esc(_txPropId(x.id)).replace(/'/g, '')}')">✕</button></div>`).join('');
   if (!_txPropOtevreno) h += `<button type="button" class="btn btn-ghost btn-sm" style="font-size:.72rem;color:#a8aec8" onclick="_txPropOtevreno=true;txPropojRender('${idS}')">🔗 ${sp.length ? 'Propojit s další transakcí' : 'Propojit s jinou transakcí'}</button>`;
   else {
@@ -2369,7 +2399,7 @@ function txPropojRender(id, q) {
   box.innerHTML = h; box.style.display = 'block';
   if (q != null) { const i = document.getElementById('txPropojQ'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
 }
-Object.assign(window, { txPropojene, txPropojKandidati, txPropoj, txOdpoj, txPropojRender });
+Object.assign(window, { txPropojene, txPropojKandidati, txPropoj, txOdpoj, txPropojRender, txPropojKoncept, txPropojNovaReset, txPropojUloz });
 
 // ══════════════════════════════════════════════════════
 //  TODO-231: NAŠEPTÁVAČ NÁZEV / POZNÁMKA (vzor: nakupShowCatalogSuggest, tagsInputHandler)

@@ -41,7 +41,7 @@ c.txOdpoj('i1', 'e1');
 t('✕ zruší propojení na obou stranách', !prijem.propojeno && !S.transactions[0].propojeno);
 t('smazaná protistrana se neukáže', c.txPropojene({ propojeno: ['neni'] }, S).length === 0);
 const DEB = fs.readFileSync(najdi('debts.js', '../js/debts.js'), 'utf8');
-t('nová transakce: blok 🔗 skrytý (jen u úpravy)', /txPropojBox'\); if\(pb\)\{ pb\.style\.display='none'/.test(DEB));
+t('nová transakce: blok 🔗 je k dispozici už při zápisu (v12.43, TODO-385 – dřív jen u úpravy)', /txPropojNovaReset\(\)/.test(DEB) && !/txPropojBox'\); if\(pb\)\{ pb\.style\.display='none'/.test(DEB));
 
 console.log(`\n${ok} ✓  ${bad} ✗`);
 process.exit(bad ? 1 : 0);
