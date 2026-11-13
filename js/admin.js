@@ -1,4 +1,4 @@
-// FinanceFlow · v12.44 · admin.js · 2026-11-12
+// FinanceFlow · v12.45 · admin.js · 2026-11-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,17 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.45',
+    datum: '2026-11-13',
+    zmeny: [
+      "🧭 PRŮVODCE APLIKACÍ (Milan: „aplikace se komplikuje a má mnoho zákoutí – průvodce, co udělat na začátku, nastavit peněženky a úvěry, používat skener“; „popis, příklady, přesměrování a návaznost na další karty“) · cesta: Přehled → 🧭 Průvodce (první položka menu). Rozcestník s hledáním (i bez diakritiky, shoda v názvu první) a 4 oddíly, 18 kapitol: Začínáme (peněženky a zůstatek ke dni, den výplaty a rezerva, půjčky, pravidelné platby, kategorie), Každý den (výdaj a příjem, skener a editor účtenky, import z banky a výpisy, tagy a sledovaná témata), Peníze v pohybu (přesun, výběr z bankomatu, investice a spoření, cizí měna, cashback a vrácení peněz), Dluhy a plánování (splátka, úrok a RPSN, Budoucí platby, Příští měsíc, Finanční radar).",
+      "📖 KAPITOLA · Co to je · Proč · Příklad s čísly · Jak na to (kroky s cestou v appce) · tlačítko Otevřít (přenese na kartu a zvýrazní tlačítko, o které jde, nebo rovnou otevře formulář transakce se správným typem – např. Přesun → Do investic & spoření) · Časté chyby · Navazuje (odkazy na související kapitoly) · ✓ Mám hotovo / Další kapitola. Po Otevřít drží lišta dole „‹ Zpět do návodu“. Přečtené kapitoly se ukládají a synchronizují mezi zařízeními (uiCfg).",
+      "🚀 DASHBOARD → ZAČÍNÁME · dřívější karta „Dokonči nastavení“ se jmenuje Začínáme a má nové kroky: peněženky a zůstatek ke dni, pravidelné platby, první účtenka. U kroků je 📖 Návod (kapitola průvodce) a dole „🧭 Celý průvodce aplikací“. Odškrtávání zůstává automatické, Skrýt funguje jako dřív.",
+      "ℹ️ O aplikaci ukazuje správnou verzi (zůstalo „Verze 12.42“ ve v12.43 a v12.44).",
+      "🧪 tools/smoke_pruvodce.js (22) – na v12.44 padá; hlídá i to, že každé Otevřít míří na existující stránku, tlačítko nebo funkci. Chromium 390 px a 1350 px: všech 22 tlačítek Otevřít (stránka aktivní, cíl zvýrazněn, formulář s typem, lišta), Zpět do návodu, hledání, karta Začínáme s 9 návody; bez chyb a bez přetečení do stran.",
+    ],
+  },
   {
     verze: 'v12.44',
     datum: '2026-11-12',

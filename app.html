@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.44</title>
+<title>FinanceFlow v12.45</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -27,7 +27,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/styles.css?v=133b83923e76e2f2">
+<link rel="stylesheet" href="css/styles.css?v=9efbe139e35d97d9">
 
 <style>
 .settings-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.44 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.45 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -295,6 +295,7 @@
   <!-- PŘEHLED -->
   <div class="nav-group">
     <div class="nav-label">Přehled</div>
+    <div class="nav-item" onclick="showPage('pruvodce',this)"><span class="nav-icon">🧭</span> Průvodce</div>
     <div class="nav-item active" onclick="showPage('prehled',this)"><span class="nav-icon">📊</span> Dashboard</div>
     <div class="nav-item" onclick="showPage('transakce',this)"><span class="nav-icon">💳</span> Transakce</div>
     <div class="nav-item" onclick="showPage('kalendar',this)"><span class="nav-icon">📅</span> Kalendář</div>
@@ -672,6 +673,10 @@
 
   <!-- FINANČNÍ SIMULACE ŽIVOTA -->
   <!-- S27 (v11.90): 🧮 Kalkulačky (js/kalkulacky.js) -->
+  <!-- v12.45 (S29): 🧭 Průvodce aplikací – pruvodce.js -->
+  <div class="page" id="page-pruvodce">
+    <div id="pruvodceContent"></div>
+  </div>
   <div class="page" id="page-kalkulacky">
     <div id="kalkulackyContent"></div>
   </div>
@@ -1107,7 +1112,7 @@
     <div class="card" style="margin-bottom:14px;text-align:center;padding:32px 20px;background:linear-gradient(135deg,var(--surface) 0%,rgba(74,222,128,.06) 100%)">
       <div style="font-size:3.5rem;margin-bottom:12px">💚</div>
       <div style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;letter-spacing:-.03em">Finance<span style="color:var(--income)">Flow</span></div>
-      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.42</div>
+      <div style="font-size:.8rem;color:var(--text3);margin-top:4px">Verze 12.45</div>
       <div style="font-size:.75rem;color:var(--text3);margin-top:6px">Vytvořeno s ❤️ a AI</div>
     </div>
 
@@ -2236,10 +2241,10 @@ window.addEventListener('error', function(e){
   }
 }, true);
 </script>
-<script src="js/app.js?v=c29e53ef400396aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
+<script src="js/app.js?v=07149d7907617f64" onerror="window._ffScriptFail&&window._ffScriptFail('js/app.js')"></script>
 <script src="js/helpers.js?v=3c290ad1c6ac91ae" onerror="window._ffScriptFail&&window._ffScriptFail('js/helpers.js')"></script>
 <script src="js/ikony.js?v=c06d5167d73df290" onerror="window._ffScriptFail&&window._ffScriptFail('js/ikony.js')"></script>
-<script src="js/ui.js?v=431ec0b2e3027522" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
+<script src="js/ui.js?v=3c43c527f33a2f69" onerror="window._ffScriptFail&&window._ffScriptFail('js/ui.js')"></script>
 <script src="js/transactions.js?v=c9ad657ef34d004b" onerror="window._ffScriptFail&&window._ffScriptFail('js/transactions.js')"></script>
 <script src="js/report.js?v=9ea06828a966440d" onerror="window._ffScriptFail&&window._ffScriptFail('js/report.js')"></script>
 <script src="js/review.js?v=5a4497d97dc1838b" onerror="window._ffScriptFail&&window._ffScriptFail('js/review.js')"></script>
@@ -2282,8 +2287,9 @@ window.addEventListener('error', function(e){
 <script src="js/donate.js?v=d076783dd3e6597a" onerror="window._ffScriptFail&&window._ffScriptFail('js/donate.js')"></script>
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
+<script src="js/pruvodce.js?v=eed80f7678682e2b" onerror="window._ffScriptFail&&window._ffScriptFail('js/pruvodce.js')"></script>
 <script src="js/temata.js?v=4367c782fc8b58cc" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
-<script src="js/admin.js?v=d6002e2ccb90c52b" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=3d122e6832892e1b" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=abded4e6e640c8ab" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>

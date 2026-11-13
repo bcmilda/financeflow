@@ -1,4 +1,4 @@
-/* FinanceFlow · v12.43 · styles.css · 2026-11-12 */
+/* FinanceFlow · v12.45 · styles.css · 2026-11-13 */
 :root{
   --bg:#0f1117;--bg2:#151820;--surface:#1a1d27;--surface2:#1f2330;--surface3:#252a38;
   --border:#2e3347;--border2:#3a4158;
@@ -800,3 +800,9 @@ img, svg, canvas { max-width: 100%; }
   .rp-sleva-tel{display:none}
   .rp-sleva-pc{display:block}
 }
+
+/* ── v12.45 (S29) · 🧭 Průvodce aplikací: zvýraznění cíle po „Otevřít“ a lišta „Zpět do návodu“ ── */
+.pr-zvyraz{outline:3px solid #60a5fa !important;outline-offset:3px;border-radius:10px;animation:prPuls 1.1s ease-in-out 3}
+@keyframes prPuls{0%,100%{box-shadow:0 0 0 0 rgba(96,165,250,.0)}50%{box-shadow:0 0 0 8px rgba(96,165,250,.35)}}
+#pruvodceLista{position:fixed;left:12px;right:12px;bottom:16px;z-index:300;display:none;gap:8px;align-items:center;background:#1f2a44;border:1px solid #60a5fa;border-radius:14px;padding:8px 8px 8px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:560px;margin:0 auto}
+@media (min-width:900px){#pruvodceLista{left:calc(var(--sidebar-w,240px) + 24px)}}
