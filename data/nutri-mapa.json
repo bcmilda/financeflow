@@ -1,0 +1,1184 @@
+{
+ "verze": "11.26",
+ "zdroj": "NutriDatabaze.cz, ÚZEI",
+ "pozn": "Jen kódy potravin – hodnoty jsou na serveru (licence čl. 5). j: jista = použije se hned, navrh = až po potvrzení v Admin → 🥕 NutriDatabáze.",
+ "mapa": {
+  "acidofilni mleko": {
+   "k": "0120",
+   "j": "jista"
+  },
+  "ananas": {
+   "k": "0332",
+   "j": "jista"
+  },
+  "arasidy": {
+   "k": "0367",
+   "j": "jista",
+   "a": [
+    "0727"
+   ]
+  },
+  "avokado": {
+   "k": "0486",
+   "j": "jista"
+  },
+  "balkansky syr": {
+   "k": "0096",
+   "j": "jista"
+  },
+  "banan": {
+   "k": "0032",
+   "j": "jista"
+  },
+  "basmati ryze": {
+   "k": "1023",
+   "j": "jista"
+  },
+  "bataty": {
+   "k": "0619",
+   "j": "jista"
+  },
+  "bazalka": {
+   "k": "0575",
+   "j": "jista"
+  },
+  "bile vino": {
+   "k": "0379",
+   "j": "jista"
+  },
+  "bily jogurt": {
+   "k": "0126",
+   "j": "jista",
+   "a": [
+    "0125"
+   ]
+  },
+  "boruvky": {
+   "k": "0033",
+   "j": "jista"
+  },
+  "bramborovy knedlik": {
+   "k": "0005",
+   "j": "navrh",
+   "a": [
+    "0004"
+   ]
+  },
+  "brambory": {
+   "k": "0194",
+   "j": "jista"
+  },
+  "bramburky": {
+   "k": "0990",
+   "j": "navrh"
+  },
+  "brokolice": {
+   "k": "0049",
+   "j": "jista"
+  },
+  "broskev": {
+   "k": "0034",
+   "j": "jista"
+  },
+  "brusinky susene": {
+   "k": "0738",
+   "j": "jista"
+  },
+  "buchta": {
+   "k": "0794",
+   "j": "navrh"
+  },
+  "bulgur": {
+   "k": "1008",
+   "j": "jista"
+  },
+  "bulka": {
+   "k": "0196",
+   "j": "navrh"
+  },
+  "cele kure": {
+   "k": "0490",
+   "j": "jista"
+  },
+  "celer": {
+   "k": "0050",
+   "j": "jista",
+   "a": [
+    "0620"
+   ]
+  },
+  "celozrnna mouka": {
+   "k": "0150",
+   "j": "jista"
+  },
+  "celozrnne testoviny": {
+   "k": "0502",
+   "j": "jista"
+  },
+  "celozrnny chleb": {
+   "k": "0199",
+   "j": "jista",
+   "a": [
+    "0200"
+   ]
+  },
+  "cervena cocka": {
+   "k": "0647",
+   "j": "jista"
+  },
+  "cervene vino": {
+   "k": "0378",
+   "j": "jista"
+  },
+  "cesnek": {
+   "k": "0053",
+   "j": "jista"
+  },
+  "cherry rajcata": {
+   "k": "0646",
+   "j": "jista"
+  },
+  "chipsy": {
+   "k": "0990",
+   "j": "navrh"
+  },
+  "chleb": {
+   "k": "0195",
+   "j": "navrh",
+   "a": [
+    "1042",
+    "0198"
+   ]
+  },
+  "cibule": {
+   "k": "0051",
+   "j": "jista"
+  },
+  "citron": {
+   "k": "0035",
+   "j": "jista"
+  },
+  "cizrna": {
+   "k": "0582",
+   "j": "jista"
+  },
+  "cocka": {
+   "k": "0092",
+   "j": "jista"
+  },
+  "cuketa": {
+   "k": "0052",
+   "j": "jista"
+  },
+  "cukr": {
+   "k": "0190",
+   "j": "jista"
+  },
+  "dalamanek": {
+   "k": "0203",
+   "j": "jista"
+  },
+  "debrecinka": {
+   "k": "0312",
+   "j": "navrh"
+  },
+  "drozdi": {
+   "k": "0251",
+   "j": "navrh",
+   "a": [
+    "0252"
+   ]
+  },
+  "dyne": {
+   "k": "0946",
+   "j": "navrh",
+   "a": [
+    "0947"
+   ]
+  },
+  "dynova seminka": {
+   "k": "0369",
+   "j": "jista"
+  },
+  "dzem": {
+   "k": "0985",
+   "j": "navrh"
+  },
+  "eidam": {
+   "k": "0135",
+   "j": "navrh",
+   "a": [
+    "0137"
+   ]
+  },
+  "fazole": {
+   "k": "0090",
+   "j": "navrh",
+   "a": [
+    "0654",
+    "0649"
+   ]
+  },
+  "ghi": {
+   "k": "1096",
+   "j": "jista"
+  },
+  "gin": {
+   "k": "0386",
+   "j": "jista"
+  },
+  "grahamovy rohlik": {
+   "k": "0200",
+   "j": "navrh"
+  },
+  "grapefruit": {
+   "k": "0361",
+   "j": "jista"
+  },
+  "hermelin": {
+   "k": "0099",
+   "j": "jista"
+  },
+  "hladka mouka": {
+   "k": "0146",
+   "j": "jista"
+  },
+  "hliva": {
+   "k": "0468",
+   "j": "jista"
+  },
+  "horcice": {
+   "k": "0264",
+   "j": "navrh",
+   "a": [
+    "0265"
+   ]
+  },
+  "horka cokolada": {
+   "k": "0348",
+   "j": "navrh",
+   "a": [
+    "0349",
+    "0346"
+   ]
+  },
+  "houska": {
+   "k": "0196",
+   "j": "navrh"
+  },
+  "houskovy knedlik": {
+   "k": "0157",
+   "j": "navrh"
+  },
+  "hovezi klizka": {
+   "k": "1126",
+   "j": "jista"
+  },
+  "hovezi na gulas": {
+   "k": "1126",
+   "j": "navrh"
+  },
+  "hovezi predni": {
+   "k": "1116",
+   "j": "navrh"
+  },
+  "hovezi rostena": {
+   "k": "1122",
+   "j": "navrh",
+   "a": [
+    "1121"
+   ]
+  },
+  "hovezi svickova": {
+   "k": "0211",
+   "j": "jista"
+  },
+  "hovezi zadni": {
+   "k": "1110",
+   "j": "navrh"
+  },
+  "hovezi zebro": {
+   "k": "1133",
+   "j": "jista"
+  },
+  "hrach": {
+   "k": "0091",
+   "j": "jista"
+  },
+  "hranolky": {
+   "k": "0013",
+   "j": "navrh"
+  },
+  "hroznove vino": {
+   "k": "0373",
+   "j": "jista"
+  },
+  "hruba mouka": {
+   "k": "0148",
+   "j": "jista"
+  },
+  "hruska": {
+   "k": "0036",
+   "j": "jista"
+  },
+  "husa": {
+   "k": "0237",
+   "j": "jista"
+  },
+  "jablko": {
+   "k": "0037",
+   "j": "jista"
+  },
+  "jahlove vlocky": {
+   "k": "0606",
+   "j": "navrh"
+  },
+  "jahly": {
+   "k": "0581",
+   "j": "jista"
+  },
+  "jahody": {
+   "k": "0038",
+   "j": "jista"
+  },
+  "jasminova ryze": {
+   "k": "1025",
+   "j": "jista"
+  },
+  "jatrova pastika": {
+   "k": "0306",
+   "j": "navrh"
+  },
+  "javorovy sirup": {
+   "k": "0460",
+   "j": "jista"
+  },
+  "jehneci maso": {
+   "k": "0224",
+   "j": "navrh"
+  },
+  "jitrnice": {
+   "k": "0313",
+   "j": "jista"
+  },
+  "jogurt": {
+   "k": "0126",
+   "j": "navrh"
+  },
+  "kachna": {
+   "k": "0433",
+   "j": "jista"
+  },
+  "kachni prsa": {
+   "k": "0429",
+   "j": "jista",
+   "a": [
+    "0532"
+   ]
+  },
+  "kaiserka": {
+   "k": "0196",
+   "j": "navrh"
+  },
+  "kakao": {
+   "k": "0345",
+   "j": "navrh"
+  },
+  "kapr": {
+   "k": "0688",
+   "j": "jista"
+  },
+  "kapusta": {
+   "k": "0056",
+   "j": "jista"
+  },
+  "kecup": {
+   "k": "0395",
+   "j": "navrh"
+  },
+  "kedlubna": {
+   "k": "0058",
+   "j": "jista"
+  },
+  "kefir": {
+   "k": "0436",
+   "j": "jista"
+  },
+  "kesu": {
+   "k": "0370",
+   "j": "jista"
+  },
+  "kiwi": {
+   "k": "0039",
+   "j": "jista"
+  },
+  "kmin": {
+   "k": "0259",
+   "j": "jista"
+  },
+  "knedlik": {
+   "k": "0157",
+   "j": "navrh"
+  },
+  "kokosovy napoj": {
+   "k": "0583",
+   "j": "jista"
+  },
+  "kokosovy olej": {
+   "k": "0471",
+   "j": "jista"
+  },
+  "kondenzovane mleko": {
+   "k": "0141",
+   "j": "navrh",
+   "a": [
+    "0140"
+   ]
+  },
+  "kralik": {
+   "k": "0299",
+   "j": "jista"
+  },
+  "krepelci vejce": {
+   "k": "0855",
+   "j": "jista"
+  },
+  "krevety": {
+   "k": "0806",
+   "j": "jista"
+  },
+  "kroupy": {
+   "k": "0177",
+   "j": "jista"
+  },
+  "krupice": {
+   "k": "0149",
+   "j": "jista"
+  },
+  "krupicovy cukr": {
+   "k": "0190",
+   "j": "jista"
+  },
+  "kruti maso": {
+   "k": "0452",
+   "j": "navrh"
+  },
+  "kruti prsa": {
+   "k": "0452",
+   "j": "jista"
+  },
+  "kukuricna mouka": {
+   "k": "0453",
+   "j": "jista"
+  },
+  "kureci ctvrtky": {
+   "k": "0434",
+   "j": "jista"
+  },
+  "kureci jatra": {
+   "k": "0226",
+   "j": "jista"
+  },
+  "kureci kridla": {
+   "k": "0437",
+   "j": "jista"
+  },
+  "kureci palicky": {
+   "k": "0443",
+   "j": "jista"
+  },
+  "kureci prsa": {
+   "k": "0230",
+   "j": "jista",
+   "a": [
+    "0427"
+   ]
+  },
+  "kureci srdce": {
+   "k": "0536",
+   "j": "jista"
+  },
+  "kureci stehna": {
+   "k": "0229",
+   "j": "jista",
+   "a": [
+    "0494"
+   ]
+  },
+  "kureci sunka": {
+   "k": "0305",
+   "j": "navrh"
+  },
+  "kuskus": {
+   "k": "0488",
+   "j": "jista",
+   "a": [
+    "0998"
+   ]
+  },
+  "kvetak": {
+   "k": "0061",
+   "j": "jista"
+  },
+  "leco": {
+   "k": "0248",
+   "j": "jista"
+  },
+  "ledovy salat": {
+   "k": "0073",
+   "j": "navrh",
+   "a": [
+    "1090"
+   ]
+  },
+  "lezak": {
+   "k": "0425",
+   "j": "jista",
+   "a": [
+    "0426"
+   ]
+  },
+  "lilek": {
+   "k": "0466",
+   "j": "jista"
+  },
+  "limetka": {
+   "k": "0467",
+   "j": "jista"
+  },
+  "liskove orechy": {
+   "k": "0335",
+   "j": "jista",
+   "a": [
+    "0734"
+   ]
+  },
+  "lnene seminko": {
+   "k": "0617",
+   "j": "jista"
+  },
+  "losos": {
+   "k": "0596",
+   "j": "jista",
+   "a": [
+    "0389"
+   ]
+  },
+  "lucina": {
+   "k": "0103",
+   "j": "jista"
+  },
+  "majoneza": {
+   "k": "0081",
+   "j": "jista"
+  },
+  "majoranka": {
+   "k": "0257",
+   "j": "jista"
+  },
+  "maliny": {
+   "k": "0333",
+   "j": "jista"
+  },
+  "mandarinka": {
+   "k": "0485",
+   "j": "jista"
+  },
+  "mandle": {
+   "k": "0087",
+   "j": "jista",
+   "a": [
+    "0728"
+   ]
+  },
+  "mango": {
+   "k": "0365",
+   "j": "jista"
+  },
+  "maslo": {
+   "k": "0128",
+   "j": "jista"
+  },
+  "mazanec": {
+   "k": "0792",
+   "j": "jista"
+  },
+  "med": {
+   "k": "0192",
+   "j": "jista"
+  },
+  "meloun": {
+   "k": "1016",
+   "j": "navrh"
+  },
+  "merunka": {
+   "k": "0040",
+   "j": "jista"
+  },
+  "mlecna cokolada": {
+   "k": "0347",
+   "j": "jista"
+  },
+  "mleko": {
+   "k": "0113",
+   "j": "navrh",
+   "a": [
+    "0112"
+   ]
+  },
+  "mlete hovezi": {
+   "k": "0554",
+   "j": "navrh"
+  },
+  "mlete veprove": {
+   "k": "0295",
+   "j": "navrh"
+  },
+  "mouckovy cukr": {
+   "k": "0190",
+   "j": "jista"
+  },
+  "mrazena pizza": {
+   "k": "0357",
+   "j": "navrh",
+   "a": [
+    "0359",
+    "0358"
+   ]
+  },
+  "mrazeny krem": {
+   "k": "1197",
+   "j": "navrh"
+  },
+  "mrkev": {
+   "k": "0062",
+   "j": "jista"
+  },
+  "natural ryze": {
+   "k": "0182",
+   "j": "jista"
+  },
+  "nealkoholicke pivo": {
+   "k": "0374",
+   "j": "jista"
+  },
+  "nektarinka": {
+   "k": "0360",
+   "j": "jista"
+  },
+  "niva": {
+   "k": "0104",
+   "j": "jista"
+  },
+  "nizkotucne mleko": {
+   "k": "0114",
+   "j": "jista"
+  },
+  "ocet": {
+   "k": "0250",
+   "j": "jista"
+  },
+  "okurka": {
+   "k": "0063",
+   "j": "jista"
+  },
+  "olej": {
+   "k": "0086",
+   "j": "navrh",
+   "a": [
+    "0084"
+   ]
+  },
+  "olivovy olej": {
+   "k": "0382",
+   "j": "jista"
+  },
+  "olivy": {
+   "k": "0387",
+   "j": "navrh",
+   "a": [
+    "0388"
+   ]
+  },
+  "oregano": {
+   "k": "1035",
+   "j": "jista"
+  },
+  "ovesne otruby": {
+   "k": "0760",
+   "j": "jista"
+  },
+  "ovesne vlocky": {
+   "k": "0188",
+   "j": "jista"
+  },
+  "pangasius": {
+   "k": "0576",
+   "j": "jista"
+  },
+  "paprika": {
+   "k": "0065",
+   "j": "navrh",
+   "a": [
+    "0989",
+    "0064",
+    "0988"
+   ]
+  },
+  "paprika mleta": {
+   "k": "0262",
+   "j": "jista"
+  },
+  "parky": {
+   "k": "0314",
+   "j": "navrh"
+  },
+  "pastika": {
+   "k": "0306",
+   "j": "navrh"
+  },
+  "pepr": {
+   "k": "0255",
+   "j": "jista"
+  },
+  "petrzel": {
+   "k": "0067",
+   "j": "jista",
+   "a": [
+    "0068"
+   ]
+  },
+  "piskoty": {
+   "k": "0394",
+   "j": "navrh"
+  },
+  "pistacie": {
+   "k": "0368",
+   "j": "jista"
+  },
+  "pivo": {
+   "k": "0425",
+   "j": "navrh",
+   "a": [
+    "0375"
+   ]
+  },
+  "pizza": {
+   "k": "0357",
+   "j": "navrh"
+  },
+  "plnotucne mleko": {
+   "k": "0112",
+   "j": "jista"
+  },
+  "podmasli": {
+   "k": "0447",
+   "j": "jista"
+  },
+  "pohanka": {
+   "k": "1000",
+   "j": "navrh",
+   "a": [
+    "0169"
+   ]
+  },
+  "polican": {
+   "k": "1195",
+   "j": "navrh"
+  },
+  "polnicek": {
+   "k": "0932",
+   "j": "jista"
+  },
+  "polohruba mouka": {
+   "k": "0147",
+   "j": "jista"
+  },
+  "polotucne mleko": {
+   "k": "0113",
+   "j": "jista"
+  },
+  "pomeranc": {
+   "k": "0041",
+   "j": "jista"
+  },
+  "porek": {
+   "k": "0069",
+   "j": "jista"
+  },
+  "pralinky": {
+   "k": "1108",
+   "j": "navrh"
+  },
+  "prepustene maslo": {
+   "k": "1096",
+   "j": "jista"
+  },
+  "pstruh": {
+   "k": "0329",
+   "j": "jista"
+  },
+  "puding prasek": {
+   "k": "0399",
+   "j": "navrh",
+   "a": [
+    "0398"
+   ]
+  },
+  "quinoa": {
+   "k": "0668",
+   "j": "jista"
+  },
+  "rajcata": {
+   "k": "0070",
+   "j": "jista"
+  },
+  "rajcatovy protlak": {
+   "k": "0396",
+   "j": "jista"
+  },
+  "rane brambory": {
+   "k": "0193",
+   "j": "jista"
+  },
+  "redkvicky": {
+   "k": "0071",
+   "j": "jista"
+  },
+  "repa": {
+   "k": "0072",
+   "j": "jista"
+  },
+  "repkovy olej": {
+   "k": "0084",
+   "j": "jista"
+  },
+  "rohlicky": {
+   "k": "1045",
+   "j": "navrh"
+  },
+  "rohlik": {
+   "k": "0196",
+   "j": "jista",
+   "a": [
+    "1196"
+   ]
+  },
+  "rozinky": {
+   "k": "1003",
+   "j": "navrh",
+   "a": [
+    "0047"
+   ]
+  },
+  "rybi prsty": {
+   "k": "0391",
+   "j": "navrh"
+  },
+  "rybi salat": {
+   "k": "0021",
+   "j": "navrh"
+  },
+  "rybiz": {
+   "k": "0043",
+   "j": "navrh",
+   "a": [
+    "0042",
+    "0750"
+   ]
+  },
+  "ryze": {
+   "k": "0181",
+   "j": "jista"
+  },
+  "sadlo": {
+   "k": "0082",
+   "j": "jista"
+  },
+  "salat": {
+   "k": "0073",
+   "j": "jista"
+  },
+  "sardinky": {
+   "k": "0390",
+   "j": "navrh",
+   "a": [
+    "0393"
+   ]
+  },
+  "sekt": {
+   "k": "0381",
+   "j": "jista"
+  },
+  "sezamovy olej": {
+   "k": "0600",
+   "j": "jista"
+  },
+  "skorice": {
+   "k": "0256",
+   "j": "jista"
+  },
+  "skvarky": {
+   "k": "0463",
+   "j": "jista"
+  },
+  "slepici vejce": {
+   "k": "0078",
+   "j": "jista"
+  },
+  "slunecnicova seminka": {
+   "k": "0371",
+   "j": "jista"
+  },
+  "slunecnicovy olej": {
+   "k": "0086",
+   "j": "jista"
+  },
+  "smetana ke slehani": {
+   "k": "0119",
+   "j": "navrh",
+   "a": [
+    "0118"
+   ]
+  },
+  "smetana na vareni": {
+   "k": "0117",
+   "j": "navrh",
+   "a": [
+    "0116"
+   ]
+  },
+  "soja": {
+   "k": "0093",
+   "j": "jista"
+  },
+  "sojova omacka": {
+   "k": "0266",
+   "j": "jista"
+  },
+  "spagety": {
+   "k": "0202",
+   "j": "navrh",
+   "a": [
+    "0499"
+   ]
+  },
+  "spaldova mouka": {
+   "k": "0455",
+   "j": "navrh"
+  },
+  "strouhanka": {
+   "k": "0189",
+   "j": "jista"
+  },
+  "sul": {
+   "k": "0249",
+   "j": "jista"
+  },
+  "susene mleko": {
+   "k": "0142",
+   "j": "navrh"
+  },
+  "susene svestky": {
+   "k": "0484",
+   "j": "jista"
+  },
+  "svestka": {
+   "k": "0044",
+   "j": "jista"
+  },
+  "taveny syr": {
+   "k": "0139",
+   "j": "navrh"
+  },
+  "teleci maso": {
+   "k": "0223",
+   "j": "navrh"
+  },
+  "testoviny": {
+   "k": "0202",
+   "j": "navrh",
+   "a": [
+    "0499"
+   ]
+  },
+  "tilapie": {
+   "k": "0761",
+   "j": "jista"
+  },
+  "tlacenka": {
+   "k": "0996",
+   "j": "navrh"
+  },
+  "toustovy chleb": {
+   "k": "0198",
+   "j": "navrh"
+  },
+  "treska": {
+   "k": "0242",
+   "j": "jista"
+  },
+  "tresne": {
+   "k": "0045",
+   "j": "jista"
+  },
+  "trtinovy cukr": {
+   "k": "0330",
+   "j": "jista"
+  },
+  "tunak": {
+   "k": "0328",
+   "j": "navrh"
+  },
+  "tuzemak": {
+   "k": "0377",
+   "j": "jista"
+  },
+  "tvaroh": {
+   "k": "0132",
+   "j": "navrh",
+   "a": [
+    "0133",
+    "0131"
+   ]
+  },
+  "tvaruzky": {
+   "k": "0105",
+   "j": "jista"
+  },
+  "vanilkovy cukr": {
+   "k": "0191",
+   "j": "jista"
+  },
+  "vanocka": {
+   "k": "0792",
+   "j": "jista"
+  },
+  "vejce": {
+   "k": "0078",
+   "j": "jista"
+  },
+  "veka": {
+   "k": "0201",
+   "j": "jista"
+  },
+  "veprova jatra": {
+   "k": "0204",
+   "j": "jista"
+  },
+  "veprova kotleta": {
+   "k": "1144",
+   "j": "jista"
+  },
+  "veprova krkovice": {
+   "k": "1145",
+   "j": "jista"
+  },
+  "veprova kyta": {
+   "k": "1136",
+   "j": "jista"
+  },
+  "veprova panenka": {
+   "k": "1143",
+   "j": "jista"
+  },
+  "veprova plec": {
+   "k": "1142",
+   "j": "jista"
+  },
+  "veprova zebra": {
+   "k": "1153",
+   "j": "jista"
+  },
+  "veprove koleno": {
+   "k": "1148",
+   "j": "jista"
+  },
+  "veprove na gulas": {
+   "k": "1142",
+   "j": "navrh"
+  },
+  "veprovy bucek": {
+   "k": "1146",
+   "j": "jista",
+   "a": [
+    "1147"
+   ]
+  },
+  "videnske parky": {
+   "k": "0314",
+   "j": "navrh"
+  },
+  "vino": {
+   "k": "0379",
+   "j": "navrh",
+   "a": [
+    "0378"
+   ]
+  },
+  "visne": {
+   "k": "0046",
+   "j": "jista"
+  },
+  "vlasske orechy": {
+   "k": "0088",
+   "j": "jista"
+  },
+  "vodka": {
+   "k": "0383",
+   "j": "jista"
+  },
+  "vycepni pivo": {
+   "k": "0375",
+   "j": "jista",
+   "a": [
+    "0376"
+   ]
+  },
+  "whisky": {
+   "k": "0384",
+   "j": "jista"
+  },
+  "zakysana smetana": {
+   "k": "0123",
+   "j": "navrh",
+   "a": [
+    "0124"
+   ]
+  },
+  "zampiony": {
+   "k": "0246",
+   "j": "jista"
+  },
+  "zaviny": {
+   "k": "0993",
+   "j": "navrh"
+  },
+  "zazvor": {
+   "k": "0493",
+   "j": "jista"
+  },
+  "zelatina": {
+   "k": "0315",
+   "j": "jista"
+  },
+  "zeli": {
+   "k": "0076",
+   "j": "jista",
+   "a": [
+    "0077"
+   ]
+  },
+  "zerve": {
+   "k": "0110",
+   "j": "jista"
+  },
+  "zitna mouka": {
+   "k": "0339",
+   "j": "jista",
+   "a": [
+    "0770"
+   ]
+  }
+ }
+}
