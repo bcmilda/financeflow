@@ -92,7 +92,7 @@ t('ruční splátka (bez příznaku) se znovu neodečte; podruhé nic',n>=2&&c.d
 console.log('── napojení ──');
 const bd=fs.readFileSync(najdi('budouci.js','../js/budouci.js'),'utf8');
 t('Budoucí platby: splátka půjčky „zaplacená“ podle vazby na půjčku; Zapsat otevře Dluh/Splátka s půjčkou',/item\.debtId && t\.debtId === item\.debtId && !t\.debtCeka/.test(bd)&&/setTxType\('debt'\); const ds = document\.getElementById\('txDebtId'\); if \(ds\) ds\.value = debtId;/.test(bd));
-t('šablony (auto i ručně použitá) zakládají splátku přes _sablonaSplatka a processAutoSablony ji uplatní',(pr.match(/if\(s\.debtId\) _sablonaSplatka\(tx1?, s\)/g)||[]).length===2&&/_sablonaSplatka\(_t, s\)/.test(pr)&&/debtAplikujCekajiciSplatky\(\)\) \{ save\(\)/.test(pr));
+t('šablony (auto i ručně použitá) zakládají splátku přes _sablonaSplatka a processAutoSablony ji uplatní',(pr.match(/if\(s\.debtId\) _sablonaSplatka\(tx1?, s\)/g)||[]).length===3   /* v12.44: + sablonaZapisTx (čtvrtletní/roční) */&&/_sablonaSplatka\(_t, s\)/.test(pr)&&/debtAplikujCekajiciSplatky\(\)\) \{ save\(\)/.test(pr));
 t('nová splátka s datem do „ke dni“ zbytek nesnižuje',/!\(debt\.zbyvaKeDni && debt\.zbyvaKeDni\.den && String\(date\)\.slice\(0,10\) <= debt\.zbyvaKeDni\.den\)/.test(ds));
 t('uložení půjčky počítá živý zbytek z „ke dni“ a ukládá změny',/obj\.zbyvaKeDni = \{ den: _den, castka: remaining \};\n  obj\.remaining = debtZiveZbyva\(/.test(ds)&&/obj\.zmeny = \(window\._debtZmenyEdit\|\|\[\]\)\.slice\(\)/.test(ds));
 t('konsolidace zapíše původní zbytek jako změnu a vznik nové půjčky',/typ: 'konsolidace', den: _debtDnes\(\), castka: od\.remaining/.test(ds)&&/d\.vznik = _debtDnes\(\)/.test(ds));

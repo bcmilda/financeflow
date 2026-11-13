@@ -1,4 +1,4 @@
-// FinanceFlow · v12.43 · debts.js · 2026-11-12
+// FinanceFlow · v12.44 · debts.js · 2026-11-12
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 //  v12.39: akce po úspěšném uložení formuláře (✎ Zapsat ručně z Doručených označí notifikaci jako vyřízenou
@@ -782,7 +782,12 @@ function txOpakSablona(tx, freq, dnes){
   const f=['weekly','biweekly','monthly','quarterly','yearly'].includes(freq)?freq:'monthly';
   const s={id:uid(),name:tx.name,amount:tx.amount,type:tx.type,catId:tx.catId||'',freq:f,den:parseInt(String(tx.date).slice(8,10))||1,
     auto:true,endDate:null,wallet:tx.walletId||tx.wallet||null,walletTo:null,note:tx.note||'',zalozeno:dnes||tx.date};
-  if(f==='monthly') s.posledniZapis=String(tx.date).slice(0,7); else s.prvni=String(tx.date).slice(0,10);
+  if(f==='monthly') s.posledniZapis=String(tx.date).slice(0,7);
+  else { s.prvni=String(tx.date).slice(0,10);
+    //  v12.44: ostatní frekvence se zapisují automaticky – první platba (tahle transakce) je vyřízená,
+    //  starší měsíce se nedoplňují
+    const kmm=typeof ffKonecMinulehoMesice==='function'&&dnes?ffKonecMinulehoMesice(dnes):'';
+    s.zapsanoDo=s.prvni>kmm?s.prvni:kmm; }
   if(tx.subcat) s.subcat=tx.subcat;
   if(tx.payTypeId||tx.payType) s.payType=tx.payTypeId||tx.payType;
   if(Array.isArray(tx.tags)&&tx.tags.length) s.tags=tx.tags.slice();

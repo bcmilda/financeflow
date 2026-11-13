@@ -1,4 +1,4 @@
-// FinanceFlow · v12.43 · admin.js · 2026-11-12
+// FinanceFlow · v12.44 · admin.js · 2026-11-12
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -625,6 +625,16 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.44',
+    datum: '2026-11-12',
+    zmeny: [
+      "🔁 AUTOMATICKÝ ZÁPIS I U ČTVRTLETNÍ, ROČNÍ A TÝDENNÍ ŠABLONY (Milan: „Proč se automaticky zapisují jen měsíční šablony? A ne čtvrtletní atd.?“) · cesta: Opakované šablony → šablona s ✔ Automatické vytváření transakcí. Týdenní, dvoutýdenní, čtvrtletní a roční šablona s datem první platby se zapíše do transakcí v den splatnosti, stejně jako měsíční (dřív se nezapisovala vůbec, jen ji ukazovaly Budoucí platby). Do té doby ji Transakce ukazují jako 📅 naplánovanou. Když appku pár dní neotevřeš, zmeškané platby se doplní k jejich datu.",
+      "🛡️ BEZ ZPĚTNÉHO DOPLŇOVÁNÍ A DUPLICIT · Minulé měsíce se nedoplňují (stejně jako u měsíční šablony) – starší šablona začne zapisovat od listopadu. Smazaná zapsaná platba se znovu nezaloží. Když už v transakcích je stejná platba (název + datum, i ručně zapsaná), nezapíše se podruhé. Šablona bez data první platby se nezapisuje (seznam dál ukazuje „⚠️ doplň datum první platby“). Čtvrtletní splátka dluhu snižuje Zbývá jako měsíční.",
+      "📅 PŘÍŠTĚ PO ZÁPISU · cesta: Opakované šablony → řádek šablony → „Příště“. Po zápisu dnešní platby ukazuje další splatnost (dřív v den zápisu „dnes“). 🔁 Opakovaná platba z transakce (v12.43) u čtvrtletní/roční/týdenní bere tuhle transakci jako vyřízenou první platbu.",
+      "🧪 tools/smoke_v1244.js (25) – na v12.43 padá; upraveny smoke_dluhy_zmeny.js a smoke_sablony_prvni.js (nový text ve formuláři, zápis i z nové funkce). Chromium 390 px s datem 12. 11. 2026: týdenní od září zapsala 2. a 9. 11., Transakce ukazují naplánované 15. 11. (čtvrtletní), 16., 23., 30. 11. (týdenní); roční bez data první platby nic nezapsala; bez chyb.",
+    ],
+  },
   {
     verze: 'v12.43',
     datum: '2026-11-12',

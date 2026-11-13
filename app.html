@@ -17,7 +17,7 @@
   });
 </script><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FinanceFlow v12.43</title>
+<title>FinanceFlow v12.44</title>
 <meta name="description" content="Rodinné finance pod kontrolou – příjmy, výdaje, půjčky, projekty, AI analýzy">
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
@@ -263,7 +263,7 @@
 
 <!-- SIDEBAR -->
 <nav class="sidebar" id="sidebar">
-  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.43 · <span id="sidebarTierLabel">Free</span></small></div>
+  <div class="sidebar-logo">Finance<span>Flow</span><small>v12.44 · <span id="sidebarTierLabel">Free</span></small></div>
   
   <!-- User info -->
   <!-- TODO-233 (Milan): spouštěčem účtu je celý blok se jménem a ikonou,
@@ -1442,7 +1442,7 @@
         <!--  S28 (v12.19, Milan): ČTVRTLETNÍ / ROČNÍ / TÝDENNÍ – den v měsíci nestačí, potřebuje první splatnost -->
         <div class="fg" id="sablonaPrvniWrap" style="display:none"><label>První platba (splatnost)</label><input class="fi" type="date" id="sablonaPrvni"></div>
       </div>
-      <div id="sablonaPrvniPozn" style="display:none;font-size:.7rem;color:#a8aec8;margin:-2px 0 6px;line-height:1.45">Od tohoto data appka počítá další platby (po 3 měsících, po roce, po týdnu). Budoucí platby a Radar je ukážou ve správném měsíci. Automaticky se do transakcí zatím zapisují jen měsíční a jednorázové platby.</div>
+      <div id="sablonaPrvniPozn" style="display:none;font-size:.7rem;color:#a8aec8;margin:-2px 0 6px;line-height:1.45">Od tohoto data appka počítá další platby (po 3 měsících, po roce, po týdnu). Budoucí platby a Radar je ukážou ve správném měsíci. S automatickým vytvářením se platba zapíše do transakcí v den splatnosti (od v12.44 i čtvrtletní, roční a týdenní).</div>
       <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <input type="checkbox" id="sablonaAuto" style="width:18px;height:18px;cursor:pointer">
         <label for="sablonaAuto" style="cursor:pointer;font-size:.85rem">Automatické vytváření transakcí</label>
@@ -2246,11 +2246,11 @@ window.addEventListener('error', function(e){
 <script src="js/inflace.js?v=704ac86c7f02b944" onerror="window._ffScriptFail&&window._ffScriptFail('js/inflace.js')"></script>
 <script src="js/charts.js?v=278b9667b9ec0f6b" onerror="window._ffScriptFail&&window._ffScriptFail('js/charts.js')"></script>
 <script src="js/stats.js?v=89abcbde05a8dc30" onerror="window._ffScriptFail&&window._ffScriptFail('js/stats.js')"></script>
-<script src="js/debts.js?v=77b22bdb7ae6b632" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
+<script src="js/debts.js?v=b15348e785d76c88" onerror="window._ffScriptFail&&window._ffScriptFail('js/debts.js')"></script>
 <script src="js/ai.js?v=1b7d2cf5b34444aa" onerror="window._ffScriptFail&&window._ffScriptFail('js/ai.js')"></script>
 <script src="js/dotazy.js?v=3f240c078407c641" onerror="window._ffScriptFail&&window._ffScriptFail('js/dotazy.js')"></script>
 <script src="js/obchody.js?v=75d2a2e6535a9b85" onerror="window._ffScriptFail&&window._ffScriptFail('js/obchody.js')"></script>
-<script src="js/premium.js?v=defeff24ae2b3595" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
+<script src="js/premium.js?v=de3ba8b87c78d191" onerror="window._ffScriptFail&&window._ffScriptFail('js/premium.js')"></script>
 <script src="js/onboarding.js?v=978b15e9e5716a98" onerror="window._ffScriptFail&&window._ffScriptFail('js/onboarding.js')"></script>
 <script src="js/projects.js?v=9ee0dfaecb7d1284" onerror="window._ffScriptFail&&window._ffScriptFail('js/projects.js')"></script>
 <script src="js/poznamky.js?v=e3f1ea64b95e10b9" onerror="window._ffScriptFail&&window._ffScriptFail('js/poznamky.js')"></script>
@@ -2283,7 +2283,7 @@ window.addEventListener('error', function(e){
 <script src="js/ucet.js?v=1edaa8c9750acd48" onerror="window._ffScriptFail&&window._ffScriptFail('js/ucet.js')"></script>
 <script src="js/announcements.js?v=71f89029faf20d63" onerror="window._ffScriptFail&&window._ffScriptFail('js/announcements.js')"></script>
 <script src="js/temata.js?v=4367c782fc8b58cc" onerror="window._ffScriptFail&&window._ffScriptFail('js/temata.js')"></script>
-<script src="js/admin.js?v=04fc85bf8bc35014" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
+<script src="js/admin.js?v=d6002e2ccb90c52b" onerror="window._ffScriptFail&&window._ffScriptFail('js/admin.js')"></script>
 <script src="js/import.js?v=abded4e6e640c8ab" onerror="window._ffScriptFail&&window._ffScriptFail('js/import.js')"></script>
 <script src="js/push.js?v=1cf4653a3af13074" onerror="window._ffScriptFail&&window._ffScriptFail('js/push.js')"></script>
 <script src="js/kurzy.js?v=87e0b113e9521be8" onerror="window._ffScriptFail&&window._ffScriptFail('js/kurzy.js')"></script>
