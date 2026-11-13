@@ -32,7 +32,7 @@ console.log('── S25 · úložiště a karta výrobku ──');
   const ha=sa.adminUlozisteHTML(d,users).replace(/\u00a0|\u202f/g,' ');
   t('admin: zaplněno 2,50 GB, zbývá 7,50 GB z 10,00 GB, 1 250 fotek',ha.includes('2,50 GB')&&ha.includes('7,50 GB z 10,00 GB')&&ha.includes('1 250'));
   t('admin: po uživatelích se jménem, limitem podle tarifu a procenty (Jana 290/300, Petr 960/1 000)',ha.includes('Jana')&&ha.includes('290 / 300')&&ha.includes('960 / 1 000')&&ha.includes('2 nad 80 %'));
-  t('admin: záložka 💾 Úložiště v panelu i v přepínači',ad.includes("id=\"atab-uloziste\"")&&ad.includes("'reports','uloziste'].forEach")&&ad.includes("if(tab==='uloziste') renderAdminUloziste();"));
+  t('admin: záložka 💾 Úložiště v panelu i v přepínači',ad.includes("id=\"atab-uloziste\"")&&/'reports','uloziste'(,'nutri')?\]\.forEach/.test(ad)   /* v12.47: + 🥕 NutriDatabáze */&&ad.includes("if(tab==='uloziste') renderAdminUloziste();"));
   // karta výrobku – worker
   const db={};
   const sk={Date,Object,JSON,String,FIREBASE_DB_URL:'db',

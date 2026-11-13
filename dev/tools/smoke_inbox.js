@@ -54,7 +54,7 @@ t('jiná částka účtenku nenabídne',c.inboxUctenkaK(Object.assign({},p,{amou
   console.log('── napojení a bezpečnost ──');
   t('stránka Import z banky ukazuje 📲 Telefon (inboxBox) a app.html načítá inbox.js',/<div id="inboxBox"><\/div>/.test(sms)&&/inboxRender\(\)/.test(sms)&&/js\/inbox\.js\?v=/.test(html));
   t('smazání účtu odpojí telefony (inboxLinks mimo users/)',/inboxOdpojVse\(\)/.test(uc));
-  t('pravidla: telefon smí do users/$uid/inbox jen přidat (propojený přes inboxLinks), nesmí číst',/"inbox": \{\s*"\$id": \{\s*"\.write": "auth != null && root\.child\('inboxLinks'\)\.child\(auth\.uid\)\.child\('uid'\)\.val\(\) === \$uid/.test(rules)&&!/"inbox":[^}]*"\.read"/.test(rules));
+  t('pravidla: telefon smí do users/$uid/inbox jen přidat (propojený přes inboxLinks), nesmí číst',/"inbox": \{\s*(?:"\.write": "auth\.uid === \$uid",\s*)?"\$id": \{\s*"\.write": "auth != null && root\.child\('inboxLinks'\)\.child\(auth\.uid\)\.child\('uid'\)\.val\(\) === \$uid/.test(rules)&&!/"inbox":[^}]*"\.read"/.test(rules));
   t('pravidla: propojení jen s platným kódem (max 15 minut) a jen na vlastní účet',/"inboxLinks"[\s\S]*newData\.child\('uid'\)\.val\(\) === auth\.uid[\s\S]*now - 900000/.test(rules));
   //  S27 (v11.91): odkaz ke stažení appky v sekci 📲
   {

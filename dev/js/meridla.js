@@ -1,4 +1,4 @@
-// FinanceFlow · v12.37 · meridla.js · 2026-11-06
+// FinanceFlow · v12.46 · meridla.js · 2026-11-13
 // ══════════════════════════════════════════════════════
 //  S24 (E2, Milan): ENERGIE A VODA – MĚŘIDLA A VYÚČTOVÁNÍ
 //  cesta: Majetek → 📟 Energie a voda
@@ -319,7 +319,7 @@ function _merTabyHTML(mer, akt) {
 }
 function renderEnergiePage(o) {
   const el = document.getElementById('energieContent'); if (!el) return;
-  if (_meridla === null) { el.innerHTML = '<div class="empty"><div class="ei">📟</div><div class="et">Načítám…</div></div>'; loadMeridla().then(() => renderEnergiePage()); return; }
+  if (_meridla === null) { el.innerHTML = '<div class="empty"><div class="ei">📟</div><div class="et">Načítám…</div></div>'; loadMeridla().then(() => { if (_meridla !== null) renderEnergiePage(); }); return; }   // v12.46: bez přihlášení se nenačte nic → nevolat znovu (jinak nekonečná smyčka a zamrzlá stránka)
   //  rozepsané hodnoty přežijí překreslení (ne po uložení / přepnutí panelu)
   const zach = {};
   if (!(o && o.cisty) && el.querySelectorAll) el.querySelectorAll('[data-mer]').forEach(i => { if (i.id) zach[i.id] = i.type === 'checkbox' ? i.checked : i.value; });
@@ -1205,7 +1205,7 @@ function merPlatbaObnov() {
   const typ = (typeof curTxType !== 'undefined') ? curTxType : 'expense';
   const catId = (typeof selCatId !== 'undefined') ? selCatId : '';
   const sub = (document.getElementById('customSubInput')?.value || '').trim() || ((typeof selSub !== 'undefined') ? selSub : '');
-  if (_meridla === null) { el.style.display = 'none'; loadMeridla().then(merPlatbaObnov); return; }
+  if (_meridla === null) { el.style.display = 'none'; loadMeridla().then(() => { if (_meridla !== null) merPlatbaObnov(); }); return; }   // v12.46: bez přihlášení se nenačte nic → nevolat znovu (jinak nekonečná smyčka a zamrzlá stránka)
   let k = merPlatbaKontext(typ, catId, sub);
   //  S28 (v12.26): úprava transakce, která už vazbu na měřidlo má – blok zůstane i u jiné podkategorie
   if (!k && _merPlatbaForm && _merPlatbaForm._z && _merPlatbaForm.meridloId && meridlaSeznam().some(m => m.id === _merPlatbaForm.meridloId))

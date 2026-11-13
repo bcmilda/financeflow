@@ -43,7 +43,7 @@ const A = R('app.html', '../app.html');
 t('formulář má pole První platba (splatnost)', /id="sablonaPrvni"/.test(A));
 t('uložení vyžaduje první splatnost u čtvrtletní / roční / týdenní', /includes\(_freq\) && !_prvni/.test(P));
 t('seznam šablon: bez první splatnosti upozornění „doplň datum první platby“', /doplň datum první platby/.test(P));
-t('formulář říká, že automaticky se zapisují jen měsíční a jednorázové', /Automaticky se do transakcí zatím zapisují jen měsíční a jednorázové/.test(A));
+t('formulář říká, že se platba zapíše v den splatnosti i u čtvrtletní, roční a týdenní (v12.44)', /zapíše do transakcí v den splatnosti \(od v12\.44 i čtvrtletní, roční a týdenní\)/.test(A));
 
 console.log(`\n${ok} ✓  ${bad} ✗`);
 process.exit(bad ? 1 : 0);

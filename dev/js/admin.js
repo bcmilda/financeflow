@@ -1,4 +1,4 @@
-// FinanceFlow · v12.42 · admin.js · 2026-11-08
+// FinanceFlow · v12.47 · admin.js · 2026-11-13
 //  ADMIN PANEL
 // ══════════════════════════════════════════════════════
 const ADMIN_UIDS = ['LNEC8VNB2QPwIv6WWQ9lqgR4O5v1'];
@@ -96,6 +96,16 @@ async function renderAdmin() {
       <button class="tx-filt-btn"        id="atab-udrzba"   onclick="switchAdminTab('udrzba',this)">🧰 Údržba</button>
       <button class="tx-filt-btn"        id="atab-reviews"  onclick="switchAdminTab('reviews',this)">⭐ Recenze</button>
       <button class="tx-filt-btn"        id="atab-uloziste" onclick="switchAdminTab('uloziste',this)">💾 Úložiště</button>
+      <button class="tx-filt-btn"        id="atab-nutri"    onclick="switchAdminTab('nutri',this)">🥕 NutriDatabáze</button>
+    </div>
+
+    <!-- v12.47 (S29): 🥕 NUTRIDATABÁZE – nahrání CSV a kontrola párů obecný název → potravina (nutri.js) -->
+    <div id="atab-nutri-content" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-title">🥕 NutriDatabáze – živiny nebalených potravin</span>
+          <button class="btn btn-ghost btn-sm" onclick="renderAdminNutri()" style="font-size:.72rem">↻ Obnovit</button></div>
+        <div class="card-body" id="adminNutriBody"><div style="color:#a8aec8;font-size:.82rem">Načítám…</div></div>
+      </div>
     </div>
 
     <!-- S25 (v11.50, Milan): ÚLOŽIŠTĚ DOKLADŮ – zaplněno / zbývá celkem i po uživatelích -->
@@ -553,7 +563,7 @@ async function loadAdminReviews(){
 function switchAdminTab(tab, btn) {
   //  v9.58 (FIX-229): v seznamu chybělo 'rust', takže se karta Růst uživatelů
   //  nikdy neskryla a visela pod všemi ostatními záložkami.
-  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports','uloziste'].forEach(t => {
+  ['zdravi','users','rust','keywords','corrections','lowconf','stats','adopce','itemtags','suggestions','leads','announce','verze','udrzba','audit','reviews','skore','reports','uloziste','nutri'].forEach(t => {
     const c = document.getElementById('atab-'+t+'-content');
     const b = document.getElementById('atab-'+t);
     if(c) c.style.display = 'none';
@@ -563,6 +573,7 @@ function switchAdminTab(tab, btn) {
   if(content) content.style.display = 'block';
   if(btn) btn.classList.add('active');
   if(tab==='audit') runPaymentAudit();
+  if(tab==='nutri' && typeof renderAdminNutri==='function') renderAdminNutri();   // v12.47: 🥕 NutriDatabáze
   if(tab==='leads') loadLeads();
   if(tab==='corrections') loadCorrections();
   if(tab==='lowconf') loadLowConf();
@@ -625,6 +636,63 @@ async function renderAdminUloziste() {
 window.renderAdminUloziste = renderAdminUloziste;
 
 const VERZE_LOG = [
+  {
+    verze: 'v12.47',
+    datum: '2026-11-13',
+    zmeny: [
+      "🥕 NUTRIDATABÁZE – ŽIVINY NEBALENÝCH POTRAVIN (Milan: „napojit Nutridatabase s párovací tabulkou a pak s kartou Moje výrobky a Mapa položek“) · Živiny ÚZEI (1 136 potravin, verze 11.26) pro položky BEZ čárového kódu nebo s kódem obchodu (2…: vážené zboží, pečivo) – rohlík, banány, mrkev, brambory, maso z pultu, vejce… Pořadí zdrojů: fotka / ruční zápis → Open Food Facts → NutriDatabáze. Balený výrobek s čárovým kódem, který Open Food Facts nemá, hodnoty z NutriDatabáze nedostane (žádné odhady).",
+      "🗺️ KARTA VÝROBKU · cesta: Analýza účtenek → 🗺️ Mapa položek → výrobek (i z 📦 Moje výrobky u kódů obchodu) → Nutriční hodnoty na 100 g. U nebalené položky se ukáží hodnoty z tabulky se štítkem „🥕 NutriDatabáze · orientační hodnoty na 100 g jedlého podílu“, názvem potraviny (např. „Mrkev“), jedlým podílem a citací ÚZEI. Tlačítko „✍️ Zadat podle obalu“ je přepíše tvými hodnotami.",
+      "🥗 ŽIVINY V NÁKUPU · cesta: Analýza účtenek → 🧠 Učení → 🥗 Živiny v nákupu. Nebalené položky se započítají: koupená váha × jedlý podíl (1,2 kg banánů = 768 g, slupka se nepočítá). Pod tabulkou počet položek z NutriDatabáze a citace. Pokrytí útraty za jídlo tím výrazně stoupne.",
+      "🧩 PÁROVACÍ TABULKA · data/nutri-mapa.json: 257 obecných názvů z taxonomie → potravina (jen kódy, žádné hodnoty). 182 jistých párů se použije hned, 75 návrhů (chléb, jogurt, pivo, tvaroh, paprika…) až po potvrzení. Káva záměrně bez páru (hodnoty jsou na zrna, ne na nápoj).",
+      "🔐 ADMIN → 🥕 NUTRIDATABÁZE · 📤 Nahrát CSV z nutridatabaze.cz (jednou; převede se v prohlížeči a uloží do workeru), přehled Ke kontrole / Napojené / Bez napojení, hledání, u každého názvu výběr z navržených potravin nebo „jiná potravina…“ z celé databáze, ✓ Potvrdit, 🚫 Bez napojení. Opravy platí pro všechny uživatele a nové nahrání CSV je nepřepíše.",
+      "⚙️ WORKER (nasadit PRVNÍ): /nutri vrátí hodnoty jen vyžádaných potravin (max 60 na požadavek), /nutri-mapa jen jisté a potvrzené páry, nahrání a úpravy jen admin. Data leží jen v R2 (bucket ARCHIV, nutri/data.json a nutri/mapa.json) – licence NutriDatabáze zakazuje soubor šířit, do repa ani na web nejde. Nový klíč ani nastavení v Cloudflare není potřeba.",
+      "🧪 tools/smoke_nutri.js (36) – na v12.46 padá; upraveny smoke_uloziste_karta.js a smoke_ziviny_rucne.js. Chromium 390 px se skutečnými daty: karta mrkve 36 kcal / 100 g, jedlý podíl 61 %, citace; Živiny v nákupu 3 z 3 položek; Admin 1 136 potravin, 75 ke kontrole; appka si řekla jen o 3 potraviny.",
+    ],
+  },
+  {
+    verze: 'v12.46',
+    datum: '2026-11-13',
+    zmeny: [
+      "🧭 PRŮVODCE – ODDÍLY 5–8 (Milan: „Dodělej teď oddíly 5–8“) · cesta: Přehled → 🧭 Průvodce. Přibylo 14 kapitol, celkem 8 oddílů a 32 kapitol. Auto a domácnost: Vozidla a tankování (⛽ u transakce Auto › Palivo, spotřeba z tachometru), Energie a voda (odhad vyúčtování, zálohy z transakcí). Přehledy: Dashboard a Finanční skóre (0–310, pět složek), Měsíční report a 🗂️ Report, Grafy a Statistiky, Finanční obraz, Detektor úspor, Tvoje inflace, Nákupní DNA a živiny. Rodina: Sdílení a partneři (🔗 pozvánka), Rodinný souhrn. Nástroje: Kalkulačky, Simulace života (A neinvestuji / B investuji / C splatím dluh dřív), Kurzy měn.",
+      "📖 Každá nová kapitola má stejnou stavbu: Co to je · Proč · Příklad s čísly · Jak na to · Otevřít (Premium stránky – Grafy, 🗂️ Report, Inflace, Analýza účtenek, Sdílení, Rodinný souhrn – se otevírají stejně jako z menu) · Časté chyby · Navazuje. Hledání najde i nové kapitoly („tankovani“, „ziviny“). Poznámka „další oddíly přibudou“ z rozcestníku zmizela.",
+      "🧊 OPRAVA ZAMRZNUTÍ · cesta: Měřidla → 🚗 Vozidla a tankování, Měřidla → 📟 Energie a voda, formulář transakce (⛽ Tankování, záloha na měřidlo). Když se vozidla nebo měřidla nepodařilo načíst (uživatel ještě nepřihlášený nebo bez tokenu), appka se je snažila načíst znovu a znovu bez přestávky a stránka zamrzla. Teď se po neúspěšném pokusu nic neopakuje. Nalezeno při proklikávání Průvodce v Chromiu.",
+      "🧪 tools/smoke_pruvodce.js (23) – na v12.45 padá (18 kapitol); tools/smoke_nacitani_smycka.js (4) – na v12.45 zamrzne. Chromium 390 px a 1350 px: všech 39 tlačítek Otevřít (stránka aktivní nebo formulář s typem, lišta Zpět do návodu), bez chyb a bez přetečení do stran.",
+    ],
+  },
+  {
+    verze: 'v12.45',
+    datum: '2026-11-13',
+    zmeny: [
+      "🧭 PRŮVODCE APLIKACÍ (Milan: „aplikace se komplikuje a má mnoho zákoutí – průvodce, co udělat na začátku, nastavit peněženky a úvěry, používat skener“; „popis, příklady, přesměrování a návaznost na další karty“) · cesta: Přehled → 🧭 Průvodce (první položka menu). Rozcestník s hledáním (i bez diakritiky, shoda v názvu první) a 4 oddíly, 18 kapitol: Začínáme (peněženky a zůstatek ke dni, den výplaty a rezerva, půjčky, pravidelné platby, kategorie), Každý den (výdaj a příjem, skener a editor účtenky, import z banky a výpisy, tagy a sledovaná témata), Peníze v pohybu (přesun, výběr z bankomatu, investice a spoření, cizí měna, cashback a vrácení peněz), Dluhy a plánování (splátka, úrok a RPSN, Budoucí platby, Příští měsíc, Finanční radar).",
+      "📖 KAPITOLA · Co to je · Proč · Příklad s čísly · Jak na to (kroky s cestou v appce) · tlačítko Otevřít (přenese na kartu a zvýrazní tlačítko, o které jde, nebo rovnou otevře formulář transakce se správným typem – např. Přesun → Do investic & spoření) · Časté chyby · Navazuje (odkazy na související kapitoly) · ✓ Mám hotovo / Další kapitola. Po Otevřít drží lišta dole „‹ Zpět do návodu“. Přečtené kapitoly se ukládají a synchronizují mezi zařízeními (uiCfg).",
+      "🚀 DASHBOARD → ZAČÍNÁME · dřívější karta „Dokonči nastavení“ se jmenuje Začínáme a má nové kroky: peněženky a zůstatek ke dni, pravidelné platby, první účtenka. U kroků je 📖 Návod (kapitola průvodce) a dole „🧭 Celý průvodce aplikací“. Odškrtávání zůstává automatické, Skrýt funguje jako dřív.",
+      "ℹ️ O aplikaci ukazuje správnou verzi (zůstalo „Verze 12.42“ ve v12.43 a v12.44).",
+      "🧪 tools/smoke_pruvodce.js (22) – na v12.44 padá; hlídá i to, že každé Otevřít míří na existující stránku, tlačítko nebo funkci. Chromium 390 px a 1350 px: všech 22 tlačítek Otevřít (stránka aktivní, cíl zvýrazněn, formulář s typem, lišta), Zpět do návodu, hledání, karta Začínáme s 9 návody; bez chyb a bez přetečení do stran.",
+    ],
+  },
+  {
+    verze: 'v12.44',
+    datum: '2026-11-12',
+    zmeny: [
+      "🔁 AUTOMATICKÝ ZÁPIS I U ČTVRTLETNÍ, ROČNÍ A TÝDENNÍ ŠABLONY (Milan: „Proč se automaticky zapisují jen měsíční šablony? A ne čtvrtletní atd.?“) · cesta: Opakované šablony → šablona s ✔ Automatické vytváření transakcí. Týdenní, dvoutýdenní, čtvrtletní a roční šablona s datem první platby se zapíše do transakcí v den splatnosti, stejně jako měsíční (dřív se nezapisovala vůbec, jen ji ukazovaly Budoucí platby). Do té doby ji Transakce ukazují jako 📅 naplánovanou. Když appku pár dní neotevřeš, zmeškané platby se doplní k jejich datu.",
+      "🛡️ BEZ ZPĚTNÉHO DOPLŇOVÁNÍ A DUPLICIT · Minulé měsíce se nedoplňují (stejně jako u měsíční šablony) – starší šablona začne zapisovat od listopadu. Smazaná zapsaná platba se znovu nezaloží. Když už v transakcích je stejná platba (název + datum, i ručně zapsaná), nezapíše se podruhé. Šablona bez data první platby se nezapisuje (seznam dál ukazuje „⚠️ doplň datum první platby“). Čtvrtletní splátka dluhu snižuje Zbývá jako měsíční.",
+      "📅 PŘÍŠTĚ PO ZÁPISU · cesta: Opakované šablony → řádek šablony → „Příště“. Po zápisu dnešní platby ukazuje další splatnost (dřív v den zápisu „dnes“). 🔁 Opakovaná platba z transakce (v12.43) u čtvrtletní/roční/týdenní bere tuhle transakci jako vyřízenou první platbu.",
+      "🧪 tools/smoke_v1244.js (25) – na v12.43 padá; upraveny smoke_dluhy_zmeny.js a smoke_sablony_prvni.js (nový text ve formuláři, zápis i z nové funkce). Chromium 390 px s datem 12. 11. 2026: týdenní od září zapsala 2. a 9. 11., Transakce ukazují naplánované 15. 11. (čtvrtletní), 16., 23., 30. 11. (týdenní); roční bez data první platby nic nezapsala; bez chyb.",
+    ],
+  },
+  {
+    verze: 'v12.43',
+    datum: '2026-11-12',
+    zmeny: [
+      "🧾 EDITOR ÚČTENKY – DOLADĚNÍ PODLE NÁVRHU D1/D2 (Milan, 11.–12. 11.: „u částky 35 a 29 chybí Kč“, „mezery mezi číslem a šipkami“, „na PC je to roztahané“, „horní řádek je šedý a nevýrazný“, „přeškrtnuté číslo je moc malinké“) · cesta: Analýza účtenek → 📋 Historie → ✎ → Položky. Každá položka má vlastní rámeček s číslem v kroužku. Název je bíle a tučně; když ho AI nenavrhla, ukáže se text z účtenky v plné barvě s popiskem „název z účtenky · klepni a pojmenuj po svém“ (dřív šedý předepsaný text). Tři názvy zůstávají: Název (AI / tvůj), 🧾 z účtenky (klíč párování, jde opravit), karta výrobku z kódu. Částka vždy na dvě desetinná místa a s Kč.",
+      "🏷️ SLEVA ČITELNĚ · cesta: editor účtenky → zlevněná položka. Pod zaplacenou částkou větší přeškrtnutá cena před slevou a zelený štítek s procentem (sleva ÷ cena před slevou, např. 1,52 z 19,58 = −8 %). V zeleném řádku „ušetřeno X Kč“ místo opakované zaplacené částky. Přepočítá se při psaní.",
+      "🔢 ČÍSLA BEZ ŠIPEK · cesta: editor účtenky → položka → množství, cena, sleva. Šipky nahoru/dolů jsou pryč, pole jsou širší (vejde se 1,518 kg) a číslo je zarovnané vpravo.",
+      "🖥️ POČÍTAČ: POLOŽKA NA DVA ŘÁDKY · cesta: editor účtenky na široké obrazovce. Řádek 1: číslo, název, kategorie a podkategorie, množství × cena, balení, částka. Řádek 2: z účtenky a karta výrobku, Druh, sleva, 📷 ⭐ # ✕. Řídí se šířkou editoru (od 980 px), na telefonu zůstává karta pod sebou bez posouvání do stran. Hlavička účtenky (obchod, město, kraj, datum, kategorie všem, peněženka, doklad) beze změny.",
+      "🔗 PROPOJIT S TRANSAKCÍ UŽ PŘI ZÁPISU (TODO-385, Milan 8. 11.: „u Cashbacku se objeví až po uložení“) · cesta: Transakce → + → Příjem / Výdaj → 🔗 Propojit s jinou transakcí. Tlačítko je vidět hned u nové transakce; vybraná protistrana se zapíše na obě strany při uložení, zrušený zápis nic nezanechá. U přesunu a splátky se nenabízí. Statistiky ani report se nemění.",
+      "🔁 OPAKOVANÁ PLATBA U BĚŽNÉ TRANSAKCE (TODO-386, Milan 8. 11.: „je jen u Dluh/Splátka“) · cesta: Transakce → + (nebo Upravit) → Výdaj / Příjem → 🔁 Opakovaná platba → Frekvence. Po uložení vznikne Opakovaná šablona se stejným názvem, částkou, kategorií, podkategorií, peněženkou, typem platby a tagy. Právě zapsaná transakce je první platba – měsíční šablona ten měsíc nezapíše podruhé, u ostatních frekvencí je první splatnost datum transakce. Stejná šablona se nezaloží dvakrát.",
+      "🧪 tools/smoke_v1243.js (33) – na v12.42 padá. Opraveny testy smoke_inbox.js (pravidla inboxu mají od v12.26 i zápis vlastníka), smoke_vratky.js (částka s Kč), smoke_propojeni.js (🔗 už při zápisu). Chromium 390 px, 1350 px a 1700 px: 4 položky (kód, bez názvu AI, vážené se slevou −8 %, sleva −67 % s #tagem) bez přetečení a chyb; nový příjem Cashback 500 Kč propojen s výdajem 500 Kč až po uložení a založena měsíční šablona.",
+    ],
+  },
   {
     verze: 'v12.42',
     datum: '2026-11-08',

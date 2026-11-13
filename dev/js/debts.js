@@ -1,4 +1,4 @@
-// FinanceFlow · v12.41 · debts.js · 2026-11-08
+// FinanceFlow · v12.44 · debts.js · 2026-11-12
 //  ADD / EDIT TX
 // ══════════════════════════════════════════════════════
 //  v12.39: akce po úspěšném uložení formuláře (✎ Zapsat ručně z Doručených označí notifikaci jako vyřízenou
@@ -24,12 +24,13 @@ function openAddTx(){
   // v8.59 (TODO-149): reset přepočtu přesunu mezi měnami
   _transferConvTouched=false; { const tf=document.getElementById('txTransferConvAmt'); if(tf) tf.value=''; }
   document.getElementById('modalAddTitle').textContent='Přidat transakci';
-  { const pb=document.getElementById('txPropojBox'); if(pb){ pb.style.display='none'; pb.innerHTML=''; } }   // v12.17: 🔗 jen u úpravy
   { const tb=document.getElementById('txTemataBox'); if(tb){ tb.style.display='none'; tb.innerHTML=''; } }   // v12.20: ⭐ jen u úpravy
   _transferMode='wallets';_assetCatId='';_assetSub='';_debtSub='';
   const _dr=document.getElementById('debtRecurring'); if(_dr)_dr.checked=false;
   const _dro=document.getElementById('debtRecurringOpts'); if(_dro)_dro.style.display='none';
+  if(typeof txOpakReset==='function') txOpakReset();   // v12.43 (TODO-386)
   setTxType('expense');selCatId='';selSub='';customSub='';
+  if(typeof txPropojNovaReset==='function') txPropojNovaReset();   // v12.43 (TODO-385): 🔗 propojit jde už při zápisu
   if(typeof tankNaplnFormular==='function') tankNaplnFormular(null);   // S24 (E1): ⛽ Tankování – čistý blok
   if(typeof prispNaplnFormular==='function') prispNaplnFormular(null);  // S24 (v11.17): 🚗 příspěvek na cestu
   if(typeof merPlatbaNaplnFormular==='function') merPlatbaNaplnFormular(null); // S24 (v11.17): 📟 doplatek/přeplatek
@@ -457,6 +458,10 @@ function setTxType(type){
   const td=document.getElementById('transferDetailsBlock');
   if(td)td.style.display=type==='transfer'?'block':'none';
   // Show/hide debt picker
+  //  v12.43 (TODO-386): 🔁 Opakovaná platba i u příjmu a výdaje (dřív jen u Dluh/Splátka);
+  //  (TODO-385) u nové transakce se nabídka 🔗 řídí typem – k příjmu výdaje a naopak
+  { const ob=document.getElementById('txOpakBox'); if(ob) ob.style.display=(type==='income'||type==='expense')?'block':'none'; }
+  if(typeof txPropojRender==='function' && !(document.getElementById('editTxId')||{}).value) txPropojRender('');
   const dp=document.getElementById('debtPickerInModal');
   if(dp){
     dp.style.display=type==='debt'?'block':'none';
@@ -716,7 +721,8 @@ function saveTx(){
   txObj.tags = tags; // vždy (i prázdné) – aby se smazání tagů propsalo
   let _savedId = eid;
   if(eid) { const t=S.transactions.find(x=>x.id==eid); if(t) { Object.assign(t,txObj); if(t.splitParent && typeof splitSyncDeti==='function') splitSyncDeti(t); } }   // v12.41: části rozdělené platby jdou s ní
-  else { _savedId = genTxId(); S.transactions.push({id:_savedId,...txObj}); }
+  else { _savedId = genTxId(); S.transactions.push({id:_savedId,...txObj}); if(typeof txPropojUloz==='function') txPropojUloz(_savedId); }   // v12.43 (TODO-385)
+  if(typeof txOpakZaloz==='function') txOpakZaloz(Object.assign({}, txObj, { walletId, payTypeId }));   // v12.43 (TODO-386)
   // v9.97 (TODO-215): dohledej kurz ČNB k DATU TRANSAKCE. Bez await – uložení
   //   ani zavření modalu nesmí čekat na síť; když se nepovede, zůstane kurz
   //   z doby zápisu (fxRefDate pak prozradí, ke kterému dni patří).
@@ -754,6 +760,55 @@ function onDebtSelectChange(){
     if(cat&&guess&&(cat.subs||[]).includes(guess)){ _debtSub=guess; renderDebtSubPicker(); }
   }
 }
+// ══════════════════════════════════════════════════════
+//  v12.43 (S29, TODO-386, Milan: „tlačítko Opakovaná platba je jen u Dluh/Splátka – chybí u běžné transakce“)
+//  cesta: Transakce → + (nebo Upravit) → Výdaj / Příjem → 🔁 Opakovaná platba
+//  Zaškrtnutí při uložení založí Opakovanou šablonu se stejným názvem, částkou, kategorií, podkategorií,
+//  peněženkou, typem platby a tagy. Právě zapsaná transakce je první platba: měsíční šablona má
+//  posledniZapis = měsíc transakce (ten měsíc se nezapíše podruhé), ostatní frekvence první splatnost = datum
+//  transakce. Stejná šablona (název + částka + typ + frekvence) se nezakládá dvakrát.
+// ══════════════════════════════════════════════════════
+function txOpakReset(){
+  const c=document.getElementById('txOpak'); if(c) c.checked=false;
+  const o=document.getElementById('txOpakOpts'); if(o) o.style.display='none';
+  const f=document.getElementById('txOpakFreq'); if(f) f.value='monthly';
+}
+function txOpakPrepni(){
+  const on=document.getElementById('txOpak')?.checked;
+  const o=document.getElementById('txOpakOpts'); if(o) o.style.display=on?'block':'none';
+}
+function txOpakSablona(tx, freq, dnes){
+  if(!tx || (tx.type!=='income' && tx.type!=='expense') || !(tx.amount>0) || !tx.date) return null;
+  const f=['weekly','biweekly','monthly','quarterly','yearly'].includes(freq)?freq:'monthly';
+  const s={id:uid(),name:tx.name,amount:tx.amount,type:tx.type,catId:tx.catId||'',freq:f,den:parseInt(String(tx.date).slice(8,10))||1,
+    auto:true,endDate:null,wallet:tx.walletId||tx.wallet||null,walletTo:null,note:tx.note||'',zalozeno:dnes||tx.date};
+  if(f==='monthly') s.posledniZapis=String(tx.date).slice(0,7);
+  else { s.prvni=String(tx.date).slice(0,10);
+    //  v12.44: ostatní frekvence se zapisují automaticky – první platba (tahle transakce) je vyřízená,
+    //  starší měsíce se nedoplňují
+    const kmm=typeof ffKonecMinulehoMesice==='function'&&dnes?ffKonecMinulehoMesice(dnes):'';
+    s.zapsanoDo=s.prvni>kmm?s.prvni:kmm; }
+  if(tx.subcat) s.subcat=tx.subcat;
+  if(tx.payTypeId||tx.payType) s.payType=tx.payTypeId||tx.payType;
+  if(Array.isArray(tx.tags)&&tx.tags.length) s.tags=tx.tags.slice();
+  return s;
+}
+function txOpakZaloz(tx){
+  if(!document.getElementById('txOpak')?.checked) return null;
+  const freq=document.getElementById('txOpakFreq')?.value||'monthly';
+  const s=txOpakSablona(tx, freq, typeof ffDnes==='function'?ffDnes():'');
+  txOpakReset();
+  if(!s) return null;
+  if(!S.sablony) S.sablony=[];
+  if(S.sablony.some(x=>x && x.name===s.name && x.type===s.type && (x.freq||'monthly')===s.freq && Math.abs((x.amount||0)-s.amount)<0.005)){
+    if(typeof showToast==='function') showToast('🔁 Stejná opakovaná šablona už existuje – nová se nezaložila');
+    return null;
+  }
+  S.sablony.push(s);
+  if(typeof showToast==='function') showToast('🔁 Opakovaná šablona založena – najdeš ji v Opakované šablony');
+  return s;
+}
+Object.assign(window,{txOpakReset,txOpakPrepni,txOpakSablona,txOpakZaloz});
 // f3: zobraz/skryj možnosti opakované splátky
 function toggleDebtRecurring(){
   const on=document.getElementById('debtRecurring')?.checked;

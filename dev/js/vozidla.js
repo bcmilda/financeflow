@@ -1,4 +1,4 @@
-// FinanceFlow · v12.35 · vozidla.js · 2026-11-06
+// FinanceFlow · v12.46 · vozidla.js · 2026-11-13
 // ══════════════════════════════════════════════════════
 //  S24 (E1, Milan): VOZIDLA A TANKOVÁNÍ
 //  cesta: Majetek → 🚗 Vozidla  ·  formulář transakce → Auto › Palivo → ⛽ Tankování
@@ -303,7 +303,7 @@ function tankObnov() {
   //  S24 (v11.17): u PŘÍJMU s podkategorií „Příspěvek na cestu" stejné místo ukáže výběr vozidla.
   if (typ === 'income' && PRISP_RE.test(sub)) { prispObnov(el); return; }
   if (typ !== 'expense' || !tankJeKategorie(catId, sub)) { el.style.display = 'none'; el.innerHTML = ''; return; }
-  if (_vozidla === null) { loadVozidla().then(() => tankObnov()); }
+  if (_vozidla === null) { loadVozidla().then(() => { if (_vozidla !== null) tankObnov(); }); }   // v12.46: bez přihlášení se nenačte nic → nevolat znovu (jinak nekonečná smyčka a zamrzlá stránka)
   const voz = vozidlaSeznam();
   if (!_tankForm) {
     _tankForm = {};
@@ -478,7 +478,7 @@ function vozidlaKartaHTML(nazev, ikona, st, jed, id) {
 
 function renderVozidlaPage() {
   const el = document.getElementById('vozidlaContent'); if (!el) return;
-  if (_vozidla === null) { el.innerHTML = '<div class="empty"><div class="ei">🚗</div><div class="et">Načítám…</div></div>'; loadVozidla().then(renderVozidlaPage); return; }
+  if (_vozidla === null) { el.innerHTML = '<div class="empty"><div class="ei">🚗</div><div class="et">Načítám…</div></div>'; loadVozidla().then(() => { if (_vozidla !== null) renderVozidlaPage(); }); return; }   // v12.46: bez přihlášení se nenačte nic → nevolat znovu (jinak nekonečná smyčka a zamrzlá stránka)
   const D = getData();
   const voz = vozidlaSeznam();
   const intro = (typeof tabIntro === 'function') ? tabIntro('vozidla', '🚗', 'Vozidla a tankování',
@@ -752,7 +752,7 @@ window.ffPenezenkaSelect = ffPenezenkaSelect;
 let _prispForm = null;
 function prispNaplnFormular(v) { _prispForm = v ? Object.assign({}, v) : null; }
 function prispObnov(el) {
-  if (_vozidla === null) { loadVozidla().then(() => tankObnov()); }
+  if (_vozidla === null) { loadVozidla().then(() => { if (_vozidla !== null) tankObnov(); }); }   // v12.46: bez přihlášení se nenačte nic → nevolat znovu (jinak nekonečná smyčka a zamrzlá stránka)
   const voz = vozidlaSeznam();
   _prispForm = _prispForm || {};
   if (!_prispForm.vozidloId && voz.length) {

@@ -1,4 +1,4 @@
-// FinanceFlow · v12.42 · receipts.js · 2026-11-08
+// FinanceFlow · v12.47 · receipts.js · 2026-11-13
 
 // S19 (TODO-219, Milan): „nemusíš do každé tabulky připisovat příznak Kč, stačí
 //   někde do popisku, podstatné je aby se přepočítala částka. Důležité tam
@@ -3882,11 +3882,16 @@ function mapaUzivKartaHTML(i, produkt) {
   { const h = hodnotaPole('alergeny');
     if (h.t) h.html = `<span style="color:#fbbf24">${e(h.t)}</span>`;
     bal += pRadek('alergeny', h); }
-  const zivN = (p && (p.nutriceObal || p.nutrice)) || lok.nutrice || null;
+  //  v12.47 (S29): 3. zdroj 🥕 NutriDatabáze – výrobek bez čárového kódu nebo s kódem obchodu (2…), jehož
+  //  obecný název má potvrzený pár. Ruční zápis / fotka / Open Food Facts mají přednost.
+  const zivNutri = !((p && (p.nutriceObal || p.nutrice)) || lok.nutrice) && !lok.bezZivin && z.tax && typeof nutriBezKodu === 'function' && nutriBezKodu(z.ean)
+    ? nutriProTax(z.tax.id) : null;
+  const zivN = (p && (p.nutriceObal || p.nutrice)) || lok.nutrice || zivNutri || null;
   const zivKlic = z.ean || mapaKartaKlic(z);   // bez kódu = osobní karta (eanZivinyForm to pozná podle „n…“)
   const zivZdroj = p && p.nutriceObal ? (typeof eanZivinyZdroj === 'function' ? eanZivinyZdroj(p.nutriceObal) : '📸 podle obalu') + (p.nutriceObal.kdy ? ' (' + new Date(p.nutriceObal.kdy).toLocaleDateString('cs-CZ') + ')' : '')
     : p && p.nutrice ? 'z databáze Open Food Facts'
-    : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '') : '';
+    : lok.nutrice ? '✍️ zadáno ručně – jen pro tebe' + (lok.nutrice.kdy ? ' (' + new Date(lok.nutrice.kdy).toLocaleDateString('cs-CZ') + ')' : '')
+    : zivNutri && typeof nutriZdrojHTML === 'function' ? nutriZdrojHTML(zivNutri) : '';
   //  S28 (v12.22, Milan: „u piva a drogerie živiny nejsou, karta nebude kompletní – hodilo by se tlačítko bez živin“)
   const netyka = !zivN && !!lok.bezZivin;
   const ziv = netyka
@@ -3896,7 +3901,7 @@ function mapaUzivKartaHTML(i, produkt) {
     : zivN
     ? `<div class="mk-box" style="margin-top:8px;padding:10px 12px"><div style="font-size:.74rem;font-weight:700;margin-bottom:6px">Nutriční hodnoty na 100 ${zivN.na === 'ml' ? 'ml' : 'g'}</div>${typeof eanNutriceHTML === 'function' ? eanNutriceHTML(zivN) : ''}
         <div style="font-size:.64rem;color:#8b93ad;margin-top:6px">${zivZdroj}
-        <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">✍️ Opravit ručně</button></div></div>`
+        <button class="mk-btn-link" onclick="eanZivinyForm('${e(zivKlic)}','mapaUzivFotoHotovo')">${zivNutri ? '✍️ Zadat podle obalu' : '✍️ Opravit ručně'}</button></div></div>`
     : `<div class="mk-box mk-pozn" style="margin-top:8px;color:#a8aec8"><div style="display:flex;justify-content:space-between;gap:8px"><span>Nutriční hodnoty na 100 g</span>${MK_PRAZDNE}</div>
         <div style="font-size:.72rem;margin-top:3px">${z.ean ? 'Živiny databáze zatím nemá.' : 'Bez čárového kódu je opíšeš z obalu ručně (uloží se jen tobě).'}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${z.ean ? `<button class="btn btn-sm" style="font-size:.72rem" onclick="eanFoto('${e(z.ean)}','ziviny',mapaUzivFotoHotovo)">📸 Vyfotit tabulku živin</button>
@@ -3978,10 +3983,14 @@ async function mapaUzivDetail(i) {
       ${mapaUzivKartaHTML(i, prod)}</div>`;
     if (typeof cenyDoKarty === 'function') cenyDoKarty(i); };   // S25: sdílené ceny v kraji
   kresli(null);
+  let _prod = null;
   if(z.ean && typeof eanNactiProdukt === 'function') {
-    const prod = await eanNactiProdukt(z.ean);
-    if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(prod);
+    _prod = await eanNactiProdukt(z.ean);
+    if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(_prod);
   }
+  //  v12.47: 🥕 živiny z NutriDatabáze se dotáhnou na pozadí (výrobek bez kódu / s kódem obchodu)
+  if(z.tax && typeof nutriNactiAKresli === 'function' && nutriBezKodu(z.ean))
+    nutriNactiAKresli(() => { if(_mapaKartaI === i && document.getElementById('mapaKarta')) kresli(_prod); });
 }
 function mapaUzivFotoHotovo() { mapaUzivKresli(); if(_mapaKartaI >= 0) mapaUzivDetail(_mapaKartaI); }
 window.mapaUzivFotoHotovo = mapaUzivFotoHotovo;
@@ -4237,11 +4246,13 @@ const DNA_ZIVINY = [
 const DNA_NUTRI = { a: '#038141', b: '#85bb2f', c: '#fecb02', d: '#ee8100', e: '#e63e11' };
 
 //  Živiny na 100 g/ml a Nutri-Score položky: karta podle kódu, jinak osobní karta.
-function dnaKartaPolozky(it, produkt, kartaLok) {
+//  v12.47 (S29): 3. zdroj 🥕 NutriDatabáze – jen položka bez čárového kódu / s kódem obchodu (nutri.js rozhodne).
+function dnaKartaPolozky(it, produkt, kartaLok, nutri) {
   let n = null, ns = '';
   const p = it.ean && typeof produkt === 'function' ? produkt(it.ean) : null;
   if (p && p.stav === 'nalezeno') { n = p.nutriceObal || p.nutrice || null; ns = String(p.nutriscore || '').toLowerCase(); }
   if (!n && typeof kartaLok === 'function') { const k = kartaLok(it); if (k && k.nutrice) n = k.nutrice; }
+  if (!n && typeof nutri === 'function') n = nutri(it) || null;
   return { n: (n && typeof n === 'object') ? n : null, ns: /^[a-e]$/.test(ns) ? ns : '' };
 }
 //  Kolik gramů (mililitrů) se koupilo: vážené = váha, balené = gramáž × kusy.
@@ -4259,11 +4270,11 @@ function dnaJeJidlo(it, maZiviny) {
 }
 
 //  Čistý výpočet (testuje tools/smoke_dna_ziviny.js).
-function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
+function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin, nutri) {
   const sum = {}; DNA_ZIVINY.forEach(([k]) => { sum[k] = 0; });
   const ns = { a: 0, b: 0, c: 0, d: 0, e: 0 }; let nsUtrata = 0;
   const prispevek = { cukry: {}, sul: {} };
-  let jidloUtrata = 0, pokrytaUtrata = 0, jidloPolozek = 0, pokrytoPolozek = 0, gramu = 0;
+  let jidloUtrata = 0, pokrytaUtrata = 0, jidloPolozek = 0, pokrytoPolozek = 0, gramu = 0, zNutri = 0;
   const chybi = {};
   const seen = new Set();
   (receipts || []).forEach(r => {
@@ -4276,14 +4287,17 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
       if (!it || !it.name) return;
       const utrata = (typeof lineAmt === 'function') ? lineAmt(it) : (parseFloat(it.price) || 0) * (parseFloat(it.qty) || 1);
       if (!(utrata > 0)) return;
-      const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok);
+      const { n, ns: znamka } = dnaKartaPolozky(it, produkt, kartaLok, nutri);
       if (!n && typeof bezZivin === 'function' && bezZivin(it)) return;    // v12.22: 🚫 bez živin (pivo) nesnižuje pokrytí
       if (!dnaJeJidlo(it, !!n)) return;
       jidloUtrata += utrata; jidloPolozek++;
       if (znamka) { ns[znamka] += utrata; nsUtrata += utrata; }
-      const g = n ? dnaMnozstvi(it) : null;
+      //  v12.47: NutriDatabáze udává hodnoty na 100 g JEDLÉHO podílu → koupená váha × jedlý podíl (banán 64 %)
+      const g0 = n ? dnaMnozstvi(it) : null;
+      const g = g0 && n.zdroj === 'nutri' && n.jedle > 0 && n.jedle < 1 ? g0 * n.jedle : g0;
       if (!n || !g) { const k = it.name; chybi[k] = (chybi[k] || 0) + utrata; return; }
       pokrytaUtrata += utrata; pokrytoPolozek++; gramu += g;
+      if (n.zdroj === 'nutri') zNutri++;
       DNA_ZIVINY.forEach(([k]) => { const v = parseFloat(n[k]); if (isFinite(v) && v >= 0) sum[k] += v * g / 100; });
       ['cukry', 'sul'].forEach(k => {
         const v = parseFloat(n[k]); if (!(v > 0)) return;
@@ -4295,7 +4309,7 @@ function dnaZivinyData(receipts, m, y, produkt, kartaLok, bezZivin) {
   const top = k => Object.entries(prispevek[k]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([nazev, g]) => ({ nazev, g }));
   const na100 = {}; DNA_ZIVINY.forEach(([k]) => { na100[k] = gramu > 0 ? sum[k] / gramu * 100 : null; });
   return {
-    sum, na100, gramu, jidloUtrata, pokrytaUtrata, jidloPolozek, pokrytoPolozek,
+    sum, na100, gramu, jidloUtrata, pokrytaUtrata, jidloPolozek, pokrytoPolozek, zNutri,
     pokryti: jidloUtrata > 0 ? Math.round(pokrytaUtrata / jidloUtrata * 100) : 0,
     nutri: nsUtrata > 0 ? Object.fromEntries(Object.entries(ns).map(([k, v]) => [k, Math.round(v / nsUtrata * 100)])) : null,
     topCukry: top('cukry'), topSul: top('sul'),
@@ -4345,7 +4359,7 @@ function dnaZivinyHTML(d, m, y) {
     ${(d.topCukry.length || d.topSul.length) ? `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px">${topBlok(d.topCukry, 'Nejvíc cukru přinesly')}${topBlok(d.topSul, 'Nejvíc soli přinesly')}</div>` : ''}
     <div style="font-size:.7rem;color:#a8aec8;line-height:1.55;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
       Na den = za ${dni} ${dni === 1 ? 'den' : dni < 5 ? 'dny' : 'dní'} měsíce, za celou domácnost. Tečka u hodnoty na 100 g je britský semafor FSA (nízký / střední / vysoký obsah) – jen orientace, ne hodnocení.
-      Položky bez živin nebo bez gramáže se nepočítají (nejsou nula).</div>
+      Položky bez živin nebo bez gramáže se nepočítají (nejsou nula).${d.zNutri ? `<br>🥕 ${d.zNutri} ${d.zNutri === 1 ? 'položka bez čárového kódu má' : d.zNutri < 5 ? 'položky bez čárového kódu mají' : 'položek bez čárového kódu má'} orientační hodnoty z NutriDatabáze (na jedlý podíl). ${typeof nutriCitaceHTML === 'function' ? nutriCitaceHTML() : ''}` : ''}</div>
     ${d.pokryti < 60 ? jak : ''}
   </div></div>`;
 }
@@ -4357,8 +4371,10 @@ async function dnaZivinyKresli() {
   const produkt = e => (typeof eanProduktZCache === 'function') ? eanProduktZCache(e) : null;
   const kartaLok = it => (it.ean || typeof mapaKartaLok !== 'function' || typeof normName !== 'function') ? null : mapaKartaLok({ klic: normName(it.name || '') });
   const bezZivin = it => typeof mapaBezZivin === 'function' && mapaBezZivin(it.ean ? { ean: it.ean } : { klic: typeof normName === 'function' ? normName(it.name || '') : it.name });
-  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin), m, y); };
+  const nutri = it => typeof nutriProPolozku === 'function' ? nutriProPolozku(it) : null;   // v12.47: 🥕 NutriDatabáze
+  const kresli = () => { const e2 = document.getElementById('dnaZiviny'); if (e2) e2.innerHTML = dnaZivinyHTML(dnaZivinyData(S.receipts || [], m, y, produkt, kartaLok, bezZivin, nutri), m, y); };
   kresli();
+  if (typeof nutriNactiAKresli === 'function') nutriNactiAKresli(kresli);
   try {
     const eany = [];
     (S.receipts || []).forEach(r => { const d = new Date(String(r && r.date || '').slice(0, 10) + 'T12:00:00');
@@ -5925,11 +5941,19 @@ const RP_DRUH_NAPOVEDA = 'Druh zboží – co to je, obecně (Čokoláda, Pečiv
 function _rpUvolni() { const a = document.activeElement; if (a && a.blur && a.closest && a.closest('#receiptEditForm')) a.blur(); }   // jinak by překreslení čekalo na odchod z pole
 function _rpIt(i) { const r = rpEditor(); return r && r.items ? r.items[i] : null; }
 function _rpTagy(v) { return typeof parseTags === 'function' ? parseTags(String(v || '')) : String(v || '').split(/[\s,]+/).map(t => t.replace(/^#+/, '').trim().toLowerCase()).filter(t => t && t.length <= 30); }
+//  v12.43 (S29, návrh D1/D2): částka položky vždy na dvě desetinná místa a s „Kč“ (Milan: „u částky 35 a 29
+//  chybí Kč, nevěděl jsem, co to je za číslo“) a sleva v procentech = sleva ÷ cena před slevou.
+function rpKc(x) { return new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(x) || 0) + '\u00a0Kč'; }
+function rpSlevaPct(zaplaceno, sleva) {
+  const d = parseFloat(sleva) || 0, plna = (parseFloat(zaplaceno) || 0) + d;
+  return d > 0 && plna > 0 ? Math.round(d / plna * 100) : 0;
+}
 function rpItemNazev(i, v) {
   const it = _rpIt(i); if (!it) return;
   _rpUvolni();
   v = String(v || '').trim().slice(0, 120);
-  if (!v || v === (it.nazevAI || '')) delete it.nazev; else it.nazev = v;
+  //  v12.43: bez návrhu AI pole ukazuje text z účtenky – stejný text není „tvůj název“
+  if (!v || v === (it.nazevAI || '') || (!it.nazevAI && v === String(it.name || '').trim())) delete it.nazev; else it.nazev = v;
   rpRender();
 }
 function rpItemNazevAI(i) { const it = _rpIt(i); if (!it) return; delete it.nazev; rpRender(); }
@@ -6129,6 +6153,7 @@ function rpRender() {
   const _esc = x => escHtml(String(x == null ? '' : x));
   const _pole = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text)';
   let html = '';
+  let _poradi = 0;   // v12.43: číslo položky v kroužku (pořadí na obrazovce)
   for(const [key, group] of Object.entries(groups)) {
     const cat = userCats.find(c=>c.id===key);
     if(cat) group.label = cat.name;
@@ -6137,7 +6162,7 @@ function rpRender() {
     const catTotal = group.items.reduce((a,{it})=>a+lineAmt(it),0);
     const catSleva = group.items.reduce((a,{it})=>a+(parseFloat(it.discount)||0),0);
     html += `
-      <div style="margin-bottom:12px">
+      <div class="rp-polozky" style="margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:2px solid ${color};margin-bottom:2px">
           <span style="font-size:.95rem">${icon}</span>
           <span style="font-weight:700;font-size:.92rem;flex:1;color:var(--text)">${_esc(group.label)}</span>
@@ -6155,8 +6180,11 @@ function rpRender() {
       const kc = lineAmt(it);
       const puvodne = disc > 0 ? Math.round((kc + disc) * 100) / 100 : null;
       const nazev = it.nazev || it.nazevAI || '';
+      const nazevUkaz = nazev || it.name || '';   // v12.43: bez názvu se ukáže text z účtenky v plné barvě (dřív šedý placeholder)
+      const cislo = ++_poradi;
+      const pct = rpSlevaPct(kc, disc);
       const puvod = it.nazev ? `<span style="color:#fbbf24">upraveno tebou</span>${it.nazevAI ? ` · <button onclick="rpItemNazevAI(${i})" style="background:none;border:none;padding:0;color:#a8aec8;font-size:inherit;text-decoration:underline;cursor:pointer">vrátit návrh AI</button>` : ''}`
-        : it.nazevAI ? '<span style="color:#a8aec8">navrhla AI · klepni a uprav</span>' : '';
+        : it.nazevAI ? '<span style="color:#a8aec8">navrhla AI · klepni a uprav</span>' : '<span style="color:#a8aec8">název z účtenky · klepni a pojmenuj po svém</span>';
       const kodRadek = (!it.ean && it.nazevAI && !_rpDruhKlic(it)) ? '' : rpKodRadekHTML(it, i);   // výklad AI už je v Názvu
       const tagy = Array.isArray(it.tagy) ? it.tagy : [];
       const maPanel = tagy.length || it.poznamka || _panely.has(i);
@@ -6165,21 +6193,22 @@ function rpRender() {
                        : 'Balení (gramáž) – např. 500 g, 1,5 l, 6x0,5 l. Bez něj se nespočítá cena za kg ani shrinkflace.';
       const vybrano = _vyber && _vyber.has(i);
       html += `
-        <div id="rp_item_${i}" class="rp-karta" style="display:flex;flex-direction:column;gap:7px;padding:10px 2px 11px;border-bottom:1px solid var(--border)${vybrano ? ';background:rgba(96,165,250,.09);border-radius:8px' : ''}">
-          <div style="display:flex;gap:8px;align-items:flex-start">
-            ${_vyber ? `<input type="checkbox" id="rp_vyb_${i}" ${vybrano ? 'checked' : ''} onchange="rpVyberPolozku(${i},this.checked)" aria-label="Vybrat položku" style="width:22px;height:22px;margin-top:8px;accent-color:#60a5fa;flex-shrink:0">` : ''}
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
-              <input id="rp_nazev_${i}" value="${_esc(nazev)}" placeholder="${_esc(it.name || 'Název položky')}" aria-label="Název položky"
-                onchange="rpItemNazev(${i},this.value)" style="${_pole};padding:8px 10px;font-size:.88rem;width:100%;box-sizing:border-box"
-                autocomplete="off" autocorrect="off" spellcheck="false">
-              ${puvod ? `<span style="font-size:.66rem;padding-left:4px">${puvod}</span>` : ''}
-            </div>
-            <div style="flex-shrink:0;text-align:right;min-width:64px;padding-top:7px">
-              <div id="rp_sum_${i}" title="Celkem za položku${disc > 0 ? ' (po slevě ' + fmtP(disc) + ' Kč)' : ''}" style="font-size:.9rem;font-weight:700;white-space:nowrap;color:${kc < 0 ? 'var(--income)' : 'var(--text)'}">${kc < 0 ? '♻️ ' : ''}${fmtP(kc)}</div>
-              ${puvodne != null ? `<div id="rp_puv_${i}" style="font-size:.7rem;color:#8b93ad;text-decoration:line-through;white-space:nowrap">${fmtP(puvodne)}</div>` : ''}
-            </div>
+        <div id="rp_item_${i}" class="rp-karta${vybrano ? ' rp-vybrana' : ''}">
+          <div class="rp-k-num">
+            ${_vyber ? `<input type="checkbox" id="rp_vyb_${i}" ${vybrano ? 'checked' : ''} onchange="rpVyberPolozku(${i},this.checked)" aria-label="Vybrat položku" style="width:22px;height:22px;accent-color:#60a5fa;flex-shrink:0">` : ''}
+            <span class="rp-k-cislo" title="Pořadí položky">${cislo}</span>
           </div>
-          <div style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.18);border-radius:8px;padding:6px 8px">
+          <div class="rp-k-nazev">
+            <input id="rp_nazev_${i}" value="${_esc(nazevUkaz)}" placeholder="Název položky" aria-label="Název položky"
+              onchange="rpItemNazev(${i},this.value)" style="background:transparent;border:none;border-bottom:1px dotted #4b5674;border-radius:0;color:#fff;font-weight:700;padding:5px 0;font-size:.92rem;width:100%;box-sizing:border-box"
+              autocomplete="off" autocorrect="off" spellcheck="false">
+            ${puvod ? `<span style="font-size:.66rem">${puvod}</span>` : ''}
+          </div>
+          <div class="rp-k-suma">
+            <div id="rp_sum_${i}" title="Celkem za položku${disc > 0 ? ' (po slevě ' + fmtP(disc) + ' Kč)' : ''}" style="font-size:.98rem;font-weight:700;white-space:nowrap;color:${kc < 0 ? 'var(--income)' : 'var(--text)'}">${kc < 0 ? '♻️ ' : ''}${rpKc(kc)}</div>
+            ${puvodne != null ? `<div style="display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:2px"><span id="rp_puv_${i}" title="Cena před slevou" style="font-size:.8rem;color:#a8aec8;text-decoration:line-through;white-space:nowrap">${rpKc(puvodne)}</span><span id="rp_pct_${i}" title="Sleva ÷ cena před slevou" style="font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:9px;background:#14532d;color:#86efac;white-space:nowrap${pct > 0 ? '' : ';display:none'}">−${pct}\u00a0%</span></div>` : ''}
+          </div>
+          <div class="rp-k-nazvy" style="display:flex;flex-direction:column;gap:3px;background:rgba(0,0,0,.18);border-radius:8px;padding:6px 8px">
             <label style="display:flex;align-items:center;gap:6px;font-size:.7rem;color:#a8aec8">
               <span style="white-space:nowrap">🧾 z účtenky:</span>
               <input id="rp_name_${i}" value="${(it.name||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" placeholder="text řádku z účtenky"
@@ -6189,7 +6218,7 @@ function rpRender() {
             </label>
             ${kodRadek}
           </div>
-          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px;gap:6px;align-items:center">
+          <div class="rp-k-kat" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px;gap:6px;align-items:center">
             <select id="rp_cat_${i}" aria-label="Kategorie" style="${_pole};border:1.5px solid ${it.itemCatId?color:'var(--border)'};padding:8px 6px;font-size:.78rem;min-width:0">
               ${catOptionsAll.replace(`value="${it.itemCatId||''}"`,`value="${it.itemCatId||''}" selected`)}
             </select>
@@ -6198,31 +6227,33 @@ function rpRender() {
             </select>
             <span style="text-align:center">${fromMem}</span>
           </div>
-          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:.74rem;color:#a8aec8">
+          <div class="rp-k-mnoz" style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;font-size:.74rem;color:#a8aec8">
             <input id="rp_qty_${i}" type="number" value="${it.qty||1}" min="${vaz ? '0.001' : '1'}" step="${vaz ? 'any' : '1'}" aria-label="Množství"
-              style="${_pole};width:52px;padding:7px 4px;font-size:.82rem;text-align:center" inputmode="decimal">
+              style="${_pole};width:64px;padding:7px 8px;font-size:.84rem;text-align:right" inputmode="decimal">
             <span>${vaz ? escHtml(rpVazJed(it)) : 'ks'} ×</span>
             <input id="rp_price_${i}" type="number" value="${vaz ? (Math.round(kc * 100) / 100) : (it.price||0)}" step="0.01" aria-label="${vaz ? 'Částka za položku' : 'Cena za kus'}"
               title="${vaz ? 'Částka za položku, jak je na účtence' : 'Cena za kus'}"
-              style="${_pole};width:72px;padding:7px 6px;font-size:.84rem;text-align:right;-moz-appearance:textfield" inputmode="decimal">
+              style="${_pole};width:78px;padding:7px 8px;font-size:.84rem;text-align:right" inputmode="decimal">
             <span>Kč${vaz ? ` <span id="rp_pkg_${i}" style="font-size:.66rem;white-space:nowrap">${fmtP(it.price||0)}/${escHtml(rpVazJed(it))}</span>` : ''}</span>
-            ${disc > 0 || it._slevaOtevrena ? '' : `<button onclick="rpSlevaOtevri(${i})" title="Přidat slevu k položce" style="background:none;border:1px dashed rgba(74,222,128,.45);border-radius:14px;color:var(--income);font-size:.7rem;padding:4px 9px;cursor:pointer">+ sleva</button>`}
+            ${disc > 0 || it._slevaOtevrena ? '' : `<button class="rp-sleva-tel" onclick="rpSlevaOtevri(${i})" title="Přidat slevu k položce" style="background:none;border:1px dashed rgba(74,222,128,.45);border-radius:14px;color:var(--income);font-size:.7rem;padding:4px 9px;cursor:pointer">+ sleva</button>`}
             ${vaz ? '' : `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:auto"><span>balení</span><input id="rp_bal_${i}" type="text" value="${g ? escHtml(baleniText(g)) : ''}" placeholder="g / ml" title="${escHtml(balTit)}" aria-label="Balení"
               style="${_pole};width:66px;padding:7px 4px;font-size:.76rem;text-align:center" autocomplete="off" inputmode="text"></span>`}
           </div>
-          ${disc > 0 || it._slevaOtevrena ? `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.76rem;color:var(--income);background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3);border-radius:9px;padding:5px 8px">
+          ${disc > 0 || it._slevaOtevrena ? '' : `<div class="rp-k-sleva rp-sleva-pc"><button onclick="rpSlevaOtevri(${i})" title="Přidat slevu k položce" style="background:none;border:1px dashed rgba(74,222,128,.45);border-radius:14px;color:var(--income);font-size:.7rem;padding:4px 9px;cursor:pointer">+ sleva</button></div>`}
+          ${disc > 0 || it._slevaOtevrena ? `<div class="rp-k-sleva" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:.76rem;color:var(--income);background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.3);border-radius:9px;padding:5px 8px">
             <span>🏷️</span><label for="rp_disc_${i}">Sleva</label>
             <input id="rp_disc_${i}" type="number" min="0" step="0.01" value="${disc > 0 ? disc : ''}" placeholder="0" inputmode="decimal" onchange="rpItemSleva(${i},this.value)"
-              style="background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:7px;color:var(--income);width:70px;padding:5px 6px;font-size:.84rem;text-align:right">
+              style="background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:7px;color:var(--income);width:74px;padding:5px 8px;font-size:.84rem;text-align:right">
             <span>Kč</span><span style="flex:1"></span>
-            <span style="color:#a8aec8">zaplaceno <b id="rp_zapl_${i}" style="color:var(--text)">${fmtP(kc)}</b></span>
+            <span style="color:#a8aec8;white-space:nowrap">ušetřeno <b id="rp_uset_${i}" style="color:var(--text)">${rpKc(disc)}</b></span>
           </div>` : ''}
-          <div style="display:flex;gap:5px;align-items:center">
-            <label title="${escHtml(RP_DRUH_NAPOVEDA)}" style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:8px;padding:0 0 0 9px">
+          <div class="rp-k-dolni">
+            <label class="rp-k-druh" title="${escHtml(RP_DRUH_NAPOVEDA)}" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid rgba(74,222,128,.35);border-radius:8px;padding:0 0 0 9px">
               <span style="font-size:.7rem;font-weight:700;color:var(--income);white-space:nowrap">Druh</span>
               <input id="rp_tag_${i}" type="text" value="${escHtml(it.tag||'')}" placeholder="např. Čokoláda" aria-label="Druh zboží"
                 list="rp_tag_suggestions" style="flex:1;min-width:0;width:100%;background:transparent;border:none;color:var(--income);font-size:.86rem;font-style:italic;padding:8px 6px 8px 0">
             </label>
+            <div class="rp-k-akce">
             ${/* S24 (TODO-308): čárový kód z obalu → co to doopravdy je + spojení mezi obchody */''}
             <button onclick="eanSkenuj(${i})" title="${it.ean ? escHtml('Kód '+it.ean+(it.eanNazev?' · '+it.eanNazev:'')+' – klepni pro změnu') : 'Vyfotit čárový kód z obalu'}" aria-label="${it.ean ? 'Kód přiřazen' : 'Vyfotit čárový kód'}"
               style="background:${it.ean?'#34d39922':'var(--surface2)'};border:1px solid ${it.ean?'#34d39966':'var(--border)'};border-radius:8px;cursor:pointer;font-size:.86rem;width:34px;height:36px;flex-shrink:0;color:var(--text)">${it.ean?'✅':'📷'}</button>
@@ -6230,8 +6261,9 @@ function rpRender() {
             <button onclick="rpItemPanel(${i})" title="Modrý tag a poznámka k položce" aria-label="Modrý tag a poznámka k položce"
               style="background:${maPanel?'rgba(96,165,250,.18)':'var(--surface2)'};border:1px solid ${maPanel?'#60a5fa':'var(--border)'};border-radius:8px;cursor:pointer;color:#93c5fd;font-weight:800;font-size:.95rem;width:34px;height:36px;flex-shrink:0">#</button>
             <button onclick="rpRemoveItem(${i})" aria-label="Odebrat položku" style="background:none;border:none;color:var(--expense);cursor:pointer;font-size:1rem;width:26px;height:36px;flex-shrink:0">✕</button>
+            </div>
           </div>
-          ${maPanel ? `<div style="display:flex;flex-direction:column;gap:6px;border-left:3px solid #60a5fa;padding:2px 0 2px 9px">
+          ${maPanel ? `<div class="rp-k-panel" style="display:flex;flex-direction:column;gap:6px;border-left:3px solid #60a5fa;padding:2px 0 2px 9px">
             <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
               ${tagy.map((t, k) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:.74rem;padding:3px 4px 3px 9px;border-radius:12px;background:rgba(96,165,250,.16);border:1px solid #60a5fa;color:#93c5fd">#${_esc(t)}<button onclick="rpItemTagOdeber(${i},${k})" aria-label="Odebrat tag" style="background:none;border:none;color:#93c5fd;cursor:pointer;font-size:.8rem;padding:0 3px">✕</button></span>`).join('')}
               <input id="rp_itag_${i}" placeholder="+ modrý tag" aria-label="Přidat modrý tag k položce" onchange="rpItemTagPridej(${i},this.value)"
@@ -6472,13 +6504,14 @@ function rpUpdateTotal() {
   const sum = Math.round((r.items||[]).reduce((a,it)=>a+lineAmt(it),0)*100)/100;
   if(!r._totalLocked) r.total = sum;
   (r.items || []).forEach((it, i) => { const e = document.getElementById('rp_sum_' + i); if (!e) return; const a = lineAmt(it);
-    e.textContent = (a < 0 ? '♻️ ' : '') + fmtP(a); e.style.color = a < 0 ? 'var(--income)' : 'var(--text)'; });
+    e.textContent = (a < 0 ? '♻️ ' : '') + rpKc(a); e.style.color = a < 0 ? 'var(--income)' : 'var(--text)'; });
   const el = document.getElementById('rp_total_display');
   if(el) el.textContent = '−' + fmtP(r.total||0) + ' Kč';
   //  v12.42: sleva u položky (zaplaceno, přeškrtnutá původní cena), „ušetřeno“ a Kam se účtenka zapíše
   (r.items || []).forEach((it, i) => { const a = lineAmt(it), d = parseFloat(it.discount) || 0;
-    const z = document.getElementById('rp_zapl_' + i); if (z) z.textContent = fmtP(a);
-    const pv = document.getElementById('rp_puv_' + i); if (pv && d > 0) pv.textContent = fmtP(Math.round((a + d) * 100) / 100); });
+    const z = document.getElementById('rp_uset_' + i); if (z) z.textContent = rpKc(d);
+    const pv = document.getElementById('rp_puv_' + i); if (pv && d > 0) pv.textContent = rpKc(Math.round((a + d) * 100) / 100);
+    const pc = document.getElementById('rp_pct_' + i); if (pc) { const p = rpSlevaPct(a, d); pc.textContent = '−' + p + '\u00a0%'; pc.style.display = p > 0 ? '' : 'none'; } });
   const us = document.getElementById('rp_usetreno'); if (us) { const sl = receiptSavings(r); us.style.display = sl > 0 ? '' : 'none'; us.textContent = '🏷️ ušetřeno na slevách ' + fmtP(sl) + ' Kč'; }
   const kam = document.getElementById('rp_kam'); if (kam && typeof rpKamHTML === 'function') kam.innerHTML = rpKamHTML(r);
   if(typeof rpRenderCheck==='function') rpRenderCheck();

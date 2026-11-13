@@ -1,4 +1,4 @@
-// FinanceFlow · v12.37 · premium.js · 2026-11-06
+// FinanceFlow · v12.44 · premium.js · 2026-11-12
 //  PREMIUM SYSTEM
 // ══════════════════════════════════════════════════════
 // S21 (Milan): „rodina" a „sdileni" ze seznamu VEN. Zamykala se celá stránka,
@@ -1039,6 +1039,24 @@ function ffKotvaVyskyty(freq, prvni, odIso, doIso) {
   return out;
 }
 window.ffKotvaVyskyty = ffKotvaVyskyty; window.SABLONA_KOTVA = SABLONA_KOTVA;
+//  v12.44 (S29, Milan: „Proč se automaticky zapisují jen měsíční šablony? Můžeš udělat opravy pro šablony.“):
+//  automatický zápis i u týdenní, dvoutýdenní, čtvrtletní a roční šablony s datem první platby (s.prvni).
+//  s.zapsanoDo = den, do kterého (včetně) je šablona vyřízená – výskyty po něm a nejpozději dnes se zapíšou.
+//  Bez s.zapsanoDo (starší šablona, první spuštění) se začíná od začátku tohoto měsíce: minulé měsíce se
+//  nedoplňují, stejně jako u měsíční šablony (v12.27). Smazaná zapsaná platba se znovu nezaloží.
+//  Šablona bez s.prvni se nezapisuje (seznam ukazuje „⚠️ doplň datum první platby“).
+function ffKonecMinulehoMesice(dnesIso) {
+  return new Date(Date.UTC(+dnesIso.slice(0, 4), +dnesIso.slice(5, 7) - 1, 0)).toISOString().slice(0, 10);
+}
+function sablonaKotvaKZapisu(s, dnesIso, txs) {
+  if (!s || !s.auto || s.done || !SABLONA_KOTVA.includes(s.freq) || !s.prvni) return [];
+  const od = s.zapsanoDo || ffKonecMinulehoMesice(dnesIso);
+  return ffKotvaVyskyty(s.freq, s.prvni, od, dnesIso).filter(d =>
+    !(s.endDate && s.endDate < d) &&
+    //  stejná platba už v transakcích je (zapsaná ručně nebo dřív) → nezapisovat podruhé
+    !(txs || []).some(t => t && t.date === d && t.name === s.name));
+}
+window.sablonaKotvaKZapisu = sablonaKotvaKZapisu; window.ffKonecMinulehoMesice = ffKonecMinulehoMesice;
 function sablonaFreqChange(){
   const f=document.getElementById('sablonaFreq')?.value;
   const den=document.getElementById('sablonaDenWrap');
@@ -1093,13 +1111,15 @@ function renderSablonaList() {
     </div>`;
   }).join('');
 }
+function _d0(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function getNextSablonaDate(s) {
   //  v12.19: čtvrtletní / roční / týdenní – od první splatnosti; bez ní upozornění (počítalo by se od dneška)
   if(['weekly','biweekly','quarterly','yearly'].includes(s.freq)){
     if(!s.prvni) return '⚠️ doplň datum první platby (✎)';
     const _t=new Date(), _v=new Date(_t.getTime()-864e5);
     const _y=`${_v.getFullYear()}-${String(_v.getMonth()+1).padStart(2,'0')}-${String(_v.getDate()).padStart(2,'0')}`;
-    const _n=ffKotvaVyskyty(s.freq, s.prvni, _y, '2999-12-31')[0];
+    const _od=(s.zapsanoDo && s.zapsanoDo>_y) ? s.zapsanoDo : _y;   // v12.44: dnešní platba už zapsaná → ukaž další
+    const _n=ffKotvaVyskyty(s.freq, s.prvni, _od, '2999-12-31')[0];
     return _n ? new Date(_n+'T12:00:00').toLocaleDateString('cs-CZ') : '—';
   }
   const today=new Date();
@@ -1276,7 +1296,10 @@ function saveSablona() {
   //  posledniZapis = měsíc, za který už se transakce zapsala (smazaná se pak znovu nezaloží)
   { const _o=eid?S.sablony.find(x=>x.id===eid):null; const _d=new Date();
     s.zalozeno=(_o&&_o.zalozeno)||(_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0'));
-    if(_o&&_o.posledniZapis) s.posledniZapis=_o.posledniZapis; if(_o&&_o.rozpis) s.rozpis=_o.rozpis; }
+    if(_o&&_o.posledniZapis) s.posledniZapis=_o.posledniZapis; if(_o&&_o.rozpis) s.rozpis=_o.rozpis;
+    //  v12.44: čtvrtletní / roční / týdenní – vyřízeno do konce minulého měsíce (minulé měsíce se nedoplňují);
+    //  při úpravě zůstává, co už bylo zapsané
+    if(SABLONA_KOTVA.includes(s.freq)) s.zapsanoDo=(_o&&_o.zapsanoDo)||ffKonecMinulehoMesice(_d0()); }
   if(eid){const i=S.sablony.findIndex(x=>x.id===eid);if(i>=0)S.sablony[i]=s;}
   else S.sablony.push(s);
   save(); closeModal('modalSablona'); renderSablonaList();
@@ -1338,18 +1361,39 @@ function _sablonaSplatka(tx, s) {
 function sablonyNaplanovane(sablony, m, y, dnesIso, txs) {
   const p2 = n => String(n).padStart(2, '0'), ym = y + '-' + p2(m + 1), out = [];
   (sablony || []).filter(s => s && s.auto && !s.done).forEach(s => {
-    const f = s.freq || 'monthly'; let d = null;
-    if (f === 'once') { if (s.onceDate && s.onceDate.slice(0, 7) === ym) d = s.onceDate; }
-    else if (f === 'monthly') { const den = Math.min(Math.max(1, s.den || 1), new Date(y, m + 1, 0).getDate()); d = ym + '-' + p2(den);
-      if (s.posledniZapis === ym) d = null; }
-    if (!d || d <= dnesIso || (s.endDate && s.endDate < d)) return;
-    if ((txs || []).some(t => t && t.date === d && t.name === s.name && String(t.note || '').includes('Auto-šablona'))) return;   // už zapsaná (upravená)
-    out.push({ id: s.id, name: s.name, date: d, type: s.type === 'debt' ? 'expense' : s.type,
-      amount: typeof sablonaCastka === 'function' ? sablonaCastka(s, d) : s.amount, catId: s.catId, subcat: s.subcat || '', transfer: s.type === 'transfer' });
+    const f = s.freq || 'monthly'; let dny = [];
+    if (f === 'once') { if (s.onceDate && s.onceDate.slice(0, 7) === ym) dny = [s.onceDate]; }
+    else if (f === 'monthly') { const den = Math.min(Math.max(1, s.den || 1), new Date(y, m + 1, 0).getDate());
+      if (s.posledniZapis !== ym) dny = [ym + '-' + p2(den)]; }
+    //  v12.44: čtvrtletní / roční / týdenní s první splatností – výskyty v měsíci (zapisují se v den splatnosti)
+    else if (s.prvni && typeof ffKotvaVyskyty === 'function') {
+      const od = s.zapsanoDo && s.zapsanoDo > dnesIso ? s.zapsanoDo : dnesIso;
+      dny = ffKotvaVyskyty(f, s.prvni, od, ym + '-' + p2(new Date(y, m + 1, 0).getDate())).filter(d => d.slice(0, 7) === ym);
+    }
+    dny.forEach(d => {
+      if (!d || d <= dnesIso || (s.endDate && s.endDate < d)) return;
+      if ((txs || []).some(t => t && t.date === d && t.name === s.name && String(t.note || '').includes('Auto-šablona'))) return;   // už zapsaná (upravená)
+      out.push({ id: s.id, name: s.name, date: d, type: s.type === 'debt' ? 'expense' : s.type,
+        amount: typeof sablonaCastka === 'function' ? sablonaCastka(s, d) : s.amount, catId: s.catId, subcat: s.subcat || '', transfer: s.type === 'transfer' });
+    });
   });
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 window.sablonyNaplanovane = sablonyNaplanovane;
+//  v12.44: zápis jedné platby šablony k datu (stejně jako měsíční větev processAutoSablony)
+function sablonaZapisTx(s, dateStr) {
+  if(s.type==='transfer'){
+    S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:dateStr,name:s.name,note:'Auto-šablona: '+s.name}));
+    return;
+  }
+  const _k=typeof sablonaCastka==='function'?sablonaCastka(s,dateStr):s.amount;
+  const tx={id:uid(),name:s.name,amount:_k,amt:_k,type:s.type,date:dateStr,category:s.catId||'',catId:s.catId||'',note:'Auto-šablona: '+s.name,wallet:s.wallet||null};
+  if(s.debtId) _sablonaSplatka(tx, s);
+  if(typeof sablonaDoTx==='function') sablonaDoTx(tx, s); else if(s.subcat) tx.subcat=s.subcat;
+  if(s.energie) tx.energie=Object.assign({},s.energie);
+  S.transactions.push(tx);
+}
+window.sablonaZapisTx = sablonaZapisTx;
 function processAutoSablony() {
   if(typeof viewingUid!=='undefined' && viewingUid) return;   // ne při prohlížení partnera
   //  v12.02: splátky ze šablon, jejichž den už nastal → snížit Zbývá u půjčky
@@ -1407,6 +1451,15 @@ function processAutoSablony() {
         S.transactions.push(...presunPar({from:s.wallet,to:s.walletTo,amt:s.amount,date:s.onceDate,name:s.name,note:'Auto-šablona: '+s.name}));   // FIX-494
       } else S.transactions.push(tx1);
       s.done=true; added++;
+      return;
+    }
+    //  v12.44: týdenní, dvoutýdenní, čtvrtletní a roční šablona – zápis v den splatnosti (dřív se nezapisovala vůbec)
+    if(typeof SABLONA_KOTVA!=='undefined' && SABLONA_KOTVA.includes(freq)){
+      if(!s.prvni) return;
+      const dnes=iso(today), dny=sablonaKotvaKZapisu(s, dnes, S.transactions);
+      dny.forEach(d=>{ sablonaZapisTx(s, d); added++; });
+      if(!s.zapsanoDo) added++;   // první spuštění – uložit, odkud se počítá (jinak by se po měsíci bez otevření appky platba ztratila)
+      s.zapsanoDo=dnes;
       return;
     }
     if(freq!=='monthly') return;
